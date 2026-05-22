@@ -1,1 +1,7 @@
-{"functions": {"api/*.js": {"maxDuration": 30}}}
+{
+  "functions": {
+    "api/*.mjs": {
+      "maxDuration": 30
+    }
+  }
+}
