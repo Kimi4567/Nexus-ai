@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEXUS AI - AI Marketing Videos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        },
+                        dark: {
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .text-gradient { background: linear-gradient(to right, #38bdf8, #0ea5e9, #0284c7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        .glow { box-shadow: 0 0 30px rgba(14, 165, 233, 0.3); }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        .page { display: none; }
+        .page.active { display: block; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-dark-900 text-white min-h-screen">
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="#" onclick="showPage('home')" class="flex items-center space-x-2">
+                    <svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    <span class="text-xl font-bold text-gradient">NEXUS AI</span>
+                </a>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#" onclick="showPage('features')" class="text-gray-300 hover:text-white transition">Features</a>
+                    <a href="#" onclick="showPage('pricing')" class="text-gray-300 hover:text-white transition">Pricing</a>
+                    <a href="#" onclick="showPage('dashboard')" class="text-gray-300 hover:text-white transition">Dashboard</a>
+                    <button onclick="showPage('login')" class="text-gray-300 hover:text-white">Login</button>
+                    <button onclick="showPage('register')" class="bg-primary-600 hover:bg-primary-700 px-4 py-2 rounded-lg transition">Get Started</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HOME PAGE -->
+    <div id="home" class="page active pt-20">
+        <section class="relative pt-20 pb-20 overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-b from-primary-900/20 to-transparent"></div>
+            <div class="absolute top-20 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl animate-pulse"></div>
+            <div class="absolute bottom-20 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse"></div>
+
+            <div class="relative max-w-7xl mx-auto px-4 text-center">
+                <div class="inline-flex items-center space-x-2 glass px-4 py-2 rounded-full mb-8">
+                    <svg class="h-4 w-4 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                    <span class="text-sm text-primary-300">Trusted by 2,000+ businesses worldwide</span>
+                </div>
+
+                <h1 class="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                    Create Viral Marketing Videos
+                    <span class="block text-gradient">in 5 Minutes with AI</span>
+                </h1>
+
+                <p class="text-xl text-gray-400 max-w-3xl mx-auto mb-10">
+                    Stop spending thousands on video production. Generate professional, engaging marketing videos for TikTok, Instagram, and YouTube with a single click.
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+                    <button onclick="showPage('register')" class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition glow flex items-center space-x-2">
+                        <span>Start Creating Free</span>
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                    </button>
+                    <button class="glass hover:bg-white/10 text-white px-8 py-4 rounded-xl font-semibold text-lg transition flex items-center space-x-2">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>Watch Demo</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-center space-x-8 text-sm text-gray-500">
+                    <span class="flex items-center"><svg class="h-4 w-4 text-green-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> No credit card required</span>
+                    <span class="flex items-center"><svg class="h-4 w-4 text-green-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> 3 free videos</span>
+                    <span class="flex items-center"><svg class="h-4 w-4 text-green-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Cancel anytime</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats -->
+        <section class="py-12 border-y border-white/5">
+            <div class="max-w-7xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                <div><div class="text-4xl font-bold text-gradient">50K+</div><div class="text-gray-400 mt-1">Videos Created</div></div>
+                <div><div class="text-4xl font-bold text-gradient">2,000+</div><div class="text-gray-400 mt-1">Active Users</div></div>
+                <div><div class="text-4xl font-bold text-gradient">340%</div><div class="text-gray-400 mt-1">Avg. Engagement Boost</div></div>
+                <div><div class="text-4xl font-bold text-gradient">4.9/5</div><div class="text-gray-400 mt-1">User Rating</div></div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="py-20">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold mb-4">Why Choose Nexus AI?</h2>
+                    <p class="text-gray-400 text-lg">Everything you need to dominate social media</p>
+                </div>
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div class="glass p-8 rounded-2xl hover:bg-white/10 transition">
+                        <div class="mb-4"><svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg></div>
+                        <h3 class="text-xl font-semibold mb-2">AI-Powered Generation</h3>
+                        <p class="text-gray-400">Create stunning marketing videos with a single text prompt. Our AI handles everything from script to visuals.</p>
+                    </div>
+                    <div class="glass p-8 rounded-2xl hover:bg-white/10 transition">
+                        <div class="mb-4"><svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                        <h3 class="text-xl font-semibold mb-2">5-Minute Delivery</h3>
+                        <p class="text-gray-400">What used to take 8 hours now takes 5 minutes. Generate professional videos while you grab coffee.</p>
+                    </div>
+                    <div class="glass p-8 rounded-2xl hover:bg-white/10 transition">
+                        <div class="mb-4"><svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                        <h3 class="text-xl font-semibold mb-2">90% Cost Reduction</h3>
+                        <p class="text-gray-400">Professional video production costs $500+. Nexus AI delivers the same quality starting at $5 per video.</p>
+                    </div>
+                    <div class="glass p-8 rounded-2xl hover:bg-white/10 transition">
+                        <div class="mb-4"><svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg></div>
+                        <h3 class="text-xl font-semibold mb-2">Multi-Platform Ready</h3>
+                        <p class="text-gray-400">Instantly optimize for TikTok, Instagram Reels, YouTube Shorts, and more with one click.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pricing CTA -->
+        <section class="py-20">
+            <div class="max-w-4xl mx-auto px-4 text-center">
+                <h2 class="text-4xl font-bold mb-4">Ready to Transform Your Marketing?</h2>
+                <p class="text-gray-400 text-lg mb-8">Join 2,000+ businesses already creating stunning videos with AI</p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <button onclick="showPage('register')" class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition glow">Start Free Trial</button>
+                    <button onclick="showPage('pricing')" class="glass hover:bg-white/10 text-white px-8 py-4 rounded-xl font-semibold text-lg transition">View Pricing</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="border-t border-white/5 py-12">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="grid md:grid-cols-4 gap-8">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-4">
+                            <svg class="h-6 w-6 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                            <span class="text-lg font-bold text-gradient">NEXUS AI</span>
+                        </div>
+                        <p class="text-gray-400 text-sm">AI-powered video generation for modern businesses.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-4">Product</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="#" onclick="showPage('features')">Features</a></li>
+                            <li><a href="#" onclick="showPage('pricing')">Pricing</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-4">Company</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="#">About</a></li>
+                            <li><a href="#">Blog</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold mb-4">Legal</h4>
+                        <ul class="space-y-2 text-sm text-gray-400">
+                            <li><a href="#">Privacy</a></li>
+                            <li><a href="#">Terms</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="mt-8 pt-8 border-t border-white/5 text-center text-gray-500 text-sm">
+                    © 2026 Nexus AI. All rights reserved.
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- PRICING PAGE -->
+    <div id="pricing" class="page pt-20">
+        <section class="pt-12 pb-20">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="text-center mb-16">
+                    <h1 class="text-5xl font-bold mb-4">Simple, Transparent Pricing</h1>
+                    <p class="text-gray-400 text-lg mb-8">Start free, upgrade when you grow</p>
+                </div>
+
+                <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                    <!-- Free -->
+                    <div class="glass rounded-2xl p-8">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <svg class="h-6 w-6 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                            <h3 class="text-2xl font-bold">Free</h3>
+                        </div>
+                        <p class="text-gray-400 mb-6">Perfect for trying out</p>
+                        <div class="mb-6"><span class="text-5xl font-bold">$0</span><span class="text-gray-400">/month</span></div>
+                        <button onclick="showPage('register')" class="block w-full text-center py-3 rounded-xl glass hover:bg-white/10 transition mb-8">Get Started</button>
+                        <ul class="space-y-3">
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">3 videos per month</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">720p quality</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">Nexus AI watermark</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- Starter -->
+                    <div class="glass rounded-2xl p-8 border-2 border-primary-500 relative">
+                        <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary-600 text-white px-4 py-1 rounded-full text-sm font-semibold">Most Popular</div>
+                        <div class="flex items-center space-x-3 mb-4">
+                            <svg class="h-6 w-6 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                            <h3 class="text-2xl font-bold">Starter</h3>
+                        </div>
+                        <p class="text-gray-400 mb-6">For small businesses</p>
+                        <div class="mb-6"><span class="text-5xl font-bold">$29</span><span class="text-gray-400">/month</span></div>
+                        <button onclick="showPage('register')" class="block w-full text-center py-3 rounded-xl bg-primary-600 hover:bg-primary-700 transition mb-8">Start Free Trial</button>
+                        <ul class="space-y-3">
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">20 videos per month</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">1080p quality</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">No watermark</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">All templates</span></li>
+                        </ul>
+                    </div>
+
+                    <!-- Pro -->
+                    <div class="glass rounded-2xl p-8">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <svg class="h-6 w-6 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                            <h3 class="text-2xl font-bold">Pro</h3>
+                        </div>
+                        <p class="text-gray-400 mb-6">For growing teams</p>
+                        <div class="mb-6"><span class="text-5xl font-bold">$79</span><span class="text-gray-400">/month</span></div>
+                        <button onclick="showPage('register')" class="block w-full text-center py-3 rounded-xl glass hover:bg-white/10 transition mb-8">Start Free Trial</button>
+                        <ul class="space-y-3">
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">50 videos per month</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">4K quality</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">API access</span></li>
+                            <li class="flex items-center text-sm"><svg class="h-4 w-4 text-green-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg><span class="text-gray-300">Team collaboration</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- DASHBOARD PAGE -->
+    <div id="dashboard" class="page pt-20">
+        <div class="flex">
+            <!-- Sidebar -->
+            <aside class="w-64 fixed h-full glass border-r border-white/5 hidden md:block">
+                <div class="p-6">
+                    <div class="mb-8">
+                        <div class="text-sm text-gray-400 mb-1">Current Plan</div>
+                        <div class="font-semibold text-primary-400">Free</div>
+                        <div class="text-xs text-gray-500 mt-1">3/3 videos used</div>
+                    </div>
+                    <nav class="space-y-2">
+                        <button onclick="showDashboardTab('create')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl bg-primary-600/20 text-primary-400">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                            <span>Create Video</span>
+                        </button>
+                        <button onclick="showDashboardTab('videos')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                            <span>My Videos</span>
+                        </button>
+                        <button onclick="showDashboardTab('analytics')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:bg-white/5">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                            <span>Analytics</span>
+                        </button>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 md:ml-64 p-6">
+                <!-- Create Tab -->
+                <div id="tab-create" class="dashboard-tab">
+                    <h1 class="text-3xl font-bold mb-2">Create New Video</h1>
+                    <p class="text-gray-400 mb-8">Describe your video and let AI do the magic</p>
+
+                    <div class="glass rounded-2xl p-8 mb-8">
+                        <label class="block text-sm font-medium mb-2">Video Description</label>
+                        <textarea id="videoPrompt" placeholder="Example: Create a 30-second promotional video for my coffee shop..." class="w-full h-32 bg-dark-800 border border-white/10 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 resize-none"></textarea>
+
+                        <div class="flex items-center justify-between mt-4">
+                            <div class="text-sm text-gray-400">
+                                <svg class="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                Generation time: ~5 minutes
+                            </div>
+                            <button onclick="generateVideo()" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition flex items-center space-x-2">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                                <span>Generate Video</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="videoResult" class="hidden glass rounded-2xl p-8 text-center">
+                        <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                        <h3 class="text-xl font-semibold mb-2">Video Generated!</h3>
+                        <p class="text-gray-400 mb-4">Your video is ready for download</p>
+                        <div class="w-full h-48 bg-gradient-to-br from-primary-900 to-dark-800 rounded-xl flex items-center justify-center mb-4">
+                            <svg class="h-16 w-16 text-primary-400/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        </div>
+                        <button class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl font-semibold transition">Download Video</button>
+                    </div>
+                </div>
+
+                <!-- Videos Tab -->
+                <div id="tab-videos" class="dashboard-tab hidden">
+                    <h1 class="text-3xl font-bold mb-2">My Videos</h1>
+                    <p class="text-gray-400 mb-8">Manage your created videos</p>
+                    <div class="space-y-4">
+                        <div class="glass rounded-xl p-6 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 bg-gradient-to-br from-primary-900 to-dark-800 rounded-lg flex items-center justify-center">
+                                    <svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                </div>
+                                <div>
+                                    <h3 class="font-semibold">Product Launch - Summer Collection</h3>
+                                    <div class="flex items-center space-x-4 text-sm text-gray-400 mt-1">
+                                        <span>2026-05-20</span>
+                                        <span>0:30</span>
+                                        <span class="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400">completed</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition">Download</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Tab -->
+                <div id="tab-analytics" class="dashboard-tab hidden">
+                    <h1 class="text-3xl font-bold mb-2">Analytics</h1>
+                    <p class="text-gray-400 mb-8">Track your video performance</p>
+                    <div class="grid md:grid-cols-4 gap-6 mb-8">
+                        <div class="glass rounded-xl p-6"><div class="text-gray-400 text-sm mb-1">Total Videos</div><div class="text-3xl font-bold">3</div></div>
+                        <div class="glass rounded-xl p-6"><div class="text-gray-400 text-sm mb-1">Total Views</div><div class="text-3xl font-bold">2.1K</div></div>
+                        <div class="glass rounded-xl p-6"><div class="text-gray-400 text-sm mb-1">Avg. Engagement</div><div class="text-3xl font-bold">8.4%</div></div>
+                        <div class="glass rounded-xl p-6"><div class="text-gray-400 text-sm mb-1">Videos Left</div><div class="text-3xl font-bold">0/3</div></div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- LOGIN PAGE -->
+    <div id="login" class="page pt-20">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-gradient-to-b from-primary-900/20 to-transparent"></div>
+            <div class="relative w-full max-w-md">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center space-x-2 mb-6">
+                        <svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                        <span class="text-2xl font-bold text-gradient">NEXUS AI</span>
+                    </div>
+                    <h1 class="text-3xl font-bold mb-2">Welcome Back</h1>
+                    <p class="text-gray-400">Sign in to your account</p>
+                </div>
+                <div class="glass rounded-2xl p-8">
+                    <form onsubmit="handleLogin(event)" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Email</label>
+                            <input type="email" placeholder="you@company.com" class="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Password</label>
+                            <input type="password" placeholder="••••••••" class="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500" required>
+                        </div>
+                        <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-semibold transition">Sign In</button>
+                    </form>
+                    <div class="mt-6 text-center">
+                        <span class="text-gray-400">Don't have an account? </span>
+                        <button onclick="showPage('register')" class="text-primary-400 hover:text-primary-300">Sign up free</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTER PAGE -->
+    <div id="register" class="page pt-20">
+        <div class="min-h-screen flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-gradient-to-b from-primary-900/20 to-transparent"></div>
+            <div class="relative w-full max-w-md">
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center space-x-2 mb-6">
+                        <svg class="h-8 w-8 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+                        <span class="text-2xl font-bold text-gradient">NEXUS AI</span>
+                    </div>
+                    <h1 class="text-3xl font-bold mb-2">Get Started Free</h1>
+                    <p class="text-gray-400">Create your account - no credit card required</p>
+                </div>
+                <div class="glass rounded-2xl p-8">
+                    <form onsubmit="handleRegister(event)" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Full Name</label>
+                            <input type="text" placeholder="John Doe" class="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Email</label>
+                            <input type="email" placeholder="you@company.com" class="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Password</label>
+                            <input type="password" placeholder="••••••••" class="w-full bg-dark-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500" required>
+                        </div>
+                        <button type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-xl font-semibold transition">Create Free Account</button>
+                    </form>
+                    <div class="mt-6 text-center">
+                        <span class="text-gray-400">Already have an account? </span>
+                        <button onclick="showPage('login')" class="text-primary-400 hover:text-primary-300">Sign in</button>
+                    </div>
+                    <div class="mt-6 pt-6 border-t border-white/10">
+                        <p class="text-xs text-gray-500 text-center">By signing up, you agree to our Terms of Service. You get 3 free videos per month.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FEATURES PAGE -->
+    <div id="features" class="page pt-20">
+        <section class="pt-12 pb-20">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="text-center mb-16">
+                    <h1 class="text-5xl font-bold mb-4">Powerful Features</h1>
+                    <p class="text-gray-400 text-lg">Everything you need to create stunning videos</p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="glass rounded-2xl p-8">
+                        <svg class="h-12 w-12 text-primary-400 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                        <h3 class="text-2xl font-bold mb-3">AI Video Generation</h3>
+                        <p class="text-gray-400">Create professional videos from text prompts automatically.</p>
+                    </div>
+                    <div class="glass rounded-2xl p-8">
+                        <svg class="h-12 w-12 text-primary-400 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        <h3 class="text-2xl font-bold mb-3">Lightning Fast</h3>
+                        <p class="text-gray-400">Generate videos in 5 minutes instead of 8 hours.</p>
+                    </div>
+                    <div class="glass rounded-2xl p-8">
+                        <svg class="h-12 w-12 text-primary-400 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                        <h3 class="text-2xl font-bold mb-3">Multi-Platform</h3>
+                        <p class="text-gray-400">Optimize for TikTok, Instagram, YouTube automatically.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Page Navigation
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        // Dashboard Tabs
+        function showDashboardTab(tabId) {
+            document.querySelectorAll('.dashboard-tab').forEach(tab => tab.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+        }
+
+        // Generate Video
+        function generateVideo() {
+            const prompt = document.getElementById('videoPrompt').value;
+            if (!prompt.trim()) return;
+
+            const btn = event.target;
+            btn.innerHTML = '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div><span>Generating...</span>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                document.getElementById('videoResult').classList.remove('hidden');
+                btn.innerHTML = '<svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg><span>Generate Video</span>';
+                btn.disabled = false;
+            }, 3000);
+        }
+
+        // Login
+        function handleLogin(e) {
+            e.preventDefault();
+            showPage('dashboard');
+        }
+
+        // Register
+        function handleRegister(e) {
+            e.preventDefault();
+            showPage('dashboard');
+        }
+    </script>
+</body>
+</html>
