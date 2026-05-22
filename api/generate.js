@@ -10,7 +10,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Start prediction
     const startResponse = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -31,11 +30,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: prediction.error });
     }
 
-    // Return prediction ID for polling
     res.status(200).json({
       id: prediction.id,
       status: prediction.status,
-      message: "Video generation started. Poll /api/status?id=" + prediction.id
+      message: "Video generation started"
     });
 
   } catch (error) {
