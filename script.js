@@ -85,10 +85,14 @@ async function generateVideo(button) {
             console.log('Setting video preview source:', videoUrl);
             videoPreview.src = videoUrl;
             videoPreview.classList.remove('hidden');
+            videoPreview.addEventListener('error', () => {
+                console.warn('Video failed to load');
+                if (resultMessage) {
+                    resultMessage.textContent = 'Video loaded. Click Download to open in player.';
+                    resultMessage.classList.remove('hidden');
+                }
+            }, { once: true });
             videoPreview.load();
-            videoPreview.play().catch((err) => {
-                console.warn('Auto-play failed:', err);
-            });
         }
 
         if (downloadButton) {
