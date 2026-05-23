@@ -33,7 +33,7 @@ async function generateVideo(button) {
         videoResult.classList.add('hidden');
     }
 
-    btn.innerHTML = 'Generating video... (1-2 minutes)';
+    btn.innerHTML = 'Generating video... (30-60 seconds)';
     btn.disabled = true;
     console.log('Button state changed to generating');
 
@@ -82,13 +82,10 @@ async function generateVideo(button) {
         }
 
         if (videoPreview) {
-            console.log('Hiding video preview (using download instead)');
-            videoPreview.classList.add('hidden');
-        }
-
-        if (resultMessage) {
-            resultMessage.textContent = 'Video ready! Click Download to watch.';
-            resultMessage.classList.remove('hidden');
+            console.log('Setting video preview source:', videoUrl);
+            videoPreview.src = videoUrl;
+            videoPreview.classList.remove('hidden');
+            videoPreview.load();
         }
 
         if (downloadButton) {
