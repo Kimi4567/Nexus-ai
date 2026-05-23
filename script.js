@@ -3,6 +3,20 @@ async function generateVideo(button) {
     if (!prompt.trim()) return;
 
     const btn = button || document.querySelector('button[onclick="generateVideo(this)"]');
+    const downloadLink = document.getElementById('downloadLink');
+    const videoResult = document.getElementById('videoResult');
+
+    if (downloadLink) {
+        downloadLink.classList.add('hidden');
+        downloadLink.href = '#';
+        downloadLink.textContent = 'Download Video';
+        downloadLink.removeAttribute('download');
+    }
+
+    if (videoResult) {
+        videoResult.classList.add('hidden');
+    }
+
     btn.innerHTML = 'Starting...';
     btn.disabled = true;
 
@@ -40,15 +54,17 @@ async function generateVideo(button) {
                 if (result.status === 'succeeded') {
                     clearInterval(checkStatus);
                     const output = Array.isArray(result.output) ? result.output[0] : result.output;
-                    const videoResult = document.getElementById('videoResult');
-                    const downloadLink = document.getElementById('downloadLink');
 
                     if (output && downloadLink) {
-                        downloadLink.href = output;
+                        downloadLink.href = typeof output === 'string' ? output : output?.[0] || '#';
+                        downloadLink.textContent = 'Download Video';
                         downloadLink.classList.remove('hidden');
+                        downloadLink.setAttribute('download', 'video.mp4');
                     }
 
-                    videoResult.classList.remove('hidden');
+                    if (videoResult) {
+                        videoResult.classList.remove('hidden');
+                    }
                     btn.innerHTML = 'Generate Video';
                     btn.disabled = false;
                 } else if (result.status === 'failed') {
@@ -58,7 +74,7 @@ async function generateVideo(button) {
                     btn.disabled = false;
                 } else {
                     const progress = result.metrics?.progress;
-                    btn.innerHTML = progress ? `Generating (${Math.round(progress * 100)}%)...` : 'Generating...';
+                    btn.innerHTML = progress ? `Generating (${Math.round(progress * 100)}%)...` : `Generating...`;
                 }
             } catch (error) {
                 clearInterval(checkStatus);

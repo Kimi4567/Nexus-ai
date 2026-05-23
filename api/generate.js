@@ -5,17 +5,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body || {};
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch (parseError) {
+        body = {};
+      }
+    }
+
+    const { prompt } = body;
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
+    const token = process.env.REPLICATE_API_TOKEN;
+    if (!token) {
+      return res.status(500).json({ error: 'Missing REPLICATE_API_TOKEN environment variable' });
+    }
+
     const modelVersion = process.env.REPLICATE_VIDEO_MODEL_VERSION || process.env.REPLICATE_MODEL_VERSION;
     if (!modelVersion) {
       return res.status(500).json({
-        error:
-          'Missing REPICATE_VIDEO_MODEL_VERSION or REPLICATE_MODEL_VERSION environment variable',
+        error: 'Missing REPLICATE_VIDEO_MODEL_VERSION or REPLICATE_MODEL_VERSION environment variable',
       });
     }
 
