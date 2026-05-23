@@ -26,20 +26,41 @@ export default async function handler(req, res) {
     }
 
     const modelVersion = process.env.REPLICATE_VIDEO_MODEL_VERSION || process.env.REPLICATE_MODEL_VERSION;
-    if (!modelVersion) {
-      return res.status(500).json({
-        error: 'Missing REPLICATE_VIDEO_MODEL_VERSION or REPLICATE_MODEL_VERSION environment variable',
+    const modelName = process.env.REPLICATE_VIDEO_MODEL || process.env.REPLICATE_MODEL || 'pika-ai/pika';
+    let versionId = modelVersion;
+
+    if (!versionId) {
+      if (!modelName) {
+        return res.status(500).json({
+          error: 'Missing model configuration. Set REPLICATE_VIDEO_MODEL_VERSION, REPLICATE_MODEL_VERSION, REPLICATE_VIDEO_MODEL, or REPLICATE_MODEL.',
+        });
+      }
+
+      const modelResponse = await fetch(`https://api.replicate.com/v1/models/${encodeURIComponent(modelName)}`, {
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
+
+      const modelData = await modelResponse.json();
+      if (!modelResponse.ok || !modelData?.latest_version?.id) {
+        return res.status(modelResponse.status || 500).json({
+          error: modelData?.detail || modelData?.error || `Unable to resolve version for model ${modelName}`,
+        });
+      }
+
+      versionId = modelData.latest_version.id;
     }
 
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
-        Authorization: `Token ${process.env.REPLICATE_API_TOKEN}`,
+        Authorization: `Token ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        version: modelVersion,
+        version: versionId,
         input: { prompt },
       }),
     });
