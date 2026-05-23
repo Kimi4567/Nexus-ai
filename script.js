@@ -28,7 +28,7 @@ async function generateVideo(button) {
         videoResult.classList.add('hidden');
     }
 
-    btn.innerHTML = 'Generating...';
+    btn.innerHTML = 'Generating video... (1-2 minutes)';
     btn.disabled = true;
 
     try {
