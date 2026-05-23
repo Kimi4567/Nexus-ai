@@ -1,6 +1,9 @@
 async function generateVideo(button) {
     const prompt = document.getElementById('videoPrompt').value;
+    console.log('Prompt entered:', prompt);
+    
     if (!prompt.trim()) {
+        console.warn('Prompt is empty');
         return;
     }
 
@@ -9,6 +12,8 @@ async function generateVideo(button) {
     const videoPreview = document.getElementById('videoPreview');
     const downloadButton = document.getElementById('downloadButton');
     const videoResult = document.getElementById('videoResult');
+
+    console.log('Elements found:', { resultMessage, videoPreview, downloadButton, videoResult });
 
     if (resultMessage) {
         resultMessage.classList.add('hidden');
@@ -30,18 +35,23 @@ async function generateVideo(button) {
 
     btn.innerHTML = 'Generating video... (1-2 minutes)';
     btn.disabled = true;
+    console.log('Button state changed to generating');
 
     try {
+        console.log('Fetching /api/generate with prompt:', prompt);
         const response = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt }),
         });
 
+        console.log('Response status:', response.status);
         const prediction = await response.json();
+        console.log('Response data:', prediction);
 
         if (!response.ok || prediction.error) {
             const message = prediction?.error || 'Unable to generate video. Please try again.';
+            console.error('API Error:', message);
             if (resultMessage) {
                 resultMessage.textContent = message;
                 resultMessage.classList.remove('hidden');
@@ -55,9 +65,11 @@ async function generateVideo(button) {
 
         const output = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
         const videoUrl = typeof output === 'string' ? output : output?.[0] || null;
+        console.log('Video URL:', videoUrl);
 
         if (!videoUrl) {
             const message = 'No video URL returned from the server.';
+            console.error(message);
             if (resultMessage) {
                 resultMessage.textContent = message;
                 resultMessage.classList.remove('hidden');
@@ -70,27 +82,35 @@ async function generateVideo(button) {
         }
 
         if (videoPreview) {
+            console.log('Setting video preview source:', videoUrl);
             videoPreview.src = videoUrl;
             videoPreview.classList.remove('hidden');
             videoPreview.load();
-            videoPreview.play().catch(() => {});
+            videoPreview.play().catch((err) => {
+                console.warn('Auto-play failed:', err);
+            });
         }
 
         if (downloadButton) {
+            console.log('Setting download button');
             downloadButton.classList.remove('hidden');
             downloadButton.onclick = () => {
+                console.log('Opening video in new tab:', videoUrl);
                 window.open(videoUrl, '_blank');
             };
         }
 
         if (videoResult) {
+            console.log('Showing video result');
             videoResult.classList.remove('hidden');
         }
 
         btn.innerHTML = 'Generate Video';
         btn.disabled = false;
+        console.log('Success!');
     } catch (error) {
         const message = error?.message || 'An unexpected error occurred.';
+        console.error('Exception:', error);
         if (resultMessage) {
             resultMessage.textContent = message;
             resultMessage.classList.remove('hidden');
