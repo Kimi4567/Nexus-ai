@@ -1,31 +1,72 @@
-async function generateVideo() {
+async function generateVideo(button) {
     const prompt = document.getElementById('videoPrompt').value;
     if (!prompt.trim()) return;
-    
-    const btn = event.target;
-    btn.innerHTML = 'Generating...';
+
+    const btn = button || document.querySelector('button[onclick="generateVideo(this)"]');
+    btn.innerHTML = 'Starting...';
     btn.disabled = true;
-    
+
     try {
-        const response = await fetch('/api/generate', {
+        const startResponse = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
+            body: JSON.stringify({ prompt }),
         });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            alert('Error: ' + data.error);
+
+        const prediction = await startResponse.json();
+
+        if (prediction.error) {
+            alert('Error: ' + prediction.error);
             btn.innerHTML = 'Generate Video';
             btn.disabled = false;
             return;
         }
-        
-        document.getElementById('videoResult').classList.remove('hidden');
-        btn.innerHTML = 'Generate Video';
-        btn.disabled = false;
-        
+
+        btn.innerHTML = 'Generating (0%)...';
+
+        const checkStatus = setInterval(async () => {
+            try {
+                const statusResponse = await fetch(`/api/status?id=${prediction.id}`);
+                const result = await statusResponse.json();
+
+                if (result.error) {
+                    clearInterval(checkStatus);
+                    alert('Error: ' + result.error);
+                    btn.innerHTML = 'Generate Video';
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (result.status === 'succeeded') {
+                    clearInterval(checkStatus);
+                    const output = Array.isArray(result.output) ? result.output[0] : result.output;
+                    const videoResult = document.getElementById('videoResult');
+                    const downloadLink = document.getElementById('downloadLink');
+
+                    if (output && downloadLink) {
+                        downloadLink.href = output;
+                        downloadLink.classList.remove('hidden');
+                    }
+
+                    videoResult.classList.remove('hidden');
+                    btn.innerHTML = 'Generate Video';
+                    btn.disabled = false;
+                } else if (result.status === 'failed') {
+                    clearInterval(checkStatus);
+                    alert('Generation failed. Please try again.');
+                    btn.innerHTML = 'Generate Video';
+                    btn.disabled = false;
+                } else {
+                    const progress = result.metrics?.progress;
+                    btn.innerHTML = progress ? `Generating (${Math.round(progress * 100)}%)...` : 'Generating...';
+                }
+            } catch (error) {
+                clearInterval(checkStatus);
+                alert('Polling failed: ' + error.message);
+                btn.innerHTML = 'Generate Video';
+                btn.disabled = false;
+            }
+        }, 3000);
     } catch (error) {
         alert('Error: ' + error.message);
         btn.innerHTML = 'Generate Video';

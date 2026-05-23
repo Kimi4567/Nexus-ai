@@ -27,11 +27,11 @@
         <h1 class="text-3xl font-bold mb-4">Create New Video</h1>
         <div class="glass rounded-2xl p-8 mb-8">
             <textarea id="videoPrompt" placeholder="Enter your video description..." class="w-full h-32 bg-gray-800 border border-gray-600 rounded-xl p-4 text-white mb-4"></textarea>
-            <button onclick="generateVideo()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl">Generate Video</button>
+            <button onclick="generateVideo(this)" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl">Generate Video</button>
         </div>
         <div id="videoResult" class="hidden glass rounded-2xl p-8 text-center">
             <h3 class="text-xl font-semibold mb-2">Video Generated!</h3>
-            <button class="bg-blue-600 text-white px-6 py-3 rounded-xl">Download</button>
+            <a id="downloadLink" class="hidden bg-blue-600 text-white px-6 py-3 rounded-xl inline-block" target="_blank" rel="noreferrer noopener">Download</a>
         </div>
     </div>
 
