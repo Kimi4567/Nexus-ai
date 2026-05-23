@@ -38,9 +38,11 @@ async function generateVideo(button) {
 
         const output = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
         if (output && downloadLink) {
-            downloadLink.href = typeof output === 'string' ? output : output?.[0] || '#';
+            const videoUrl = typeof output === 'string' ? output : output?.[0] || '#';
+            downloadLink.href = videoUrl;
             downloadLink.textContent = 'Download Video';
             downloadLink.classList.remove('hidden');
+            downloadLink.onclick = () => window.open(videoUrl, '_blank');
             downloadLink.setAttribute('download', 'video.mp4');
         }
 
