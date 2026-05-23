@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     }
 
     const modelVersion = process.env.REPLICATE_VIDEO_MODEL_VERSION || process.env.REPLICATE_MODEL_VERSION;
-    const modelName = process.env.REPLICATE_VIDEO_MODEL || process.env.REPLICATE_MODEL || 'pika-ai/pika';
+    const modelName = process.env.REPLICATE_VIDEO_MODEL || process.env.REPLICATE_MODEL || 'luma-ai/dream-machine';
     let versionId = modelVersion;
 
     if (!versionId) {
