@@ -31,8 +31,8 @@ export default async function handler(req, res) {
 
     const sampleVideos = [
       'https://www.w3schools.com/html/mov_bbb.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-library/sample/ElephantsDream.mp4',
       'https://www.w3schools.com/html/movie.mp4',
+      'https://www.w3schools.com/html/mov_bbb.mp4',
     ];
 
     const promptHash = prompt.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);

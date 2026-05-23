@@ -82,17 +82,13 @@ async function generateVideo(button) {
         }
 
         if (videoPreview) {
-            console.log('Setting video preview source:', videoUrl);
-            videoPreview.src = videoUrl;
-            videoPreview.classList.remove('hidden');
-            videoPreview.addEventListener('error', () => {
-                console.warn('Video failed to load');
-                if (resultMessage) {
-                    resultMessage.textContent = 'Video loaded. Click Download to open in player.';
-                    resultMessage.classList.remove('hidden');
-                }
-            }, { once: true });
-            videoPreview.load();
+            console.log('Hiding video preview (using download instead)');
+            videoPreview.classList.add('hidden');
+        }
+
+        if (resultMessage) {
+            resultMessage.textContent = 'Video ready! Click Download to watch.';
+            resultMessage.classList.remove('hidden');
         }
 
         if (downloadButton) {
