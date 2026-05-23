@@ -1,49 +1,86 @@
 async function generateVideo(button) {
     const prompt = document.getElementById('videoPrompt').value;
-    if (!prompt.trim()) return;
-
-    const btn = button || document.querySelector('button[onclick="generateVideo(this)"]');
-    const downloadLink = document.getElementById('downloadLink');
-    const videoResult = document.getElementById('videoResult');
-
-    if (downloadLink) {
-        downloadLink.classList.add('hidden');
-        downloadLink.href = '#';
-        downloadLink.textContent = 'Download Video';
-        downloadLink.removeAttribute('download');
+    if (!prompt.trim()) {
+        return;
     }
 
+    const btn = button || document.querySelector('button[onclick="generateVideo(this)"]');
+    const resultMessage = document.getElementById('resultMessage');
+    const videoPreview = document.getElementById('videoPreview');
+    const downloadButton = document.getElementById('downloadButton');
+    const videoResult = document.getElementById('videoResult');
+
+    if (resultMessage) {
+        resultMessage.classList.add('hidden');
+        resultMessage.textContent = '';
+    }
+    if (videoPreview) {
+        videoPreview.pause();
+        videoPreview.removeAttribute('src');
+        videoPreview.load();
+        videoPreview.classList.add('hidden');
+    }
+    if (downloadButton) {
+        downloadButton.classList.add('hidden');
+        downloadButton.onclick = null;
+    }
     if (videoResult) {
         videoResult.classList.add('hidden');
     }
 
-    btn.innerHTML = 'Starting...';
+    btn.innerHTML = 'Generating...';
     btn.disabled = true;
 
     try {
-        const startResponse = await fetch('/api/generate', {
+        const response = await fetch('/api/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt }),
         });
 
-        const prediction = await startResponse.json();
+        const prediction = await response.json();
 
-        if (prediction.error) {
-            alert('Error: ' + prediction.error);
+        if (!response.ok || prediction.error) {
+            const message = prediction?.error || 'Unable to generate video. Please try again.';
+            if (resultMessage) {
+                resultMessage.textContent = message;
+                resultMessage.classList.remove('hidden');
+            } else {
+                alert(message);
+            }
             btn.innerHTML = 'Generate Video';
             btn.disabled = false;
             return;
         }
 
         const output = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
-        if (output && downloadLink) {
-            const videoUrl = typeof output === 'string' ? output : output?.[0] || '#';
-            downloadLink.href = videoUrl;
-            downloadLink.textContent = 'Download Video';
-            downloadLink.classList.remove('hidden');
-            downloadLink.onclick = () => window.open(videoUrl, '_blank');
-            downloadLink.setAttribute('download', 'video.mp4');
+        const videoUrl = typeof output === 'string' ? output : output?.[0] || null;
+
+        if (!videoUrl) {
+            const message = 'No video URL returned from the server.';
+            if (resultMessage) {
+                resultMessage.textContent = message;
+                resultMessage.classList.remove('hidden');
+            } else {
+                alert(message);
+            }
+            btn.innerHTML = 'Generate Video';
+            btn.disabled = false;
+            return;
+        }
+
+        if (videoPreview) {
+            videoPreview.src = videoUrl;
+            videoPreview.classList.remove('hidden');
+            videoPreview.load();
+            videoPreview.play().catch(() => {});
+        }
+
+        if (downloadButton) {
+            downloadButton.classList.remove('hidden');
+            downloadButton.onclick = () => {
+                window.open(videoUrl, '_blank');
+            };
         }
 
         if (videoResult) {
@@ -53,7 +90,13 @@ async function generateVideo(button) {
         btn.innerHTML = 'Generate Video';
         btn.disabled = false;
     } catch (error) {
-        alert('Error: ' + error.message);
+        const message = error?.message || 'An unexpected error occurred.';
+        if (resultMessage) {
+            resultMessage.textContent = message;
+            resultMessage.classList.remove('hidden');
+        } else {
+            alert(message);
+        }
         btn.innerHTML = 'Generate Video';
         btn.disabled = false;
     }
