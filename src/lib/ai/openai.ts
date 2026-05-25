@@ -97,7 +97,21 @@ CAMPAIGN DATA:
 - Tone: ${campaign.tone}
 - Platforms: ${(campaign.platforms || []).join(', ')}
 - Description: ${campaign.description || 'Not provided'}
-
+${campaign.brandProfile ? `
+BRAND MEMORY (use this to stay on-brand):
+- Brand: ${campaign.brandProfile.brandName || 'Unknown'}
+- Industry: ${campaign.brandProfile.industry || 'Unknown'}
+- Brand Description: ${campaign.brandProfile.description || ''}
+- Tone Keywords: ${(campaign.brandProfile.toneKeywords || []).join(', ')}
+- Avoid: ${(campaign.brandProfile.avoidKeywords || []).join(', ')}
+- Writing Style: ${campaign.brandProfile.writingStyle || ''}
+- Target Audience: ${campaign.brandProfile.targetAudience || ''}
+- Primary Offer: ${campaign.brandProfile.primaryOffer || ''}
+- Unique Advantages: ${(campaign.brandProfile.uniqueAdvantages || []).join(', ')}
+- Winning Hooks: ${(campaign.brandProfile.winningHooks || []).join(', ')}
+- Winning Angles: ${(campaign.brandProfile.winningAngles || []).join(', ')}
+- Strategic Notes: ${campaign.brandProfile.strategicNotes || ''}
+` : ''}
 Generate the contentCalendar for 4 weeks with 7 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
 Make all recommendations specific to the campaign details above. Be concrete and actionable.`
 
@@ -138,7 +152,15 @@ CAMPAIGN:
 - Tone: ${campaign.tone}
 - Platforms: ${platforms.join(', ')}
 - Description: ${campaign.description || 'Not provided'}
-
+${campaign.brandProfile ? `
+BRAND VOICE (strictly follow this):
+- Brand: ${campaign.brandProfile.brandName || ''}
+- Tone: ${(campaign.brandProfile.toneKeywords || []).join(', ')}
+- Avoid: ${(campaign.brandProfile.avoidKeywords || []).join(', ')}
+- Writing Style: ${campaign.brandProfile.writingStyle || ''}
+- Winning Hooks to build on: ${(campaign.brandProfile.winningHooks || []).join(' | ')}
+- Winning Angles to use: ${(campaign.brandProfile.winningAngles || []).join(' | ')}
+` : ''}
 Make each concept use a different creative angle. Write scripts that are actually compelling and specific to this campaign — not generic templates. The tone must be ${campaign.tone.toLowerCase()}.
 
 Return: { "concepts": [ ...5 concepts... ] }`

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 interface Campaign {
   id: string
@@ -148,8 +148,7 @@ export default function CampaignsPage() {
   const visibleCampaigns = campaigns.filter(c => statusFilter !== 'active' || c.status !== 'ARCHIVED')
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
+    <AppShell>
 
       <div className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
@@ -332,6 +331,6 @@ export default function CampaignsPage() {
       {actionMenuId && (
         <div className="fixed inset-0 z-10" onClick={() => setActionMenuId(null)} />
       )}
-    </div>
+    </AppShell>
   )
 }

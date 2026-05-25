@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 const PLANS = [
   {
@@ -85,8 +85,7 @@ export default function BillingPage() {
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
+    <AppShell>
 
       <div className="max-w-6xl mx-auto px-6 py-12">
 
@@ -203,6 +202,6 @@ export default function BillingPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

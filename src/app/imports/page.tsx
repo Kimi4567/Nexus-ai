@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 export default function ImportsPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
@@ -41,8 +41,7 @@ export default function ImportsPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
+    <AppShell>
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="bg-dark-secondary border border-dark-tertiary rounded-lg p-8">
@@ -77,6 +76,6 @@ export default function ImportsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

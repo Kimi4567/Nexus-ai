@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 interface Activity {
   id: string
@@ -109,21 +109,25 @@ export default function CampaignDetailPage() {
 
   if (loading || fetching) {
     return (
-      <div className="min-h-screen bg-dark flex items-center justify-center">
-        <div className="text-center"><div className="text-4xl mb-3 animate-spin">🤖</div><p className="text-gray-400">Loading campaign...</p></div>
-      </div>
+      <AppShell>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppShell>
     )
   }
 
   if (!campaign) {
     return (
-      <div className="min-h-screen bg-dark flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-5xl mb-4">😕</div>
-          <h2 className="text-2xl font-bold mb-2">Campaign not found</h2>
-          <Link href="/campaigns" className="text-accent hover:text-accent-light transition">← Back to Campaigns</Link>
+      <AppShell>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="text-5xl mb-4">😕</div>
+            <h2 className="text-xl font-bold mb-2 text-white">Campaign not found</h2>
+            <Link href="/campaigns" className="text-accent hover:text-accent-light transition text-sm">← Back to Campaigns</Link>
+          </div>
         </div>
-      </div>
+      </AppShell>
     )
   }
 
@@ -133,10 +137,8 @@ export default function CampaignDetailPage() {
   const tabs = ['Strategy', 'Ad Concepts', 'Content Calendar', 'Activity']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
-
-      <div className="max-w-6xl mx-auto px-6 py-10">
+    <AppShell>
+      <div className="max-w-4xl mx-auto px-8 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <Link href="/dashboard" className="hover:text-white transition">Dashboard</Link>
@@ -371,6 +373,6 @@ export default function CampaignDetailPage() {
           </>
         )}
       </div>
-    </div>
+    </AppShell>
   )
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 interface Concept {
   name: string
@@ -246,8 +246,7 @@ export default function CampaignResultsPage() {
   const tabs = ['Strategy', 'Hooks & Scripts', 'Captions', 'Content Calendar', 'All Concepts']
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
+    <AppShell>
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-accent/20 via-accent/10 to-transparent border-b border-accent/20">
@@ -635,6 +634,6 @@ export default function CampaignResultsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

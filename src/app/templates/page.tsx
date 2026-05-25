@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useEffect } from 'react'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 
 const TEMPLATES = [
@@ -37,8 +37,7 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
+    <AppShell>
 
       <div className="max-w-5xl mx-auto px-6 py-12">
         <div className="mb-10">
@@ -75,6 +74,6 @@ export default function TemplatesPage() {
           </Link>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

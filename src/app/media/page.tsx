@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/auth-context'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 interface UploadTask {
   id: string
@@ -234,8 +234,7 @@ export default function MediaLibraryPage() {
   if (!isAuthenticated) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar />
+    <AppShell>
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="bg-dark-secondary border border-dark-tertiary rounded-lg p-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -359,6 +358,6 @@ export default function MediaLibraryPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

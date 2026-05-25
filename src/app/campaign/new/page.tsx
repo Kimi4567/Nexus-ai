@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 
 const GOALS = [
   { value: 'SALES', label: 'Sales', icon: '💰', desc: 'Drive purchases and revenue' },
@@ -127,15 +127,28 @@ export default function CreateCampaignPage() {
     setError('')
 
     try {
-      // Generate AI content immediately (no DB required)
       const token = authHeader()
+
+      // Fetch brand profile to inject into AI context
+      let brandProfile = null
+      if (token) {
+        try {
+          const bpRes = await fetch('/api/brand', { headers: { Authorization: token } })
+          if (bpRes.ok) {
+            const bpData = await bpRes.json()
+            brandProfile = bpData.brandProfile || null
+          }
+        } catch { /* ignore brand fetch errors */ }
+      }
+
+      // Generate AI content with brand context
       const res = await fetch('/api/generate/preview', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: token } : {}),
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, brandProfile }),
       })
 
       const data = await res.json()
@@ -166,8 +179,7 @@ export default function CreateCampaignPage() {
   if (!isAuthenticated) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary">
-      <NavBar minimal />
+    <AppShell>
 
       {/* Progress Steps */}
       <div className="max-w-4xl mx-auto px-6 pt-8">
@@ -377,6 +389,6 @@ export default function CreateCampaignPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

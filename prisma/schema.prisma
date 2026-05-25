@@ -110,6 +110,7 @@ model Workspace {
   uploadSessions UploadSession[]
   exports       Export[]
   integrations  Integration[]
+  brandProfile  BrandProfile?
   
   // Settings
   settings      Json?      // branding, integrations, etc.
@@ -504,6 +505,63 @@ model Analytics {
   updatedAt     DateTime   @updatedAt
   
   @@index([campaignId])
+}
+
+// ============================================================================
+// BRAND INTELLIGENCE
+// ============================================================================
+
+model BrandProfile {
+  id            String     @id @default(cuid())
+
+  workspaceId   String     @unique
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Core brand identity
+  brandName     String?
+  industry      String?
+  description   String?    @db.Text
+
+  // Voice & tone memory
+  toneKeywords  String[]   @default([])  // e.g., ["bold", "conversational", "premium"]
+  avoidKeywords String[]   @default([])  // words/styles to avoid
+  writingStyle  String?    // "short punchy", "long-form storytelling", etc.
+
+  // Audience memory
+  targetAudience    String?    @db.Text
+  audienceAge       String?    // "18-24", "25-34", "35-54", etc.
+  audienceLocation  String?
+  audiencePainPoints String[]  @default([])
+  audienceDesires   String[]   @default([])
+
+  // Offer memory
+  primaryOffer  String?    @db.Text
+  secondaryOffers String[] @default([])
+  pricePoint    String?    // "budget", "mid-range", "premium", "luxury"
+  uniqueAdvantages String[] @default([])
+
+  // Visual style memory
+  visualStyle   String?    // "minimalist", "bold", "lifestyle", "corporate"
+  colorPalette  String[]   @default([])  // hex values or color names
+  logoUrl       String?
+
+  // Campaign performance memory
+  winningHooks  String[]   @default([])  // hooks that worked
+  winningAngles String[]   @default([])  // angles that converted
+  failedAngles  String[]   @default([])  // what didn't work
+  topPlatforms  String[]   @default([])  // best-performing platforms
+
+  // Strategic notes (freeform memory)
+  strategicNotes String?   @db.Text
+  competitorNotes String?  @db.Text
+
+  // AI-generated insights (auto-populated)
+  aiInsights    Json?      // { summary, recommendations, lastUpdated }
+
+  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime   @default(now())
+
+  @@index([workspaceId])
 }
 
 // ============================================================================

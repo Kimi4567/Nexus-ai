@@ -34,13 +34,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { name, goal, audience, tone, platforms, description } = body
+    const { name, goal, audience, tone, platforms, description, brandProfile } = body
 
     if (!name) {
       return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 })
     }
 
-    const campaignData = { name, goal: goal || 'SALES', audience: audience || '', tone: tone || 'MODERN', platforms: platforms || [], description: description || '' }
+    const campaignData = {
+      name,
+      goal: goal || 'SALES',
+      audience: audience || '',
+      tone: tone || 'MODERN',
+      platforms: platforms || [],
+      description: description || '',
+      brandProfile: brandProfile || null,
+    }
     const projectData = { businessType: description || name }
 
     const [strategy, concepts] = await Promise.all([
