@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
+import VisualGenerator from '@/components/VisualGenerator'
 
 interface Activity {
   id: string
@@ -134,7 +135,15 @@ export default function CampaignDetailPage() {
   const aiOutput = campaign.aiOutput as any
   const strategy = aiOutput?.strategy || {}
   const concepts = aiOutput?.concepts || []
-  const tabs = ['Strategy', 'Ad Concepts', 'Content Calendar', 'Activity']
+  const tabs = ['Strategy', 'Ad Concepts', 'Visuals', 'Content Calendar', 'Activity']
+
+  const visualContext = {
+    campaignId: campaign.id,
+    campaignName: campaign.name,
+    campaignGoal: campaign.goal,
+    campaignTone: campaign.tone,
+    audience: campaign.audience,
+  }
 
   return (
     <AppShell>
@@ -321,8 +330,15 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* Calendar Tab */}
+            {/* Visuals Tab */}
             {activeTab === 2 && (
+              <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                <VisualGenerator context={visualContext} />
+              </div>
+            )}
+
+            {/* Calendar Tab */}
+            {activeTab === 3 && (
               <div className="space-y-4">
                 {(strategy.contentCalendar || []).map((week: any, wi: number) => (
                   <div key={wi} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
@@ -343,7 +359,7 @@ export default function CampaignDetailPage() {
             )}
 
             {/* Activity Tab */}
-            {activeTab === 3 && (
+            {activeTab === 4 && (
               <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><span>📋</span> Campaign Timeline</h3>
                 {campaign.activities.length === 0 ? (

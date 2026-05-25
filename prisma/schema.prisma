@@ -111,6 +111,7 @@ model Workspace {
   exports       Export[]
   integrations  Integration[]
   brandProfile  BrandProfile?
+  visuals       GeneratedVisual[]
   
   // Settings
   settings      Json?      // branding, integrations, etc.
@@ -302,6 +303,7 @@ model Campaign {
 
   // Activity timeline
   activities    CampaignActivity[]
+  visuals       GeneratedVisual[]
 
   // Performance
   status        CampaignStatus @default(DRAFT)
@@ -730,4 +732,70 @@ enum IntegrationStatus {
   DISCONNECTED
   ERROR
   EXPIRED
+}
+
+// ============================================================================
+// VISUAL GENERATION
+// ============================================================================
+
+enum VisualStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
+  ARCHIVED
+}
+
+enum VisualType {
+  HERO
+  SOCIAL_PREVIEW
+  AD_CREATIVE
+  THUMBNAIL
+  ALTERNATE
+}
+
+model GeneratedVisual {
+  id              String       @id @default(cuid())
+
+  // Ownership
+  workspaceId     String
+  workspace       Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId      String?
+  campaign        Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  // Visual configuration
+  visualType      VisualType   @default(HERO)
+  visualStyle     String       // Minimal, Luxury, Editorial, Cinematic, etc.
+  prompt          String       @db.Text  // user-facing creative direction
+  enhancedPrompt  String?      @db.Text  // full prompt sent to DALL-E
+
+  // Campaign context snapshot (preserved at generation time)
+  campaignName    String?
+  campaignGoal    String?
+  campaignTone    String?
+  audience        String?      @db.Text
+
+  // Brand context snapshot
+  brandName       String?
+  brandToneWords  String[]     @default([])
+
+  // Generation state
+  status          VisualStatus @default(PENDING)
+  imageUrl        String?      // permanent Cloudinary URL
+  thumbnailUrl    String?
+  errorMessage    String?
+  retryCount      Int          @default(0)
+
+  // Metadata
+  isPrimary       Boolean      @default(false)
+  isArchived      Boolean      @default(false)
+  version         Int          @default(1)
+  parentId        String?      // links regenerations to original
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([workspaceId])
+  @@index([campaignId])
+  @@index([status])
 }

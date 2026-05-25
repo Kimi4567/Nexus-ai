@@ -1,0 +1,456 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/lib/auth-context'
+
+type VisualStyle =
+  | 'Minimal' | 'Luxury' | 'Corporate' | 'Editorial' | 'Cinematic'
+  | 'Bold' | 'Gen Z' | 'Premium' | 'Futuristic' | 'Elegant'
+
+type VisualType = 'HERO' | 'SOCIAL_PREVIEW' | 'AD_CREATIVE' | 'THUMBNAIL'
+
+interface Visual {
+  id: string
+  imageUrl?: string
+  status: string
+  visualType: string
+  visualStyle: string
+  isPrimary: boolean
+  isArchived: boolean
+  createdAt: string
+}
+
+interface CampaignContext {
+  campaignId?: string
+  campaignName?: string
+  campaignGoal?: string
+  campaignTone?: string
+  audience?: string
+  brandName?: string
+  brandToneWords?: string[]
+  primaryOffer?: string
+  industry?: string
+}
+
+interface VisualGeneratorProps {
+  context: CampaignContext
+  onVisualSaved?: (visual: Visual) => void
+}
+
+const VISUAL_STYLES: { value: VisualStyle; label: string; desc: string }[] = [
+  { value: 'Minimal', label: 'Minimal', desc: 'Clean space, refined' },
+  { value: 'Luxury', label: 'Luxury', desc: 'Premium, aspirational' },
+  { value: 'Cinematic', label: 'Cinematic', desc: 'Dramatic, film-like' },
+  { value: 'Bold', label: 'Bold', desc: 'High contrast, punchy' },
+  { value: 'Editorial', label: 'Editorial', desc: 'Magazine, artistic' },
+  { value: 'Elegant', label: 'Elegant', desc: 'Soft, sophisticated' },
+  { value: 'Premium', label: 'Premium', desc: 'Subtle, refined' },
+  { value: 'Corporate', label: 'Corporate', desc: 'Professional, clean' },
+  { value: 'Futuristic', label: 'Futuristic', desc: 'Tech-forward, neon' },
+  { value: 'Gen Z', label: 'Gen Z', desc: 'Vibrant, raw, playful' },
+]
+
+const VISUAL_TYPES: { value: VisualType; label: string; desc: string; icon: string }[] = [
+  { value: 'HERO', label: 'Hero Image', desc: 'Campaign header visual', icon: '🖼️' },
+  { value: 'SOCIAL_PREVIEW', label: 'Social Post', desc: 'Instagram / Facebook', icon: '📱' },
+  { value: 'AD_CREATIVE', label: 'Ad Creative', desc: 'Paid ads banner', icon: '📢' },
+  { value: 'THUMBNAIL', label: 'Thumbnail', desc: 'Video / content thumb', icon: '▶️' },
+]
+
+function GeneratingAnimation() {
+  const [frame, setFrame] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setFrame(f => (f + 1) % 4), 600)
+    return () => clearInterval(t)
+  }, [])
+
+  const bars = [0.4, 0.7, 1, 0.6, 0.9, 0.5, 0.8, 0.45, 0.75, 0.55]
+
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-8">
+      {/* Waveform animation */}
+      <div className="flex items-end gap-1 h-12 mb-6">
+        {bars.map((h, i) => (
+          <div
+            key={i}
+            className="w-1.5 bg-accent rounded-full transition-all duration-300"
+            style={{
+              height: `${((Math.sin((frame + i) * 0.8) + 1) / 2 * 0.6 + 0.4) * 48}px`,
+              opacity: 0.4 + ((Math.sin((frame + i) * 0.6) + 1) / 2) * 0.6,
+            }}
+          />
+        ))}
+      </div>
+      <div className="text-sm font-semibold text-white mb-1">Generating visual</div>
+      <div className="text-[11px] text-gray-500 text-center max-w-48">
+        Creating campaign-aligned imagery from your brand strategy…
+      </div>
+    </div>
+  )
+}
+
+function VisualCard({
+  visual,
+  onSetPrimary,
+  onArchive,
+  onRegenerate,
+}: {
+  visual: Visual
+  onSetPrimary: (id: string) => void
+  onArchive: (id: string) => void
+  onRegenerate: (visual: Visual) => void
+}) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (!visual.imageUrl) return
+    setDownloading(true)
+    try {
+      const res = await fetch(visual.imageUrl)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `nexus-visual-${visual.id.slice(0, 8)}.png`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { /* ignore */ }
+    setDownloading(false)
+  }
+
+  return (
+    <div className={`relative group bg-[#141414] border rounded-xl overflow-hidden transition-all ${
+      visual.isPrimary ? 'border-accent/60 ring-1 ring-accent/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'
+    }`}>
+      {/* Primary badge */}
+      {visual.isPrimary && (
+        <div className="absolute top-2 left-2 z-10 text-[10px] px-2 py-0.5 bg-accent text-white rounded font-semibold">
+          Primary
+        </div>
+      )}
+
+      {/* Image */}
+      <div className="aspect-video bg-[#0f0f0f] flex items-center justify-center">
+        {visual.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={visual.imageUrl}
+            alt="Generated visual"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="text-gray-700 text-sm">No image</div>
+        )}
+      </div>
+
+      {/* Metadata bar */}
+      <div className="px-3 py-2.5 flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-[11px] font-medium text-gray-300 truncate">
+            {visual.visualStyle} · {visual.visualType.replace('_', ' ')}
+          </div>
+          <div className="text-[10px] text-gray-600 mt-0.5">
+            {new Date(visual.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            title="Download"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M6 1v7M3 5.5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M1.5 10.5h9" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          <button
+            onClick={() => onRegenerate(visual)}
+            title="Regenerate from same strategy"
+            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M1.5 6a4.5 4.5 0 108.5-2" strokeLinecap="round" />
+              <path d="M10 2l.5 1.5L9 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+
+          {/* More menu */}
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen(o => !o)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                <circle cx="6" cy="2" r="1" />
+                <circle cx="6" cy="6" r="1" />
+                <circle cx="6" cy="10" r="1" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
+                <div className="absolute bottom-full right-0 mb-1 w-40 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-30 overflow-hidden py-1">
+                  {!visual.isPrimary && (
+                    <button
+                      onClick={() => { onSetPrimary(visual.id); setMenuOpen(false) }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 transition"
+                    >
+                      Set as primary
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { onArchive(visual.id); setMenuOpen(false) }}
+                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition"
+                  >
+                    Archive visual
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function VisualGenerator({ context, onVisualSaved }: VisualGeneratorProps) {
+  const { authHeader } = useAuth()
+  const [visuals, setVisuals] = useState<Visual[]>([])
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+  const [selectedType, setSelectedType] = useState<VisualType>('HERO')
+  const [selectedStyle, setSelectedStyle] = useState<VisualStyle>('Premium')
+  const [panelOpen, setPanelOpen] = useState(false)
+
+  const fetchVisuals = useCallback(async () => {
+    const token = authHeader()
+    if (!token) return
+    try {
+      const url = context.campaignId
+        ? `/api/visuals?campaignId=${context.campaignId}`
+        : '/api/visuals'
+      const res = await fetch(url, { headers: { Authorization: token } })
+      if (res.ok) {
+        const data = await res.json()
+        setVisuals(data.visuals || [])
+      }
+    } catch { /* ignore */ }
+    setLoading(false)
+  }, [authHeader, context.campaignId])
+
+  useEffect(() => {
+    fetchVisuals()
+  }, [fetchVisuals])
+
+  const handleGenerate = async (regenerateFrom?: Visual) => {
+    const token = authHeader()
+    if (!token) return
+    setGenerating(true)
+    setError('')
+    setPanelOpen(false)
+
+    try {
+      const res = await fetch('/api/visuals/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({
+          ...context,
+          visualType: selectedType,
+          visualStyle: selectedStyle,
+          parentId: regenerateFrom?.id || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Generation failed')
+
+      const newVisual = data.visual
+      setVisuals(prev => [newVisual, ...prev])
+      onVisualSaved?.(newVisual)
+    } catch (err: any) {
+      setError(err.message || 'Image generation failed. Please try again.')
+    }
+    setGenerating(false)
+  }
+
+  const handleSetPrimary = async (id: string) => {
+    const token = authHeader()
+    if (!token) return
+    await fetch(`/api/visuals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: token },
+      body: JSON.stringify({ isPrimary: true }),
+    })
+    setVisuals(prev => prev.map(v => ({ ...v, isPrimary: v.id === id })))
+  }
+
+  const handleArchive = async (id: string) => {
+    const token = authHeader()
+    if (!token) return
+    await fetch(`/api/visuals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: token },
+      body: JSON.stringify({ isArchived: true }),
+    })
+    setVisuals(prev => prev.filter(v => v.id !== id))
+  }
+
+  const handleRegenerate = (visual: Visual) => {
+    setSelectedStyle(visual.visualStyle as VisualStyle)
+    setSelectedType(visual.visualType as VisualType)
+    handleGenerate(visual)
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header + generate button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold text-white">Campaign Visuals</div>
+          <div className="text-[11px] text-gray-500 mt-0.5">
+            {visuals.length > 0 ? `${visuals.length} visual${visuals.length === 1 ? '' : 's'} generated` : 'No visuals yet'}
+          </div>
+        </div>
+        <button
+          onClick={() => setPanelOpen(o => !o)}
+          disabled={generating}
+          className="flex items-center gap-2 px-3.5 py-2 bg-accent hover:bg-accent-light disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M6 1v10M1 6h10" strokeLinecap="round" />
+          </svg>
+          Generate visual
+        </button>
+      </div>
+
+      {/* Generation panel */}
+      {panelOpen && !generating && (
+        <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-5 space-y-5">
+          <div className="text-xs font-semibold text-white mb-1">Creative direction</div>
+
+          {/* Visual type */}
+          <div>
+            <div className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-2">Visual type</div>
+            <div className="grid grid-cols-2 gap-2">
+              {VISUAL_TYPES.map(t => (
+                <button
+                  key={t.value}
+                  onClick={() => setSelectedType(t.value)}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition ${
+                    selectedType === t.value
+                      ? 'bg-accent/10 border-accent/50 text-white'
+                      : 'bg-[#141414] border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#333]'
+                  }`}
+                >
+                  <span className="text-base flex-shrink-0">{t.icon}</span>
+                  <div>
+                    <div className="text-[11px] font-semibold">{t.label}</div>
+                    <div className="text-[10px] text-gray-600">{t.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Visual style */}
+          <div>
+            <div className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-2">Aesthetic direction</div>
+            <div className="flex flex-wrap gap-2">
+              {VISUAL_STYLES.map(s => (
+                <button
+                  key={s.value}
+                  onClick={() => setSelectedStyle(s.value)}
+                  title={s.desc}
+                  className={`px-3 py-1.5 rounded-lg border text-[11px] font-medium transition ${
+                    selectedStyle === s.value
+                      ? 'bg-accent border-accent text-white'
+                      : 'bg-[#141414] border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#333]'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Context preview */}
+          <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3 text-[10px] text-gray-600 space-y-1">
+            <div className="text-[10px] font-semibold text-gray-500 mb-1.5">Strategy context (auto-applied)</div>
+            {context.campaignGoal && <div>Goal: <span className="text-gray-400">{context.campaignGoal}</span></div>}
+            {context.campaignTone && <div>Tone: <span className="text-gray-400">{context.campaignTone}</span></div>}
+            {context.brandName && <div>Brand: <span className="text-gray-400">{context.brandName}</span></div>}
+            {(context.brandToneWords || []).length > 0 && (
+              <div>Brand voice: <span className="text-gray-400">{context.brandToneWords?.slice(0, 3).join(', ')}</span></div>
+            )}
+          </div>
+
+          <button
+            onClick={() => handleGenerate()}
+            className="w-full py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-lg transition"
+          >
+            Generate with DALL·E 3 →
+          </button>
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-xs text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Generating state */}
+      {generating && (
+        <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl overflow-hidden">
+          <GeneratingAnimation />
+        </div>
+      )}
+
+      {/* Visuals grid */}
+      {!loading && visuals.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {visuals.map(v => (
+            <VisualCard
+              key={v.id}
+              visual={v}
+              onSetPrimary={handleSetPrimary}
+              onArchive={handleArchive}
+              onRegenerate={handleRegenerate}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && !generating && visuals.length === 0 && (
+        <div className="bg-[#111111] border border-[#1f1f1f] border-dashed rounded-xl py-12 text-center">
+          <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center mx-auto mb-3">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#6366f1" strokeWidth="1.5">
+              <rect x="2" y="2" width="14" height="14" rx="3" />
+              <circle cx="6.5" cy="6.5" r="1.5" />
+              <path d="M2 12l4.5-4 3.5 3.5 2.5-2.5L16 13" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div className="text-sm font-semibold text-gray-400 mb-1">No visuals yet</div>
+          <div className="text-[11px] text-gray-600 mb-4">
+            Generate campaign visuals from your brand strategy — no prompts required.
+          </div>
+          <button
+            onClick={() => setPanelOpen(true)}
+            className="text-[11px] font-semibold text-accent hover:underline"
+          >
+            Generate first visual →
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}

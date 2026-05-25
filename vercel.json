@@ -3,5 +3,16 @@
   "buildCommand": "npx prisma generate && next build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "regions": ["iad1"]
+  "regions": ["iad1"],
+  "functions": {
+    "src/app/api/visuals/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/generate/preview/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/generate/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }
