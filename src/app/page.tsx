@@ -256,10 +256,10 @@ export default function HomePage() {
       <footer className="border-t border-dark-tertiary">
         <div className="max-w-7xl mx-auto px-6 py-12 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-accent font-bold text-xl">NEXUS</div>
-          <p className="text-gray-500 text-sm">© 2024 NEXUS AI. All rights reserved.</p>
+          <p className="text-gray-500 text-sm">© {new Date().getFullYear()} NEXUS AI. All rights reserved.</p>
           <div className="flex gap-6 text-sm text-gray-500">
-            <a href="#" className="hover:text-white transition">Privacy</a>
-            <a href="#" className="hover:text-white transition">Terms</a>
+            <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
+            <Link href="/terms" className="hover:text-white transition">Terms</Link>
             <Link href="/auth/login" className="hover:text-white transition">Login</Link>
           </div>
         </div>
