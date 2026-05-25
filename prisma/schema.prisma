@@ -1,0 +1,649 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// USERS & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  passwordHash  String?
+  avatar        String?
+  phone         String?
+  
+  // Authentication
+  emailVerified DateTime?
+  lastLoginAt   DateTime?
+  
+  // Profile
+  role          UserRole   @default(USER)
+  industry      String?    // e.g., "ecommerce", "real_estate", "beauty"
+  company       String?
+  
+  // Subscription
+  subscriptionId     String?
+  subscriptionStatus SubscriptionStatus @default(FREE)
+  aiCredits          Int @default(0)
+  monthlyGenerations Int @default(0)
+  
+  // Preferences
+  preferences   Json?      // theme, notifications, etc.
+  
+  // Relations
+  workspaces    Workspace[]
+  sessions      Session[]
+  accounts      Account[]
+  uploadSessions UploadSession[]
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([email])
+  @@index([subscriptionStatus])
+}
+
+model Session {
+  id            String     @id @default(cuid())
+  sessionToken  String     @unique
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires       DateTime
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Account {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  provider      String     // "google", "github", etc.
+  providerAccountId String
+  
+  accessToken   String?    @db.Text
+  refreshToken  String?    @db.Text
+  idToken       String?    @db.Text
+  expiresAt     Int?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ============================================================================
+// WORKSPACES & PROJECTS
+// ============================================================================
+
+model Workspace {
+  id            String     @id @default(cuid())
+  name          String
+  slug          String     @unique
+  logo          String?
+  description   String?
+  
+  // Owner
+  ownerId       String
+  owner         User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Team
+  members       WorkspaceMember[]
+  
+  // Content
+  projects      Project[]
+  media         Media[]
+  campaigns     Campaign[]
+  uploadSessions UploadSession[]
+  exports       Export[]
+  integrations  Integration[]
+  
+  // Settings
+  settings      Json?      // branding, integrations, etc.
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([ownerId])
+  @@index([slug])
+}
+
+model WorkspaceMember {
+  id            String     @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  userId        String     // Email or actual user ID
+  role          MemberRole @default(MEMBER)
+  
+  invitedAt     DateTime   @default(now())
+  joinedAt      DateTime?
+  
+  @@unique([workspaceId, userId])
+}
+
+model Project {
+  id            String     @id @default(cuid())
+  name          String
+  description   String?
+  
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Business Info
+  businessType  String?    // "restaurant", "ecommerce", "salon", etc.
+  businessInfo  Json?      // { name, description, targetAudience, etc. }
+  
+  // Media
+  media         Media[]
+  uploadSessions UploadSession[]
+  
+  // Campaigns
+  campaigns     Campaign[]
+  
+  // Status
+  status        ProjectStatus @default(DRAFT)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([workspaceId])
+  @@index([status])
+}
+
+// ============================================================================
+// MEDIA & UPLOADS
+// ============================================================================
+
+model Media {
+  id            String     @id @default(cuid())
+  
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  projectId     String?
+  project       Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  fileName      String
+  type          MediaType  // "image", "video", "logo", "audio"
+  mimeType      String
+  
+  // Storage
+  url           String     // Cloudinary or S3 URL
+  cloudinaryId  String?
+  s3Key         String?
+  
+  // Metadata
+  width         Int?
+  height        Int?
+  duration      Int?       // For videos, in seconds
+  size          Int        // File size in bytes
+  
+  // Tagging
+  tags          String[]   @default([])
+  category      String?    // "product", "lifestyle", "logo", etc.
+  
+  // Usage
+  campaignId    String?
+  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  uploadSessionId String?
+  uploadSession UploadSession? @relation(fields: [uploadSessionId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([type])
+  @@index([campaignId])
+  @@index([uploadSessionId])
+}
+
+model UploadSession {
+  id            String     @id @default(cuid())
+  token         String     @unique
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projectId     String?
+  project       Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  campaignId    String?
+  campaign      Campaign?  @relation("CampaignUploadSessions", fields: [campaignId], references: [id], onDelete: SetNull)
+  resourceType  String?
+  fileName      String?
+  media         Media[]
+  expiresAt     DateTime
+  usedAt        DateTime?
+  status        UploadSessionStatus @default(PENDING)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([campaignId])
+  @@index([token])
+}
+
+model UploadAudit {
+  id            String     @id @default(cuid())
+  userId        String?
+  workspaceId   String?
+  projectId     String?
+  sessionId     String?
+  eventType     String
+  severity      String     @default("INFO")
+  ip            String?
+  metadata      Json?
+  createdAt     DateTime   @default(now())
+}
+
+enum UploadSessionStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  FAILED
+}
+
+// ============================================================================
+// CAMPAIGNS & GENERATIONS
+// ============================================================================
+
+model Campaign {
+  id            String     @id @default(cuid())
+  name          String
+  description   String?
+  
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  projectId     String
+  project       Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Campaign Configuration
+  goal          CampaignGoal   // "sales", "awareness", "leads", "traffic"
+  audience      String?        // Audience description
+  tone          BrandTone      // "luxury", "modern", "energetic", etc.
+  platforms     Platform[]     // ["tiktok", "instagram", "facebook"]
+  
+  // Media used
+  media         Media[]
+  
+  // AI Strategy
+  strategy      Json?          // AI-generated marketing strategy
+  concepts      AdConcept[]    // Generated concepts
+  analytics     Analytics?     @relation("AnalyticsToCampaign")
+  uploadSessions UploadSession[] @relation("CampaignUploadSessions")
+  
+  // Generations
+  generations   Generation[]
+  
+  // Performance
+  status        CampaignStatus @default(DRAFT)
+  publishedAt   DateTime?
+  performanceMetrics Json?     // views, clicks, conversions
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model AdConcept {
+  id            String     @id @default(cuid())
+  campaignId    String
+  campaign      Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  name          String
+  description   String
+  angle         String     // Marketing angle / hook
+  
+  script        String?    // Ad script
+  cta           String?    // Call-to-action
+  headlines     String[]   // Multiple headline variations
+  captions      String[]   // Platform-specific captions
+  
+  // AI generated
+  thinking      String?    // Claude's thinking process
+  
+  // Status
+  approved      Boolean    @default(false)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([campaignId])
+}
+
+model Generation {
+  id            String     @id @default(cuid())
+  campaignId    String
+  campaign      Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  type          GenerationType  // "video", "image", "audio", "post"
+  platform      Platform?       // "tiktok", "instagram", etc.
+  
+  // Generation Config
+  prompt        String     @db.Text
+  params        Json?      // dimensions, duration, style, etc.
+  
+  // Status
+  status        GenerationStatus @default(PENDING)
+  progress      Int @default(0)   // 0-100
+  
+  // Results
+  output        String?    // URL to generated content
+  metadata      Json?      // width, height, duration, etc.
+  
+  // Provider
+  provider      String?    // "runway", "replicate", "openai", etc.
+  externalId    String?    // Provider's job/prediction ID
+  
+  // Error handling
+  error         String?
+  retries       Int @default(0)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([campaignId])
+  @@index([status])
+  @@index([provider])
+}
+
+// ============================================================================
+// SUBSCRIPTIONS & BILLING
+// ============================================================================
+
+model Subscription {
+  id            String     @id @default(cuid())
+  
+  userId        String     @unique
+  
+  plan          PricingPlan     // "starter", "pro", "agency"
+  status        SubscriptionStatus
+  
+  stripeId      String?    @unique
+  customerId    String?    // Stripe customer ID
+  
+  // Pricing
+  amount        Int?       // in cents
+  currency      String     @default("usd")
+  billingCycle  BillingCycle @default(MONTHLY)
+  
+  // Limits
+  monthlyCredits     Int
+  monthlyExports     Int
+  maxTeamMembers     Int
+  
+  // Dates
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelledAt    DateTime?
+  
+  // Extra
+  metadata      Json?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model Usage {
+  id            String     @id @default(cuid())
+  
+  userId        String
+  month         Int        // Month (1-12)
+  year          Int        // Year
+  
+  aiCreditsUsed Int @default(0)
+  generationsCount Int @default(0)
+  exportsCount  Int @default(0)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@unique([userId, month, year])
+}
+
+// ============================================================================
+// ANALYTICS & EXPORTS
+// ============================================================================
+
+model Export {
+  id            String     @id @default(cuid())
+  
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  campaignId    String?    // Optional if exporting multiple
+  
+  format        ExportFormat   // "pdf", "video", "images", "zip"
+  type          String         // "full_campaign", "social_posts", "video_package"
+  
+  url           String?        // Download URL
+  status        ExportStatus   @default(PROCESSING)
+  
+  // Metadata
+  fileSize      Int?           // in bytes
+  itemsCount    Int @default(1)
+  
+  createdAt     DateTime   @default(now())
+  completedAt   DateTime?
+  expiresAt     DateTime?      // When download link expires
+  
+  @@index([workspaceId])
+}
+
+model Analytics {
+  id            String     @id @default(cuid())
+  
+  campaignId    String     @unique
+  campaign      Campaign   @relation("AnalyticsToCampaign", fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Social platform stats
+  platform      Platform
+  
+  views         Int @default(0)
+  clicks        Int @default(0)
+  conversions   Int @default(0)
+  shares        Int @default(0)
+  comments      Int @default(0)
+  
+  // Metrics
+  ctr           Float?     // Click-through rate
+  conversionRate Float?    // Conversion rate
+  cost          Float?     // In campaign currency
+  roi           Float?
+  
+  // Time
+  trackedFrom   DateTime
+  trackedTo     DateTime
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@index([campaignId])
+}
+
+// ============================================================================
+// INTEGRATIONS
+// ============================================================================
+
+model Integration {
+  id            String     @id @default(cuid())
+  
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  type          IntegrationType    // "meta", "tiktok", "youtube", "stripe"
+  status        IntegrationStatus  @default(DISCONNECTED)
+  
+  // Credentials
+  accessToken   String?    @db.Text
+  refreshToken  String?    @db.Text
+  accountId     String?
+  accountName   String?
+  
+  // Config
+  config        Json?
+  
+  lastSyncedAt  DateTime?
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  @@unique([workspaceId, type])
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRole {
+  ADMIN
+  USER
+  GUEST
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  LOGO
+  AUDIO
+}
+
+enum CampaignGoal {
+  SALES
+  AWARENESS
+  LEADS
+  TRAFFIC
+  ENGAGEMENT
+  BRAND_BUILDING
+}
+
+enum BrandTone {
+  LUXURY
+  MODERN
+  ENERGETIC
+  CORPORATE
+  MINIMAL
+  AGGRESSIVE_SALES
+  FRIENDLY
+  PROFESSIONAL
+}
+
+enum Platform {
+  TIKTOK
+  INSTAGRAM
+  FACEBOOK
+  YOUTUBE_SHORTS
+  SNAPCHAT
+  LINKEDIN
+  TWITTER
+  WEBSITE
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum GenerationType {
+  VIDEO
+  IMAGE
+  AUDIO
+  SOCIAL_POST
+  THUMBNAIL
+  STORYBOARD
+}
+
+enum GenerationStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum SubscriptionStatus {
+  FREE
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PricingPlan {
+  STARTER
+  PRO
+  AGENCY
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum ExportFormat {
+  PDF
+  VIDEO
+  IMAGES
+  ZIP
+  JSON
+}
+
+enum ExportStatus {
+  PROCESSING
+  READY
+  FAILED
+  EXPIRED
+}
+
+enum IntegrationType {
+  META
+  TIKTOK
+  YOUTUBE
+  STRIPE
+  CLOUDINARY
+  SLACK
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  EXPIRED
+}

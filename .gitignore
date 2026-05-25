@@ -1,1 +1,9 @@
+node_modules
+.next
 .env
+.env.local
+.env.production
+dist
+coverage
+prisma/dev.db
+/.vercel.env

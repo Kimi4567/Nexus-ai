@@ -1,7 +1,22 @@
 {
-  "functions": {
-    "api/*.{js,mjs}": {
-      "maxDuration": 120
-    }
+  "framework": "nextjs",
+  "buildCommand": "npx prisma generate && next build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "nodeVersion": "20.x",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@nexus_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@nexus_supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@nexus_supabase_service_role_key",
+    "DATABASE_URL": "@nexus_database_url",
+    "DIRECT_URL": "@nexus_direct_url",
+    "OPENAI_API_KEY": "@nexus_openai_api_key",
+    "STRIPE_SECRET_KEY": "@nexus_stripe_secret_key",
+    "STRIPE_WEBHOOK_SECRET": "@nexus_stripe_webhook_secret",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@nexus_stripe_publishable_key",
+    "CLOUDINARY_CLOUD_NAME": "@nexus_cloudinary_cloud_name",
+    "CLOUDINARY_API_KEY": "@nexus_cloudinary_api_key",
+    "CLOUDINARY_API_SECRET": "@nexus_cloudinary_api_secret"
   }
 }
