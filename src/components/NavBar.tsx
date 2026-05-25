@@ -23,7 +23,8 @@ export default function NavBar({ minimal = false }: NavBarProps) {
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
-    { href: '/campaign/new', label: 'New Campaign' },
+    { href: '/campaigns', label: 'Campaigns' },
+    { href: '/campaign/new', label: '+ New' },
     { href: '/media', label: 'Media' },
     { href: '/billing', label: 'Billing' },
     { href: '/settings', label: 'Settings' },

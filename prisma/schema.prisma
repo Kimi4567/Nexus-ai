@@ -291,17 +291,43 @@ model Campaign {
   // Generations
   generations   Generation[]
   
+  // Full AI output stored for history/detail view
+  aiOutput      Json?          // { strategy, concepts, generatedAt }
+
+  // User interactions
+  favorite      Boolean        @default(false)
+  lastViewedAt  DateTime?
+  thumbnail     String?        // emoji or hex color for visual identity
+
+  // Activity timeline
+  activities    CampaignActivity[]
+
   // Performance
   status        CampaignStatus @default(DRAFT)
   publishedAt   DateTime?
   performanceMetrics Json?     // views, clicks, conversions
-  
+
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  
+
   @@index([workspaceId])
   @@index([projectId])
   @@index([status])
+  @@index([favorite])
+  @@index([lastViewedAt])
+}
+
+model CampaignActivity {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  type        String   // "created", "generated", "viewed", "regenerated", "exported", "duplicated", "archived", "favorited"
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([createdAt])
 }
 
 model AdConcept {

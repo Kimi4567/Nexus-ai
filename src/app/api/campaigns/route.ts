@@ -1,106 +1,121 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/auth-utils'
-import { generateMarketingStrategy } from '@/lib/ai/strategy'
-import { generateAdConcepts } from '@/lib/ai/concepts'
+import { getServerUserId } from '@/lib/apiAuth'
 
-export async function POST(request: NextRequest) {
+// Helper — get or create default workspace+project for a user
+async function getOrCreateDefaultProject(userId: string): Promise<{ workspaceId: string; projectId: string } | null> {
   try {
-    const user = await requireAuth()
-    const data = await request.json()
-
-    const {
-      projectId,
-      name,
-      goal,
-      audience,
-      tone,
-      platforms,
-      mediaIds,
-    } = data
-
-    if (!projectId) {
-      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 })
+    let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
+    if (!workspace) {
+      workspace = await prisma.workspace.create({
+        data: { name: 'My Workspace', slug: `workspace-${userId.slice(0, 8)}-${Date.now()}`, ownerId: userId },
+      })
     }
-
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        workspace: {
-          ownerId: user.id,
-        },
-      },
-      include: {
-        workspace: true,
-      },
-    })
-
+    let project = await prisma.project.findFirst({ where: { workspaceId: workspace.id } })
     if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      project = await prisma.project.create({
+        data: { name: 'My Project', workspaceId: workspace.id },
+      })
     }
+    return { workspaceId: workspace.id, projectId: project.id }
+  } catch {
+    return null
+  }
+}
+
+// POST /api/campaigns — save a campaign with full AI output
+export async function POST(req: NextRequest) {
+  const userId = await getServerUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const body = await req.json()
+    const { name, goal, audience, tone, platforms, description, aiOutput } = body
+
+    if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
+
+    const ids = await getOrCreateDefaultProject(userId)
+    if (!ids) return NextResponse.json({ error: 'Could not create workspace' }, { status: 500 })
+
+    const THUMBNAILS = ['🚀', '⚡', '🎯', '🔥', '💡', '🌟', '📣', '🎪', '💎', '🎨']
+    const thumbnail = THUMBNAILS[Math.floor(Math.random() * THUMBNAILS.length)]
 
     const campaign = await prisma.campaign.create({
       data: {
         name,
-        goal,
-        audience,
-        tone,
-        platforms,
-        workspaceId: project.workspaceId,
-        projectId,
-        media: {
-          connect: mediaIds?.map((id: string) => ({ id })) || [],
+        description,
+        goal: goal || 'SALES',
+        audience: audience || '',
+        tone: tone || 'MODERN',
+        platforms: platforms || [],
+        workspaceId: ids.workspaceId,
+        projectId: ids.projectId,
+        status: 'DRAFT',
+        aiOutput: aiOutput || null,
+        thumbnail,
+        activities: {
+          create: {
+            type: 'created',
+            description: `Campaign "${name}" created and AI content generated`,
+          },
         },
       },
-      include: {
-        project: true,
-        media: true,
-      },
+      include: { activities: true },
     })
 
-    generateMarketingStrategy(campaign, project).catch(console.error)
-    generateAdConcepts(campaign, project).catch(console.error)
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { aiCredits: { decrement: 5 } },
-    })
-
-    return NextResponse.json({
-      id: campaign.id,
-      name: campaign.name,
-      status: campaign.status,
-      message: 'Campaign created. AI is generating strategy and concepts...',
-    })
-  } catch (error) {
-    console.error('Campaign creation error:', error)
-    return NextResponse.json({ error: 'Failed to create campaign' }, { status: 500 })
+    return NextResponse.json({ id: campaign.id, campaign })
+  } catch (err: any) {
+    console.error('[campaigns POST]', err)
+    return NextResponse.json({ error: err.message || 'Failed to save campaign' }, { status: 500 })
   }
 }
 
-export async function GET(request: NextRequest) {
+// GET /api/campaigns — list with search, filter, sort
+export async function GET(req: NextRequest) {
+  const userId = await getServerUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
-    const user = await requireAuth()
-    const { searchParams } = new URL(request.url)
-    const projectId = searchParams.get('projectId')
+    const { searchParams } = new URL(req.url)
+    const search = searchParams.get('search') || ''
+    const status = searchParams.get('status') || ''
+    const favorite = searchParams.get('favorite') === 'true'
+    const sort = searchParams.get('sort') || 'createdAt'
+    const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc'
+    const limit = parseInt(searchParams.get('limit') || '50')
+
+    const where: any = {
+      workspace: { ownerId: userId },
+      ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
+      ...(status ? { status } : {}),
+      ...(favorite ? { favorite: true } : {}),
+    }
 
     const campaigns = await prisma.campaign.findMany({
-      where: {
-        projectId: projectId || undefined,
-        workspace: {
-          ownerId: user.id,
-        },
+      where,
+      orderBy: { [sort]: order },
+      take: limit,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        goal: true,
+        audience: true,
+        tone: true,
+        platforms: true,
+        status: true,
+        favorite: true,
+        thumbnail: true,
+        lastViewedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { activities: true } },
       },
-      include: {
-        concepts: true,
-        generations: true,
-      },
-      orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(campaigns)
-  } catch (error) {
-    console.error('Campaign fetch error:', error)
-    return NextResponse.json({ error: 'Failed to fetch campaigns' }, { status: 500 })
+    return NextResponse.json({ campaigns })
+  } catch (err: any) {
+    console.error('[campaigns GET]', err)
+    return NextResponse.json({ campaigns: [] })
   }
 }

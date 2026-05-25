@@ -182,10 +182,11 @@ function downloadCampaign(result: CampaignResult) {
 
 export default function CampaignResultsPage() {
   const router = useRouter()
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, authHeader } = useAuth()
   const [result, setResult] = useState<CampaignResult | null>(null)
   const [activeTab, setActiveTab] = useState(0)
   const [calendarWeek, setCalendarWeek] = useState(0)
+  const [savedId, setSavedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -194,11 +195,39 @@ export default function CampaignResultsPage() {
     }
     const stored = sessionStorage.getItem('nexus_campaign_result')
     if (stored) {
-      setResult(JSON.parse(stored))
+      const parsed = JSON.parse(stored) as CampaignResult
+      setResult(parsed)
+      // Persist to DB (non-blocking) — give user a "view in history" link
+      const token = authHeader()
+      if (token && !sessionStorage.getItem('nexus_campaign_saved_id')) {
+        fetch('/api/campaigns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: token },
+          body: JSON.stringify({
+            name: parsed.campaign.name,
+            goal: parsed.campaign.goal,
+            audience: parsed.campaign.audience,
+            tone: parsed.campaign.tone,
+            platforms: parsed.campaign.platforms,
+            aiOutput: { strategy: parsed.strategy, concepts: parsed.concepts, generatedAt: parsed.generatedAt },
+          }),
+        })
+          .then(r => r.json())
+          .then(d => {
+            if (d.id) {
+              setSavedId(d.id)
+              sessionStorage.setItem('nexus_campaign_saved_id', d.id)
+            }
+          })
+          .catch(() => {})
+      } else {
+        const cachedId = sessionStorage.getItem('nexus_campaign_saved_id')
+        if (cachedId) setSavedId(cachedId)
+      }
     } else {
       router.push('/campaign/new')
     }
-  }, [loading, isAuthenticated, router])
+  }, [loading, isAuthenticated, router, authHeader])
 
   if (loading || !result) {
     return (
@@ -225,8 +254,13 @@ export default function CampaignResultsPage() {
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-accent text-sm font-semibold mb-2">
-                <span>✓</span> <span>AI Generation Complete</span>
+              <div className="flex items-center gap-3 text-sm font-semibold mb-2">
+                <span className="flex items-center gap-1 text-accent"><span>✓</span> AI Generation Complete</span>
+                {savedId && (
+                  <Link href={`/campaigns/${savedId}`} className="flex items-center gap-1 text-green-400 hover:text-green-300 transition">
+                    <span>💾</span> <span>Saved to History</span>
+                  </Link>
+                )}
               </div>
               <h1 className="text-3xl font-bold mb-1">{campaign.name}</h1>
               <div className="flex items-center gap-3 text-sm text-gray-400">

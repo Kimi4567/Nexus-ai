@@ -143,8 +143,8 @@ export default function RegisterPage() {
 
           <p className="text-center text-xs text-gray-500 mt-4">
             By signing up you agree to our{' '}
-            <a href="#" className="text-gray-400 hover:text-white">Terms</a>{' & '}
-            <a href="#" className="text-gray-400 hover:text-white">Privacy Policy</a>
+            <Link href="/terms" className="text-gray-400 hover:text-white">Terms</Link>{' & '}
+            <Link href="/privacy" className="text-gray-400 hover:text-white">Privacy Policy</Link>
           </p>
 
           <p className="text-center text-sm text-gray-400 mt-4">
