@@ -6,8 +6,8 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM = 'Nexus AI <hello@nexus-ai.co>'
-const REPLY_TO = 'support@nexus-ai.co'
+const FROM = 'Nexus AI <hello@nexus-grow.com>'
+const REPLY_TO = 'support@nexus-grow.com'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://nexus-ai.co'
 
