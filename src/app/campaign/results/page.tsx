@@ -23,7 +23,7 @@ interface Concept {
 interface Strategy {
   overview: string
   positioning: string
-  audience: string
+  audience: string | { demographics?: string; psychographics?: string }
   valueProps: string[]
   contentPillars: string[]
   angles: string[]
@@ -43,6 +43,26 @@ interface CampaignResult {
 const PLATFORM_ICONS: Record<string, string> = {
   INSTAGRAM: '📸', TIKTOK: '🎵', FACEBOOK: '👥',
   YOUTUBE_SHORTS: '▶️', LINKEDIN: '💼', SNAPCHAT: '👻',
+}
+
+// Normalize audience — OpenAI sometimes returns an object {demographics, psychographics} instead of a string
+function normalizeAudience(audience: any): string {
+  if (!audience) return 'General audience'
+  if (typeof audience === 'string') return audience
+  if (typeof audience === 'object') {
+    const parts: string[] = []
+    const stringify = (v: any): string => {
+      if (typeof v === 'string') return v
+      if (Array.isArray(v)) return v.join(', ')
+      if (typeof v === 'object') return Object.entries(v).map(([k, val]) => `${k}: ${val}`).join(', ')
+      return String(v)
+    }
+    if (audience.demographics) parts.push(stringify(audience.demographics))
+    if (audience.psychographics) parts.push(stringify(audience.psychographics))
+    if (parts.length === 0) return JSON.stringify(audience)
+    return parts.join('. ')
+  }
+  return String(audience)
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -103,7 +123,7 @@ function downloadCampaign(result: CampaignResult) {
   lines.push(strategy.positioning)
   lines.push('')
   lines.push('Target Audience:')
-  lines.push(strategy.audience)
+  lines.push(normalizeAudience(strategy.audience))
   lines.push('')
   lines.push('Value Propositions:')
   strategy.valueProps?.forEach((vp, i) => lines.push(`  ${i + 1}. ${vp}`))
@@ -188,6 +208,16 @@ export default function CampaignResultsPage() {
   const [calendarWeek, setCalendarWeek] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(null)
 
+  // Publish modal
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [socialAccounts, setSocialAccounts] = useState<any[]>([])
+  const [selectedIntegration, setSelectedIntegration] = useState<any>(null)
+  const [selectedPage, setSelectedPage] = useState<any>(null)
+  const [publishPlatform, setPublishPlatform] = useState<'FACEBOOK' | 'INSTAGRAM'>('FACEBOOK')
+  const [publishCaption, setPublishCaption] = useState('')
+  const [publishing, setPublishing] = useState(false)
+  const [publishResult, setPublishResult] = useState<{ ok: boolean; url?: string; error?: string } | null>(null)
+
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/auth/login')
@@ -228,6 +258,59 @@ export default function CampaignResultsPage() {
       router.push('/campaign/new')
     }
   }, [loading, isAuthenticated, router, authHeader])
+
+  const openPublishModal = async () => {
+    const token = authHeader()
+    if (!token) return
+    setPublishOpen(true)
+    setPublishResult(null)
+    // Pre-fill caption from first concept caption
+    if (result?.concepts?.[0]?.captions?.[0]) {
+      setPublishCaption(result.concepts[0].captions[0])
+    }
+    try {
+      const res = await fetch('/api/social/accounts', { headers: { Authorization: token } })
+      const data = await res.json()
+      const accounts = data.accounts || []
+      setSocialAccounts(accounts)
+      if (accounts.length > 0) {
+        setSelectedIntegration(accounts[0])
+        if (accounts[0].pages?.length > 0) setSelectedPage(accounts[0].pages[0])
+      }
+    } catch { setSocialAccounts([]) }
+  }
+
+  const handlePublish = async () => {
+    if (!selectedIntegration || !selectedPage || !publishCaption.trim()) return
+    const token = authHeader()
+    if (!token) return
+    setPublishing(true)
+    setPublishResult(null)
+    try {
+      const res = await fetch('/api/social/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({
+          integrationId: selectedIntegration.id,
+          pageId: selectedPage.id,
+          pageName: selectedPage.name,
+          caption: publishCaption,
+          platform: publishPlatform,
+          campaignId: savedId || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setPublishResult({ ok: true, url: data.platformUrl })
+      } else {
+        setPublishResult({ ok: false, error: data.error || 'Publish failed' })
+      }
+    } catch (err: any) {
+      setPublishResult({ ok: false, error: err.message })
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   if (loading || !result) {
     return (
@@ -276,6 +359,15 @@ export default function CampaignResultsPage() {
                 className="px-4 py-2 border border-accent/50 text-accent text-sm font-semibold rounded-lg hover:bg-accent hover:text-dark transition"
               >
                 ⬇ Export
+              </button>
+              <button
+                onClick={openPublishModal}
+                className="px-4 py-2 text-sm font-bold rounded-lg transition"
+                style={{ background: 'rgba(24,119,242,0.9)', color: '#fff' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(24,119,242,1)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(24,119,242,0.9)')}
+              >
+                📤 Publish
               </button>
               {platforms.map(p => (
                 <span key={p} className="px-3 py-1 bg-dark-secondary border border-dark-tertiary rounded-full text-sm">
@@ -346,7 +438,7 @@ export default function CampaignResultsPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-accent mb-3">👥 Target Audience</h3>
-                  <p className="text-gray-300 text-sm leading-relaxed">{strategy.audience}</p>
+                  <p className="text-gray-300 text-sm leading-relaxed">{normalizeAudience(strategy.audience)}</p>
                 </div>
               </div>
             </div>
@@ -634,6 +726,168 @@ export default function CampaignResultsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Publish Modal ─────────────────────────────────────────────── */}
+      {publishOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setPublishOpen(false); setPublishResult(null) }}
+          />
+
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-lg rounded-[18px] overflow-hidden"
+              style={{
+                background: '#111119',
+                border: '1px solid #1c1c28',
+                boxShadow: '0 8px 48px rgba(0,0,0,0.6), 0 32px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
+              }}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  <div className="font-bold text-lg">Publish to Social</div>
+                  <div className="text-xs text-t3 mt-0.5">Post directly from Nexus to your connected pages</div>
+                </div>
+                <button
+                  onClick={() => { setPublishOpen(false); setPublishResult(null) }}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-t3 hover:text-white hover:bg-white/5 transition text-lg"
+                >×</button>
+              </div>
+
+              <div className="p-6 space-y-5">
+
+                {/* No accounts connected */}
+                {socialAccounts.length === 0 && (
+                  <div className="text-center py-6">
+                    <div className="text-4xl mb-3">🔗</div>
+                    <p className="text-t2 text-sm mb-4">No social accounts connected yet.</p>
+                    <a href="/settings#connected" className="px-5 py-2.5 bg-accent text-dark font-bold rounded-lg text-sm hover:bg-accent-light transition inline-block">
+                      Connect Meta Account →
+                    </a>
+                  </div>
+                )}
+
+                {/* Accounts exist */}
+                {socialAccounts.length > 0 && !publishResult && (
+                  <>
+                    {/* Platform selector */}
+                    <div>
+                      <label className="block text-xs font-semibold text-t3 uppercase tracking-wider mb-2">Post to</label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: 'FACEBOOK' as const, label: '📘 Facebook', icon: '📘' },
+                          { value: 'INSTAGRAM' as const, label: '📸 Instagram', icon: '📸' },
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setPublishPlatform(opt.value)}
+                            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition border ${
+                              publishPlatform === opt.value
+                                ? 'bg-accent/10 border-accent/40 text-accent'
+                                : 'bg-s1 border-s4 text-t3 hover:border-s5 hover:text-t2'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Page selector */}
+                    {selectedIntegration && (
+                      <div>
+                        <label className="block text-xs font-semibold text-t3 uppercase tracking-wider mb-2">Page</label>
+                        <select
+                          value={selectedPage?.id || ''}
+                          onChange={e => {
+                            const p = selectedIntegration.pages.find((pg: any) => pg.id === e.target.value)
+                            setSelectedPage(p || null)
+                          }}
+                          className="w-full px-4 py-3 bg-s0 border border-s4 rounded-xl text-t1 focus:outline-none focus:border-accent/60 transition text-sm"
+                        >
+                          {selectedIntegration.pages.map((p: any) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Caption editor */}
+                    <div>
+                      <label className="block text-xs font-semibold text-t3 uppercase tracking-wider mb-2">Caption</label>
+                      <textarea
+                        value={publishCaption}
+                        onChange={e => setPublishCaption(e.target.value)}
+                        rows={5}
+                        placeholder="Write your caption here..."
+                        className="w-full px-4 py-3 bg-s0 border border-s4 rounded-xl text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition text-sm resize-none"
+                      />
+                      <div className="text-xs text-t4 text-right mt-1">{publishCaption.length} characters</div>
+                    </div>
+
+                    {publishPlatform === 'INSTAGRAM' && !selectedPage?.igAccountId && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 rounded-lg p-3 text-sm">
+                        ⚠️ This page has no linked Instagram Business Account. Switch to Facebook or link Instagram in Meta Business Suite.
+                      </div>
+                    )}
+
+                    {/* Publish button */}
+                    <button
+                      onClick={handlePublish}
+                      disabled={publishing || !selectedPage || !publishCaption.trim() || (publishPlatform === 'INSTAGRAM' && !selectedPage?.igAccountId)}
+                      className="w-full py-3 font-bold rounded-xl transition disabled:opacity-50 text-sm"
+                      style={{ background: 'rgba(24,119,242,0.9)', color: '#fff' }}
+                    >
+                      {publishing ? '⏳ Publishing…' : `📤 Publish to ${publishPlatform === 'FACEBOOK' ? 'Facebook' : 'Instagram'}`}
+                    </button>
+                  </>
+                )}
+
+                {/* Result */}
+                {publishResult && (
+                  <div className="text-center py-4">
+                    {publishResult.ok ? (
+                      <>
+                        <div className="text-4xl mb-3">🎉</div>
+                        <div className="text-white font-bold text-lg mb-2">Published successfully!</div>
+                        {publishResult.url && (
+                          <a href={publishResult.url} target="_blank" rel="noopener noreferrer"
+                            className="text-sm text-accent hover:underline">
+                            View post →
+                          </a>
+                        )}
+                        <button
+                          onClick={() => { setPublishOpen(false); setPublishResult(null) }}
+                          className="mt-4 block mx-auto px-6 py-2 bg-s3 hover:bg-s4 rounded-lg text-sm font-semibold text-t1 transition"
+                        >
+                          Done
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-4xl mb-3">❌</div>
+                        <div className="text-red-400 font-semibold mb-2">Publish failed</div>
+                        <div className="text-sm text-t3 mb-4">{publishResult.error}</div>
+                        <button
+                          onClick={() => setPublishResult(null)}
+                          className="px-6 py-2 bg-s3 hover:bg-s4 rounded-lg text-sm font-semibold text-t1 transition"
+                        >
+                          Try Again
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
     </AppShell>
   )
 }

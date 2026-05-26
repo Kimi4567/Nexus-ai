@@ -49,6 +49,7 @@ export default function BillingPage() {
   const [usage, setUsage] = useState<any>(null)
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
   const [annual, setAnnual] = useState(false)
+  const [billingNotice, setBillingNotice] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -70,15 +71,15 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else alert('Stripe not configured yet — add STRIPE_SECRET_KEY to .env.local')
+      else setBillingNotice('Stripe is not configured yet. Add STRIPE_SECRET_KEY to your environment to enable payments.')
     } catch {
-      alert('Billing not configured yet — add your Stripe keys to enable payments.')
+      setBillingNotice('Billing is not configured yet. Add your Stripe keys to enable payments.')
     } finally {
       setCheckingOut(null)
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="text-gray-400">Loading...</div></div>
+  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   const currentPlan = 'FREE'
@@ -87,7 +88,15 @@ export default function BillingPage() {
   return (
     <AppShell>
 
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      {/* Billing notice banner */}
+      {billingNotice && (
+        <div className="flex items-center justify-between gap-4 px-6 py-3 bg-yellow-500/10 border-b border-yellow-500/20 text-yellow-300 text-sm">
+          <span>⚠️ {billingNotice}</span>
+          <button onClick={() => setBillingNotice(null)} className="text-yellow-400 hover:text-yellow-200 font-bold px-2">✕</button>
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto px-6 py-12 page-enter">
 
         {/* Header */}
         <div className="mb-10">

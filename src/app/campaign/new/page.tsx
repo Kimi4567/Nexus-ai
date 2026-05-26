@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
 
@@ -48,19 +48,28 @@ interface FormData {
   platforms: string[]
 }
 
-export default function CreateCampaignPage() {
+function CreateCampaignInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { isAuthenticated, loading, authHeader } = useAuth()
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // Pre-fill from URL params (e.g. from Templates page)
+  const initialGoal = searchParams.get('goal') || 'SALES'
+  const initialPlatforms = searchParams.get('platforms')?.split(',').filter(Boolean) || ['INSTAGRAM']
+  const initialTemplate = searchParams.get('template') || ''
+
   const [form, setForm] = useState<FormData>({
-    name: '',
-    goal: 'SALES',
+    name: initialTemplate ? `${initialTemplate} Campaign` : '',
+    goal: GOALS.find(g => g.value === initialGoal) ? initialGoal : 'SALES',
     description: '',
     audience: '',
     tone: 'MODERN',
-    platforms: ['INSTAGRAM'],
+    platforms: initialPlatforms.filter(p => PLATFORMS.includes(p)).length
+      ? initialPlatforms.filter(p => PLATFORMS.includes(p))
+      : ['INSTAGRAM'],
   })
 
   useEffect(() => {
@@ -175,14 +184,14 @@ export default function CreateCampaignPage() {
     }
   }
 
-  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center text-gray-400">Loading...</div>
+  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   return (
     <AppShell>
 
       {/* Progress Steps */}
-      <div className="max-w-4xl mx-auto px-6 pt-8">
+      <div className="max-w-4xl mx-auto px-6 pt-8 page-enter">
         <div className="flex items-center gap-2 mb-10">
           {STEPS.map((s, i) => (
             <div key={s.id} className="flex items-center flex-1">
@@ -390,5 +399,13 @@ export default function CreateCampaignPage() {
         </div>
       </div>
     </AppShell>
+  )
+}
+
+export default function CreateCampaignPage() {
+  return (
+    <Suspense fallback={null}>
+      <CreateCampaignInner />
+    </Suspense>
   )
 }

@@ -64,7 +64,7 @@ Always respond with valid JSON only.`
 {
   "overview": "2-3 sentence executive summary of the campaign strategy",
   "positioning": "how to position the product/service in the market",
-  "audience": "detailed description of the target audience with psychographics",
+  "audience": "a single plain string describing the target audience including demographics and psychographics (NOT a nested object)",
   "valueProps": ["value prop 1", "value prop 2", "value prop 3", "value prop 4"],
   "contentPillars": ["pillar 1", "pillar 2", "pillar 3", "pillar 4"],
   "angles": ["content angle 1", "content angle 2", "content angle 3", "content angle 4", "content angle 5"],

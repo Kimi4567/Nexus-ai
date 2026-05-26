@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
+import AIPresenceBar from '@/components/AIPresenceBar'
 
 interface Activity {
   id: string
@@ -147,7 +148,8 @@ export default function CampaignDetailPage() {
 
   return (
     <AppShell>
-      <div className="max-w-4xl mx-auto px-8 py-8">
+      <AIPresenceBar authHeader={authHeader} />
+      <div className="max-w-4xl mx-auto px-8 py-8 page-enter">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <Link href="/dashboard" className="hover:text-white transition">Dashboard</Link>

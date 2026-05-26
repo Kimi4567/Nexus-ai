@@ -142,7 +142,7 @@ export default function CampaignsPage() {
     setActionMenuId(null)
   }
 
-  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center text-gray-400">Loading...</div>
+  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   const visibleCampaigns = campaigns.filter(c => statusFilter !== 'active' || c.status !== 'ARCHIVED')
@@ -150,12 +150,12 @@ export default function CampaignsPage() {
   return (
     <AppShell>
 
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="max-w-7xl mx-auto px-6 py-10 page-enter">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-1">Campaign History</h1>
-            <p className="text-gray-400 text-sm">Your marketing system lives here — {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''} total</p>
+            <p className="text-t2 text-sm">Your marketing system lives here — {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''} total</p>
           </div>
           <Link
             href="/campaign/new"
@@ -208,7 +208,7 @@ export default function CampaignsPage() {
           <div className="text-center py-24">
             <div className="text-6xl mb-4">🚀</div>
             <h2 className="text-2xl font-bold mb-2">No campaigns yet</h2>
-            <p className="text-gray-400 mb-8">Generate your first AI marketing campaign and it'll live here permanently.</p>
+            <p className="text-t2 mb-8">Generate your first AI marketing campaign and it'll live here permanently.</p>
             <Link href="/campaign/new" className="px-8 py-4 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition">
               Create Your First Campaign →
             </Link>
@@ -219,10 +219,17 @@ export default function CampaignsPage() {
         {fetching ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6 animate-pulse">
-                <div className="w-12 h-12 bg-dark-tertiary rounded-xl mb-4" />
-                <div className="h-5 bg-dark-tertiary rounded w-3/4 mb-3" />
-                <div className="h-3 bg-dark-tertiary rounded w-1/2" />
+              <div key={i} className="surface-card rounded-card p-6 space-y-4">
+                <div className="skeleton w-12 h-12 rounded-xl" />
+                <div className="space-y-2">
+                  <div className="skeleton h-4 w-3/4 rounded" />
+                  <div className="skeleton h-3 w-1/2 rounded" />
+                </div>
+                <div className="skeleton h-3 w-full rounded" />
+                <div className="flex gap-2">
+                  <div className="skeleton h-6 w-16 rounded-full" />
+                  <div className="skeleton h-6 w-16 rounded-full" />
+                </div>
               </div>
             ))}
           </div>
@@ -231,11 +238,11 @@ export default function CampaignsPage() {
             {visibleCampaigns.map(campaign => (
               <div
                 key={campaign.id}
-                className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6 hover:border-accent/40 transition group relative"
+                className="surface-card rounded-card p-6 hover:border-s5 hover:[border-color:rgba(99,102,241,0.3)] transition group relative"
               >
                 {/* Thumbnail + Actions */}
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-14 h-14 rounded-2xl bg-dark-tertiary flex items-center justify-center text-3xl">
+                  <div className="w-14 h-14 rounded-2xl bg-s3 flex items-center justify-center text-3xl">
                     {campaign.thumbnail || '🎯'}
                   </div>
                   <div className="flex items-center gap-2">
@@ -255,31 +262,33 @@ export default function CampaignsPage() {
                         ···
                       </button>
                       {actionMenuId === campaign.id && (
-                        <div className="absolute right-0 top-8 bg-dark border border-dark-tertiary rounded-xl shadow-xl z-20 min-w-[160px] overflow-hidden">
+                        <div className="absolute right-0 top-8 z-20 min-w-[160px] overflow-hidden rounded-[13px]"
+                          style={{ background: '#111119', border: '1px solid #1c1c28', boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                           <Link
                             href={`/campaigns/${campaign.id}`}
-                            className="block px-4 py-3 text-sm hover:bg-dark-secondary transition"
+                            className="block px-3 py-2 text-[12px] text-t2 hover:text-white hover:bg-white/5 rounded-[8px] mx-1 my-1 transition"
                           >
-                            👁 View Details
+                            View Details
                           </Link>
                           <button
                             onClick={() => duplicateCampaign(campaign.id)}
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-dark-secondary transition"
+                            className="w-full text-left px-3 py-2 text-[12px] text-t2 hover:text-white hover:bg-white/5 rounded-[8px] mx-1 transition"
                           >
-                            📋 Duplicate
+                            Duplicate
                           </button>
                           <button
                             onClick={() => archiveCampaign(campaign.id)}
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-dark-secondary transition text-yellow-400"
+                            className="w-full text-left px-3 py-2 text-[12px] text-amber-400 hover:bg-amber-500/8 rounded-[8px] mx-1 transition"
                           >
-                            📦 Archive
+                            Archive
                           </button>
+                          <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', margin: '4px 0' }} />
                           <button
                             onClick={() => deleteCampaign(campaign.id)}
                             disabled={deleting === campaign.id}
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-dark-secondary transition text-red-400"
+                            className="w-full text-left px-3 py-2 text-[12px] text-red-400 hover:bg-red-500/8 rounded-[8px] mx-1 mb-1 transition"
                           >
-                            {deleting === campaign.id ? '...' : '🗑 Delete'}
+                            {deleting === campaign.id ? 'Deleting…' : 'Delete'}
                           </button>
                         </div>
                       )}
@@ -315,7 +324,7 @@ export default function CampaignsPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-dark-tertiary">
+                <div className="flex items-center justify-between text-xs text-t3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                   <span>Created {timeAgo(campaign.createdAt)}</span>
                   {campaign.lastViewedAt && (
                     <span>Viewed {timeAgo(campaign.lastViewedAt)}</span>

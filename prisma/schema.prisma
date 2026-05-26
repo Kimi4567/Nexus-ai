@@ -112,7 +112,8 @@ model Workspace {
   integrations  Integration[]
   brandProfile  BrandProfile?
   visuals       GeneratedVisual[]
-  
+  socialPosts   SocialPost[]
+
   // Settings
   settings      Json?      // branding, integrations, etc.
   
@@ -589,10 +590,13 @@ model Integration {
   config        Json?
   
   lastSyncedAt  DateTime?
-  
+
+  // Published posts via this integration
+  socialPosts   SocialPost[]
+
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  
+
   @@unique([workspaceId, type])
 }
 
@@ -722,9 +726,17 @@ enum IntegrationType {
   META
   TIKTOK
   YOUTUBE
+  GOOGLE
   STRIPE
   CLOUDINARY
   SLACK
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
 }
 
 enum IntegrationStatus {
@@ -732,6 +744,51 @@ enum IntegrationStatus {
   DISCONNECTED
   ERROR
   EXPIRED
+}
+
+// ============================================================================
+// SOCIAL PUBLISHING
+// ============================================================================
+
+model SocialPost {
+  id            String     @id @default(cuid())
+
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId    String?
+
+  // Which integration / page this was published to
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  platform      IntegrationType   // META, TIKTOK, etc.
+  pageId        String?           // Facebook page ID or IG account ID
+  pageName      String?
+
+  // Content
+  caption       String     @db.Text
+  imageUrl      String?    // Optional attached image
+  link          String?    // Optional link in post
+
+  // Platform result
+  platformPostId String?   // ID returned by the platform after publishing
+  platformUrl   String?    // Direct URL to the post
+
+  // Status
+  status        SocialPostStatus @default(DRAFT)
+  errorMessage  String?
+
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([workspaceId])
+  @@index([campaignId])
+  @@index([integrationId])
+  @@index([status])
 }
 
 // ============================================================================

@@ -49,7 +49,7 @@ function SectionHeader({ title, description }: { title: string; description: str
   return (
     <div className="mb-5">
       <h2 className="text-sm font-semibold text-white">{title}</h2>
-      <p className="text-[12px] text-gray-500 mt-0.5">{description}</p>
+      <p className="text-[12px] text-t3 mt-0.5">{description}</p>
     </div>
   )
 }
@@ -77,7 +77,7 @@ function TagInput({
 
   return (
     <div>
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">{label}</label>
+      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
       {/* Suggestion pills */}
       {suggestions && suggestions.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
@@ -86,7 +86,7 @@ function TagInput({
               key={s}
               type="button"
               onClick={() => add(s)}
-              className="text-[11px] px-2.5 py-1 bg-[#1a1a1a] border border-[#2a2a2a] text-gray-500 rounded-full hover:text-white hover:border-[#3a3a3a] transition"
+              className="text-[11px] px-2.5 py-1 bg-s3 border border-s4 text-t3 rounded-full hover:text-white hover:border-s5 transition"
             >
               + {s}
             </button>
@@ -109,7 +109,7 @@ function TagInput({
         onChange={e => setInput(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) } }}
         placeholder={placeholder || 'Type and press Enter'}
-        className="w-full px-3 py-2 bg-[#141414] border border-[#2a2a2a] rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent/50 transition"
+        className="w-full px-3 py-2 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition"
       />
     </div>
   )
@@ -120,13 +120,13 @@ function TextArea({ label, value, onChange, placeholder, rows = 3 }: {
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">{label}</label>
+      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
         rows={rows}
-        className="w-full px-3 py-2.5 bg-[#141414] border border-[#2a2a2a] rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent/50 transition resize-none"
+        className="w-full px-3 py-2.5 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition resize-none"
       />
     </div>
   )
@@ -137,13 +137,13 @@ function TextField({ label, value, onChange, placeholder }: {
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">{label}</label>
+      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
       <input
         type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-3 py-2 bg-[#141414] border border-[#2a2a2a] rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none focus:border-accent/50 transition"
+        className="w-full px-3 py-2 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition"
       />
     </div>
   )
@@ -154,7 +154,7 @@ function PillSelect({ label, options, value, onChange }: {
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2">{label}</label>
+      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
       <div className="flex flex-wrap gap-2">
         {options.map(opt => (
           <button
@@ -164,7 +164,7 @@ function PillSelect({ label, options, value, onChange }: {
             className={`text-[11px] px-3 py-1.5 rounded-full border transition font-medium ${
               value === opt
                 ? 'bg-accent border-accent text-white'
-                : 'bg-[#141414] border-[#2a2a2a] text-gray-500 hover:text-white hover:border-[#3a3a3a]'
+                : 'bg-s1 border-s4 text-t3 hover:text-white hover:border-s5'
             }`}
           >
             {opt}
@@ -248,20 +248,20 @@ export default function BrandIntelligencePage() {
 
   return (
     <AppShell>
-      <div className="px-8 py-8 max-w-[900px]">
+      <div className="px-8 py-8 max-w-[900px] page-enter">
 
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-xl font-bold text-white mb-1">Brand Intelligence</h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-t3">
               Your brand memory — the AI reads this before every campaign to stay on-voice.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-[11px] text-gray-500 mb-1">Profile completion</div>
-              <div className="w-32 h-1.5 bg-[#1f1f1f] rounded-full overflow-hidden">
+              <div className="text-[11px] text-t3 mb-1">Profile completion</div>
+              <div className="w-32 h-1.5 bg-s3 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-accent rounded-full transition-all duration-500"
                   style={{ width: `${completionPct}%` }}
@@ -290,8 +290,8 @@ export default function BrandIntelligencePage() {
               onClick={() => setActiveSection(i)}
               className={`px-3.5 py-2 rounded-lg text-[12px] font-medium whitespace-nowrap transition ${
                 activeSection === i
-                  ? 'bg-[#1f1f1f] text-white'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'bg-s3 text-t1'
+                  : 'text-t3 hover:text-t2'
               }`}
             >
               {s}
@@ -304,7 +304,7 @@ export default function BrandIntelligencePage() {
 
           {/* Identity */}
           {activeSection === 0 && (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-6 space-y-5">
+            <div className="surface-card rounded-card p-6 space-y-5">
               <SectionHeader
                 title="Brand Identity"
                 description="The foundation of your brand — who you are and what you do."
@@ -325,7 +325,7 @@ export default function BrandIntelligencePage() {
 
           {/* Voice & Tone */}
           {activeSection === 1 && (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-6 space-y-6">
+            <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
                 title="Voice & Tone"
                 description="Define how your brand sounds. The AI will write in this voice for every campaign."
@@ -354,7 +354,7 @@ export default function BrandIntelligencePage() {
 
           {/* Audience */}
           {activeSection === 2 && (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-6 space-y-6">
+            <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
                 title="Target Audience"
                 description="Who are you speaking to? The more specific, the better the AI understands them."
@@ -397,7 +397,7 @@ export default function BrandIntelligencePage() {
 
           {/* Offer */}
           {activeSection === 3 && (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-6 space-y-6">
+            <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
                 title="Offer & Positioning"
                 description="What are you selling and why is it better? This shapes every campaign strategy."
@@ -432,7 +432,7 @@ export default function BrandIntelligencePage() {
 
           {/* Visual */}
           {activeSection === 4 && (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-6 space-y-6">
+            <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
                 title="Visual Identity"
                 description="Your aesthetic preferences — guides image and creative direction."
@@ -454,7 +454,7 @@ export default function BrandIntelligencePage() {
 
           {/* Memory */}
           {activeSection === 5 && (
-            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-6 space-y-6">
+            <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
                 title="Campaign Memory"
                 description="What has worked and what hasn't. The AI learns from your history."

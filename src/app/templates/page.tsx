@@ -23,7 +23,7 @@ export default function TemplatesPage() {
     if (!loading && !isAuthenticated) router.push('/auth/login')
   }, [loading, isAuthenticated, router])
 
-  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center text-gray-400">Loading...</div>
+  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   const useTemplate = (template: typeof TEMPLATES[0]) => {

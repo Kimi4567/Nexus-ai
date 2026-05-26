@@ -1,80 +1,62 @@
 'use client'
 
-import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import AppShell from '@/components/AppShell'
+import Link from 'next/link'
 
 export default function ImportsPage() {
-  const { isAuthenticated, loading, authHeader } = useAuth()
+  const { isAuthenticated, loading } = useAuth()
   const router = useRouter()
-  const [media, setMedia] = useState<any[]>([])
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) { router.push('/auth/login'); return }
+    if (!loading && !isAuthenticated) router.push('/auth/login')
   }, [loading, isAuthenticated, router])
 
-  useEffect(() => {
-    if (!isAuthenticated) return
-    ;(async () => {
-      try {
-        const token = authHeader()
-        const res = await fetch('/api/media', {
-          headers: token ? { Authorization: token } : {},
-        })
-        const data = await res.json()
-        if (data.media) setMedia(data.media)
-      } catch (err) {
-        // ignore
-      }
-    })()
-  }, [isAuthenticated, authHeader])
-
-  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center">Loading...</div>
+  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
-
-  const mockAssets = media.length ? media : [
-    { id: 'a1', name: 'Product Hero Video', type: 'video', size: '12MB' },
-    { id: 'a2', name: 'Logo Pack', type: 'image', size: '2.3MB' },
-    { id: 'a3', name: 'Caption Library', type: 'text', size: '120KB' },
-  ]
 
   return (
     <AppShell>
+      <div className="max-w-3xl mx-auto px-6 py-16 flex flex-col items-center text-center">
 
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <div className="bg-dark-secondary border border-dark-tertiary rounded-lg p-8">
-          <h1 className="text-3xl font-bold mb-4">Imports</h1>
-          <p className="text-gray-400 mb-6">Upload or import assets from third-party sources. For now, use the mock assets below to preview functionality.</p>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {mockAssets.map(asset => (
-              <div key={asset.id} className="bg-dark rounded-lg border border-dark-tertiary p-4">
-                <div className="font-semibold">{asset.name}</div>
-                <div className="text-sm text-gray-400">{asset.type} • {asset.size}</div>
-                <div className="mt-4 flex gap-2">
-                  <button className="px-3 py-2 bg-accent text-dark rounded-lg">Use</button>
-                  <button className="px-3 py-2 bg-dark-tertiary rounded-lg">Preview</button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8">
-            <label className="block text-sm font-medium mb-2">Upload New Asset (placeholder)</label>
-            <div className="flex gap-2">
-              <input type="file" className="bg-dark-tertiary rounded-md p-2" />
-              <button className="px-4 py-2 bg-accent text-dark rounded-md">Upload</button>
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <Link href="/dashboard">
-              <button className="px-4 py-2 bg-dark-tertiary rounded-md">Back to Dashboard</button>
-            </Link>
-          </div>
+        {/* Icon */}
+        <div className="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-6">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+            <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M8 12l4 4 4-4M12 4v12" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
+
+        <h1 className="text-2xl font-bold mb-2">Imports</h1>
+        <p className="text-gray-400 max-w-sm mb-8">
+          Import assets, captions, and brand materials from third-party sources like Google Drive, Dropbox, and Notion. Coming soon.
+        </p>
+
+        {/* Upcoming integrations */}
+        <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+          {[
+            { name: 'Google Drive', icon: '📁', status: 'Coming soon' },
+            { name: 'Dropbox', icon: '📦', status: 'Coming soon' },
+            { name: 'Notion', icon: '📝', status: 'Coming soon' },
+          ].map(i => (
+            <div key={i.name} className="bg-dark-secondary border border-dark-tertiary rounded-xl p-5 flex flex-col items-center gap-2">
+              <span className="text-3xl">{i.icon}</span>
+              <div className="font-semibold text-sm">{i.name}</div>
+              <div className="text-[11px] text-gray-500 bg-dark-tertiary px-2 py-0.5 rounded-full">{i.status}</div>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-sm text-gray-500 mb-4">
+          For now, upload assets directly via the{' '}
+          <Link href="/media" className="text-accent hover:underline">Media Library</Link>.
+        </p>
+
+        <Link href="/media" className="px-5 py-2.5 bg-accent text-dark rounded-lg font-semibold text-sm hover:bg-accent-light transition">
+          Go to Media Library
+        </Link>
+
       </div>
     </AppShell>
   )

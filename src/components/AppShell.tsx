@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Sidebar from './Sidebar'
 
 interface AppShellProps {
@@ -7,15 +8,20 @@ interface AppShellProps {
 }
 
 /**
- * AppShell — wraps every authenticated page with the persistent sidebar.
- * Usage: replace <NavBar /> + outer div with <AppShell>...</AppShell>
+ * AppShell — atmospheric authenticated layout.
+ * Owns sidebar collapse state so main content shifts correctly.
  */
 export default function AppShell({ children }: AppShellProps) {
+  const [collapsed, setCollapsed] = useState(false)
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex">
-      <Sidebar />
-      {/* Main content area — offset by sidebar width */}
-      <main className="flex-1 min-h-screen overflow-y-auto pl-56 transition-all duration-200">
+    <div className="min-h-screen bg-atmospheric flex">
+      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
+      <main
+        className={`flex-1 min-h-screen overflow-y-auto transition-all duration-200 ${
+          collapsed ? 'pl-16' : 'pl-56'
+        }`}
+      >
         {children}
       </main>
     </div>

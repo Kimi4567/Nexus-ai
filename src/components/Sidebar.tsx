@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
-import { useState } from 'react'
+import React from 'react'
 
+// ── Types ──────────────────────────────────────────────────────────────
 interface NavItem {
   href: string
   label: string
@@ -13,9 +14,15 @@ interface NavItem {
   badge?: string
 }
 
+interface SidebarProps {
+  collapsed: boolean
+  setCollapsed: (v: boolean | ((prev: boolean) => boolean)) => void
+}
+
+// ── Logo ───────────────────────────────────────────────────────────────
 function NexusLogo() {
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect width="28" height="28" rx="7" fill="#6366f1" />
       <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -23,40 +30,73 @@ function NexusLogo() {
   )
 }
 
+// ── Nav link — expanded ────────────────────────────────────────────────
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+  const isActive = pathname === item.href ||
+    (item.href !== '/dashboard' && pathname.startsWith(item.href))
 
   return (
     <Link
       href={item.href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 group relative ${
-        isActive
-          ? 'bg-white/10 text-white'
-          : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-      }`}
+      className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150 group
+        ${isActive
+          ? 'bg-white/8 text-white shadow-top-edge'
+          : 'text-[#7070849] hover:text-white hover:bg-white/4'
+        }`}
+      style={isActive ? {
+        background: 'rgba(255,255,255,0.07)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
+      } : {}}
     >
-      <span className={`text-base flex-shrink-0 transition-colors ${isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-90'}`}>
+      {/* Active left indicator */}
+      {isActive && (
+        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r-full" />
+      )}
+      <span className={`flex-shrink-0 transition-colors ${
+        isActive ? 'text-white' : 'text-[#505060] group-hover:text-[#9090a8]'
+      }`}>
         {item.icon}
       </span>
-      <span className="flex-1 leading-none">{item.label}</span>
+      <span className="flex-1 leading-none truncate">{item.label}</span>
       {item.badge && (
-        <span className="text-[10px] px-1.5 py-0.5 bg-accent/20 text-accent rounded font-semibold">
+        <span className="text-[9px] px-1.5 py-0.5 bg-accent/15 text-accent rounded-md font-bold uppercase tracking-wide">
           {item.badge}
         </span>
-      )}
-      {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r" />
       )}
     </Link>
   )
 }
 
-export default function Sidebar() {
+// ── Icon-only link — collapsed ─────────────────────────────────────────
+function NavIcon({ item, pathname }: { item: NavItem; pathname: string }) {
+  const isActive = pathname === item.href ||
+    (item.href !== '/dashboard' && pathname.startsWith(item.href))
+
+  return (
+    <Link
+      href={item.href}
+      title={item.label}
+      className={`flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150
+        ${isActive
+          ? 'text-white'
+          : 'text-[#464656] hover:text-[#9090a8] hover:bg-white/4'
+        }`}
+      style={isActive ? {
+        background: 'rgba(255,255,255,0.07)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
+      } : {}}
+    >
+      {item.icon}
+    </Link>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────
+export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
-  const [collapsed, setCollapsed] = useState(false)
-  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = React.useState(false)
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Account'
   const email = user?.email || ''
@@ -69,10 +109,9 @@ export default function Sidebar() {
 
   const mainNav: NavItem[] = [
     {
-      href: '/dashboard',
-      label: 'Dashboard',
+      href: '/dashboard', label: 'Dashboard',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
           <rect x="1" y="1" width="6" height="6" rx="1.5" />
           <rect x="9" y="1" width="6" height="6" rx="1.5" />
           <rect x="1" y="9" width="6" height="6" rx="1.5" />
@@ -81,19 +120,17 @@ export default function Sidebar() {
       ),
     },
     {
-      href: '/campaigns',
-      label: 'Campaigns',
+      href: '/campaigns', label: 'Campaigns',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M2 4h12M2 8h8M2 12h5" strokeLinecap="round" />
         </svg>
       ),
     },
     {
-      href: '/campaign/new',
-      label: 'New Campaign',
+      href: '/campaign/new', label: 'New Campaign',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="8" cy="8" r="6.5" />
           <path d="M8 5v6M5 8h6" strokeLinecap="round" />
         </svg>
@@ -103,21 +140,18 @@ export default function Sidebar() {
 
   const workNav: NavItem[] = [
     {
-      href: '/brand',
-      label: 'Brand Intelligence',
+      href: '/brand', label: 'Brand Intelligence', badge: 'New',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M8 1.5a6.5 6.5 0 100 13A6.5 6.5 0 008 1.5z" />
           <path d="M8 5v3l2 2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ),
-      badge: 'New',
     },
     {
-      href: '/media',
-      label: 'Media Library',
+      href: '/media', label: 'Media Library',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
           <circle cx="5.5" cy="5.5" r="1.5" />
           <path d="M1.5 10.5l3.5-3 3 3 2.5-2.5L14.5 11" strokeLinecap="round" strokeLinejoin="round" />
@@ -125,10 +159,9 @@ export default function Sidebar() {
       ),
     },
     {
-      href: '/templates',
-      label: 'Templates',
+      href: '/templates', label: 'Templates',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="1.5" width="5" height="5" rx="1" />
           <rect x="9.5" y="1.5" width="5" height="5" rx="1" />
           <rect x="1.5" y="9.5" width="13" height="5" rx="1" />
@@ -139,21 +172,18 @@ export default function Sidebar() {
 
   const bottomNav: NavItem[] = [
     {
-      href: '/billing',
-      label: 'Billing & Plans',
+      href: '/billing', label: 'Billing & Plans',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="4" width="13" height="9" rx="1.5" />
-          <path d="M1.5 7h13" strokeLinecap="round" />
-          <path d="M4.5 10.5h3" strokeLinecap="round" />
+          <path d="M1.5 7h13M4.5 10.5h3" strokeLinecap="round" />
         </svg>
       ),
     },
     {
-      href: '/settings',
-      label: 'Settings',
+      href: '/settings', label: 'Settings',
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="8" cy="8" r="2" />
           <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" strokeLinecap="round" />
         </svg>
@@ -164,137 +194,114 @@ export default function Sidebar() {
   if (!isAuthenticated) return null
 
   return (
-    <aside className={`fixed left-0 top-0 h-full z-30 flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
-      style={{ background: '#111111', borderRight: '1px solid #1f1f1f' }}
+    <aside
+      className={`fixed left-0 top-0 h-full z-30 flex flex-col transition-all duration-200 bg-sidebar
+        ${collapsed ? 'w-16' : 'w-56'}`}
     >
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/5 flex-shrink-0 ${collapsed ? 'justify-center px-2' : ''}`}>
+      <div className={`flex items-center gap-2.5 px-4 py-5 flex-shrink-0
+        ${collapsed ? 'justify-center px-0' : ''}`}
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+      >
         <NexusLogo />
         {!collapsed && (
-          <span className="font-bold text-white tracking-tight text-base">Nexus</span>
+          <span className="font-bold text-white tracking-tight text-[15px] leading-none">Nexus</span>
         )}
       </div>
 
-      {/* Scrollable nav area */}
+      {/* Scrollable nav */}
       <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
 
         {/* Main nav */}
         <div className="space-y-0.5">
-          {mainNav.map(item => (
-            collapsed ? (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                className={`flex items-center justify-center w-full h-9 rounded-lg text-base transition ${
-                  pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
-                    ? 'bg-white/10 text-white'
-                    : 'text-gray-500 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {item.icon}
-              </Link>
-            ) : (
-              <NavLink key={item.href} item={item} pathname={pathname} />
-            )
-          ))}
+          {mainNav.map(item => collapsed
+            ? <NavIcon key={item.href} item={item} pathname={pathname} />
+            : <NavLink key={item.href} item={item} pathname={pathname} />
+          )}
         </div>
 
-        {/* Work section */}
+        {/* Intelligence section */}
         {!collapsed && (
           <div>
-            <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest px-3 mb-2">Intelligence</p>
+            <div className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-2"
+              style={{ color: '#38383e' }}>
+              Intelligence
+            </div>
             <div className="space-y-0.5">
-              {workNav.map(item => (
-                <NavLink key={item.href} item={item} pathname={pathname} />
-              ))}
+              {workNav.map(item => <NavLink key={item.href} item={item} pathname={pathname} />)}
             </div>
           </div>
         )}
-
         {collapsed && (
           <div className="space-y-0.5">
-            {workNav.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                className={`flex items-center justify-center w-full h-9 rounded-lg text-base transition ${
-                  pathname.startsWith(item.href) ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                {item.icon}
-              </Link>
-            ))}
+            {workNav.map(item => <NavIcon key={item.href} item={item} pathname={pathname} />)}
           </div>
         )}
       </div>
 
       {/* Bottom section */}
-      <div className="flex-shrink-0 px-2 pb-4 space-y-0.5 border-t border-white/5 pt-3">
-        {/* Upgrade pill (only when not on billing page) */}
+      <div className="flex-shrink-0 px-2 pb-3 space-y-0.5"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}
+      >
+        {/* Upgrade pill */}
         {!collapsed && pathname !== '/billing' && (
-          <Link
-            href="/billing"
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-accent/10 hover:bg-accent/20 transition mb-2 group"
+          <Link href="/billing"
+            className="flex items-center gap-2 px-3 py-2 rounded-[9px] mb-2 group transition-all duration-150"
+            style={{
+              background: 'rgba(99,102,241,0.08)',
+              border: '1px solid rgba(99,102,241,0.14)',
+              boxShadow: 'inset 0 1px 0 rgba(99,102,241,0.10)',
+            }}
           >
-            <span className="text-accent text-base">⚡</span>
+            <span className="text-accent text-sm">⚡</span>
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-accent">Go Pro</div>
-              <div className="text-[10px] text-gray-500 truncate">Unlock all features</div>
+              <div className="text-[11px] font-semibold text-accent leading-none mb-0.5">Go Pro</div>
+              <div className="text-[10px] leading-none" style={{ color: '#5a5a6e' }}>Unlock everything</div>
             </div>
           </Link>
         )}
 
-        {bottomNav.map(item => (
-          collapsed ? (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={item.label}
-              className={`flex items-center justify-center w-full h-9 rounded-lg text-base transition ${
-                pathname === item.href ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              {item.icon}
-            </Link>
-          ) : (
-            <NavLink key={item.href} item={item} pathname={pathname} />
-          )
-        ))}
+        {/* Bottom nav links */}
+        {bottomNav.map(item => collapsed
+          ? <NavIcon key={item.href} item={item} pathname={pathname} />
+          : <NavLink key={item.href} item={item} pathname={pathname} />
+        )}
 
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(c => !c)}
-          className="flex items-center justify-center w-full h-9 rounded-lg text-gray-600 hover:text-gray-300 hover:bg-white/5 transition mt-1"
+          className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1"
+          style={{ color: '#505060' }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#9090a8')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#505060')}
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          <svg
-            width="14" height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
-          >
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor"
+            strokeWidth="1.5" strokeLinecap="round"
+            className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
             <path d="M9 2L4 7l5 5" />
           </svg>
         </button>
 
-        {/* User */}
-        <div className="relative mt-1">
+        {/* User menu */}
+        <div className="relative mt-0.5">
           <button
             onClick={() => setUserMenuOpen(o => !o)}
-            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition ${collapsed ? 'justify-center' : ''}`}
+            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150
+              hover:bg-white/4 ${collapsed ? 'justify-center' : ''}`}
           >
-            <div className="w-7 h-7 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-accent text-xs font-bold flex-shrink-0">
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+              style={{
+                background: 'rgba(99,102,241,0.15)',
+                border: '1px solid rgba(99,102,241,0.25)',
+                color: '#818cf8',
+              }}>
               {initial}
             </div>
             {!collapsed && (
               <div className="flex-1 text-left min-w-0">
-                <div className="text-xs font-semibold text-white truncate">{displayName}</div>
-                <div className="text-[10px] text-gray-500 truncate">{email}</div>
+                <div className="text-[12px] font-semibold truncate" style={{ color: '#e0e0f0' }}>{displayName}</div>
+                <div className="text-[10px] truncate" style={{ color: '#46464e' }}>{email}</div>
               </div>
             )}
           </button>
@@ -302,25 +309,46 @@ export default function Sidebar() {
           {userMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-              <div className="absolute bottom-full left-0 mb-2 w-48 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                <div className="px-3 py-2.5 border-b border-white/5">
-                  <div className="text-xs font-semibold text-white truncate">{displayName}</div>
-                  <div className="text-[10px] text-gray-500 truncate">{email}</div>
+              <div className="absolute bottom-full left-0 mb-2 w-52 z-50 rounded-[13px] overflow-hidden"
+                style={{
+                  background: '#111119',
+                  border: '1px solid #1c1c28',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+                  animation: 'slideDown 0.18s cubic-bezier(0.22,1,0.36,1) both',
+                }}
+              >
+                <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="text-[12px] font-semibold truncate text-white">{displayName}</div>
+                  <div className="text-[11px] truncate" style={{ color: '#46464e' }}>{email}</div>
                 </div>
-                <div className="py-1">
-                  <Link href="/settings" onClick={() => setUserMenuOpen(false)}
-                    className="block px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition">
-                    Settings
-                  </Link>
-                  <Link href="/billing" onClick={() => setUserMenuOpen(false)}
-                    className="block px-3 py-2 text-xs text-gray-300 hover:bg-white/5 hover:text-white transition">
-                    Billing
-                  </Link>
+                <div className="py-1.5 px-1">
+                  {[
+                    { href: '/settings', label: 'Settings' },
+                    { href: '/billing', label: 'Billing & Plans' },
+                  ].map(item => (
+                    <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all duration-100"
+                      style={{ color: '#9090a8' }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'
+                        ;(e.currentTarget as HTMLElement).style.color = '#ffffff'
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.background = 'transparent'
+                        ;(e.currentTarget as HTMLElement).style.color = '#9090a8'
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                 </div>
-                <div className="border-t border-white/5 py-1">
+                <div className="py-1.5 px-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                   <button
                     onClick={handleSignOut}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition"
+                    className="w-full text-left flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all duration-100"
+                    style={{ color: '#f87171' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
                     Sign out
                   </button>

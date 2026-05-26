@@ -2,137 +2,305 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ─── Base reset ────────────────────────────────────────────────────── */
 
-html {
-  scroll-behavior: smooth;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #09090e;
+  color: #f0f0f8;
 }
 
-/* Animations */
+/* ─── Motion keyframes ──────────────────────────────────────────────── */
+
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(10px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
-/* Scrollbar Styling */
-::-webkit-scrollbar {
+@keyframes slideDown {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes ambientPulse {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 0.7; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(99,102,241,0.10); }
+  50%       { box-shadow: 0 0 28px rgba(99,102,241,0.22); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-5px); }
+}
+
+@keyframes aiScan {
+  0%   { opacity: 0; transform: translateY(-4px); }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(4px); }
+}
+
+/* ─── Surface system ────────────────────────────────────────────────── */
+
+/* Base atmospheric card — top-lit, layered shadow */
+.surface-card {
+  background: #111119;
+  border: 1px solid #1c1c28;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 1px 3px rgba(0,0,0,0.5),
+    0 4px 16px rgba(0,0,0,0.22);
+  border-radius: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.surface-card:hover {
+  border-color: #252535;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 2px 8px rgba(0,0,0,0.5),
+    0 12px 32px rgba(0,0,0,0.28);
+}
+
+/* Elevated panel — heavier shadow, brighter edge */
+.surface-panel {
+  background: #0d0d15;
+  border: 1px solid #1c1c28;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.05),
+    0 4px 24px rgba(0,0,0,0.4),
+    0 24px 64px rgba(0,0,0,0.28);
+  border-radius: 18px;
+}
+
+/* Inset surface — slightly recessed feel */
+.surface-inset {
+  background: #0a0a11;
+  border: 1px solid #161622;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+  border-radius: 10px;
+}
+
+/* Accent-glowing element */
+.surface-accent {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(99,102,241,0.12),
+    0 0 20px rgba(99,102,241,0.08);
+  border-radius: 14px;
+}
+
+/* ─── Atmospheric backgrounds ───────────────────────────────────────── */
+
+/* Main app background — subtle radial accent at edges */
+.bg-atmospheric {
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 60%, rgba(99,102,241,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 85% 15%, rgba(99,102,241,0.03) 0%, transparent 55%),
+    #09090e;
+}
+
+/* Sidebar background — very subtle vertical depth */
+.bg-sidebar {
+  background:
+    linear-gradient(180deg, #0d0d16 0%, #09090e 100%);
+  border-right: 1px solid #161622;
+}
+
+/* Hero / landing background */
+.bg-hero {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(99,102,241,0.03) 0%, transparent 50%),
+    #09090e;
+}
+
+/* ─── Skeleton shimmer ──────────────────────────────────────────────── */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #141420 25%,
+    #1c1c2a 50%,
+    #141420 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.8s infinite linear;
+  border-radius: 7px;
+}
+
+/* ─── Page transitions ──────────────────────────────────────────────── */
+
+.page-enter {
+  animation: slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Staggered children */
+.stagger > * {
+  animation: slideUp 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 50ms; }
+.stagger > *:nth-child(3) { animation-delay: 100ms; }
+.stagger > *:nth-child(4) { animation-delay: 150ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 250ms; }
+
+/* ─── AI presence utilities ─────────────────────────────────────────── */
+
+/* Ambient glow behind AI elements */
+.ai-pulse {
+  position: relative;
+}
+.ai-pulse::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
+  pointer-events: none;
+  animation: ambientPulse 3.5s ease-in-out infinite;
+}
+
+/* Live indicator dot */
+.live-dot {
+  position: relative;
+  display: inline-flex;
   width: 8px;
   height: 8px;
 }
-
-::-webkit-scrollbar-track {
-  background: transparent;
+.live-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  opacity: 0.6;
+  transform: scale(1.8);
+}
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #4ade80;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.5);
-  border-radius: 4px;
+/* ─── Typography utilities ──────────────────────────────────────────── */
 
-  &:hover {
-    background: rgba(99, 102, 241, 0.8);
-  }
+.text-display {
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  color: #f0f0f8;
 }
 
-/* Selection */
-::selection {
-  background-color: rgba(99, 102, 241, 0.3);
-  color: #fff;
+.text-headline {
+  font-size: clamp(24px, 3vw, 36px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #f0f0f8;
 }
 
-/* Input Focus */
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: #6366f1;
+.text-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5a5a6e;
 }
 
-/* Button Reset */
-button {
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-/* Link Reset */
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* Container */
-.container {
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 1rem;
-
-  @media (min-width: 1024px) {
-    max-width: 80rem;
-  }
-}
-
-/* Glassmorphism */
-.glass {
-  background: rgba(10, 10, 10, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(99, 102, 241, 0.1);
-}
-
-/* Gradient Text */
+/* Gradient text — accent */
 .gradient-text {
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 60%, #a5b4fc 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Smooth Transitions */
+/* ─── Nav utilities ─────────────────────────────────────────────────── */
+
+.nav-blur {
+  background: rgba(9, 9, 14, 0.85);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ─── Interaction utilities ─────────────────────────────────────────── */
+
 .transition-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Loading State */
-.loading {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+button {
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: inherit;
+}
+button:disabled { cursor: not-allowed; opacity: 0.4; }
+
+a { color: inherit; text-decoration: none; }
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar          { width: 5px; height: 5px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: rgba(99,102,241,0.25); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.45); }
+
+/* ─── Selection ─────────────────────────────────────────────────────── */
+
+::selection {
+  background: rgba(99, 102, 241, 0.28);
+  color: #fff;
 }
 
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+/* ─── Focus ─────────────────────────────────────────────────────────── */
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: rgba(99,102,241,0.6);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
+
+/* ─── Glass ─────────────────────────────────────────────────────────── */
+
+.glass {
+  background: rgba(9, 9, 14, 0.7);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ─── Utility ───────────────────────────────────────────────────────── */
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
