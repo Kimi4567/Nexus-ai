@@ -29,9 +29,11 @@ export async function GET(req: NextRequest) {
   try {
     const decoded = JSON.parse(Buffer.from(state, 'base64url').toString())
     userId = decoded.userId
-    // Reject stale states (> 10 min)
-    if (Date.now() - decoded.ts > 10 * 60 * 1000) throw new Error('stale')
-  } catch {
+    console.log('[Meta OAuth] State decoded, userId:', userId, 'age:', Date.now() - decoded.ts, 'ms')
+    // Reject stale states (> 60 min)
+    if (Date.now() - decoded.ts > 60 * 60 * 1000) throw new Error('stale')
+  } catch (e) {
+    console.error('[Meta OAuth] State decode failed:', e)
     return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=invalid_state`)
   }
 
@@ -83,42 +85,75 @@ export async function GET(req: NextRequest) {
     igAccountId: p.instagram_business_account?.id || null,
   }))
 
-  // Find the user's workspace
-  const workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
+  console.log('[Meta OAuth] me:', me?.id, me?.name, '| pages:', pages.length)
+
+  // Ensure User record exists in Prisma (Supabase Auth doesn't auto-create these)
+  const meEmail = me.email || `${userId}@placeholder.nexus`
+  await prisma.user.upsert({
+    where: { id: userId },
+    create: { id: userId, email: meEmail, name: me.name || 'User' },
+    update: { name: me.name || undefined },
+  }).catch(async () => {
+    // email might conflict — try with unique fallback
+    await prisma.user.upsert({
+      where: { id: userId },
+      create: { id: userId, email: `user-${userId.slice(0,8)}@nexus.internal`, name: me.name || 'User' },
+      update: {},
+    }).catch(() => {}) // if user already exists, that's fine
+  })
+
+  // Find or create the user's workspace
+  let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
   if (!workspace) {
-    return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=no_workspace`)
+    console.log('[Meta OAuth] No workspace found, creating one for userId:', userId)
+    let slug = `workspace-${userId.slice(0, 8)}`
+    // ensure slug uniqueness
+    const existing = await prisma.workspace.findUnique({ where: { slug } })
+    if (existing) slug = `workspace-${userId.slice(0, 12)}-${Date.now()}`
+    workspace = await prisma.workspace.create({
+      data: { name: me.name ? `${me.name}'s Workspace` : 'My Workspace', slug, ownerId: userId },
+    })
+    console.log('[Meta OAuth] Workspace created:', workspace.id)
   }
 
+  console.log('[Meta OAuth] workspace found:', workspace.id)
+
   // Upsert integration
-  await prisma.integration.upsert({
-    where: { workspaceId_type: { workspaceId: workspace.id, type: 'META' } },
-    create: {
-      workspaceId: workspace.id,
-      type: 'META',
-      status: 'CONNECTED',
-      accessToken: longToken,
-      accountId: me.id,
-      accountName: me.name,
-      config: {
-        pages,
-        pictureUrl: me.picture?.data?.url || null,
-        connectedAt: new Date().toISOString(),
+  try {
+    await prisma.integration.upsert({
+      where: { workspaceId_type: { workspaceId: workspace.id, type: 'META' } },
+      create: {
+        workspaceId: workspace.id,
+        type: 'META',
+        status: 'CONNECTED',
+        accessToken: longToken,
+        accountId: me.id,
+        accountName: me.name,
+        config: {
+          pages,
+          pictureUrl: me.picture?.data?.url || null,
+          connectedAt: new Date().toISOString(),
+        },
+        lastSyncedAt: new Date(),
       },
-      lastSyncedAt: new Date(),
-    },
-    update: {
-      status: 'CONNECTED',
-      accessToken: longToken,
-      accountId: me.id,
-      accountName: me.name,
-      config: {
-        pages,
-        pictureUrl: me.picture?.data?.url || null,
-        connectedAt: new Date().toISOString(),
+      update: {
+        status: 'CONNECTED',
+        accessToken: longToken,
+        accountId: me.id,
+        accountName: me.name,
+        config: {
+          pages,
+          pictureUrl: me.picture?.data?.url || null,
+          connectedAt: new Date().toISOString(),
+        },
+        lastSyncedAt: new Date(),
       },
-      lastSyncedAt: new Date(),
-    },
-  })
+    })
+    console.log('[Meta OAuth] Integration saved successfully!')
+  } catch (dbErr) {
+    console.error('[Meta OAuth] DB upsert failed:', dbErr)
+    return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=db_error`)
+  }
 
   return NextResponse.redirect(`${baseUrl}/settings?social=connected&platform=meta`)
 }

@@ -60,8 +60,9 @@ export default function SettingsPage() {
       setSocialMessage('Connection was cancelled.')
       setTimeout(() => setSocialMessage(''), 3000)
     } else if (social === 'error') {
-      setSocialMessage('Connection failed. Please try again.')
-      setTimeout(() => setSocialMessage(''), 4000)
+      const msg = searchParams.get('msg') || 'unknown'
+      setSocialMessage(`Connection failed: ${msg}`)
+      setTimeout(() => setSocialMessage(''), 10000)
     }
   }, [searchParams])
 
