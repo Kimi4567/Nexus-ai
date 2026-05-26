@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
+import UpgradeGate from '@/components/UpgradeGate'
 
 const GOALS = [
   { value: 'SALES', label: 'Sales', icon: '💰', desc: 'Drive purchases and revenue' },
@@ -57,6 +58,7 @@ function CreateCampaignInner() {
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [showUpgradeGate, setShowUpgradeGate] = useState(false)
 
   // Pre-fill from URL params (e.g. from Templates page)
   const initialGoal = searchParams.get('goal') || 'SALES'
@@ -163,6 +165,14 @@ function CreateCampaignInner() {
       })
 
       const data = await res.json()
+
+      // Credit gate — show upgrade modal
+      if (res.status === 402 && data.error === 'NO_CREDITS') {
+        setShowUpgradeGate(true)
+        setSubmitting(false)
+        return
+      }
+
       if (!res.ok) throw new Error(data.error || 'Generation failed')
 
       // Store results in sessionStorage and redirect to results page
@@ -191,6 +201,16 @@ function CreateCampaignInner() {
 
   return (
     <AppShell>
+
+      {/* Upgrade Gate Modal */}
+      {showUpgradeGate && (
+        <UpgradeGate
+          feature="You've used all your free AI credits"
+          description="Your 3 free campaign generations are used up. Upgrade to Pro for unlimited AI campaigns, content calendars, and scheduling."
+          onClose={() => setShowUpgradeGate(false)}
+          inline={false}
+        />
+      )}
 
       {/* Progress Steps */}
       <div className="max-w-4xl mx-auto px-6 pt-8 page-enter">
@@ -353,6 +373,11 @@ function CreateCampaignInner() {
 
               <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 text-sm text-accent">
                 🤖 NEXUS AI will generate your complete marketing strategy, ad concepts, hooks, captions, and CTAs automatically.
+              </div>
+
+              <div className="bg-dark rounded-lg p-3 flex items-center justify-between text-xs text-gray-500">
+                <span>⚡ AI Credit Cost</span>
+                <span className="font-semibold text-gray-300">10 credits per generation</span>
               </div>
 
               {error && (

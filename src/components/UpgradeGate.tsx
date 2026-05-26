@@ -26,7 +26,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
           style={{ boxShadow: '0 0 16px rgba(99,102,241,0.3)' }}>
           Upgrade to Pro →
         </Link>
-        <div className="mt-3 text-xs text-gray-600">From $29/month · Cancel anytime</div>
+        <div className="mt-3 text-xs text-gray-600">From $79/month · Cancel anytime</div>
       </div>
     )
   }

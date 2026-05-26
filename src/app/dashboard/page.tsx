@@ -217,6 +217,8 @@ export default function Dashboard() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [hasBrand, setHasBrand] = useState(false)
   const [dataLoading, setDataLoading] = useState(true)
+  const [aiCredits, setAiCredits] = useState<number | null>(null)
+  const [isPaidUser, setIsPaidUser] = useState(false)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -227,10 +229,11 @@ export default function Dashboard() {
     if (!token) return
     setDataLoading(true)
     try {
-      const [overviewRes, campaignsRes, brandRes] = await Promise.allSettled([
+      const [overviewRes, campaignsRes, brandRes, billingRes] = await Promise.allSettled([
         fetch('/api/analytics/overview', { headers: { Authorization: token } }),
         fetch('/api/campaigns?sort=updatedAt&limit=8', { headers: { Authorization: token } }),
         fetch('/api/brand', { headers: { Authorization: token } }),
+        fetch('/api/billing/status', { headers: { Authorization: token } }),
       ])
       if (overviewRes.status === 'fulfilled' && overviewRes.value.ok) {
         setOverview(await overviewRes.value.json())
@@ -242,6 +245,11 @@ export default function Dashboard() {
       if (brandRes.status === 'fulfilled' && brandRes.value.ok) {
         const d = await brandRes.value.json()
         setHasBrand(!!(d.brandProfile?.brandName || d.brandProfile?.toneKeywords?.length))
+      }
+      if (billingRes.status === 'fulfilled' && billingRes.value.ok) {
+        const d = await billingRes.value.json()
+        setAiCredits(d.credits ?? null)
+        setIsPaidUser(d.status === 'ACTIVE')
       }
     } catch (err) {
       console.error('Dashboard fetch error', err)
@@ -306,7 +314,11 @@ export default function Dashboard() {
             icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M7 1.5L8.5 5H12l-2.8 2 1.1 3.5L7 8.5l-3.3 2 1.1-3.5L2 5h3.5z" strokeLinecap="round" strokeLinejoin="round" /></svg>} />
           <StatCard label="Exports" value={overview?.exportsCount ?? '—'} sub="packages delivered" loading={dataLoading}
             icon={<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2.5 9.5v2h9v-2M7 1.5v7M4.5 6l2.5 2.5L9.5 6" strokeLinecap="round" strokeLinejoin="round" /></svg>} />
-          <StatCard label="Plan" value="Free" sub="Upgrade for more" loading={false} accent
+          <StatCard
+            label="AI Credits"
+            value={isPaidUser ? '∞' : (aiCredits !== null ? String(aiCredits) : '—')}
+            sub={isPaidUser ? 'Unlimited · Pro' : 'remaining · Free'}
+            loading={dataLoading} accent
             icon="⚡" />
         </div>
 
@@ -447,6 +459,29 @@ export default function Dashboard() {
             )}
             {dataLoading && <div className="skeleton h-32 rounded-xl" />}
 
+            {/* AI Credits Widget */}
+            {!isPaidUser && aiCredits !== null && (
+              <div className="surface-card rounded-card p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] font-semibold text-t3 uppercase tracking-widest">AI Credits</div>
+                  <span className="text-[11px] font-bold text-white">{aiCredits} left</span>
+                </div>
+                <div className="w-full h-1.5 bg-s3 rounded-full overflow-hidden mb-3">
+                  <div
+                    className={`h-1.5 rounded-full transition-all duration-700 ${aiCredits <= 10 ? 'bg-red-400' : aiCredits <= 20 ? 'bg-amber-400' : 'bg-accent'}`}
+                    style={{ width: `${Math.min(100, (aiCredits / 30) * 100)}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-t3 mb-3">{Math.floor(aiCredits / 10)} generation{Math.floor(aiCredits / 10) !== 1 ? 's' : ''} remaining · 10 credits each</div>
+                {aiCredits < 20 && (
+                  <Link href="/billing"
+                    className="block text-center text-[11px] font-semibold text-white py-2 rounded-lg bg-accent hover:bg-accent-light transition">
+                    Upgrade for unlimited →
+                  </Link>
+                )}
+              </div>
+            )}
+
             {/* Upgrade */}
             <Link href="/billing"
               className="group block surface-card rounded-card p-5 transition-all duration-150 hover:border-accent/30">
@@ -454,7 +489,7 @@ export default function Dashboard() {
                 <span className="text-accent text-sm">⚡</span>
                 <span className="text-[12px] font-semibold text-t1">Go Pro</span>
               </div>
-              <div className="text-[11px] text-t3 mb-3">Remove limits on campaigns, AI credits, and visual generation.</div>
+              <div className="text-[11px] text-t3 mb-3">Unlimited campaigns, AI credits, and visual generation.</div>
               <div className="text-[11px] font-semibold text-accent group-hover:text-accent-light transition">See plans →</div>
             </Link>
 
