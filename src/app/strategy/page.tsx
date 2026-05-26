@@ -84,7 +84,7 @@ export default function StrategyPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-6 py-10 page-enter">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter">
 
         {/* Header */}
         <div className="mb-8">
@@ -340,11 +340,11 @@ export default function StrategyPage() {
                         <p className="text-sm text-gray-300">{strategy.budget.organic}</p>
                       </div>
                       <div>
-                        <div className="text-xs font-bold uppercase tracking-wider text-blue-400 mb-2">Paid / Boost</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">Paid / Boost</div>
                         <p className="text-sm text-gray-300">{strategy.budget.paid}</p>
                       </div>
                       <div>
-                        <div className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-2">Recommended Tools</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-t2 mb-2">Recommended Tools</div>
                         <div className="space-y-1">
                           {strategy.budget.tools?.map((tool, i) => (
                             <div key={i} className="text-sm text-gray-300 flex items-center gap-1.5">

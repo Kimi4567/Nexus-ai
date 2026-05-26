@@ -174,7 +174,7 @@ export default function SchedulePage() {
             { label: 'Published', value: published.length, color: 'text-green-400' },
             { label: 'Failed', value: failed.length, color: 'text-red-400' },
           ].map(s => (
-            <div key={s.label} className="rounded-xl border border-[#1e1e2e] bg-[#111119] p-4">
+            <div key={s.label} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-4">
               <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
               <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
             </div>
@@ -202,7 +202,7 @@ export default function SchedulePage() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">Scheduled Queue</h2>
             <div className="space-y-3">
               {scheduled.map(post => (
-                <div key={post.id} className="rounded-xl border border-[#1e1e2e] bg-[#111119] p-5 flex items-start gap-4">
+                <div key={post.id} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5 flex items-start gap-4">
                   <div className="text-2xl shrink-0">{PLATFORM_ICONS[post.platform] || '📱'}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -220,7 +220,7 @@ export default function SchedulePage() {
                   <button
                     onClick={() => handleDelete(post.id)}
                     disabled={deletingId === post.id}
-                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-[#1e1e2e] text-gray-600 hover:text-red-400 hover:border-red-400/30 transition-all disabled:opacity-40">
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-dark-tertiary text-gray-600 hover:text-red-400 hover:border-red-400/30 transition-all disabled:opacity-40">
                     {deletingId === post.id ? '...' : 'Cancel'}
                   </button>
                 </div>
@@ -235,7 +235,7 @@ export default function SchedulePage() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">Published</h2>
             <div className="space-y-3">
               {published.slice(0, 5).map(post => (
-                <div key={post.id} className="rounded-xl border border-[#1e1e2e] bg-[#111119] p-5 flex items-start gap-4">
+                <div key={post.id} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5 flex items-start gap-4">
                   <div className="text-2xl shrink-0">{PLATFORM_ICONS[post.platform] || '📱'}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -276,7 +276,7 @@ export default function SchedulePage() {
                     )}
                   </div>
                   <button onClick={() => handleDelete(post.id)}
-                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-[#1e1e2e] text-gray-600 hover:text-red-400 transition-all">
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-dark-tertiary text-gray-600 hover:text-red-400 transition-all">
                     Dismiss
                   </button>
                 </div>
@@ -287,7 +287,7 @@ export default function SchedulePage() {
 
         {/* Empty state */}
         {!loadingData && posts.length === 0 && (
-          <div className="rounded-2xl border border-[#1e1e2e] bg-[#111119] p-12 text-center">
+          <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-12 text-center">
             <div className="text-4xl mb-4">📅</div>
             <h2 className="font-bold text-white mb-2">Nothing scheduled yet</h2>
             <p className="text-sm text-gray-500 mb-6">Schedule your first post and Nexus will auto-publish it at the right time.</p>
@@ -314,11 +314,11 @@ export default function SchedulePage() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
-          <div className="w-full max-w-lg rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] overflow-hidden"
+          <div className="w-full max-w-lg rounded-2xl border border-dark-tertiary bg-dark overflow-hidden"
             style={{ boxShadow: '0 0 80px rgba(0,0,0,0.5)' }}>
 
             {/* Modal header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e1e2e]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-tertiary">
               <h2 className="font-bold text-white">Schedule a Post</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-600 hover:text-white transition-all text-xl">×</button>
             </div>
@@ -332,7 +332,7 @@ export default function SchedulePage() {
                   onChange={e => setCaption(e.target.value)}
                   placeholder="Write your post caption..."
                   rows={4}
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all resize-none"
                   autoFocus
                 />
                 <div className="text-right text-xs text-gray-600 mt-1">{caption.length}/2200</div>
@@ -352,7 +352,7 @@ export default function SchedulePage() {
                       setSelectedIntegration(e.target.value)
                       setSelectedPage('')
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
                   >
                     <option value="">Select account...</option>
                     {integrations.map(i => (
@@ -375,7 +375,7 @@ export default function SchedulePage() {
                       setSelectedPageName(page?.name || '')
                       setSelectedPlatform(page?.type === 'instagram' ? 'INSTAGRAM' : 'FACEBOOK')
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
                   >
                     <option value="">Select page...</option>
                     {getPages(selectedIntegration).map((p: any) => (
@@ -393,7 +393,7 @@ export default function SchedulePage() {
                   value={scheduledAt}
                   min={minDateTime}
                   onChange={e => setScheduledAt(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
                 />
               </div>
 
@@ -407,15 +407,15 @@ export default function SchedulePage() {
                   value={imageUrl}
                   onChange={e => setImageUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all"
                 />
               </div>
             </div>
 
             {/* Modal footer */}
-            <div className="flex gap-3 px-6 py-4 border-t border-[#1e1e2e]">
+            <div className="flex gap-3 px-6 py-4 border-t border-dark-tertiary">
               <button onClick={() => setShowModal(false)}
-                className="flex-1 py-3 border border-[#1e1e2e] text-gray-400 hover:text-white rounded-xl text-sm font-medium transition-all">
+                className="flex-1 py-3 border border-dark-tertiary text-gray-400 hover:text-white rounded-xl text-sm font-medium transition-all">
                 Cancel
               </button>
               <button

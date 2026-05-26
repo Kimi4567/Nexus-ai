@@ -335,7 +335,7 @@ export default function CampaignResultsPage() {
 
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-accent/20 via-accent/10 to-transparent border-b border-accent/20">
-        <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-3 text-sm font-semibold mb-2">
@@ -383,7 +383,7 @@ export default function CampaignResultsPage() {
 
       {/* Stats Bar */}
       <div className="border-b border-dark-tertiary bg-dark/50">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Ad Concepts', value: String(concepts.length), icon: '💡' },
@@ -405,7 +405,7 @@ export default function CampaignResultsPage() {
 
       {/* Tab Nav */}
       <div className="sticky top-[65px] z-30 bg-dark/90 backdrop-blur border-b border-dark-tertiary">
-        <div className="max-w-6xl mx-auto px-6">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex gap-1 overflow-x-auto py-2">
             {tabs.map((tab, i) => (
               <button
@@ -421,7 +421,7 @@ export default function CampaignResultsPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
         {/* TAB 0: STRATEGY */}
         {activeTab === 0 && (

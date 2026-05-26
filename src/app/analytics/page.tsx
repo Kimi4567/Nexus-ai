@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-6 py-10 page-enter">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
