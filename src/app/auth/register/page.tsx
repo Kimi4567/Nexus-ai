@@ -23,6 +23,12 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       await signup(email, password, { name })
+      // Fire welcome email (non-blocking — never fails registration)
+      fetch('/api/auth/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name }),
+      }).catch(() => {})
       setDone(true)
     } catch (err: any) {
       const msg = err?.message || ''

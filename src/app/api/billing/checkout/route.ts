@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const planConfig = PLANS[planKey]
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
     // Get or create Stripe customer
     let stripeCustomerId: string | undefined

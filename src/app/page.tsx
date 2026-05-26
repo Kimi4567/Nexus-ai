@@ -172,25 +172,25 @@ function CapCard({ icon, title, body }: { icon: React.ReactNode; title: string; 
 const PLANS = [
   {
     name: 'Starter',
-    price: '$19',
-    desc: 'For solo founders and small teams',
-    features: ['10 campaigns / month', '100 AI generations', 'Brand memory', 'All platforms', 'Email support'],
-    cta: 'Start free trial',
+    price: '$29',
+    desc: 'For solo founders and small brands',
+    features: ['50 AI credits / month', '3 campaigns / month', 'Brand memory', 'PDF exports', 'Email support'],
+    cta: 'Get started free',
     highlight: false,
   },
   {
     name: 'Pro',
-    price: '$49',
+    price: '$79',
     desc: 'For growing brands that ship daily',
-    features: ['Unlimited campaigns', '500 AI generations', 'Visual generation', 'PDF exports', 'Priority support'],
-    cta: 'Start free trial',
+    features: ['200 AI credits / month', 'Unlimited campaigns', 'Social publishing', 'Weekly strategy brief', 'Priority support'],
+    cta: 'Start with Pro',
     highlight: true,
   },
   {
     name: 'Agency',
-    price: '$149',
+    price: '$199',
     desc: 'For agencies managing multiple clients',
-    features: ['Unlimited everything', 'Multiple workspaces', 'Team collaboration', 'White-label exports', 'API access'],
+    features: ['Unlimited AI credits', 'Unlimited campaigns', '10 workspaces', 'White-label exports', 'Dedicated support'],
     cta: 'Contact sales',
     highlight: false,
   },
@@ -435,7 +435,7 @@ export default function HomePage() {
         <div className="text-center mb-14">
           <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">Pricing</div>
           <h2 className="text-[32px] font-bold tracking-tight mb-3">Start free. Scale when ready.</h2>
-          <p className="text-[14px] text-gray-500">7-day free trial on all plans. No credit card required.</p>
+          <p className="text-[14px] text-gray-500">Start free — 3 campaigns included. Upgrade when you're ready.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-4 items-start">
           {PLANS.map(plan => (

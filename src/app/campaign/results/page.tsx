@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
+import { generateCampaignPDF } from '@/lib/pdf/campaignReport'
 
 interface Concept {
   name: string
@@ -95,7 +96,8 @@ function Section({ title, icon, children }: { title: string; icon: string; child
   )
 }
 
-function downloadCampaign(result: CampaignResult) {
+// Legacy TXT download — kept for reference, replaced by generateCampaignPDF
+function _downloadCampaignTxt(result: CampaignResult) {
   const { campaign, strategy, concepts } = result
   const lines: string[] = []
 
@@ -355,10 +357,10 @@ export default function CampaignResultsPage() {
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <button
-                onClick={() => result && downloadCampaign(result)}
+                onClick={() => result && generateCampaignPDF(result)}
                 className="px-4 py-2 border border-accent/50 text-accent text-sm font-semibold rounded-lg hover:bg-accent hover:text-dark transition"
               >
-                ⬇ Export
+                ⬇ Export PDF
               </button>
               <button
                 onClick={openPublishModal}
@@ -700,10 +702,10 @@ export default function CampaignResultsPage() {
           </div>
           <div className="flex gap-3 flex-wrap">
             <button
-              onClick={() => result && downloadCampaign(result)}
+              onClick={() => result && generateCampaignPDF(result)}
               className="px-5 py-3 border border-accent/50 text-accent font-semibold rounded-lg hover:bg-accent hover:text-dark transition text-sm"
             >
-              ⬇ Download Campaign
+              ⬇ Download PDF Report
             </button>
             <Link
               href="/campaign/new"

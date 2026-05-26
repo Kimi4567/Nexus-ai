@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
+import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 
 // Health check — Stripe and browsers may hit this with GET
 export async function GET() {
@@ -92,6 +93,20 @@ export async function POST(req: NextRequest) {
             sub.metadata = { ...sub.metadata, userId: session.metadata.userId, plan: session.metadata.plan || 'STARTER' }
           }
           await handleSubscriptionUpsert(sub)
+
+          // Send upgrade confirmation email
+          if (session.customer_email && process.env.RESEND_API_KEY) {
+            const plan = session.metadata?.plan || 'STARTER'
+            const planLabel = plan.charAt(0) + plan.slice(1).toLowerCase()
+            const dbUser = session.metadata?.userId
+              ? await prisma.user.findUnique({ where: { id: session.metadata.userId } }).catch(() => null)
+              : null
+            sendUpgradeConfirmationEmail(
+              session.customer_email,
+              dbUser?.name || session.customer_email.split('@')[0],
+              planLabel
+            ).catch(e => console.error('[Webhook] Upgrade email error:', e))
+          }
         }
         break
       }
