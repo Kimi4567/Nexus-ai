@@ -166,6 +166,15 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
       ),
     },
     {
+      href: '/schedule', label: 'Schedule',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="8" cy="8" r="6.5" />
+          <path d="M8 4.5v4l2.5 2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ),
+    },
+    {
       href: '/brand', label: 'Brand Intelligence',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
