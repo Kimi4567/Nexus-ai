@@ -140,7 +140,33 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
 
   const workNav: NavItem[] = [
     {
-      href: '/brand', label: 'Brand Intelligence', badge: 'New',
+      href: '/strategy', label: 'Strategy', badge: 'New',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M1.5 12.5L6 7l3 3 5-6.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="13" cy="3" r="1.5" fill="currentColor" stroke="none" />
+        </svg>
+      ),
+    },
+    {
+      href: '/calendar', label: 'Calendar',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" />
+          <path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      href: '/analytics', label: 'Analytics',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M1.5 12.5h13M4 12.5V8.5M7.5 12.5V5M11 12.5V7.5M14.5 12.5V3.5" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      href: '/brand', label: 'Brand Intelligence',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M8 1.5a6.5 6.5 0 100 13A6.5 6.5 0 008 1.5z" />
@@ -155,16 +181,6 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
           <circle cx="5.5" cy="5.5" r="1.5" />
           <path d="M1.5 10.5l3.5-3 3 3 2.5-2.5L14.5 11" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/templates', label: 'Templates',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="1.5" y="1.5" width="5" height="5" rx="1" />
-          <rect x="9.5" y="1.5" width="5" height="5" rx="1" />
-          <rect x="1.5" y="9.5" width="13" height="5" rx="1" />
         </svg>
       ),
     },

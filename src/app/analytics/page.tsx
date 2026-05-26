@@ -1,0 +1,317 @@
+'use client'
+
+import { useAuth } from '@/lib/auth-context'
+import { useEffect, useState } from 'react'
+import AppShell from '@/components/AppShell'
+import Link from 'next/link'
+
+type CampaignStat = {
+  id: string
+  title: string
+  platform: string
+  status: string
+  createdAt: string
+  contentType?: string
+}
+
+const PLATFORM_COLORS: Record<string, string> = {
+  Instagram: '#e1306c',
+  Facebook: '#1877f2',
+  LinkedIn: '#0a66c2',
+  TikTok: '#010101',
+  'Multi-platform': '#6366f1',
+}
+
+const PLATFORM_ICONS: Record<string, string> = {
+  Instagram: '📸',
+  Facebook: '👥',
+  LinkedIn: '💼',
+  TikTok: '🎵',
+  'Multi-platform': '🌐',
+}
+
+function SparkBar({ value, max, color }: { value: number; max: number; color: string }) {
+  return (
+    <div className="h-1.5 rounded-full bg-[#1e1e2e] overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-700"
+        style={{ width: `${max > 0 ? (value / max) * 100 : 0}%`, background: color }} />
+    </div>
+  )
+}
+
+export default function AnalyticsPage() {
+  const { isAuthenticated, loading, authHeader } = useAuth()
+  const [campaigns, setCampaigns] = useState<CampaignStat[]>([])
+  const [loadingData, setLoadingData] = useState(true)
+  const [timeRange, setTimeRange] = useState<'7' | '30' | '90'>('30')
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const token = authHeader()
+    fetch('/api/campaigns', { headers: { Authorization: token } })
+      .then(r => r.json())
+      .then(data => {
+        setCampaigns(data.campaigns || [])
+        setLoadingData(false)
+      })
+      .catch(() => setLoadingData(false))
+  }, [isAuthenticated])
+
+  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (!isAuthenticated) return null
+
+  // Filter by time range
+  const now = new Date()
+  const cutoff = new Date(now.getTime() - parseInt(timeRange) * 24 * 60 * 60 * 1000)
+  const filtered = campaigns.filter(c => new Date(c.createdAt) >= cutoff)
+
+  // Compute stats
+  const total = filtered.length
+  const published = filtered.filter(c => c.status === 'PUBLISHED').length
+  const drafts = filtered.filter(c => c.status === 'DRAFT').length
+  const generated = filtered.filter(c => c.status === 'GENERATED').length
+
+  // Platform breakdown
+  const byPlatform = filtered.reduce((acc, c) => {
+    const p = c.platform || 'Multi-platform'
+    acc[p] = (acc[p] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  const maxPlatform = Math.max(...Object.values(byPlatform), 1)
+
+  // Content type breakdown
+  const byType = filtered.reduce((acc, c) => {
+    const t = c.contentType || 'Post'
+    acc[t] = (acc[t] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  // Activity over time (group by day)
+  const byDay: Record<string, number> = {}
+  const days = parseInt(timeRange)
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+    const key = d.toISOString().split('T')[0]
+    byDay[key] = 0
+  }
+  filtered.forEach(c => {
+    const key = new Date(c.createdAt).toISOString().split('T')[0]
+    if (key in byDay) byDay[key]++
+  })
+
+  const chartData = Object.entries(byDay).slice(-14) // last 14 days for chart
+  const maxDay = Math.max(...chartData.map(([, v]) => v), 1)
+
+  // Insights
+  const insights: string[] = []
+  if (total === 0) {
+    insights.push('No campaigns created yet. Start generating to see analytics.')
+  } else {
+    if (published / total < 0.3) insights.push('Less than 30% of your campaigns are published. Review drafts and push them live.')
+    const topPlatform = Object.entries(byPlatform).sort(([, a], [, b]) => b - a)[0]
+    if (topPlatform) insights.push(`${topPlatform[0]} is your most active platform with ${topPlatform[1]} campaigns.`)
+    if (days === 30 && total < 12) insights.push(`You're averaging ${(total / 4).toFixed(1)} campaigns/week. Aim for 5+ to see significant growth.`)
+    if (total >= 10) insights.push('Great consistency! Brands that post regularly see 3x more organic reach.')
+  }
+
+  return (
+    <AppShell>
+      <div className="max-w-5xl mx-auto px-6 py-10 page-enter">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+              <span>Nexus</span><span>/</span><span className="text-gray-300">Analytics</span>
+            </div>
+            <h1 className="text-3xl font-bold mb-1">Analytics</h1>
+            <p className="text-gray-400">Campaign performance and content intelligence.</p>
+          </div>
+          <div className="flex gap-1 p-1 bg-[#111119] border border-[#1e1e2e] rounded-xl">
+            {(['7', '30', '90'] as const).map(t => (
+              <button key={t}
+                onClick={() => setTimeRange(t)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  timeRange === t ? 'bg-accent text-white' : 'text-gray-400 hover:text-white'
+                }`}>
+                {t}d
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* KPI Row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[
+            { label: 'Total Campaigns', value: total, sub: `Last ${timeRange} days`, color: '#6366f1' },
+            { label: 'Published', value: published, sub: total > 0 ? `${Math.round((published / total) * 100)}% publish rate` : '—', color: '#10b981' },
+            { label: 'Generated', value: generated, sub: 'AI-generated content', color: '#8b5cf6' },
+            { label: 'Drafts', value: drafts, sub: 'Awaiting review', color: '#f59e0b' },
+          ].map(stat => (
+            <div key={stat.label} className="rounded-xl border border-[#1e1e2e] bg-[#111119] p-5">
+              <div className="text-3xl font-black mb-1" style={{ color: stat.color }}>{stat.value}</div>
+              <div className="text-sm font-semibold text-white mb-0.5">{stat.label}</div>
+              <div className="text-xs text-gray-500">{stat.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Activity Chart */}
+        <div className="rounded-2xl border border-[#1e1e2e] bg-[#111119] p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="font-bold text-white">Campaign Activity</h2>
+            <span className="text-xs text-gray-500">Last {Math.min(14, days)} days</span>
+          </div>
+          {total === 0 && !loadingData ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="text-3xl mb-3">📊</div>
+              <p className="text-gray-500 text-sm">No campaigns yet. Create your first to see activity.</p>
+              <Link href="/campaign/new"
+                className="mt-4 px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:bg-accent/90 transition-all">
+                Create Campaign →
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-end gap-1.5 h-32">
+              {chartData.map(([date, count]) => {
+                const d = new Date(date)
+                const label = `${d.getMonth() + 1}/${d.getDate()}`
+                const height = maxDay > 0 ? Math.max((count / maxDay) * 100, count > 0 ? 8 : 2) : 2
+                return (
+                  <div key={date} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all text-xs bg-[#1e1e2e] px-1.5 py-0.5 rounded text-white whitespace-nowrap z-10">
+                      {count} campaign{count !== 1 ? 's' : ''}
+                    </div>
+                    <div className="w-full rounded-t transition-all duration-500"
+                      style={{
+                        height: `${height}%`,
+                        background: count > 0 ? '#6366f1' : '#1a1a25',
+                        minHeight: '3px',
+                      }} />
+                    <span className="text-[8px] text-gray-600">{label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+
+          {/* Platform Breakdown */}
+          <div className="rounded-2xl border border-[#1e1e2e] bg-[#111119] p-6">
+            <h2 className="font-bold text-white mb-5">Platform Breakdown</h2>
+            {Object.keys(byPlatform).length === 0 ? (
+              <p className="text-sm text-gray-500">No data yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(byPlatform).sort(([, a], [, b]) => b - a).map(([platform, count]) => (
+                  <div key={platform}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">{PLATFORM_ICONS[platform] || '📱'}</span>
+                        <span className="text-sm font-medium text-white">{platform}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">{Math.round((count / total) * 100)}%</span>
+                        <span className="text-sm font-bold" style={{ color: PLATFORM_COLORS[platform] || '#6366f1' }}>
+                          {count}
+                        </span>
+                      </div>
+                    </div>
+                    <SparkBar value={count} max={maxPlatform} color={PLATFORM_COLORS[platform] || '#6366f1'} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Content Type Breakdown */}
+          <div className="rounded-2xl border border-[#1e1e2e] bg-[#111119] p-6">
+            <h2 className="font-bold text-white mb-5">Content Types</h2>
+            {Object.keys(byType).length === 0 ? (
+              <p className="text-sm text-gray-500">No data yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(byType).sort(([, a], [, b]) => b - a).map(([type, count], i) => {
+                  const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
+                  const color = colors[i % colors.length]
+                  const maxType = Math.max(...Object.values(byType))
+                  return (
+                    <div key={type}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium text-white">{type}</span>
+                        <span className="text-sm font-bold" style={{ color }}>{count}</span>
+                      </div>
+                      <SparkBar value={count} max={maxType} color={color} />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* AI Insights */}
+        <div className="rounded-2xl border border-accent/20 bg-accent/5 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+            </div>
+            <h2 className="font-bold text-white">AI Recommendations</h2>
+          </div>
+          <div className="space-y-3">
+            {insights.map((insight, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span className="text-accent mt-0.5 shrink-0">→</span>
+                <p className="text-sm text-gray-300">{insight}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-3 mt-5">
+            <Link href="/strategy"
+              className="px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:bg-accent/90 transition-all">
+              Generate Strategy →
+            </Link>
+            <Link href="/campaign/new"
+              className="px-4 py-2 border border-[#1e1e2e] text-gray-300 text-sm font-semibold rounded-lg hover:border-[#2e2e3e] hover:text-white transition-all">
+              New Campaign
+            </Link>
+          </div>
+        </div>
+
+        {/* Recent Campaigns Table */}
+        {filtered.length > 0 && (
+          <div className="rounded-2xl border border-[#1e1e2e] bg-[#111119] overflow-hidden mt-6">
+            <div className="px-6 py-4 border-b border-[#1e1e2e]">
+              <h2 className="font-bold text-white">Recent Campaigns</h2>
+            </div>
+            <div className="divide-y divide-[#1a1a25]">
+              {filtered.slice(0, 8).map(c => (
+                <div key={c.id} className="flex items-center gap-4 px-6 py-3 hover:bg-white/1 transition-all">
+                  <span className="text-lg">{PLATFORM_ICONS[c.platform] || '📱'}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white truncate">{c.title}</div>
+                    <div className="text-xs text-gray-500">{c.platform} · {c.contentType || 'Campaign'}</div>
+                  </div>
+                  <span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${
+                    c.status === 'PUBLISHED' ? 'bg-green-500/15 text-green-400' :
+                    c.status === 'GENERATED' ? 'bg-accent/15 text-accent' :
+                    'bg-yellow-500/15 text-yellow-400'
+                  }`}>
+                    {c.status?.toLowerCase()}
+                  </span>
+                  <Link href={`/campaigns/${c.id}`}
+                    className="text-xs text-gray-600 hover:text-accent transition-all">
+                    View →
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppShell>
+  )
+}
