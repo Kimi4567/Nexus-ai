@@ -1,10 +1,13 @@
+/**
+ * POST /api/billing/webhook
+ * Lemon Squeezy webhook handler
+ * Events: subscription_created, subscription_updated, subscription_cancelled, order_created
+ */
 import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
-import Stripe from 'stripe'
+import { verifyWebhookSignature } from '@/lib/lemonsqueezy'
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 
-// Health check — Stripe and browsers may hit this with GET
 export async function GET() {
   return NextResponse.json({ status: 'Webhook endpoint active' })
 }
@@ -15,24 +18,40 @@ const PLAN_CREDITS: Record<string, number> = {
   AGENCY: -1,
 }
 
-async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
-  const userId = sub.metadata?.userId
-  const plan = sub.metadata?.plan || 'STARTER'
-  if (!userId) return
+const PLAN_BY_VARIANT: Record<string, string> = {
+  [process.env.LS_VARIANT_STARTER || 'starter']: 'STARTER',
+  [process.env.LS_VARIANT_PRO || 'pro']: 'PRO',
+  [process.env.LS_VARIANT_AGENCY || 'agency']: 'AGENCY',
+}
 
-  const status = sub.status === 'active' ? 'ACTIVE'
-    : sub.status === 'past_due' ? 'PAST_DUE'
-    : sub.status === 'canceled' ? 'CANCELLED'
+function getPlanFromVariant(variantId: string | number): string {
+  return PLAN_BY_VARIANT[String(variantId)] || 'STARTER'
+}
+
+async function handleSubscriptionActive(data: any) {
+  const userId = data.attributes?.custom_data?.user_id || data.meta?.custom_data?.user_id
+  if (!userId) {
+    console.error('[Webhook] No userId in custom_data:', JSON.stringify(data).slice(0, 300))
+    return
+  }
+
+  const variantId = data.attributes?.variant_id
+  const plan = getPlanFromVariant(variantId)
+  const status = data.attributes?.status === 'active' ? 'ACTIVE'
+    : data.attributes?.status === 'past_due' ? 'PAST_DUE'
+    : data.attributes?.status === 'cancelled' ? 'CANCELLED'
     : 'FREE'
+
+  const credits = PLAN_CREDITS[plan] ?? 50
 
   await prisma.user.update({
     where: { id: userId },
     data: {
       subscriptionStatus: status as any,
-      subscriptionId: sub.id,
-      aiCredits: PLAN_CREDITS[plan] ?? 50,
+      subscriptionId: String(data.id),
+      aiCredits: credits,
     },
-  }).catch(() => {})
+  }).catch(e => console.error('[Webhook] User update error:', e))
 
   await prisma.subscription.upsert({
     where: { userId },
@@ -40,99 +59,104 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
       userId,
       plan: plan as any,
       status: status as any,
-      stripeId: sub.id,
-      customerId: typeof sub.customer === 'string' ? sub.customer : sub.customer.id,
-      monthlyCredits: PLAN_CREDITS[plan] ?? 50,
+      stripeId: String(data.id),
+      customerId: String(data.attributes?.customer_id || ''),
+      monthlyCredits: credits,
       monthlyExports: plan === 'AGENCY' ? 9999 : plan === 'PRO' ? 50 : 10,
       maxTeamMembers: plan === 'AGENCY' ? 50 : plan === 'PRO' ? 5 : 1,
-      currentPeriodStart: new Date((sub as any).current_period_start * 1000),
-      currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
+      currentPeriodStart: data.attributes?.created_at ? new Date(data.attributes.created_at) : new Date(),
+      currentPeriodEnd: data.attributes?.renews_at ? new Date(data.attributes.renews_at) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
     update: {
       plan: plan as any,
       status: status as any,
-      stripeId: sub.id,
-      currentPeriodStart: new Date((sub as any).current_period_start * 1000),
-      currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
+      stripeId: String(data.id),
+      currentPeriodStart: data.attributes?.created_at ? new Date(data.attributes.created_at) : new Date(),
+      currentPeriodEnd: data.attributes?.renews_at ? new Date(data.attributes.renews_at) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
+  }).catch(e => console.error('[Webhook] Subscription upsert error:', e))
+
+  console.log(`[Webhook] Subscription activated: userId=${userId} plan=${plan}`)
+}
+
+async function handleSubscriptionCancelled(data: any) {
+  const userId = data.attributes?.custom_data?.user_id || data.meta?.custom_data?.user_id
+  if (!userId) return
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
   }).catch(() => {})
+
+  await prisma.subscription.updateMany({
+    where: { userId },
+    data: { status: 'CANCELLED', cancelledAt: new Date() },
+  }).catch(() => {})
+
+  console.log(`[Webhook] Subscription cancelled: userId=${userId}`)
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
-  const sig = req.headers.get('stripe-signature')
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const signature = req.headers.get('x-signature') || ''
+  const webhookSecret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET || ''
 
-  let event: Stripe.Event
-
-  try {
-    if (webhookSecret && sig) {
-      event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
-    } else {
-      // No webhook secret configured — parse directly (dev mode only)
-      event = JSON.parse(body)
+  // Verify signature in production
+  if (webhookSecret && signature) {
+    const valid = await verifyWebhookSignature(body, signature, webhookSecret)
+    if (!valid) {
+      console.error('[Webhook] Invalid signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
-  } catch (err: any) {
-    console.error('[Webhook] Signature verification failed:', err.message)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
-  console.log('[Webhook] Event:', event.type)
+  let event: any
+  try {
+    event = JSON.parse(body)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const eventName = event.meta?.event_name
+  console.log('[Webhook] Event:', eventName)
 
   try {
-    switch (event.type) {
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session
-        if (session.mode === 'subscription' && session.subscription) {
-          const sub = await stripe.subscriptions.retrieve(session.subscription as string)
-          // Attach userId metadata if missing
-          if (!sub.metadata?.userId && session.metadata?.userId) {
-            await stripe.subscriptions.update(sub.id, {
-              metadata: { userId: session.metadata.userId, plan: session.metadata.plan || 'STARTER' }
-            })
-            sub.metadata = { ...sub.metadata, userId: session.metadata.userId, plan: session.metadata.plan || 'STARTER' }
-          }
-          await handleSubscriptionUpsert(sub)
+    switch (eventName) {
+      case 'subscription_created':
+      case 'subscription_updated':
+      case 'subscription_resumed':
+      case 'subscription_unpaused': {
+        await handleSubscriptionActive(event.data)
 
-          // Send upgrade confirmation email
-          if (session.customer_email && process.env.RESEND_API_KEY) {
-            const plan = session.metadata?.plan || 'STARTER'
-            const planLabel = plan.charAt(0) + plan.slice(1).toLowerCase()
-            const dbUser = session.metadata?.userId
-              ? await prisma.user.findUnique({ where: { id: session.metadata.userId } }).catch(() => null)
-              : null
-            sendUpgradeConfirmationEmail(
-              session.customer_email,
-              dbUser?.name || session.customer_email.split('@')[0],
-              planLabel
-            ).catch(e => console.error('[Webhook] Upgrade email error:', e))
+        // Send upgrade confirmation email on new subscription
+        if (eventName === 'subscription_created') {
+          const userId = event.data?.attributes?.custom_data?.user_id || event.meta?.custom_data?.user_id
+          if (userId && process.env.RESEND_API_KEY) {
+            const dbUser = await prisma.user.findUnique({ where: { id: userId } }).catch(() => null)
+            if (dbUser?.email) {
+              const plan = getPlanFromVariant(event.data?.attributes?.variant_id)
+              const planLabel = plan.charAt(0) + plan.slice(1).toLowerCase()
+              sendUpgradeConfirmationEmail(dbUser.email, dbUser.name || dbUser.email.split('@')[0], planLabel)
+                .catch(e => console.error('[Webhook] Upgrade email error:', e))
+            }
           }
         }
         break
       }
-      case 'customer.subscription.updated':
-      case 'customer.subscription.created': {
-        const sub = event.data.object as Stripe.Subscription
-        await handleSubscriptionUpsert(sub)
+
+      case 'subscription_cancelled':
+      case 'subscription_expired': {
+        await handleSubscriptionCancelled(event.data)
         break
       }
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as Stripe.Subscription
-        const userId = sub.metadata?.userId
-        if (userId) {
-          await prisma.user.update({
-            where: { id: userId },
-            data: { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
-          }).catch(() => {})
-          await prisma.subscription.updateMany({
-            where: { userId },
-            data: { status: 'CANCELLED', cancelledAt: new Date() },
-          }).catch(() => {})
-        }
+
+      case 'order_created': {
+        console.log('[Webhook] Order created:', event.data?.id)
         break
       }
+
       default:
-        console.log('[Webhook] Unhandled event type:', event.type)
+        console.log('[Webhook] Unhandled event:', eventName)
     }
   } catch (err) {
     console.error('[Webhook] Handler error:', err)

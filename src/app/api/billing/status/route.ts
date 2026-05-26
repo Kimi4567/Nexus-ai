@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
       plan: subscription?.plan || 'FREE',
       credits: dbUser?.aiCredits || 0,
       currentPeriodEnd: subscription?.currentPeriodEnd || null,
-      hasStripeCustomer: !!(dbUser as any)?.stripeCustomerId,
+      hasActiveSubscription: !!(subscription?.stripeId),
     })
   } catch (err: any) {
     console.error('[Billing status] Error:', err)

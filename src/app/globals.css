@@ -13,8 +13,8 @@ body {
     'Segoe UI', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #09090e;
-  color: #f0f0f8;
+  background: #080807;
+  color: #F5F0E8;
 }
 
 /* ─── Motion keyframes ──────────────────────────────────────────────── */
@@ -50,8 +50,8 @@ body {
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 14px rgba(99,102,241,0.10); }
-  50%       { box-shadow: 0 0 28px rgba(99,102,241,0.22); }
+  0%, 100% { box-shadow: 0 0 14px rgba(255,149,0,0.12); }
+  50%       { box-shadow: 0 0 32px rgba(255,149,0,0.28); }
 }
 
 @keyframes float {
@@ -68,77 +68,69 @@ body {
 
 /* ─── Surface system ────────────────────────────────────────────────── */
 
-/* Base atmospheric card — top-lit, layered shadow */
 .surface-card {
-  background: #111119;
-  border: 1px solid #1c1c28;
+  background: #131312;
+  border: 1px solid #1f1f1d;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.04),
-    0 1px 3px rgba(0,0,0,0.5),
-    0 4px 16px rgba(0,0,0,0.22);
-  border-radius: 14px;
+    inset 0 1px 0 rgba(255,255,255,0.03),
+    0 1px 3px rgba(0,0,0,0.6),
+    0 4px 16px rgba(0,0,0,0.28);
+  border-radius: 12px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .surface-card:hover {
-  border-color: #252535;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    0 2px 8px rgba(0,0,0,0.5),
-    0 12px 32px rgba(0,0,0,0.28);
-}
-
-/* Elevated panel — heavier shadow, brighter edge */
-.surface-panel {
-  background: #0d0d15;
-  border: 1px solid #1c1c28;
+  border-color: #2a2a26;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.05),
-    0 4px 24px rgba(0,0,0,0.4),
-    0 24px 64px rgba(0,0,0,0.28);
-  border-radius: 18px;
+    0 2px 8px rgba(0,0,0,0.55),
+    0 12px 32px rgba(0,0,0,0.32);
 }
 
-/* Inset surface — slightly recessed feel */
+.surface-panel {
+  background: #0d0d0c;
+  border: 1px solid #1f1f1d;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 4px 24px rgba(0,0,0,0.5),
+    0 24px 64px rgba(0,0,0,0.32);
+  border-radius: 16px;
+}
+
 .surface-inset {
-  background: #0a0a11;
-  border: 1px solid #161622;
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+  background: #0a0a09;
+  border: 1px solid #191918;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.35);
   border-radius: 10px;
 }
 
-/* Accent-glowing element */
 .surface-accent {
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: rgba(255, 149, 0, 0.07);
+  border: 1px solid rgba(255, 149, 0, 0.18);
   box-shadow:
-    inset 0 1px 0 rgba(99,102,241,0.12),
-    0 0 20px rgba(99,102,241,0.08);
-  border-radius: 14px;
+    inset 0 1px 0 rgba(255,149,0,0.10),
+    0 0 20px rgba(255,149,0,0.06);
+  border-radius: 12px;
 }
 
 /* ─── Atmospheric backgrounds ───────────────────────────────────────── */
 
-/* Main app background — subtle radial accent at edges */
 .bg-atmospheric {
   background:
-    radial-gradient(ellipse 60% 40% at 15% 60%, rgba(99,102,241,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 30% at 85% 15%, rgba(99,102,241,0.03) 0%, transparent 55%),
-    #09090e;
+    radial-gradient(ellipse 55% 35% at 10% 65%, rgba(255,149,0,0.035) 0%, transparent 60%),
+    radial-gradient(ellipse 35% 25% at 90% 10%, rgba(255,149,0,0.025) 0%, transparent 55%),
+    #080807;
 }
 
-/* Sidebar background — very subtle vertical depth */
 .bg-sidebar {
-  background:
-    linear-gradient(180deg, #0d0d16 0%, #09090e 100%);
-  border-right: 1px solid #161622;
+  background: linear-gradient(180deg, #0d0d0c 0%, #080807 100%);
+  border-right: 1px solid #191918;
 }
 
-/* Hero / landing background */
 .bg-hero {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.06) 0%, transparent 65%),
-    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(99,102,241,0.03) 0%, transparent 50%),
-    #09090e;
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(255,149,0,0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 40% 30% at 80% 85%, rgba(255,149,0,0.03) 0%, transparent 50%),
+    #080807;
 }
 
 /* ─── Skeleton shimmer ──────────────────────────────────────────────── */
@@ -146,9 +138,9 @@ body {
 .skeleton {
   background: linear-gradient(
     90deg,
-    #141420 25%,
-    #1c1c2a 50%,
-    #141420 75%
+    #131312 25%,
+    #1f1f1d 50%,
+    #131312 75%
   );
   background-size: 800px 100%;
   animation: shimmer 1.8s infinite linear;
@@ -161,7 +153,6 @@ body {
   animation: slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Staggered children */
 .stagger > * {
   animation: slideUp 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -174,7 +165,6 @@ body {
 
 /* ─── AI presence utilities ─────────────────────────────────────────── */
 
-/* Ambient glow behind AI elements */
 .ai-pulse {
   position: relative;
 }
@@ -183,12 +173,11 @@ body {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(99,102,241,0.08), transparent);
+  background: linear-gradient(135deg, rgba(255,149,0,0.07), transparent);
   pointer-events: none;
   animation: ambientPulse 3.5s ease-in-out infinite;
 }
 
-/* Live indicator dot */
 .live-dot {
   position: relative;
   display: inline-flex;
@@ -216,32 +205,32 @@ body {
 /* ─── Typography utilities ──────────────────────────────────────────── */
 
 .text-display {
-  font-size: clamp(36px, 5vw, 56px);
+  font-size: clamp(36px, 5vw, 60px);
   font-weight: 700;
-  line-height: 1.04;
-  letter-spacing: -0.03em;
-  color: #f0f0f8;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  color: #F5F0E8;
 }
 
 .text-headline {
   font-size: clamp(24px, 3vw, 36px);
   font-weight: 700;
   line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: #f0f0f8;
+  letter-spacing: -0.025em;
+  color: #F5F0E8;
 }
 
 .text-label {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #5a5a6e;
+  color: #5C5448;
 }
 
-/* Gradient text — accent */
+/* Gradient text — Nexus Ember signature */
 .gradient-text {
-  background: linear-gradient(135deg, #6366f1 0%, #818cf8 60%, #a5b4fc 100%);
+  background: linear-gradient(135deg, #FF9500 0%, #FFB340 55%, #FFD080 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -250,10 +239,10 @@ body {
 /* ─── Nav utilities ─────────────────────────────────────────────────── */
 
 .nav-blur {
-  background: rgba(9, 9, 14, 0.85);
+  background: rgba(8, 8, 7, 0.88);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
 /* ─── Interaction utilities ─────────────────────────────────────────── */
@@ -275,13 +264,13 @@ a { color: inherit; text-decoration: none; }
 
 ::-webkit-scrollbar          { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track    { background: transparent; }
-::-webkit-scrollbar-thumb    { background: rgba(99,102,241,0.25); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.45); }
+::-webkit-scrollbar-thumb    { background: rgba(255,149,0,0.22); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,149,0,0.42); }
 
 /* ─── Selection ─────────────────────────────────────────────────────── */
 
 ::selection {
-  background: rgba(99, 102, 241, 0.28);
+  background: rgba(255, 149, 0, 0.25);
   color: #fff;
 }
 
@@ -289,16 +278,26 @@ a { color: inherit; text-decoration: none; }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: rgba(99,102,241,0.6);
-  box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+  border-color: rgba(255,149,0,0.55);
+  box-shadow: 0 0 0 3px rgba(255,149,0,0.10);
 }
 
 /* ─── Glass ─────────────────────────────────────────────────────────── */
 
 .glass {
-  background: rgba(9, 9, 14, 0.7);
+  background: rgba(8, 8, 7, 0.72);
   backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ─── Ember glow — signature Nexus effect ───────────────────────────── */
+
+.ember-glow {
+  box-shadow: 0 0 32px rgba(255,149,0,0.18), 0 0 64px rgba(255,149,0,0.07);
+}
+
+.ember-border {
+  border: 1px solid rgba(255,149,0,0.28);
 }
 
 /* ─── Utility ───────────────────────────────────────────────────────── */

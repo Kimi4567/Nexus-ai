@@ -9,46 +9,46 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Base surfaces (graphite with subtle blue undertone) ───────
-        'dark':           '#09090e',   // base canvas — rich graphite
-        'dark-secondary': '#111119',   // primary panel surface
-        'dark-tertiary':  '#1c1c28',   // elevated surface / active borders
+        // ── Base surfaces — warm obsidian (no blue cast) ──────────────
+        'dark':           '#080807',   // true warm black
+        'dark-secondary': '#101010',   // primary panel surface
+        'dark-tertiary':  '#1a1a18',   // elevated surface / active borders
         // ── Layered surface hierarchy ─────────────────────────────────
-        's0': '#09090e',   // deepest layer
-        's1': '#0d0d15',   // base cards
-        's2': '#111119',   // elevated cards
-        's3': '#161622',   // top-level / popovers
-        's4': '#1c1c28',   // borders, dividers
-        's5': '#242434',   // hovered borders
-        // ── Accent system ─────────────────────────────────────────────
-        'accent':         '#6366f1',
-        'accent-light':   '#818cf8',
-        'accent-dim':     'rgba(99, 102, 241, 0.10)',
-        // ── Semantic text ─────────────────────────────────────────────
-        't1': '#f0f0f8',
-        't2': '#9090a8',
-        't3': '#5a5a6e',
-        't4': '#38383e',
+        's0': '#080807',   // deepest layer
+        's1': '#0d0d0c',   // base cards
+        's2': '#131312',   // elevated cards
+        's3': '#191918',   // top-level / popovers
+        's4': '#1f1f1d',   // borders, dividers
+        's5': '#272724',   // hovered borders
+        // ── Nexus Ember — signature amber accent ──────────────────────
+        'accent':         '#FF9500',   // Nexus Ember — pure amber
+        'accent-light':   '#FFB340',   // hover / lighter state
+        'accent-dim':     'rgba(255, 149, 0, 0.10)',
+        // ── Semantic text — warm white, not cold blue ─────────────────
+        't1': '#F5F0E8',   // warm white — primary text
+        't2': '#9A9080',   // warm gray — secondary text
+        't3': '#5C5448',   // warm muted — tertiary
+        't4': '#38342E',   // warm dim — borders/placeholders
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'monospace'],
       },
       borderRadius: {
-        'card': '14px',
-        'panel': '18px',
+        'card': '12px',
+        'panel': '16px',
       },
       boxShadow: {
-        // Layered depth shadows
-        'card':       '0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04)',
-        'card-hover': '0 2px 8px rgba(0,0,0,0.55), 0 12px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.07)',
-        'panel':      '0 4px 24px rgba(0,0,0,0.4), 0 24px 64px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.04)',
-        // Accent ambient glows
-        'accent-sm':  '0 0 16px rgba(99,102,241,0.18)',
-        'accent-md':  '0 0 32px rgba(99,102,241,0.16), 0 0 64px rgba(99,102,241,0.07)',
+        // Layered depth shadows — warm-tinted
+        'card':       '0 1px 3px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)',
+        'card-hover': '0 2px 8px rgba(0,0,0,0.6), 0 12px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06)',
+        'panel':      '0 4px 24px rgba(0,0,0,0.5), 0 24px 64px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.03)',
+        // Amber ambient glows — the Nexus Ember signature
+        'accent-sm':  '0 0 16px rgba(255,149,0,0.20)',
+        'accent-md':  '0 0 32px rgba(255,149,0,0.18), 0 0 64px rgba(255,149,0,0.08)',
         // Inset light edge
-        'top-edge':   'inset 0 1px 0 rgba(255,255,255,0.05)',
-        'top-edge-hi':'inset 0 1px 0 rgba(255,255,255,0.09)',
+        'top-edge':   'inset 0 1px 0 rgba(255,255,255,0.04)',
+        'top-edge-hi':'inset 0 1px 0 rgba(255,255,255,0.08)',
       },
       animation: {
         'fade-in':       'fadeIn 0.4s cubic-bezier(0.22,1,0.36,1)',
@@ -78,8 +78,8 @@ const config: Config = {
           '50%': { transform: 'translateY(-5px)' },
         },
         glowPulse: {
-          '0%,100%': { boxShadow: '0 0 14px rgba(99,102,241,0.10)' },
-          '50%': { boxShadow: '0 0 28px rgba(99,102,241,0.22)' },
+          '0%,100%': { boxShadow: '0 0 14px rgba(255,149,0,0.12)' },
+          '50%': { boxShadow: '0 0 32px rgba(255,149,0,0.25)' },
         },
       },
     },
