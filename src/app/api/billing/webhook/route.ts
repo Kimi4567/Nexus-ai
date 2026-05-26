@@ -3,8 +3,6 @@ import { stripe } from '@/lib/stripe'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
 
-export const config = { api: { bodyParser: false } }
-
 // Health check — Stripe and browsers may hit this with GET
 export async function GET() {
   return NextResponse.json({ status: 'Webhook endpoint active' })
