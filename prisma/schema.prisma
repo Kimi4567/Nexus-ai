@@ -35,6 +35,7 @@ model User {
   // Subscription
   subscriptionId     String?
   subscriptionStatus SubscriptionStatus @default(FREE)
+  stripeCustomerId   String?  @unique
   aiCredits          Int @default(0)
   monthlyGenerations Int @default(0)
   
