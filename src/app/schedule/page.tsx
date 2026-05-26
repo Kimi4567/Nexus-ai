@@ -139,7 +139,7 @@ export default function SchedulePage() {
   // Min datetime for scheduling (now + 5 min)
   const minDateTime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)
 
-  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   const scheduled = posts.filter(p => p.status === 'SCHEDULED')
@@ -162,7 +162,7 @@ export default function SchedulePage() {
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all"
-            style={{ boxShadow: '0 0 20px rgba(99,102,241,0.25)' }}>
+            style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}>
             + Schedule Post
           </button>
         </div>

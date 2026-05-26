@@ -86,7 +86,7 @@ export default function CalendarPage() {
       .catch(() => setLoadingData(false))
   }, [isAuthenticated, viewMonth, viewYear])
 
-  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   const daysInMonth = getDaysInMonth(viewYear, viewMonth)
@@ -210,8 +210,8 @@ export default function CalendarPage() {
                         <div key={pi}
                           className="text-[9px] px-1 py-0.5 rounded truncate font-medium"
                           style={{
-                            background: `${PLATFORM_COLORS[post.platform] || '#6366f1'}20`,
-                            color: PLATFORM_COLORS[post.platform] || '#6366f1',
+                            background: `${PLATFORM_COLORS[post.platform] || '#FF9500'}20`,
+                            color: PLATFORM_COLORS[post.platform] || '#FF9500',
                           }}>
                           {PLATFORM_ICONS[post.platform]} {post.title}
                         </div>
@@ -254,7 +254,7 @@ export default function CalendarPage() {
                       <div key={post.id} className="p-3 rounded-xl bg-[#0d0d15] border border-[#1a1a25]">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-sm">{PLATFORM_ICONS[post.platform] || '📱'}</span>
-                          <span className="text-xs font-bold" style={{ color: PLATFORM_COLORS[post.platform] || '#6366f1' }}>
+                          <span className="text-xs font-bold" style={{ color: PLATFORM_COLORS[post.platform] || '#FF9500' }}>
                             {post.platform}
                           </span>
                           <span className={`ml-auto text-xs px-1.5 py-0.5 rounded font-medium ${
@@ -303,13 +303,13 @@ export default function CalendarPage() {
                       <div className="flex-1">
                         <div className="flex justify-between text-xs mb-1">
                           <span className="text-gray-300">{platform}</span>
-                          <span className="font-bold" style={{ color: PLATFORM_COLORS[platform] || '#6366f1' }}>{count}</span>
+                          <span className="font-bold" style={{ color: PLATFORM_COLORS[platform] || '#FF9500' }}>{count}</span>
                         </div>
                         <div className="h-1 rounded-full bg-[#1e1e2e]">
                           <div className="h-full rounded-full"
                             style={{
                               width: `${(count / posts.length) * 100}%`,
-                              background: PLATFORM_COLORS[platform] || '#6366f1',
+                              background: PLATFORM_COLORS[platform] || '#FF9500',
                             }} />
                         </div>
                       </div>

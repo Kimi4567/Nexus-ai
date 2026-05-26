@@ -101,18 +101,18 @@ export default function OnboardingPage() {
 
   if (loading) return (
     <div className="min-h-screen bg-[#080810] flex items-center justify-center">
-      <div className="w-5 h-5 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
+      <div className="w-5 h-5 border-2 border-[#FF9500] border-t-transparent rounded-full animate-spin" />
     </div>
   )
   if (!isAuthenticated) return null
 
   return (
     <div className="min-h-screen bg-[#080810] flex flex-col items-center justify-center px-4 py-10"
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99,102,241,0.12), transparent)' }}>
+      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,149,0,0.12), transparent)' }}>
 
       {/* Logo */}
       <div className="flex items-center gap-2.5 mb-10">
-        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: '#6366f1' }}>
+        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: '#FF9500' }}>
           <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
             <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -129,7 +129,7 @@ export default function OnboardingPage() {
             <span>{STEPS[step]}</span>
           </div>
           <div className="h-1 rounded-full bg-[#1a1a25]">
-            <div className="h-full rounded-full bg-[#6366f1] transition-all duration-500"
+            <div className="h-full rounded-full bg-[#FF9500] transition-all duration-500"
               style={{ width: `${(step / 3) * 100}%` }} />
           </div>
         </div>
@@ -140,8 +140,8 @@ export default function OnboardingPage() {
         {/* STEP 0 — WELCOME */}
         {step === 0 && (
           <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8 text-center"
-            style={{ boxShadow: '0 0 60px rgba(99,102,241,0.08)' }}>
-            <div className="w-16 h-16 rounded-2xl bg-[#6366f1]/10 border border-[#6366f1]/20 flex items-center justify-center mx-auto mb-5 text-3xl">
+            style={{ boxShadow: '0 0 60px rgba(255,149,0,0.08)' }}>
+            <div className="w-16 h-16 rounded-2xl bg-[#FF9500]/10 border border-[#FF9500]/20 flex items-center justify-center mx-auto mb-5 text-3xl">
               👋
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Welcome, {displayName}</h1>
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <button onClick={() => setStep(1)}
-              className="w-full py-3.5 bg-[#6366f1] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm"
+              className="w-full py-3.5 bg-[#FF9500] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 24px rgba(99,102,241,0.3)' }}>
               Build My Marketing OS →
             </button>
@@ -172,7 +172,7 @@ export default function OnboardingPage() {
         {/* STEP 1 — BRAND */}
         {step === 1 && (
           <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8"
-            style={{ boxShadow: '0 0 60px rgba(99,102,241,0.06)' }}>
+            style={{ boxShadow: '0 0 60px rgba(255,149,0,0.06)' }}>
             <h2 className="text-xl font-bold text-white mb-1">Tell us about your brand</h2>
             <p className="text-gray-500 text-sm mb-6">This trains the AI on your specific business.</p>
             <div className="space-y-5">
@@ -180,7 +180,7 @@ export default function OnboardingPage() {
                 <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Brand / Business Name</label>
                 <input type="text" value={brandName} onChange={e => setBrandName(e.target.value)}
                   placeholder="e.g. My Brand, Acme Co."
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#6366f1]/50 transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#FF9500]/50 transition-all"
                   autoFocus />
               </div>
               <div>
@@ -190,7 +190,7 @@ export default function OnboardingPage() {
                     <button key={ind.value} onClick={() => setIndustry(ind.value)}
                       className={`p-2.5 rounded-xl border text-center transition-all ${
                         industry === ind.value
-                          ? 'border-[#6366f1] bg-[#6366f1]/10 text-white'
+                          ? 'border-[#FF9500] bg-[#FF9500]/10 text-white'
                           : 'border-[#1e1e2e] bg-[#111119] text-gray-400 hover:border-[#2e2e3e]'
                       }`}>
                       <div className="text-lg mb-0.5">{ind.icon}</div>
@@ -205,7 +205,7 @@ export default function OnboardingPage() {
                 </label>
                 <input type="text" value={audience} onChange={e => setAudience(e.target.value)}
                   placeholder="e.g. Women 25-40 interested in fitness"
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#6366f1]/50 transition-all" />
+                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#FF9500]/50 transition-all" />
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Brand Tone</label>
@@ -213,7 +213,7 @@ export default function OnboardingPage() {
                   {TONES.map(t => (
                     <button key={t.id} onClick={() => setTone(t.id)}
                       className={`p-3 rounded-xl border text-left transition-all ${
-                        tone === t.id ? 'border-[#6366f1] bg-[#6366f1]/10' : 'border-[#1e1e2e] bg-[#111119] hover:border-[#2e2e3e]'
+                        tone === t.id ? 'border-[#FF9500] bg-[#FF9500]/10' : 'border-[#1e1e2e] bg-[#111119] hover:border-[#2e2e3e]'
                       }`}>
                       <div className="text-xs font-bold text-white">{t.label}</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">{t.desc}</div>
@@ -223,7 +223,7 @@ export default function OnboardingPage() {
               </div>
             </div>
             <button onClick={() => setStep(2)} disabled={!brandName.trim() || !industry}
-              className="w-full py-3.5 mt-6 bg-[#6366f1] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+              className="w-full py-3.5 mt-6 bg-[#FF9500] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
               Continue →
             </button>
           </div>
@@ -232,14 +232,14 @@ export default function OnboardingPage() {
         {/* STEP 2 — GOAL */}
         {step === 2 && (
           <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8"
-            style={{ boxShadow: '0 0 60px rgba(99,102,241,0.06)' }}>
+            style={{ boxShadow: '0 0 60px rgba(255,149,0,0.06)' }}>
             <h2 className="text-xl font-bold text-white mb-1">What is your #1 goal right now?</h2>
             <p className="text-gray-500 text-sm mb-6">We will build your first 30-day strategy around this.</p>
             <div className="grid grid-cols-2 gap-2 mb-6">
               {GOALS.map(g => (
                 <button key={g.id} onClick={() => setGoal(g.id)}
                   className={`p-4 rounded-xl border text-left transition-all ${
-                    goal === g.id ? 'border-[#6366f1] bg-[#6366f1]/10' : 'border-[#1e1e2e] bg-[#111119] hover:border-[#2e2e3e]'
+                    goal === g.id ? 'border-[#FF9500] bg-[#FF9500]/10' : 'border-[#1e1e2e] bg-[#111119] hover:border-[#2e2e3e]'
                   }`}>
                   <div className="text-xl mb-1.5">{g.icon}</div>
                   <div className="text-xs font-semibold text-white leading-tight">{g.label}</div>
@@ -247,7 +247,7 @@ export default function OnboardingPage() {
               ))}
             </div>
             <button onClick={handleFinishSetup} disabled={!goal}
-              className="w-full py-3.5 bg-[#6366f1] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-3.5 bg-[#FF9500] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ boxShadow: goal ? '0 0 24px rgba(99,102,241,0.3)' : 'none' }}>
               {goal ? 'Generate My Strategy →' : 'Select a goal to continue'}
             </button>
@@ -257,10 +257,10 @@ export default function OnboardingPage() {
         {/* STEP 3 — GENERATING */}
         {step === 3 && (
           <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8 text-center"
-            style={{ boxShadow: '0 0 60px rgba(99,102,241,0.08)' }}>
+            style={{ boxShadow: '0 0 60px rgba(255,149,0,0.08)' }}>
             <div className="relative w-16 h-16 mx-auto mb-6">
-              <div className="absolute inset-0 w-16 h-16 border-2 border-[#6366f1]/20 rounded-full" />
-              <div className="absolute inset-0 w-16 h-16 border-2 border-[#6366f1] border-t-transparent rounded-full animate-spin" />
+              <div className="absolute inset-0 w-16 h-16 border-2 border-[#FF9500]/20 rounded-full" />
+              <div className="absolute inset-0 w-16 h-16 border-2 border-[#FF9500] border-t-transparent rounded-full animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center text-2xl">🧠</div>
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Building your strategy...</h2>
@@ -269,7 +269,7 @@ export default function OnboardingPage() {
               {['Setting up your workspace', 'Learning your brand voice', 'Mapping your audience', 'Creating 30-day strategy'].map((s, i) => (
                 <div key={s} className="flex items-center gap-3 text-sm text-gray-500 animate-pulse"
                   style={{ animationDelay: `${i * 0.4}s` }}>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#6366f1] shrink-0" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#FF9500] shrink-0" />
                   {s}
                 </div>
               ))}
@@ -279,10 +279,10 @@ export default function OnboardingPage() {
 
         {/* STEP 4 — DONE */}
         {step === 4 && (
-          <div className="rounded-2xl border border-[#6366f1]/20 bg-[#0d0d18] overflow-hidden"
-            style={{ boxShadow: '0 0 60px rgba(99,102,241,0.12)' }}>
+          <div className="rounded-2xl border border-[#FF9500]/20 bg-[#0d0d18] overflow-hidden"
+            style={{ boxShadow: '0 0 60px rgba(255,149,0,0.12)' }}>
             <div className="p-6 border-b border-[#1e1e2e]"
-              style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08), transparent)' }}>
+              style={{ background: 'linear-gradient(135deg, rgba(255,149,0,0.08), transparent)' }}>
               <div className="text-2xl mb-2">🎉</div>
               <h2 className="text-xl font-bold text-white mb-1">Your marketing OS is ready</h2>
               <p className="text-gray-400 text-sm">{strategy?.title || 'Your 30-day strategy has been created.'}</p>
@@ -293,7 +293,7 @@ export default function OnboardingPage() {
                 <div className="space-y-2">
                   {strategy.quickWins.slice(0, 3).map((win: string, i: number) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                      <span className="text-[#6366f1] shrink-0 mt-0.5">→</span>
+                      <span className="text-[#FF9500] shrink-0 mt-0.5">→</span>
                       <span>{win}</span>
                     </div>
                   ))}
@@ -318,8 +318,8 @@ export default function OnboardingPage() {
             </div>
             <div className="p-5 space-y-2">
               <button onClick={() => router.push('/strategy')}
-                className="w-full py-3 bg-[#6366f1] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm"
-                style={{ boxShadow: '0 0 20px rgba(99,102,241,0.25)' }}>
+                className="w-full py-3 bg-[#FF9500] hover:bg-[#5558e8] text-white font-bold rounded-xl transition-all text-sm"
+                style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}>
                 View My Full Strategy →
               </button>
               <button onClick={() => router.push('/dashboard')}

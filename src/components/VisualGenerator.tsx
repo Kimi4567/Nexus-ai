@@ -433,7 +433,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
       {!loading && !generating && visuals.length === 0 && (
         <div className="bg-[#111111] border border-[#1f1f1f] border-dashed rounded-xl py-12 text-center">
           <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center mx-auto mb-3">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#6366f1" strokeWidth="1.5">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#FF9500" strokeWidth="1.5">
               <rect x="2" y="2" width="14" height="14" rx="3" />
               <circle cx="6.5" cy="6.5" r="1.5" />
               <path d="M2 12l4.5-4 3.5 3.5 2.5-2.5L16 13" strokeLinecap="round" strokeLinejoin="round" />

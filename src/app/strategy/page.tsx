@@ -53,7 +53,7 @@ export default function StrategyPage() {
   const [activeTab, setActiveTab] = useState('overview')
   const [expandedWeek, setExpandedWeek] = useState<number | null>(1)
 
-  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   const handleGenerate = async () => {
@@ -80,7 +80,7 @@ export default function StrategyPage() {
     }
   }
 
-  const pillarsColors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
+  const pillarsColors = ['#FF9500', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
 
   return (
     <AppShell>
@@ -193,7 +193,7 @@ export default function StrategyPage() {
             <button
               onClick={handleGenerate}
               disabled={!goal}
-              className="w-full py-4 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-base transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_32px_rgba(99,102,241,0.25)]"
+              className="w-full py-4 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-base transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_0_32px_rgba(255,149,0,0.20)]"
             >
               {goal ? `Generate ${timeframe}-Day Strategy →` : 'Select a goal to continue'}
             </button>
@@ -228,7 +228,7 @@ export default function StrategyPage() {
 
             {/* Strategy header */}
             <div className="rounded-2xl border border-accent/20 bg-accent/5 p-6"
-              style={{ boxShadow: '0 0 40px rgba(99,102,241,0.08)' }}>
+              style={{ boxShadow: '0 0 40px rgba(255,149,0,0.08)' }}>
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">{strategy.timeframe} Strategy</div>

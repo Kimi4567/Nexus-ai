@@ -263,7 +263,7 @@ export default function CampaignsPage() {
                       </button>
                       {actionMenuId === campaign.id && (
                         <div className="absolute right-0 top-8 z-20 min-w-[160px] overflow-hidden rounded-[13px]"
-                          style={{ background: '#111119', border: '1px solid #1c1c28', boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                          style={{ background: '#131312', border: '1px solid #1c1c28', boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                           <Link
                             href={`/campaigns/${campaign.id}`}
                             className="block px-3 py-2 text-[12px] text-t2 hover:text-white hover:bg-white/5 rounded-[8px] mx-1 my-1 transition"

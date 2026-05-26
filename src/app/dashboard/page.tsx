@@ -139,7 +139,7 @@ function OnboardingBar({ hasCampaign, hasGeneration, hasBrand }: {
       <div className="relative w-10 h-10 flex-shrink-0">
         <svg viewBox="0 0 36 36" className="w-10 h-10 -rotate-90">
           <circle cx="18" cy="18" r="15" fill="none" stroke="#161622" strokeWidth="3" />
-          <circle cx="18" cy="18" r="15" fill="none" stroke="#6366f1" strokeWidth="3"
+          <circle cx="18" cy="18" r="15" fill="none" stroke="#FF9500" strokeWidth="3"
             strokeDasharray={`${(completed / steps.length) * 94.2} 94.2`}
             strokeLinecap="round" className="transition-all duration-500" />
         </svg>
@@ -382,7 +382,7 @@ export default function Dashboard() {
                 },
                 {
                   href: '/brand', accent: false, label: 'Brand Memory', sub: 'Train your AI voice',
-                  icon: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#818cf8" strokeWidth="1.5"><circle cx="7" cy="7" r="5.5" /><path d="M7 4v4l2.5 2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>,
+                  icon: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#FFB340" strokeWidth="1.5"><circle cx="7" cy="7" r="5.5" /><path d="M7 4v4l2.5 2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>,
                 },
                 {
                   href: '/media', accent: false, label: 'Media Library', sub: 'Upload assets',

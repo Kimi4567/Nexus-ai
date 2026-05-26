@@ -742,7 +742,7 @@ export default function CampaignResultsPage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-lg rounded-[18px] overflow-hidden"
               style={{
-                background: '#111119',
+                background: '#131312',
                 border: '1px solid #1c1c28',
                 boxShadow: '0 8px 48px rgba(0,0,0,0.6), 0 32px 64px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
               }}>

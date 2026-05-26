@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 function NexusLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="28" height="28" rx="7" fill="#6366f1" />
+      <rect width="28" height="28" rx="7" fill="#FF9500" />
       <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
@@ -199,10 +199,10 @@ const PLANS = [
 // ── Main page ──────────────────────────────────────────────────────────
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-dark text-white overflow-x-hidden">
 
       {/* ── NAV ─────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 border-b border-[#141414] bg-[#0a0a0a]/90 backdrop-blur-xl">
+      <nav className="sticky top-0 z-50 border-b border-[#141414] bg-dark/90 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <NexusLogo size={26} />
@@ -241,7 +241,7 @@ export default function HomePage() {
             <h1 className="text-[52px] font-bold leading-[1.05] tracking-tight text-white mb-6">
               Operate your<br />
               marketing with<br />
-              <span style={{ color: '#6366f1' }}>intelligence.</span>
+              <span style={{ color: '#FF9500' }}>intelligence.</span>
             </h1>
 
             <p className="text-[16px] text-gray-400 leading-relaxed mb-8 max-w-md">
@@ -463,7 +463,7 @@ export default function HomePage() {
               <ul className="space-y-2.5 mb-7">
                 {plan.features.map(f => (
                   <li key={f} className="flex items-center gap-2.5 text-[12px] text-gray-400">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#6366f1" strokeWidth="1.5">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#FF9500" strokeWidth="1.5">
                       <path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     {f}

@@ -19,7 +19,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   Facebook: '#1877f2',
   LinkedIn: '#0a66c2',
   TikTok: '#010101',
-  'Multi-platform': '#6366f1',
+  'Multi-platform': '#FF9500',
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -57,7 +57,7 @@ export default function AnalyticsPage() {
       .catch(() => setLoadingData(false))
   }, [isAuthenticated])
 
-  if (loading) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
   if (!isAuthenticated) return null
 
   // Filter by time range
@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
         {/* KPI Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total Campaigns', value: total, sub: `Last ${timeRange} days`, color: '#6366f1' },
+            { label: 'Total Campaigns', value: total, sub: `Last ${timeRange} days`, color: '#FF9500' },
             { label: 'Published', value: published, sub: total > 0 ? `${Math.round((published / total) * 100)}% publish rate` : '—', color: '#10b981' },
             { label: 'Generated', value: generated, sub: 'AI-generated content', color: '#8b5cf6' },
             { label: 'Drafts', value: drafts, sub: 'Awaiting review', color: '#f59e0b' },
@@ -186,7 +186,7 @@ export default function AnalyticsPage() {
                     <div className="w-full rounded-t transition-all duration-500"
                       style={{
                         height: `${height}%`,
-                        background: count > 0 ? '#6366f1' : '#1a1a25',
+                        background: count > 0 ? '#FF9500' : '#1a1a25',
                         minHeight: '3px',
                       }} />
                     <span className="text-[8px] text-gray-600">{label}</span>
@@ -215,12 +215,12 @@ export default function AnalyticsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">{Math.round((count / total) * 100)}%</span>
-                        <span className="text-sm font-bold" style={{ color: PLATFORM_COLORS[platform] || '#6366f1' }}>
+                        <span className="text-sm font-bold" style={{ color: PLATFORM_COLORS[platform] || '#FF9500' }}>
                           {count}
                         </span>
                       </div>
                     </div>
-                    <SparkBar value={count} max={maxPlatform} color={PLATFORM_COLORS[platform] || '#6366f1'} />
+                    <SparkBar value={count} max={maxPlatform} color={PLATFORM_COLORS[platform] || '#FF9500'} />
                   </div>
                 ))}
               </div>
@@ -235,7 +235,7 @@ export default function AnalyticsPage() {
             ) : (
               <div className="space-y-4">
                 {Object.entries(byType).sort(([, a], [, b]) => b - a).map(([type, count], i) => {
-                  const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
+                  const colors = ['#FF9500', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
                   const color = colors[i % colors.length]
                   const maxType = Math.max(...Object.values(byType))
                   return (

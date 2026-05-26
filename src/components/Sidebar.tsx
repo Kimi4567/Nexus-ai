@@ -23,7 +23,7 @@ interface SidebarProps {
 function NexusLogo() {
   return (
     <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="28" height="28" rx="7" fill="#6366f1" />
+      <rect width="28" height="28" rx="7" fill="#FF9500" />
       <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
@@ -273,9 +273,9 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           <Link href="/billing"
             className="flex items-center gap-2 px-3 py-2 rounded-[9px] mb-2 group transition-all duration-150"
             style={{
-              background: 'rgba(99,102,241,0.08)',
-              border: '1px solid rgba(99,102,241,0.14)',
-              boxShadow: 'inset 0 1px 0 rgba(99,102,241,0.10)',
+              background: 'rgba(255,149,0,0.08)',
+              border: '1px solid rgba(255,149,0,0.18)',
+              boxShadow: 'inset 0 1px 0 rgba(255,149,0,0.10)',
             }}
           >
             <span className="text-accent text-sm">⚡</span>
@@ -317,9 +317,9 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
           >
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
               style={{
-                background: 'rgba(99,102,241,0.15)',
-                border: '1px solid rgba(99,102,241,0.25)',
-                color: '#818cf8',
+                background: 'rgba(255,149,0,0.12)',
+                border: '1px solid rgba(255,149,0,0.22)',
+                color: '#FF9500',
               }}>
               {initial}
             </div>
@@ -336,8 +336,8 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
               <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
               <div className="absolute bottom-full left-0 mb-2 w-52 z-50 rounded-[13px] overflow-hidden"
                 style={{
-                  background: '#111119',
-                  border: '1px solid #1c1c28',
+                  background: '#131312',
+                  border: '1px solid #1f1f1d',
                   boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
                   animation: 'slideDown 0.18s cubic-bezier(0.22,1,0.36,1) both',
                 }}
