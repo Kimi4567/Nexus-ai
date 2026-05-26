@@ -196,6 +196,91 @@ function HeroProductWindow() {
   )
 }
 
+// ── Testimonials ────────────────────────────────────────────────────────
+const TESTIMONIALS = [
+  {
+    quote: "We went from spending 3 days planning a campaign to launching the same day. Nexus is the first AI tool that actually understands what marketing means.",
+    name: "Sarah K.",
+    role: "Head of Marketing",
+    company: "DTC Brand",
+    avatar: "SK",
+  },
+  {
+    quote: "Our agency manages 12 clients. Nexus replaced three separate tools we were paying for. The brand memory feature alone saves us hours every week.",
+    name: "James M.",
+    role: "Founder",
+    company: "Growth Agency",
+    avatar: "JM",
+  },
+  {
+    quote: "I'm not a marketer — I'm a founder. Nexus made me feel like I have a full marketing team. The strategy output is genuinely impressive.",
+    name: "Layla R.",
+    role: "Founder & CEO",
+    company: "SaaS Startup",
+    avatar: "LR",
+  },
+]
+
+// ── FAQ ────────────────────────────────────────────────────────────────
+const FAQS = [
+  {
+    q: "What exactly is Nexus?",
+    a: "Nexus is an AI-powered marketing operating system. It's not a content generator — it's a complete marketing environment that holds your brand memory, generates strategy, creates content, and helps you execute campaigns end-to-end.",
+  },
+  {
+    q: "How is this different from ChatGPT or other AI tools?",
+    a: "ChatGPT gives you generic content. Nexus builds your brand profile first, then uses that context for every campaign. Your tone, audience, positioning, and goals are remembered across every generation — so every output sounds like your brand, not like AI.",
+  },
+  {
+    q: "What do I get on the free plan?",
+    a: "You get 3 complete campaigns with full AI strategy, hooks, scripts, captions, and a 30-day content calendar. No credit card required. Most users see the value within their first campaign.",
+  },
+  {
+    q: "How fast does AI generation work?",
+    a: "A full campaign — including strategy, 4 ad concepts, captions, hooks, and content calendar — typically generates in under 60 seconds.",
+  },
+  {
+    q: "Can I export my campaigns?",
+    a: "Yes. All plans include PDF campaign exports. You can download a full branded report for each campaign and share it with your team or clients.",
+  },
+  {
+    q: "Do I need any marketing experience to use Nexus?",
+    a: "No. Nexus is designed for founders, business owners, and small teams who don't have a dedicated marketing department. Just describe your business and Nexus handles the strategy.",
+  },
+  {
+    q: "Can agencies use Nexus for multiple clients?",
+    a: "Yes. The Pro plan supports 3 workspaces and the Agency plan supports 10 — each with its own brand profile, campaigns, and history. The Agency plan also includes white-label PDF exports.",
+  },
+  {
+    q: "What happens when I run out of AI credits?",
+    a: "You'll see an upgrade prompt. Credits reset monthly on paid plans. Free users can upgrade anytime — your campaigns and brand data are never deleted.",
+  },
+]
+
+function FAQItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border-b border-[#1a1a18]">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-4 py-5 text-left group"
+      >
+        <span className="text-[14px] font-semibold text-white group-hover:text-accent transition-colors">{q}</span>
+        <span className={`flex-shrink-0 w-5 h-5 rounded-full border border-[#2a2a26] flex items-center justify-center transition-all duration-200 ${open ? 'bg-accent border-accent rotate-45' : 'bg-transparent'}`}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke={open ? 'white' : '#666'} strokeWidth="1.5">
+            <path d="M5 2v6M2 5h6" strokeLinecap="round" />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <div className="pb-5 text-[13px] text-gray-400 leading-relaxed pr-8" style={{ animation: 'slideDown 0.2s ease' }}>
+          {a}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Capability card ────────────────────────────────────────────────────
 function CapCard({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
@@ -535,6 +620,59 @@ export default function HomePage() {
               </Link>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ─────────────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div className="text-center mb-12">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">What people say</div>
+          <h2 className="text-[28px] sm:text-[32px] font-bold tracking-tight">Built for real marketers.</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          {TESTIMONIALS.map((t) => (
+            <div key={t.name} className="p-6 bg-[#0e0e10] border border-[#1a1a18] rounded-2xl flex flex-col gap-4">
+              {/* Stars */}
+              <div className="flex gap-0.5">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="#FF9500">
+                    <path d="M6 1l1.5 3h3l-2.5 2 1 3L6 7.5 3 9l1-3L1.5 4h3z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-[13px] text-gray-400 leading-relaxed flex-1">&ldquo;{t.quote}&rdquo;</p>
+              <div className="flex items-center gap-3 pt-2 border-t border-[#1a1a18]">
+                <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
+                  {t.avatar}
+                </div>
+                <div>
+                  <div className="text-[12px] font-semibold text-white">{t.name}</div>
+                  <div className="text-[11px] text-gray-600">{t.role} · {t.company}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── FAQ ──────────────────────────────────────────────────── */}
+      <section className="max-w-3xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+        <div className="text-center mb-12">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">FAQ</div>
+          <h2 className="text-[28px] sm:text-[32px] font-bold tracking-tight">Everything you need to know</h2>
+        </div>
+        <div>
+          {FAQS.map((item) => (
+            <FAQItem key={item.q} q={item.q} a={item.a} />
+          ))}
+        </div>
+        <div className="text-center mt-10">
+          <p className="text-[13px] text-gray-500">
+            Still have questions?{' '}
+            <a href="mailto:hello@nexus-grow.com" className="text-accent hover:text-accent-light transition-colors">
+              hello@nexus-grow.com
+            </a>
+          </p>
         </div>
       </section>
 
