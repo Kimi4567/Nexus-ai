@@ -3,6 +3,47 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+// ── Mobile Nav ─────────────────────────────────────────────────────────
+function MobileNav({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed top-0 right-0 h-full w-72 z-50 bg-[#0d0d0c] border-l border-[#1f1f1d] flex flex-col"
+        style={{ animation: 'slideDown 0.2s cubic-bezier(0.22,1,0.36,1)' }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a18]">
+          <span className="font-bold text-white">Menu</span>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/5">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 2l10 10M12 2L2 12" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+          {[
+            { href: '#platform', label: 'Platform' },
+            { href: '#capabilities', label: 'Capabilities' },
+            { href: '#pricing', label: 'Pricing' },
+          ].map(item => (
+            <a key={item.href} href={item.href} onClick={onClose}
+              className="flex items-center px-4 py-3 rounded-xl text-[14px] text-gray-300 hover:text-white hover:bg-white/5 transition-colors">
+              {item.label}
+            </a>
+          ))}
+        </div>
+        <div className="p-4 space-y-2 border-t border-[#1a1a18]">
+          <Link href="/auth/login" onClick={onClose}
+            className="flex items-center justify-center w-full py-3 rounded-xl text-[14px] font-medium text-gray-300 border border-[#1f1f1d] hover:border-[#2a2a26] hover:text-white transition-colors">
+            Log in
+          </Link>
+          <Link href="/auth/register" onClick={onClose}
+            className="flex items-center justify-center w-full py-3 rounded-xl text-[14px] font-bold bg-accent text-white hover:bg-accent-light transition-colors">
+            Get started free
+          </Link>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Logo ───────────────────────────────────────────────────────────────
 function NexusLogo({ size = 28 }: { size?: number }) {
   return (
@@ -198,12 +239,16 @@ const PLANS = [
 
 // ── Main page ──────────────────────────────────────────────────────────
 export default function HomePage() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-dark text-white overflow-x-hidden">
 
+      <MobileNav open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+
       {/* ── NAV ─────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 border-b border-[#141414] bg-dark/90 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <NexusLogo size={26} />
             <span className="font-bold text-white tracking-tight">Nexus</span>
@@ -215,62 +260,70 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-2">
             <Link href="/auth/login"
-              className="text-[13px] text-gray-400 hover:text-white transition-colors px-3 py-1.5">
+              className="hidden sm:block text-[13px] text-gray-400 hover:text-white transition-colors px-3 py-1.5">
               Log in
             </Link>
             <Link href="/auth/register"
-              className="text-[13px] px-4 py-1.5 bg-white text-black font-semibold rounded-lg hover:bg-gray-100 transition-colors">
+              className="hidden sm:block text-[13px] px-4 py-1.5 bg-white text-black font-semibold rounded-lg hover:bg-gray-100 transition-colors">
               Get access
             </Link>
+            {/* Hamburger — mobile only */}
+            <button
+              onClick={() => setMobileNavOpen(true)}
+              className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round"/>
+              </svg>
+            </button>
           </div>
         </div>
       </nav>
 
       {/* ── HERO ────────────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-6 pt-24 pb-20">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 sm:pt-24 pb-14 sm:pb-20">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
 
           {/* Left — copy */}
-          <div>
+          <div className="text-center lg:text-left">
             {/* Eyebrow */}
-            <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-6">
-              <span className="w-4 h-px bg-accent" />
+            <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-5 sm:mb-6">
+              <span className="w-4 h-px bg-accent hidden sm:block" />
               Marketing Operations Infrastructure
             </div>
 
-            <h1 className="text-[52px] font-bold leading-[1.05] tracking-tight text-white mb-6">
+            <h1 className="text-[38px] sm:text-[52px] font-bold leading-[1.05] tracking-tight text-white mb-4 sm:mb-6">
               Operate your<br />
               marketing with<br />
               <span style={{ color: '#FF9500' }}>intelligence.</span>
             </h1>
 
-            <p className="text-[16px] text-gray-400 leading-relaxed mb-8 max-w-md">
+            <p className="text-[15px] sm:text-[16px] text-gray-400 leading-relaxed mb-7 sm:mb-8 max-w-md mx-auto lg:mx-0">
               Nexus is the operational layer between your brand and your campaigns.
               Strategy, content, visuals, and execution — unified in one intelligent environment.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 mb-12">
+            <div className="flex flex-col sm:flex-row gap-3 mb-8 sm:mb-12">
               <Link href="/auth/register"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent text-white font-semibold rounded-xl hover:bg-accent-light transition-colors text-[14px]">
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-accent text-white font-semibold rounded-xl hover:bg-accent-light transition-colors text-[14px]">
                 Start operating
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M2.5 7h9M8 4l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </Link>
               <Link href="/auth/login"
-                className="inline-flex items-center justify-center px-6 py-3 border border-[#1e1e1e] text-gray-300 font-medium rounded-xl hover:border-[#2a2a2a] hover:text-white transition-colors text-[14px]">
+                className="inline-flex items-center justify-center px-6 py-3.5 border border-[#1e1e1e] text-gray-300 font-medium rounded-xl hover:border-[#2a2a2a] hover:text-white transition-colors text-[14px]">
                 Sign in
               </Link>
             </div>
 
             {/* Stats */}
-            <div className="flex items-center gap-8 text-[12px]">
+            <div className="flex items-center justify-center lg:justify-start gap-6 sm:gap-8 text-[12px]">
               {[
-                { val: '500+', label: 'campaigns created' },
-                { val: '< 60s', label: 'average generation' },
+                { val: '< 60s', label: 'AI generation' },
+                { val: '3', label: 'free campaigns' },
                 { val: 'Free', label: 'to get started' },
               ].map((s, i) => (
-                <div key={i}>
+                <div key={i} className="text-center lg:text-left">
                   <div className="text-white font-bold text-[18px] mb-0.5">{s.val}</div>
                   <div className="text-gray-600">{s.label}</div>
                 </div>
@@ -279,16 +332,16 @@ export default function HomePage() {
           </div>
 
           {/* Right — animated product window */}
-          <div className="flex justify-center lg:justify-end">
+          <div className="flex justify-center lg:justify-end mt-4 lg:mt-0">
             <HeroProductWindow />
           </div>
         </div>
       </section>
 
       {/* ── TRUST BAR ───────────────────────────────────────────── */}
-      <div className="border-y border-[#141414] py-5">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-10 text-[12px] text-gray-600">
-          <span className="uppercase tracking-widest font-semibold text-[10px]">Trusted by teams at</span>
+      <div className="border-y border-[#141414] py-4 sm:py-5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-center gap-3 sm:gap-10 text-[12px] text-gray-600">
+          <span className="uppercase tracking-widest font-semibold text-[10px] w-full text-center sm:w-auto">Trusted by teams at</span>
           {['E-commerce brands', 'SaaS startups', 'Marketing agencies', 'DTC founders'].map(t => (
             <span key={t} className="text-gray-500 font-medium">{t}</span>
           ))}
@@ -296,7 +349,7 @@ export default function HomePage() {
       </div>
 
       {/* ── PLATFORM SECTION ────────────────────────────────────── */}
-      <section id="platform" className="max-w-7xl mx-auto px-6 py-28">
+      <section id="platform" className="max-w-7xl mx-auto px-4 sm:px-6 py-16 sm:py-28">
         <div className="max-w-xl mb-16">
           <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-4">The platform</div>
           <h2 className="text-[36px] font-bold leading-tight tracking-tight mb-4">
@@ -344,7 +397,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CAPABILITIES ────────────────────────────────────────── */}
-      <section id="capabilities" className="max-w-7xl mx-auto px-6 py-20">
+      <section id="capabilities" className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-12">
           <div>
             <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">Capabilities</div>
@@ -389,7 +442,7 @@ export default function HomePage() {
       </section>
 
       {/* ── AI PRESENCE SHOWCASE ─────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
         <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-3xl p-10 md:p-16">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -431,7 +484,7 @@ export default function HomePage() {
       </section>
 
       {/* ── PRICING ─────────────────────────────────────────────── */}
-      <section id="pricing" className="max-w-6xl mx-auto px-6 py-24">
+      <section id="pricing" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
         <div className="text-center mb-14">
           <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">Pricing</div>
           <h2 className="text-[32px] font-bold tracking-tight mb-3">Start free. Scale when ready.</h2>
@@ -486,8 +539,8 @@ export default function HomePage() {
       </section>
 
       {/* ── FINAL CTA ───────────────────────────────────────────── */}
-      <section className="max-w-4xl mx-auto px-6 py-20 text-center">
-        <div className="border border-[#1a1a1a] rounded-3xl px-12 py-16 bg-[#0e0e10]">
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-14 sm:py-20 text-center">
+        <div className="border border-[#1a1a1a] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 bg-[#0e0e10]">
           <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-6">Get started</div>
           <h2 className="text-[36px] font-bold tracking-tight mb-4">
             Your marketing operation<br />starts here.

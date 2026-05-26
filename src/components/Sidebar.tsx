@@ -17,6 +17,7 @@ interface NavItem {
 interface SidebarProps {
   collapsed: boolean
   setCollapsed: (v: boolean | ((prev: boolean) => boolean)) => void
+  onMobileClose?: () => void
 }
 
 // ── Logo ───────────────────────────────────────────────────────────────
@@ -31,13 +32,14 @@ function NexusLogo() {
 }
 
 // ── Nav link — expanded ────────────────────────────────────────────────
-function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavLink({ item, pathname, onClick }: { item: NavItem; pathname: string; onClick?: () => void }) {
   const isActive = pathname === item.href ||
     (item.href !== '/dashboard' && pathname.startsWith(item.href))
 
   return (
     <Link
       href={item.href}
+      onClick={onClick}
       className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150 group
         ${isActive
           ? 'bg-white/8 text-white shadow-top-edge'
@@ -92,7 +94,7 @@ function NavIcon({ item, pathname }: { item: NavItem; pathname: string }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────
-export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
+export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
@@ -105,6 +107,10 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const handleNavClick = () => {
+    if (onMobileClose) onMobileClose()
   }
 
   const mainNav: NavItem[] = [
@@ -241,7 +247,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
         <div className="space-y-0.5">
           {mainNav.map(item => collapsed
             ? <NavIcon key={item.href} item={item} pathname={pathname} />
-            : <NavLink key={item.href} item={item} pathname={pathname} />
+            : <NavLink key={item.href} item={item} pathname={pathname} onClick={handleNavClick} />
           )}
         </div>
 
@@ -253,7 +259,7 @@ export default function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
               Intelligence
             </div>
             <div className="space-y-0.5">
-              {workNav.map(item => <NavLink key={item.href} item={item} pathname={pathname} />)}
+              {workNav.map(item => <NavLink key={item.href} item={item} pathname={pathname} onClick={handleNavClick} />)}
             </div>
           </div>
         )}
