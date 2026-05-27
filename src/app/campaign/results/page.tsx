@@ -669,6 +669,9 @@ export default function CampaignResultsPage() {
                       <div className="flex-1">
                         <div className="font-semibold text-sm">{post.topic}</div>
                         <div className="text-xs text-gray-400 mt-1">Format: {post.format}</div>
+                        {post.caption && (
+                          <div className="text-xs text-gray-500 mt-2 italic leading-relaxed line-clamp-2">{post.caption}</div>
+                        )}
                       </div>
                       <div className="shrink-0">
                         <span className="text-xs bg-dark-tertiary px-2 py-1 rounded">{post.type}</span>

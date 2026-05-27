@@ -6,6 +6,16 @@
 
 const MODEL = 'gpt-4o-mini'
 
+// Platform-native tone guides injected into prompts
+const PLATFORM_GUIDES: Record<string, string> = {
+  TIKTOK: 'TikTok: Very casual, Gen-Z/Millennial tone, POV: or "day in my life" formats, trending audio cues, hook must hit in 0-0.5s, casual language, no corporate speak.',
+  INSTAGRAM: 'Instagram: Visually-led storytelling, aesthetic + aspirational, Reels hooks under 3s, save-worthy captions, community-driven.',
+  FACEBOOK: 'Facebook: Problem/solution format, longer captions OK, carousel performs well, target 35-55 demographics, trust + credibility signals.',
+  YOUTUBE_SHORTS: 'YouTube Shorts: Immediate payoff in first second, educational or entertaining, strong verbal hook + visual hook, direct CTA at end.',
+  LINKEDIN: 'LinkedIn: Professional insight-led, thought leadership, longer narrative OK, authority/credibility angle, B2B mindset.',
+  SNAPCHAT: 'Snapchat: Raw/authentic, fast-paced, FOMO-driven, casual and unpolished feels genuine, under 10s ideally.',
+}
+
 async function callOpenAI(
   systemPrompt: string,
   userPrompt: string,
@@ -55,8 +65,14 @@ async function callOpenAI(
 // MARKETING STRATEGY
 // ─────────────────────────────────────────────
 export async function generateMarketingStrategy(campaign: any, project: any): Promise<any> {
+  const platformGuides = (campaign.platforms || [])
+    .map((p: string) => PLATFORM_GUIDES[p])
+    .filter(Boolean)
+    .join('\n')
+
   const system = `You are a world-class marketing strategist and brand consultant with 15+ years of experience
-helping startups and growth-stage companies. You create clear, actionable, data-driven marketing strategies.
+helping startups and growth-stage companies build category-defining brands. You create clear, actionable,
+platform-native marketing strategies with specific copy examples, not generic frameworks.
 Always respond with valid JSON only.`
 
   const user = `Create a complete marketing strategy for this campaign. Return a JSON object with EXACTLY these keys:
@@ -75,7 +91,7 @@ Always respond with valid JSON only.`
     {
       "week": "Week 1",
       "posts": [
-        { "day": "Monday", "platform": "PLATFORM", "type": "Content Type", "topic": "Post topic", "format": "Video/Image/Carousel" }
+        { "day": "Monday", "platform": "PLATFORM", "type": "Content Type", "topic": "Post topic", "format": "Video/Image/Carousel", "caption": "Ready-to-post caption draft with hashtags" }
       ]
     }
   ],
@@ -112,34 +128,51 @@ BRAND MEMORY (use this to stay on-brand):
 - Winning Angles: ${(campaign.brandProfile.winningAngles || []).join(', ')}
 - Strategic Notes: ${campaign.brandProfile.strategicNotes || ''}
 ` : ''}
-Generate the contentCalendar for 4 weeks with 7 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
-Make all recommendations specific to the campaign details above. Be concrete and actionable.`
+PLATFORM-SPECIFIC GUIDES (apply these):
+${platformGuides || 'Create platform-native content appropriate to each platform.'}
 
-  return callOpenAI(system, user, true, 4000)
+Generate the contentCalendar for 4 weeks with 5-7 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
+For each calendar post, include a "caption" field with a ready-to-post caption draft (including relevant hashtags for social platforms).
+Make ALL recommendations hyper-specific to this campaign — use real copy examples, not placeholders.
+Every value prop, CTA, and hook should name the actual product/service and audience.`
+
+  return callOpenAI(system, user, true, 4096)
 }
 
 // ─────────────────────────────────────────────
 // AD CONCEPTS
 // ─────────────────────────────────────────────
 export async function generateAdConcepts(campaign: any, project: any): Promise<any[]> {
-  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major brands.
-You create scroll-stopping concepts with precise hooks, compelling scripts, and platform-native content.
-Always respond with valid JSON only.`
-
   const platforms = campaign.platforms || ['INSTAGRAM']
 
+  const platformGuides = platforms
+    .map((p: string) => PLATFORM_GUIDES[p])
+    .filter(Boolean)
+    .join('\n')
+
+  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major brands.
+You write platform-native scripts — a TikTok script sounds nothing like a LinkedIn post.
+You use real copywriting techniques: pattern interrupts, open loops, social proof, specificity, FOMO.
+Your hooks are tested and specific — not generic. Always respond with valid JSON only.`
+
   const user = `Generate exactly 5 unique ad concepts for this campaign. Return a JSON object with a "concepts" array containing exactly 5 items.
+
+RULES:
+- Each of the 5 concepts must use a DIFFERENT creative angle from this list: Pattern Interrupt, Social Proof, Problem/Agitation/Solution, Curiosity Gap, FOMO/Urgency, Authority/Credibility, Transformation Story, Objection Killer
+- Scripts must be platform-native — a TikTok script has a completely different voice/structure than LinkedIn
+- Hooks must be ultra-specific to this product/audience — never generic
+- Write actual copy, not descriptions of what copy would say
 
 Each concept must have EXACTLY this structure:
 {
   "name": "catchy concept name",
   "description": "1-2 sentence description of the concept approach",
-  "angle": "the main creative angle (e.g. 'Social Proof', 'Problem/Solution', 'Curiosity', 'FOMO', 'Authority')",
-  "hook": "the opening line that stops the scroll — first 3 seconds of the ad",
-  "script": "full 30-60 second video script with [HOOK], [PROBLEM], [SOLUTION], [PROOF], [CTA] sections",
-  "cta": "the specific call to action",
-  "headlines": ["headline variant 1", "headline variant 2", "headline variant 3"],
-  "captions": ["platform-optimized caption with hashtags"],
+  "angle": "the creative angle used (e.g. 'Social Proof', 'Pattern Interrupt', 'Curiosity Gap')",
+  "hook": "the opening line that stops the scroll — specific, provocative, platform-native. First 0-3 seconds.",
+  "script": "complete platform-native script: [HOOK - 0-3s] ... [PROBLEM] ... [SOLUTION] ... [PROOF/CREDIBILITY] ... [CTA]. For TikTok: casual, fast, punchy. For LinkedIn: insight-led, professional. For Instagram: visual storytelling. 80-120 words total.",
+  "cta": "specific, action-driven call-to-action (not 'click the link')",
+  "headlines": ["attention headline", "benefit-focused headline", "curiosity/FOMO headline"],
+  "captions": ["full platform-native caption with relevant hashtags — ready to post"],
   "platform": "ONE of: ${platforms.join(' | ')}",
   "format": "Video/Carousel/Static/Story/Reel",
   "estimatedReach": "estimated reach range (e.g. '10K-50K')"
@@ -161,11 +194,14 @@ BRAND VOICE (strictly follow this):
 - Winning Hooks to build on: ${(campaign.brandProfile.winningHooks || []).join(' | ')}
 - Winning Angles to use: ${(campaign.brandProfile.winningAngles || []).join(' | ')}
 ` : ''}
-Make each concept use a different creative angle. Write scripts that are actually compelling and specific to this campaign — not generic templates. The tone must be ${campaign.tone.toLowerCase()}.
+PLATFORM GUIDES:
+${platformGuides || 'Adapt tone and format to each platform naturally.'}
 
-Return: { "concepts": [ ...5 concepts... ] }`
+The overall campaign tone is ${campaign.tone.toLowerCase()}. All 5 concepts must feel distinctly different — different angle, different emotional trigger, different platform if possible.
 
-  const result = await callOpenAI(system, user, true, 4000)
+Return: { "concepts": [ ...exactly 5 concepts... ] }`
+
+  const result = await callOpenAI(system, user, true, 4096)
   // Handle both { concepts: [] } and direct array
   if (Array.isArray(result)) return result
   if (result?.concepts) return result.concepts

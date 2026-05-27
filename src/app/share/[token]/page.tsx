@@ -263,12 +263,17 @@ export default function SharePage() {
                 </div>
                 <div className="divide-y divide-dark-tertiary">
                   {(week.posts || []).map((post: any, pi: number) => (
-                    <div key={pi} className="px-5 py-3 flex flex-wrap items-center gap-3 text-sm">
-                      <span className="text-gray-500 w-20 flex-shrink-0 text-xs">{post.day}</span>
-                      <span className="text-gray-400">{PLATFORM_ICONS[post.platform] || '📱'} {post.platform?.replace('_', ' ')}</span>
-                      <span className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full font-semibold">{post.type}</span>
-                      <span className="text-gray-200 flex-1">{post.topic}</span>
-                      <span className="text-gray-500 text-xs">{post.format}</span>
+                    <div key={pi} className="px-5 py-3">
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        <span className="text-gray-500 w-20 flex-shrink-0 text-xs">{post.day}</span>
+                        <span className="text-gray-400">{PLATFORM_ICONS[post.platform] || '📱'} {post.platform?.replace('_', ' ')}</span>
+                        <span className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full font-semibold">{post.type}</span>
+                        <span className="text-gray-200 flex-1">{post.topic}</span>
+                        <span className="text-gray-500 text-xs">{post.format}</span>
+                      </div>
+                      {post.caption && (
+                        <div className="ml-[92px] mt-1.5 text-xs text-gray-500 italic leading-relaxed">{post.caption}</div>
+                      )}
                     </div>
                   ))}
                 </div>
