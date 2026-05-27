@@ -210,6 +210,37 @@ export default function CampaignResultsPage() {
   const [calendarWeek, setCalendarWeek] = useState(0)
   const [savedId, setSavedId] = useState<string | null>(null)
 
+  // Share link
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
+
+  const handleShare = async () => {
+    if (!savedId) return
+    if (shareUrl) {
+      navigator.clipboard.writeText(shareUrl)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+      return
+    }
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/campaigns/${savedId}/share`, {
+        method: 'POST',
+        headers: { Authorization: authHeader() },
+      })
+      const data = await res.json()
+      if (data.shareToken) {
+        const url = `${window.location.origin}/share/${data.shareToken}`
+        setShareUrl(url)
+        navigator.clipboard.writeText(url)
+        setShareCopied(true)
+        setTimeout(() => setShareCopied(false), 2000)
+      }
+    } catch { /* silent */ }
+    finally { setSharing(false) }
+  }
+
   // Publish modal
   const [publishOpen, setPublishOpen] = useState(false)
   const [socialAccounts, setSocialAccounts] = useState<any[]>([])
@@ -361,6 +392,13 @@ export default function CampaignResultsPage() {
                 className="px-4 py-2 border border-accent/50 text-accent text-sm font-semibold rounded-lg hover:bg-accent hover:text-dark transition"
               >
                 ⬇ Export PDF
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={!savedId || sharing}
+                className="px-4 py-2 border border-dark-tertiary text-gray-300 text-sm font-semibold rounded-lg hover:border-accent/50 hover:text-accent transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {sharing ? '⏳ Sharing…' : shareCopied ? '✓ Link copied!' : shareUrl ? '🔗 Copy link' : '🔗 Share'}
               </button>
               <button
                 onClick={openPublishModal}

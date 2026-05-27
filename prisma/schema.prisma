@@ -312,6 +312,11 @@ model Campaign {
   publishedAt   DateTime?
   performanceMetrics Json?     // views, clicks, conversions
 
+  // Sharing
+  shareToken    String?        @unique  // random token for public URL
+  isPublic      Boolean        @default(false)
+  shareViews    Int            @default(0)
+
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -320,6 +325,7 @@ model Campaign {
   @@index([status])
   @@index([favorite])
   @@index([lastViewedAt])
+  @@index([shareToken])
 }
 
 model CampaignActivity {
