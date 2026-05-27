@@ -61,6 +61,20 @@ function timeAgo(date: string) {
 }
 
 // ── Agent types ────────────────────────────────────────────────────────
+interface AgentRun {
+  id: string
+  agent: string
+  agentLabel: string
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED'
+  triggeredBy: string
+  durationMs: number | null
+  error?: string
+  suggestionsCreated: number
+  reportsCreated: number
+  createdAt: string
+  completedAt?: string
+}
+
 interface AgentSuggestion {
   id: string
   agent: string
@@ -74,12 +88,12 @@ interface AgentSuggestion {
   createdAt: string
 }
 
-// ── Agent Team Card ────────────────────────────────────────────────────
-const AGENT_META: Record<string, { icon: string; label: string; role: string; color: string }> = {
-  STRATEGIST:       { icon: '🧠', label: 'Strategist',       role: 'Building campaign plans',       color: 'text-violet-400' },
-  CONTENT_DIRECTOR: { icon: '✍️', label: 'Content Director', role: 'Writing hooks & captions',       color: 'text-blue-400' },
-  CAMPAIGN_MANAGER: { icon: '📊', label: 'Campaign Manager', role: 'Monitoring performance',          color: 'text-emerald-400' },
-  REPORTING:        { icon: '📈', label: 'Reporting Agent',  role: 'Generating your reports',        color: 'text-amber-400' },
+// ── Agent Identity ─────────────────────────────────────────────────────
+const AGENT_META: Record<string, { name: string; icon: string; title: string; role: string; color: string }> = {
+  STRATEGIST:       { name: 'SAGE',  icon: '🧠', title: 'Lead Marketing Strategist', role: 'Analyzing market data',    color: 'text-indigo-400' },
+  CONTENT_DIRECTOR: { name: 'MUSE',  icon: '🎨', title: 'Creative Director',          role: 'Writing hooks & captions', color: 'text-pink-400'   },
+  CAMPAIGN_MANAGER: { name: 'PULSE', icon: '⚡', title: 'Campaign Operations',         role: 'Monitoring performance',   color: 'text-amber-400'  },
+  REPORTING:        { name: 'PRISM', icon: '📊', title: 'Performance Analyst',         role: 'Generating your reports',  color: 'text-emerald-400'},
 }
 
 function AgentTeamStrip({ hasCampaigns, loading }: { hasCampaigns: boolean; loading: boolean }) {
@@ -92,17 +106,47 @@ function AgentTeamStrip({ hasCampaigns, loading }: { hasCampaigns: boolean; load
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
           </span>
-          <span className="text-[11px] font-bold text-white uppercase tracking-wider">Your AI Marketing Team</span>
+          <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+            Your AI Team:&nbsp;
+            <span className="text-indigo-400">SAGE</span>
+            <span className="text-t4"> · </span>
+            <span className="text-pink-400">MUSE</span>
+            <span className="text-t4"> · </span>
+            <span className="text-amber-400">PULSE</span>
+            <span className="text-t4"> · </span>
+            <span className="text-emerald-400">PRISM</span>
+          </span>
         </div>
-        <span className="text-[10px] text-t4">4 agents active</span>
+        <span className="text-[10px] text-t4 hidden sm:block">AI-powered · 4 active</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {agents.map(([key, meta]) => (
-          <div key={key} className="flex items-center gap-2 bg-s2 border border-s3 rounded-lg px-3 py-2">
-            <span className="text-base flex-shrink-0">{meta.icon}</span>
-            <div className="min-w-0">
-              <div className="text-[11px] font-semibold text-t1 truncate">{meta.label}</div>
-              <div className={`text-[9px] truncate ${hasCampaigns ? meta.color : 'text-t4'}`}>
+          <div key={key} className="flex items-start gap-2 bg-s2 border border-s3 rounded-xl px-3 py-2.5 relative overflow-hidden">
+            {/* Active glow strip */}
+            {hasCampaigns && (
+              <div className="absolute inset-x-0 top-0 h-px opacity-60"
+                style={{ background: `linear-gradient(90deg, transparent, ${
+                  key === 'STRATEGIST' ? '#6366F1' :
+                  key === 'CONTENT_DIRECTOR' ? '#EC4899' :
+                  key === 'CAMPAIGN_MANAGER' ? '#F59E0B' : '#10B981'
+                }, transparent)` }} />
+            )}
+            <span className="text-base flex-shrink-0 mt-0.5">{meta.icon}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-white tracking-wide">{meta.name}</span>
+                {/* Status dot */}
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  hasCampaigns ? `${
+                    key === 'STRATEGIST' ? 'bg-indigo-400' :
+                    key === 'CONTENT_DIRECTOR' ? 'bg-pink-400' :
+                    key === 'CAMPAIGN_MANAGER' ? 'bg-amber-400 animate-pulse' :
+                    'bg-emerald-400'
+                  }` : 'bg-[#333]'
+                }`} />
+              </div>
+              <div className="text-[9px] text-t4 truncate leading-tight">{meta.title}</div>
+              <div className={`text-[9px] truncate mt-0.5 ${hasCampaigns ? meta.color : 'text-t4'}`}>
                 {hasCampaigns ? meta.role : 'Waiting for brief'}
               </div>
             </div>
@@ -183,15 +227,22 @@ function PendingApprovals({ suggestions, onAction }: {
                       Expected: {s.impact}
                     </div>
                   )}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-t4">
-                      {agentMeta?.icon} {agentMeta?.label || s.agent}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-[10px] font-semibold ${agentMeta?.color || 'text-t4'}`}>
+                      {agentMeta?.icon} {agentMeta?.name || s.agent}
                     </span>
+                    <span className="text-[9px] text-t4 hidden sm:inline">· {agentMeta?.title}</span>
+                    {s.agent === 'CAMPAIGN_MANAGER' && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-semibold">
+                        📊 Projected
+                      </span>
+                    )}
                     <span className="text-t4">·</span>
                     <span className="text-[10px] text-t4">{timeAgo(s.createdAt)}</span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 flex-shrink-0">
+                {/* Desktop buttons */}
+                <div className="hidden sm:flex flex-col gap-2 flex-shrink-0">
                   <button
                     disabled={acting[s.id]}
                     onClick={() => handle(s.id, 'approve')}
@@ -208,9 +259,103 @@ function PendingApprovals({ suggestions, onAction }: {
                   </button>
                 </div>
               </div>
+              {/* Mobile buttons — full width below text */}
+              <div className="flex items-center gap-2 mt-3 sm:hidden">
+                <button
+                  disabled={acting[s.id]}
+                  onClick={() => handle(s.id, 'approve')}
+                  className="flex-1 py-2 bg-accent hover:bg-accent-light disabled:opacity-50 text-white text-[11px] font-bold rounded-lg transition-colors"
+                >
+                  {acting[s.id] ? '...' : 'Approve ✓'}
+                </button>
+                <button
+                  disabled={acting[s.id]}
+                  onClick={() => handle(s.id, 'reject')}
+                  className="flex-1 py-2 border border-s4 hover:border-s5 disabled:opacity-50 text-t3 hover:text-white text-[11px] font-medium rounded-lg transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ── Agent History Widget ───────────────────────────────────────────────
+
+const RUN_STATUS_DOT: Record<string, string> = {
+  COMPLETED: 'bg-emerald-400',
+  RUNNING:   'bg-amber-400 animate-pulse',
+  FAILED:    'bg-red-400',
+}
+// Maps DB agent key → short display name (for history log)
+const AGENT_SHORT: Record<string, string> = {
+  STRATEGIST:       '🧠 SAGE',
+  CONTENT_DIRECTOR: '🎨 MUSE',
+  CAMPAIGN_MANAGER: '⚡ PULSE',
+  REPORTING:        '📊 PRISM',
+}
+
+function AgentHistoryWidget({ runs, loading }: { runs: AgentRun[]; loading: boolean }) {
+  if (loading) return (
+    <div className="surface-card rounded-card p-4">
+      <div className="h-3 bg-s3 rounded w-28 mb-3 animate-pulse" />
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 py-2">
+          <div className="w-6 h-6 bg-s3 rounded-full animate-pulse" />
+          <div className="flex-1 h-3 bg-s3 rounded animate-pulse" />
+        </div>
+      ))}
+    </div>
+  )
+
+  if (!runs.length) return (
+    <div className="surface-card rounded-card p-4">
+      <div className="text-[10px] font-semibold text-t3 uppercase tracking-widest mb-2">Agent Activity</div>
+      <div className="text-[11px] text-t4">No runs yet. Brief your team to start.</div>
+    </div>
+  )
+
+  return (
+    <div className="surface-card rounded-card p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[10px] font-semibold text-t3 uppercase tracking-widest">Agent Activity</div>
+        <span className="text-[9px] text-t4 px-1.5 py-0.5 bg-s3 rounded">Last {runs.length} runs</span>
+      </div>
+      <div className="space-y-2.5">
+        {runs.slice(0, 8).map(run => {
+          const short = AGENT_SHORT[run.agent] || '🤖 Agent'
+          const statusVerb = run.status === 'COMPLETED' ? 'completed' : run.status === 'RUNNING' ? 'running' : 'failed'
+          return (
+            <div key={run.id} className="flex items-center gap-2.5">
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-semibold text-t1 truncate">
+                  {short} <span className="font-normal text-t3">{statusVerb}</span>
+                </div>
+                <div className="text-[9px] text-t4">
+                  {timeAgo(run.createdAt)}
+                  {run.durationMs ? ` · ${(run.durationMs / 1000).toFixed(1)}s` : ''}
+                  {run.suggestionsCreated > 0 ? ` · ${run.suggestionsCreated} suggestion${run.suggestionsCreated > 1 ? 's' : ''}` : ''}
+                  {run.triggeredBy === 'user' ? ' · manual' : ' · auto'}
+                </div>
+              </div>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${RUN_STATUS_DOT[run.status] || 'bg-gray-600'}`} />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Data source badge */}
+      <div className="mt-3 pt-3 border-t border-white/[0.04] flex items-center gap-1.5">
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-semibold">
+          📊 Projected
+        </span>
+        <span className="text-[9px] text-t4">
+          Metrics based on industry benchmarks · Connect ad accounts for live data
+        </span>
       </div>
     </div>
   )
@@ -551,6 +696,8 @@ export default function Dashboard() {
   const [todayPost, setTodayPost] = useState<any>(null)
   const [todayLoading, setTodayLoading] = useState(true)
   const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([])
+  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([])
+  const [runsLoading, setRunsLoading] = useState(true)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -561,13 +708,14 @@ export default function Dashboard() {
     if (!token) return
     setDataLoading(true)
     try {
-      const [overviewRes, campaignsRes, brandRes, billingRes, todayRes, suggestionsRes] = await Promise.allSettled([
+      const [overviewRes, campaignsRes, brandRes, billingRes, todayRes, suggestionsRes, runsRes] = await Promise.allSettled([
         fetch('/api/analytics/overview', { headers: { Authorization: token } }),
         fetch('/api/campaigns?sort=updatedAt&limit=8', { headers: { Authorization: token } }),
         fetch('/api/brand', { headers: { Authorization: token } }),
         fetch('/api/billing/status', { headers: { Authorization: token } }),
         fetch('/api/campaigns/today', { headers: { Authorization: token } }),
         fetch('/api/agents/suggestions?status=PENDING&limit=10', { headers: { Authorization: token } }),
+        fetch('/api/agents/history?limit=15', { headers: { Authorization: token } }),
       ])
       if (overviewRes.status === 'fulfilled' && overviewRes.value.ok) {
         setOverview(await overviewRes.value.json())
@@ -593,11 +741,16 @@ export default function Dashboard() {
         const d = await suggestionsRes.value.json()
         setSuggestions(d.suggestions || [])
       }
+      if (runsRes.status === 'fulfilled' && runsRes.value.ok) {
+        const d = await runsRes.value.json()
+        setAgentRuns(d.runs || [])
+      }
     } catch (err) {
       console.error('Dashboard fetch error', err)
     } finally {
       setDataLoading(false)
       setTodayLoading(false)
+      setRunsLoading(false)
     }
   }, [authHeader])
 
@@ -644,7 +797,7 @@ export default function Dashboard() {
       {/* AI Presence Bar */}
       <AIPresenceBar authHeader={authHeader} />
 
-      <div className="px-6 py-7 max-w-[1100px] page-enter">
+      <div className="px-4 sm:px-6 py-5 sm:py-7 max-w-[1100px] page-enter">
 
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
@@ -752,7 +905,7 @@ export default function Dashboard() {
             </div>
 
             {/* Quick actions */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 {
                   href: '/start', accent: true, label: 'Brief your team', sub: 'New brief in 30s',
@@ -813,6 +966,9 @@ export default function Dashboard() {
                 )}
               </Link>
             )}
+
+            {/* Agent History */}
+            <AgentHistoryWidget runs={agentRuns} loading={runsLoading} />
 
             {/* Workspace status */}
             {!dataLoading && campaigns.length > 0 && (

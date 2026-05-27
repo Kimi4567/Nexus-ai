@@ -125,38 +125,41 @@ export async function analyzeWorkspaceCampaigns(
 }
 
 export function buildMetricsFromCampaign(campaign: Record<string, unknown>): CampaignMetrics {
-  const daysRunning = Math.floor(
+  const daysRunning = Math.max(1, Math.floor(
     (Date.now() - new Date(campaign.createdAt as string).getTime()) / 86_400_000
-  )
-
-  const mockBase = {
-    impressions: daysRunning * 450 + Math.floor(Math.random() * 2000),
-    clicks: daysRunning * 18 + Math.floor(Math.random() * 50),
-    conversions: Math.max(0, daysRunning * 2 + Math.floor(Math.random() * 10)),
-    spend: daysRunning * 12.5,
-  }
-
-  const ctr = mockBase.impressions > 0
-    ? (mockBase.clicks / mockBase.impressions) * 100
-    : 0
+  ))
 
   const platforms = campaign.platforms as string[] | undefined
+  const platform = platforms?.[0] || 'INSTAGRAM'
+
+  // Use industry benchmarks — deterministic, not random
+  // Import inline to avoid circular deps
+  const { projectMetrics } = require('./benchmarks') as typeof import('./benchmarks')
+
+  // Get business type from campaign or project description
+  const businessType = (campaign.businessType as string)
+    || (campaign.description as string)?.split(' ').slice(0, 3).join(' ')
+    || 'retail'
+
+  // Assume $30/day default budget (will be replaced with real data in Phase 2)
+  const dailyBudget = 30
+  const projected = projectMetrics(campaign.id as string, platform, businessType, daysRunning, dailyBudget)
+
   return {
     campaignId: campaign.id as string,
     campaignName: campaign.name as string,
-    platform: platforms?.[0] || 'INSTAGRAM',
+    platform,
     goal: (campaign.goal as string) || 'LEADS',
-    impressions: mockBase.impressions,
-    clicks: mockBase.clicks,
-    ctr,
-    conversions: mockBase.conversions,
-    conversionRate: mockBase.clicks > 0
-      ? (mockBase.conversions / mockBase.clicks) * 100
-      : 0,
-    spend: mockBase.spend,
-    cpa: mockBase.conversions > 0 ? mockBase.spend / mockBase.conversions : 0,
-    ctrChange: (Math.random() - 0.5) * 40,
-    conversionsChange: (Math.random() - 0.5) * 30,
+    impressions: projected.impressions,
+    clicks: projected.clicks,
+    ctr: projected.ctr,
+    conversions: projected.conversions,
+    conversionRate: projected.conversionRate,
+    spend: projected.spend,
+    cpa: projected.cpa,
+    engagementRate: projected.engagementRate,
+    ctrChange: projected.ctrChange,
+    conversionsChange: projected.conversionsChange,
     daysRunning,
     periodDays: Math.min(daysRunning, 7),
   }

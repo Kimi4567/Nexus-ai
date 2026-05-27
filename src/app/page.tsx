@@ -352,7 +352,7 @@ export default function HomePage() {
               Marketing Operations Infrastructure
             </div>
 
-            <h1 className="text-[38px] sm:text-[52px] font-bold leading-[1.05] tracking-tight text-white mb-4 sm:mb-6">
+            <h1 className="text-[34px] sm:text-[52px] font-bold leading-[1.05] tracking-tight text-white mb-4 sm:mb-6">
               Operate your<br />
               marketing with<br />
               <span style={{ color: '#FF9500' }}>intelligence.</span>
@@ -364,16 +364,16 @@ export default function HomePage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-8 sm:mb-12">
-              <Link href="/demo"
+              <Link href="/start"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition-colors text-[14px]">
-                See it in action — free demo
+                Brief your AI team — free
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M2.5 7h9M8 4l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </Link>
-              <Link href="/auth/register"
+              <Link href="/demo"
                 className="inline-flex items-center justify-center px-6 py-3.5 border border-dark-tertiary text-gray-300 font-medium rounded-xl hover:border-accent/40 hover:text-white transition-colors text-[14px]">
-                Start free →
+                See a demo first →
               </Link>
             </div>
 
@@ -743,9 +743,9 @@ export default function HomePage() {
           {/* CTA under output */}
           <div className="text-center pt-4">
             <p className="text-[13px] text-gray-500 mb-4">This is one campaign. You get 3 free when you sign up.</p>
-            <Link href="/demo"
+            <Link href="/start"
               className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white font-bold rounded-xl hover:bg-accent-light transition-colors text-[13px]">
-              Generate yours free — no account needed
+              Get your campaign free — takes 60 seconds
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.5 6.5h8M7 4l3 2.5-3 2.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -803,19 +803,19 @@ export default function HomePage() {
             Your marketing operation<br />starts here.
           </h2>
           <p className="text-[14px] text-gray-500 mb-8 max-w-md mx-auto">
-            Try the live demo first — no account needed. Or sign up and get 3 complete campaigns free.
+            Describe your business in 4 fields. Nexus builds the full strategy — 3 campaigns free, no card needed.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mb-5">
-            <Link href="/demo"
+            <Link href="/start"
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-accent text-white font-bold rounded-xl hover:bg-accent-light transition-colors text-[14px]">
-              Try free demo
+              Brief your AI team — free
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.5 7h9M8 4l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </Link>
-            <Link href="/auth/register"
+            <Link href="/demo"
               className="inline-flex items-center justify-center px-7 py-3.5 border border-[#2a2a26] text-gray-300 font-semibold rounded-xl hover:border-accent/40 hover:text-white transition-colors text-[14px]">
-              Create free account →
+              See demo first →
             </Link>
           </div>
           <p className="text-[11px] text-gray-600">

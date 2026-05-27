@@ -229,6 +229,15 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
 
     <div style="margin-top:20px;">
       ${p('Your weekly brief is generated every Monday based on your brand memory and past campaigns. The more you use Nexus, the smarter it gets.', true)}
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #1a1a18;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;background:#6366F1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;">🧠</div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#e8e8f5;letter-spacing:0.5px;">SAGE</div>
+            <div style="font-size:11px;color:#5C5448;">Lead Marketing Strategist · Nexus AI</div>
+          </div>
+        </div>
+      </div>
     </div>
   `
 
@@ -294,6 +303,15 @@ export async function sendDailyDigest(to: string, data: DailyDigestData) {
     </div>
 
     <div style="margin-top:16px;">${p('Open the dashboard to copy the caption and mark it as posted.', true)}</div>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #1a1a18;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:32px;height:32px;background:#EC4899;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;">🎨</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#e8e8f5;letter-spacing:0.5px;">MUSE</div>
+          <div style="font-size:11px;color:#5C5448;">Creative Director · Nexus AI</div>
+        </div>
+      </div>
+    </div>
   `
 
   return resend.emails.send({

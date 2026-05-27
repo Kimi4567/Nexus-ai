@@ -209,8 +209,8 @@ export default function DemoPage() {
                         : 'bg-dark border-dark-tertiary hover:border-accent/30'
                     }`}
                   >
-                    <span className="font-bold text-sm min-w-[120px]">{g.label}</span>
-                    <span className="text-gray-400 text-xs">{g.desc}</span>
+                    <span className="font-bold text-sm">{g.label}</span>
+                    <span className="text-gray-400 text-xs hidden sm:block">{g.desc}</span>
                   </button>
                 ))}
               </div>
@@ -284,20 +284,60 @@ export default function DemoPage() {
         </div>
       )}
 
+      {/* Sticky bottom CTA bar — results only */}
+      {step === 'results' && result && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-accent/20 bg-dark/95 backdrop-blur-xl px-4 py-3 sm:py-3.5">
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-gray-500 leading-none mb-0.5">
+                🔥 <span className="text-white font-semibold">500+ campaigns</span> generated today
+              </div>
+              <div className="text-[12px] text-gray-400 truncate">3 full campaigns free — no credit card</div>
+            </div>
+            <Link
+              href={`/auth/register?demo=1&business=${encodeURIComponent(result.companyName)}&type=${encodeURIComponent(result.businessType)}&goal=${result.goal}`}
+              className="flex-shrink-0 px-5 py-2.5 bg-accent text-dark font-black rounded-xl hover:bg-accent-light transition text-[13px] whitespace-nowrap"
+            >
+              Get full campaign free →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Results */}
       {step === 'results' && result && (
-        <div ref={resultsRef} className="max-w-4xl mx-auto px-4 sm:px-6 pb-20 space-y-6">
+        <div ref={resultsRef} className="max-w-4xl mx-auto px-4 sm:px-6 pb-28 space-y-6">
 
           {/* Results header */}
           <div className="bg-gradient-to-r from-accent/15 via-accent/5 to-transparent border border-accent/20 rounded-2xl p-6">
             <div className="flex items-center gap-2 text-accent text-sm font-semibold mb-2">
               <span>✦</span> AI Campaign Preview for <strong>{result.companyName}</strong>
             </div>
-            <h2 className="text-2xl font-bold">Your marketing strategy is ready</h2>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
+              <h2 className="text-2xl font-bold">Your marketing strategy is ready</h2>
+              <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                500+ campaigns generated today
+              </span>
+            </div>
             <p className="text-gray-400 text-sm mt-1">
               Best platform: <span className="text-white font-semibold">{PLATFORM_LABELS[result.platform] || result.platform}</span>
               {result.estimatedReach && <> · Estimated reach: <span className="text-white font-semibold">{result.estimatedReach}</span></>}
             </p>
+          </div>
+
+          {/* Compact upgrade prompt — above the fold */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-dark-secondary border border-accent/25 rounded-2xl">
+            <div className="flex-1 text-center sm:text-left">
+              <div className="text-sm font-bold text-white mb-0.5">This is a preview — your full campaign has 5x more</div>
+              <div className="text-xs text-gray-500">Full scripts · 30-day calendar · PDF export · Brand memory</div>
+            </div>
+            <Link
+              href={`/auth/register?demo=1&business=${encodeURIComponent(result.companyName)}&type=${encodeURIComponent(result.businessType)}&goal=${result.goal}`}
+              className="flex-shrink-0 w-full sm:w-auto px-5 py-2.5 text-center bg-accent text-dark font-black rounded-xl hover:bg-accent-light transition text-sm"
+            >
+              Unlock full campaign — free →
+            </Link>
           </div>
 
           {/* Strategy */}
