@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Meta App ID not configured' }, { status: 500 })
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
   const redirectUri = `${baseUrl}/api/social/callback/meta`
 
   // State carries the user ID so we can link it on callback

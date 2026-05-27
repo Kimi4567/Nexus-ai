@@ -251,7 +251,7 @@ export default function CalendarPage() {
                 ) : (
                   <div className="space-y-3">
                     {selectedDayPosts.map(post => (
-                      <div key={post.id} className="p-3 rounded-xl bg-dark border border-dark-tertiary">
+                      <div key={post.id} className="p-3 rounded-xl bg-[#0d0d15] border border-[#1a1a25]">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-sm">{PLATFORM_ICONS[post.platform] || '📱'}</span>
                           <span className="text-xs font-bold" style={{ color: PLATFORM_COLORS[post.platform] || '#FF9500' }}>

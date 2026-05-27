@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
             containerBody.media_type = 'IMAGE'
           } else {
             containerBody.media_type = 'IMAGE'
-            containerBody.image_url = 'https://placehold.co/1080x1080/111/FF9500?text=Nexus'
+            containerBody.image_url = 'https://placehold.co/1080x1080/111/6366f1?text=Nexus'
           }
 
           const containerRes = await fetch(

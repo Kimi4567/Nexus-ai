@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
 
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   // Handle user denial
   if (errorParam) {

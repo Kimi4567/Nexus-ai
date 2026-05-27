@@ -34,7 +34,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}>
-      <div className="w-full max-w-sm rounded-2xl border border-[#FF9500]/20 bg-dark p-8 text-center"
+      <div className="w-full max-w-sm rounded-2xl border border-[#FF9500]/20 bg-[#0d0d18] p-8 text-center"
         style={{ boxShadow: '0 0 80px rgba(255,149,0,0.12)' }}>
         {onClose && (
           <button onClick={onClose}
@@ -55,7 +55,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
           </Link>
           {onClose && (
             <button onClick={onClose}
-              className="block w-full py-2.5 border border-dark-tertiary hover:border-s4 text-gray-500 hover:text-white rounded-xl text-sm transition-all">
+              className="block w-full py-2.5 border border-[#1e1e2e] hover:border-[#2e2e3e] text-gray-500 hover:text-white rounded-xl text-sm transition-all">
               Maybe later
             </button>
           )}
