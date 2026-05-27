@@ -241,6 +241,164 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
   })
 }
 
+// ── NURTURE SEQUENCE ───────────────────────────────────────────────────
+
+// Day 1 — Brand profile nudge
+export async function sendNurtureDay1(to: string, name: string) {
+  const firstName = name?.split(' ')[0] || 'there'
+
+  const content = `
+    ${h1(`${firstName}, your AI is missing something.`)}
+    ${p('You created your account yesterday. But before the AI can write content that actually sounds like <em>you</em>, it needs to know your brand.')}
+    ${p('Right now Nexus is generating generic output. Take 3 minutes to set up your Brand Memory — after that, every campaign, every hook, every caption will be written in your voice, for your audience.')}
+
+    ${card(`
+      <div style="font-size:12px;color:#FF9500;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">🧠 What Brand Memory stores</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${['Your brand tone and writing style', 'Your target audience (once — never again)', 'Your winning hooks and angles', 'What to avoid in your content', 'Your primary offer and positioning'].map(f =>
+          `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
+            <span style="color:#FF9500;">→</span> ${f}
+          </div>`
+        ).join('')}
+      </div>
+    `)}
+
+    ${p('Once it\'s set, every campaign you generate will be on-brand automatically. No more re-explaining who you are.')}
+    ${btn('Set up Brand Memory — 3 minutes →', `${APP_URL}/brand`)}
+    <div style="margin-top:20px;">${p('— Raouf', true)}</div>
+  `
+
+  return resend.emails.send({
+    from: FROM, replyTo: REPLY_TO, to,
+    subject: `${firstName}, your AI doesn't know your brand yet`,
+    html: emailShell(content),
+  })
+}
+
+// Day 3 — First campaign share nudge
+export async function sendNurtureDay3(to: string, name: string) {
+  const firstName = name?.split(' ')[0] || 'there'
+
+  const content = `
+    ${h1('Have you run your first campaign yet?')}
+    ${p(`${firstName}, you've been on Nexus for 3 days. If you've already generated your first campaign — nice work. If not, here's what you're missing.`)}
+
+    ${card(`
+      <div style="font-size:13px;color:#e8e8f5;font-weight:700;margin-bottom:14px;">What a Nexus campaign gives you:</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
+          <strong style="color:#e8e8f5;">Full marketing strategy</strong> — positioning, audience breakdown, platform playbook
+        </div>
+        <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
+          <strong style="color:#e8e8f5;">5 ready-to-record ad hooks</strong> — different angles, different tones, all specific to your product
+        </div>
+        <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
+          <strong style="color:#e8e8f5;">Complete captions</strong> — with hashtags, ready to copy and post
+        </div>
+        <div style="font-size:13px;color:#b8b8d8;padding-left:12px;border-left:2px solid #FF9500;">
+          <strong style="color:#e8e8f5;">30-day content calendar</strong> — what to post, when, and why
+        </div>
+      </div>
+    `)}
+
+    ${p('Takes 60 seconds. You have 2 free campaigns left.')}
+    ${btn('Generate a campaign now →', `${APP_URL}/campaign/new`)}
+    <div style="margin-top:20px;">${p('— Raouf', true)}</div>
+  `
+
+  return resend.emails.send({
+    from: FROM, replyTo: REPLY_TO, to,
+    subject: `You have 2 free campaigns left on Nexus`,
+    html: emailShell(content),
+  })
+}
+
+// Day 5 — Urgency: 1 campaign left
+export async function sendNurtureDay5(to: string, name: string) {
+  const firstName = name?.split(' ')[0] || 'there'
+
+  const content = `
+    ${h1('1 free campaign left.')}
+    ${p(`${firstName} — your free plan includes 3 complete campaigns. You have <strong style="color:#f59e0b;">1 left</strong>.`)}
+    ${p('Use it today. Generate a campaign for your best product, your most important launch, or the audience you\'ve been meaning to target.')}
+
+    <div style="background:#1a1000;border:1px solid #3a2800;border-radius:12px;padding:20px 24px;margin:20px 0;">
+      <div style="font-size:13px;color:#f59e0b;font-weight:700;margin-bottom:8px;">⚡ Use your last free campaign on something that matters</div>
+      <div style="font-size:13px;color:#c8a060;line-height:1.6;">
+        Pick your highest-value product or service. Set your goal to Sales or Leads. Let Nexus build the full strategy — then take the hooks and start posting today.
+      </div>
+    </div>
+
+    ${btn('Use my last free campaign →', `${APP_URL}/campaign/new`)}
+
+    <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
+      <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">After your free campaigns are used:</div>
+      <div style="font-size:13px;color:#9A9080;">Upgrade to Pro for $79/month — unlimited campaigns, your weekly strategy brief, and social publishing. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
+    </div>
+
+    <div style="margin-top:20px;">${p('— Raouf', true)}</div>
+  `
+
+  return resend.emails.send({
+    from: FROM, replyTo: REPLY_TO, to,
+    subject: `${firstName}, you have 1 free Nexus campaign left`,
+    html: emailShell(content),
+  })
+}
+
+// Day 7 — Upgrade push
+export async function sendNurtureDay7(to: string, name: string) {
+  const firstName = name?.split(' ')[0] || 'there'
+
+  const content = `
+    ${h1('Is Nexus worth $79/month?')}
+    ${p(`${firstName}, you've been on the free plan for a week. I want to be direct with you.`)}
+    ${p('Here\'s the honest math:')}
+
+    ${card(`
+      <div style="font-size:12px;color:#FF9500;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">The real cost of NOT having a marketing system</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-bottom:10px;border-bottom:1px solid #1a1a18;">
+          <span style="color:#9A9080;">Hiring a freelance strategist</span>
+          <span style="color:#e8e8f5;font-weight:700;">$500–$2,000/month</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-bottom:10px;border-bottom:1px solid #1a1a18;">
+          <span style="color:#9A9080;">Content writer + campaign planner</span>
+          <span style="color:#e8e8f5;font-weight:700;">$800–$3,000/month</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding-bottom:10px;border-bottom:1px solid #1a1a18;">
+          <span style="color:#9A9080;">Marketing agency retainer</span>
+          <span style="color:#e8e8f5;font-weight:700;">$2,000–$10,000/month</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
+          <span style="color:#FF9500;font-weight:700;">Nexus Pro</span>
+          <span style="color:#FF9500;font-weight:800;">$79/month</span>
+        </div>
+      </div>
+    `)}
+
+    ${p('Nexus Pro gives you unlimited campaigns, your weekly strategy brief every Monday, social publishing, and a brand memory that gets smarter every time you use it.')}
+    ${p('If you run even one campaign a week that converts — the tool pays for itself in the first sale.')}
+
+    ${btn('Upgrade to Pro — $79/month →', `${APP_URL}/billing`)}
+
+    <div style="margin-top:16px;text-align:center;">
+      ${p('7-day money-back guarantee. No questions asked. <a href="${APP_URL}/billing">See all plans →</a>', true)}
+    </div>
+
+    <div style="margin-top:28px;padding-top:20px;border-top:1px solid #1a1a18;">
+      ${p('If the free plan is working fine for you, that\'s genuinely okay — you can keep using it. But if marketing is holding your business back, Pro is the answer.', true)}
+      ${p('— Raouf', true)}
+    </div>
+  `
+
+  return resend.emails.send({
+    from: FROM, replyTo: REPLY_TO, to,
+    subject: `Is Nexus worth $79/month? Here's the honest answer`,
+    html: emailShell(content),
+  })
+}
+
 // ── 4. UPGRADE CONFIRMATION ────────────────────────────────────────────
 
 export async function sendUpgradeConfirmationEmail(to: string, name: string, plan: string) {
