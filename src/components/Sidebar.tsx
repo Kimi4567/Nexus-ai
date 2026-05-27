@@ -200,6 +200,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
+      href: '/agency', label: 'Agency Hub', badge: 'Agency',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M1.5 14.5V6.5l3-2.5V14.5M1.5 14.5h13M11.5 14.5V4.5l-3.5-3-3.5 3" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="6.5" y="10" width="3" height="4.5" rx="0.5" />
+        </svg>
+      ),
+    },
+    {
       href: '/media', label: 'Media Library',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
