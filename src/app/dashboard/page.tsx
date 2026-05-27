@@ -60,6 +60,162 @@ function timeAgo(date: string) {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+// ── Agent types ────────────────────────────────────────────────────────
+interface AgentSuggestion {
+  id: string
+  agent: string
+  type: string
+  status: string
+  title: string
+  reasoning: string
+  impact?: string
+  priority: number
+  campaignId?: string
+  createdAt: string
+}
+
+// ── Agent Team Card ────────────────────────────────────────────────────
+const AGENT_META: Record<string, { icon: string; label: string; role: string; color: string }> = {
+  STRATEGIST:       { icon: '🧠', label: 'Strategist',       role: 'Building campaign plans',       color: 'text-violet-400' },
+  CONTENT_DIRECTOR: { icon: '✍️', label: 'Content Director', role: 'Writing hooks & captions',       color: 'text-blue-400' },
+  CAMPAIGN_MANAGER: { icon: '📊', label: 'Campaign Manager', role: 'Monitoring performance',          color: 'text-emerald-400' },
+  REPORTING:        { icon: '📈', label: 'Reporting Agent',  role: 'Generating your reports',        color: 'text-amber-400' },
+}
+
+function AgentTeamStrip({ hasCampaigns, loading }: { hasCampaigns: boolean; loading: boolean }) {
+  const agents = Object.entries(AGENT_META)
+  return (
+    <div className="surface-card rounded-card p-4 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+          </span>
+          <span className="text-[11px] font-bold text-white uppercase tracking-wider">Your AI Marketing Team</span>
+        </div>
+        <span className="text-[10px] text-t4">4 agents active</span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {agents.map(([key, meta]) => (
+          <div key={key} className="flex items-center gap-2 bg-s2 border border-s3 rounded-lg px-3 py-2">
+            <span className="text-base flex-shrink-0">{meta.icon}</span>
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold text-t1 truncate">{meta.label}</div>
+              <div className={`text-[9px] truncate ${hasCampaigns ? meta.color : 'text-t4'}`}>
+                {hasCampaigns ? meta.role : 'Waiting for brief'}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {!hasCampaigns && !loading && (
+        <Link href="/start"
+          className="mt-3 block text-center text-[11px] font-semibold text-accent hover:text-accent-light transition py-2 border border-accent/20 rounded-lg hover:border-accent/40">
+          Brief your team — takes 30 seconds →
+        </Link>
+      )}
+    </div>
+  )
+}
+
+// ── Pending Approvals ──────────────────────────────────────────────────
+
+const SUGGESTION_ICON: Record<string, string> = {
+  STRATEGY: '🧠', CONTENT_SWAP: '✍️', BUDGET_CHANGE: '💰',
+  AUDIENCE_SHIFT: '🎯', PLATFORM_ADD: '📱', PLATFORM_PAUSE: '⏸️',
+  CAMPAIGN_PAUSE: '🛑', CAMPAIGN_LAUNCH: '🚀',
+}
+const PRIORITY_BADGE: Record<number, { label: string; color: string }> = {
+  1: { label: 'Urgent', color: 'text-red-400 bg-red-400/10' },
+  2: { label: 'Normal', color: 'text-amber-400 bg-amber-400/10' },
+  3: { label: 'Low',    color: 'text-gray-400 bg-gray-400/10' },
+}
+
+function PendingApprovals({ suggestions, onAction }: {
+  suggestions: AgentSuggestion[]
+  onAction: (id: string, action: 'approve' | 'reject') => void
+}) {
+  const [acting, setActing] = useState<Record<string, boolean>>({})
+
+  const handle = async (id: string, action: 'approve' | 'reject') => {
+    setActing(prev => ({ ...prev, [id]: true }))
+    await onAction(id, action)
+    setActing(prev => ({ ...prev, [id]: false }))
+  }
+
+  if (!suggestions.length) return null
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+            Pending Approvals
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded-md font-bold">
+            {suggestions.length}
+          </span>
+        </div>
+        <span className="text-[10px] text-t4">Review your AI team's recommendations</span>
+      </div>
+      <div className="space-y-3">
+        {suggestions.slice(0, 5).map(s => {
+          const badge = PRIORITY_BADGE[s.priority] || PRIORITY_BADGE[2]
+          const agentMeta = AGENT_META[s.agent]
+          return (
+            <div key={s.id}
+              className="surface-card rounded-card p-4 border border-white/5 hover:border-white/10 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-s3 border border-s4 flex items-center justify-center text-base flex-shrink-0">
+                  {SUGGESTION_ICON[s.type] || '💡'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[13px] font-semibold text-white">{s.title}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${badge.color}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-t3 leading-relaxed mb-2">{s.reasoning}</p>
+                  {s.impact && (
+                    <div className="text-[11px] text-accent font-medium mb-2">
+                      Expected: {s.impact}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-t4">
+                      {agentMeta?.icon} {agentMeta?.label || s.agent}
+                    </span>
+                    <span className="text-t4">·</span>
+                    <span className="text-[10px] text-t4">{timeAgo(s.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  <button
+                    disabled={acting[s.id]}
+                    onClick={() => handle(s.id, 'approve')}
+                    className="px-3 py-1.5 bg-accent hover:bg-accent-light disabled:opacity-50 text-white text-[11px] font-bold rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    {acting[s.id] ? '...' : 'Approve ✓'}
+                  </button>
+                  <button
+                    disabled={acting[s.id]}
+                    onClick={() => handle(s.id, 'reject')}
+                    className="px-3 py-1.5 border border-s4 hover:border-s5 disabled:opacity-50 text-t3 hover:text-white text-[11px] font-medium rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Sub-components ─────────────────────────────────────────────────────
 
 function StatCard({ label, value, sub, icon, accent, loading }: {
@@ -262,6 +418,124 @@ function ImpactWidget({ campaigns, generations, exports: exportsCount }: {
   )
 }
 
+// ── Today's Post Card ──────────────────────────────────────────────────
+const PLATFORM_LABEL: Record<string, string> = {
+  TIKTOK: 'TikTok', INSTAGRAM: 'Instagram', FACEBOOK: 'Facebook',
+  YOUTUBE_SHORTS: 'YouTube Shorts', LINKEDIN: 'LinkedIn',
+}
+const PLATFORM_COLOR: Record<string, string> = {
+  TIKTOK: 'text-pink-400', INSTAGRAM: 'text-purple-400',
+  FACEBOOK: 'text-blue-400', LINKEDIN: 'text-sky-400', YOUTUBE_SHORTS: 'text-red-400',
+}
+
+function TodayCard({ post, loading }: { post: any; loading: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const [posted, setPosted] = useState(false)
+
+  const copy = () => {
+    if (!post?.caption) return
+    navigator.clipboard.writeText(post.caption).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    })
+  }
+
+  if (loading) return (
+    <div className="surface-card rounded-card p-5 mb-6 animate-pulse">
+      <div className="h-3 bg-s3 rounded w-32 mb-3" />
+      <div className="h-5 bg-s3 rounded w-64 mb-4" />
+      <div className="h-20 bg-s3 rounded mb-3" />
+      <div className="h-8 bg-s3 rounded w-36" />
+    </div>
+  )
+
+  // No active campaign → nudge to create one
+  if (!post) return (
+    <div className="rounded-card border border-dashed border-s4 p-5 mb-6 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+      <div className="w-10 h-10 rounded-xl bg-s2 border border-s4 flex items-center justify-center text-xl flex-shrink-0">📅</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-[13px] font-semibold text-t1 mb-0.5">No campaign running yet</div>
+        <div className="text-[11px] text-t3">Create your first campaign and Nexus will tell you exactly what to post — every single day.</div>
+      </div>
+      <Link href="/campaign/new"
+        className="flex-shrink-0 px-4 py-2 bg-accent text-white text-xs font-bold rounded-lg hover:bg-accent-light transition">
+        Create campaign →
+      </Link>
+    </div>
+  )
+
+  return (
+    <div className="rounded-card border border-accent/20 bg-gradient-to-br from-accent/5 via-transparent to-transparent p-5 mb-6 relative overflow-hidden">
+      {/* Glow */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
+            </span>
+            <span className="text-[10px] font-bold text-accent uppercase tracking-widest">Today · {post.day}</span>
+            <span className={`text-[10px] font-semibold ${PLATFORM_COLOR[post.platform] || 'text-t3'}`}>
+              · {PLATFORM_LABEL[post.platform] || post.platform}
+            </span>
+          </div>
+          <h2 className="text-[15px] font-bold text-white leading-snug">
+            {post.type} — {post.topic || post.campaignName}
+          </h2>
+          <div className="text-[11px] text-t3 mt-0.5">
+            From <Link href={`/campaigns/${post.campaignId}`} className="text-accent hover:underline">{post.campaignName}</Link>
+            <span className="mx-1.5 text-t4">·</span>
+            {post.week} · Post {post.postIndex} of {post.totalPosts}
+          </div>
+        </div>
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {posted ? (
+            <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              Posted!
+            </span>
+          ) : (
+            <button onClick={() => setPosted(true)}
+              className="px-3 py-1.5 border border-s4 text-[11px] text-t2 font-semibold rounded-lg hover:border-s5 hover:text-white transition">
+              Mark posted ✓
+            </button>
+          )}
+        </div>
+      </div>
+
+      {post.caption ? (
+        <div className="bg-s2/50 border border-s3 rounded-xl p-4 mb-3 relative">
+          <p className="text-[13px] text-gray-300 leading-relaxed whitespace-pre-wrap pr-8">{post.caption}</p>
+          <button onClick={copy}
+            className="absolute top-3 right-3 w-7 h-7 rounded-lg bg-s3 border border-s4 flex items-center justify-center text-t3 hover:text-white hover:border-s5 transition">
+            {copied
+              ? <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#22c55e" strokeWidth="1.5"><path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              : <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="4" y="4" width="7" height="7" rx="1.5" /><path d="M1 8V1.5A.5.5 0 011.5 1H8" strokeLinecap="round" /></svg>
+            }
+          </button>
+        </div>
+      ) : (
+        <div className="bg-s2/50 border border-s3 rounded-xl p-4 mb-3 text-[12px] text-t3 italic">
+          {post.topic || 'Content post for today — open campaign for full details.'}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3">
+        <button onClick={copy}
+          className="flex items-center gap-2 px-4 py-2 bg-accent text-white text-[12px] font-bold rounded-lg hover:bg-accent-light transition">
+          {copied ? '✓ Copied!' : 'Copy caption →'}
+        </button>
+        <Link href={`/campaigns/${post.campaignId}`}
+          className="text-[12px] text-t3 hover:text-white transition font-medium">
+          View full campaign →
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -274,6 +548,9 @@ export default function Dashboard() {
   const [dataLoading, setDataLoading] = useState(true)
   const [aiCredits, setAiCredits] = useState<number | null>(null)
   const [isPaidUser, setIsPaidUser] = useState(false)
+  const [todayPost, setTodayPost] = useState<any>(null)
+  const [todayLoading, setTodayLoading] = useState(true)
+  const [suggestions, setSuggestions] = useState<AgentSuggestion[]>([])
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -284,11 +561,13 @@ export default function Dashboard() {
     if (!token) return
     setDataLoading(true)
     try {
-      const [overviewRes, campaignsRes, brandRes, billingRes] = await Promise.allSettled([
+      const [overviewRes, campaignsRes, brandRes, billingRes, todayRes, suggestionsRes] = await Promise.allSettled([
         fetch('/api/analytics/overview', { headers: { Authorization: token } }),
         fetch('/api/campaigns?sort=updatedAt&limit=8', { headers: { Authorization: token } }),
         fetch('/api/brand', { headers: { Authorization: token } }),
         fetch('/api/billing/status', { headers: { Authorization: token } }),
+        fetch('/api/campaigns/today', { headers: { Authorization: token } }),
+        fetch('/api/agents/suggestions?status=PENDING&limit=10', { headers: { Authorization: token } }),
       ])
       if (overviewRes.status === 'fulfilled' && overviewRes.value.ok) {
         setOverview(await overviewRes.value.json())
@@ -306,10 +585,19 @@ export default function Dashboard() {
         setAiCredits(d.credits ?? null)
         setIsPaidUser(d.status === 'ACTIVE')
       }
+      if (todayRes.status === 'fulfilled' && todayRes.value.ok) {
+        const d = await todayRes.value.json()
+        setTodayPost(d.today || null)
+      }
+      if (suggestionsRes.status === 'fulfilled' && suggestionsRes.value.ok) {
+        const d = await suggestionsRes.value.json()
+        setSuggestions(d.suggestions || [])
+      }
     } catch (err) {
       console.error('Dashboard fetch error', err)
     } finally {
       setDataLoading(false)
+      setTodayLoading(false)
     }
   }, [authHeader])
 
@@ -334,6 +622,23 @@ export default function Dashboard() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
+  const handleSuggestionAction = async (id: string, action: 'approve' | 'reject') => {
+    const token = authHeader()
+    if (!token) return
+    try {
+      const res = await fetch(`/api/agents/suggestions/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ action }),
+      })
+      if (res.ok) {
+        setSuggestions(prev => prev.filter(s => s.id !== id))
+      }
+    } catch (err) {
+      console.error('Suggestion action failed', err)
+    }
+  }
+
   return (
     <AppShell>
       {/* AI Presence Bar */}
@@ -342,19 +647,32 @@ export default function Dashboard() {
       <div className="px-6 py-7 max-w-[1100px] page-enter">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className="text-lg font-bold text-t1 tracking-tight">{greeting}, {firstName}</h1>
-            <p className="text-[13px] text-t3 mt-0.5">Your marketing operations at a glance.</p>
+            <h1 className="text-lg font-bold text-t1 tracking-tight">{greeting}, {firstName} 👋</h1>
+            <p className="text-[12px] text-t3 mt-0.5">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
           </div>
-          <Link href="/campaign/new"
+          <Link href="/start"
             className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-light text-white text-xs font-semibold rounded-lg transition-colors">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
               <circle cx="6" cy="6" r="5" /><path d="M6 4v4M4 6h4" strokeLinecap="round" />
             </svg>
-            New campaign
+            Brief your team
           </Link>
         </div>
+
+        {/* AI Team strip */}
+        <AgentTeamStrip hasCampaigns={hasCampaign} loading={dataLoading} />
+
+        {/* Pending Approvals — agent suggestions */}
+        {suggestions.length > 0 && (
+          <PendingApprovals suggestions={suggestions} onAction={handleSuggestionAction} />
+        )}
+
+        {/* TODAY'S POST — hero element */}
+        <TodayCard post={todayPost} loading={todayLoading} />
 
         {/* Onboarding */}
         {!dataLoading && (
@@ -419,11 +737,11 @@ export default function Dashboard() {
                   <div className="w-10 h-10 rounded-xl bg-s2 border border-s4 flex items-center justify-center text-lg mb-3">🚀</div>
                   <div className="text-[13px] font-semibold text-t1 mb-1">No campaigns yet</div>
                   <div className="text-[11px] text-t3 mb-5 max-w-xs">
-                    Describe your business and Nexus AI will build a full marketing strategy in under 60 seconds.
+                    Brief your AI team in 30 seconds. They'll build a full marketing strategy, content calendar, and monitoring plan.
                   </div>
-                  <Link href="/campaign/new"
+                  <Link href="/start"
                     className="px-4 py-2 bg-accent text-white text-xs font-semibold rounded-lg hover:bg-accent-light transition">
-                    Create first campaign
+                    Brief your team →
                   </Link>
                 </div>
               ) : (
@@ -437,7 +755,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-3 gap-3">
               {[
                 {
-                  href: '/campaign/new', accent: true, label: 'New Campaign', sub: 'AI strategy in 60s',
+                  href: '/start', accent: true, label: 'Brief your team', sub: 'New brief in 30s',
                   icon: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="white" strokeWidth="1.5"><circle cx="7" cy="7" r="5.5" /><path d="M7 4.5v5M4.5 7h5" strokeLinecap="round" /></svg>,
                 },
                 {

@@ -246,12 +246,14 @@ export default function BrandIntelligencePage() {
   ]
   const completionPct = Math.round((completionFields.filter(Boolean).length / completionFields.length) * 100)
 
+  const isQuickSetupDone = !!(profile.brandName && profile.primaryOffer && profile.targetAudience && profile.toneKeywords.length)
+
   return (
     <AppShell>
       <div className="px-8 py-8 max-w-[900px] page-enter">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex items-start justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-white mb-1">Brand Intelligence</h1>
             <p className="text-sm text-t3">

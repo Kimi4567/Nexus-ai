@@ -114,6 +114,9 @@ model Workspace {
   brandProfile  BrandProfile?
   visuals       GeneratedVisual[]
   socialPosts   SocialPost[]
+  agentRuns     AgentRun[]
+  agentSuggestions AgentSuggestion[]
+  agentReports  AgentReport[]
 
   // Settings
   settings      Json?      // branding, integrations, etc.
@@ -796,6 +799,146 @@ model SocialPost {
   @@index([campaignId])
   @@index([integrationId])
   @@index([status])
+}
+
+// ============================================================================
+// AGENT SYSTEM
+// ============================================================================
+
+enum AgentType {
+  STRATEGIST
+  CONTENT_DIRECTOR
+  CAMPAIGN_MANAGER
+  REPORTING
+}
+
+enum AgentRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum SuggestionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+enum SuggestionType {
+  STRATEGY          // New campaign strategy
+  CONTENT_SWAP      // Replace/refresh content
+  BUDGET_CHANGE     // Increase/decrease budget
+  AUDIENCE_SHIFT    // Change targeting
+  PLATFORM_ADD      // Add new platform
+  PLATFORM_PAUSE    // Pause underperforming platform
+  CAMPAIGN_PAUSE    // Pause campaign
+  CAMPAIGN_LAUNCH   // Launch new campaign
+}
+
+enum ReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model AgentRun {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  agent         AgentType
+  status        AgentRunStatus @default(RUNNING)
+  triggeredBy   String?       // "cron", "user", "auto"
+
+  inputData     Json?         // what the agent received
+  outputData    Json?         // what the agent produced
+  error         String?
+
+  durationMs    Int?
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+
+  suggestions   AgentSuggestion[]
+  reports       AgentReport[]
+
+  @@index([workspaceId])
+  @@index([agent])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AgentSuggestion {
+  id            String           @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  agentRunId    String?
+  agentRun      AgentRun?        @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  agent         AgentType
+  type          SuggestionType
+  status        SuggestionStatus @default(PENDING)
+
+  // Human-readable summary
+  title         String           // "CTR dropped 22% — Swap audience"
+  reasoning     String           @db.Text  // Why the agent recommends this
+  impact        String?          // "Expected: +15% CTR"
+
+  // Structured action payload (agent-type specific)
+  payload       Json             // { action, params }
+
+  // Optional campaign link
+  campaignId    String?
+
+  // Approval tracking
+  approvedAt    DateTime?
+  rejectedAt    DateTime?
+  executedAt    DateTime?
+  executionResult Json?
+
+  // Urgency
+  priority      Int @default(2)  // 1=urgent, 2=normal, 3=low
+  expiresAt     DateTime?        // suggestion expires if not acted on
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([agent])
+  @@index([priority])
+  @@index([createdAt])
+}
+
+model AgentReport {
+  id            String       @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  agentRunId    String?
+  agentRun      AgentRun?    @relation(fields: [agentRunId], references: [id], onDelete: SetNull)
+
+  type          ReportType
+  title         String       // "Weekly Performance — May 20–26"
+  summary       String       @db.Text  // 2-3 sentence exec summary
+  body          Json         // { metrics, insights, recommendations, highlights }
+
+  // Period
+  periodStart   DateTime
+  periodEnd     DateTime
+
+  // Optional campaign scope
+  campaignId    String?
+
+  // Email sent?
+  emailedAt     DateTime?
+
+  createdAt     DateTime     @default(now())
+
+  @@index([workspaceId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 // ============================================================================

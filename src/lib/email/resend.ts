@@ -241,6 +241,68 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
   })
 }
 
+// ── 4b. DAILY DIGEST — what to post today ─────────────────────────────
+
+interface DailyDigestData {
+  name: string
+  campaignName: string
+  day: string
+  platform: string
+  type: string
+  topic: string
+  caption: string
+  campaignId: string
+  postIndex: number
+  totalPosts: number
+}
+
+const PLATFORM_EMOJI: Record<string, string> = {
+  TIKTOK: '🎵', INSTAGRAM: '📸', FACEBOOK: '👥',
+  LINKEDIN: '💼', YOUTUBE_SHORTS: '▶️',
+}
+
+export async function sendDailyDigest(to: string, data: DailyDigestData) {
+  const firstName = data.name?.split(' ')[0] || 'there'
+  const platformEmoji = PLATFORM_EMOJI[data.platform] || '📱'
+  const platformName = data.platform.charAt(0) + data.platform.slice(1).toLowerCase().replace('_', ' ')
+
+  const content = `
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#FF9500;margin-bottom:8px;">
+      Today · ${data.day}
+    </div>
+    ${h1(`${firstName}, here's what to post today.`)}
+    ${p(`From your <strong style="color:#e8e8f5;">${data.campaignName}</strong> campaign — post ${data.postIndex} of ${data.totalPosts}.`)}
+
+    ${card(`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span style="font-size:18px;">${platformEmoji}</span>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e8e8f5;">${data.type}</div>
+          <div style="font-size:11px;color:#6a6a8a;">${platformName} · ${data.topic || data.campaignName}</div>
+        </div>
+      </div>
+      ${data.caption ? `
+        <div style="background:#0a0a0c;border:1px solid #1a1a18;border-radius:10px;padding:16px;font-size:13px;color:#b8b8d8;line-height:1.7;white-space:pre-wrap;">${data.caption}</div>
+      ` : ''}
+    `)}
+
+    ${btn(`Open dashboard & copy caption →`, `${APP_URL}/dashboard`)}
+
+    <div style="margin-top:20px;padding:14px 18px;background:#101010;border:1px solid #1a1a18;border-radius:10px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:12px;color:#6a6a8a;">Campaign progress</div>
+      <div style="font-size:12px;font-weight:700;color:#e8e8f5;">Post ${data.postIndex} / ${data.totalPosts}</div>
+    </div>
+
+    <div style="margin-top:16px;">${p('Open the dashboard to copy the caption and mark it as posted.', true)}</div>
+  `
+
+  return resend.emails.send({
+    from: FROM, replyTo: REPLY_TO, to,
+    subject: `Today on ${platformName}: ${data.type} — ${data.campaignName}`,
+    html: emailShell(content),
+  })
+}
+
 // ── NURTURE SEQUENCE ───────────────────────────────────────────────────
 
 // Day 1 — Brand profile nudge
