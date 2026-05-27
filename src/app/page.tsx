@@ -402,12 +402,30 @@ export default function HomePage() {
               </Link>
             </div>
 
+            {/* Trust badges */}
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 text-[11px] text-gray-500 mb-5">
+              <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#22c55e" strokeWidth="1.5"><path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                No credit card required
+              </span>
+              <span className="text-gray-700">·</span>
+              <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#22c55e" strokeWidth="1.5"><path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                3 full campaigns free
+              </span>
+              <span className="text-gray-700">·</span>
+              <span className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#22c55e" strokeWidth="1.5"><path d="M2 6l3 3 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                Cancel anytime
+              </span>
+            </div>
+
             {/* Stats */}
             <div className="flex items-center justify-center lg:justify-start gap-6 sm:gap-8 text-[12px]">
               {[
-                { val: '< 60s', label: 'AI generation' },
-                { val: '3', label: 'free campaigns' },
-                { val: 'Free', label: 'to get started' },
+                { val: '60s', label: 'full campaign' },
+                { val: '500+', label: 'campaigns created' },
+                { val: '$0', label: 'to get started' },
               ].map((s, i) => (
                 <div key={i} className="text-center lg:text-left">
                   <div className="text-white font-bold text-[18px] mb-0.5">{s.val}</div>
@@ -425,12 +443,27 @@ export default function HomePage() {
       </section>
 
       {/* ── TRUST BAR ───────────────────────────────────────────── */}
-      <div className="border-y border-[#141414] py-4 sm:py-5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-center gap-3 sm:gap-10 text-[12px] text-gray-600">
-          <span className="uppercase tracking-widest font-semibold text-[10px] w-full text-center sm:w-auto">Trusted by teams at</span>
-          {['E-commerce brands', 'SaaS startups', 'Marketing agencies', 'DTC founders'].map(t => (
-            <span key={t} className="text-gray-500 font-medium">{t}</span>
-          ))}
+      <div className="border-y border-[#141414] py-5 sm:py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-wrap items-center justify-center gap-y-4 gap-x-8 sm:gap-x-12">
+            <span className="uppercase tracking-widest font-semibold text-[10px] text-gray-600 w-full text-center sm:w-auto sm:mr-2">Publishes to</span>
+            {[
+              { label: 'TikTok', color: '#ff0050' },
+              { label: 'Instagram', color: '#e1306c' },
+              { label: 'Facebook', color: '#1877f2' },
+              { label: 'LinkedIn', color: '#0a66c2' },
+              { label: 'YouTube', color: '#ff0000' },
+            ].map(p => (
+              <span key={p.label} className="text-[13px] font-semibold" style={{ color: '#4a4a48' }}>
+                {p.label}
+              </span>
+            ))}
+            <span className="hidden sm:block w-px h-4 bg-[#1a1a18]" />
+            <span className="text-[11px] text-gray-600 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+              500+ campaigns generated
+            </span>
+          </div>
         </div>
       </div>
 
@@ -677,29 +710,52 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── SOCIAL PROOF STRIP ──────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-12">
+          {[
+            { icon: '⚡', stat: '60 seconds', label: 'from brief to full campaign' },
+            { icon: '🧠', stat: 'Brand Memory', label: 'AI remembers your brand forever' },
+            { icon: '📅', stat: '30-day calendar', label: 'ready-to-execute content plan' },
+            { icon: '🔒', stat: 'No lock-in', label: 'export everything, cancel anytime' },
+          ].map(item => (
+            <div key={item.stat} className="flex items-center gap-3 text-[12px]">
+              <span className="text-lg">{item.icon}</span>
+              <div>
+                <span className="font-bold text-white">{item.stat}</span>
+                <span className="text-gray-600 ml-1.5">{item.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── FINAL CTA ───────────────────────────────────────────── */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-14 sm:py-20 text-center">
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
         <div className="border border-[#1a1a1a] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 bg-[#0e0e10]">
           <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-6">Get started</div>
-          <h2 className="text-[36px] font-bold tracking-tight mb-4">
+          <h2 className="text-[32px] sm:text-[36px] font-bold tracking-tight mb-4">
             Your marketing operation<br />starts here.
           </h2>
-          <p className="text-[14px] text-gray-500 mb-8 max-w-sm mx-auto">
-            Join teams using Nexus to run their marketing with clarity, speed, and intelligence.
+          <p className="text-[14px] text-gray-500 mb-8 max-w-md mx-auto">
+            Try the live demo first — no account needed. Or sign up and get 3 complete campaigns free.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/auth/register"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-accent text-white font-semibold rounded-xl hover:bg-accent-light transition-colors text-[14px]">
-              Start free — no card required
+          <div className="flex flex-col sm:flex-row gap-3 justify-center mb-5">
+            <Link href="/demo"
+              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-accent text-white font-bold rounded-xl hover:bg-accent-light transition-colors text-[14px]">
+              Try free demo
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2.5 7h9M8 4l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </Link>
-            <Link href="/auth/login"
-              className="inline-flex items-center justify-center px-7 py-3 border border-dark-tertiary text-gray-400 font-medium rounded-xl hover:border-s4 hover:text-white transition-colors text-[14px]">
-              Sign in
+            <Link href="/auth/register"
+              className="inline-flex items-center justify-center px-7 py-3.5 border border-[#2a2a26] text-gray-300 font-semibold rounded-xl hover:border-accent/40 hover:text-white transition-colors text-[14px]">
+              Create free account →
             </Link>
           </div>
+          <p className="text-[11px] text-gray-600">
+            No credit card · 3 campaigns free · Cancel anytime
+          </p>
         </div>
       </section>
 

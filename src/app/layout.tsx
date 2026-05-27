@@ -26,6 +26,23 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Nexus AI',
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: 'https://nexus-grow.com',
+  description: 'AI-powered marketing operating system. Generate complete campaigns — strategy, hooks, scripts, captions, and content calendar — in 60 seconds.',
+  offers: {
+    '@type': 'AggregateOffer',
+    priceCurrency: 'USD',
+    lowPrice: '0',
+    highPrice: '199',
+    offerCount: '3',
+  },
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -33,6 +50,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="dark bg-dark text-white">
         <Providers>
           {children}
