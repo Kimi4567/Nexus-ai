@@ -3,6 +3,9 @@ import type { NextRequest } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
+import { sendCreditsLowEmail } from '@/lib/email/resend'
+
+const LOW_CREDITS_THRESHOLD = 10 // warn when exactly 1 generation left
 
 const CREDITS_PER_GENERATION = 10
 const FREE_CREDITS = 30 // 3 free generations for new users
@@ -102,6 +105,12 @@ export async function POST(req: NextRequest) {
     if (!isPaidUser) {
       const newCredits = Math.max(0, currentCredits - CREDITS_PER_GENERATION)
       await prisma.user.update({ where: { id: userId }, data: { aiCredits: newCredits } })
+
+      // Fire credits-low warning email (non-blocking) when exactly 1 generation left
+      if (newCredits === LOW_CREDITS_THRESHOLD && dbUser?.email) {
+        sendCreditsLowEmail(dbUser.email, dbUser.name || dbUser.email.split('@')[0], newCredits)
+          .catch(e => console.error('[Credits low email] Failed:', e.message))
+      }
     }
 
     // Record usage always
