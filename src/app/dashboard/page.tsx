@@ -207,6 +207,61 @@ function PipelineWidget({ campaigns }: { campaigns: Campaign[] }) {
   )
 }
 
+function ImpactWidget({ campaigns, generations, exports: exportsCount }: {
+  campaigns: number; generations: number; exports: number
+}) {
+  // Hours saved calculation: campaign = 2h, generation = 0.5h, export = 0.25h
+  const hoursSaved = Math.round(campaigns * 2 + generations * 0.5 + exportsCount * 0.25)
+  const postsCreated = generations
+  const ideasGenerated = campaigns * 5 + generations
+
+  if (hoursSaved < 1) return null
+
+  return (
+    <div className="mb-6 surface-card rounded-card p-5 border border-accent/10 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-accent/5 to-transparent pointer-events-none" />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-accent/15 flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#FF9500" strokeWidth="1.5">
+                <path d="M7 1.5v3M7 9.5v3M1.5 7h3M9.5 7h3M3.2 3.2l2.1 2.1M8.7 8.7l2.1 2.1M3.2 10.8l2.1-2.1M8.7 5.3l2.1-2.1" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="text-[11px] font-bold text-accent uppercase tracking-wider">Nexus helped you this month</span>
+          </div>
+          <Link href="/analytics" className="text-[10px] text-t4 hover:text-white transition">Full report →</Link>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div>
+            <div className="text-2xl font-black text-white">{hoursSaved}h</div>
+            <div className="text-[10px] text-t4 mt-0.5">estimated hours saved</div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{campaigns}</div>
+            <div className="text-[10px] text-t4 mt-0.5">campaigns created</div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{postsCreated}</div>
+            <div className="text-[10px] text-t4 mt-0.5">content pieces generated</div>
+          </div>
+          <div>
+            <div className="text-2xl font-black text-white">{ideasGenerated}</div>
+            <div className="text-[10px] text-t4 mt-0.5">ideas generated</div>
+          </div>
+        </div>
+        {hoursSaved >= 5 && (
+          <div className="mt-3 pt-3 border-t border-white/[0.04] flex items-center gap-2">
+            <span className="text-[11px] text-t3">
+              That's roughly <span className="text-white font-semibold">{hoursSaved} hours</span> you didn't spend writing copy, building strategy, or planning content.
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ──────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -321,6 +376,11 @@ export default function Dashboard() {
             loading={dataLoading} accent
             icon="⚡" />
         </div>
+
+        {/* Value Visibility — "Nexus helped you this month" */}
+        {!dataLoading && overview && (overview.campaignsCount > 0 || overview.generationsCount > 0) && (
+          <ImpactWidget campaigns={overview.campaignsCount} generations={overview.generationsCount} exports={overview.exportsCount} />
+        )}
 
         {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
