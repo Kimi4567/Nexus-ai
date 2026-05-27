@@ -35,6 +35,17 @@ const PLATFORM_LABELS: Record<string, string> = {
   LINKEDIN: 'LinkedIn',
 }
 
+// Map brand tone keywords → TONES value
+function mapBrandTone(bp: any): string {
+  const keywords = [...(bp.toneKeywords || []), bp.writingStyle || ''].join(' ').toLowerCase()
+  if (keywords.includes('luxury') || keywords.includes('premium') || keywords.includes('elegant')) return 'LUXURY'
+  if (keywords.includes('professional') || keywords.includes('formal') || keywords.includes('corporate')) return 'PROFESSIONAL'
+  if (keywords.includes('friendly') || keywords.includes('warm') || keywords.includes('casual') || keywords.includes('approachable')) return 'FRIENDLY'
+  if (keywords.includes('energetic') || keywords.includes('bold') || keywords.includes('dynamic') || keywords.includes('exciting')) return 'ENERGETIC'
+  if (keywords.includes('minimal') || keywords.includes('clean') || keywords.includes('simple')) return 'MINIMAL'
+  return 'MODERN'
+}
+
 const STEPS = [
   { id: 1, title: 'Campaign Basics', desc: 'Name & goal' },
   { id: 2, title: 'Audience & Tone', desc: 'Who & how' },
@@ -59,6 +70,8 @@ function CreateCampaignInner() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [showUpgradeGate, setShowUpgradeGate] = useState(false)
+  const [brandProfile, setBrandProfile] = useState<any>(null)
+  const [brandLoading, setBrandLoading] = useState(true)
 
   // Pre-fill from URL params (e.g. from Templates page or demo funnel)
   const initialGoal = searchParams.get('goal') || 'SALES'
@@ -92,6 +105,36 @@ function CreateCampaignInner() {
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
   }, [loading, isAuthenticated, router])
+
+  // Load brand profile on mount and pre-fill audience/tone
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const token = authHeader()
+    if (!token) { setBrandLoading(false); return }
+
+    fetch('/api/brand', { headers: { Authorization: token } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const bp = data?.brandProfile || null
+        setBrandProfile(bp)
+        if (bp) {
+          setForm(prev => ({
+            ...prev,
+            // Pre-fill audience from brand memory if user hasn't typed anything
+            audience: prev.audience || bp.targetAudience || '',
+            // Pre-fill description with brand context if not already set
+            description: prev.description || (bp.primaryOffer ? `Promoting: ${bp.primaryOffer}` : ''),
+            // Pre-fill name with brand name if still empty
+            name: prev.name || (bp.brandName ? `${bp.brandName} Campaign` : ''),
+            // Map brand tone keywords to closest TONES value
+            tone: prev.tone === 'MODERN' ? mapBrandTone(bp) : prev.tone,
+          }))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setBrandLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   const update = useCallback((field: keyof FormData, value: any) => {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -155,19 +198,7 @@ function CreateCampaignInner() {
     try {
       const token = authHeader()
 
-      // Fetch brand profile to inject into AI context
-      let brandProfile = null
-      if (token) {
-        try {
-          const bpRes = await fetch('/api/brand', { headers: { Authorization: token } })
-          if (bpRes.ok) {
-            const bpData = await bpRes.json()
-            brandProfile = bpData.brandProfile || null
-          }
-        } catch { /* ignore brand fetch errors */ }
-      }
-
-      // Generate AI content with brand context
+      // Generate AI content with brand context (already loaded on mount)
       const res = await fetch('/api/generate/preview', {
         method: 'POST',
         headers: {
@@ -271,6 +302,27 @@ function CreateCampaignInner() {
                 <p className="text-gray-400 text-sm">Give your campaign a name and choose your primary goal.</p>
               </div>
 
+              {/* Brand Memory status */}
+              {!brandLoading && (
+                brandProfile ? (
+                  <div className="flex items-center gap-2.5 px-4 py-2.5 bg-accent/8 border border-accent/20 rounded-lg">
+                    <span className="text-accent text-sm">🧠</span>
+                    <span className="text-sm text-accent font-semibold">Brand Memory active</span>
+                    <span className="text-xs text-gray-400 ml-1">
+                      — using {brandProfile.brandName || 'your brand'} context for AI generation
+                    </span>
+                    <a href="/brand" className="ml-auto text-xs text-gray-500 hover:text-accent transition">Edit →</a>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 px-4 py-2.5 bg-dark border border-dark-tertiary rounded-lg">
+                    <span className="text-gray-500 text-sm">💡</span>
+                    <span className="text-xs text-gray-400">
+                      Set up your <a href="/brand" className="text-accent hover:underline font-semibold">Brand Profile</a> once — the AI will use it on every campaign automatically.
+                    </span>
+                  </div>
+                )
+              )}
+
               <div>
                 <label className="block text-sm font-semibold mb-2">Campaign Name *</label>
                 <input
@@ -326,7 +378,12 @@ function CreateCampaignInner() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold mb-2">Target Audience</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-semibold">Target Audience</label>
+                  {brandProfile?.targetAudience && form.audience === brandProfile.targetAudience && (
+                    <span className="text-xs text-accent flex items-center gap-1">🧠 From Brand Memory</span>
+                  )}
+                </div>
                 <textarea
                   value={form.audience}
                   onChange={e => update('audience', e.target.value)}
@@ -334,6 +391,11 @@ function CreateCampaignInner() {
                   rows={4}
                   className="w-full px-4 py-3 bg-dark border border-dark-tertiary rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-accent transition resize-none"
                 />
+                {!brandProfile && (
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    Save this once in your <a href="/brand" className="text-gray-500 hover:text-accent transition">Brand Profile</a> to auto-fill it next time.
+                  </p>
+                )}
               </div>
 
               <div>
