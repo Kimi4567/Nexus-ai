@@ -196,31 +196,6 @@ function HeroProductWindow() {
   )
 }
 
-// ── Testimonials ────────────────────────────────────────────────────────
-const TESTIMONIALS = [
-  {
-    quote: "We went from spending 3 days planning a campaign to launching the same day. Nexus is the first AI tool that actually understands what marketing means.",
-    name: "Sarah K.",
-    role: "Head of Marketing",
-    company: "DTC Brand",
-    avatar: "SK",
-  },
-  {
-    quote: "Our agency manages 12 clients. Nexus replaced three separate tools we were paying for. The brand memory feature alone saves us hours every week.",
-    name: "James M.",
-    role: "Founder",
-    company: "Growth Agency",
-    avatar: "JM",
-  },
-  {
-    quote: "I'm not a marketer — I'm a founder. Nexus made me feel like I have a full marketing team. The strategy output is genuinely impressive.",
-    name: "Layla R.",
-    role: "Founder & CEO",
-    company: "SaaS Startup",
-    avatar: "LR",
-  },
-]
-
 // ── FAQ ────────────────────────────────────────────────────────────────
 const FAQS = [
   {
@@ -300,15 +275,15 @@ const PLANS = [
     name: 'Starter',
     price: '$29',
     desc: 'For solo founders and small brands',
-    features: ['50 AI credits / month', '3 campaigns / month', 'Brand memory', 'PDF exports', 'Email support'],
-    cta: 'Get started free',
+    features: ['5 full campaigns / month', 'Brand Memory — AI learns your brand', 'Strategy + hooks + captions + calendar', 'PDF campaign exports', 'Email support'],
+    cta: 'Start free — no card needed',
     highlight: false,
   },
   {
     name: 'Pro',
     price: '$79',
     desc: 'For growing brands that ship daily',
-    features: ['200 AI credits / month', 'Unlimited campaigns', 'Social publishing', 'Weekly strategy brief', 'Priority support'],
+    features: ['Unlimited campaigns', 'Brand Memory across all campaigns', 'Social publishing (TikTok, IG, FB, LI)', 'Weekly AI strategy brief', 'Priority support'],
     cta: 'Start with Pro',
     highlight: true,
   },
@@ -316,8 +291,8 @@ const PLANS = [
     name: 'Agency',
     price: '$199',
     desc: 'For agencies managing multiple clients',
-    features: ['Unlimited AI credits', 'Unlimited campaigns', '10 workspaces', 'White-label exports', 'Dedicated support'],
-    cta: 'Contact sales',
+    features: ['Unlimited campaigns', '10 client workspaces', 'White-label PDF exports', 'Client reporting dashboard', 'Dedicated support'],
+    cta: 'Get Agency access',
     highlight: false,
   },
 ]
@@ -567,11 +542,11 @@ export default function HomePage() {
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-4">AI Presence</div>
               <h2 className="text-[30px] font-bold tracking-tight mb-4">
-                The system is always watching. Always recommending.
+                Always one step ahead. Never letting things slip.
               </h2>
               <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
-                Nexus doesn&apos;t wait for you to ask. It surfaces insights from your real workspace data —
-                campaign gaps, brand opportunities, and execution priorities — so you always know what to do next.
+                Nexus surfaces insights from your live workspace — missing assets, inactive campaigns,
+                brand gaps, content opportunities — so you always know exactly what to do next without having to ask.
               </p>
               <Link href="/auth/register"
                 className="inline-flex items-center gap-2 text-[13px] font-semibold text-accent hover:text-accent-light transition-colors">
@@ -657,35 +632,125 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ─────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+      {/* ── REAL OUTPUT PREVIEW ──────────────────────────────────── */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-24">
         <div className="text-center mb-12">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">What people say</div>
-          <h2 className="text-[28px] sm:text-[32px] font-bold tracking-tight">Built for real marketers.</h2>
+          <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">Real output</div>
+          <h2 className="text-[28px] sm:text-[32px] font-bold tracking-tight mb-3">
+            This is what Nexus actually produces.
+          </h2>
+          <p className="text-[14px] text-gray-500">
+            One campaign brief. 60 seconds. Everything below — ready to use.
+          </p>
         </div>
-        <div className="grid md:grid-cols-3 gap-4">
-          {TESTIMONIALS.map((t) => (
-            <div key={t.name} className="p-6 bg-[#0e0e10] border border-[#1a1a18] rounded-2xl flex flex-col gap-4">
-              {/* Stars */}
-              <div className="flex gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <svg key={i} width="12" height="12" viewBox="0 0 12 12" fill="#FF9500">
-                    <path d="M6 1l1.5 3h3l-2.5 2 1 3L6 7.5 3 9l1-3L1.5 4h3z" />
-                  </svg>
+
+        {/* Campaign brief input strip */}
+        <div className="max-w-3xl mx-auto mb-8">
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl text-[12px]">
+            <span className="text-gray-600 font-semibold uppercase tracking-widest text-[10px]">Brief</span>
+            <span className="px-2.5 py-1 bg-[#161616] border border-[#222] rounded-lg text-gray-300">FitFlow App</span>
+            <span className="text-gray-700">·</span>
+            <span className="px-2.5 py-1 bg-[#161616] border border-[#222] rounded-lg text-gray-300">Fitness / Wellness</span>
+            <span className="text-gray-700">·</span>
+            <span className="px-2.5 py-1 bg-[#161616] border border-[#222] rounded-lg text-gray-300">Drive Sales</span>
+            <span className="text-gray-700">·</span>
+            <span className="px-2.5 py-1 bg-[#161616] border border-[#222] rounded-lg text-gray-300">TikTok + Instagram</span>
+            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Generated in 52s
+            </span>
+          </div>
+        </div>
+
+        <div className="max-w-3xl mx-auto space-y-4">
+
+          {/* Strategy */}
+          <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-accent">Campaign Strategy</span>
+            </div>
+            <p className="text-[14px] text-gray-300 leading-relaxed mb-4">
+              Position FitFlow as the fitness app that works around your life — not the other way around. Target burned-out professionals aged 25–38 who've tried gym memberships and failed. Lead with the identity shift: from "person who wants to get fit" to "person who actually does." Drive urgency with a limited free trial that ends Sunday.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: 'Positioning', val: 'The fitness habit for busy people' },
+                { label: 'Tone', val: 'Direct, empowering, zero fluff' },
+                { label: 'Primary CTA', val: 'Start your free 7-day trial' },
+                { label: 'Key platform', val: 'TikTok (organic reach window)' },
+              ].map(r => (
+                <div key={r.label} className="bg-[#131315] rounded-xl px-4 py-3">
+                  <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">{r.label}</div>
+                  <div className="text-[12px] text-white font-medium">{r.val}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Hooks */}
+          <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-4">5 Ad Hooks — Ready to Record</div>
+            <div className="space-y-3">
+              {[
+                { angle: 'Pattern Interrupt', hook: '"I used to spend $120/month on a gym I visited twice. Here\'s what changed."' },
+                { angle: 'Social Proof',      hook: '"83,000 people started working out consistently with this one change."' },
+                { angle: 'Curiosity Gap',     hook: '"The fitness app your trainer doesn\'t want you to find."' },
+                { angle: 'Problem/Agitation', hook: '"Another Monday, another skipped workout. Sound familiar? This stops today."' },
+                { angle: 'FOMO/Urgency',      hook: '"Free trial ends Sunday. 6 minutes a day. Real results in 3 weeks."' },
+              ].map((h, i) => (
+                <div key={i} className="flex items-start gap-3 px-4 py-3 bg-[#131315] rounded-xl">
+                  <span className="text-[11px] font-bold text-accent/50 tabular-nums mt-0.5 flex-shrink-0">0{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">{h.angle}</div>
+                    <div className="text-[13px] text-gray-200 leading-snug">{h.hook}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Caption + CTA */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">Ready-to-Post Caption</div>
+              <p className="text-[13px] text-gray-300 leading-relaxed">
+                You don't need 2 hours at the gym.<br />You need 6 minutes and a plan that sticks. 🔥<br /><br />
+                FitFlow builds a workout habit around your schedule — not the other way around. 83,000 people already made the switch.<br /><br />
+                Free trial ends Sunday. Link in bio.<br /><br />
+                <span className="text-gray-500">#fitness #workoutroutine #fitnesstiktok #healthylifestyle #gymtok #fitlife</span>
+              </p>
+            </div>
+            <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6 flex flex-col">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">30-Day Content Calendar</div>
+              <div className="space-y-2 flex-1">
+                {[
+                  { day: 'Mon', type: 'Hook video', platform: 'TikTok' },
+                  { day: 'Wed', type: 'Transformation story', platform: 'Instagram Reel' },
+                  { day: 'Fri', type: 'Social proof post', platform: 'TikTok' },
+                  { day: 'Sun', type: 'CTA + trial push', platform: 'IG + TikTok' },
+                ].map(r => (
+                  <div key={r.day} className="flex items-center gap-3 text-[11px]">
+                    <span className="w-8 text-gray-600 font-semibold">{r.day}</span>
+                    <span className="flex-1 text-gray-300">{r.type}</span>
+                    <span className="text-gray-600">{r.platform}</span>
+                  </div>
                 ))}
-              </div>
-              <p className="text-[13px] text-gray-400 leading-relaxed flex-1">&ldquo;{t.quote}&rdquo;</p>
-              <div className="flex items-center gap-3 pt-2 border-t border-[#1a1a18]">
-                <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-[11px] font-bold text-accent flex-shrink-0">
-                  {t.avatar}
-                </div>
-                <div>
-                  <div className="text-[12px] font-semibold text-white">{t.name}</div>
-                  <div className="text-[11px] text-gray-600">{t.role} · {t.company}</div>
-                </div>
+                <div className="text-[11px] text-gray-600 pt-2 border-t border-[#1a1a1a]">+ 24 more posts across 4 weeks</div>
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* CTA under output */}
+          <div className="text-center pt-4">
+            <p className="text-[13px] text-gray-500 mb-4">This is one campaign. You get 3 free when you sign up.</p>
+            <Link href="/demo"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white font-bold rounded-xl hover:bg-accent-light transition-colors text-[13px]">
+              Generate yours free — no account needed
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M2.5 6.5h8M7 4l3 2.5-3 2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+          </div>
         </div>
       </section>
 
