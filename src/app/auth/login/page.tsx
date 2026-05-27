@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
   const { login } = useAuth()
+  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -18,6 +20,28 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
+
+      // Check for pending demo intent — redirect to pre-filled campaign wizard
+      try {
+        const raw = localStorage.getItem('nexus_demo_intent')
+        if (raw) {
+          const intent = JSON.parse(raw)
+          // Only use if < 48 hours old
+          if (intent?.goal && Date.now() - intent.ts < 48 * 60 * 60 * 1000) {
+            localStorage.removeItem('nexus_demo_intent')
+            const params = new URLSearchParams({
+              goal: intent.goal,
+              ...(intent.company ? { company: intent.company } : {}),
+              ...(intent.type ? { industry: intent.type } : {}),
+              fromDemo: '1',
+            })
+            router.push(`/campaign/new?${params.toString()}`)
+            return
+          }
+          localStorage.removeItem('nexus_demo_intent')
+        }
+      } catch {}
+      // Default redirect handled by login()
     } catch (err: any) {
       const msg = err?.message || ''
       if (msg.includes('Email not confirmed')) {

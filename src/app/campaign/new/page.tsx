@@ -60,15 +60,28 @@ function CreateCampaignInner() {
   const [error, setError] = useState('')
   const [showUpgradeGate, setShowUpgradeGate] = useState(false)
 
-  // Pre-fill from URL params (e.g. from Templates page)
+  // Pre-fill from URL params (e.g. from Templates page or demo funnel)
   const initialGoal = searchParams.get('goal') || 'SALES'
   const initialPlatforms = searchParams.get('platforms')?.split(',').filter(Boolean) || ['INSTAGRAM']
   const initialTemplate = searchParams.get('template') || ''
+  const fromDemo = searchParams.get('fromDemo') === '1'
+  const demoCompany = searchParams.get('company') || ''
+  const demoIndustry = searchParams.get('industry') || ''
+
+  // Build pre-filled name: company name takes priority, then template, then empty
+  const initialName = demoCompany
+    ? `${demoCompany} Campaign`
+    : initialTemplate
+      ? `${initialTemplate} Campaign`
+      : ''
+
+  // Build pre-filled description from demo industry context
+  const initialDescription = demoIndustry ? `${demoIndustry} business` : ''
 
   const [form, setForm] = useState<FormData>({
-    name: initialTemplate ? `${initialTemplate} Campaign` : '',
+    name: initialName,
     goal: GOALS.find(g => g.value === initialGoal) ? initialGoal : 'SALES',
-    description: '',
+    description: initialDescription,
     audience: '',
     tone: 'MODERN',
     platforms: initialPlatforms.filter(p => PLATFORMS.includes(p)).length
@@ -201,6 +214,21 @@ function CreateCampaignInner() {
 
   return (
     <AppShell>
+
+      {/* Demo funnel banner */}
+      {fromDemo && demoCompany && (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4">
+          <div className="bg-accent/10 border border-accent/20 rounded-xl px-5 py-3 flex items-center gap-3">
+            <span className="text-accent text-lg">✦</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-semibold text-white">Continuing your demo — </span>
+              <span className="text-sm text-gray-300">
+                generating the full campaign for <strong>{demoCompany}</strong>. Fields are pre-filled from your demo.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upgrade Gate Modal */}
       {showUpgradeGate && (
