@@ -57,7 +57,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-xl font-bold text-white mb-3">8. Contact Us</h2>
-            <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:privacy@nexus-ai.app" className="text-accent hover:text-accent-light transition">privacy@nexus-ai.app</a>.</p>
+            <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:privacy@nexus-grow.com" className="text-accent hover:text-accent-light transition">privacy@nexus-grow.com</a>.</p>
           </section>
         </div>
 

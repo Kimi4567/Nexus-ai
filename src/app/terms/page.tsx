@@ -62,7 +62,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-xl font-bold text-white mb-3">9. Contact</h2>
-            <p>For questions about these Terms, contact us at <a href="mailto:legal@nexus-ai.app" className="text-accent hover:text-accent-light transition">legal@nexus-ai.app</a>.</p>
+            <p>For questions about these Terms, contact us at <a href="mailto:legal@nexus-grow.com" className="text-accent hover:text-accent-light transition">legal@nexus-grow.com</a>.</p>
           </section>
         </div>
 

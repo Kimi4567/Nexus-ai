@@ -120,7 +120,7 @@ function HeroProductWindow() {
           <div className="w-3 h-3 rounded-full bg-[#28c840]" />
         </div>
         <div className="flex-1 mx-3 bg-[#151515] rounded-md px-3 py-1 text-[11px] text-gray-600 text-center">
-          app.nexus-ai.com/dashboard
+          app.nexus-grow.com/dashboard
         </div>
       </div>
 

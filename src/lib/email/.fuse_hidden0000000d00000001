@@ -91,21 +91,21 @@ export async function sendWelcomeEmail(to: string, name: string) {
       <div style="font-size:13px;color:#8888aa;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;">Get started in 3 steps</div>
       <div style="display:flex;flex-direction:column;gap:12px;">
         <div style="display:flex;align-items:flex-start;gap:12px;">
-          <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">1</div>
+          <div style="width:22px;height:22px;background:#6366f1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:white;flex-shrink:0;">1</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Set up your brand memory</div>
             <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Tell Nexus about your business once — it remembers forever.</div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
-          <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">2</div>
+          <div style="width:22px;height:22px;background:#6366f1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:white;flex-shrink:0;">2</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Generate your first campaign</div>
             <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Full strategy, hooks, scripts, and content calendar in 60 seconds.</div>
           </div>
         </div>
         <div style="display:flex;align-items:flex-start;gap:12px;">
-          <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">3</div>
+          <div style="width:22px;height:22px;background:#6366f1;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:white;flex-shrink:0;">3</div>
           <div>
             <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Publish to Instagram or Facebook</div>
             <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Connect your accounts and go live directly from Nexus.</div>
@@ -114,14 +114,14 @@ export async function sendWelcomeEmail(to: string, name: string) {
       </div>
     `)}
 
-    <div style="background:#101010;border:1px solid #2a2a4a;border-radius:10px;padding:16px 20px;margin:20px 0;">
-      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ You have 30 free AI credits</div>
+    <div style="background:#0d0d1a;border:1px solid #2a2a4a;border-radius:10px;padding:16px 20px;margin:20px 0;">
+      <div style="font-size:12px;color:#6366f1;font-weight:700;margin-bottom:4px;">⚡ You have 30 free AI credits</div>
       <div style="font-size:13px;color:#b8b8d8;">That's 3 full campaign generations to get started. No credit card needed.</div>
     </div>
 
     ${btn('Open your dashboard →', `${APP_URL}/dashboard`)}
 
-    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #1a1a18;">
+    <div style="margin-top:32px;padding-top:20px;border-top:1px solid #1a1a2e;">
       ${p('If you have any questions, just reply to this email — I read every one.', true)}
       ${p('— Raouf, founder of Nexus', true)}
     </div>
@@ -151,7 +151,7 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${['200 AI credits every month', 'Unlimited campaigns', 'Weekly strategy brief in your inbox', 'Social publishing to Instagram & Facebook', 'PDF campaign reports'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
-            <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
+            <span style="color:#6366f1;font-weight:700;">✓</span> ${f}
           </div>`
         ).join('')}
       </div>
@@ -186,31 +186,31 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
   const weekOf = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 
   const ideasHtml = data.contentIdeas.map((idea, i) => `
-    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #1a1a18;">
-      <div style="width:20px;height:20px;background:#1a1a18;border:1px solid #2a2a4a;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#FF9500;flex-shrink:0;">${i + 1}</div>
+    <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid #1a1a2e;">
+      <div style="width:20px;height:20px;background:#1e1e38;border:1px solid #2a2a4a;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#6366f1;flex-shrink:0;">${i + 1}</div>
       <div style="font-size:13px;color:#b8b8d8;line-height:1.5;">${idea}</div>
     </div>
   `).join('')
 
   const content = `
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#FF9500;margin-bottom:8px;">Weekly Brief · ${weekOf}</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#6366f1;margin-bottom:8px;">Weekly Brief · ${weekOf}</div>
     ${h1(`This week's marketing plan for ${data.brandName}.`)}
     ${p(`Good morning ${firstName}. Here's what Nexus recommends for your marketing this week.`)}
 
     ${card(`
-      <div style="font-size:12px;color:#FF9500;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">🎯 This week's focus</div>
+      <div style="font-size:12px;color:#6366f1;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">🎯 This week's focus</div>
       <div style="font-size:14px;color:#e8e8f5;font-weight:600;line-height:1.5;">${data.strategyFocus}</div>
     `)}
 
     <div style="margin-top:24px;">
       <div style="font-size:12px;color:#8888aa;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">📋 Content ideas for this week</div>
-      <div style="border:1px solid #1a1a18;border-radius:10px;overflow:hidden;margin-top:12px;">
+      <div style="border:1px solid #1e1e38;border-radius:10px;overflow:hidden;margin-top:12px;">
         ${ideasHtml}
         <div style="padding:12px 0;"></div>
       </div>
     </div>
 
-    <div style="margin-top:20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+    <div style="margin-top:20px;background:#0d0d1a;border:1px solid #1e1e38;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
       <div>
         <div style="font-size:12px;color:#6a6a8a;margin-bottom:2px;">Campaigns this month</div>
         <div style="font-size:18px;font-weight:800;color:#e8e8f5;">${data.campaignsThisMonth}</div>
@@ -221,7 +221,7 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
       </div>
       <div>
         <div style="font-size:12px;color:#6a6a8a;margin-bottom:2px;">Credits used</div>
-        <div style="font-size:18px;font-weight:800;color:#FF9500;">Active</div>
+        <div style="font-size:18px;font-weight:800;color:#6366f1;">Active</div>
       </div>
     </div>
 
@@ -255,13 +255,13 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${['Unlimited AI credits', 'Unlimited campaign generation', 'Social publishing to all platforms', 'Weekly intelligence brief every Monday', 'PDF campaign reports', 'Priority support'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
-            <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
+            <span style="color:#6366f1;font-weight:700;">✓</span> ${f}
           </div>`
         ).join('')}
       </div>
     `)}
 
-    <div style="background:#0d1a0d;border:1px solid #1a3a1a;border-radius:10px;padding:16px 20px;margin:20px 0;">
+    <div style="background:#0d1f0d;border:1px solid #1a3a1a;border-radius:10px;padding:16px 20px;margin:20px 0;">
       <div style="font-size:12px;color:#4ade80;font-weight:700;margin-bottom:4px;">✓ Payment confirmed</div>
       <div style="font-size:13px;color:#b8d8b8;">Your first weekly brief arrives next Monday morning.</div>
     </div>

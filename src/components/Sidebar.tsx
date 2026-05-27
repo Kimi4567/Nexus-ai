@@ -181,11 +181,21 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
+      href: '/templates', label: 'Templates',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1" />
+          <rect x="9" y="1.5" width="5.5" height="5.5" rx="1" />
+          <rect x="1.5" y="9" width="5.5" height="5.5" rx="1" />
+          <path d="M9 11.5h5.5M11.75 9v5" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
       href: '/brand', label: 'Brand Intelligence',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M8 1.5a6.5 6.5 0 100 13A6.5 6.5 0 008 1.5z" />
-          <path d="M8 5v3l2 2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 1.5L10 5.5H14L11 8l1 4-4-2.5L4 12l1-4L2 5.5h4z" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ),
     },

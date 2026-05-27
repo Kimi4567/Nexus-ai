@@ -19,7 +19,7 @@ export default function ImportsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-3xl mx-auto px-6 py-16 flex flex-col items-center text-center">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center text-center">
 
         {/* Icon */}
         <div className="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-6">

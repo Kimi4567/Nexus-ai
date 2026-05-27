@@ -305,7 +305,7 @@ export default function CalendarPage() {
                           <span className="text-gray-300">{platform}</span>
                           <span className="font-bold" style={{ color: PLATFORM_COLORS[platform] || '#FF9500' }}>{count}</span>
                         </div>
-                        <div className="h-1 rounded-full bg-dark-tertiary">
+                        <div className="h-1 rounded-full bg-[#1e1e2e]">
                           <div className="h-full rounded-full"
                             style={{
                               width: `${(count / posts.length) * 100}%`,

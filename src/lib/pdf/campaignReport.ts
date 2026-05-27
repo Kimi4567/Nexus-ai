@@ -210,13 +210,14 @@ export function generateCampaignPDF(result: CampaignResult): void {
 
     /* ── Cover ─────────────────────────────────────────────────────── */
     .cover {
-      background: linear-gradient(135deg, #0d0d18 0%, #12122a 60%, #1a1a3e 100%);
+      background: linear-gradient(135deg, #080807 0%, #111110 60%, #1a1a18 100%);
       color: white;
       padding: 64px 48px 48px;
       min-height: 280px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      border-bottom: 3px solid #FF9500;
     }
     .cover-brand {
       display: flex;
@@ -226,14 +227,14 @@ export function generateCampaignPDF(result: CampaignResult): void {
     }
     .cover-logo {
       width: 32px; height: 32px;
-      background: #6366f1;
+      background: #FF9500;
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px; color: white; font-weight: 900;
+      font-size: 16px; color: #080807; font-weight: 900;
     }
     .cover-brand-name {
       font-size: 14pt; font-weight: 700;
-      letter-spacing: -0.3px; color: #e8e8f5;
+      letter-spacing: -0.3px; color: #F5F0E8;
     }
     .cover-title {
       font-size: 28pt; font-weight: 800;
@@ -241,7 +242,7 @@ export function generateCampaignPDF(result: CampaignResult): void {
       color: #ffffff; margin-bottom: 12px;
     }
     .cover-sub {
-      font-size: 12pt; color: rgba(255,255,255,0.55);
+      font-size: 12pt; color: rgba(255,255,255,0.45);
       margin-bottom: 32px;
     }
     .cover-badges {
@@ -249,36 +250,36 @@ export function generateCampaignPDF(result: CampaignResult): void {
     }
     .cover-badge {
       padding: 4px 12px; border-radius: 20px;
-      background: rgba(99,102,241,0.2);
-      border: 1px solid rgba(99,102,241,0.3);
-      color: #a5b4fc; font-size: 9pt; font-weight: 600;
+      background: rgba(255,149,0,0.15);
+      border: 1px solid rgba(255,149,0,0.3);
+      color: #FFB340; font-size: 9pt; font-weight: 600;
     }
     .cover-meta {
       display: flex; gap: 24px;
-      font-size: 8.5pt; color: rgba(255,255,255,0.4);
+      font-size: 8.5pt; color: rgba(255,255,255,0.35);
       padding-top: 20px;
-      border-top: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(255,149,0,0.12);
     }
 
     /* ── Section titles ─────────────────────────────────────────────── */
     .section-label {
       font-size: 7.5pt; font-weight: 700; letter-spacing: 1.8px;
-      text-transform: uppercase; color: #6366f1;
+      text-transform: uppercase; color: #FF9500;
       margin-bottom: 6px;
     }
     .section-title {
       font-size: 16pt; font-weight: 800;
-      letter-spacing: -0.4px; color: #0d0d18;
+      letter-spacing: -0.4px; color: #1a1a18;
       margin-bottom: 16px;
     }
 
     /* ── Strategy overview ──────────────────────────────────────────── */
     .overview-box {
-      background: #f8f9ff;
-      border-left: 3px solid #6366f1;
+      background: #fef9f0;
+      border-left: 3px solid #FF9500;
       border-radius: 0 8px 8px 0;
       padding: 16px 20px;
-      font-size: 11pt; color: #2a2a4a;
+      font-size: 11pt; color: #2a2218;
       line-height: 1.7; margin-bottom: 24px;
     }
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
@@ -292,7 +293,7 @@ export function generateCampaignPDF(result: CampaignResult): void {
       font-size: 10.5pt; color: #374151;
     }
     .list-item:last-child { border-bottom: none; }
-    .bullet { color: #6366f1; font-weight: 700; flex-shrink: 0; }
+    .bullet { color: #FF9500; font-weight: 700; flex-shrink: 0; }
 
     /* ── Content pillars ─────────────────────────────────────────────── */
     .pillars-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -300,62 +301,63 @@ export function generateCampaignPDF(result: CampaignResult): void {
       padding: 10px 14px; border-radius: 8px;
       font-size: 10pt; font-weight: 600; line-height: 1.4;
     }
-    .pillar-0 { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .pillar-0 { background: #fff8ee; color: #b45309; border: 1px solid #fcd34d; }
     .pillar-1 { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-    .pillar-2 { background: #fefce8; color: #a16207; border: 1px solid #fde68a; }
-    .pillar-3 { background: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+    .pillar-2 { background: #fef9f0; color: #c2410c; border: 1px solid #fdba74; }
+    .pillar-3 { background: #fafaf9; color: #57534e; border: 1px solid #d6d3d1; }
 
     /* ── Platform playbook ───────────────────────────────────────────── */
     .playbook-row {
       display: flex; gap: 16px; align-items: flex-start;
-      padding: 10px 0; border-bottom: 1px solid #f3f4f6;
+      padding: 10px 0; border-bottom: 1px solid #f5f0e8;
       font-size: 10.5pt;
     }
     .playbook-row:last-child { border-bottom: none; }
     .platform-badge {
-      flex-shrink: 0; font-weight: 700; color: #4f46e5;
+      flex-shrink: 0; font-weight: 700; color: #c2410c;
       width: 140px; font-size: 10pt;
     }
     .playbook-rec { color: #374151; line-height: 1.55; }
 
     /* ── Metrics ────────────────────────────────────────────────────── */
     .metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-    .metric-card { background: #f8f9ff; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #e8e8f8; }
-    .metric-value { font-size: 14pt; font-weight: 800; color: #6366f1; margin-bottom: 4px; }
+    .metric-card { background: #fff8ee; border-radius: 8px; padding: 12px; text-align: center; border: 1px solid #fde68a; }
+    .metric-value { font-size: 14pt; font-weight: 800; color: #FF9500; margin-bottom: 4px; }
     .metric-label { font-size: 7.5pt; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
 
     /* ── CTA strategies ─────────────────────────────────────────────── */
     .cta-row {
       display: flex; gap: 10px; align-items: flex-start;
-      padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+      padding: 8px 0; border-bottom: 1px solid #f5f0e8;
       font-size: 10.5pt; color: #374151;
     }
     .cta-row:last-child { border-bottom: none; }
-    .cta-arrow { color: #6366f1; font-weight: 700; flex-shrink: 0; }
+    .cta-arrow { color: #FF9500; font-weight: 700; flex-shrink: 0; }
 
     /* ── Ad concepts ────────────────────────────────────────────────── */
     .concepts-section { padding: 32px 48px; }
     .concept-card {
-      border: 1px solid #e8e8f8;
+      border: 1px solid #e8e0d8;
       border-radius: 12px; overflow: hidden;
-      margin-bottom: 32px; background: #fafafa;
+      margin-bottom: 32px; background: #fafaf9;
     }
     .concept-header {
       display: flex; justify-content: space-between; align-items: flex-start;
-      background: linear-gradient(135deg, #0d0d18 0%, #1a1a3e 100%);
+      background: linear-gradient(135deg, #080807 0%, #1a1a18 100%);
+      border-bottom: 2px solid #FF9500;
       padding: 20px 24px; color: white;
     }
     .concept-name { font-size: 13pt; font-weight: 700; color: #fff; margin-bottom: 5px; }
-    .concept-meta { font-size: 9pt; color: rgba(255,255,255,0.55); }
-    .concept-num { font-size: 24pt; font-weight: 900; color: rgba(99,102,241,0.4); }
+    .concept-meta { font-size: 9pt; color: rgba(255,255,255,0.5); }
+    .concept-num { font-size: 24pt; font-weight: 900; color: rgba(255,149,0,0.35); }
     .concept-desc { padding: 16px 24px 0; font-size: 10.5pt; color: #4b5563; line-height: 1.65; }
 
     .block-label {
       font-size: 7.5pt; font-weight: 700; letter-spacing: 1.5px;
       text-transform: uppercase; color: #9ca3af; margin-bottom: 6px;
     }
-    .hook-block { padding: 16px 24px; background: #f0f0ff; margin: 12px 24px 0; border-radius: 8px; }
-    .hook-text { font-size: 12pt; font-weight: 700; color: #4f46e5; font-style: italic; }
+    .hook-block { padding: 16px 24px; background: #fff8ee; margin: 12px 24px 0; border-radius: 8px; border: 1px solid #fde68a; }
+    .hook-text { font-size: 12pt; font-weight: 700; color: #c2410c; font-style: italic; }
 
     .script-block { padding: 0 24px; margin-top: 16px; }
     .script-text {
@@ -368,7 +370,7 @@ export function generateCampaignPDF(result: CampaignResult): void {
 
     .headlines-block { padding: 0 24px; margin-top: 16px; }
     .headline-item { font-size: 10.5pt; color: #374151; padding: 4px 0; }
-    .hl-num { color: #6366f1; font-weight: 700; margin-right: 4px; }
+    .hl-num { color: #FF9500; font-weight: 700; margin-right: 4px; }
 
     .captions-block { padding: 0 24px; margin-top: 16px; }
     .caption-item { padding: 10px 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; }
@@ -386,34 +388,35 @@ export function generateCampaignPDF(result: CampaignResult): void {
     /* ── Content calendar ───────────────────────────────────────────── */
     .cal-week { margin-bottom: 24px; }
     .cal-week-title {
-      font-size: 11pt; font-weight: 700; color: #4f46e5;
+      font-size: 11pt; font-weight: 700; color: #c2410c;
       margin-bottom: 8px; padding-left: 4px;
     }
     .cal-table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
     .cal-table th {
-      background: #0d0d18; color: rgba(255,255,255,0.7);
+      background: #080807; color: rgba(255,255,255,0.65);
       font-weight: 600; font-size: 8pt; letter-spacing: 0.5px;
       text-align: left; padding: 8px 10px;
     }
     .cal-table td {
-      padding: 7px 10px; border-bottom: 1px solid #f3f4f6;
+      padding: 7px 10px; border-bottom: 1px solid #f5f0e8;
       color: #374151; vertical-align: top;
     }
-    .cal-table tr:hover td { background: #f8f9ff; }
+    .cal-table tr:hover td { background: #fff8ee; }
     .type-badge {
       display: inline-block; padding: 2px 7px; border-radius: 12px;
-      background: #eff6ff; color: #1d4ed8; font-size: 8pt; font-weight: 600;
+      background: #fff8ee; color: #c2410c; font-size: 8pt; font-weight: 600;
     }
     .format-cell { color: #9ca3af; font-size: 8.5pt; }
 
     /* ── Footer ─────────────────────────────────────────────────────── */
     .footer {
-      background: #0d0d18; color: rgba(255,255,255,0.4);
+      background: #080807; color: rgba(255,255,255,0.35);
       padding: 20px 48px; font-size: 8.5pt;
       display: flex; justify-content: space-between; align-items: center;
+      border-top: 2px solid #FF9500;
     }
-    .footer-brand { color: #6366f1; font-weight: 700; font-size: 9pt; }
-    .footer-url { color: rgba(255,255,255,0.25); }
+    .footer-brand { color: #FF9500; font-weight: 700; font-size: 9pt; }
+    .footer-url { color: rgba(255,255,255,0.2); }
 
     /* ── Page heading utility ────────────────────────────────────────── */
     .page-break-before { page-break-before: always; }
@@ -430,16 +433,17 @@ export function generateCampaignPDF(result: CampaignResult): void {
     /* ── Print button (screen only) ─────────────────────────────────── */
     .print-bar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-      background: #6366f1; color: white;
+      background: #080807; color: rgba(255,255,255,0.7);
+      border-bottom: 2px solid #FF9500;
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 24px; font-size: 10pt;
     }
     .print-btn {
-      background: white; color: #4f46e5; border: none; cursor: pointer;
+      background: #FF9500; color: #080807; border: none; cursor: pointer;
       padding: 7px 20px; border-radius: 6px; font-size: 10pt; font-weight: 700;
       font-family: inherit;
     }
-    .print-btn:hover { background: #f0f0ff; }
+    .print-btn:hover { background: #FFB340; }
     @media print { .print-bar { display: none; } body { padding-top: 0; } }
     @media screen { body { padding-top: 48px; } }
   </style>
@@ -473,7 +477,7 @@ export function generateCampaignPDF(result: CampaignResult): void {
       <div class="cover-meta">
         <span>Generated ${date}</span>
         ${campaign.audience ? `<span>Audience: ${escape(campaign.audience).substring(0, 60)}${campaign.audience.length > 60 ? '…' : ''}</span>` : ''}
-        <span>nexus-ai.com</span>
+        <span>nexus-grow.com</span>
       </div>
     </div>
 
@@ -553,7 +557,7 @@ export function generateCampaignPDF(result: CampaignResult): void {
     <!-- ── FOOTER ─────────────────────────────────────────────────── -->
     <div class="footer">
       <span><span class="footer-brand">NEXUS AI</span> — AI-Powered Marketing Platform</span>
-      <span class="footer-url">nexus-ai.com · Generated ${date}</span>
+      <span class="footer-url">nexus-grow.com · Generated ${date}</span>
     </div>
 
   </div>

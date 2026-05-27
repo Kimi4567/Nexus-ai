@@ -39,7 +39,7 @@ export default function TemplatesPage() {
   return (
     <AppShell>
 
-      <div className="max-w-5xl mx-auto px-6 py-12">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <div className="mb-10">
           <h1 className="text-3xl font-bold mb-2">Campaign Templates</h1>
           <p className="text-gray-400">Start from a proven template — pre-filled goal, platforms, and strategy.</p>

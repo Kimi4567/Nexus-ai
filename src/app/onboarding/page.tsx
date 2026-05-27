@@ -139,7 +139,7 @@ export default function OnboardingPage() {
 
         {/* STEP 0 — WELCOME */}
         {step === 0 && (
-          <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8 text-center"
+          <div className="rounded-2xl border border-dark-tertiary bg-dark p-8 text-center"
             style={{ boxShadow: '0 0 60px rgba(255,149,0,0.08)' }}>
             <div className="w-16 h-16 rounded-2xl bg-[#FF9500]/10 border border-[#FF9500]/20 flex items-center justify-center mx-auto mb-5 text-3xl">
               👋
@@ -155,7 +155,7 @@ export default function OnboardingPage() {
                 { icon: '📅', label: 'Auto Calendar' },
                 { icon: '📤', label: 'Auto Publish' },
               ].map(f => (
-                <div key={f.label} className="p-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-center">
+                <div key={f.label} className="p-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-center">
                   <div className="text-xl mb-1">{f.icon}</div>
                   <div className="text-xs font-semibold text-gray-300">{f.label}</div>
                 </div>
@@ -171,7 +171,7 @@ export default function OnboardingPage() {
 
         {/* STEP 1 — BRAND */}
         {step === 1 && (
-          <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8"
+          <div className="rounded-2xl border border-dark-tertiary bg-dark p-8"
             style={{ boxShadow: '0 0 60px rgba(255,149,0,0.06)' }}>
             <h2 className="text-xl font-bold text-white mb-1">Tell us about your brand</h2>
             <p className="text-gray-500 text-sm mb-6">This trains the AI on your specific business.</p>
@@ -180,7 +180,7 @@ export default function OnboardingPage() {
                 <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Brand / Business Name</label>
                 <input type="text" value={brandName} onChange={e => setBrandName(e.target.value)}
                   placeholder="e.g. My Brand, Acme Co."
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#FF9500]/50 transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#FF9500]/50 transition-all"
                   autoFocus />
               </div>
               <div>
@@ -191,7 +191,7 @@ export default function OnboardingPage() {
                       className={`p-2.5 rounded-xl border text-center transition-all ${
                         industry === ind.value
                           ? 'border-[#FF9500] bg-[#FF9500]/10 text-white'
-                          : 'border-[#1e1e2e] bg-[#111119] text-gray-400 hover:border-[#2e2e3e]'
+                          : 'border-dark-tertiary bg-dark-secondary text-gray-400 hover:border-dark-tertiary'
                       }`}>
                       <div className="text-lg mb-0.5">{ind.icon}</div>
                       <div className="text-[10px] font-semibold leading-tight">{ind.label}</div>
@@ -205,7 +205,7 @@ export default function OnboardingPage() {
                 </label>
                 <input type="text" value={audience} onChange={e => setAudience(e.target.value)}
                   placeholder="e.g. Women 25-40 interested in fitness"
-                  className="w-full px-4 py-3 rounded-xl bg-[#111119] border border-[#1e1e2e] text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#FF9500]/50 transition-all" />
+                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-[#FF9500]/50 transition-all" />
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Brand Tone</label>
@@ -213,7 +213,7 @@ export default function OnboardingPage() {
                   {TONES.map(t => (
                     <button key={t.id} onClick={() => setTone(t.id)}
                       className={`p-3 rounded-xl border text-left transition-all ${
-                        tone === t.id ? 'border-[#FF9500] bg-[#FF9500]/10' : 'border-[#1e1e2e] bg-[#111119] hover:border-[#2e2e3e]'
+                        tone === t.id ? 'border-[#FF9500] bg-[#FF9500]/10' : 'border-dark-tertiary bg-dark-secondary hover:border-dark-tertiary'
                       }`}>
                       <div className="text-xs font-bold text-white">{t.label}</div>
                       <div className="text-[10px] text-gray-500 mt-0.5">{t.desc}</div>
@@ -231,7 +231,7 @@ export default function OnboardingPage() {
 
         {/* STEP 2 — GOAL */}
         {step === 2 && (
-          <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8"
+          <div className="rounded-2xl border border-dark-tertiary bg-dark p-8"
             style={{ boxShadow: '0 0 60px rgba(255,149,0,0.06)' }}>
             <h2 className="text-xl font-bold text-white mb-1">What is your #1 goal right now?</h2>
             <p className="text-gray-500 text-sm mb-6">We will build your first 30-day strategy around this.</p>
@@ -239,7 +239,7 @@ export default function OnboardingPage() {
               {GOALS.map(g => (
                 <button key={g.id} onClick={() => setGoal(g.id)}
                   className={`p-4 rounded-xl border text-left transition-all ${
-                    goal === g.id ? 'border-[#FF9500] bg-[#FF9500]/10' : 'border-[#1e1e2e] bg-[#111119] hover:border-[#2e2e3e]'
+                    goal === g.id ? 'border-[#FF9500] bg-[#FF9500]/10' : 'border-dark-tertiary bg-dark-secondary hover:border-dark-tertiary'
                   }`}>
                   <div className="text-xl mb-1.5">{g.icon}</div>
                   <div className="text-xs font-semibold text-white leading-tight">{g.label}</div>
@@ -256,7 +256,7 @@ export default function OnboardingPage() {
 
         {/* STEP 3 — GENERATING */}
         {step === 3 && (
-          <div className="rounded-2xl border border-[#1e1e2e] bg-[#0d0d18] p-8 text-center"
+          <div className="rounded-2xl border border-dark-tertiary bg-dark p-8 text-center"
             style={{ boxShadow: '0 0 60px rgba(255,149,0,0.08)' }}>
             <div className="relative w-16 h-16 mx-auto mb-6">
               <div className="absolute inset-0 w-16 h-16 border-2 border-[#FF9500]/20 rounded-full" />
@@ -279,16 +279,16 @@ export default function OnboardingPage() {
 
         {/* STEP 4 — DONE */}
         {step === 4 && (
-          <div className="rounded-2xl border border-[#FF9500]/20 bg-[#0d0d18] overflow-hidden"
+          <div className="rounded-2xl border border-[#FF9500]/20 bg-dark overflow-hidden"
             style={{ boxShadow: '0 0 60px rgba(255,149,0,0.12)' }}>
-            <div className="p-6 border-b border-[#1e1e2e]"
+            <div className="p-6 border-b border-dark-tertiary"
               style={{ background: 'linear-gradient(135deg, rgba(255,149,0,0.08), transparent)' }}>
               <div className="text-2xl mb-2">🎉</div>
               <h2 className="text-xl font-bold text-white mb-1">Your marketing OS is ready</h2>
               <p className="text-gray-400 text-sm">{strategy?.title || 'Your 30-day strategy has been created.'}</p>
             </div>
             {strategy?.quickWins?.length > 0 && (
-              <div className="p-5 border-b border-[#1e1e2e]">
+              <div className="p-5 border-b border-dark-tertiary">
                 <div className="text-xs font-bold uppercase tracking-wider text-gray-600 mb-3">Quick Wins — Start Today</div>
                 <div className="space-y-2">
                   {strategy.quickWins.slice(0, 3).map((win: string, i: number) => (
@@ -300,7 +300,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
             )}
-            <div className="p-5 border-b border-[#1e1e2e]">
+            <div className="p-5 border-b border-dark-tertiary">
               <div className="text-xs font-bold uppercase tracking-wider text-gray-600 mb-3">What is waiting for you</div>
               <div className="space-y-2.5">
                 {[
@@ -323,7 +323,7 @@ export default function OnboardingPage() {
                 View My Full Strategy →
               </button>
               <button onClick={() => router.push('/dashboard')}
-                className="w-full py-2.5 border border-[#1e1e2e] hover:border-[#2e2e3e] text-gray-400 hover:text-white rounded-xl transition-all text-sm">
+                className="w-full py-2.5 border border-dark-tertiary hover:border-dark-tertiary text-gray-400 hover:text-white rounded-xl transition-all text-sm">
                 Go to Dashboard
               </button>
             </div>

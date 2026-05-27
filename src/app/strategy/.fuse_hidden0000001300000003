@@ -294,7 +294,7 @@ export default function StrategyPage() {
                           <span className="text-sm font-medium text-white">{pillar.name}</span>
                           <span className="text-xs font-bold" style={{ color: pillarsColors[i % 5] }}>{pillar.percentage}%</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-dark-tertiary overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-[#1e1e2e] overflow-hidden">
                           <div className="h-full rounded-full transition-all"
                             style={{ width: `${pillar.percentage}%`, background: pillarsColors[i % 5] }} />
                         </div>
@@ -393,7 +393,7 @@ export default function StrategyPage() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs px-1.5 py-0.5 rounded bg-dark-tertiary text-gray-400 font-medium">
+                                  <span className="text-xs px-1.5 py-0.5 rounded bg-[#1e1e2e] text-gray-400 font-medium">
                                     {post.type}
                                   </span>
                                 </div>
