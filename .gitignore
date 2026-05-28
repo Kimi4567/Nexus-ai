@@ -9,3 +9,5 @@ prisma/dev.db
 /.vercel.env
 .vercel
 .env*
+*.old
+app_backup_*

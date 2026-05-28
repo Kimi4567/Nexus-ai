@@ -50,7 +50,7 @@ export default function LandingPage() {
             NEXUS AI عبارة عن 4 وكلاء متخصصين: NEX ينتج الفيديوهات، VEX يدير الإعلانات، PULSE يحلل البيانات، وSentinel يراقب كل حاجة.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="btn-primary text-lg">
+            <Link href="/auth/register" className="btn-primary text-lg">
               ابدأ مجاناً
               <ArrowLeft className="w-5 h-5" />
             </Link>
@@ -107,7 +107,7 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/register" className={`block text-center py-3 rounded-xl font-bold transition-all ${plan.name === 'Pro' ? 'btn-primary' : 'btn-secondary'}`}>
+                <Link href="/auth/register" className={`block text-center py-3 rounded-xl font-bold transition-all ${plan.name === 'Pro' ? 'btn-primary' : 'btn-secondary'}`}>
                   ابدأ الآن
                 </Link>
               </div>
@@ -147,7 +147,7 @@ export default function LandingPage() {
             <p className="text-text-secondary mb-8">
               انضم لآلاف المسوقين اللي بيستخدموا NEXUS AI عشان يوفروا وقت ويزودوا العائد.
             </p>
-            <Link href="/register" className="btn-primary text-lg inline-flex">
+            <Link href="/auth/register" className="btn-primary text-lg inline-flex">
               ابدأ مجاناً
               <ArrowLeft className="w-5 h-5" />
             </Link>
