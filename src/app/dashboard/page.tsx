@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 
 import { useDemoData } from '@/hooks/useDemoData'
+import OnboardingWizard from '@/components/ui/OnboardingWizard'
 
 /* ═══════════════════════════════════════════════════════════════
    DASHBOARD — Cosmic Command Center
@@ -168,6 +169,7 @@ export default function DashboardPage() {
       />
 
       <div className="relative z-10">
+        <OnboardingWizard />
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
