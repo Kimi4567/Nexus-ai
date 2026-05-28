@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Check, Loader2 } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 const INDUSTRIES = [
   { value: 'ecommerce',   label: 'تجارة إلكترونية', icon: '🛍️' },
@@ -125,7 +126,7 @@ export default function OnboardingPage() {
   if (!isAuthenticated) return null
 
   // ── Shared card wrapper ──────────────────────────────────────────────────
-  const Card = ({ children }: { children: React.ReactNode }) => (
+  const Card = ({ children }: { children: ReactNode }) => (
     <div
       className="w-full max-w-md rounded-2xl border border-dark-tertiary bg-dark-secondary p-8"
       style={{ boxShadow: '0 0 60px rgba(255,149,0,0.07), 0 4px 32px rgba(0,0,0,0.5)' }}

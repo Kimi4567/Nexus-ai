@@ -1,10 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/ui/Navbar'
-import NeuralCanvas from '@/components/ui/NeuralCanvas'
 import { ChevronDown, Play, Check, ArrowLeft, Zap, Shield, BarChart3, Film, Megaphone, Users, Globe, Lock } from 'lucide-react'
+
+// Lazy load heavy components
+const NeuralCanvas = dynamic(() => import('@/components/ui/NeuralCanvas'), {
+  ssr: false,
+  loading: () => <div className="w-full h-[500px]" />,
+})
 
 /* ═══════════════════════════════════════════════════════════════
    NEXUS AI — Spaceship Landing Page
@@ -120,7 +126,9 @@ export default function LandingPage() {
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#020204' }}>
       {/* Deep space background with subtle grid */}
       <div className="fixed inset-0 grid-bg opacity-30 pointer-events-none" />
-      <NeuralCanvas />
+      <Suspense fallback={<div className="w-full h-[500px]" />}>
+        <NeuralCanvas />
+      </Suspense>
 
       {/* Ambient glow orbs that follow mouse */}
       <div
