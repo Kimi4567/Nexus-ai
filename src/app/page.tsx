@@ -1,22 +1,19 @@
 'use client'
 
 import AgentAvatar from '@/components/ui/AgentAvatar'
-import dynamic from 'next/dynamic'
-import { useState, useEffect, Suspense, memo } from 'react'
+import { useState, useCallback, memo } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/ui/Navbar'
 import { useI18n } from '@/lib/i18n-context'
 import { ChevronDown, Play, Check, ArrowLeft, Zap, Shield, BarChart3, Film, Megaphone, Users, Globe, Lock } from 'lucide-react'
 
-// Lazy load heavy components
-const NeuralCanvas = dynamic(() => import('@/components/ui/NeuralCanvas'), {
-  ssr: false,
-  loading: () => <div className="w-full h-[500px]" />,
-})
-
 const LandingPage = memo(function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const { t, isRTL } = useI18n()
+
+  const toggleFaq = useCallback((i: number) => {
+    setOpenFaq(prev => prev === i ? null : i)
+  }, [])
 
   const crew = [
     {
@@ -70,11 +67,10 @@ const LandingPage = memo(function LandingPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#020204' }}>
-      <Suspense fallback={<div className="w-full h-[500px]" />}>
-        <NeuralCanvas />
-      </Suspense>
+      {/* CSS-only neural background — zero JS, GPU-only animation */}
+      <div className="neural-bg" />
 
-      <div className="fixed inset-0 hero-glow-static pointer-events-none" />
+      <div className="fixed inset-0 grid-bg opacity-20 pointer-events-none" />
 
       <Navbar />
 
