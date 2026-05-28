@@ -6,10 +6,10 @@ export default function NeuralCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    const x = c.getContext('2d');
-    if (!x) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     let animId: number;
     let fc = 0;
@@ -29,9 +29,9 @@ export default function NeuralCanvas() {
       });
     }
 
-    function resize() {
-      c.width = window.innerWidth;
-      c.height = window.innerHeight;
+    function resize(cv: HTMLCanvasElement) {
+      cv.width = window.innerWidth;
+      cv.height = window.innerHeight;
     }
 
     function anim() {
@@ -40,41 +40,41 @@ export default function NeuralCanvas() {
         animId = requestAnimationFrame(anim);
         return;
       }
-      x.clearRect(0, 0, c.width, c.height);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (let i = 0; i < ns.length; i++) {
         const n = ns[i];
         n.x += n.vx;
         n.y += n.vy;
-        if (n.x < 0 || n.x > c.width) n.vx *= -1;
-        if (n.y < 0 || n.y > c.height) n.vy *= -1;
-        x.beginPath();
-        x.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        x.fillStyle = n.cb + '0.4)';
-        x.fill();
+        if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
+        if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fillStyle = n.cb + '0.4)';
+        ctx.fill();
         for (let j = i + 1; j < ns.length; j++) {
           const dx = n.x - ns[j].x;
           const dy = n.y - ns[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < D) {
             const a = (1 - dist / D) * 0.15;
-            x.beginPath();
-            x.moveTo(n.x, n.y);
-            x.lineTo(ns[j].x, ns[j].y);
-            x.strokeStyle = `rgba(148,163,184,${a})`;
-            x.lineWidth = 0.5;
-            x.stroke();
+            ctx.beginPath();
+            ctx.moveTo(n.x, n.y);
+            ctx.lineTo(ns[j].x, ns[j].y);
+            ctx.strokeStyle = `rgba(148,163,184,${a})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
           }
         }
       }
       animId = requestAnimationFrame(anim);
     }
 
-    window.addEventListener('resize', resize);
-    resize();
+    window.addEventListener('resize', () => resize(canvas));
+    resize(canvas);
     anim();
 
     return () => {
-      window.removeEventListener('resize', resize);
+      window.removeEventListener('resize', () => resize(canvas));
       cancelAnimationFrame(animId);
     };
   }, []);
