@@ -27,7 +27,7 @@ function CreativeStars() {
   const [stars, setStars] = useState<{ x: number; y: number; size: number; delay: number; duration: number }[]>([])
 
   useEffect(() => {
-    const newStars = Array.from({ length: 60 }, () => ({
+    const newStars = Array.from({ length: 20 }, () => ({
       x: Math.random() * 100,
       y: Math.random() * 100,
       size: Math.random() * 1.5 + 0.3,

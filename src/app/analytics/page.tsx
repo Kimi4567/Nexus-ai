@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { analyzeCampaign } from '@/services/openai'
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, PieChart, Pie, Cell,
-} from 'recharts'
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from '@/components/ui/DynamicChart'
 import {
-  Wand2, Loader2, RefreshCw, Brain, Activity, TrendingUp, BarChart3, Globe,
-  Zap, Star, Target, Eye, MousePointer, DollarSign, ArrowUpRight, ArrowDownRight,
+  Loader2, RefreshCw, Brain, Activity, TrendingUp, Globe,
+  Target, Eye, MousePointer, DollarSign, ArrowUpRight,
   Sparkles, Clock, Layers
 } from 'lucide-react'
 
@@ -24,7 +24,7 @@ function DataStars() {
 
   useEffect(() => {
     const colors = ['rgba(245,158,11,', 'rgba(6,182,212,', 'rgba(139,92,246,', 'rgba(255,255,255,']
-    const newStars = Array.from({ length: 50 }, () => {
+    const newStars = Array.from({ length: 20 }, () => {
       const colorBase = colors[Math.floor(Math.random() * colors.length)]
       return {
         x: Math.random() * 100,
