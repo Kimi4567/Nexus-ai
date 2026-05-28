@@ -956,3 +956,44 @@ input:focus, textarea:focus, select:focus {
   background:
     radial-gradient(circle at 50% 50%, rgba(245,158,11,0.06) 0%, transparent 50%);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   CSS-ONLY NEURAL BACKGROUND — replaces JS canvas (GPU only)
+   Same visual look, zero JS overhead
+   ═══════════════════════════════════════════════════════════════ */
+
+.neural-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 25% 35%, rgba(245,158,11,0.07) 0%, transparent 45%),
+    radial-gradient(circle at 75% 65%, rgba(6,182,212,0.05) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(16,185,129,0.04) 0%, transparent 50%),
+    radial-gradient(circle at 15% 80%, rgba(139,92,246,0.04) 0%, transparent 35%),
+    radial-gradient(circle at 85% 20%, rgba(245,158,11,0.05) 0%, transparent 40%);
+  animation: neuralShift 25s ease-in-out infinite;
+  opacity: 0.6;
+}
+
+@keyframes neuralShift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-1%, 0.5%) scale(1.01); }
+  66% { transform: translate(0.5%, -0.5%) scale(0.99); }
+}
+
+/* Subtle dot overlay for "neural node" texture */
+.neural-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(245,158,11,0.15) 1px, transparent 1px),
+    radial-gradient(circle, rgba(6,182,212,0.1) 1px, transparent 1px),
+    radial-gradient(circle, rgba(16,185,129,0.08) 1px, transparent 1px),
+    radial-gradient(circle, rgba(139,92,246,0.1) 1px, transparent 1px);
+  background-size: 180px 180px, 220px 220px, 160px 160px, 200px 200px;
+  background-position: 0 0, 40px 60px, 80px 20px, 20px 100px;
+  opacity: 0.25;
+}
