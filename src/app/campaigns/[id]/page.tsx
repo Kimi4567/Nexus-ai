@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -44,6 +44,33 @@ const PLATFORM_ICONS: Record<string, string> = {
   YOUTUBE_SHORTS: '▶️', LINKEDIN: '💼', SNAPCHAT: '👻',
 }
 
+// Agent identity config
+const AGENT_TABS = [
+  { name: 'SAGE',  icon: '🧠', title: 'Lead Marketing Strategist', color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: 'Strategy'         },
+  { name: 'MUSE',  icon: '🎨', title: 'Creative Director',          color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: 'Ad Concepts'      },
+  { name: 'MUSE',  icon: '🎨', title: 'Creative Director',          color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: 'Visuals'          },
+  { name: 'PULSE', icon: '⚡', title: 'Campaign Operations',         color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: 'Content Calendar' },
+  { name: '',      icon: '📋', title: '',                            color: 'text-gray-400',    border: '',                     bg: '',                 label: 'Activity'         },
+]
+
+function AgentBanner({ idx }: { idx: number }) {
+  const agent = AGENT_TABS[idx]
+  if (!agent.name) return null
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${agent.border} ${agent.bg} mb-5`}>
+      <span className="text-lg">{agent.icon}</span>
+      <div>
+        <span className={`font-bold text-sm ${agent.color}`}>{agent.name}</span>
+        <span className="text-gray-500 text-xs ml-2">· {agent.title}</span>
+      </div>
+      <div className="ml-auto flex items-center gap-1.5">
+        <span className={`w-1.5 h-1.5 rounded-full ${agent.color.replace('text-', 'bg-')} animate-pulse`} />
+        <span className="text-xs text-gray-600">delivered this section</span>
+      </div>
+    </div>
+  )
+}
+
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
   if (seconds < 60) return 'just now'
@@ -60,6 +87,52 @@ function CopyBtn({ text }: { text: string }) {
       className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-accent hover:text-dark rounded transition font-semibold"
     >
       {copied ? '✓' : 'Copy'}
+    </button>
+  )
+}
+
+function SaveToMemoryBtn({ text, field, authHeader }: { text: string; field: 'winningHooks' | 'winningAngles'; authHeader: () => string | null }) {
+  const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    const token = authHeader()
+    if (!token || saving || saved) return
+    setSaving(true)
+    try {
+      // Fetch current brand profile
+      const res = await fetch('/api/brand', { headers: { Authorization: token } })
+      const data = await res.json()
+      const current = data.brandProfile || {}
+      const existing: string[] = current[field] || []
+      if (existing.includes(text)) { setSaved(true); return }
+      const updated = [...existing, text]
+      await fetch('/api/brand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ ...current, [field]: updated }),
+      })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch {
+      // silent fail
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={save}
+      disabled={saving}
+      title={`Save to Brand Memory`}
+      className={`text-xs px-2 py-1 rounded transition font-semibold ${
+        saved
+          ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
+          : 'bg-dark-tertiary hover:bg-indigo-500/20 hover:text-indigo-400 text-gray-500'
+      }`}
+    >
+      {saved ? '🧠 Saved' : saving ? '...' : '🧠 Save'}
     </button>
   )
 }
@@ -136,7 +209,6 @@ export default function CampaignDetailPage() {
   const aiOutput = campaign.aiOutput as any
   const strategy = aiOutput?.strategy || {}
   const concepts = aiOutput?.concepts || []
-  const tabs = ['Strategy', 'Ad Concepts', 'Visuals', 'Content Calendar', 'Activity']
 
   const visualContext = {
     campaignId: campaign.id,
@@ -203,6 +275,13 @@ export default function CampaignDetailPage() {
               >
                 {campaign.status === 'ARCHIVED' ? '📂 Unarchive' : '📦 Archive'}
               </button>
+              <button
+                onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
+                className="px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold text-gray-400 hover:text-white hover:border-white/20 transition"
+                title="Export as PDF"
+              >
+                ⬇ Export PDF
+              </button>
               <Link
                 href="/campaign/new"
                 className="px-4 py-2 rounded-xl bg-accent text-dark text-sm font-bold hover:bg-accent-light transition"
@@ -236,20 +315,26 @@ export default function CampaignDetailPage() {
         {aiOutput && (
           <>
             <div className="flex gap-2 mb-6 overflow-x-auto">
-              {tabs.map((tab, i) => (
+              {AGENT_TABS.map((tab, i) => (
                 <button
-                  key={tab}
+                  key={tab.label}
                   onClick={() => setActiveTab(i)}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition ${activeTab === i ? 'bg-accent text-dark' : 'bg-dark-secondary border border-dark-tertiary text-gray-400 hover:text-white'}`}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition ${
+                    activeTab === i
+                      ? 'bg-accent text-dark'
+                      : 'bg-dark-secondary border border-dark-tertiary text-gray-400 hover:text-white'
+                  }`}
                 >
-                  {tab}
+                  <span className="text-xs">{tab.icon}</span>
+                  {tab.label}
                 </button>
               ))}
             </div>
 
-            {/* Strategy Tab */}
+            {/* Strategy Tab — SAGE */}
             {activeTab === 0 && (
               <div className="space-y-4">
+                <AgentBanner idx={0} />
                 {strategy.overview && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>🧠</span> Overview</h3>
@@ -299,49 +384,64 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* Concepts Tab */}
+            {/* Concepts Tab — MUSE */}
             {activeTab === 1 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {concepts.map((concept: any, i: number) => (
-                  <div key={i} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-bold text-base mb-1">{concept.name}</h3>
-                        <span className="text-xs bg-dark-tertiary px-2 py-1 rounded-full text-gray-400">{concept.angle}</span>
-                      </div>
-                      <span className="text-sm">{PLATFORM_ICONS[concept.platform] || '🌐'}</span>
-                    </div>
-                    <p className="text-sm text-gray-400 mb-4">{concept.description}</p>
-                    {concept.hook && (
-                      <div className="bg-dark rounded-xl p-3 mb-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-gray-500 uppercase tracking-wide">Hook</span>
-                          <CopyBtn text={concept.hook} />
+              <div className="space-y-4">
+                <AgentBanner idx={1} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {concepts.map((concept: any, i: number) => (
+                    <div key={i} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="font-bold text-base mb-1">{concept.name}</h3>
+                          <div className="flex items-center gap-2 flex-wrap mt-1">
+                            <span className="text-xs bg-dark-tertiary px-2 py-1 rounded-full text-gray-400">{concept.angle}</span>
+                            {concept.angle && (
+                              <SaveToMemoryBtn text={concept.angle} field="winningAngles" authHeader={authHeader} />
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm text-accent font-semibold">"{concept.hook}"</p>
+                        <span className="text-sm">{PLATFORM_ICONS[concept.platform] || '🌐'}</span>
                       </div>
-                    )}
-                    {concept.cta && (
-                      <div className="flex items-center justify-between bg-dark rounded-xl p-3">
-                        <span className="text-xs text-gray-400">CTA: <span className="text-white">{concept.cta}</span></span>
-                        <CopyBtn text={concept.cta} />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      <p className="text-sm text-gray-400 mb-4">{concept.description}</p>
+                      {concept.hook && (
+                        <div className="bg-dark rounded-xl p-3 mb-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-gray-500 uppercase tracking-wide">Hook</span>
+                            <div className="flex items-center gap-1">
+                              <SaveToMemoryBtn text={concept.hook} field="winningHooks" authHeader={authHeader} />
+                              <CopyBtn text={concept.hook} />
+                            </div>
+                          </div>
+                          <p className="text-sm text-accent font-semibold">"{concept.hook}"</p>
+                        </div>
+                      )}
+                      {concept.cta && (
+                        <div className="flex items-center justify-between bg-dark rounded-xl p-3">
+                          <span className="text-xs text-gray-400">CTA: <span className="text-white">{concept.cta}</span></span>
+                          <CopyBtn text={concept.cta} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {/* Visuals Tab */}
+            {/* Visuals Tab — MUSE */}
             {activeTab === 2 && (
-              <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                <VisualGenerator context={visualContext} />
+              <div className="space-y-4">
+                <AgentBanner idx={2} />
+                <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <VisualGenerator context={visualContext} />
+                </div>
               </div>
             )}
 
-            {/* Calendar Tab */}
+            {/* Calendar Tab — PULSE */}
             {activeTab === 3 && (
               <div className="space-y-4">
+                <AgentBanner idx={3} />
                 {(strategy.contentCalendar || []).map((week: any, wi: number) => (
                   <div key={wi} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold mb-4">{week.week || `Week ${wi + 1}`}</h3>
