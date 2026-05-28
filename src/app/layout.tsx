@@ -56,7 +56,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="dark bg-dark text-white">
+      <body className="bg-[#020204] text-[#f8fafc]" dir="rtl">
         <Providers>
           {children}
         </Providers>

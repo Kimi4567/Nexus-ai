@@ -16,56 +16,34 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (!email || !password) { setError('Please enter your email and password'); return }
+    if (!email || !password) { setError('يرجى إدخال البريد الإلكتروني وكلمة المرور'); return }
     setLoading(true)
     try {
       await login(email, password)
-
-      // Check for pending demo intent — redirect to pre-filled campaign wizard
-      try {
-        const raw = localStorage.getItem('nexus_demo_intent')
-        if (raw) {
-          const intent = JSON.parse(raw)
-          // Only use if < 48 hours old
-          if (intent?.goal && Date.now() - intent.ts < 48 * 60 * 60 * 1000) {
-            localStorage.removeItem('nexus_demo_intent')
-            const params = new URLSearchParams({
-              goal: intent.goal,
-              ...(intent.company ? { company: intent.company } : {}),
-              ...(intent.type ? { industry: intent.type } : {}),
-              fromDemo: '1',
-            })
-            router.push(`/campaign/new?${params.toString()}`)
-            return
-          }
-          localStorage.removeItem('nexus_demo_intent')
-        }
-      } catch {}
-      // Default redirect handled by login()
     } catch (err: any) {
       const msg = err?.message || ''
       if (msg.includes('Email not confirmed')) {
-        setError('Please check your email and click the confirmation link first.')
+        setError('يرجى التحقق من بريدك الإلكتروني والنقر على رابط التأكيد أولاً.')
       } else if (msg.includes('Invalid login credentials')) {
-        setError('Incorrect email or password. Please try again.')
+        setError('البريد الإلكتروني أو كلمة المرور غير صحيحة.')
       } else {
-        setError(msg || 'Sign in failed. Please try again.')
+        setError(msg || 'فشل تسجيل الدخول. حاول مرة أخرى.')
       }
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-dark via-dark-secondary to-dark-tertiary flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#020204] text-[#f8fafc] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-
-        <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-8 shadow-2xl">
-          <Link href="/" className="block mb-8">
-            <h1 className="text-3xl font-bold text-accent">NEXUS</h1>
+        <div className="glass p-8 rounded-2xl border border-white/[0.08] shadow-2xl">
+          <Link href="/" className="flex items-center gap-2.5 mb-8">
+            <div className="w-9 h-9 border-2 border-amber-500 rounded-lg grid place-items-center font-black text-amber-500 text-lg">N</div>
+            <span className="text-2xl font-extrabold tracking-wider bg-gradient-to-br from-amber-400 via-cyan-400 to-violet-500 bg-clip-text text-transparent">NEXUS AI</span>
           </Link>
 
-          <h2 className="text-2xl font-bold mb-1">Welcome back</h2>
-          <p className="text-gray-400 text-sm mb-8">Sign in to your NEXUS account</p>
+          <h2 className="text-2xl font-bold mb-1">تسجيل الدخول</h2>
+          <p className="text-[#94a3b8] text-sm mb-8">أهلاً بعودتك — سجّل دخولك للوصول إلى لوحة التحكم</p>
 
           {error && (
             <div className="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 mb-6 text-sm text-red-300">
@@ -75,22 +53,22 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold mb-2">Email</label>
+              <label className="block text-sm font-semibold mb-2 text-[#94a3b8]">البريد الإلكتروني</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full px-4 py-3 bg-dark border border-dark-tertiary rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent transition"
+                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-[#f8fafc] placeholder-[#64748b] focus:outline-none focus:border-amber-500/50 transition text-right"
               />
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-semibold">Password</label>
-                <Link href="/auth/forgot-password" className="text-xs text-gray-500 hover:text-accent transition">
-                  Forgot password?
+                <label className="text-sm font-semibold text-[#94a3b8]">كلمة المرور</label>
+                <Link href="/auth/forgot-password" className="text-xs text-[#64748b] hover:text-amber-500 transition">
+                  نسيت كلمة المرور؟
                 </Link>
               </div>
               <input
@@ -99,23 +77,23 @@ export default function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 autoComplete="current-password"
-                className="w-full px-4 py-3 bg-dark border border-dark-tertiary rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-accent transition"
+                className="w-full px-4 py-3 bg-white/[0.03] border border-white/[0.08] rounded-xl text-[#f8fafc] placeholder-[#64748b] focus:outline-none focus:border-amber-500/50 transition text-right"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition disabled:opacity-50 mt-2"
+              className="w-full py-3 bg-gradient-to-br from-amber-500 to-amber-700 text-black font-bold rounded-xl hover:-translate-y-0.5 transition disabled:opacity-50 mt-2"
             >
-              {loading ? 'Signing in...' : 'Sign In →'}
+              {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول →'}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-400 mt-6">
-            Don't have an account?{' '}
-            <Link href="/auth/register" className="text-accent hover:text-accent-light transition font-semibold">
-              Start free
+          <p className="text-center text-sm text-[#94a3b8] mt-6">
+            ليس لديك حساب؟{' '}
+            <Link href="/auth/register" className="text-amber-500 hover:text-amber-400 transition font-semibold">
+              أنشئ حساب مجاني
             </Link>
           </p>
         </div>
