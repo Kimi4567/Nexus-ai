@@ -1,5 +1,6 @@
 'use client'
 
+import AgentAvatar from '@/components/ui/AgentAvatar'
 import dynamic from 'next/dynamic'
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
@@ -211,13 +212,8 @@ export default function LandingPage() {
                   style={{ animationDelay: `${idx * 150}ms` }}
                 >
                   {/* Agent Avatar with glow */}
-                  <div className="relative mx-auto mb-5 w-20 h-20">
-                    <div className={`client-avatar mx-auto flex items-center justify-center bg-gradient-to-br ${agent.color}`}>
-                      <Icon className="w-8 h-8 text-white" />
-                    </div>
-                    <div className={`absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${agent.badgeClass}`}>
-                      {agent.name}
-                    </div>
+                  <div className="relative mx-auto mb-5">
+                    <AgentAvatar name={agent.name as 'NEX' | 'VEX' | 'PULSE' | 'Sentinel'} size="lg" />
                   </div>
 
                   <h3 className="text-xl font-bold mb-1 group-hover:text-amber transition-colors">

@@ -1,8 +1,8 @@
-'use client'
+import { Film, Megaphone, BarChart3, Shield } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
-   AgentAvatar — Pure CSS/SVG futuristic agent portraits
-   No images needed. GPU-friendly. Zero network requests.
+   AgentAvatar — Pure CSS futuristic agent portraits
+   No images needed. Zero network requests. Lightning fast.
    ═══════════════════════════════════════════════════════════════ */
 
 interface AgentAvatarProps {
@@ -11,160 +11,113 @@ interface AgentAvatarProps {
   animate?: boolean
 }
 
-const AGENT_CONFIG = {
+const AGENT_STYLES = {
   NEX: {
     gradient: 'from-amber-500 via-orange-500 to-amber-600',
     glow: 'rgba(245,158,11,0.4)',
-    icon: (
-      <svg viewBox="0 0 100 100" className="w-full h-full">
-        <defs>
-          <linearGradient id="nexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f59e0b" />
-            <stop offset="50%" stopColor="#f97316" />
-            <stop offset="100%" stopColor="#ea580c" />
-          </linearGradient>
-          <filter id="nexGlow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <!-- Hexagonal face -->
-        <polygon points="50,5 90,25 90,70 50,90 10,70 10,25" fill="url(#nexGrad)" opacity="0.2" />
-        <polygon points="50,15 80,30 80,65 50,80 20,65 20,30" fill="url(#nexGrad)" opacity="0.4" />
-        <!-- Eyes -->
-        <circle cx="38" cy="45" r="6" fill="#fff" opacity="0.9" filter="url(#nexGlow)" />
-        <circle cx="62" cy="45" r="6" fill="#fff" opacity="0.9" filter="url(#nexGlow)" />
-        <circle cx="38" cy="45" r="3" fill="#f59e0b" />
-        <circle cx="62" cy="45" r="3" fill="#f59e0b" />
-        <!-- Mouth -->
-        <path d="M 35 60 Q 50 68 65 60" stroke="#fff" strokeWidth="2" fill="none" opacity="0.6" />
-      </svg>
-    ),
+    bgGlow: 'rgba(245,158,11,0.15)',
+    borderColor: 'rgba(245,158,11,0.3)',
+    iconColor: '#fbbf24',
   },
   VEX: {
     gradient: 'from-cyan-500 via-blue-500 to-cyan-600',
     glow: 'rgba(6,182,212,0.4)',
-    icon: (
-      <svg viewBox="0 0 100 100" className="w-full h-full">
-        <defs>
-          <linearGradient id="vexGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#06b6d4" />
-            <stop offset="50%" stopColor="#3b82f6" />
-            <stop offset="100%" stopColor="#06b6d4" />
-          </linearGradient>
-          <filter id="vexGlow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <!-- Square face with rounded corners -->
-        <rect x="15" y="10" width="70" height="80" rx="20" fill="url(#vexGrad)" opacity="0.2" />
-        <rect x="22" y="18" width="56" height="64" rx="15" fill="url(#vexGrad)" opacity="0.35" />
-        <!-- Target eyes -->
-        <circle cx="35" cy="42" r="8" stroke="#fff" strokeWidth="2" fill="none" opacity="0.8" filter="url(#vexGlow)" />
-        <circle cx="65" cy="42" r="8" stroke="#fff" strokeWidth="2" fill="none" opacity="0.8" filter="url(#vexGlow)" />
-        <circle cx="35" cy="42" r="3" fill="#06b6d4" />
-        <circle cx="65" cy="42" r="3" fill="#06b6d4" />
-        <!-- Tactical line mouth -->
-        <line x1="40" y1="62" x2="60" y2="62" stroke="#fff" strokeWidth="2" opacity="0.6" />
-      </svg>
-    ),
+    bgGlow: 'rgba(6,182,212,0.15)',
+    borderColor: 'rgba(6,182,212,0.3)',
+    iconColor: '#67e8f9',
   },
   PULSE: {
     gradient: 'from-purple-500 via-violet-500 to-purple-600',
     glow: 'rgba(139,92,246,0.4)',
-    icon: (
-      <svg viewBox="0 0 100 100" className="w-full h-full">
-        <defs>
-          <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#8b5cf6" />
-            <stop offset="50%" stopColor="#a855f7" />
-            <stop offset="100%" stopColor="#7c3aed" />
-          </linearGradient>
-          <filter id="pulseGlow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <!-- Circle face -->
-        <circle cx="50" cy="50" r="42" fill="url(#pulseGrad)" opacity="0.2" />
-        <circle cx="50" cy="50" r="34" fill="url(#pulseGrad)" opacity="0.35" />
-        <!-- Data eyes -->
-        <rect x="28" y="38" width="18" height="14" rx="3" fill="#fff" opacity="0.8" filter="url(#pulseGlow)" />
-        <rect x="54" y="38" width="18" height="14" rx="3" fill="#fff" opacity="0.8" filter="url(#pulseGlow)" />
-        <rect x="32" y="42" width="10" height="6" rx="1" fill="#8b5cf6" />
-        <rect x="58" y="42" width="10" height="6" rx="1" fill="#8b5cf6" />
-        <!-- Wave mouth -->
-        <path d="M 35 65 Q 42 60 50 65 Q 58 70 65 65" stroke="#fff" strokeWidth="2" fill="none" opacity="0.6" />
-      </svg>
-    ),
+    bgGlow: 'rgba(139,92,246,0.15)',
+    borderColor: 'rgba(139,92,246,0.3)',
+    iconColor: '#c4b5fd',
   },
   Sentinel: {
     gradient: 'from-emerald-500 via-teal-500 to-emerald-600',
     glow: 'rgba(16,185,129,0.4)',
-    icon: (
-      <svg viewBox="0 0 100 100" className="w-full h-full">
-        <defs>
-          <linearGradient id="sentinelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="50%" stopColor="#14b8a6" />
-            <stop offset="100%" stopColor="#059669" />
-          </linearGradient>
-          <filter id="sentinelGlow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <!-- Shield face -->
-        <path d="M 50 8 L 88 25 L 88 55 Q 88 78 50 92 Q 12 78 12 55 L 12 25 Z" fill="url(#sentinelGrad)" opacity="0.2" />
-        <path d="M 50 18 L 78 30 L 78 52 Q 78 70 50 82 Q 22 70 22 52 L 22 30 Z" fill="url(#sentinelGrad)" opacity="0.4" />
-        <!-- Scanner eyes -->
-        <line x1="30" y1="42" x2="45" y2="42" stroke="#fff" strokeWidth="3" opacity="0.9" filter="url(#sentinelGlow)" />
-        <line x1="55" y1="42" x2="70" y2="42" stroke="#fff" strokeWidth="3" opacity="0.9" filter="url(#sentinelGlow)" />
-        <circle cx="37" cy="42" r="2" fill="#10b981" />
-        <circle cx="63" cy="42" r="2" fill="#10b981" />
-        <!-- Scanner beam -->
-        <line x1="50" y1="42" x2="50" y2="35" stroke="#10b981" strokeWidth="1" opacity="0.5"
-          style={{ animation: 'scanBeam 2s ease-in-out infinite' }}
-        />
-      </svg>
-    ),
+    bgGlow: 'rgba(16,185,129,0.15)',
+    borderColor: 'rgba(16,185,129,0.3)',
+    iconColor: '#6ee7b7',
   },
 }
 
 const SIZE_MAP = {
   sm: 'w-10 h-10',
   md: 'w-16 h-16',
-  lg: 'w-24 h-24',
-  xl: 'w-32 h-32',
+  lg: 'w-20 h-20',
+  xl: 'w-28 h-28',
+}
+
+const ICON_SIZE = {
+  sm: 16,
+  md: 24,
+  lg: 32,
+  xl: 48,
 }
 
 export default function AgentAvatar({ name, size = 'md', animate = true }: AgentAvatarProps) {
-  const config = AGENT_CONFIG[name]
+  const style = AGENT_STYLES[name]
   const sizeClass = SIZE_MAP[size]
+  const iconSize = ICON_SIZE[size]
+
+  const Icon = name === 'NEX' ? Film : name === 'VEX' ? Megaphone : name === 'PULSE' ? BarChart3 : Shield
 
   return (
-    <div
-      className={`relative ${sizeClass} shrink-0`}
-      style={{
-        filter: animate ? `drop-shadow(0 0 12px ${config.glow})` : undefined,
-      }}
-    >
-      <div className={`w-full h-full rounded-2xl bg-gradient-to-br ${config.gradient} p-[2px]`}
+    <div className={`relative ${sizeClass} shrink-0`}>
+      {/* Outer glow ring */}
+      <div
+        className="absolute inset-[-4px] rounded-2xl opacity-60"
         style={{
+          background: `radial-gradient(circle, ${style.bgGlow}, transparent 70%)`,
           animation: animate ? 'pulse-glow 3s ease-in-out infinite' : undefined,
         }}
-      >
-        <div className="w-full h-full rounded-2xl bg-deep overflow-hidden"
-          style={{ background: 'rgba(2,2,4,0.9)' }}
+      />
+
+      {/* Gradient border */}
+      <div className={`w-full h-full rounded-2xl bg-gradient-to-br ${style.gradient} p-[2px]`}>
+        {/* Inner dark background with icon */}
+        <div
+          className="w-full h-full rounded-2xl flex items-center justify-center relative overflow-hidden"
+          style={{ background: 'rgba(2,2,4,0.95)' }}
         >
-          {config.icon}
+          {/* Subtle inner glow */}
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              background: `radial-gradient(circle at 50% 30%, ${style.bgGlow}, transparent 60%)`,
+            }}
+          />
+
+          {/* Icon */}
+          <Icon
+            size={iconSize}
+            color={style.iconColor}
+            style={{
+              filter: `drop-shadow(0 0 8px ${style.glow})`,
+              zIndex: 1,
+            }}
+          />
+
+          {/* Scan line effect */}
+          {animate && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `linear-gradient(180deg, transparent 40%, ${style.bgGlow} 50%, transparent 60%)`,
+                backgroundSize: '100% 200%',
+                animation: 'scanMove 2.5s linear infinite',
+                opacity: 0.3,
+              }}
+            />
+          )}
         </div>
       </div>
-      
-      {/* Status indicator */}
-      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-deep"
-        style={{ boxShadow: '0 0 8px #10b981' }}
+
+      {/* Status dot */}
+      <div
+        className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2"
+        style={{ borderColor: '#020204', boxShadow: '0 0 8px #10b981' }}
       />
     </div>
   )
