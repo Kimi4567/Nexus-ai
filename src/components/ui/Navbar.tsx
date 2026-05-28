@@ -1,29 +1,33 @@
-'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+'use client'
+
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useI18n } from '@/lib/i18n-context'
+import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const { t, isRTL } = useI18n()
 
   useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', h);
-    return () => window.removeEventListener('scroll', h);
-  }, []);
+    const h = () => setScrolled(window.scrollY > 50)
+    window.addEventListener('scroll', h)
+    return () => window.removeEventListener('scroll', h)
+  }, [])
 
   const scrollTo = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-    setMenuOpen(false);
-  };
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    setMenuOpen(false)
+  }
 
   const navItems = [
-    { label: 'الوكلاء', id: 'crew' },
-    { label: 'كيف يعمل', id: 'how' },
-    { label: 'الأسعار', id: 'pricing' },
-    { label: 'الأسئلة', id: 'faq' },
-  ];
+    { label: t('agents.sectionLabel') as string, id: 'crew' },
+    { label: t('howItWorks.sectionLabel') as string, id: 'how' },
+    { label: t('nav.pricing') as string, id: 'pricing' },
+    { label: t('nav.faq') as string, id: 'faq' },
+  ]
 
   return (
     <nav
@@ -43,32 +47,39 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden md:flex items-center">
+        <div className="hidden md:flex items-center gap-2">
           {navItems.map((item) => (
             <button
               key={item.id}
               onClick={() => scrollTo(item.id)}
-              className="text-[#94a3b8] hover:text-[#f8fafc] text-sm font-medium transition-colors relative group bg-transparent border-none cursor-pointer px-4 py-2"
+              className="text-[#94a3b8] hover:text-[#f8fafc] text-sm font-medium transition-colors relative group bg-transparent border-none cursor-pointer px-3 py-2"
             >
               {item.label}
-              <span className="absolute -bottom-0.5 right-4 left-4 h-0.5 bg-amber-500 transition-all duration-300 scale-x-0 group-hover:scale-x-100 origin-center rounded-full" />
+              <span className="absolute -bottom-0.5 right-3 left-3 h-0.5 bg-amber-500 transition-all duration-300 scale-x-0 group-hover:scale-x-100 origin-center rounded-full" />
             </button>
           ))}
+          <div className="w-px h-5 bg-white/10 mx-1" />
+          <LanguageSwitcher />
           <Link
             href="/auth/login"
-            className="mr-3 px-5 py-2 bg-gradient-to-br from-amber-500 to-amber-700 text-black font-bold rounded-xl text-sm hover:-translate-y-0.5 transition-transform no-underline inline-block"
+            className={`px-5 py-2 bg-gradient-to-br from-amber-500 to-amber-700 text-black font-bold rounded-xl text-sm hover:-translate-y-0.5 transition-transform no-underline inline-block ${
+              isRTL ? 'mr-2' : 'ml-2'
+            }`}
           >
-            تسجيل الدخول
+            {t('nav.login')}
           </Link>
         </div>
 
         {/* Mobile Menu Button */}
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden text-[#f8fafc] text-2xl bg-transparent border-none cursor-pointer p-2"
-        >
-          {menuOpen ? '✕' : '☰'}
-        </button>
+        <div className="md:hidden flex items-center gap-2">
+          <LanguageSwitcher />
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="text-[#f8fafc] text-2xl bg-transparent border-none cursor-pointer p-2"
+          >
+            {menuOpen ? '✕' : '☰'}
+          </button>
+        </div>
       </div>
 
       {/* Mobile Menu */}
@@ -78,7 +89,8 @@ export default function Navbar() {
             <button
               key={item.id}
               onClick={() => scrollTo(item.id)}
-              className="text-[#f8fafc] text-right py-3 px-4 rounded-lg hover:bg-white/5 transition-colors bg-transparent border-none cursor-pointer text-base"
+              className="text-[#f8fafc] py-3 px-4 rounded-lg hover:bg-white/5 transition-colors bg-transparent border-none cursor-pointer text-base"
+              style={{ textAlign: isRTL ? 'right' : 'left' }}
             >
               {item.label}
             </button>
@@ -88,11 +100,11 @@ export default function Navbar() {
               href="/auth/login"
               className="block w-full text-center px-5 py-3 bg-gradient-to-br from-amber-500 to-amber-700 text-black font-bold rounded-xl text-sm no-underline"
             >
-              تسجيل الدخول
+              {t('nav.login')}
             </Link>
           </div>
         </div>
       )}
     </nav>
-  );
+  )
 }

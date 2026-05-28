@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/ui/Navbar'
+import { useI18n } from '@/lib/i18n-context'
 import { ChevronDown, Play, Check, ArrowLeft, Zap, Shield, BarChart3, Film, Megaphone, Users, Globe, Lock } from 'lucide-react'
 
 // Lazy load heavy components
@@ -13,50 +14,34 @@ const NeuralCanvas = dynamic(() => import('@/components/ui/NeuralCanvas'), {
   loading: () => <div className="w-full h-[500px]" />,
 })
 
-/* ═══════════════════════════════════════════════════════════════
-   NEXUS AI — Spaceship Landing Page
-   A machine from the future. Every pixel designed to captivate.
-   ═══════════════════════════════════════════════════════════════ */
-
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const { t, isRTL, locale } = useI18n()
 
   const crew = [
     {
-      name: 'NEX',
-      fullName: 'NEX — Neural Explorer',
-      role: 'منتج الفيديو',
-      desc: 'يولد فيديوهات تسويقية احترافية بالكامل باستخدام أحدث نماذج الذكاء الاصطناعي. يكتب السكريبت، يختار الصوت، ويركّب المشاهد.',
+      key: 'nex',
       color: 'from-amber to-orange',
       badgeClass: 'agent-badge-nex',
       icon: Film,
       stats: { videos: '10K+', time: '< 60s' },
     },
     {
-      name: 'VEX',
-      fullName: 'VEX — Virtual Executor',
-      role: 'مدير الإعلانات',
-      desc: 'يُنشئ ويدير حملاتك الإعلانية على Meta، TikTok، Google، وSnapchat. يُحسّن الميزانية يومياً ويُعيد استهداف الجمهور تلقائياً.',
+      key: 'vex',
       color: 'from-cyan to-blue',
       badgeClass: 'agent-badge-vex',
       icon: Megaphone,
       stats: { campaigns: '500+', roas: '4.2x' },
     },
     {
-      name: 'PULSE',
-      fullName: 'PULSE — Predictive Learning Unit',
-      role: 'المحلل الاستراتيجي',
-      desc: 'يحلل بيانات حملاتك في real-time ويقدم توصيات based on patterns بيشوفها الإنسان العادي. يتنبأ بالاتجاهات قبل ما تحصل.',
+      key: 'pulse',
       color: 'from-purple to-pink',
       badgeClass: 'agent-badge-pulse',
       icon: BarChart3,
       stats: { accuracy: '94%', insights: '24/7' },
     },
     {
-      name: 'Sentinel',
-      fullName: 'Sentinel — Strategic Guardian',
-      role: 'الحارس الذكي',
-      desc: 'يراقب كل حاجة: الميزانية، الأداء، المنافسين، والمشاكل التقنية. يحذرك قبل ما تحصل المشكلة، ويُقترح حلول فورية.',
+      key: 'sentinel',
       color: 'from-emerald to-teal',
       badgeClass: 'agent-badge-sentinel',
       icon: Shield,
@@ -74,55 +59,22 @@ export default function LandingPage() {
   ]
 
   const clients = [
-    { name: 'أحمد', role: 'صاحب متجر إلكتروني', avatar: 'أ', result: 'زاد المبيعات 300%' },
-    { name: 'سارة', role: 'مديرة تسويق', avatar: 'س', result: 'وفرت 40 ساعة/شهر' },
-    { name: 'محمد', role: 'مؤسس شركة ناشئة', avatar: 'م', result: '10K متابع جديد' },
+    { key: 'ahmed', avatar: isRTL ? 'أ' : 'A' },
+    { key: 'sara', avatar: isRTL ? 'س' : 'S' },
+    { key: 'mohamed', avatar: isRTL ? 'م' : 'M' },
   ]
 
-  const pricing = [
-    {
-      name: 'Starter',
-      price: '0',
-      period: 'للأبد',
-      features: ['5 فيديوهات/شهر', '3 حملات إعلانية', 'تحليلات أساسية', 'دعم عبر البريد'],
-      cta: 'ابدأ مجاناً',
-      popular: false,
-    },
-    {
-      name: 'Pro',
-      price: '99',
-      period: 'USD/شهر',
-      features: ['فيديوهات غير محدودة', 'حملات غير محدودة', 'تحليلات متقدمة + AI', 'دعم أولوية', 'ربط 5 منصات', 'API access'],
-      cta: 'اشترك الآن',
-      popular: true,
-    },
-    {
-      name: 'Enterprise',
-      price: '249',
-      period: 'USD/شهر',
-      features: ['كل مميزات Pro', 'وكلاء مخصصين', 'تحليلات real-time', 'دعم 24/7 مباشر', 'On-premise option', 'مدير حساب مخصص'],
-      cta: 'تواصل معنا',
-      popular: false,
-    },
-  ]
+  const pricingKeys = ['starter', 'pro', 'enterprise']
 
-  const faqs = [
-    { q: 'إزاي NEXUS AI بيختلف عن ChatGPT أو الأدوات التانية؟', a: 'NEXUS AI مش أداة واحدة — ده فريق كامل من 4 وكلاء متخصصين (NEX, VEX, PULSE, Sentinel) بيشتغلوا مع بعض كـ unit متكامل. NEX بيولد الفيديو، VEX بيُدير الإعلان، PULSE بيحلل البيانات، وSentinel بيُراقب كل حاجة. كل ده في منصة واحدة موحدة.' },
-    { q: 'هل أحتاج خبرة تقنية عشان استخدم المنصة؟', a: 'لا خالص! NEXUS AI مصمم خصيصاً للمسوقين وأصحاب الشركات مش للمطورين. كل حاجة drag-and-drop أو بتكتب وصف بسيط بالعربية. الـ 4 وكلاء بيفهموا العربي والإنجليزي.' },
-    { q: 'إزاي بربط حساباتي على Meta و TikTok؟', a: 'من لوحة التحكم، اضغط "ربط منصة" واختار المنصة. هيتم توجيهك للتأكيد — وبعدها VEX بيبدأ يُدير الإعلانات مباشرة. كل الموافقات بتكون منك أولاً.' },
-    { q: 'هل الـ AI بياخد قرارات بدون ما أعرف؟', a: 'أبداً! NEXUS AI بيُقترح وبينفذ بس بعد موافقتك. كل حملة، كل فيديو، كل تعديل — بيجيلك إشعار للموافقة. إنت المتحكم دائماً.' },
-    { q: 'هل فيه فترة تجربة مجانية؟', a: 'آه! خطة Starter مجانية 100% وتكفيك لتجربة كل المميزات الأساسية. مفيش بطاقة ائتمان مطلوبة.' },
-  ]
+  const faqKeys = ['q1', 'q2', 'q3', 'q4', 'q5']
 
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#020204' }}>
-      {/* Deep space background with subtle grid */}
       <div className="fixed inset-0 grid-bg opacity-30 pointer-events-none" />
       <Suspense fallback={<div className="w-full h-[500px]" />}>
         <NeuralCanvas />
       </Suspense>
 
-      {/* Ambient glow orbs — static, no mouse tracking (performance) */}
       <div
         className="fixed w-[600px] h-[600px] rounded-full pointer-events-none opacity-15 blur-[120px]"
         style={{
@@ -135,98 +87,89 @@ export default function LandingPage() {
 
       <Navbar />
 
-      {/* ═══════════════════ HERO — Spaceship Cockpit ═══════════════════ */}
+      {/* ═══════════════════ HERO ═══════════════════ */}
       <section className="relative z-10 pt-32 pb-20 section-padding perspective-container">
         <div className="container-nexus text-center">
-          {/* Status HUD */}
           <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full hud-border mb-10 text-sm">
             <span className="status-orb status-orb-online" />
-            <span className="text-emerald-400 font-medium">النظام شغال</span>
+            <span className="text-emerald-400 font-medium">{t('hero.statusOnline')}</span>
             <span className="text-white/20">|</span>
-            <span className="text-text-secondary">4 وكلاء جاهزين للإطلاق</span>
+            <span className="text-text-secondary">{t('hero.agentsReady')}</span>
             <span className="text-white/20">|</span>
-            <span className="text-amber text-xs font-mono">v3.0.1</span>
+            <span className="text-amber text-xs font-mono">{t('hero.version')}</span>
           </div>
 
-          {/* Main headline with neon glow */}
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 leading-[1.05] tracking-tight">
-            <span className="neon-text">فريق ذكاء</span>
+            <span className="neon-text">{t('hero.headline1')}</span>
             <br />
-            <span className="gradient-text">يشتغل لك 24/7</span>
+            <span className="gradient-text">{t('hero.headline2')}</span>
           </h1>
 
           <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-4 leading-relaxed">
-            مركبة NEXUS AI مجهزة بـ 4 وكلاء متخصصين.
-            <br className="hidden md:block" />
-            NEX يُنتج. VEX يُعلن. PULSE يُحلل. Sentinel يُراقب.
+            {t('hero.subheadline')}
           </p>
 
           <p className="text-sm text-text-muted mb-10 max-w-xl mx-auto">
-            كل ده وأنت نائم. الموافقات بتكون منك. النتائج بتكون فعلية.
+            {t('hero.tagline')}
           </p>
 
-          {/* CTA Buttons with 3D effect */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link href="/auth/register" className="btn-primary btn-3d text-lg px-8 py-4">
               <Zap className="w-5 h-5" />
-              شغّل مركبتك
-              <ArrowLeft className="w-5 h-5" />
+              {t('hero.ctaPrimary')}
+              <ArrowLeft className="w-5 h-5" style={{ transform: isRTL ? 'none' : 'rotate(180deg)' }} />
             </Link>
             <button className="btn-secondary btn-3d text-lg px-8 py-4">
               <Play className="w-5 h-5" />
-              شوف العرض التوضيحي
+              {t('hero.ctaDemo')}
             </button>
           </div>
 
-          {/* Platform Orbs — Visual proof of connections */}
           <div className="flex items-center justify-center gap-4 mb-8">
-            <span className="text-text-muted text-sm">متصل الآن:</span>
+            <span className="text-text-muted text-sm">{t('hero.connectedNow')}</span>
             {platforms.filter(p => p.connected).map((platform) => (
               <div key={platform.name} className="platform-orb platform-connected" title={platform.name}>
                 <span className="text-sm font-bold" style={{ color: platform.color }}>{platform.icon}</span>
               </div>
             ))}
-            <span className="text-text-muted text-sm">+3 قريباً</span>
+            <span className="text-text-muted text-sm">{t('hero.comingSoon')}</span>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════ AGENTS — The Crew ═══════════════════ */}
-      <section className="relative z-10 py-24 section-padding">
+      {/* ═══════════════════ AGENTS ═══════════════════ */}
+      <section id="crew" className="relative z-10 py-24 section-padding">
         <div className="container-nexus">
           <div className="text-center mb-20">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">طاقم المركبة</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">4 وكلاء. مهمة واحدة.</h2>
-            <p className="text-text-secondary max-w-xl mx-auto">
-              كل وكيل متخصص في مجاله. يشتغلوا معاً كفريق واحد — زي ما بيحصل في أفضل الشركات، بس بالذكاء الاصطناعي.
-            </p>
+            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('agents.sectionLabel')}</p>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('agents.title')}</h2>
+            <p className="text-text-secondary max-w-xl mx-auto">{t('agents.subtitle')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 perspective-container">
             {crew.map((agent, idx) => {
               const Icon = agent.icon
+              const agentT = t(`agents.${agent.key}`) as Record<string, string>
               return (
                 <div
-                  key={agent.name}
+                  key={agent.key}
                   className="agent-card perspective-card p-6 text-center group cursor-pointer corner-accent"
                   style={{ animationDelay: `${idx * 150}ms` }}
                 >
-                  {/* Agent Avatar with glow */}
                   <div className="relative mx-auto mb-5">
-                    <AgentAvatar name={agent.name as 'NEX' | 'VEX' | 'PULSE' | 'Sentinel'} size="lg" />
+                    <AgentAvatar name={agent.key === 'sentinel' ? 'Sentinel' : agent.key.toUpperCase() as 'NEX' | 'VEX' | 'PULSE' | 'Sentinel'} size="lg" />
                   </div>
 
                   <h3 className="text-xl font-bold mb-1 group-hover:text-amber transition-colors">
-                    {agent.name}
+                    {agentT?.name}
                   </h3>
-                  <p className="text-text-muted text-sm mb-1">{agent.fullName}</p>
-                  <p className="text-amber text-sm font-medium mb-4">{agent.role}</p>
+                  <p className="text-text-muted text-sm mb-1">{agentT?.fullName}</p>
+                  <p className="text-amber text-sm font-medium mb-4">{agentT?.role}</p>
 
                   <p className="text-text-secondary text-sm leading-relaxed mb-5">
-                    {agent.desc}
+                    {agentT?.desc}
                   </p>
 
-                  {/* Stats */}
                   <div className="flex items-center justify-center gap-4 pt-4 border-t border-white/5">
                     {Object.entries(agent.stats).map(([key, val]) => (
                       <div key={key} className="text-center">
@@ -242,51 +185,30 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════════════════ HOW IT WORKS — Launch Sequence ═══════════════════ */}
-      <section className="relative z-10 py-24 section-padding">
+      {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
+      <section id="how" className="relative z-10 py-24 section-padding">
         <div className="container-nexus">
           <div className="text-center mb-20">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">تسلسل الإطلاق</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">3 خطوات. وانطلق.</h2>
-            <p className="text-text-secondary max-w-xl mx-auto">
-              مفيش تعقيد. مفيش setup طويل. في 3 دقايق بس، مركبتك بتكون جاهزة للإقلاع.
-            </p>
+            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('howItWorks.sectionLabel')}</p>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('howItWorks.title')}</h2>
+            <p className="text-text-secondary max-w-xl mx-auto">{t('howItWorks.subtitle')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {[
-              {
-                step: '01',
-                title: 'سجّل واشترك',
-                desc: 'اختار خطتك — Starter مجاني أو Pro للأعمال الجادة. مفيش بطاقة مطلوبة للتجربة.',
-                icon: Users,
-                color: 'amber',
-              },
-              {
-                step: '02',
-                title: 'ربط المنصات',
-                desc: 'اربط Meta، TikTok، Google، أو أي منصة تانية. VEX بيبدأ يُحلل أدائك فوراً.',
-                icon: Globe,
-                color: 'cyan',
-              },
-              {
-                step: '03',
-                title: 'الوكلاء يشتغلوا',
-                desc: 'NEX يولد فيديوهات. VEX يُدير الإعلانات. PULSE يُحلل. Sentinel يُراقب. كل ده وأنت نائم.',
-                icon: Zap,
-                color: 'emerald',
-              },
-            ].map((item, idx) => {
-              const Icon = item.icon
+            {['step1', 'step2', 'step3'].map((stepKey, idx) => {
+              const step = t(`howItWorks.${stepKey}`) as Record<string, string>
+              const icons = [Users, Globe, Zap]
+              const colors = ['amber', 'cyan', 'emerald']
+              const Icon = icons[idx]
               return (
-                <div key={idx} className="relative group">
+                <div key={stepKey} className="relative group">
                   <div className="glass p-8 text-center h-full corner-accent transition-all duration-500 group-hover:scale-[1.02]">
-                    <div className="text-5xl font-black text-white/5 mb-4">{item.step}</div>
-                    <div className={`w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center bg-${item.color}/10 border border-${item.color}/20`}>
-                      <Icon className={`w-7 h-7 text-${item.color}-400`} />
+                    <div className="text-5xl font-black text-white/5 mb-4">{step?.num}</div>
+                    <div className={`w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center bg-${colors[idx]}/10 border border-${colors[idx]}/20`}>
+                      <Icon className={`w-7 h-7 text-${colors[idx]}-400`} />
                     </div>
-                    <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                    <p className="text-text-secondary text-sm leading-relaxed">{item.desc}</p>
+                    <h3 className="text-xl font-bold mb-3">{step?.title}</h3>
+                    <p className="text-text-secondary text-sm leading-relaxed">{step?.desc}</p>
                   </div>
                   {idx < 2 && (
                     <div className="hidden md:block absolute top-1/2 -left-4 w-8 h-px bg-gradient-to-l from-amber/30 to-transparent" />
@@ -298,94 +220,93 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════════════════ CLIENT AVATARS — Social Proof ═══════════════════ */}
+      {/* ═══════════════════ CLIENTS ═══════════════════ */}
       <section className="relative z-10 py-24 section-padding">
         <div className="container-nexus">
           <div className="text-center mb-16">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">شهادات القادة</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">عملاء غيّروا شركاتهم</h2>
+            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('clients.sectionLabel')}</p>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('clients.title')}</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {clients.map((client, idx) => (
-              <div key={idx} className="glass p-6 corner-accent text-center group hover:scale-[1.02] transition-transform">
-                <div className="client-avatar mx-auto mb-4 flex items-center justify-center text-2xl font-bold text-amber">
-                  {client.avatar}
+            {clients.map((client, idx) => {
+              const clientT = t(`clients.${client.key}`) as Record<string, string>
+              return (
+                <div key={idx} className="glass p-6 corner-accent text-center group hover:scale-[1.02] transition-transform">
+                  <div className="client-avatar mx-auto mb-4 flex items-center justify-center text-2xl font-bold text-amber">
+                    {client.avatar}
+                  </div>
+                  <h4 className="font-bold mb-1">{clientT?.name}</h4>
+                  <p className="text-text-muted text-sm mb-4">{clientT?.role}</p>
+                  <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                    <p className="text-emerald-400 text-sm font-medium">{clientT?.result}</p>
+                  </div>
                 </div>
-                <h4 className="font-bold mb-1">{client.name}</h4>
-                <p className="text-text-muted text-sm mb-4">{client.role}</p>
-                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                  <p className="text-emerald-400 text-sm font-medium">{client.result}</p>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════ PRICING — Command Modules ═══════════════════ */}
+      {/* ═══════════════════ PRICING ═══════════════════ */}
       <section id="pricing" className="relative z-10 py-24 section-padding">
         <div className="container-nexus">
           <div className="text-center mb-20">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">وحدات القيادة</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">اختار قدرات مركبتك</h2>
-            <p className="text-text-secondary max-w-xl mx-auto">
-              كل خطة بتزود مركبتك بقدرات إضافية. ابدأ مجاناً وطوّر لما تحتاج.
-            </p>
+            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('pricing.sectionLabel')}</p>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('pricing.title')}</h2>
+            <p className="text-text-secondary max-w-xl mx-auto">{t('pricing.subtitle')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {pricing.map((plan) => (
-              <div
-                key={plan.name}
-                className={`relative p-6 ${plan.popular ? 'holo-glow' : ''}`}
-                style={{
-                  background: plan.popular
-                    ? 'rgba(245,158,11,0.03)'
-                    : 'rgba(255,255,255,0.02)',
-                  backdropFilter: 'blur(20px)',
-                  border: plan.popular
-                    ? '1px solid rgba(245,158,11,0.25)'
-                    : '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '20px',
-                }}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-amber to-orange text-black text-xs font-bold">
-                    الأكثر شيوعاً
-                  </div>
-                )}
-
-                <h3 className="text-lg font-bold mb-2">{plan.name}</h3>
-                <div className="mb-6">
-                  <span className="text-4xl font-extrabold">${plan.price}</span>
-                  <span className="text-text-muted text-sm">/{plan.period}</span>
-                </div>
-
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-text-secondary">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href="/auth/register"
-                  className={`block text-center py-3 rounded-xl font-bold transition-all ${
-                    plan.popular ? 'btn-primary' : 'btn-secondary'
-                  }`}
+            {pricingKeys.map((planKey) => {
+              const plan = t(`pricing.${planKey}`) as Record<string, any>
+              const isPopular = planKey === 'pro'
+              return (
+                <div
+                  key={planKey}
+                  className={`relative p-6 ${isPopular ? 'holo-glow' : ''}`}
+                  style={{
+                    background: isPopular ? 'rgba(245,158,11,0.03)' : 'rgba(255,255,255,0.02)',
+                    backdropFilter: 'blur(20px)',
+                    border: isPopular ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '20px',
+                  }}
                 >
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
+                  {isPopular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-amber to-orange text-black text-xs font-bold">
+                      {plan?.popular}
+                    </div>
+                  )}
+
+                  <h3 className="text-lg font-bold mb-2">{plan?.name}</h3>
+                  <div className="mb-6">
+                    <span className="text-4xl font-extrabold">${plan?.price}</span>
+                    <span className="text-text-muted text-sm">/{plan?.period}</span>
+                  </div>
+
+                  <ul className="space-y-3 mb-6">
+                    {(plan?.features || []).map((f: string) => (
+                      <li key={f} className="flex items-center gap-2 text-sm text-text-secondary">
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Link
+                    href="/auth/register"
+                    className={`block text-center py-3 rounded-xl font-bold transition-all ${isPopular ? 'btn-primary' : 'btn-secondary'}`}
+                  >
+                    {plan?.cta}
+                  </Link>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════ SECURITY & TRUST ═══════════════════ */}
+      {/* ═══════════════════ SECURITY ═══════════════════ */}
       <section className="relative z-10 py-24 section-padding">
         <div className="container-nexus">
           <div className="glass p-12 max-w-4xl mx-auto text-center" style={{
@@ -396,20 +317,21 @@ export default function LandingPage() {
           }}>
             <div className="flex items-center justify-center gap-3 mb-6">
               <Lock className="w-6 h-6 text-emerald-400" />
-              <h2 className="text-2xl md:text-3xl font-bold">أمان وموثوقية على أعلى مستوى</h2>
+              <h2 className="text-2xl md:text-3xl font-bold">{t('security.title')}</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
               {[
-                { icon: Shield, title: 'بيانات مشفرة', desc: 'AES-256 encryption لكل البيانات' },
-                { icon: Users, title: 'موافقة العميل', desc: 'مفيش قرار بيتاخد بدون موافقتك' },
-                { icon: Lock, title: 'GDPR Ready', desc: 'متوافق مع كل معايير الخصوصية' },
-              ].map((item, idx) => {
+                { key: 'encrypted', icon: Shield },
+                { key: 'consent', icon: Users },
+                { key: 'gdpr', icon: Lock },
+              ].map((item) => {
                 const Icon = item.icon
+                const itemT = t(`security.${item.key}`) as Record<string, string>
                 return (
-                  <div key={idx} className="text-center">
+                  <div key={item.key} className="text-center">
                     <Icon className="w-8 h-8 text-amber mx-auto mb-3" />
-                    <h4 className="font-bold mb-2">{item.title}</h4>
-                    <p className="text-text-muted text-sm">{item.desc}</p>
+                    <h4 className="font-bold mb-2">{itemT?.title}</h4>
+                    <p className="text-text-muted text-sm">{itemT?.desc}</p>
                   </div>
                 )
               })}
@@ -418,46 +340,50 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════════════════ FAQ — Knowledge Base ═══════════════════ */}
+      {/* ═══════════════════ FAQ ═══════════════════ */}
       <section id="faq" className="relative z-10 py-24 section-padding">
         <div className="container-nexus max-w-3xl">
           <div className="text-center mb-16">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">قاعدة المعرفة</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">الأسئلة المتكررة</h2>
+            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('faq.sectionLabel')}</p>
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('faq.title')}</h2>
           </div>
           <div className="space-y-4">
-            {faqs.map((faq, i) => (
-              <div
-                key={i}
-                className="glass overflow-hidden corner-accent transition-all duration-300"
-                style={{
-                  background: openFaq === i ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '16px',
-                }}
-              >
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between p-5 text-right"
+            {faqKeys.map((faqKey, i) => {
+              const faq = t(`faq.${faqKey}`) as Record<string, string>
+              return (
+                <div
+                  key={i}
+                  className="glass overflow-hidden corner-accent transition-all duration-300"
+                  style={{
+                    background: openFaq === i ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    borderRadius: '16px',
+                  }}
                 >
-                  <span className="font-medium text-right">{faq.q}</span>
-                  <ChevronDown
-                    className={`w-5 h-5 text-text-muted transition-transform shrink-0 mr-3 ${
-                      openFaq === i ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-                {openFaq === i && (
-                  <p className="px-5 pb-5 text-text-secondary text-sm leading-relaxed">{faq.a}</p>
-                )}
-              </div>
-            ))}
+                  <button
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    className="w-full flex items-center justify-between p-5"
+                    style={{ textAlign: isRTL ? 'right' : 'left' }}
+                  >
+                    <span className="font-medium">{faq?.q}</span>
+                    <ChevronDown
+                      className={`w-5 h-5 text-text-muted transition-transform shrink-0 ${isRTL ? 'mr-3' : 'ml-3'} ${
+                        openFaq === i ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  {openFaq === i && (
+                    <p className="px-5 pb-5 text-text-secondary text-sm leading-relaxed">{faq?.a}</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════ CTA — Final Launch ═══════════════════ */}
+      {/* ═══════════════════ CTA ═══════════════════ */}
       <section className="relative z-10 py-24 section-padding">
         <div className="container-nexus text-center">
           <div
@@ -470,17 +396,17 @@ export default function LandingPage() {
             }}
           >
             <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              جاهز لـ <span className="gradient-text">الإقلاع</span>؟
+              {t('cta.title1')} <span className="gradient-text">{t('cta.title2')}</span>؟
             </h2>
             <p className="text-text-secondary mb-8 max-w-lg mx-auto">
-              انضم لآلاف القادة اللي بيستخدموا NEXUS AI عشان يوفروا وقت، يزودوا العائد، وينموا بسرعة.
+              {t('cta.subtitle')}
             </p>
             <Link href="/auth/register" className="btn-primary btn-3d text-lg px-10 py-4 inline-flex">
               <Zap className="w-5 h-5" />
-              شغّل مركبتك الآن
-              <ArrowLeft className="w-5 h-5" />
+              {t('cta.button')}
+              <ArrowLeft className="w-5 h-5" style={{ transform: isRTL ? 'none' : 'rotate(180deg)' }} />
             </Link>
-            <p className="text-text-muted text-sm mt-4">مجاني تماماً — مفيش بطاقة مطلوبة</p>
+            <p className="text-text-muted text-sm mt-4">{t('cta.note')}</p>
           </div>
         </div>
       </section>
@@ -492,35 +418,26 @@ export default function LandingPage() {
             <div>
               <h3 className="text-2xl font-bold gradient-text mb-4">NEXUS AI</h3>
               <p className="text-text-muted text-sm leading-relaxed mb-4">
-                فريق ذكاء اصطناعي متكامل لنمو علامتك التجارية. 4 وكلاء. هدف واحد: نجاحك.
+                {t('footer.description')}
               </p>
-              {/* Trust Badges */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/5">
-                  SSL
-                </span>
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-amber border border-amber/20 bg-amber/5">
-                  Stripe
-                </span>
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-cyan border border-cyan/20 bg-cyan/5">
-                  GDPR
-                </span>
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-violet border border-violet/20 bg-violet/5">
-                  AES-256
-                </span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/5">SSL</span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-amber border border-amber/20 bg-amber/5">Stripe</span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-cyan border border-cyan/20 bg-cyan/5">GDPR</span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-violet border border-violet/20 bg-violet/5">AES-256</span>
               </div>
             </div>
             <div>
-              <h4 className="font-bold mb-4 text-sm">الوكلاء</h4>
+              <h4 className="font-bold mb-4 text-sm">{t('footer.agents')}</h4>
               <ul className="space-y-2 text-sm text-text-muted">
-                <li><Link href="/studio" className="hover:text-amber transition">NEX — منتج الفيديو</Link></li>
-                <li><Link href="/vex" className="hover:text-amber transition">VEX — مدير الإعلانات</Link></li>
-                <li><Link href="/analytics" className="hover:text-amber transition">PULSE — المحلل</Link></li>
-                <li><Link href="/sentinel" className="hover:text-amber transition">Sentinel — الحارس</Link></li>
+                <li><Link href="/studio" className="hover:text-amber transition">NEX — {t('agents.nex.role')}</Link></li>
+                <li><Link href="/vex" className="hover:text-amber transition">VEX — {t('agents.vex.role')}</Link></li>
+                <li><Link href="/analytics" className="hover:text-amber transition">PULSE — {t('agents.pulse.role')}</Link></li>
+                <li><Link href="/sentinel" className="hover:text-amber transition">Sentinel — {t('agents.sentinel.role')}</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-bold mb-4 text-sm">المنصات</h4>
+              <h4 className="font-bold mb-4 text-sm">{t('footer.platforms')}</h4>
               <ul className="space-y-2 text-sm text-text-muted">
                 <li>Meta (Facebook + Instagram)</li>
                 <li>TikTok</li>
@@ -529,21 +446,19 @@ export default function LandingPage() {
               </ul>
             </div>
             <div>
-              <h4 className="font-bold mb-4 text-sm">الشركة</h4>
+              <h4 className="font-bold mb-4 text-sm">{t('footer.legal')}</h4>
               <ul className="space-y-2 text-sm text-text-muted">
-                <li><Link href="/terms" className="hover:text-amber transition">شروط الخدمة</Link></li>
-                <li><Link href="/privacy" className="hover:text-amber transition">سياسة الخصوصية</Link></li>
-                <li><Link href="/cookies" className="hover:text-amber transition">سياسة الكوكيز</Link></li>
-                <li><Link href="/refund" className="hover:text-amber transition">سياسة الاسترداد</Link></li>
+                <li><Link href="/terms" className="hover:text-amber transition">{t('footer.terms')}</Link></li>
+                <li><Link href="/privacy" className="hover:text-amber transition">{t('footer.privacy')}</Link></li>
+                <li><Link href="/cookies" className="hover:text-amber transition">{t('footer.cookies')}</Link></li>
+                <li><Link href="/refund" className="hover:text-amber transition">{t('footer.refund')}</Link></li>
               </ul>
             </div>
           </div>
           <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-text-muted text-sm">
-              © 2026 NEXUS AI. كل الحقوق محفوظة. مصمم للمستقبل.
-            </p>
+            <p className="text-text-muted text-sm">{t('footer.copyright')}</p>
             <p className="text-text-muted text-xs">
-              Dubai, UAE • legal@nexus-grow.com • support@nexus-grow.com
+              {t('footer.location')} • {t('footer.legalEmail')} • {t('footer.supportEmail')}
             </p>
           </div>
         </div>
