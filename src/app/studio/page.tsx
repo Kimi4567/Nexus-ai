@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import { ProtectedRoute } from '@/components/ui/ProtectedRoute'
 import { generateVideoScript } from '@/services/openai'
