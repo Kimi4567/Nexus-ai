@@ -9,6 +9,7 @@ interface RequestBody {
   productName?: string
   description?: string
   style?: string
+  duration?: number
   // ad_copy params
   platform?: string
   objective?: string
@@ -17,40 +18,48 @@ interface RequestBody {
 }
 
 const SYSTEM_PROMPTS: Record<Action, string> = {
-  video_script: 'أنت كاتب سكريبت فيديو محترف. اكتب سكريبت جذاب بالعربية.',
-  ad_copy: 'أنت كاتب إعلانات محترف. اكتب نسخة إعلانية بالعربية.',
-  analyze: 'أنت محلل تسويق. قدم تحليل وتوصيات بالعربية.',
+  video_script: 'أنت NEX، منتج فيديوهات تسويقية بخبرة ١٥ سنة. اكتب سكريبت فيديو قصير (١٥-٣٠ ثانية) بالعربية الفصحى أو العامية حسب الطلب. حدد: المشهد، النص، الصوت/الموسيقى، والإيقاع. اكتب بأسلوب جذاب ومقنع.',
+  ad_copy: 'أنت VEX، كاتب إعلانات رقمية محترف. اكتب ٣ نسخ إعلانية قصيرة ( headline + body + CTA ) بالعربية. كل نسخة أسلوب مختلف. اكتب بأسلوب تسويقي مقنع.',
+  analyze: 'أنت PULSE، محلل بيانات تسويقي. قدم تحليل مبسط وتوصيات قابلة للتنفيذ بالعربية. ركز على الأرقام والتوجهات.',
 }
 
 function buildUserMessage(body: RequestBody): string {
   switch (body.action) {
     case 'video_script':
-      return `اكتب سكريبت فيديو تسويقي لـ "${body.productName}". الوصف: ${body.description}. الأسلوب: ${body.style}.`
+      return `اكتب سكريبت فيديو تسويقي لـ "${body.productName || 'المنتج'}".
+الوصف: ${body.description || 'منتج رائع'}.
+الأسلوب: ${body.style || 'عامي'}.` + (body.duration ? ` المدة: ${body.duration} ثانية.` : '')
     case 'ad_copy':
-      return `اكتب 3 نسخ إعلانية لـ "${body.productName}" على ${body.platform}. الهدف: ${body.objective}.`
+      return `اكتب ٣ نسخ إعلانية لـ "${body.productName || 'المنتج'}" على منصة ${body.platform || 'Facebook'}.
+الهدف: ${body.objective || 'مبيعات'}.`
     case 'analyze':
-      return `حلل هذه البيانات: ${body.data}`
+      return `حلل هذه البيانات وأعطِ توصيات: ${body.data || 'لا توجد بيانات'}`
     default:
       return ''
   }
 }
 
-// Simple in-memory rate limiter: max 20 calls/min per user
+// Rate limiter — per user or IP
 const rateMap = new Map<string, { count: number; windowStart: number }>()
 const RATE_WINDOW_MS = 60_000
 const MAX_PER_WINDOW = 20
 
-export async function POST(req: NextRequest) {
-  const userId = await getServerUserId(req)
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // Rate limit
+function checkRateLimit(key: string): boolean {
   const now = Date.now()
-  const entry = rateMap.get(userId) ?? { count: 0, windowStart: now }
+  const entry = rateMap.get(key) ?? { count: 0, windowStart: now }
   if (now - entry.windowStart > RATE_WINDOW_MS) { entry.count = 0; entry.windowStart = now }
   entry.count++
-  rateMap.set(userId, entry)
-  if (entry.count > MAX_PER_WINDOW) {
+  rateMap.set(key, entry)
+  return entry.count <= MAX_PER_WINDOW
+}
+
+export async function POST(req: NextRequest) {
+  // Try to get user ID from auth, fallback to IP for rate limiting
+  let userId = await getServerUserId(req).catch(() => null)
+  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.ip || 'unknown'
+  const rateKey = userId || clientIp
+
+  if (!checkRateLimit(rateKey)) {
     return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 })
   }
 
@@ -62,16 +71,61 @@ export async function POST(req: NextRequest) {
   }
 
   const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    // Demo mode — no real key configured
-    return NextResponse.json({
-      result: `[وضع العرض] ${SYSTEM_PROMPTS[action].slice(0, 50)}...`,
-    })
-  }
-
   const userMessage = buildUserMessage(body)
-  if (!userMessage) {
-    return NextResponse.json({ error: 'Missing required fields for this action' }, { status: 400 })
+
+  if (!apiKey) {
+    // Demo mode — return a rich mock response
+    const demoResponses: Record<Action, string> = {
+      video_script: `[سكريبت فيديو — وضع العرض]
+
+🎬 المشهد ١: افتتاحية (٥ ثواني)
+صوت: موسيقى إلكترونية حماسية
+نص: "هل سئمت من الإعلانات التقليدية؟"
+
+🎬 المشهد ٢: المنتج (١٥ ثانية)
+صوت: موسيقى خلفية هادئة + صوت وصفي
+نص: "NEXUS AI — ٤ وكلاء ذكاء اصطناعي يُديرون تسويقك بالكامل"
+
+🎬 المشهد ٣: دعوة للعمل (٥ ثواني)
+صوت: موسيقى تصاعدية
+نص: "ابدأ مجاناً — www.nexus-grow.com"
+
+🎵 الموسيقى المقترحة: electronic upbeat
+⏱️ المدة الإجمالية: ٢٥ ثانية`,
+
+      ad_copy: `[نسخ إعلانية — وضع العرض]
+
+📌 النسخة ١ (حماسية):
+العنوان: "٤ وكلاء AI يُديرون تسويقك وأنت نائم!"
+النص: NEXUS AI هو فريقك التسويقي الكامل — فيديوهات، إعلانات، تحليلات، ورصد. كل هذا بضغطة زر.
+CTA: جرّب مجاناً ←
+
+📌 النسخة ٢ (عقلانية):
+العنوان: "قلّل التكاليف ٨٠٪ وزوّد النتائج ٣٠٠٪"
+النص: استبدل ٤ موظفين بـ ٤ وكلاء AI متخصصين. NEXUS AI يعمل ٢٤/٧ بدون إجازات.
+CTA: احسب توفيرك ←
+
+📌 النسخة ٣ (عاطفية):
+العنوان: "تخيّل علامتك التجارية في كل مكان"
+النص: NEX يُنتج. VEX يُعلن. PULSE يُحلل. Sentinel يُراقب. فريقك الجديد بانتظارك.
+CTA: ابدأ رحلتك ←`,
+
+      analyze: `[تحليل — وضع العرض]
+
+📊 نظرة عامة:
+أداء الحملة جيد مع مساحة للتحسين.
+
+📈 التوجهات:
+- نسبة النقر (CTR) ٤.٢٪ أعلى من المتوسط الصناعي (٢٨%).
+- التحويلات ١,٢٤٠ بقيمة $١٢,٤٥٠ (متوسط $١٠/تحويل).
+
+💡 التوصيات:
+١. زِد الميزانية على إعلانات Facebook (أفضل أداء).
+٢. قلّل Instagram Stories (أقل CTR).
+٣. اختبر audience جديد: شباب ٢٥-٣٤ سنة.
+٤. استخدم A/B testing على العناوين.`,
+    }
+    return NextResponse.json({ result: demoResponses[action] })
   }
 
   try {
