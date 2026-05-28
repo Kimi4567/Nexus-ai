@@ -9,3 +9,10 @@ prisma/dev.db
 /.vercel.env
 .vercel
 .env*
+
+# Backup files
+*.old
+app_backup_*
+
+# FUSE temp files
+.fuse_hidden*
