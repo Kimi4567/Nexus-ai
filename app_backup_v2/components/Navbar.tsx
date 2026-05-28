@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/auth-context'
+import { useAuth } from '../hooks/useAuth'
 import { Menu, X, Sparkles } from 'lucide-react'
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const { isAuth, logout } = useAuth()
   const router = useRouter()
 
   const navLinks = [
@@ -17,8 +17,8 @@ export default function Navbar() {
     { label: 'الأسئلة', href: '/#faq' },
   ]
 
-  const handleLogout = async () => {
-    await logout()
+  const handleLogout = () => {
+    logout()
     router.push('/')
   }
 
@@ -39,7 +39,7 @@ export default function Navbar() {
         </div>
 
         <div className="nav-desktop hidden md:flex items-center gap-3">
-          {user ? (
+          {isAuth ? (
             <>
               <Link href="/dashboard" className="btn-primary text-sm py-2 px-4">
                 لوحة التحكم
@@ -50,10 +50,10 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/auth/login" className="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium">
+              <Link href="/login" className="text-text-secondary hover:text-text-primary transition-colors text-sm font-medium">
                 دخول
               </Link>
-              <Link href="/auth/register" className="btn-primary text-sm py-2 px-4">
+              <Link href="/register" className="btn-primary text-sm py-2 px-4">
                 ابدأ الآن
               </Link>
             </>
@@ -72,7 +72,7 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          {user ? (
+          {isAuth ? (
             <>
               <Link href="/dashboard" className="block btn-primary text-center text-sm py-2" onClick={() => setMobileOpen(false)}>
                 لوحة التحكم
@@ -83,10 +83,10 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/auth/login" className="block text-text-secondary hover:text-text-primary py-2" onClick={() => setMobileOpen(false)}>
+              <Link href="/login" className="block text-text-secondary hover:text-text-primary py-2" onClick={() => setMobileOpen(false)}>
                 دخول
               </Link>
-              <Link href="/auth/register" className="block btn-primary text-center text-sm py-2" onClick={() => setMobileOpen(false)}>
+              <Link href="/register" className="block btn-primary text-center text-sm py-2" onClick={() => setMobileOpen(false)}>
                 ابدأ الآن
               </Link>
             </>

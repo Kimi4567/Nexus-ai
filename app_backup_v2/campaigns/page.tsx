@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ProtectedRoute } from '@/components/ui/ProtectedRoute'
+import { ProtectedRoute } from '../components/ProtectedRoute'
 import { FolderKanban, Plus, TrendingUp, DollarSign, BarChart3, Megaphone } from 'lucide-react'
 
 interface Campaign {

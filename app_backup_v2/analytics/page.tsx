@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ProtectedRoute } from '@/components/ui/ProtectedRoute'
-import { analyzeCampaign } from '@/services/openai'
+import { ProtectedRoute } from '../components/ProtectedRoute'
+import { analyzeCampaign } from '../services/openai'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'

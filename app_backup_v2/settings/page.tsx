@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { ProtectedRoute } from '@/components/ui/ProtectedRoute'
+import { useAuth } from '../hooks/useAuth'
+import { ProtectedRoute } from '../components/ProtectedRoute'
 import { Settings, Key, Save, Check, Globe, Bell, Shield, Moon, Sun } from 'lucide-react'
 
 export default function SettingsPage() {

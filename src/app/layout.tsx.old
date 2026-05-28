@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'NEXUS AI | Your AI Marketing Department',
+  title: 'Nexus AI | Your AI Marketing Department',
   description:
     'Nexus AI generates complete marketing campaigns in 60 seconds — strategy, hooks, scripts, captions, and 30-day content calendar. Your AI marketing department.',
   keywords: [
@@ -49,17 +49,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="en">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased overflow-x-hidden min-h-screen bg-[#020204] text-[#f8fafc]" style={{ fontFamily: "'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif" }}>
+      <body className="bg-[#020204] text-[#f8fafc]" dir="rtl">
         <Providers>
           {children}
         </Providers>

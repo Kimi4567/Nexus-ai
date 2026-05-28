@@ -1,6 +1,6 @@
 'use client'
 
-import StatCard from '@/components/ui/StatCard'
+import StatCard from '../components/StatCard'
 import { Video, Megaphone, BarChart3, TrendingUp, Eye, MousePointer, DollarSign, Users } from 'lucide-react'
 
 export default function DashboardPage() {

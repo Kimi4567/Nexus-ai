@@ -29,10 +29,20 @@ const config: Config = {
         't2': '#9A9080',   // warm gray — secondary text
         't3': '#5C5448',   // warm muted — tertiary
         't4': '#38342E',   // warm dim — borders/placeholders
+        // ── V2 Space palette ────────────────────────────────────────
+        'deep':           '#020204',
+        'surface':        '#0a0a12',
+        'text-primary':   '#f8fafc',
+        'text-secondary': '#94a3b8',
+        'text-muted':     '#64748b',
+        'amber': { DEFAULT: '#f59e0b', dark: '#d97706' },
+        'cyan':  { DEFAULT: '#06b6d4' },
+        'violet': { DEFAULT: '#8b5cf6' },
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'monospace'],
+        arabic: ['Noto Sans Arabic', 'Segoe UI', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         'card': '12px',

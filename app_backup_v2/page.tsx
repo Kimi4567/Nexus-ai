@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Navbar from '@/components/ui/Navbar'
-import NeuralCanvas from '@/components/ui/NeuralCanvas'
+import Navbar from './components/Navbar'
+import NeuralCanvas from './components/NeuralCanvas'
 import { ChevronDown, Play, Check, ArrowLeft } from 'lucide-react'
 
 export default function LandingPage() {
