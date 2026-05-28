@@ -120,12 +120,12 @@ export default function RegisterPage() {
                 <input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)}
                   className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-amber-500 cursor-pointer shrink-0" />
                 <span className="text-xs text-[#94a3b8] leading-relaxed">
-                  <Shield className="w-3 h-3 inline text-amber-500 mr-1" />
+                  <Shield className="w-3 h-3 inline text-amber-500 ml-1" />
                   {authT.termsConsent}{' '}
                   <Link href="/terms" target="_blank" className="text-amber-500 hover:text-amber-400 underline">{authT.termsLink}</Link>
-                  {' & '}
+                  {' '}
                   <Link href="/privacy" target="_blank" className="text-amber-500 hover:text-amber-400 underline">{authT.privacyLink}</Link>
-                  {' & '}
+                  {' '}
                   <Link href="/refund" target="_blank" className="text-amber-500 hover:text-amber-400 underline">{authT.refundLink}</Link>
                 </span>
               </label>
@@ -133,7 +133,7 @@ export default function RegisterPage() {
                 <input type="checkbox" checked={agreeCookies} onChange={e => setAgreeCookies(e.target.checked)}
                   className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-amber-500 cursor-pointer shrink-0" />
                 <span className="text-xs text-[#94a3b8] leading-relaxed">
-                  <Cookie className="w-3 h-3 inline text-amber-500 mr-1" />
+                  <Cookie className="w-3 h-3 inline text-amber-500 ml-1" />
                   {authT.cookieConsent}{' '}
                   <Link href="/cookies" target="_blank" className="text-amber-500 hover:text-amber-400 underline">{authT.cookieLink}</Link>
                 </span>

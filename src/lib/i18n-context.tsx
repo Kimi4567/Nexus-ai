@@ -52,7 +52,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         return fallback;
       }
     }
-    return typeof value === 'string' ? value : key;
+    return value;
   }, [locale]);
 
   const isRTL = locale === 'ar';
