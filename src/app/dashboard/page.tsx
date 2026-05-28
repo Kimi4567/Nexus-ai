@@ -60,46 +60,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; glow: string
 }
 
 // Animated star field background
-function StarField() {
-  const [stars, setStars] = useState<{ x: number; y: number; size: number; delay: number; duration: number }[]>([])
-
-  useEffect(() => {
-    const newStars = Array.from({ length: 20 }, () => ({
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 2 + 0.5,
-      delay: Math.random() * 5,
-      duration: Math.random() * 3 + 2,
-    }))
-    setStars(newStars)
-  }, [])
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {stars.map((star, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            left: `${star.x}%`,
-            top: `${star.y}%`,
-            width: `${star.size}px`,
-            height: `${star.size}px`,
-            background: 'rgba(255,255,255,0.6)',
-            boxShadow: `0 0 ${star.size * 3}px rgba(255,255,255,0.3)`,
-            animation: `twinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
-          }}
-        />
-      ))}
-      <style jsx>{`
-        @keyframes twinkle {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-    </div>
-  )
-}
+import StarField from '@/components/ui/StarField'
 
 // Floating nebula orbs
 function NebulaOrbs() {
@@ -143,15 +104,6 @@ export default function DashboardPage() {
   const [recentCampaigns, setRecentCampaigns] = useState<RecentCampaign[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 })
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight })
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -197,14 +149,14 @@ export default function DashboardPage() {
       <StarField />
       <NebulaOrbs />
 
-      {/* Parallax glow that follows mouse */}
+      {/* Static ambient glow — no mouse tracking for performance */}
       <div
-        className="fixed w-[800px] h-[800px] rounded-full pointer-events-none opacity-10 blur-[150px] transition-all duration-[2s] ease-out"
+        className="fixed w-[800px] h-[800px] rounded-full pointer-events-none opacity-8 blur-[150px]"
         style={{
-          background: 'radial-gradient(circle, rgba(245,158,11,0.2), transparent 70%)',
-          left: `${mousePos.x * 100}%`,
-          top: `${mousePos.y * 100}%`,
-          transform: 'translate(-50%, -50%)',
+          background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)',
+          top: '20%',
+          right: '-10%',
+          animation: 'float 10s ease-in-out infinite',
         }}
       />
 

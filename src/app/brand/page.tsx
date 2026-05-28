@@ -39,11 +39,16 @@ const emptyProfile: BrandProfile = {
   winningHooks: [], winningAngles: [], strategicNotes: '', competitorNotes: '',
 }
 
-const TONE_OPTIONS = ['Bold', 'Conversational', 'Premium', 'Minimal', 'Energetic', 'Authoritative', 'Friendly', 'Witty', 'Urgent', 'Inspirational']
-const STYLE_OPTIONS = ['Short & punchy', 'Long-form storytelling', 'Bullet-led', 'Question-led', 'Data-driven', 'Narrative', 'Direct response']
-const VISUAL_OPTIONS = ['Minimalist', 'Bold & graphic', 'Lifestyle photography', 'Corporate clean', 'Dark premium', 'Bright & playful', 'Editorial']
-const PRICE_OPTIONS = ['Budget', 'Mid-range', 'Premium', 'Luxury']
-const AGE_OPTIONS = ['13–17', '18–24', '25–34', '35–44', '45–54', '55–64', '65+']
+// Bilingual options — displayed in Arabic, stored in English for AI context
+const TONE_OPTIONS    = ['جريء', 'محادثاتي', 'راقي', 'بسيط', 'حيوي', 'موثوق', 'ودود', 'ذكي', 'عاجل', 'ملهم']
+const STYLE_OPTIONS   = ['قصير ومكثف', 'سرد طويل', 'نقاط مرتبة', 'تساؤلات', 'مدعوم بالأرقام', 'قصصي', 'استجابة مباشرة']
+const VISUAL_OPTIONS  = ['مينيمال', 'جرافيك جريء', 'تصوير حياتي', 'نظيف احترافي', 'داكن راقي', 'مشرق وممتع', 'افتتاحي']
+const PRICE_OPTIONS   = ['اقتصادي', 'متوسط', 'راقي', 'فاخر']
+const AGE_OPTIONS     = ['13–17', '18–24', '25–34', '35–44', '45–54', '55–64', '65+']
+
+const SECTIONS = ['الهوية', 'الصوت والأسلوب', 'الجمهور', 'العرض', 'الهوية البصرية', 'ذاكرة الحملات']
+
+// ── Sub-components ──────────────────────────────────────────────────────────
 
 function SectionHeader({ title, description }: { title: string; description: string }) {
   return (
@@ -67,33 +72,24 @@ function TagInput({
 
   const add = (val: string) => {
     const trimmed = val.trim()
-    if (trimmed && !values.includes(trimmed)) {
-      onChange([...values, trimmed])
-    }
+    if (trimmed && !values.includes(trimmed)) onChange([...values, trimmed])
     setInput('')
   }
-
   const remove = (val: string) => onChange(values.filter(v => v !== val))
 
   return (
     <div>
       <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
-      {/* Suggestion pills */}
       {suggestions && suggestions.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {suggestions.filter(s => !values.includes(s)).map(s => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => add(s)}
-              className="text-[11px] px-2.5 py-1 bg-s3 border border-s4 text-t3 rounded-full hover:text-white hover:border-s5 transition"
-            >
+            <button key={s} type="button" onClick={() => add(s)}
+              className="text-[11px] px-2.5 py-1 bg-s3 border border-s4 text-t3 rounded-full hover:text-white hover:border-s5 transition">
               + {s}
             </button>
           ))}
         </div>
       )}
-      {/* Selected tags */}
       <div className="flex flex-wrap gap-1.5 mb-2">
         {values.map(v => (
           <span key={v} className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 bg-accent/15 border border-accent/30 text-accent rounded-full">
@@ -102,13 +98,12 @@ function TagInput({
           </span>
         ))}
       </div>
-      {/* Input */}
       <input
         type="text"
         value={input}
         onChange={e => setInput(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) } }}
-        placeholder={placeholder || 'Type and press Enter'}
+        placeholder={placeholder || 'اكتب واضغط Enter'}
         className="w-full px-3 py-2 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition"
       />
     </div>
@@ -157,16 +152,12 @@ function PillSelect({ label, options, value, onChange }: {
       <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
       <div className="flex flex-wrap gap-2">
         {options.map(opt => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(value === opt ? '' : opt)}
+          <button key={opt} type="button" onClick={() => onChange(value === opt ? '' : opt)}
             className={`text-[11px] px-3 py-1.5 rounded-full border transition font-medium ${
               value === opt
                 ? 'bg-accent border-accent text-white'
                 : 'bg-s1 border-s4 text-t3 hover:text-white hover:border-s5'
-            }`}
-          >
+            }`}>
             {opt}
           </button>
         ))}
@@ -175,15 +166,15 @@ function PillSelect({ label, options, value, onChange }: {
   )
 }
 
-const SECTIONS = ['Identity', 'Voice & Tone', 'Audience', 'Offer', 'Visual', 'Memory']
+// ── Main Component ───────────────────────────────────────────────────────────
 
 export default function BrandIntelligencePage() {
   const router = useRouter()
   const { isAuthenticated, loading, authHeader } = useAuth()
-  const [profile, setProfile] = useState<BrandProfile>(emptyProfile)
-  const [fetching, setFetching] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [profile, setProfile]           = useState<BrandProfile>(emptyProfile)
+  const [fetching, setFetching]         = useState(true)
+  const [saving, setSaving]             = useState(false)
+  const [saved, setSaved]               = useState(false)
   const [activeSection, setActiveSection] = useState(0)
 
   useEffect(() => {
@@ -195,12 +186,10 @@ export default function BrandIntelligencePage() {
     if (!token) return
     setFetching(true)
     try {
-      const res = await fetch('/api/brand', { headers: { Authorization: token } })
+      const res  = await fetch('/api/brand', { headers: { Authorization: token } })
       const data = await res.json()
-      if (data.brandProfile) {
-        setProfile({ ...emptyProfile, ...data.brandProfile })
-      }
-    } catch { /* ignore */ }
+      if (data.brandProfile) setProfile({ ...emptyProfile, ...data.brandProfile })
+    } catch { /* silent */ }
     setFetching(false)
   }, [authHeader])
 
@@ -225,7 +214,7 @@ export default function BrandIntelligencePage() {
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch { /* ignore */ }
+    } catch { /* silent */ }
     setSaving(false)
   }
 
@@ -246,23 +235,21 @@ export default function BrandIntelligencePage() {
   ]
   const completionPct = Math.round((completionFields.filter(Boolean).length / completionFields.length) * 100)
 
-  const isQuickSetupDone = !!(profile.brandName && profile.primaryOffer && profile.targetAudience && profile.toneKeywords.length)
-
   return (
     <AppShell>
-      <div className="px-8 py-8 max-w-[900px] page-enter">
+      <div className="px-8 py-8 max-w-[900px] page-enter" dir="rtl">
 
-        {/* Header */}
+        {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-white mb-1">Brand Intelligence</h1>
+            <h1 className="text-xl font-bold text-white mb-1">ذاكرة العلامة التجارية</h1>
             <p className="text-sm text-t3">
-              Your brand memory — the AI reads this before every campaign to stay on-voice.
+              الـ AI يقرأ هذا قبل كل حملة ليتكلم بصوتك تماماً.
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <div className="text-[11px] text-t3 mb-1">Profile completion</div>
+            <div className="text-left">
+              <div className="text-[11px] text-t3 mb-1">اكتمال الملف — {completionPct}%</div>
               <div className="w-32 h-1.5 bg-s3 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-accent rounded-full transition-all duration-500"
@@ -279,21 +266,19 @@ export default function BrandIntelligencePage() {
                   : 'bg-accent hover:bg-accent-light text-white'
               }`}
             >
-              {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save changes'}
+              {saving ? 'جاري الحفظ...' : saved ? '✓ تم الحفظ' : 'حفظ التغييرات'}
             </button>
           </div>
         </div>
 
-        {/* Section tabs */}
+        {/* ── Section tabs ───────────────────────────────────────────── */}
         <div className="flex gap-1 mb-8 overflow-x-auto pb-1">
           {SECTIONS.map((s, i) => (
             <button
               key={s}
               onClick={() => setActiveSection(i)}
               className={`px-3.5 py-2 rounded-lg text-[12px] font-medium whitespace-nowrap transition ${
-                activeSection === i
-                  ? 'bg-s3 text-t1'
-                  : 'text-t3 hover:text-t2'
+                activeSection === i ? 'bg-s3 text-t1' : 'text-t3 hover:text-t2'
               }`}
             >
               {s}
@@ -301,52 +286,62 @@ export default function BrandIntelligencePage() {
           ))}
         </div>
 
-        {/* Section content */}
+        {/* ── Section content ────────────────────────────────────────── */}
         <div className="space-y-6">
 
-          {/* Identity */}
+          {/* 0 — Identity */}
           {activeSection === 0 && (
             <div className="surface-card rounded-card p-6 space-y-5">
               <SectionHeader
-                title="Brand Identity"
-                description="The foundation of your brand — who you are and what you do."
+                title="هوية العلامة"
+                description="الأساس — من أنت وماذا تفعل."
               />
               <div className="grid grid-cols-2 gap-5">
-                <TextField label="Brand name" value={profile.brandName || ''} onChange={v => update('brandName', v)} placeholder="e.g., Acme Co." />
-                <TextField label="Industry" value={profile.industry || ''} onChange={v => update('industry', v)} placeholder="e.g., E-commerce, SaaS, Beauty" />
+                <TextField
+                  label="اسم العلامة / الشركة"
+                  value={profile.brandName || ''}
+                  onChange={v => update('brandName', v)}
+                  placeholder="مثال: متجر النور، Acme Co."
+                />
+                <TextField
+                  label="القطاع"
+                  value={profile.industry || ''}
+                  onChange={v => update('industry', v)}
+                  placeholder="مثال: تجارة إلكترونية، SaaS، جمال"
+                />
               </div>
               <TextArea
-                label="Brand description"
+                label="وصف العلامة"
                 value={profile.description || ''}
                 onChange={v => update('description', v)}
-                placeholder="What does your brand do? What problem do you solve? What makes you different?"
+                placeholder="ماذا تقدم؟ ما المشكلة التي تحلها؟ ما الذي يميزك؟"
                 rows={4}
               />
             </div>
           )}
 
-          {/* Voice & Tone */}
+          {/* 1 — Voice & Tone */}
           {activeSection === 1 && (
             <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
-                title="Voice & Tone"
-                description="Define how your brand sounds. The AI will write in this voice for every campaign."
+                title="الصوت والأسلوب"
+                description="كيف تبدو علامتك؟ الـ AI سيكتب بهذا الأسلوب في كل حملة."
               />
               <TagInput
-                label="Tone keywords"
+                label="كلمات مفتاحية للأسلوب"
                 values={profile.toneKeywords}
                 onChange={v => update('toneKeywords', v)}
                 suggestions={TONE_OPTIONS}
-                placeholder="Add tone descriptors and press Enter"
+                placeholder="أضف وصفاً للأسلوب واضغط Enter"
               />
               <TagInput
-                label="Words / styles to avoid"
+                label="كلمات / أساليب يجب تجنبها"
                 values={profile.avoidKeywords}
                 onChange={v => update('avoidKeywords', v)}
-                placeholder="e.g., 'revolutionary', corporate jargon, exclamation marks"
+                placeholder="مثال: 'ثوري'، تعقيدات لغوية، علامات التعجب المبالغة"
               />
               <PillSelect
-                label="Writing style"
+                label="نمط الكتابة"
                 options={STYLE_OPTIONS}
                 value={profile.writingStyle || ''}
                 onChange={v => update('writingStyle', v)}
@@ -354,145 +349,145 @@ export default function BrandIntelligencePage() {
             </div>
           )}
 
-          {/* Audience */}
+          {/* 2 — Audience */}
           {activeSection === 2 && (
             <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
-                title="Target Audience"
-                description="Who are you speaking to? The more specific, the better the AI understands them."
+                title="الجمهور المستهدف"
+                description="من تتكلم إليه؟ كلما كنت أكثر تحديداً، كان الـ AI أفضل."
               />
               <TextArea
-                label="Audience description"
+                label="وصف الجمهور"
                 value={profile.targetAudience || ''}
                 onChange={v => update('targetAudience', v)}
-                placeholder="Describe your ideal customer in detail — their day, values, frustrations, dreams..."
+                placeholder="صف عميلك المثالي بالتفصيل — يومه، قيمه، إحباطاته، أحلامه..."
                 rows={4}
               />
               <div className="grid grid-cols-2 gap-5">
                 <PillSelect
-                  label="Age group"
+                  label="الفئة العمرية"
                   options={AGE_OPTIONS}
                   value={profile.audienceAge || ''}
                   onChange={v => update('audienceAge', v)}
                 />
                 <TextField
-                  label="Location / Market"
+                  label="الموقع / السوق"
                   value={profile.audienceLocation || ''}
                   onChange={v => update('audienceLocation', v)}
-                  placeholder="e.g., US, UK, Australia, Global"
+                  placeholder="مثال: السعودية، الإمارات، مصر، MENA"
                 />
               </div>
               <TagInput
-                label="Pain points"
+                label="نقاط الألم"
                 values={profile.audiencePainPoints}
                 onChange={v => update('audiencePainPoints', v)}
-                placeholder="What frustrates them? Press Enter after each"
+                placeholder="ماذا يزعجهم؟ اضغط Enter بعد كل نقطة"
               />
               <TagInput
-                label="Desires & goals"
+                label="الرغبات والأهداف"
                 values={profile.audienceDesires}
                 onChange={v => update('audienceDesires', v)}
-                placeholder="What do they want? Press Enter after each"
+                placeholder="ماذا يريدون؟ اضغط Enter بعد كل رغبة"
               />
             </div>
           )}
 
-          {/* Offer */}
+          {/* 3 — Offer */}
           {activeSection === 3 && (
             <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
-                title="Offer & Positioning"
-                description="What are you selling and why is it better? This shapes every campaign strategy."
+                title="العرض والتموضع"
+                description="ماذا تبيع ولماذا هو أفضل؟ يشكّل كل استراتيجية حملة."
               />
               <TextArea
-                label="Primary offer"
+                label="العرض الرئيسي"
                 value={profile.primaryOffer || ''}
                 onChange={v => update('primaryOffer', v)}
-                placeholder="Your core product/service and what it delivers..."
+                placeholder="منتجك / خدمتك الأساسية وما تقدمه من قيمة..."
                 rows={3}
               />
               <TagInput
-                label="Secondary offers / upsells"
+                label="عروض ثانوية / إضافية"
                 values={profile.secondaryOffers}
                 onChange={v => update('secondaryOffers', v)}
-                placeholder="Other products, add-ons, or services"
+                placeholder="منتجات أخرى، إضافات، أو خدمات"
               />
               <PillSelect
-                label="Price point"
+                label="نطاق السعر"
                 options={PRICE_OPTIONS}
                 value={profile.pricePoint || ''}
                 onChange={v => update('pricePoint', v)}
               />
               <TagInput
-                label="Unique advantages"
+                label="المزايا الفريدة"
                 values={profile.uniqueAdvantages}
                 onChange={v => update('uniqueAdvantages', v)}
-                placeholder="What makes you better than alternatives? Press Enter after each"
+                placeholder="ما الذي يجعلك أفضل من البدائل؟ اضغط Enter بعد كل ميزة"
               />
             </div>
           )}
 
-          {/* Visual */}
+          {/* 4 — Visual */}
           {activeSection === 4 && (
             <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
-                title="Visual Identity"
-                description="Your aesthetic preferences — guides image and creative direction."
+                title="الهوية البصرية"
+                description="تفضيلاتك الجمالية — توجّه الاتجاه الإبداعي والصور."
               />
               <PillSelect
-                label="Visual style"
+                label="الأسلوب البصري"
                 options={VISUAL_OPTIONS}
                 value={profile.visualStyle || ''}
                 onChange={v => update('visualStyle', v)}
               />
               <TagInput
-                label="Brand colors"
+                label="ألوان العلامة"
                 values={profile.colorPalette}
                 onChange={v => update('colorPalette', v)}
-                placeholder="e.g., Navy blue, Gold, #1a1a2e — press Enter after each"
+                placeholder="مثال: أزرق داكن، ذهبي، #1a1a2e — اضغط Enter بعد كل لون"
               />
             </div>
           )}
 
-          {/* Memory */}
+          {/* 5 — Memory */}
           {activeSection === 5 && (
             <div className="surface-card rounded-card p-6 space-y-6">
               <SectionHeader
-                title="Campaign Memory"
-                description="What has worked and what hasn't. The AI learns from your history."
+                title="ذاكرة الحملات"
+                description="ما الذي نجح وما الذي لم ينجح؟ الـ AI يتعلم من تاريخك."
               />
               <TagInput
-                label="Winning hooks"
+                label="أفضل hooks نجحت"
                 values={profile.winningHooks}
                 onChange={v => update('winningHooks', v)}
-                placeholder="Hooks that drove engagement — press Enter after each"
+                placeholder="افتتاحيات أثارت تفاعلاً — اضغط Enter بعد كل واحد"
               />
               <TagInput
-                label="Winning angles"
+                label="أفضل زوايا تسويقية"
                 values={profile.winningAngles}
                 onChange={v => update('winningAngles', v)}
-                placeholder="Campaign angles that converted — press Enter after each"
+                placeholder="زوايا حملات حوّلت — اضغط Enter بعد كل زاوية"
               />
               <TextArea
-                label="Strategic notes"
+                label="ملاحظات استراتيجية"
                 value={profile.strategicNotes || ''}
                 onChange={v => update('strategicNotes', v)}
-                placeholder="Any strategic context the AI should always know — seasonality, positioning shifts, upcoming launches..."
+                placeholder="أي سياق استراتيجي يجب أن يعرفه الـ AI دائماً — موسمية، إعادة تموضع، إطلاقات قادمة..."
                 rows={4}
               />
               <TextArea
-                label="Competitor notes"
+                label="ملاحظات المنافسين"
                 value={profile.competitorNotes || ''}
                 onChange={v => update('competitorNotes', v)}
-                placeholder="Who are your competitors? How do you differentiate from them?"
+                placeholder="من هم منافسوك؟ كيف تتميز عنهم؟"
                 rows={3}
               />
             </div>
           )}
         </div>
 
-        {/* Bottom save */}
-        <div className="mt-8 flex justify-end">
+        {/* ── Bottom save ────────────────────────────────────────────── */}
+        <div className="mt-8 flex justify-start">
           <button
             onClick={handleSave}
             disabled={saving}
@@ -502,9 +497,10 @@ export default function BrandIntelligencePage() {
                 : 'bg-accent hover:bg-accent-light text-white'
             }`}
           >
-            {saving ? 'Saving...' : saved ? '✓ Brand profile saved' : 'Save changes'}
+            {saving ? 'جاري الحفظ...' : saved ? '✓ تم حفظ ملف العلامة' : 'حفظ التغييرات'}
           </button>
         </div>
+
       </div>
     </AppShell>
   )

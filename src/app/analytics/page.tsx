@@ -18,52 +18,7 @@ import {
    Reading the digital universe's pulse. Every data point is a star.
    ═══════════════════════════════════════════════════════════════ */
 
-// Animated star field background
-function DataStars() {
-  const [stars, setStars] = useState<{ x: number; y: number; size: number; delay: number; duration: number; color: string }[]>([])
-
-  useEffect(() => {
-    const colors = ['rgba(245,158,11,', 'rgba(6,182,212,', 'rgba(139,92,246,', 'rgba(255,255,255,']
-    const newStars = Array.from({ length: 20 }, () => {
-      const colorBase = colors[Math.floor(Math.random() * colors.length)]
-      return {
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: Math.random() * 1.5 + 0.3,
-        delay: Math.random() * 8,
-        duration: Math.random() * 4 + 3,
-        color: colorBase,
-      }
-    })
-    setStars(newStars)
-  }, [])
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {stars.map((star, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            left: `${star.x}%`,
-            top: `${star.y}%`,
-            width: `${star.size}px`,
-            height: `${star.size}px`,
-            background: `${star.color}0.7)`,
-            boxShadow: `0 0 ${star.size * 4}px ${star.color}0.3)`,
-            animation: `dataTwinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
-          }}
-        />
-      ))}
-      <style jsx>{`
-        @keyframes dataTwinkle {
-          0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.3); }
-        }
-      `}</style>
-    </div>
-  )
-}
+import StarField from '@/components/ui/StarField'
 
 // Holographic chart glow
 const CHART_GLOW = {
@@ -118,15 +73,6 @@ export default function AnalyticsPage() {
   const [loadingInsight, setLoadingInsight] = useState(false)
   const [overview, setOverview] = useState<OverviewData | null>(null)
   const [loadingData, setLoadingData] = useState(true)
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 })
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight })
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
 
   const loadOverview = useCallback(async () => {
     setLoadingData(true)
@@ -197,16 +143,16 @@ export default function AnalyticsPage() {
 
   return (
     <div className="relative min-h-screen space-y-8">
-      <DataStars />
+      <StarField density="high" />
 
-      {/* Ambient glow following mouse */}
+      {/* Static ambient glow — no mouse tracking for performance */}
       <div
-        className="fixed w-[700px] h-[700px] rounded-full pointer-events-none opacity-8 blur-[150px] transition-all duration-[2s] ease-out"
+        className="fixed w-[700px] h-[700px] rounded-full pointer-events-none opacity-6 blur-[150px]"
         style={{
-          background: 'radial-gradient(circle, rgba(139,92,246,0.15), transparent 70%)',
-          left: `${mousePos.x * 100}%`,
-          top: `${mousePos.y * 100}%`,
-          transform: 'translate(-50%, -50%)',
+          background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)',
+          top: '30%',
+          left: '-5%',
+          animation: 'float 12s ease-in-out infinite',
         }}
       />
 

@@ -62,7 +62,9 @@ Description: ${brand.description || 'Not specified'}
     const days = timeframe === '30' ? 30 : timeframe === '60' ? 60 : 90
     const weeks = Math.floor(days / 7)
 
-    const prompt = `You are a world-class marketing strategist. Create a detailed ${days}-day marketing strategy.
+    const prompt = `You are a world-class marketing strategist specializing in Arabic-speaking markets (Saudi Arabia, UAE, Egypt, and MENA region). Create a detailed ${days}-day marketing strategy.
+
+IMPORTANT: Write ALL text values in Arabic (العربية). Only keep platform names, tool names, and technical terms in English.
 
 ${brandContext ? `BRAND CONTEXT:\n${brandContext}\n` : ''}
 GOAL: ${goal}
@@ -72,8 +74,8 @@ BUDGET LEVEL: ${budget || 'Bootstrap (organic only)'}
 
 Return a JSON object with this EXACT structure:
 {
-  "title": "Strategic title for this plan",
-  "summary": "2-sentence executive summary",
+  "title": "عنوان استراتيجي للخطة (بالعربية)",
+  "summary": "ملخص تنفيذي من جملتين (بالعربية)",
   "goal": "${goal}",
   "timeframe": "${days} days",
   "themes": [
@@ -131,7 +133,7 @@ Return a JSON object with this EXACT structure:
   }
 }
 
-Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts per week. Make everything specific and actionable. Return only valid JSON.`
+Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts per week. Make everything specific and actionable for the MENA market. Write all text in Arabic. Return only valid JSON.`
 
     const strategy = await callOpenAI(prompt)
 

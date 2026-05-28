@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  compress: true,
+  poweredByHeader: false,
   images: {
     domains: [
       'res.cloudinary.com',
@@ -9,9 +11,15 @@ const nextConfig = {
       'lh3.googleusercontent.com',
       'avatars.githubusercontent.com',
     ],
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
   },
   experimental: {
-    // optimizePackageImports should be used for npm packages, not path aliases
+    optimizePackageImports: [
+      'recharts',
+      'lucide-react',
+      '@radix-ui/react-icons',
+    ],
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -19,7 +27,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Ensure all pages are output
   trailingSlash: false,
 };
 

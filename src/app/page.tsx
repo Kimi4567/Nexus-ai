@@ -19,15 +19,6 @@ const NeuralCanvas = dynamic(() => import('@/components/ui/NeuralCanvas'), {
 
 export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight })
-    }
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [])
 
   const crew = [
     {
@@ -130,15 +121,14 @@ export default function LandingPage() {
         <NeuralCanvas />
       </Suspense>
 
-      {/* Ambient glow orbs that follow mouse */}
+      {/* Ambient glow orbs — static, no mouse tracking (performance) */}
       <div
-        className="fixed w-[600px] h-[600px] rounded-full pointer-events-none opacity-20 blur-[120px]"
+        className="fixed w-[600px] h-[600px] rounded-full pointer-events-none opacity-15 blur-[120px]"
         style={{
-          background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)',
-          left: `${mousePos.x * 100}%`,
-          top: `${mousePos.y * 100}%`,
-          transform: 'translate(-50%, -50%)',
-          transition: 'left 1.5s ease-out, top 1.5s ease-out',
+          background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)',
+          top: '30%',
+          right: '-10%',
+          animation: 'float 12s ease-in-out infinite',
         }}
       />
 

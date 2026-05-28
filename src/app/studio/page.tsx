@@ -22,47 +22,7 @@ interface VideoJob {
   scenes: number
 }
 
-// Animated star field
-function CreativeStars() {
-  const [stars, setStars] = useState<{ x: number; y: number; size: number; delay: number; duration: number }[]>([])
-
-  useEffect(() => {
-    const newStars = Array.from({ length: 20 }, () => ({
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 1.5 + 0.3,
-      delay: Math.random() * 8,
-      duration: Math.random() * 4 + 3,
-    }))
-    setStars(newStars)
-  }, [])
-
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      {stars.map((star, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            left: `${star.x}%`,
-            top: `${star.y}%`,
-            width: `${star.size}px`,
-            height: `${star.size}px`,
-            background: i % 3 === 0 ? 'rgba(245,158,11,0.7)' : i % 3 === 1 ? 'rgba(6,182,212,0.6)' : 'rgba(255,255,255,0.5)',
-            boxShadow: `0 0 ${star.size * 4}px ${i % 3 === 0 ? 'rgba(245,158,11,0.3)' : i % 3 === 1 ? 'rgba(6,182,212,0.25)' : 'rgba(255,255,255,0.2)'}`,
-            animation: `creativeTwinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
-          }}
-        />
-      ))}
-      <style jsx>{`
-        @keyframes creativeTwinkle {
-          0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.3); }
-        }
-      `}</style>
-    </div>
-  )
-}
+import StarField from '@/components/ui/StarField'
 
 // Floating creative orbs
 function CreativeOrbs() {
@@ -162,7 +122,7 @@ export default function StudioPage() {
 
   return (
     <div className="relative min-h-screen space-y-8">
-      <CreativeStars />
+      <StarField density="medium" />
       <CreativeOrbs />
 
       <div className="relative z-10">
