@@ -344,7 +344,7 @@ const LandingPage = memo(function LandingPage() {
                   }}
                 >
                   <button
-                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                    onClick={() => toggleFaq(i)}
                     className="w-full flex items-center justify-between p-5"
                     style={{ textAlign: isRTL ? 'right' : 'left' }}
                   >

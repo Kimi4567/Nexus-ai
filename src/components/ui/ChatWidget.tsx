@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 import {
   MessageCircle,
   X,
@@ -121,7 +121,7 @@ function getQuickReplies(path: string): string[] {
 /*  Component — Performance Optimized (no framer-motion)               */
 /* ------------------------------------------------------------------ */
 
-export default function ChatWidget() {
+export default memo(function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -394,4 +394,4 @@ export default function ChatWidget() {
       `}</style>
     </>
   );
-}
+});
