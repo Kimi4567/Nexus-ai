@@ -19,6 +19,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Ensure all pages are output
+  trailingSlash: false,
 };
 
 export default nextConfig;
