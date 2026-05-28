@@ -21,6 +21,14 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    
+    // Check if Supabase is configured
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    if (supabaseUrl.includes('placeholder') || !supabaseUrl) {
+      setError('⚠️ خدمة تسجيل الدخول غير متاحة حالياً. فريقنا بيشتغل على تفعيلها.')
+      return
+    }
+    
     if (!email || !password) { setError(loginT?.errors?.allFields || 'All fields required'); return }
     setLoading(true)
     try {
