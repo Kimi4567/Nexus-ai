@@ -75,7 +75,7 @@ export default function NeuralCanvas() {
             const alpha = (1 - dist / CONNECTION_DIST) * 0.15;
             ctx!.beginPath();
             ctx!.moveTo(n.x, n.y);
-            ctx!.lineTo(nodes[j].x, ns[j].y);
+            ctx!.lineTo(nodes[j].x, nodes[j].y);
             ctx!.strokeStyle = `rgba(148,163,184,${alpha})`;
             ctx!.lineWidth = 0.5;
             ctx!.stroke();
