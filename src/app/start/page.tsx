@@ -34,7 +34,7 @@ const GOAL_OPTIONS = [
   { label: 'Increase engagement', value: 'engagement', icon: '❤️' },
 ]
 
-type Step = 'brief' | 'running' | 'done'
+type Step = 'brief' | 'running' | 'done' | 'upgrade'
 
 interface AgentStatusItem {
   id: string
@@ -54,6 +54,8 @@ export default function StartPage() {
   const [primaryGoal, setPrimaryGoal] = useState('leads')
   const [error, setError] = useState('')
 
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null)
+
   const [agentStatuses, setAgentStatuses] = useState<AgentStatusItem[]>([
     { id: 'strategist', label: '🧠 SAGE — Lead Marketing Strategist', status: 'waiting', detail: 'Analyzing your business and building strategy...' },
     { id: 'content',   label: '🎨 MUSE — Creative Director',          status: 'waiting', detail: 'Writing hooks, captions, and content calendar...' },
@@ -61,13 +63,22 @@ export default function StartPage() {
     { id: 'reporting', label: '📊 PRISM — Performance Analyst',        status: 'waiting', detail: 'Configuring weekly performance reports...' },
   ])
 
-  // Check auth on mount
+  // Check auth on mount + fetch credit balance
   useEffect(() => {
     supabase.auth.getUser().then(({ data }: { data: { user: unknown } }) => {
       if (!data.user) {
-        // Save brief intent and redirect to login
         router.push('/login?redirect=/start')
+        return
       }
+      // Fetch credit balance
+      supabase.auth.getSession().then(({ data: sessionData }) => {
+        const token = sessionData.session?.access_token
+        if (!token) return
+        fetch('/api/user/credits', { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json())
+          .then(d => { if (typeof d.creditsRemaining === 'number') setCreditsRemaining(d.creditsRemaining) })
+          .catch(() => {})
+      })
     })
 
     // Check for pre-filled data from demo flow
@@ -121,6 +132,13 @@ export default function StartPage() {
       setTimeout(() => updateAgentStatus('manager', 'done'), 10000)
       setTimeout(() => updateAgentStatus('reporting', 'done'), 12000)
 
+      if (res.status === 402) {
+        const data = await res.json()
+        setError(data.message || 'Credits exhausted.')
+        setStep('upgrade')
+        return
+      }
+
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error || 'Agent run failed')
@@ -137,6 +155,66 @@ export default function StartPage() {
       setError(err?.message || 'Something went wrong. Please try again.')
       setStep('brief')
     }
+  }
+
+  if (step === 'upgrade') {
+    return (
+      <div className="min-h-screen bg-[#080807] flex items-center justify-center p-6">
+        <div className="w-full max-w-md text-center">
+          <div className="inline-flex w-16 h-16 rounded-2xl bg-[#FF9500]/10 border border-[#FF9500]/20 items-center justify-center text-3xl mb-6">
+            ⚡
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">Free campaigns used up</h1>
+          <p className="text-white/50 text-sm leading-relaxed mb-8">
+            {error || `You've used your 3 free campaigns. Upgrade to keep your AI team running.`}
+          </p>
+
+          {/* Plans */}
+          <div className="space-y-3 mb-8">
+            {[
+              { name: 'Starter', price: '$29', credits: '50 campaigns/mo', desc: 'Solo creators & small brands' },
+              { name: 'Pro', price: '$79', credits: '200 campaigns/mo', desc: 'Growing brands', popular: true },
+              { name: 'Agency', price: '$199', credits: 'Unlimited', desc: 'Agencies & teams' },
+            ].map(plan => (
+              <a
+                key={plan.name}
+                href="/billing"
+                className={`flex items-center justify-between px-5 py-4 rounded-xl border transition-all ${
+                  plan.popular
+                    ? 'border-[#FF9500]/60 bg-[#FF9500]/8 hover:bg-[#FF9500]/12'
+                    : 'border-white/10 bg-white/3 hover:border-white/20'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">{plan.name}</span>
+                    {plan.popular && <span className="text-[10px] font-bold text-[#FF9500] bg-[#FF9500]/15 px-2 py-0.5 rounded-full">Most Popular</span>}
+                  </div>
+                  <div className="text-xs text-white/40 mt-0.5">{plan.desc}</div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-bold text-sm ${plan.popular ? 'text-[#FF9500]' : 'text-white'}`}>{plan.price}<span className="font-normal text-white/40">/mo</span></div>
+                  <div className="text-xs text-white/40">{plan.credits}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <a
+            href="/billing"
+            className="block w-full py-4 bg-[#FF9500] hover:bg-[#FFB340] text-black font-bold rounded-xl text-base transition-colors mb-4"
+          >
+            Choose a plan →
+          </a>
+          <button
+            onClick={() => setStep('brief')}
+            className="text-white/30 text-sm hover:text-white/50 transition"
+          >
+            ← Back to brief
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (step === 'running' || step === 'done') {
@@ -230,6 +308,21 @@ export default function StartPage() {
             Answer 4 questions. Your AI team builds the strategy,
             content, and monitoring — you just approve.
           </p>
+          {creditsRemaining !== null && creditsRemaining !== -1 && (
+            <div className={`inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-xs font-semibold ${
+              creditsRemaining <= 1
+                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                : 'bg-white/5 border border-white/10 text-white/50'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${creditsRemaining <= 1 ? 'bg-red-400' : 'bg-[#FF9500]'}`} />
+              {creditsRemaining === 0
+                ? 'No credits remaining — upgrade to continue'
+                : `${creditsRemaining} campaign${creditsRemaining === 1 ? '' : 's'} remaining`}
+              {creditsRemaining <= 1 && (
+                <a href="/billing" className="text-[#FF9500] font-bold ml-1 hover:underline">Upgrade →</a>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">
