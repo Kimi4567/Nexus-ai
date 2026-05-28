@@ -9,6 +9,8 @@ import {
   Zap, TrendingUp, Globe, Sparkles, Activity, BarChart3, Rocket, Star
 } from 'lucide-react'
 
+import { useDemoData } from '@/hooks/useDemoData'
+
 /* ═══════════════════════════════════════════════════════════════
    DASHBOARD — Cosmic Command Center
    Floating in infinite space. Data as starlight.
@@ -99,6 +101,7 @@ function NebulaOrbs() {
 
 export default function DashboardPage() {
   const { authHeader, user } = useAuth()
+  const { isDemo, campaigns: demoCampaigns, activities: demoActivities, stats: demoStats, dismissDemo } = useDemoData()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
   const [recentCampaigns, setRecentCampaigns] = useState<RecentCampaign[]>([])
@@ -106,6 +109,10 @@ export default function DashboardPage() {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
+    if (isDemo) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -122,7 +129,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [authHeader])
+  }, [authHeader, isDemo])
 
   useEffect(() => { load() }, [load])
 
@@ -197,37 +204,71 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Demo Mode Banner */}
+        {isDemo && (
+          <div
+            className="p-4 mb-6 corner-accent flex items-center justify-between flex-wrap gap-3"
+            style={{
+              background: 'rgba(245,158,11,0.05)',
+              border: '1px solid rgba(245,158,11,0.2)',
+              borderRadius: '16px',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber/10 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-amber" />
+              </div>
+              <div>
+                <p className="font-bold text-sm">🚀 وضع العرض التوضيحي</p>
+                <p className="text-xs text-text-muted">هذه بيانات تجريبية لمساعدتك على استكشاف المنصة. ابدأ حملتك الحقيقية الآن!</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/campaigns/new" className="btn-primary text-xs py-2 px-4 btn-3d">
+                <Rocket className="w-3 h-3" />
+                ابدأ حقيقياً
+              </Link>
+              <button
+                onClick={dismissDemo}
+                className="text-xs text-text-muted hover:text-text-primary transition-colors px-3"
+              >
+                تجاهل
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stats — Floating holographic cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="الحملات النشطة"
-            value={String(stats?.campaigns.total ?? 0)}
-            change={changeLabel(stats?.campaigns.change ?? 0)}
-            changeType={(stats?.campaigns.change ?? 0) >= 0 ? 'positive' : 'negative'}
+            value={isDemo ? String(demoStats.activeCampaigns) : String(stats?.campaigns.total ?? 0)}
+            change={isDemo ? '+100% هذا الشهر' : changeLabel(stats?.campaigns.change ?? 0)}
+            changeType="positive"
             icon={<Globe className="w-5 h-5" />}
             glow="amber"
           />
           <StatCard
-            title="هذا الشهر"
-            value={String(stats?.campaigns.thisMonth ?? 0)}
-            change="حملة جديدة"
+            title="إجمالي المشاهدات"
+            value={isDemo ? (demoStats.totalImpressions / 1000).toFixed(1) + 'K' : String(stats?.campaigns.thisMonth ?? 0)}
+            change={isDemo ? '73,600 مشاهدة' : 'حملة جديدة'}
             changeType="positive"
-            icon={<Zap className="w-5 h-5" />}
+            icon={<Eye className="w-5 h-5" />}
             glow="cyan"
           />
           <StatCard
-            title="المحتوى المولّد"
-            value={String(stats?.generations.total ?? 0)}
-            change={`${stats?.generations.thisMonth ?? 0} هذا الشهر`}
+            title="التحويلات"
+            value={isDemo ? String(demoStats.totalConversions) : String(stats?.generations.total ?? 0)}
+            change={isDemo ? '191 عميل جديد' : `${stats?.generations.thisMonth ?? 0} هذا الشهر`}
             changeType="positive"
-            icon={<Sparkles className="w-5 h-5" />}
+            icon={<MousePointer className="w-5 h-5" />}
             glow="purple"
           />
           <StatCard
-            title="الطاقة المتبقية"
-            value={stats?.credits.plan === 'ACTIVE' ? '∞' : String(stats?.credits.remaining ?? 0)}
-            change={stats?.credits.plan === 'ACTIVE' ? 'طاقة غير محدودة' : 'وحدات طاقة'}
-            changeType={stats?.credits.plan === 'ACTIVE' ? 'positive' : 'neutral'}
+            title="متوسط CTR"
+            value={isDemo ? demoStats.avgCtr + '%' : stats?.credits.plan === 'ACTIVE' ? '∞' : String(stats?.credits.remaining ?? 0)}
+            change={isDemo ? 'أعلى من المتوسط 3.3%' : stats?.credits.plan === 'ACTIVE' ? 'طاقة غير محدودة' : 'وحدات طاقة'}
+            changeType="positive"
             icon={<TrendingUp className="w-5 h-5" />}
             glow="emerald"
           />
@@ -253,7 +294,7 @@ export default function DashboardPage() {
                 عرض الكل →
               </Link>
             </div>
-            {recentCampaigns.length === 0 ? (
+            {recentCampaigns.length === 0 && !isDemo ? (
               <div className="text-center py-12">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
                   <Megaphone className="w-8 h-8 text-text-muted/30" />
@@ -266,7 +307,14 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {recentCampaigns.map((c) => {
+                {(isDemo ? demoCampaigns.map(c => ({
+                  id: c.id,
+                  name: c.name,
+                  status: c.status.toUpperCase(),
+                  thumbnail: c.platform === 'Meta' ? 'M' : c.platform === 'TikTok' ? 'T' : 'G',
+                  platforms: [c.platform],
+                  createdAt: c.createdAt,
+                })) : recentCampaigns).map((c) => {
                   const statusInfo = STATUS_LABELS[c.status] || STATUS_LABELS.DRAFT
                   return (
                     <Link
@@ -309,7 +357,7 @@ export default function DashboardPage() {
               <Activity className="w-5 h-5 text-cyan" />
               <h3 className="text-lg font-bold">آخر النشاطات</h3>
             </div>
-            {activities.length === 0 ? (
+            {activities.length === 0 && !isDemo ? (
               <div className="text-center py-12">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
                   <BarChart3 className="w-8 h-8 text-text-muted/30" />
@@ -319,7 +367,13 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {activities.map((item) => (
+                {(isDemo ? demoActivities.map(a => ({
+                  id: a.id,
+                  action: a.action + ' ' + a.target,
+                  agent: a.agent,
+                  campaign: '',
+                  time: a.time,
+                })) : activities).map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between p-4 rounded-xl bg-white/3 hover:bg-white/5 transition-all border border-transparent hover:border-white/5"

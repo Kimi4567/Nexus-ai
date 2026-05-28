@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/DynamicChart'
 import {
   Loader2, RefreshCw, Brain, Activity, TrendingUp, Globe,
-  Target, Eye, MousePointer, DollarSign, ArrowUpRight,
+  Target, Eye, MousePointer, DollarSign, ArrowUpRight, ArrowDownRight,
   Sparkles, Clock, Layers
 } from 'lucide-react'
 

@@ -5,7 +5,7 @@ export type Locale = 'ar' | 'en';
 interface I18nContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (key: string) => string | Record<string, string>;
+  t: (key: string) => any;
   isRTL: boolean;
   dir: 'rtl' | 'ltr';
 }
@@ -52,7 +52,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         return fallback;
       }
     }
-    return value ?? key;
+    return typeof value === 'string' ? value : key;
   }, [locale]);
 
   const isRTL = locale === 'ar';

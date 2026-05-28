@@ -75,16 +75,6 @@ export default function LandingPage() {
         <NeuralCanvas />
       </Suspense>
 
-      <div
-        className="fixed w-[600px] h-[600px] rounded-full pointer-events-none opacity-15 blur-[120px]"
-        style={{
-          background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)',
-          top: '30%',
-          right: '-10%',
-          animation: 'float 12s ease-in-out infinite',
-        }}
-      />
-
       <Navbar />
 
       {/* ═══════════════════ HERO ═══════════════════ */}
@@ -138,7 +128,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════ AGENTS ═══════════════════ */}
-      <section id="crew" className="relative z-10 py-24 section-padding">
+      <section id="crew" className="relative z-10 py-24 section-padding cv-auto">
         <div className="container-nexus">
           <div className="text-center mb-20">
             <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('agents.sectionLabel')}</p>
@@ -149,7 +139,6 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 perspective-container">
             {crew.map((agent, idx) => {
               const Icon = agent.icon
-              const agentT = t(`agents.${agent.key}`) as Record<string, string>
               return (
                 <div
                   key={agent.key}
@@ -161,13 +150,13 @@ export default function LandingPage() {
                   </div>
 
                   <h3 className="text-xl font-bold mb-1 group-hover:text-amber transition-colors">
-                    {agentT?.name}
+                    {t(`agents.${agent.key}.name`)}
                   </h3>
-                  <p className="text-text-muted text-sm mb-1">{agentT?.fullName}</p>
-                  <p className="text-amber text-sm font-medium mb-4">{agentT?.role}</p>
+                  <p className="text-text-muted text-sm mb-1">{t(`agents.${agent.key}.fullName`)}</p>
+                  <p className="text-amber text-sm font-medium mb-4">{t(`agents.${agent.key}.role`)}</p>
 
                   <p className="text-text-secondary text-sm leading-relaxed mb-5">
-                    {agentT?.desc}
+                    {t(`agents.${agent.key}.desc`)}
                   </p>
 
                   <div className="flex items-center justify-center gap-4 pt-4 border-t border-white/5">
@@ -186,7 +175,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
-      <section id="how" className="relative z-10 py-24 section-padding">
+      <section id="how" className="relative z-10 py-24 section-padding cv-auto">
         <div className="container-nexus">
           <div className="text-center mb-20">
             <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('howItWorks.sectionLabel')}</p>
@@ -196,19 +185,18 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {['step1', 'step2', 'step3'].map((stepKey, idx) => {
-              const step = t(`howItWorks.${stepKey}`) as Record<string, string>
               const icons = [Users, Globe, Zap]
               const colors = ['amber', 'cyan', 'emerald']
               const Icon = icons[idx]
               return (
                 <div key={stepKey} className="relative group">
                   <div className="glass p-8 text-center h-full corner-accent transition-all duration-500 group-hover:scale-[1.02]">
-                    <div className="text-5xl font-black text-white/5 mb-4">{step?.num}</div>
+                    <div className="text-5xl font-black text-white/5 mb-4">{t(`howItWorks.${stepKey}.num`)}</div>
                     <div className={`w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center bg-${colors[idx]}/10 border border-${colors[idx]}/20`}>
                       <Icon className={`w-7 h-7 text-${colors[idx]}-400`} />
                     </div>
-                    <h3 className="text-xl font-bold mb-3">{step?.title}</h3>
-                    <p className="text-text-secondary text-sm leading-relaxed">{step?.desc}</p>
+                    <h3 className="text-xl font-bold mb-3">{t(`howItWorks.${stepKey}.title`)}</h3>
+                    <p className="text-text-secondary text-sm leading-relaxed">{t(`howItWorks.${stepKey}.desc`)}</p>
                   </div>
                   {idx < 2 && (
                     <div className="hidden md:block absolute top-1/2 -left-4 w-8 h-px bg-gradient-to-l from-amber/30 to-transparent" />
@@ -221,7 +209,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════ CLIENTS ═══════════════════ */}
-      <section className="relative z-10 py-24 section-padding">
+      <section className="relative z-10 py-24 section-padding cv-auto">
         <div className="container-nexus">
           <div className="text-center mb-16">
             <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('clients.sectionLabel')}</p>
@@ -230,16 +218,15 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {clients.map((client, idx) => {
-              const clientT = t(`clients.${client.key}`) as Record<string, string>
               return (
                 <div key={idx} className="glass p-6 corner-accent text-center group hover:scale-[1.02] transition-transform">
                   <div className="client-avatar mx-auto mb-4 flex items-center justify-center text-2xl font-bold text-amber">
                     {client.avatar}
                   </div>
-                  <h4 className="font-bold mb-1">{clientT?.name}</h4>
-                  <p className="text-text-muted text-sm mb-4">{clientT?.role}</p>
+                  <h4 className="font-bold mb-1">{t(`clients.${client.key}.name`)}</h4>
+                  <p className="text-text-muted text-sm mb-4">{t(`clients.${client.key}.role`)}</p>
                   <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                    <p className="text-emerald-400 text-sm font-medium">{clientT?.result}</p>
+                    <p className="text-emerald-400 text-sm font-medium">{t(`clients.${client.key}.result`)}</p>
                   </div>
                 </div>
               )
@@ -249,7 +236,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════ PRICING ═══════════════════ */}
-      <section id="pricing" className="relative z-10 py-24 section-padding">
+      <section id="pricing" className="relative z-10 py-24 section-padding cv-auto">
         <div className="container-nexus">
           <div className="text-center mb-20">
             <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('pricing.sectionLabel')}</p>
@@ -259,7 +246,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {pricingKeys.map((planKey) => {
-              const plan = t(`pricing.${planKey}`) as Record<string, any>
+              const plan = t(`pricing.${planKey}`)
               const isPopular = planKey === 'pro'
               return (
                 <div
@@ -326,12 +313,11 @@ export default function LandingPage() {
                 { key: 'gdpr', icon: Lock },
               ].map((item) => {
                 const Icon = item.icon
-                const itemT = t(`security.${item.key}`) as Record<string, string>
                 return (
                   <div key={item.key} className="text-center">
                     <Icon className="w-8 h-8 text-amber mx-auto mb-3" />
-                    <h4 className="font-bold mb-2">{itemT?.title}</h4>
-                    <p className="text-text-muted text-sm">{itemT?.desc}</p>
+                    <h4 className="font-bold mb-2">{t(`security.${item.key}.title`)}</h4>
+                    <p className="text-text-muted text-sm">{t(`security.${item.key}.desc`)}</p>
                   </div>
                 )
               })}
@@ -349,7 +335,6 @@ export default function LandingPage() {
           </div>
           <div className="space-y-4">
             {faqKeys.map((faqKey, i) => {
-              const faq = t(`faq.${faqKey}`) as Record<string, string>
               return (
                 <div
                   key={i}
@@ -366,7 +351,7 @@ export default function LandingPage() {
                     className="w-full flex items-center justify-between p-5"
                     style={{ textAlign: isRTL ? 'right' : 'left' }}
                   >
-                    <span className="font-medium">{faq?.q}</span>
+                    <span className="font-medium">{t(`faq.${faqKey}.q`)}</span>
                     <ChevronDown
                       className={`w-5 h-5 text-text-muted transition-transform shrink-0 ${isRTL ? 'mr-3' : 'ml-3'} ${
                         openFaq === i ? 'rotate-180' : ''
@@ -374,7 +359,7 @@ export default function LandingPage() {
                     />
                   </button>
                   {openFaq === i && (
-                    <p className="px-5 pb-5 text-text-secondary text-sm leading-relaxed">{faq?.a}</p>
+                    <p className="px-5 pb-5 text-text-secondary text-sm leading-relaxed">{t(`faq.${faqKey}.a`)}</p>
                   )}
                 </div>
               )

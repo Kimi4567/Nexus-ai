@@ -3,7 +3,11 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
-   NEXUS AI — Combined Global Styles (Original + V2)
+   NEXUS AI — Performance-Optimized Global Styles
+   • Reduced backdrop-filter usage (GPU killer)
+   • Simplified animations
+   • prefers-reduced-motion support
+   • content-visibility for below-fold
    ═══════════════════════════════════════════════════════════════ */
 
 /* ─── Base reset ────────────────────────────────────────────────────── */
@@ -22,7 +26,26 @@ body {
   min-height: 100vh;
 }
 
-/* ─── Motion keyframes ──────────────────────────────────────────────── */
+/* ─── prefers-reduced-motion ───────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .float-slow, .float-medium, .float-fast { animation: none !important; }
+  .scan-line::after { animation: none !important; }
+  .energy-ring::before { animation: none !important; }
+  .data-stream { animation: none !important; }
+  .perspective-card:hover { transform: none !important; }
+  .platform-orb::before { animation: none !important; }
+  .orbit-item { animation: none !important; }
+}
+
+/* ─── Motion keyframes (simplified) ────────────────────────────────── */
 
 @keyframes fadeIn {
   from { opacity: 0; }
@@ -50,7 +73,7 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1;   }
+  0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
 
@@ -86,7 +109,32 @@ body {
   100% { opacity: 0; transform: translateY(4px); }
 }
 
-/* ─── Surface system (Original + V2 Glassmorphism) ────────────────── */
+@keyframes scanMove {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+@keyframes energyPulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+@keyframes dataFlow {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 0% 200%; }
+}
+
+@keyframes orbPulse {
+  0% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes orbit1 {
+  from { transform: rotate(0deg) translateX(80px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(80px) rotate(-360deg); }
+}
+
+/* ─── Surface system (backdrop-filter reduced) ─────────────────────── */
 
 .surface-card {
   background: #131312;
@@ -132,19 +180,17 @@ body {
   border-radius: 12px;
 }
 
-/* V2 Glassmorphism */
+/* V2 Glass — SOLID backgrounds, NO backdrop-filter on cards
+   backdrop-filter is a GPU killer. Use sparingly. */
 .glass {
   background: rgba(255, 255, 255, 0.03) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  /* backdrop-filter removed from cards — only on navbar */
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
 }
 
 .glass-strong {
   background: rgba(255, 255, 255, 0.05) !important;
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
 }
@@ -321,7 +367,6 @@ body {
   gap: 0.5rem;
   padding: 0.875rem 2rem;
   background: rgba(255,255,255,0.03);
-  backdrop-filter: blur(20px);
   border: 1px solid rgba(255,255,255,0.1);
   color: #f8fafc;
   font-weight: 700;
@@ -365,12 +410,13 @@ body {
   width: 100%;
 }
 
-/* ─── Nav utilities ─────────────────────────────────────────────────── */
+/* ─── Nav utilities (ONLY place with backdrop-filter) ──────────────── */
 
 .nav-blur {
   background: rgba(2, 2, 4, 0.88);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  /* backdrop-filter only on navbar — single element, minimal area */
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
@@ -435,15 +481,11 @@ input:focus, textarea:focus, select:focus {
   border: 1px solid rgba(245,158,11,0.28);
 }
 
-/* ─── Utility ───────────────────────────────────────────────────────── */
-
-.tabular-nums { font-variant-numeric: tabular-nums; }
-
 /* ═══════════════════════════════════════════════════════════════
-   SPACESHIP THEME — 3D, Holographic, Futuristic Effects
+   SPACESHIP THEME — Simplified for Performance
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── 3D Perspective Containers ─────────────────────────────────────── */
+/* ─── 3D Perspective (disabled by default, enable on hover only) ───── */
 
 .perspective-container {
   perspective: 1200px;
@@ -458,7 +500,7 @@ input:focus, textarea:focus, select:focus {
   transform: rotateX(2deg) rotateY(-2deg) translateZ(20px);
 }
 
-/* ─── Holographic Glow ──────────────────────────────────────────────── */
+/* ─── Holographic Glow (static, no animation) ──────────────────────── */
 
 .holo-glow {
   position: relative;
@@ -492,7 +534,6 @@ input:focus, textarea:focus, select:focus {
   position: relative;
   border: 1px solid rgba(6,182,212,0.2);
   background: rgba(2,2,4,0.85);
-  backdrop-filter: blur(30px);
 }
 .hud-border::before {
   content: '';
@@ -544,6 +585,8 @@ input:focus, textarea:focus, select:focus {
   border-radius: 20px;
   overflow: hidden;
   transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  /* GPU hint for hover transform */
+  will-change: transform;
 }
 .agent-card::before {
   content: '';
@@ -644,8 +687,8 @@ input:focus, textarea:focus, select:focus {
 
 .grid-bg {
   background-image: 
-    linear-gradient(rgba(245,158,11,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245,158,11,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(245,158,11,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,158,11,0.02) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
@@ -677,10 +720,6 @@ input:focus, textarea:focus, select:focus {
   background: linear-gradient(90deg, transparent, rgba(6,182,212,0.5), transparent);
   animation: scanMove 3s linear infinite;
 }
-@keyframes scanMove {
-  0% { top: 0; }
-  100% { top: 100%; }
-}
 
 /* ─── Energy Pulse Rings ──────────────────────────────────────────── */
 
@@ -694,10 +733,6 @@ input:focus, textarea:focus, select:focus {
   border-radius: inherit;
   border: 1px solid rgba(245,158,11,0.2);
   animation: energyPulse 2s ease-out infinite;
-}
-@keyframes energyPulse {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(1.15); opacity: 0; }
 }
 
 /* ─── Dashboard Widget Glow ───────────────────────────────────────── */
@@ -764,10 +799,6 @@ input:focus, textarea:focus, select:focus {
   background-size: 100% 200%;
   animation: dataFlow 3s linear infinite;
 }
-@keyframes dataFlow {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 0% 200%; }
-}
 
 /* ─── Corner Accents ──────────────────────────────────────────────── */
 
@@ -817,26 +848,9 @@ input:focus, textarea:focus, select:focus {
   transform-origin: center center;
 }
 .orbit-item:nth-child(1) { animation: orbit1 8s linear infinite; }
-.orbit-item:nth-child(2) { animation: orbit2 8s linear infinite; }
-.orbit-item:nth-child(3) { animation: orbit3 8s linear infinite; }
-.orbit-item:nth-child(4) { animation: orbit4 8s linear infinite; }
-
-@keyframes orbit1 {
-  from { transform: rotate(0deg) translateX(80px) rotate(0deg); }
-  to   { transform: rotate(360deg) translateX(80px) rotate(-360deg); }
-}
-@keyframes orbit2 {
-  from { transform: rotate(90deg) translateX(80px) rotate(-90deg); }
-  to   { transform: rotate(450deg) translateX(80px) rotate(-450deg); }
-}
-@keyframes orbit3 {
-  from { transform: rotate(180deg) translateX(80px) rotate(-180deg); }
-  to   { transform: rotate(540deg) translateX(80px) rotate(-540deg); }
-}
-@keyframes orbit4 {
-  from { transform: rotate(270deg) translateX(80px) rotate(-270deg); }
-  to   { transform: rotate(630deg) translateX(80px) rotate(-630deg); }
-}
+.orbit-item:nth-child(2) { animation: orbit1 8s linear infinite; animation-delay: -2s; }
+.orbit-item:nth-child(3) { animation: orbit1 8s linear infinite; animation-delay: -4s; }
+.orbit-item:nth-child(4) { animation: orbit1 8s linear infinite; animation-delay: -6s; }
 
 /* ─── Terminal / Code Block Style ─────────────────────────────────── */
 
@@ -903,10 +917,33 @@ input:focus, textarea:focus, select:focus {
   opacity: 0.3;
   animation: orbPulse 2s ease-out infinite;
 }
-@keyframes orbPulse {
-  0% { transform: scale(1); opacity: 0.3; }
-  100% { transform: scale(2.5); opacity: 0; }
-}
 .status-orb-online { background: #10b981; }
 .status-orb-busy { background: #f59e0b; }
 .status-orb-offline { background: #ef4444; }
+
+/* ═══════════════════════════════════════════════════════════════
+   PERFORMANCE UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* content-visibility for below-fold sections */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* GPU compositing hints */
+.gpu-layer {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Reduce paint area */
+.contain-paint {
+  contain: paint;
+}
+
+/* Static background for hero (replaces animated gradient orb) */
+.hero-glow-static {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(245,158,11,0.06) 0%, transparent 50%);
+}

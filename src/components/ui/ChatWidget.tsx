@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle,
   X,
@@ -9,7 +8,6 @@ import {
   Bot,
   User,
   Sparkles,
-  ChevronRight,
   Loader2,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -27,25 +25,36 @@ interface ChatMessage {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Knowledge Base (Arabic)                                            */
+/*  Knowledge Base (Arabic + English)                                  */
 /* ------------------------------------------------------------------ */
 
 const KNOWLEDGE: Record<string, string> = {
   نكس: `نكس (NEX) هو منتج الفيديو بالذكاء الاصطناعي. يقدر ينتج لك فيديوهات تسويقية كاملة من وصف نصي بسيط. ادخل على صفحة /studio عشان تجربه.`,
+  nex: `NEX is the AI video producer. Creates full marketing videos from a simple text description. Go to /studio to try it.`,
   vex: `ڤكس (VEX) هو مدير الإعلانات الذكي. ينشئ حملات إعلانية، يكتب نصوص إعلانية (Ad Copy)، ويدير ميزانياتك عبر كل المنصات. ادخل على /vex.`,
-  pulse: `پلس (PULSE) هو محلل البيانات. يعرضك تحليلات متقدمة برسوم بيانية (Recharts) ويعطيك توصيات مبنية على بيانات حقيقية. صفحة /analytics.`,
+  pulse: `پلس (PULSE) هو محلل البيانات. يعرضك تحليلات متقدمة برسوم بيانية ويعطيك توصيات مبنية على بيانات حقيقية. صفحة /analytics.`,
   sentinel: `سنتينل (Sentinel) هو الحارس الرقمي. يراقب أداء منافسيك ويحذرك من أي مشاكل قبل ما تحصل. صفحة /sentinel.`,
   api: `عشان تضيف API Key، ادخل على إعدادات → API Keys. المنصة بتدعم OpenAI و Grok. لو ماعندك مفتاح، الميزات هتشتغل بـ Demo Mode.`,
-  سعر: `عندنا 3 خطط: Starter (مجاني — 5 فيديوهات/شهر)، Pro ($49 — غير محدود)، Enterprise ($199 — دعم 24/7). اضغط على "الأسعار" في الصفحة الرئيسية للتفاصيل.`,
-  خطط: `عندنا 3 خطط: Starter (مجاني — 5 فيديوهات/شهر)، Pro ($49 — غير محدود)، Enterprise ($199 — دعم 24/7). اضغط على "الأسعار" في الصفحة الرئيسية للتفاصيل.`,
+  سعر: `عندنا 3 خطط: Starter (مجاني — 5 فيديوهات/شهر)، Pro ($99 — غير محدود)، Enterprise ($249 — دعم 24/7). اضغط على "الأسعار" في الصفحة الرئيسية للتفاصيل.`,
+  خطط: `عندنا 3 خطط: Starter (مجاني — 5 فيديوهات/شهر)، Pro ($99 — غير محدود)، Enterprise ($249 — دعم 24/7). اضغط على "الأسعار" في الصفحة الرئيسية للتفاصيل.`,
   "كيف ابدأ": `أهلاً! الخطوات: ١) سجل حساب من /auth/register → ٢) اربط API Key من /settings → ٣) اختار الوكيل (NEX للفيديو، VEX للإعلانات) → ٤) ابدأ إنشاء!`,
   فيديو: `عشان تصنع فيديو، ادخل على صفحة الستوديو /studio، اكتب وصف المنتج أو الخدمة، وانقر "توليد السكريبت". النظام هيولّد لك سكريبت كامل جاهز للتصوير.`,
   "إعلان حملة": `عشان تنشئ حملة إعلانية، روح لصفحة /campaigns/new واملي الخطوات الخمس: الهدف، الجمهور، الميزانية، المحتوى، المراجعة. ڤكس هيولّد كل حاجة.`,
   "نسيت كلمة السر": `روح لـ /auth/forgot-password وادخل إيميلك. هيوصلك رابط إعادة تعيين كلمة السر في دقايق.`,
   "ما هو nexus": `نيكسوس AI هي منصة ذكاء اصطناعي متكاملة للتسويق. عندها 4 وكلاء (NEX, VEX, PULSE, Sentinel) بيشتغلوا مع بعض عشان ينتجوا حملات تسويقية كاملة من الفكرة للتنفيذ.`,
   "دعم فني": `لو محتاج مساعدة مباشرة، ابعت إيميل لـ support@nexus-grow.com أو استخدم الـ Live Chat هنا. فريقنا بيرد في أقل من 24 ساعة.`,
-  "تحليلات متقدمة": `صفحة التحليلات /analytics فيها رسوم بيانية تفاعلية (LineChart, BarChart) تعرض معدلات النقر، التحويل، والإيرادات. پلس كمان بيقدم توصيات ذكية بناءً على البيانات.`,
+  "تحليلات متقدمة": `صفحة التحليلات /analytics فيها رسوم بيانية تفاعلية تعرض معدلات النقر، التحويل، والإيرادات. پلس كمان بيقدم توصيات ذكية بناءً على البيانات.`,
   "منافسين مراقبة": `سنتينل بيراقب منافسيك 24/7. يتتبع تغييرات الأسعار، الحملات الجديدة، والمراجعات. لو حصل تغيير مهم، هيوصلك تنبيه فوري على /sentinel.`,
+  price: `We have 3 plans: Starter (Free — 5 videos/month), Pro ($99 — unlimited), Enterprise ($249 — 24/7 support). Click "Pricing" on the home page for details.`,
+  plans: `We have 3 plans: Starter (Free — 5 videos/month), Pro ($99 — unlimited), Enterprise ($249 — 24/7 support). Click "Pricing" on the home page for details.`,
+  "how start": `Welcome! Steps: 1) Sign up at /auth/register → 2) Connect API Key from /settings → 3) Choose your agent (NEX for video, VEX for ads) → 4) Start creating!`,
+  video: `To create a video, go to /studio, write a product description, and click "Generate Script". The system will produce a full script ready for filming.`,
+  campaign: `To create an ad campaign, go to /campaigns/new and fill the 5 steps: Goal, Audience, Budget, Content, Review. VEX will generate everything.`,
+  "forgot password": `Go to /auth/forgot-password and enter your email. You'll receive a password reset link within minutes.`,
+  "what is nexus": `NEXUS AI is an integrated AI marketing platform with 4 agents (NEX, VEX, PULSE, Sentinel) working together to produce complete marketing campaigns from idea to execution.`,
+  support: `If you need direct help, email support@nexus-grow.com or use this Live Chat. Our team responds within 24 hours.`,
+  analytics: `The /analytics page has interactive charts showing click rates, conversions, and revenue. PULSE also provides smart recommendations based on data.`,
+  competitors: `Sentinel monitors your competitors 24/7. It tracks price changes, new campaigns, and reviews. When something important happens, you get an instant alert at /sentinel.`,
 };
 
 /* fuzzy keyword matcher */
@@ -63,36 +72,20 @@ function findAnswer(input: string): string | null {
 
 function getPageGreeting(path: string): string {
   if (path === "/" || path === "")
-    return `أهلاً! أنا مساعد Nexus AI 🤖
-
-سألني عن أي حاجة — إزاي تنشئ فيديو، حملة إعلانية، أو تحليلات. أو اختار سؤال سريع من تحت 👇`;
+    return `أهلاً! أنا مساعد Nexus AI 🤖\n\nسألني عن أي حاجة — إزاي تنشئ فيديو، حملة إعلانية، أو تحليلات. أو اختار سؤال سريع من تحت 👇`;
   if (path.includes("studio"))
-    return `أهلاً في الستوديو! 🎬
-
-عايز مساعدة في إنشاء سكريبت فيديو؟ اكتب لي وصف المنتج وأنا هساعدك.`;
+    return `أهلاً في الستوديو! 🎬\n\nعايز مساعدة في إنشاء سكريبت فيديو؟ اكتب لي وصف المنتج وأنا هساعدك.`;
   if (path.includes("vex") || path.includes("campaign"))
-    return `أهلاً في مدير الإعلانات! 📢
-
-محتاج مساعدة في حملة إعلانية أو كتابة Ad Copy؟ سألني.`;
+    return `أهلاً في مدير الإعلانات! 📢\n\nمحتاج مساعدة في حملة إعلانية أو كتابة Ad Copy؟ سألني.`;
   if (path.includes("analytics"))
-    return `أهلاً في التحليلات! 📊
-
-عايز تفهم أي رسم بياني أو تحتاج توصية؟ أنا تحت أمرك.`;
+    return `أهلاً في التحليلات! 📊\n\nعايز تفهم أي رسم بياني أو تحتاج توصية؟ أنا تحت أمرك.`;
   if (path.includes("sentinel"))
-    return `أهلاً في Sentinel! 🛡️
-
-عايز تعرف إزاي تراقب منافسيك أو تفهم أي تنبيه؟ سألني.`;
+    return `أهلاً في Sentinel! 🛡️\n\nعايز تعرف إزاي تراقب منافسيك أو تفهم أي تنبيه؟ سألني.`;
   if (path.includes("settings"))
-    return `أهلاً في الإعدادات! ⚙️
-
-محتاج مساعدة في API Keys أو تفضيلات الحساب؟`;
+    return `أهلاً في الإعدادات! ⚙️\n\nمحتاج مساعدة في API Keys أو تفضيلات الحساب؟`;
   if (path.includes("login") || path.includes("register"))
-    return `أهلاً! 🔐
-
-محتاج مساعدة في تسجيل الدخول أو إنشاء حساب؟`;
-  return `أهلاً! أنا مساعد Nexus AI 🤖
-
-سألني عن أي حاجة — إزاي تستخدم المنصة، إعدادات، أو أي سؤال تاني.`;
+    return `أهلاً! 🔐\n\nمحتاج مساعدة في تسجيل الدخول أو إنشاء حساب؟`;
+  return `أهلاً! أنا مساعد Nexus AI 🤖\n\nسألني عن أي حاجة — إزاي تستخدم المنصة، إعدادات، أو أي سؤال تاني.`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -125,7 +118,7 @@ function getQuickReplies(path: string): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Component                                                          */
+/*  Component — Performance Optimized (no framer-motion)               */
 /* ------------------------------------------------------------------ */
 
 export default function ChatWidget() {
@@ -206,12 +199,7 @@ export default function ChatWidget() {
     if (direct) {
       reply = direct;
     } else if (/فرق|مقارنة|nex.*vex|وكيل/i.test(content)) {
-      reply = `NEX = منتج الفيديو 🎬
-VEX = مدير الإعلانات 📢
-PULSE = تحليل البيانات 📊
-Sentinel = مراقبة المنافسين 🛡️
-
-كل وكيل متخصص في مجاله وكلهم متكاملين مع بعض في منصة واحدة.`;
+      reply = `NEX = منتج الفيديو 🎬\nVEX = مدير الإعلانات 📢\nPULSE = تحليل البيانات 📊\nSentinel = مراقبة المنافسين 🛡️\n\nكل وكيل متخصص في مجاله وكلهم متكاملين مع بعض في منصة واحدة.`;
       replies = ["إزاي أستخدم NEX؟", "إزاي أستخدم VEX؟", "التحليلات إزاي بتشتغل؟"];
     } else if (/مرحبا|أهلا|سلام|هاي/i.test(content)) {
       reply = `أهلاً وسهلاً! 👋 أنا مساعد Nexus AI. جاهز أساعدك في أي حاجة — فيديوهات، إعلانات، تحليلات، أو إعدادات. سألني!`;
@@ -219,15 +207,7 @@ Sentinel = مراقبة المنافسين 🛡️
     } else if (/شكر|تسلم|thx|thanks/i.test(content)) {
       reply = `العفو! 😊 لو احتجت حاجة تاني، أنا موجود. بالتوفيق!`;
     } else {
-      reply = `لسه مش متأكد من الإجابة المثلى على "${content}". 🤔
-
-جرب تسأل بكلمات مختلفة زي:
-• "إزاي أعمل فيديو؟"
-• "إزاي أنشئ حملة إعلانية؟"
-• "إزاي أضيف API Key؟"
-• "إيه خطط الأسعار؟"
-
-أو تواصل مع الدعم الفني على support@nexus-grow.com`;
+      reply = `لسه مش متأكد من الإجابة المثلى على "${content}". 🤔\n\nجرب تسأل بكلمات مختلفة زي:\n• "إزاي أعمل فيديو؟"\n• "إزاي أنشئ حملة إعلانية؟"\n• "إزاي أضيف API Key؟"\n• "إيه خطط الأسعار؟"\n\nأو تواصل مع الدعم الفني على support@nexus-grow.com`;
       replies = ["إزاي أبدأ؟", "الدعم الفني", "خطط الأسعار"];
     }
 
@@ -235,242 +215,183 @@ Sentinel = مراقبة المنافسين 🛡️
     addBotMessage(reply, replies);
   }
 
-  /* ---------------------------------------------------------------- */
-  /*  Render                                                           */
-  /* ---------------------------------------------------------------- */
-
   return (
     <>
       {/* ── Floating button ─────────────────────────── */}
-      <motion.button
+      <button
         onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl"
+        className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
         style={{
           background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
           boxShadow: "0 8px 32px rgba(245,158,11,0.4)",
+          transition: "transform 0.2s ease, box-shadow 0.2s ease",
         }}
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.95 }}
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = "scale(1.08)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = "scale(1)";
+        }}
+        onMouseDown={(e) => {
+          e.currentTarget.style.transform = "scale(0.95)";
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.transform = "scale(1.08)";
+        }}
       >
-        <AnimatePresence mode="wait">
-          {open ? (
-            <motion.div
-              key="close"
-              initial={{ rotate: -90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: 90, opacity: 0 }}
-            >
-              <X className="w-6 h-6 text-black" strokeWidth={2.5} />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="open"
-              initial={{ rotate: 90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: -90, opacity: 0 }}
-            >
-              <MessageCircle className="w-6 h-6 text-black" strokeWidth={2.5} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.button>
+        {open ? (
+          <X className="w-6 h-6 text-black" strokeWidth={2.5} />
+        ) : (
+          <MessageCircle className="w-6 h-6 text-black" strokeWidth={2.5} />
+        )}
+      </button>
 
-      {/* ── Chat panel ──────────────────────────────── */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="fixed bottom-24 right-6 z-[100] w-[380px] max-w-[calc(100vw-3rem)] flex flex-col overflow-hidden"
-            style={{
-              height: 520,
-              background: "rgba(255,255,255,0.03)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 20,
-              boxShadow: "0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)",
-            }}
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      {/* ── Chat Panel ── Only render when open to save DOM */}
+      {open && (
+        <div
+          className="fixed bottom-24 right-6 z-[100] w-[360px] max-w-[92vw] flex flex-col overflow-hidden chat-panel"
+          style={{
+            height: "520px",
+            maxHeight: "calc(100vh - 120px)",
+            background: "rgba(10,10,12,0.97)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "20px",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+            animation: "chatSlideIn 0.25s cubic-bezier(0.22,1,0.36,1)",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="shrink-0 px-5 py-4 flex items-center gap-3"
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
           >
-            {/* Header */}
-            <div
-              className="px-5 py-4 flex items-center gap-3 shrink-0"
-              style={{
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
-                background: "rgba(255,255,255,0.02)",
-              }}
-            >
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg,#f59e0b,#d97706)" }}
-              >
-                <Sparkles className="w-5 h-5 text-black" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white truncate">مساعد Nexus AI</p>
-                <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  متصل الآن
-                </p>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-              >
-                <X className="w-4 h-4 text-white/60" />
-              </button>
+            <div className="w-9 h-9 rounded-full grid place-items-center" style={{ background: "rgba(245,158,11,0.12)" }}>
+              <Sparkles className="w-5 h-5 text-amber-400" />
             </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-white truncate">مساعد NEXUS AI</p>
+              <p className="text-[11px] text-emerald-400">● متصل الآن</p>
+            </div>
+            <button
+              onClick={() => setOpen(false)}
+              className="w-8 h-8 rounded-lg grid place-items-center hover:bg-white/5 transition"
+            >
+              <X className="w-4 h-4 text-white/50" />
+            </button>
+          </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 scrollbar-thin">
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex gap-2.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                <div className="shrink-0 w-7 h-7 rounded-full grid place-items-center"
+                  style={{ background: msg.role === "assistant" ? "rgba(245,158,11,0.12)" : "rgba(6,182,212,0.12)" }}
                 >
-                  {/* Avatar */}
-                  <div className="shrink-0 mt-0.5">
-                    {msg.role === "assistant" ? (
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.2)" }}
-                      >
-                        <Bot className="w-4 h-4 text-amber" />
-                      </div>
-                    ) : (
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.2)" }}
-                      >
-                        <User className="w-4 h-4 text-cyan" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bubble */}
-                  <div className="max-w-[85%]">
-                    <div
-                      className="px-3.5 py-2.5 text-[13px] leading-relaxed whitespace-pre-wrap rounded-2xl"
-                      style={{
-                        background:
-                          msg.role === "assistant"
-                            ? "rgba(255,255,255,0.05)"
-                            : "rgba(245,158,11,0.1)",
-                        color: msg.role === "assistant" ? "#e2e8f0" : "#f59e0b",
-                        border:
-                          msg.role === "assistant"
-                            ? "1px solid rgba(255,255,255,0.06)"
-                            : "1px solid rgba(245,158,11,0.15)",
-                        borderRadius:
-                          msg.role === "assistant" ? "18px 18px 18px 4px" : "18px 18px 4px 18px",
-                      }}
-                    >
-                      {msg.content}
-                    </div>
-
-                    {/* Quick replies */}
-                    {msg.quickReplies && msg.quickReplies.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {msg.quickReplies.map((qr) => (
-                          <button
-                            key={qr}
-                            onClick={() => handleSend(qr)}
-                            className="px-3 py-1.5 text-[11px] font-medium rounded-full transition-all hover:scale-[1.02] active:scale-95"
-                            style={{
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.08)",
-                              color: "#94a3b8",
-                            }}
-                            onMouseEnter={(e) => {
-                              (e.target as HTMLElement).style.background = "rgba(245,158,11,0.1)";
-                              (e.target as HTMLElement).style.color = "#f59e0b";
-                              (e.target as HTMLElement).style.borderColor = "rgba(245,158,11,0.2)";
-                            }}
-                            onMouseLeave={(e) => {
-                              (e.target as HTMLElement).style.background = "rgba(255,255,255,0.04)";
-                              (e.target as HTMLElement).style.color = "#94a3b8";
-                              (e.target as HTMLElement).style.borderColor = "rgba(255,255,255,0.08)";
-                            }}
-                          >
-                            {qr}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-
-              {/* Typing indicator */}
-              {typing && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex gap-2.5"
-                >
+                  {msg.role === "assistant" ? (
+                    <Bot className="w-4 h-4 text-amber-400" />
+                  ) : (
+                    <User className="w-4 h-4 text-cyan-400" />
+                  )}
+                </div>
+                <div className="max-w-[85%]">
                   <div
-                    className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.2)" }}
-                  >
-                    <Bot className="w-4 h-4 text-amber" />
-                  </div>
-                  <div
-                    className="px-4 py-3 rounded-2xl flex items-center gap-1"
+                    className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed"
                     style={{
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                      borderRadius: "18px 18px 18px 4px",
+                      background: msg.role === "assistant"
+                        ? "rgba(255,255,255,0.04)"
+                        : "rgba(245,158,11,0.08)",
+                      color: msg.role === "assistant" ? "#e2e8f0" : "#f8fafc",
+                      border: msg.role === "assistant"
+                        ? "1px solid rgba(255,255,255,0.06)"
+                        : "1px solid rgba(245,158,11,0.15)",
                     }}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    {msg.content.split("\n").map((line, i) => (
+                      <p key={i} className={i > 0 ? "mt-1" : ""}>
+                        {line}
+                      </p>
+                    ))}
                   </div>
-                </motion.div>
-              )}
 
-              <div ref={bottomRef} />
-            </div>
+                  {msg.quickReplies && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {msg.quickReplies.map((qr) => (
+                        <button
+                          key={qr}
+                          onClick={() => handleSend(qr)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-white/5 transition"
+                          style={{
+                            background: "rgba(255,255,255,0.03)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            color: "#94a3b8",
+                          }}
+                        >
+                          {qr}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
 
-            {/* Input */}
-            <div
-              className="px-4 py-3 flex items-center gap-2 shrink-0"
-              style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+            {typing && (
+              <div className="flex gap-2">
+                <div className="w-7 h-7 rounded-full grid place-items-center" style={{ background: "rgba(245,158,11,0.12)" }}>
+                  <Bot className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="px-3.5 py-2.5 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                </div>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div
+            className="shrink-0 px-4 py-3 flex items-center gap-2"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              placeholder="اكتب سؤالك هنا..."
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/30 outline-none"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+            />
+            <button
+              onClick={() => handleSend()}
+              className="w-9 h-9 rounded-xl grid place-items-center shrink-0 hover:brightness-110 transition"
+              style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)" }}
             >
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder="اكتب سؤالك هنا..."
-                className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 outline-none py-2 px-1"
-                dir="rtl"
-              />
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSend()}
-                disabled={!input.trim() || typing}
-                className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors disabled:opacity-30"
-                style={{
-                  background: input.trim() && !typing ? "#f59e0b" : "rgba(255,255,255,0.05)",
-                }}
-              >
-                {typing ? (
-                  <Loader2 className="w-4 h-4 text-white/50 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4 text-black" />
-                )}
-              </motion.button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <Send className="w-4 h-4 text-black" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        @keyframes chatSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .chat-btn:active {
+          transform: scale(0.95) !important;
+        }
+      `}</style>
     </>
   );
 }

@@ -22,7 +22,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
 
-  const authT = t('auth.register') as Record<string, any>
+  const authT = t('auth.register')
   const errorsT = authT?.errors || {}
 
   const handleSubmit = async (e: React.FormEvent) => {
