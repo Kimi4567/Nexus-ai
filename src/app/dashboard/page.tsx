@@ -1,63 +1,424 @@
 'use client'
 
+import { useEffect, useState, useCallback } from 'react'
+import { useAuth } from '@/lib/auth-context'
 import StatCard from '@/components/ui/StatCard'
-import { Video, Megaphone, BarChart3, TrendingUp, Eye, MousePointer, DollarSign, Users } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Video, Megaphone, Eye, MousePointer, Loader2, Plus, RefreshCw,
+  Zap, TrendingUp, Globe, Sparkles, Activity, BarChart3, Rocket, Star
+} from 'lucide-react'
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD — Cosmic Command Center
+   Floating in infinite space. Data as starlight.
+   ═══════════════════════════════════════════════════════════════ */
+
+interface DashboardStats {
+  campaigns: { total: number; thisMonth: number; change: number }
+  generations: { total: number; thisMonth: number }
+  credits: { remaining: number; plan: string }
+}
+
+interface Activity {
+  id: string
+  action: string
+  agent: string
+  campaign: string
+  time: string
+}
+
+interface RecentCampaign {
+  id: string
+  name: string
+  status: string
+  thumbnail: string
+  platforms: string[]
+  createdAt: string
+}
+
+const AGENT_COLORS: Record<string, string> = {
+  NEX: 'text-amber-400',
+  VEX: 'text-cyan-400',
+  PULSE: 'text-emerald-400',
+  Sentinel: 'text-violet-400',
+}
+
+const AGENT_GLOW: Record<string, string> = {
+  NEX: 'shadow-amber-500/20',
+  VEX: 'shadow-cyan-500/20',
+  PULSE: 'shadow-emerald-500/20',
+  Sentinel: 'shadow-violet-500/20',
+}
+
+const STATUS_LABELS: Record<string, { label: string; color: string; glow: string }> = {
+  DRAFT: { label: 'مسودة', color: 'bg-white/5 text-text-secondary border-white/10', glow: '' },
+  ACTIVE: { label: 'نشطة', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', glow: 'shadow-emerald-500/10' },
+  PAUSED: { label: 'متوقفة', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20', glow: 'shadow-amber-500/10' },
+  COMPLETED: { label: 'مكتملة', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20', glow: 'shadow-cyan-500/10' },
+  ARCHIVED: { label: 'مؤرشفة', color: 'bg-white/3 text-text-muted border-white/5', glow: '' },
+}
+
+// Animated star field background
+function StarField() {
+  const [stars, setStars] = useState<{ x: number; y: number; size: number; delay: number; duration: number }[]>([])
+
+  useEffect(() => {
+    const newStars = Array.from({ length: 80 }, () => ({
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 0.5,
+      delay: Math.random() * 5,
+      duration: Math.random() * 3 + 2,
+    }))
+    setStars(newStars)
+  }, [])
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      {stars.map((star, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            background: 'rgba(255,255,255,0.6)',
+            boxShadow: `0 0 ${star.size * 3}px rgba(255,255,255,0.3)`,
+            animation: `twinkle ${star.duration}s ease-in-out ${star.delay}s infinite`,
+          }}
+        />
+      ))}
+      <style jsx>{`
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// Floating nebula orbs
+function NebulaOrbs() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      <div
+        className="absolute w-[500px] h-[500px] rounded-full opacity-20 blur-[100px]"
+        style={{
+          background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)',
+          top: '10%',
+          right: '5%',
+          animation: 'float 8s ease-in-out infinite',
+        }}
+      />
+      <div
+        className="absolute w-[400px] h-[400px] rounded-full opacity-15 blur-[80px]"
+        style={{
+          background: 'radial-gradient(circle, rgba(6,182,212,0.12), transparent 70%)',
+          bottom: '20%',
+          left: '10%',
+          animation: 'float 10s ease-in-out infinite reverse',
+        }}
+      />
+      <div
+        className="absolute w-[300px] h-[300px] rounded-full opacity-10 blur-[60px]"
+        style={{
+          background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)',
+          top: '50%',
+          left: '50%',
+          animation: 'float 12s ease-in-out infinite',
+        }}
+      />
+    </div>
+  )
+}
 
 export default function DashboardPage() {
+  const { authHeader, user } = useAuth()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [recentCampaigns, setRecentCampaigns] = useState<RecentCampaign[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 })
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight })
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/dashboard/stats', {
+        headers: { Authorization: authHeader() },
+      })
+      if (!res.ok) throw new Error('Failed')
+      const data = await res.json()
+      setStats(data.stats)
+      setActivities(data.activities || [])
+      setRecentCampaigns(data.recentCampaigns || [])
+    } catch {
+      setError('تعذّر تحميل البيانات')
+    } finally {
+      setLoading(false)
+    }
+  }, [authHeader])
+
+  useEffect(() => { load() }, [load])
+
+  const changeLabel = (n: number) =>
+    n > 0 ? `+${n}% هذا الشهر` : n < 0 ? `${n}% هذا الشهر` : 'لا تغيير'
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] relative">
+        <StarField />
+        <div className="relative z-10 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 relative">
+            <div className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-amber animate-spin" />
+            <Sparkles className="w-6 h-6 text-amber absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <p className="text-text-muted text-sm">جاري تحميل البيانات الكونية...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">لوحة التحكم</h1>
-        <p className="text-text-muted text-sm">نظرة عامة على أداء حملاتك</p>
-      </div>
+    <div className="space-y-6 relative min-h-screen">
+      <StarField />
+      <NebulaOrbs />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="الفيديوهات" value="24" change="+12% هذا الشهر" changeType="positive" icon={<Video className="w-5 h-5" />} />
-        <StatCard title="الحملات" value="8" change="+3 جديدة" changeType="positive" icon={<Megaphone className="w-5 h-5" />} />
-        <StatCard title="المشاهدات" value="142K" change="+28% هذا الشهر" changeType="positive" icon={<Eye className="w-5 h-5" />} />
-        <StatCard title="التفاعل" value="4.2%" change="-0.3%" changeType="negative" icon={<MousePointer className="w-5 h-5" />} />
-      </div>
+      {/* Parallax glow that follows mouse */}
+      <div
+        className="fixed w-[800px] h-[800px] rounded-full pointer-events-none opacity-10 blur-[150px] transition-all duration-[2s] ease-out"
+        style={{
+          background: 'radial-gradient(circle, rgba(245,158,11,0.2), transparent 70%)',
+          left: `${mousePos.x * 100}%`,
+          top: `${mousePos.y * 100}%`,
+          transform: 'translate(-50%, -50%)',
+        }}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-          <h3 className="text-lg font-bold mb-4">الإيرادات</h3>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-text-secondary text-sm">الشهر الحالي</span>
-              <span className="font-bold text-emerald-400">$12,450</span>
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Star className="w-4 h-4 text-amber" />
+              <span className="text-xs text-amber/70 font-mono tracking-wider">NEXUS COMMAND CENTER</span>
             </div>
-            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full w-[75%] bg-gradient-to-l from-emerald-500 to-emerald-400 rounded-full" />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-text-secondary text-sm">الشهر الماضي</span>
-              <span className="font-bold text-text-primary">$8,320</span>
-            </div>
-            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-              <div className="h-full w-[50%] bg-white/10 rounded-full" />
-            </div>
+            <h1 className="text-3xl font-bold">
+              مرحباً{user?.user_metadata?.name ? `، ${user.user_metadata.name}` : ''} 👋
+            </h1>
+            <p className="text-text-muted text-sm">نظرة عامة على أداء حملاتك في الفضاء الرقمي</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={load}
+              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 hover:border-amber/30"
+            >
+              <RefreshCw className="w-4 h-4 text-text-muted" />
+            </button>
+            <Link
+              href="/campaigns/new"
+              className="btn-primary text-sm py-2.5 px-5 flex items-center gap-2 btn-3d"
+            >
+              <Rocket className="w-4 h-4" />
+              إطلاق حملة جديدة
+            </Link>
           </div>
         </div>
 
-        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-          <h3 className="text-lg font-bold mb-4">آخر النشاطات</h3>
-          <div className="space-y-3">
-            {[
-              { action: 'تم إنشاء فيديو جديد', agent: 'NEX', time: 'منذ 5 دقائق' },
-              { action: 'تم إطلاق حملة جديدة', agent: 'VEX', time: 'منذ 2 ساعات' },
-              { action: 'تم تحديث التحليلات', agent: 'PULSE', time: 'منذ 4 ساعات' },
-              { action: 'تم اكتشاف فرصة جديدة', agent: 'Sentinel', time: 'منذ 6 ساعات' },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                <div>
-                  <p className="text-sm font-medium">{item.action}</p>
-                  <p className="text-xs text-text-muted">بواسطة {item.agent}</p>
-                </div>
-                <span className="text-xs text-text-muted">{item.time}</span>
+        {error && (
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            {error}
+          </div>
+        )}
+
+        {/* Stats — Floating holographic cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="الحملات النشطة"
+            value={String(stats?.campaigns.total ?? 0)}
+            change={changeLabel(stats?.campaigns.change ?? 0)}
+            changeType={(stats?.campaigns.change ?? 0) >= 0 ? 'positive' : 'negative'}
+            icon={<Globe className="w-5 h-5" />}
+            glow="amber"
+          />
+          <StatCard
+            title="هذا الشهر"
+            value={String(stats?.campaigns.thisMonth ?? 0)}
+            change="حملة جديدة"
+            changeType="positive"
+            icon={<Zap className="w-5 h-5" />}
+            glow="cyan"
+          />
+          <StatCard
+            title="المحتوى المولّد"
+            value={String(stats?.generations.total ?? 0)}
+            change={`${stats?.generations.thisMonth ?? 0} هذا الشهر`}
+            changeType="positive"
+            icon={<Sparkles className="w-5 h-5" />}
+            glow="purple"
+          />
+          <StatCard
+            title="الطاقة المتبقية"
+            value={stats?.credits.plan === 'ACTIVE' ? '∞' : String(stats?.credits.remaining ?? 0)}
+            change={stats?.credits.plan === 'ACTIVE' ? 'طاقة غير محدودة' : 'وحدات طاقة'}
+            changeType={stats?.credits.plan === 'ACTIVE' ? 'positive' : 'neutral'}
+            icon={<TrendingUp className="w-5 h-5" />}
+            glow="emerald"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Campaigns — Holographic List */}
+          <div
+            className="p-6 corner-accent"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              backdropFilter: 'blur(30px)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '20px',
+            }}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Rocket className="w-5 h-5 text-amber" />
+                <h3 className="text-lg font-bold">آخر الحملات</h3>
               </div>
-            ))}
+              <Link href="/campaigns" className="text-xs text-amber hover:text-amber-300 transition-colors">
+                عرض الكل →
+              </Link>
+            </div>
+            {recentCampaigns.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
+                  <Megaphone className="w-8 h-8 text-text-muted/30" />
+                </div>
+                <p className="text-sm text-text-muted mb-2">لا توجد حملات بعد</p>
+                <p className="text-xs text-text-muted/60">ابدأ رحلتك التسويقية الأولى</p>
+                <Link href="/campaigns/new" className="text-amber text-sm hover:underline mt-3 block">
+                  إطلاق حملة جديدة 🚀
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentCampaigns.map((c) => {
+                  const statusInfo = STATUS_LABELS[c.status] || STATUS_LABELS.DRAFT
+                  return (
+                    <Link
+                      key={c.id}
+                      href={`/campaigns/${c.id}`}
+                      className={`flex items-center justify-between p-4 rounded-xl bg-white/3 hover:bg-white/6 transition-all border border-transparent hover:border-white/10 ${statusInfo.glow}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber/20 to-orange/10 flex items-center justify-center text-lg">
+                          {c.thumbnail}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{c.name}</p>
+                          <p className="text-xs text-text-muted">
+                            {c.platforms?.slice(0, 2).join(' · ') || 'بدون منصة'}
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-xs px-3 py-1 rounded-full border ${statusInfo.color}`}>
+                        {statusInfo.label}
+                      </span>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Activity Feed — Cosmic Stream */}
+          <div
+            className="p-6 corner-accent"
+            style={{
+              background: 'rgba(255,255,255,0.02)',
+              backdropFilter: 'blur(30px)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '20px',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-5">
+              <Activity className="w-5 h-5 text-cyan" />
+              <h3 className="text-lg font-bold">آخر النشاطات</h3>
+            </div>
+            {activities.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
+                  <BarChart3 className="w-8 h-8 text-text-muted/30" />
+                </div>
+                <p className="text-sm text-text-muted mb-2">لا توجد نشاطات حتى الآن</p>
+                <p className="text-xs text-text-muted/60">الوكلاء بيستعدوا للعمل</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-4 rounded-xl bg-white/3 hover:bg-white/5 transition-all border border-transparent hover:border-white/5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${AGENT_GLOW[item.agent] || ''}`}>
+                        <span className={AGENT_COLORS[item.agent] || 'text-text-muted'}>
+                          {item.agent[0]}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{item.action}</p>
+                        <p className={`text-xs ${AGENT_COLORS[item.agent] || 'text-text-muted'}`}>
+                          {item.agent}{item.campaign ? ` · ${item.campaign}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-text-muted shrink-0 mr-3 font-mono">{item.time}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Credits upgrade nudge */}
+        {stats?.credits.plan !== 'ACTIVE' && (stats?.credits.remaining ?? 30) < 20 && (
+          <div
+            className="p-6 flex items-center justify-between flex-wrap gap-4 corner-accent energy-ring"
+            style={{
+              background: 'rgba(245,158,11,0.03)',
+              border: '1px solid rgba(245,158,11,0.15)',
+              borderRadius: '20px',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-amber/10 flex items-center justify-center">
+                <Zap className="w-6 h-6 text-amber" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber">الطاقة على وشك الانتهاء</p>
+                <p className="text-sm text-text-muted">
+                  متبقي لك {stats?.credits.remaining} وحدة — شحن مركبتك للاستمرار
+                </p>
+              </div>
+            </div>
+            <Link href="/billing" className="btn-primary text-sm py-2.5 px-6 btn-3d">
+              شحن الطاقة ⚡️
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )

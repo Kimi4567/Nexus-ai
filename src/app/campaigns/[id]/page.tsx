@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
@@ -140,25 +140,57 @@ function SaveToMemoryBtn({ text, field, authHeader }: { text: string; field: 'wi
 export default function CampaignDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const campaignId = params?.id as string
+  const isGenerating = searchParams?.get('generating') === 'true'
   const { isAuthenticated, loading, authHeader } = useAuth()
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [generating, setGenerating] = useState(isGenerating)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchCampaign = useCallback(async () => {
+    const token = authHeader()
+    if (!token) return null
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
+      const d = await res.json()
+      if (d.campaign) {
+        setCampaign(d.campaign)
+        return d.campaign
+      }
+    } catch {}
+    return null
+  }, [campaignId, authHeader])
 
   useEffect(() => {
     if (!loading && !isAuthenticated) { router.push('/auth/login'); return }
     if (!isAuthenticated) return
-    const token = authHeader()
-    if (!token) return
 
-    fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } })
-      .then(r => r.json())
-      .then(d => { if (d.campaign) setCampaign(d.campaign) })
-      .catch(() => {})
-      .finally(() => setFetching(false))
-  }, [loading, isAuthenticated, campaignId, authHeader, router])
+    fetchCampaign().finally(() => setFetching(false))
+  }, [loading, isAuthenticated, fetchCampaign, router])
+
+  // Poll for AI output when generating=true
+  useEffect(() => {
+    if (!generating || !isAuthenticated) return
+    let attempts = 0
+    const MAX_ATTEMPTS = 24 // ~2 minutes at 5s intervals
+
+    pollRef.current = setInterval(async () => {
+      attempts++
+      const c = await fetchCampaign()
+      if (c?.aiOutput || attempts >= MAX_ATTEMPTS) {
+        setGenerating(false)
+        if (pollRef.current) clearInterval(pollRef.current)
+        // Clean URL
+        router.replace(`/campaigns/${campaignId}`)
+      }
+    }, 5000)
+
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [generating, isAuthenticated, campaignId, fetchCampaign, router])
 
   const updateCampaign = async (data: Partial<Campaign>) => {
     const token = authHeader()
@@ -299,14 +331,37 @@ export default function CampaignDetailPage() {
           )}
         </div>
 
-        {/* No AI output state */}
-        {!aiOutput && (
+        {/* Generating state */}
+        {!aiOutput && generating && (
+          <div className="bg-dark-secondary border border-amber-500/20 rounded-2xl p-12 text-center mb-6"
+            style={{ background: 'rgba(245,158,11,0.03)' }}>
+            <div className="text-5xl mb-4 animate-bounce">🤖</div>
+            <h3 className="text-xl font-bold mb-2 text-amber-400">NEX يولّد المحتوى...</h3>
+            <p className="text-gray-400 mb-6 text-sm">
+              الـ AI يعمل على الاستراتيجية والمحتوى والتقويم. عادةً يستغرق 30–60 ثانية.
+            </p>
+            <div className="flex justify-center gap-2 mb-4">
+              {['جمع البيانات', 'تحليل السوق', 'توليد الاستراتيجية', 'بناء التقويم'].map((step, i) => (
+                <div key={i} className="flex items-center gap-1 text-xs text-gray-500">
+                  <span className="w-2 h-2 rounded-full bg-amber-500/40 animate-pulse" style={{ animationDelay: `${i * 0.3}s` }} />
+                  {step}
+                </div>
+              ))}
+            </div>
+            <div className="w-48 h-1 bg-dark-tertiary rounded-full mx-auto overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full animate-pulse" style={{ width: '60%' }} />
+            </div>
+          </div>
+        )}
+
+        {/* No AI output state (not generating) */}
+        {!aiOutput && !generating && (
           <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-12 text-center mb-6">
             <div className="text-5xl mb-4">🤖</div>
-            <h3 className="text-xl font-bold mb-2">AI content not yet generated</h3>
-            <p className="text-gray-400 mb-6 text-sm">This campaign was saved without AI content. Generate a new campaign to see full strategy and concepts.</p>
-            <Link href="/campaign/new" className="px-6 py-3 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition">
-              Generate Campaign →
+            <h3 className="text-xl font-bold mb-2">لم يتم توليد المحتوى بعد</h3>
+            <p className="text-gray-400 mb-6 text-sm">لم يتم توليد محتوى AI لهذه الحملة بعد.</p>
+            <Link href="/campaigns/new" className="px-6 py-3 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition">
+              إنشاء حملة جديدة →
             </Link>
           </div>
         )}
