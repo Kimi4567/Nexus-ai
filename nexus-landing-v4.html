@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>NEXUS AI — ذكاء اصطناعي يُدير تسويقك بالكامل</title>
+<meta name="description" content="NEXUS AI - 4 وكلاء ذكاء اصطناعي يُنتجون فيديوهاتك، يُديرون حملاتك، ويُحلّلون بياناتك">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #020204;
+  color: #f8fafc;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+:root {
+  --deep: #020204;
+  --surface: #0a0a12;
+  --glass: rgba(255,255,255,0.03);
+  --border: rgba(255,255,255,0.08);
+  --amber: #f59e0b;
+  --cyan: #06b6d4;
+  --green: #10b981;
+  --rose: #f43f5e;
+  --violet: #8b5cf6;
+}
+
+/* Neural Canvas */
+#neural-canvas {
+  position: fixed; top:0; left:0;
+  width:100%; height:100%;
+  z-index: 0; pointer-events: none; opacity: 0.6;
+}
+
+.container { max-width:1200px; margin:0 auto; padding:0 24px; position:relative; z-index:2; }
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.gradient-text {
+  background: linear-gradient(135deg, var(--amber) 0%, var(--cyan) 50%, var(--violet) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.shimmer {
+  background: linear-gradient(90deg, #f8fafc 0%, var(--amber) 50%, #f8fafc 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3s linear infinite;
+}
+@keyframes shimmer { to { background-position: 200% center; } }
+@keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(0.8); } }
+@keyframes float { 0%,100% { transform:translateY(0) scale(1); } 50% { transform:translateY(-12px) scale(1.05); } }
+@keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+@keyframes fadeUp { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:translateY(0); } }
+
+.reveal { opacity:0; transform:translateY(40px); transition:all 0.8s cubic-bezier(0.4,0,0.2,1); }
+.reveal.active { opacity:1; transform:translateY(0); }
+
+/* Navbar */
+.navbar {
+  position: fixed; top:0; left:0; right:0;
+  z-index: 100; padding: 16px 0;
+  transition: all 0.3s;
+}
+.navbar.scrolled {
+  background: rgba(2,2,4,0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner { display:flex; align-items:center; justify-content:space-between; }
+.logo { font-size:1.5rem; font-weight:800; letter-spacing:2px; display:flex; align-items:center; gap:8px; }
+.logo-icon {
+  width:36px; height:36px;
+  border:2px solid var(--amber); border-radius:8px;
+  display:grid; place-items:center;
+  font-weight:900; color:var(--amber); font-size:1.1rem;
+}
+.nav-links { display:flex; gap:32px; align-items:center; }
+.nav-links a {
+  color: #94a3b8; text-decoration:none;
+  font-size:0.9rem; font-weight:500;
+  transition: all 0.3s; position:relative;
+}
+.nav-links a:hover { color:#f8fafc; }
+.nav-links a::after {
+  content:''; position:absolute; bottom:-4px; left:0;
+  width:0; height:2px; background:var(--amber); transition:all 0.3s;
+}
+.nav-links a:hover::after { width:100%; }
+.lang-toggle {
+  background:transparent; border:1px solid var(--border);
+  color:#f8fafc; padding:6px 14px; border-radius:20px;
+  cursor:pointer; font-size:0.8rem; font-weight:600;
+}
+.lang-toggle:hover { border-color:var(--amber); color:var(--amber); }
+.mobile-menu-btn { display:none; background:none; border:none; color:#f8fafc; font-size:1.5rem; cursor:pointer; }
+
+/* Hero */
+.hero { min-height:100vh; display:flex; align-items:center; padding:120px 0 80px; position:relative; }
+.hero-grid { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
+.hero-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 16px; border-radius:50px;
+  border:1px solid var(--border); font-size:0.85rem;
+  color:var(--amber); margin-bottom:24px;
+  background: rgba(245,158,11,0.05);
+}
+.hero-badge .dot { width:8px; height:8px; background:var(--amber); border-radius:50%; animation:pulse 2s infinite; }
+.hero h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight:900; line-height:1.1; margin-bottom:24px; letter-spacing:-1px; }
+.hero p { font-size:1.15rem; color:#94a3b8; max-width:500px; margin-bottom:32px; }
+.hero-buttons { display:flex; gap:16px; flex-wrap:wrap; }
+.btn {
+  padding:14px 32px; border-radius:12px; font-weight:700; font-size:1rem;
+  cursor:pointer; transition:all 0.3s; text-decoration:none;
+  display:inline-flex; align-items:center; gap:8px; border:none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--amber), #d97706);
+  color:#000; box-shadow:0 4px 24px rgba(245,158,11,0.4);
+}
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(245,158,11,0.4); }
+.btn-secondary {
+  background: var(--glass); color:#f8fafc;
+  border:1px solid var(--border); backdrop-filter:blur(10px);
+}
+.btn-secondary:hover { border-color:var(--cyan); background:rgba(6,182,212,0.08); }
+
+/* Robot Orbit */
+.hero-visual { position:relative; display:flex; justify-content:center; align-items:center; min-height:400px; }
+.robot-orbit { position:relative; width:320px; height:320px; }
+.robot-item { position:absolute; width:80px; height:80px; transition:all 0.3s; animation:float 6s ease-in-out infinite; }
+.robot-item:nth-child(1) { top:0; left:50%; transform:translateX(-50%); animation-delay:0s; }
+.robot-item:nth-child(2) { top:50%; right:0; transform:translateY(-50%); animation-delay:1.5s; }
+.robot-item:nth-child(3) { bottom:0; left:50%; transform:translateX(-50%); animation-delay:3s; }
+.robot-item:nth-child(4) { top:50%; left:0; transform:translateY(-50%); animation-delay:4.5s; }
+.orbit-ring {
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  width:280px; height:280px;
+  border:1px solid var(--border); border-radius:50%;
+  animation:spin 20s linear infinite;
+}
+.orbit-ring::before {
+  content:''; position:absolute; top:-2px; left:50%;
+  width:6px; height:6px; background:var(--amber); border-radius:50%;
+  box-shadow:0 0 10px var(--amber);
+}
+
+.trust-bar { display:flex; justify-content:center; gap:48px; flex-wrap:wrap; margin-top:48px; opacity:0.7; }
+.trust-item { display:flex; align-items:center; gap:8px; font-size:0.9rem; color:#94a3b8; }
+
+/* Sections */
+.section { padding:100px 0; position:relative; }
+.section-header { text-align:center; max-width:600px; margin:0 auto 64px; }
+.section-header h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight:800; margin-bottom:16px; }
+.section-header p { color:#94a3b8; font-size:1.1rem; }
+
+/* Crew */
+.crew-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; }
+.agent-card { padding:32px 24px; text-align:center; transition:all 0.3s; position:relative; overflow:hidden; }
+.agent-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
+  background: radial-gradient(circle at 50% 0%, var(--card-glow, rgba(245,158,11,0.4)), transparent 70%);
+  opacity:0; transition:all 0.3s;
+}
+.agent-card:hover::before { opacity:1; }
+.agent-card:hover { transform:translateY(-8px); border-color:var(--card-color, var(--amber)); }
+.agent-avatar { width:100px; height:100px; margin:0 auto 20px; position:relative; z-index:2; }
+.agent-card h3 { font-size:1.3rem; font-weight:700; margin-bottom:8px; position:relative; z-index:2; }
+.agent-role { font-size:0.85rem; color:var(--card-color, var(--amber)); font-weight:600; margin-bottom:16px; position:relative; z-index:2; }
+.agent-desc { font-size:0.9rem; color:#94a3b8; line-height:1.6; position:relative; z-index:2; }
+.status-dot {
+  display:inline-flex; align-items:center; gap:6px;
+  margin-top:16px; padding:4px 12px; border-radius:20px;
+  background:rgba(16,185,129,0.1); color:var(--green);
+  font-size:0.75rem; font-weight:600; position:relative; z-index:2;
+}
+.status-dot span { width:6px; height:6px; background:var(--green); border-radius:50%; animation:pulse 2s infinite; }
+.agent-nex { --card-color:var(--cyan); --card-glow:rgba(6,182,212,0.4); }
+.agent-vex { --card-color:var(--amber); --card-glow:rgba(245,158,11,0.4); }
+.agent-pulse { --card-color:var(--green); --card-glow:rgba(16,185,129,0.4); }
+.agent-sentinel { --card-color:var(--rose); --card-glow:rgba(244,63,94,0.4); }
+
+/* Steps */
+.steps { display:grid; grid-template-columns:repeat(3,1fr); gap:32px; }
+.step { text-align:center; padding:40px 24px; position:relative; }
+.step-number {
+  width:60px; height:60px; border-radius:50%;
+  background: linear-gradient(135deg, var(--amber), var(--violet));
+  display:grid; place-items:center;
+  font-size:1.5rem; font-weight:800;
+  margin:0 auto 24px; color:#000;
+  box-shadow:0 4px 20px rgba(245,158,11,0.4);
+}
+.step h3 { font-size:1.2rem; font-weight:700; margin-bottom:12px; }
+.step p { color:#94a3b8; font-size:0.95rem; }
+
+/* Pricing */
+.pricing-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; align-items:start; }
+.pricing-card { padding:40px 32px; text-align:center; transition:all 0.3s; position:relative; }
+.pricing-card.featured {
+  border-color:var(--amber); transform:scale(1.05);
+  box-shadow:0 0 40px rgba(245,158,11,0.1);
+}
+.pricing-card.featured::before {
+  content:attr(data-badge); position:absolute;
+  top:-12px; left:50%; transform:translateX(-50%);
+  background: linear-gradient(135deg, var(--amber), #d97706);
+  color:#000; padding:6px 20px; border-radius:20px;
+  font-size:0.8rem; font-weight:700;
+}
+.pricing-card:hover { transform:translateY(-4px); }
+.pricing-card.featured:hover { transform:scale(1.05) translateY(-4px); }
+.pricing-card h3 { font-size:1.3rem; font-weight:700; margin-bottom:8px; }
+.pricing-card .price { font-size:3rem; font-weight:900; margin:16px 0; }
+.pricing-card .price span { font-size:1rem; color:#94a3b8; font-weight:400; }
+.pricing-card ul { list-style:none; text-align:right; margin:24px 0; }
+.pricing-card ul li {
+  padding:8px 0; color:#94a3b8; font-size:0.9rem;
+  display:flex; align-items:center; gap:8px;
+}
+.pricing-card ul li::before { content:'✓'; color:var(--green); font-weight:700; }
+
+/* FAQ */
+.faq-item { margin-bottom:16px; overflow:hidden; }
+.faq-question {
+  width:100%; padding:20px 24px;
+  background:var(--glass); border:1px solid var(--border);
+  border-radius:12px; color:#f8fafc;
+  font-size:1rem; font-weight:600;
+  cursor:pointer; display:flex;
+  justify-content:space-between; align-items:center;
+  transition:all 0.3s; text-align:right;
+}
+.faq-question:hover { border-color:var(--cyan); background:rgba(6,182,212,0.05); }
+.faq-question .icon { transition:all 0.3s; font-size:1.2rem; color:var(--cyan); }
+.faq-item.open .faq-question .icon { transform:rotate(180deg); }
+.faq-answer {
+  max-height:0; overflow:hidden;
+  transition:max-height 0.4s ease, padding 0.4s ease;
+  padding:0 24px; color:#94a3b8;
+  font-size:0.95rem; line-height:1.7;
+}
+.faq-item.open .faq-answer { max-height:300px; padding:16px 24px 20px; }
+
+/* CTA */
+.cta-section { text-align:center; padding:100px 0; }
+.cta-box { padding:80px 40px; position:relative; overflow:hidden; }
+.cta-box::before {
+  content:''; position:absolute;
+  top:-50%; left:-50%; width:200%; height:200%;
+  background: radial-gradient(circle, rgba(245,158,11,0.3) 0%, transparent 50%);
+  opacity:0.3; animation:spin 10s linear infinite;
+}
+.cta-box h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight:800; margin-bottom:16px; position:relative; z-index:2; }
+.cta-box p { color:#94a3b8; font-size:1.1rem; margin-bottom:32px; position:relative; z-index:2; max-width:500px; margin-left:auto; margin-right:auto; }
+
+/* Footer */
+.footer {
+  border-top:1px solid var(--border);
+  padding:48px 0 24px; text-align:center;
+  color:#94a3b8; font-size:0.85rem;
+}
+.footer-links { display:flex; justify-content:center; gap:32px; margin-bottom:24px; flex-wrap:wrap; }
+.footer-links a { color:#94a3b8; text-decoration:none; transition:all 0.3s; }
+.footer-links a:hover { color:var(--amber); }
+
+/* Mobile Menu */
+.mobile-menu {
+  display:none; position:fixed;
+  top:70px; left:24px; right:24px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:16px; padding:16px; z-index:99;
+  flex-direction:column; gap:16px;
+}
+.mobile-menu a { color:#f8fafc; text-decoration:none; padding:12px; border-radius:8px; transition:all 0.3s; }
+.mobile-menu a:hover { background:var(--glass); }
+.mobile-menu.show { display:flex; }
+
+/* Responsive */
+@media (max-width:1024px) {
+  .crew-grid { grid-template-columns:repeat(2,1fr); }
+  .pricing-grid { grid-template-columns:1fr; }
+  .pricing-card.featured { transform:scale(1); }
+  .pricing-card.featured:hover { transform:scale(1) translateY(-4px); }
+}
+@media (max-width:768px) {
+  .hero-grid { grid-template-columns:1fr; text-align:center; }
+  .hero p { margin-left:auto; margin-right:auto; }
+  .hero-buttons { justify-content:center; }
+  .hero-visual { order:-1; min-height:280px; }
+  .robot-orbit { width:260px; height:260px; }
+  .crew-grid { grid-template-columns:1fr; }
+  .steps { grid-template-columns:1fr; }
+  .nav-links { display:none; }
+  .mobile-menu-btn { display:block; }
+  .trust-bar { gap:24px; }
+  .section { padding:60px 0; }
+}
+[dir="rtl"] .nav-links a::after { left:auto; right:0; }
+[dir="ltr"] .pricing-card ul { text-align:left; }
+[dir="ltr"] .faq-question { text-align:left; }
+</style>
+</head>
+<body>
+<canvas id="neural-canvas"></canvas>
+
+<nav class="navbar" id="navbar">
+  <div class="container nav-inner">
+    <div class="logo">
+      <div class="logo-icon">N</div>
+      <span class="gradient-text">NEXUS AI</span>
+    </div>
+    <div class="nav-links" id="navLinks">
+      <a href="#crew" data-ar="الوكلاء" data-en="Crew">الوكلاء</a>
+      <a href="#how" data-ar="كيف يعمل" data-en="How it Works">كيف يعمل</a>
+      <a href="#pricing" data-ar="الأسعار" data-en="Pricing">الأسعار</a>
+      <a href="#faq" data-ar="الأسئلة" data-en="FAQ">الأسئلة</a>
+      <button class="lang-toggle" onclick="toggleLang()" id="langBtn">EN</button>
+    </div>
+    <button class="mobile-menu-btn" onclick="toggleMenu()">☰</button>
+  </div>
+</nav>
+
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#crew" onclick="toggleMenu()">الوكلاء</a>
+  <a href="#how" onclick="toggleMenu()">كيف يعمل</a>
+  <a href="#pricing" onclick="toggleMenu()">الأسعار</a>
+  <a href="#faq" onclick="toggleMenu()">الأسئلة</a>
+  <button class="lang-toggle" onclick="toggleLang();toggleMenu();" style="width:100%">EN</button>
+</div>
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div class="hero-content">
+      <div class="hero-badge"><span class="dot"></span><span id="badgeText">المنصة #1 لتوليد فيديوهات بالذكاء الاصطناعي</span></div>
+      <h1 class="shimmer" id="heroTitle">4 وكلاء ذكاء اصطناعي يُديرون تسويقك بالكامل</h1>
+      <p id="heroDesc">NEX يُنتج الفيديوهات. VEX يُدير الإعلانات. PULSE يُحلّل البيانات. SENTINEL يُراقب المنافسين. كل هذا وأنت نائم.</p>
+      <div class="hero-buttons">
+        <a href="#pricing" class="btn btn-primary" id="btnStart">ابدأ مجاناً</a>
+        <a href="#how" class="btn btn-secondary" id="btnWatch">شاهد كيف يعمل</a>
+      </div>
+      <div class="trust-bar">
+        <div class="trust-item">🔒 <span id="trust1">بيانات مشفرة</span></div>
+        <div class="trust-item">👥 <span id="trust2">+500 عميل</span></div>
+        <div class="trust-item">✓ <span id="trust3">إلغاء فوري</span></div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="robot-orbit">
+        <div class="orbit-ring"></div>
+        <div class="robot-item"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#06b6d4" stroke-width="2" fill="rgba(6,182,212,0.1)"/><circle cx="50" cy="50" r="20" fill="#06b6d4"/><circle cx="50" cy="50" r="8" fill="#020204"/><circle cx="50" cy="50" r="35" stroke="#06b6d4" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="10s" repeatCount="indefinite"/></circle></svg></div>
+        <div class="robot-item"><svg viewBox="0 0 100 100" fill="none"><rect x="15" y="15" width="70" height="70" rx="15" stroke="#f59e0b" stroke-width="2" fill="rgba(245,158,11,0.1)"/><circle cx="35" cy="45" r="10" fill="#f59e0b"/><circle cx="65" cy="45" r="10" fill="#f59e0b"/><path d="M30 65 Q50 75 70 65" stroke="#f59e0b" stroke-width="2" fill="none"/><rect x="20" y="20" width="60" height="60" rx="12" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity="0.4"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="-360 50 50" dur="15s" repeatCount="indefinite"/></rect></svg></div>
+        <div class="robot-item"><svg viewBox="0 0 100 100" fill="none"><polygon points="50,5 95,80 5,80" stroke="#10b981" stroke-width="2" fill="rgba(16,185,129,0.1)"/><polygon points="50,25 75,70 25,70" fill="#10b981" opacity="0.6"/><circle cx="50" cy="55" r="8" fill="#020204"/><line x1="50" y1="5" x2="50" y2="25" stroke="#10b981" stroke-width="2"><animate attributeName="y2" values="25;35;25" dur="1s" repeatCount="indefinite"/></line></svg></div>
+        <div class="robot-item"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#f43f5e" stroke-width="2" fill="rgba(244,63,94,0.1)"/><circle cx="50" cy="50" r="25" stroke="#f43f5e" stroke-width="1" fill="none" opacity="0.5"/><line x1="50" y1="25" x2="50" y2="75" stroke="#f43f5e" stroke-width="2"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="3s" repeatCount="indefinite"/></line><circle cx="50" cy="50" r="5" fill="#f43f5e"/><circle cx="50" cy="50" r="40" stroke="#f43f5e" stroke-width="1" stroke-dasharray="2 6" opacity="0.3"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="-360 50 50" dur="8s" repeatCount="indefinite"/></circle></svg></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="crew">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2 id="crewTitle">طاقم الذكاء الاصطناعي</h2>
+      <p id="crewDesc">4 وكلاء متخصصون، كل منهم خبير في مجاله. يعملون معاً كفريق واحد لنمو علامتك التجارية.</p>
+    </div>
+    <div class="crew-grid">
+      <div class="agent-card glass agent-nex reveal">
+        <div class="agent-avatar"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#06b6d4" stroke-width="2.5" fill="rgba(6,182,212,0.08)"/><circle cx="50" cy="50" r="22" fill="#06b6d4" opacity="0.9"><animate attributeName="r" values="22;24;22" dur="3s" repeatCount="indefinite"/></circle><circle cx="50" cy="50" r="9" fill="#020204"/><circle cx="53" cy="47" r="3" fill="rgba(255,255,255,0.6)"/><circle cx="50" cy="50" r="38" stroke="#06b6d4" stroke-width="1" stroke-dasharray="3 6" opacity="0.4"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="12s" repeatCount="indefinite"/></circle></svg></div>
+        <h3 style="color:var(--cyan)">NEX</h3>
+        <div class="agent-role" id="nexRole">مُنتج الفيديوهات</div>
+        <p class="agent-desc" id="nexDesc">يُنتج فيديوهات تسويقية احترافية باستخدام أحدث نماذج الذكاء الاصطناعي. يكتب السكريبت، يختار الصوت، ويُركّب المشاهد.</p>
+        <div class="status-dot"><span></span><span id="nexStatus">جاهز للإنتاج</span></div>
+      </div>
+      <div class="agent-card glass agent-vex reveal">
+        <div class="agent-avatar"><svg viewBox="0 0 100 100" fill="none"><rect x="12" y="12" width="76" height="76" rx="18" stroke="#f59e0b" stroke-width="2.5" fill="rgba(245,158,11,0.08)"/><circle cx="32" cy="42" r="11" fill="#f59e0b" opacity="0.9"><animate attributeName="opacity" values="0.9;0.6;0.9" dur="2s" repeatCount="indefinite"/></circle><circle cx="68" cy="42" r="11" fill="#f59e0b" opacity="0.9"><animate attributeName="opacity" values="0.6;0.9;0.6" dur="2s" repeatCount="indefinite"/></circle><circle cx="32" cy="42" r="4" fill="#020204"/><circle cx="68" cy="42" r="4" fill="#020204"/><path d="M28 65 Q50 78 72 65" stroke="#f59e0b" stroke-width="2.5" fill="none" stroke-linecap="round"/><rect x="18" y="18" width="64" height="64" rx="14" stroke="#f59e0b" stroke-width="1" stroke-dasharray="4 4" opacity="0.3"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="-360 50 50" dur="18s" repeatCount="indefinite"/></rect></svg></div>
+        <h3 style="color:var(--amber)">VEX</h3>
+        <div class="agent-role" id="vexRole">مُدير الإعلانات</div>
+        <p class="agent-desc" id="vexDesc">يُدير حملاتك على فيسبوك، إنستغرام، وتيك توك. يُحسّن الميزانية، يختار الجمهور، ويُجري A/B testing تلقائياً.</p>
+        <div class="status-dot"><span></span><span id="vexStatus">جاهز للإطلاق</span></div>
+      </div>
+      <div class="agent-card glass agent-pulse reveal">
+        <div class="agent-avatar"><svg viewBox="0 0 100 100" fill="none"><polygon points="50,8 92,82 8,82" stroke="#10b981" stroke-width="2.5" fill="rgba(16,185,129,0.08)"/><polygon points="50,28 78,75 22,75" fill="#10b981" opacity="0.7"/><circle cx="50" cy="58" r="9" fill="#020204"/><circle cx="47" cy="55" r="3" fill="rgba(255,255,255,0.5)"/><line x1="50" y1="8" x2="50" y2="28" stroke="#10b981" stroke-width="3" stroke-linecap="round"><animate attributeName="y2" values="28;38;28" dur="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="indefinite"/></line><circle cx="50" cy="50" r="42" stroke="#10b981" stroke-width="1" stroke-dasharray="2 8" opacity="0.2"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="6s" repeatCount="indefinite"/></circle></svg></div>
+        <h3 style="color:var(--green)">PULSE</h3>
+        <div class="agent-role" id="pulseRole">مُحلّل البيانات</div>
+        <p class="agent-desc" id="pulseDesc">يُحلّل أداء حملاتك في الوقت الفعلي. يكتشف الاتجاهات، يُنذرك بالمشاكل، ويُقدّم توصيات دقيقة لزيادة الربح.</p>
+        <div class="status-dot"><span></span><span id="pulseStatus">جاهز للتحليل</span></div>
+      </div>
+      <div class="agent-card glass agent-sentinel reveal">
+        <div class="agent-avatar"><svg viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="45" stroke="#f43f5e" stroke-width="2.5" fill="rgba(244,63,94,0.08)"/><circle cx="50" cy="50" r="28" stroke="#f43f5e" stroke-width="1" fill="none" opacity="0.4"/><line x1="50" y1="22" x2="50" y2="78" stroke="#f43f5e" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="4s" repeatCount="indefinite"/></line><circle cx="50" cy="50" r="6" fill="#f43f5e"><animate attributeName="r" values="6;8;6" dur="2s" repeatCount="indefinite"/></circle><circle cx="50" cy="50" r="38" stroke="#f43f5e" stroke-width="1" stroke-dasharray="3 9" opacity="0.25"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="-360 50 50" dur="10s" repeatCount="indefinite"/></circle><circle cx="50" cy="50" r="15" stroke="#f43f5e" stroke-width="1" fill="none" opacity="0.3"><animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="6s" repeatCount="indefinite"/></circle></svg></div>
+        <h3 style="color:var(--rose)">SENTINEL</h3>
+        <div class="agent-role" id="sentinelRole">مُراقب المنافسة</div>
+        <p class="agent-desc" id="sentinelDesc">يُراقب منافسيك 24/7. يكتشف استراتيجياتهم الجديدة، يُنذرك بالتهديدات، ويُحافظ على ميزتك التنافسية.</p>
+        <div class="status-dot"><span></span><span id="sentinelStatus">جاهز للمراقبة</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2 id="howTitle">كيف يعمل؟</h2>
+      <p id="howDesc">3 خطوات بسيطة لبدء تسويقك بالذكاء الاصطناعي</p>
+    </div>
+    <div class="steps">
+      <div class="step glass reveal">
+        <div class="step-number">1</div>
+        <h3 id="step1Title">صِف منتجك</h3>
+        <p id="step1Desc">أخبر NEX عن منتجك أو خدمتك. اكتب وصفاً بسيطاً أو أرسل رابط، والباقي علينا.</p>
+      </div>
+      <div class="step glass reveal">
+        <div class="step-number">2</div>
+        <h3 id="step2Title">الوكلاء يعملون</h3>
+        <p id="step2Desc">NEX يُنتج الفيديو. VEX يُطلق الإعلان. PULSE يُحلّل النتائج. SENTINEL يُراقب المنافسة. كل هذا تلقائياً.</p>
+      </div>
+      <div class="step glass reveal">
+        <div class="step-number">3</div>
+        <h3 id="step3Title">تَابِع النمو</h3>
+        <p id="step3Desc">احصل على تقارير يومية ذكية. شاهد مبيعاتك تنمو بينما أنت نائم.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="section-header reveal">
+      <h2 id="pricingTitle">الأسعار</h2>
+      <p id="pricingDesc">اختر الخطة التي تناسبك. إلغاء فوري في أي وقت.</p>
+    </div>
+    <div class="pricing-grid">
+      <div class="pricing-card glass reveal">
+        <h3 id="plan1">بداية</h3>
+        <div class="price">$99<span id="month1">/شهر</span></div>
+        <p style="color:#94a3b8;font-size:0.9rem;" id="plan1Desc">للأعمال الصغيرة</p>
+        <ul>
+          <li id="p1f1">5 فيديوهات شهرياً</li>
+          <li id="p1f2">حملة واحدة</li>
+          <li id="p1f3">تقارير أساسية</li>
+          <li id="p1f4">دعم بالبريد</li>
+        </ul>
+        <a href="#" class="btn btn-secondary" style="width:100%;justify-content:center" id="btnPlan1">ابدأ الآن</a>
+      </div>
+      <div class="pricing-card glass featured reveal" data-badge="الأكثر شيوعاً">
+        <h3 id="plan2">احترافي</h3>
+        <div class="price gradient-text">$299<span id="month2">/شهر</span></div>
+        <p style="color:#94a3b8;font-size:0.9rem;" id="plan2Desc">للأعمال النامية</p>
+        <ul>
+          <li id="p2f1">20 فيديو شهرياً</li>
+          <li id="p2f2">5 حملات متزامنة</li>
+          <li id="p2f3">تقارير متقدمة + ذكاء</li>
+          <li id="p2f4">دعم أولوية 24/7</li>
+          <li id="p2f5">مراقبة المنافسة</li>
+        </ul>
+        <a href="#" class="btn btn-primary" style="width:100%;justify-content:center" id="btnPlan2">ابدأ الآن</a>
+      </div>
+      <div class="pricing-card glass reveal">
+        <h3 id="plan3">وكالة</h3>
+        <div class="price">$799<span id="month3">/شهر</span></div>
+        <p style="color:#94a3b8;font-size:0.9rem;" id="plan3Desc">للوكالات والشركات</p>
+        <ul>
+          <li id="p3f1">فيديوهات غير محدودة</li>
+          <li id="p3f2">حملات غير محدودة</li>
+          <li id="p3f3">وكلاء مخصصون</li>
+          <li id="p3f4">API كامل</li>
+          <li id="p3f5">مدير حساب شخصي</li>
+        </ul>
+        <a href="#" class="btn btn-secondary" style="width:100%;justify-content:center" id="btnPlan3">تواصل معنا</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="container" style="max-width:800px">
+    <div class="section-header reveal">
+      <h2 id="faqTitle">الأسئلة الشائعة</h2>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        <span id="q1">هل أحتاج خبرة تقنية لاستخدام NEXUS؟</span>
+        <span class="icon">▼</span>
+      </button>
+      <div class="faq-answer" id="a1">لا على الإطلاق. NEXUS مُصمم للمسوقين وأصحاب الأعمال، لا للمُبرمجين. كل ما تحتاجه هو وصف منتجك، والوكلاء يقومون بالباقي.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        <span id="q2">كم يستغرق إنتاج الفيديو الأول؟</span>
+        <span class="icon">▼</span>
+      </button>
+      <div class="faq-answer" id="a2">من 5 إلى 15 دقيقة فقط. NEX يكتب السكريبت، يولد الصور، يُركّب المشاهد، ويُضيف الصوت والموسيقى — كل هذا تلقائياً.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        <span id="q3">هل يمكنني إلغاء الاشتراك في أي وقت؟</span>
+        <span class="icon">▼</span>
+      </button>
+      <div class="faq-answer" id="a3">نعم، إلغاء فوري بدون أسئلة. لا عقود طويلة الأجل ولا غرامات.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        <span id="q4">هل الفيديوهات خاصة بي؟</span>
+        <span class="icon">▼</span>
+      </button>
+      <div class="faq-answer" id="a4">100% نعم. كل ما تُنتجه NEXUS هو ملكك الكامل. يمكنك استخدامه في الإعلانات، موقعك، أو أي منصة أخرى.</div>
+    </div>
+    <div class="faq-item reveal">
+      <button class="faq-question" onclick="toggleFaq(this)">
+        <span id="q5">ما هي المنصات المدعومة؟</span>
+        <span class="icon">▼</span>
+      </button>
+      <div class="faq-answer" id="a5">فيسبوك، إنستغرام، تيك توك، يوتيوب، جوجل، وسناب شات. VEX يدعم إنشاء وإدارة الحملات على كل هذه المنصات.</div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container">
+    <div class="cta-box glass reveal">
+      <h2 id="ctaTitle">جهّز فريق الذكاء الاصطناعي الخاص بك</h2>
+      <p id="ctaDesc">انضم إلى +500 شركة تستخدم NEXUS لتنمية أعمالها. ابدأ مجاناً اليوم.</p>
+      <a href="#pricing" class="btn btn-primary" style="font-size:1.1rem;padding:16px 40px;position:relative;z-index:2;" id="ctaBtn">ابدأ مجاناً — لا بطاقة مطلوبة</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-links">
+      <a href="#" id="f1">الخصوصية</a>
+      <a href="#" id="f2">الشروط</a>
+      <a href="#" id="f3">الدعم</a>
+      <a href="#" id="f4">تواصل معنا</a>
+    </div>
+    <p>© 2026 NEXUS AI. <span id="rights">جميع الحقوق محفوظة.</span></p>
+  </div>
+</footer>
+
+<script>
+// Neural Canvas
+const canvas = document.getElementById('neural-canvas');
+const ctx = canvas.getContext('2d');
+let nodes = [];
+const NODE_COUNT = 35;
+const CONNECTION_DIST = 120;
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+class Node {
+  constructor() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.vx = (Math.random() - 0.5) * 0.4;
+    this.vy = (Math.random() - 0.5) * 0.4;
+    this.radius = Math.random() * 1.5 + 0.5;
+    const colors = ['rgba(245,158,11,', 'rgba(6,182,212,', 'rgba(16,185,129,', 'rgba(244,63,94,'];
+    this.colorBase = colors[Math.floor(Math.random() * colors.length)];
+    this.alpha = Math.random() * 0.5 + 0.2;
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy;
+    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.colorBase + this.alpha + ')';
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < NODE_COUNT; i++) nodes.push(new Node());
+
+let frameCount = 0;
+function animate() {
+  frameCount++;
+  if (window.innerWidth < 768 && frameCount % 2 !== 0) {
+    requestAnimationFrame(animate); return;
+  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let i = 0; i < nodes.length; i++) {
+    nodes[i].update(); nodes[i].draw();
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[i].x - nodes[j].x;
+      const dy = nodes[i].y - nodes[j].y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < CONNECTION_DIST) {
+        const alpha = (1 - dist / CONNECTION_DIST) * 0.15;
+        ctx.beginPath();
+        ctx.moveTo(nodes[i].x, nodes[i].y);
+        ctx.lineTo(nodes[j].x, nodes[j].y);
+        ctx.strokeStyle = `rgba(148,163,184,${alpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Navbar scroll
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// Mobile menu
+function toggleMenu() {
+  document.getElementById('mobileMenu').classList.toggle('show');
+}
+
+// FAQ
+function toggleFaq(btn) {
+  const item = btn.parentElement;
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if (!wasOpen) item.classList.add('open');
+}
+
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('active'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function(e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// Language
+let isArabic = true;
+const arTexts = {
+  badgeText: 'المنصة #1 لتوليد فيديوهات بالذكاء الاصطناعي',
+  heroTitle: '4 وكلاء ذكاء اصطناعي يُديرون تسويقك بالكامل',
+  heroDesc: 'NEX يُنتج الفيديوهات. VEX يُدير الإعلانات. PULSE يُحلّل البيانات. SENTINEL يُراقب المنافسين. كل هذا وأنت نائم.',
+  btnStart: 'ابدأ مجاناً', btnWatch: 'شاهد كيف يعمل',
+  trust1: 'بيانات مشفرة', trust2: '+500 عميل', trust3: 'إلغاء فوري',
+  crewTitle: 'طاقم الذكاء الاصطناعي',
+  crewDesc: '4 وكلاء متخصصون، كل منهم خبير في مجاله. يعملون معاً كفريق واحد لنمو علامتك التجارية.',
+  nexRole: 'مُنتج الفيديوهات', nexDesc: 'يُنتج فيديوهات تسويقية احترافية باستخدام أحدث نماذج الذكاء الاصطناعي. يكتب السكريبت، يختار الصوت، ويُركّب المشاهد.', nexStatus: 'جاهز للإنتاج',
+  vexRole: 'مُدير الإعلانات', vexDesc: 'يُدير حملاتك على فيسبوك، إنستغرام، وتيك توك. يُحسّن الميزانية، يختار الجمهور، ويُجري A/B testing تلقائياً.', vexStatus: 'جاهز للإطلاق',
+  pulseRole: 'مُحلّل البيانات', pulseDesc: 'يُحلّل أداء حملاتك في الوقت الفعلي. يكتشف الاتجاهات، يُنذرك بالمشاكل، ويُقدّم توصيات دقيقة لزيادة الربح.', pulseStatus: 'جاهز للتحليل',
+  sentinelRole: 'مُراقب المنافسة', sentinelDesc: 'يُراقب منافسيك 24/7. يكتشف استراتيجياتهم الجديدة، يُنذرك بالتهديدات، ويُحافظ على ميزتك التنافسية.', sentinelStatus: 'جاهز للمراقبة',
+  howTitle: 'كيف يعمل؟', howDesc: '3 خطوات بسيطة لبدء تسويقك بالذكاء الاصطناعي',
+  step1Title: 'صِف منتجك', step1Desc: 'أخبر NEX عن منتجك أو خدمتك. اكتب وصفاً بسيطاً أو أرسل رابط، والباقي علينا.',
+  step2Title: 'الوكلاء يعملون', step2Desc: 'NEX يُنتج الفيديو. VEX يُطلق الإعلان. PULSE يُحلّل النتائج. SENTINEL يُراقب المنافسة. كل هذا تلقائياً.',
+  step3Title: 'تَابِع النمو', step3Desc: 'احصل على تقارير يومية ذكية. شاهد مبيعاتك تنمو بينما أنت نائم.',
+  pricingTitle: 'الأسعار', pricingDesc: 'اختر الخطة التي تناسبك. إلغاء فوري في أي وقت.',
+  plan1: 'بداية', month1: '/شهر', plan1Desc: 'للأعمال الصغيرة',
+  p1f1: '5 فيديوهات شهرياً', p1f2: 'حملة واحدة', p1f3: 'تقارير أساسية', p1f4: 'دعم بالبريد', btnPlan1: 'ابدأ الآن',
+  plan2: 'احترافي', month2: '/شهر', plan2Desc: 'للأعمال النامية',
+  p2f1: '20 فيديو شهرياً', p2f2: '5 حملات متزامنة', p2f3: 'تقارير متقدمة + ذكاء', p2f4: 'دعم أولوية 24/7', p2f5: 'مراقبة المنافسة', btnPlan2: 'ابدأ الآن',
+  plan3: 'وكالة', month3: '/شهر', plan3Desc: 'للوكالات والشركات',
+  p3f1: 'فيديوهات غير محدودة', p3f2: 'حملات غير محدودة', p3f3: 'وكلاء مخصصون', p3f4: 'API كامل', p3f5: 'مدير حساب شخصي', btnPlan3: 'تواصل معنا',
+  faqTitle: 'الأسئلة الشائعة',
+  q1: 'هل أحتاج خبرة تقنية لاستخدام NEXUS؟',
+  a1: 'لا على الإطلاق. NEXUS مُصمم للمسوقين وأصحاب الأعمال، لا للمُبرمجين. كل ما تحتاجه هو وصف منتجك، والوكلاء يقومون بالباقي.',
+  q2: 'كم يستغرق إنتاج الفيديو الأول؟',
+  a2: 'من 5 إلى 15 دقيقة فقط. NEX يكتب السكريبت، يولد الصور، يُركّب المشاهد، ويُضيف الصوت والموسيقى — كل هذا تلقائياً.',
+  q3: 'هل يمكنني إلغاء الاشتراك في أي وقت؟',
+  a3: 'نعم، إلغاء فوري بدون أسئلة. لا عقود طويلة الأجل ولا غرامات.',
+  q4: 'هل الفيديوهات خاصة بي؟',
+  a4: '100% نعم. كل ما تُنتجه NEXUS هو ملكك الكامل. يمكنك استخدامه في الإعلانات، موقعك، أو أي منصة أخرى.',
+  q5: 'ما هي المنصات المدعومة؟',
+  a5: 'فيسبوك، إنستغرام، تيك توك، يوتيوب، جوجل، وسناب شات. VEX يدعم إنشاء وإدارة الحملات على كل هذه المنصات.',
+  ctaTitle: 'جهّز فريق الذكاء الاصطناعي الخاص بك',
+  ctaDesc: 'انضم إلى +500 شركة تستخدم NEXUS لتنمية أعمالها. ابدأ مجاناً اليوم.',
+  ctaBtn: 'ابدأ مجاناً — لا بطاقة مطلوبة',
+  f1: 'الخصوصية', f2: 'الشروط', f3: 'الدعم', f4: 'تواصل معنا',
+  rights: 'جميع الحقوق محفوظة.'
+};
+
+const enTexts = {
+  badgeText: '#1 AI Video Generation Platform',
+  heroTitle: '4 AI Agents Run Your Marketing',
+  heroDesc: 'NEX creates videos. VEX runs ads. PULSE analyzes data. SENTINEL watches competitors. All while you sleep.',
+  btnStart: 'Start Free', btnWatch: 'See How it Works',
+  trust1: 'Encrypted', trust2: '500+ Clients', trust3: 'Cancel Anytime',
+  crewTitle: 'AI Crew',
+  crewDesc: '4 specialized agents, each an expert in their field. Working together as one team for your brand growth.',
+  nexRole: 'Video Producer', nexDesc: 'Produces professional marketing videos using latest AI models. Writes scripts, picks voices, and assembles scenes.', nexStatus: 'Ready to Produce',
+  vexRole: 'Ad Manager', vexDesc: 'Manages your Facebook, Instagram, and TikTok campaigns. Optimizes budget, picks audiences, and runs A/B tests automatically.', vexStatus: 'Ready to Launch',
+  pulseRole: 'Data Analyst', pulseDesc: 'Analyzes your campaign performance in real-time. Discovers trends, alerts you to issues, and provides precise recommendations to increase profit.', pulseStatus: 'Ready to Analyze',
+  sentinelRole: 'Competition Watcher', sentinelDesc: 'Watches your competitors 24/7. Discovers their new strategies, alerts you to threats, and maintains your competitive edge.', sentinelStatus: 'Ready to Watch',
+  howTitle: 'How it Works?', howDesc: '3 simple steps to start your AI marketing',
+  step1Title: 'Describe Your Product', step1Desc: 'Tell NEX about your product or service. Write a simple description or send a link, and we'll handle the rest.',
+  step2Title: 'Agents Work', step2Desc: 'NEX produces the video. VEX launches the ad. PULSE analyzes results. SENTINEL watches competition. All automatically.',
+  step3Title: 'Watch Growth', step3Desc: 'Get smart daily reports. Watch your sales grow while you sleep.',
+  pricingTitle: 'Pricing', pricingDesc: 'Choose the plan that fits you. Cancel instantly anytime.',
+  plan1: 'Starter', month1: '/month', plan1Desc: 'For small businesses',
+  p1f1: '5 videos/month', p1f2: '1 campaign', p1f3: 'Basic reports', p1f4: 'Email support', btnPlan1: 'Start Now',
+  plan2: 'Pro', month2: '/month', plan2Desc: 'For growing businesses',
+  p2f1: '20 videos/month', p2f2: '5 concurrent campaigns', p2f3: 'Advanced AI reports', p2f4: 'Priority 24/7 support', p2f5: 'Competitor tracking', btnPlan2: 'Start Now',
+  plan3: 'Agency', month3: '/month', plan3Desc: 'For agencies & enterprises',
+  p3f1: 'Unlimited videos', p3f2: 'Unlimited campaigns', p3f3: 'Dedicated agents', p3f4: 'Full API access', p3f5: 'Personal account manager', btnPlan3: 'Contact Us',
+  faqTitle: 'FAQ',
+  q1: 'Do I need technical skills?', a1: 'Not at all. NEXUS is designed for marketers and business owners, not programmers. All you need is to describe your product, and the agents handle the rest.',
+  q2: 'How long for the first video?', a2: 'Just 5 to 15 minutes. NEX writes the script, generates images, assembles scenes, and adds voice and music — all automatically.',
+  q3: 'Can I cancel anytime?', a3: 'Yes, instant cancellation with no questions. No long-term contracts and no penalties.',
+  q4: 'Do I own the videos?', a4: '100% yes. Everything NEXUS produces is fully yours. You can use it in ads, your website, or any other platform.',
+  q5: 'Which platforms are supported?', a5: 'Facebook, Instagram, TikTok, YouTube, Google, and Snapchat. VEX supports creating and managing campaigns on all these platforms.',
+  ctaTitle: 'Assemble Your AI Crew',
+  ctaDesc: 'Join 500+ companies using NEXUS to grow their business. Start free today.',
+  ctaBtn: 'Start Free — No Card Required',
+  f1: 'Privacy', f2: 'Terms', f3: 'Support', f4: 'Contact',
+  rights: 'All rights reserved.'
+};
+
+function toggleLang() {
+  isArabic = !isArabic;
+  const html = document.documentElement;
+  const texts = isArabic ? arTexts : enTexts;
+  html.setAttribute('dir', isArabic ? 'rtl' : 'ltr');
+  html.setAttribute('lang', isArabic ? 'ar' : 'en');
+  document.getElementById('langBtn').textContent = isArabic ? 'EN' : 'AR';
+  for (const [key, val] of Object.entries(texts)) {
+    const el = document.getElementById(key);
+    if (el) el.textContent = val;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<title>NEXUS AI — Dashboard</title>
+<style>
+/* ===== RESET ===== */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #020204;
+  color: #f8fafc;
+  overflow-x: hidden;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== VARIABLES ===== */
+:root {
+  --deep: #020204;
+  --surface: #0a0a12;
+  --glass: rgba(255,255,255,0.03);
+  --border: rgba(255,255,255,0.08);
+  --amber: #f59e0b;
+  --cyan: #06b6d4;
+  --green: #10b981;
+  --rose: #f43f5e;
+  --violet: #8b5cf6;
+}
+
+/* ===== UTILITIES ===== */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.glass-strong {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(30px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.gradient-text {
+  background: linear-gradient(135deg, var(--amber), var(--cyan), var(--violet));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.shimmer {
+  background: linear-gradient(90deg, #f8fafc 0%, var(--amber) 50%, #f8fafc 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3s linear infinite;
+}
+@keyframes shimmer { to { background-position: 200% center; } }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes slideIn {
+  from { opacity:0; transform:translateX(30px); }
+  to { opacity:1; transform:translateX(0); }
+}
+@keyframes pulse-dot {
+  0%,100% { opacity:1; transform:scale(1); }
+  50% { opacity:0.5; transform:scale(0.8); }
+}
+.animate-fade-up { animation: fadeUp 0.6s ease-out forwards; }
+.animate-slide-in { animation: slideIn 0.4s ease-out forwards; }
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:var(--deep); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ===== LAYOUT ===== */
+.app { display:flex; min-height:100vh; }
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  position:fixed;
+  top:0; right:0;
+  width:260px; height:100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index:100;
+  display:flex; flex-direction:column;
+  transition: transform 0.3s ease;
+}
+.sidebar.closed { transform: translateX(100%); }
+.sidebar-logo {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  display:flex; align-items:center; gap:10px;
+}
+.sidebar-logo .logo-box {
+  width:36px; height:36px;
+  border:2px solid var(--amber);
+  border-radius:8px;
+  display:grid; place-items:center;
+  font-weight:900; color:var(--amber); font-size:1.1rem;
+}
+.sidebar-logo .logo-text { font-weight:800; letter-spacing:1px; }
+.sidebar-logo .logo-sub { font-size:0.65rem; color:#64748b; font-weight:600; }
+
+.sidebar-nav { flex:1; overflow-y:auto; padding:12px; }
+.sidebar-nav::-webkit-scrollbar { display:none; }
+.nav-item {
+  display:flex; align-items:center; gap:12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: #94a3b8;
+  text-decoration:none;
+  font-size:0.9rem;
+  font-weight:500;
+  transition: all 0.2s;
+  margin-bottom:4px;
+  cursor:pointer;
+  border:none; background:none; width:100%; text-align:right;
+}
+.nav-item:hover { background:rgba(255,255,255,0.05); color:#f8fafc; }
+.nav-item.active { background:rgba(255,255,255,0.05); color:#f8fafc; }
+.nav-item.active .nav-icon { color: var(--item-color, var(--amber)); }
+.nav-item .nav-icon { width:20px; height:20px; flex-shrink:0; }
+.nav-item .nav-dot {
+  width:6px; height:6px; border-radius:50%;
+  background: var(--item-color, var(--amber));
+  margin-right:auto; margin-left:0;
+}
+[dir="ltr"] .nav-item .nav-dot { margin-left:auto; margin-right:0; }
+
+.sidebar-user {
+  padding:16px;
+  border-top:1px solid var(--border);
+}
+.user-card {
+  display:flex; align-items:center; gap:12px;
+  padding:12px;
+  background:var(--glass);
+  border:1px solid var(--border);
+  border-radius:12px;
+}
+.user-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background: linear-gradient(135deg, var(--amber), var(--violet));
+  display:grid; place-items:center;
+  font-weight:700; font-size:0.85rem; color:#000;
+}
+.user-info { flex:1; }
+.user-name { font-size:0.85rem; font-weight:600; }
+.user-plan { font-size:0.75rem; color:#64748b; }
+.user-status {
+  width:8px; height:8px; border-radius:50%; background:var(--green);
+  animation: pulse-dot 2s infinite;
+}
+
+/* Mobile sidebar toggle */
+.mobile-toggle {
+  display:none;
+  position:fixed; top:16px; right:16px;
+  z-index:110;
+  width:40px; height:40px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:10px;
+  color:#f8fafc;
+  font-size:1.3rem;
+  cursor:pointer;
+}
+.sidebar-overlay {
+  display:none;
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.6);
+  z-index:90;
+  backdrop-filter:blur(4px);
+}
+
+/* ===== MAIN CONTENT ===== */
+.main {
+  flex:1;
+  margin-right:260px;
+  min-height:100vh;
+  display:flex; flex-direction:column;
+}
+[dir="ltr"] .main { margin-right:0; margin-left:260px; }
+
+/* ===== TOPBAR ===== */
+.topbar {
+  position:sticky; top:0;
+  z-index:50;
+  padding:16px 24px;
+  background:rgba(10,10,18,0.8);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.topbar-title { font-size:1.1rem; font-weight:700; }
+.topbar-actions { display:flex; align-items:center; gap:12px; }
+.lang-btn {
+  padding:6px 14px;
+  border-radius:20px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:#f8fafc;
+  font-size:0.8rem; font-weight:700;
+  cursor:pointer;
+}
+.lang-btn:hover { border-color:var(--amber); color:var(--amber); }
+.new-campaign-btn {
+  display:flex; align-items:center; gap:6px;
+  padding:10px 20px;
+  border-radius:12px;
+  background: linear-gradient(135deg, var(--amber), #d97706);
+  color:#000;
+  font-weight:700; font-size:0.85rem;
+  text-decoration:none;
+  border:none; cursor:pointer;
+}
+
+/* ===== PAGE CONTENT ===== */
+.page-content { padding:24px; flex:1; }
+.page { display:none; }
+.page.active { display:block; animation: fadeUp 0.4s ease-out; }
+
+/* ===== CARDS ===== */
+.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.stat-card { padding:20px; transition:all 0.2s; }
+.stat-card:hover { background:rgba(255,255,255,0.05); }
+.stat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.stat-icon { padding:8px; border-radius:10px; }
+.stat-trend {
+  font-size:0.75rem; font-weight:700;
+  padding:4px 10px; border-radius:20px;
+}
+.stat-value { font-size:1.6rem; font-weight:900; margin-bottom:4px; }
+.stat-label { font-size:0.85rem; color:#94a3b8; }
+
+/* ===== TABLE ===== */
+.table-wrap { overflow-x:auto; }
+.data-table { width:100%; border-collapse:collapse; }
+.data-table th {
+  text-align:right; padding:14px 20px;
+  font-size:0.7rem; font-weight:700; color:#64748b;
+  text-transform:uppercase; letter-spacing:0.5px;
+  border-bottom:1px solid var(--border);
+}
+.data-table td {
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+  font-size:0.9rem;
+}
+.data-table tr:hover { background:rgba(255,255,255,0.02); }
+.status-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 12px; border-radius:20px;
+  font-size:0.75rem; font-weight:700;
+}
+.status-dot { width:6px; height:6px; border-radius:50%; }
+.platform-tag {
+  display:inline-block;
+  padding:3px 10px; border-radius:6px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);
+  font-size:0.75rem; color:#94a3b8;
+  margin:2px;
+}
+.progress-bar {
+  width:80px; height:4px; border-radius:2px;
+  background:rgba(255,255,255,0.05); overflow:hidden;
+}
+.progress-fill { height:100%; border-radius:2px; background:var(--amber); }
+
+/* ===== WIZARD ===== */
+.wizard-steps {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:40px; position:relative;
+}
+.wizard-line {
+  position:absolute; top:20px; left:0; right:0; height:2px;
+  background:rgba(255,255,255,0.1); z-index:0;
+}
+.wizard-line-fill {
+  height:100%;
+  background: linear-gradient(90deg, var(--amber), var(--cyan));
+  transition:width 0.5s ease;
+}
+.wizard-step {
+  position:relative; z-index:1;
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+}
+.step-circle {
+  width:40px; height:40px; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:0.85rem; font-weight:800;
+  border:2px solid;
+  transition:all 0.3s;
+}
+.step-circle.done {
+  background:rgba(6,182,212,0.15);
+  border-color:var(--cyan);
+  color:var(--cyan);
+}
+.step-circle.current {
+  background:var(--amber);
+  border-color:var(--amber);
+  color:#000;
+  box-shadow:0 0 20px rgba(245,158,11,0.3);
+  transform:scale(1.1);
+}
+.step-circle.pending {
+  background:var(--surface);
+  border-color:rgba(255,255,255,0.1);
+  color:#64748b;
+}
+.step-label {
+  font-size:0.75rem; font-weight:600;
+  transition:color 0.3s;
+}
+.step-label.active { color:var(--amber); }
+.step-label.done { color:#f8fafc; }
+.step-label.pending { color:#64748b; }
+
+.wizard-content { min-height:400px; }
+.wizard-nav {
+  display:flex; justify-content:space-between; margin-top:32px;
+}
+.btn {
+  padding:12px 28px; border-radius:12px;
+  font-weight:700; font-size:0.9rem;
+  cursor:pointer; border:none;
+  transition:all 0.2s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--amber), #d97706);
+  color:#000;
+}
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(245,158,11,0.3); }
+.btn-secondary {
+  background:var(--glass);
+  color:#f8fafc;
+  border:1px solid var(--border);
+}
+.btn-secondary:hover { border-color:var(--cyan); }
+.btn-success {
+  background: linear-gradient(135deg, var(--green), #059669);
+  color:#fff;
+}
+.btn-success:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(16,185,129,0.3); }
+.btn:disabled { opacity:0.4; cursor:not-allowed; transform:none !important; }
+
+/* Form Elements */
+.form-group { margin-bottom:20px; }
+.form-label {
+  display:block; font-size:0.85rem; font-weight:600;
+  color:#f8fafc; margin-bottom:8px;
+}
+.form-input, .form-textarea {
+  width:100%; padding:12px 16px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:#f8fafc; font-size:0.9rem;
+  transition:all 0.2s;
+}
+.form-input:focus, .form-textarea:focus {
+  outline:none; border-color:var(--amber);
+  box-shadow:0 0 0 3px rgba(245,158,11,0.1);
+}
+.form-textarea { resize:none; min-height:100px; }
+.form-input::placeholder, .form-textarea::placeholder { color:#64748b; }
+
+.option-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.option-btn {
+  padding:14px; border-radius:12px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:#94a3b8; font-size:0.85rem; font-weight:500;
+  cursor:pointer; transition:all 0.2s;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+}
+.option-btn:hover { background:rgba(255,255,255,0.06); color:#f8fafc; }
+.option-btn.selected {
+  background:rgba(6,182,212,0.1);
+  border-color:var(--cyan);
+  color:var(--cyan);
+}
+.option-btn.selected-amber {
+  background:rgba(245,158,11,0.1);
+  border-color:var(--amber);
+  color:var(--amber);
+}
+.option-btn.selected-green {
+  background:rgba(16,185,129,0.1);
+  border-color:var(--green);
+  color:var(--green);
+}
+
+.range-wrap { margin-bottom:20px; }
+.range-header { display:flex; justify-content:space-between; margin-bottom:8px; }
+.range-value { color:var(--amber); font-weight:800; }
+input[type="range"] {
+  width:100%; height:6px; border-radius:3px;
+  background:rgba(255,255,255,0.1); appearance:none;
+  cursor:pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  width:18px; height:18px; border-radius:50%;
+  background:var(--amber); appearance:none;
+  box-shadow:0 0 10px rgba(245,158,11,0.4);
+}
+
+.tag-wrap { display:flex; flex-wrap:wrap; gap:8px; }
+.tag-btn {
+  padding:6px 14px; border-radius:20px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:#94a3b8; font-size:0.8rem;
+  cursor:pointer; transition:all 0.2s;
+}
+.tag-btn:hover { background:rgba(255,255,255,0.06); color:#f8fafc; }
+.tag-btn.selected {
+  background:rgba(245,158,11,0.1);
+  border-color:var(--amber);
+  color:var(--amber);
+}
+
+.review-card { margin-bottom:16px; }
+.review-header {
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:12px;
+}
+.review-icon {
+  width:36px; height:36px; border-radius:10px;
+  display:grid; place-items:center;
+  font-size:1.1rem;
+}
+.review-row {
+  display:flex; justify-content:space-between;
+  padding:8px 0; border-bottom:1px solid var(--border);
+  font-size:0.85rem;
+}
+.review-row:last-child { border-bottom:none; }
+.review-label { color:#94a3b8; }
+.review-value { color:#f8fafc; font-weight:600; }
+.review-value.highlight { color:var(--amber); font-weight:800; }
+
+.success-screen {
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  min-height:50vh; text-align:center;
+}
+.success-icon {
+  width:80px; height:80px; border-radius:50%;
+  background:rgba(16,185,129,0.1);
+  border:2px solid var(--green);
+  display:grid; place-items:center;
+  margin-bottom:24px;
+}
+.success-icon svg { width:40px; height:40px; color:var(--green); }
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 1024px) {
+  .stat-grid { grid-template-columns:repeat(2,1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { transform:translateX(100%); width:280px; }
+  [dir="ltr"] .sidebar { transform:translateX(-100%); }
+  .sidebar.open { transform:translateX(0) !important; }
+  .main { margin-right:0 !important; margin-left:0 !important; }
+  .mobile-toggle { display:block; }
+  .sidebar-overlay.show { display:block; }
+  .stat-grid { grid-template-columns:1fr; }
+  .option-grid { grid-template-columns:repeat(2,1fr); }
+  .topbar { padding:12px 16px; }
+  .page-content { padding:16px; }
+  .wizard-steps { gap:8px; }
+  .step-label { font-size:0.65rem; }
+}
+
+/* Quick actions */
+.quick-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:24px; }
+.quick-card {
+  padding:24px; text-align:center;
+  transition:all 0.2s; cursor:pointer;
+}
+.quick-card:hover { transform:translateY(-4px); background:rgba(255,255,255,0.05); }
+.quick-icon {
+  width:56px; height:56px; border-radius:16px;
+  display:grid; place-items:center;
+  margin:0 auto 16px;
+  font-size:1.5rem;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Mobile Toggle -->
+  <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+  <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-box">N</div>
+      <div>
+        <div class="logo-text gradient-text">NEXUS</div>
+        <div class="logo-sub">AI COMMAND</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav" id="nav"></nav>
+    <div class="sidebar-user">
+      <div class="user-card">
+        <div class="user-avatar">RA</div>
+        <div class="user-info">
+          <div class="user-name">Raouf</div>
+          <div class="user-plan">Pro Plan</div>
+        </div>
+        <div class="user-status"></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-title" id="pageTitle">لوحة التحكم</div>
+      <div class="topbar-actions">
+        <button class="lang-btn" onclick="toggleLang()" id="langBtn">EN</button>
+        <button class="new-campaign-btn" onclick="goTo('wizard')">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span id="newCampaignText">حملة جديدة</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="page-content">
+      <!-- Dashboard Home -->
+      <div class="page active" id="page-dashboard">
+        <div class="animate-fade-up">
+          <div style="margin-bottom:24px;">
+            <h2 style="font-size:1.5rem;font-weight:800;margin-bottom:4px;">مرحباً بك في NEXUS 👋</h2>
+            <p style="color:#94a3b8;font-size:0.9rem;">فريق الذكاء الاصطناعي الخاص بك يعمل الآن</p>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-card glass">
+              <div class="stat-header">
+                <div class="stat-icon" style="background:rgba(245,158,11,0.1);color:var(--amber);">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                </div>
+                <span class="stat-trend" style="background:rgba(16,185,129,0.1);color:var(--green);">+23.5%</span>
+              </div>
+              <div class="stat-value">12</div>
+              <div class="stat-label">حملات نشطة</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-header">
+                <div class="stat-icon" style="background:rgba(6,182,212,0.1);color:var(--cyan);">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="M10 8l6 4-6 4V8z"/></svg>
+                </div>
+                <span class="stat-trend" style="background:rgba(16,185,129,0.1);color:var(--green);">+45.2%</span>
+              </div>
+              <div class="stat-value">156</div>
+              <div class="stat-label">فيديوهات مُنتجة</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-header">
+                <div class="stat-icon" style="background:rgba(16,185,129,0.1);color:var(--green);">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </div>
+                <span class="stat-trend" style="background:rgba(244,63,94,0.1);color:var(--rose);">-5.3%</span>
+              </div>
+              <div class="stat-value">$12,450</div>
+              <div class="stat-label">إنفاق إعلاني</div>
+            </div>
+            <div class="stat-card glass">
+              <div class="stat-header">
+                <div class="stat-icon" style="background:rgba(244,63,94,0.1);color:var(--rose);">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                </div>
+                <span class="stat-trend" style="background:rgba(16,185,129,0.1);color:var(--green);">+12.8%</span>
+              </div>
+              <div class="stat-value" style="background:linear-gradient(135deg,var(--amber),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">287%</div>
+              <div class="stat-label">عائد الاستثمار</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;">
+            <div class="glass" style="padding:24px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="font-size:1.1rem;font-weight:700;">الحملات الحديثة</h3>
+                <a href="#" style="font-size:0.8rem;color:var(--cyan);text-decoration:none;">عرض الكل →</a>
+              </div>
+              <div id="campaignList"></div>
+            </div>
+            <div class="glass" style="padding:24px;">
+              <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:20px;">حالة الوكلاء</h3>
+              <div id="agentStatus"></div>
+              <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+                <div style="font-size:0.8rem;color:#64748b;margin-bottom:12px;font-weight:600;">نشاط اليوم</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                  <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;text-align:center;">
+                    <div style="font-size:1.3rem;font-weight:800;color:var(--cyan);">8</div>
+                    <div style="font-size:0.75rem;color:#64748b;">فيديوهات</div>
+                  </div>
+                  <div style="padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;text-align:center;">
+                    <div style="font-size:1.3rem;font-weight:800;color:var(--amber);">3</div>
+                    <div style="font-size:0.75rem;color:#64748b;">حملات</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="quick-grid">
+            <div class="quick-card glass" onclick="goTo('wizard')">
+              <div class="quick-icon" style="background:rgba(6,182,212,0.1);color:var(--cyan);">🎬</div>
+              <div style="font-weight:700;margin-bottom:4px;">إنشاء فيديو</div>
+              <div style="font-size:0.8rem;color:#94a3b8;">NEX يُنتج فيديو جديد</div>
+            </div>
+            <div class="quick-card glass" onclick="goTo('wizard')">
+              <div class="quick-icon" style="background:rgba(245,158,11,0.1);color:var(--amber);">🚀</div>
+              <div style="font-weight:700;margin-bottom:4px;">إطلاق حملة</div>
+              <div style="font-size:0.8rem;color:#94a3b8;">VEX يُدير الإعلانات</div>
+            </div>
+            <div class="quick-card glass" onclick="goTo('sentinel')">
+              <div class="quick-icon" style="background:rgba(244,63,94,0.1);color:var(--rose);">👁️</div>
+              <div style="font-weight:700;margin-bottom:4px;">مراقبة المنافسين</div>
+              <div style="font-size:0.8rem;color:#94a3b8;">SENTINEL يُحلّل السوق</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Campaigns Page -->
+      <div class="page" id="page-campaigns">
+        <div class="animate-fade-up">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+            <div>
+              <h2 style="font-size:1.5rem;font-weight:800;">الحملات</h2>
+              <p style="color:#94a3b8;font-size:0.9rem;">إدارة جميع حملاتك الإعلانية</p>
+            </div>
+            <button class="new-campaign-btn" onclick="goTo('wizard')">
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              <span id="btnNewCampaign">حملة جديدة</span>
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;">
+            <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;">4</div><div style="font-size:0.75rem;color:#64748b;">الكل</div></div>
+            <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--green);">2</div><div style="font-size:0.75rem;color:#64748b;">نشطة</div></div>
+            <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:var(--amber);">1</div><div style="font-size:0.75rem;color:#64748b;">متوقفة</div></div>
+            <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:800;color:#64748b;">1</div><div style="font-size:0.75rem;color:#64748b;">مكتملة</div></div>
+          </div>
+          <div class="glass table-wrap">
+            <table class="data-table" id="campaignsTable"></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Wizard Page -->
+      <div class="page" id="page-wizard">
+        <div class="animate-fade-up" id="wizardContainer"></div>
+      </div>
+
+      <!-- Placeholder Pages -->
+      <div class="page" id="page-nex"><div class="placeholder-content">🎬 NEX Studio<br><small>قريباً</small></div></div>
+      <div class="page" id="page-vex"><div class="placeholder-content">📊 VEX Manager<br><small>قريباً</small></div></div>
+      <div class="page" id="page-pulse"><div class="placeholder-content">📈 PULSE Analytics<br><small>قريباً</small></div></div>
+      <div class="page" id="page-sentinel"><div class="placeholder-content">👁️ SENTINEL Watch<br><small>قريباً</small></div></div>
+      <div class="page" id="page-settings"><div class="placeholder-content">⚙️ الإعدادات<br><small>قريباً</small></div></div>
+    </div>
+  </div>
+</div>
+
+<style>
+.placeholder-content {
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  min-height:50vh; text-align:center;
+  font-size:2rem; color:#94a3b8;
+}
+.placeholder-content small { font-size:1rem; margin-top:8px; }
+</style>
+
+<script>
+// ===== DATA & STATE =====
+let currentLang = 'ar';
+let currentPage = 'dashboard';
+let wizardStep = 1;
+let campaignData = {
+  productName: '', productDescription: '', productUrl: '', targetAudience: '',
+  videoStyle: 'modern', videoDuration: 30, voiceType: 'professional-male', musicStyle: 'upbeat',
+  platforms: ['instagram'],
+  budget: 500, duration: 7, objective: 'awareness',
+  audienceAge: [18,45], audienceGender: 'all', audienceLocation: 'uae',
+  interests: ['technology','shopping']
+};
+
+const translations = {
+  ar: {
+    dashboard: 'لوحة التحكم', campaigns: 'الحملات', nex: 'استوديو NEX', vex: 'مدير VEX',
+    pulse: 'تحليلات PULSE', sentinel: 'مراقب SENTINEL', settings: 'الإعدادات',
+    newCampaign: 'حملة جديدe', welcome: 'مرحباً بك في NEXUS',
+    subtitle: 'فريق الذكاء الاصطناعي الخاص بك يعمل الآن',
+    activeCampaigns: 'حملات نشطة', videosCreated: 'فيديوهات مُنتجة',
+    adSpend: 'إنفاق إعلاني', roi: 'عائد الاستثمار',
+    recentCampaigns: 'الحملات الحديثة', viewAll: 'عرض الكل',
+    agentStatus: 'حالة الوكلاء', todayActivity: 'نشاط اليوم',
+    createVideo: 'إنشاء فيديو', launchCampaign: 'إطلاق حملة', watchCompetitors: 'مراقبة المنافسين',
+    product: 'المنتج', video: 'الفيديو', platforms: 'المنصات', budget: 'الميزانية',
+    review: 'المراجعة', next: 'التالي', back: 'السابق', launch: 'إطلاق الحملة',
+    launching: 'جاري الإطلاق...', launched: 'تم إطلاق الحملة!',
+    describeProduct: 'صِف منتجك', videoSettings: 'إعدادات الفيديو',
+    choosePlatforms: 'اختر المنصات', budgetTargeting: 'الميزانية والاستهداف',
+    reviewCampaign: 'مراجعة الحملة', productName: 'اسم المنتج',
+    productDesc: 'وصف المنتج', productUrl: 'رابط المنتج (اختياري)',
+    targetAudience: 'الفئة المستهدفة', videoStyle: 'أسلوب الفيديو',
+    videoDuration: 'مدة الفيديو', voiceType: 'نوع الصوت',
+    music: 'الموسيقى الخلفية', dailyBudget: 'الميزانية اليومية',
+    campaignDuration: 'مدة الحملة', objective: 'هدف الحملة',
+    location: 'الموقع الجغرافي', ageRange: 'الفئة العمرية',
+    gender: 'الجنs', interests: 'الاهتمامات',
+    estimatedReach: 'وصول متوقع', estClicks: 'نقرات متوقعة', estConversions: 'تحويلات متوقعة',
+    totalBudget: 'الميزانية الكلية', whatHappens: 'ما سيحدث بعد الإطلاق؟',
+    nexWorking: 'NEX سيُنتج الفيديو خلال 5-15 دقيقة',
+    vexWorking: 'VEX سيُطلق الإعلانات على جميع المنصات المختارة',
+    pulseWorking: 'PULSE سيُراقب الأداء ويُحسّن الميزانية تلقائياً',
+    sentinelWorking: 'SENTINEL سيُراقب المنافسين ويُنذرك بأي تهديد',
+    goToCampaigns: 'الذهاب للحملات',
+    b2c: 'مستهلك نهائي', b2b: 'شركات', young: 'شباب 18-30', premium: 'فئة مميزة', general: 'عام',
+    modern: 'عصري', cinematic: 'سينمائي', minimal: 'بسيط', energetic: 'حيوي', luxury: 'فاخر', fun: 'مرح',
+    profMale: 'محترف (ذكر)', profFemale: 'محترفة (أنثى)', friendlyMale: 'ودود (ذكر)',
+    friendlyFemale: 'ودودة (أنثى)', energeticVoice: 'حيوي', calm: 'هادئ',
+    upbeat: 'مفعم', corporate: 'شركات', trendy: 'ترند', epic: 'حماسي', noMusic: 'بدون موسيقى',
+    awareness: 'وعي بالعلامة', traffic: 'زيارات للموقع', engagement: 'تفاعل',
+    leads: 'عملاء محتملين', sales: 'مبيعات', retargeting: 'إعادة استهداف',
+    all: 'الكل', male: 'ذكور', female: 'إناث',
+    uae: 'الإمارات', saudi: 'السعودية', egypt: 'مصر', kuwait: 'الكويت',
+    qatar: 'قطر', bahrain: 'البحرين', allGcc: 'كل دول الخليج', mena: 'الشرق الأوسط',
+    tech: 'تكنولوجيا', shopping: 'تسوق', fashion: 'أزياء', fitness: 'رياضة',
+    food: 'طعام', travel: 'سفر', gaming: 'ألعاب', business: 'أعمال',
+    step1Title: 'صِف منتجك', step1Desc: 'أخبر NEX عن منتجك ليُنتج فيديو مخصص',
+    step2Title: 'إعدادات الفيديو', step2Desc: 'NEX سيُنتج فيديو بناءً على هذه الإعدادات',
+    step3Title: 'اختر المنصات', step3Desc: 'VEX سيُطلق إعلاناتك على المنصات المختارة',
+    step4Title: 'الميزانية والاستهداف', step4Desc: 'PULSE سيُحسّن توزيع ميزانيتك تلقائياً',
+    step5Title: 'مراجعة الحملة', step5Desc: 'تأكد من كل شيء قبل الإطلاق',
+    chars: 'حرف'
+  },
+  en: {
+    dashboard: 'Dashboard', campaigns: 'Campaigns', nex: 'NEX Studio', vex: 'VEX Manager',
+    pulse: 'PULSE Analytics', sentinel: 'SENTINEL Watch', settings: 'Settings',
+    newCampaign: 'New Campaign', welcome: 'Welcome to NEXUS',
+    subtitle: 'Your AI crew is working now',
+    activeCampaigns: 'Active Campaigns', videosCreated: 'Videos Created',
+    adSpend: 'Ad Spend', roi: 'ROI',
+    recentCampaigns: 'Recent Campaigns', viewAll: 'View All',
+    agentStatus: 'Agent Status', todayActivity: "Today's Activity",
+    createVideo: 'Create Video', launchCampaign: 'Launch Campaign', watchCompetitors: 'Watch Competitors',
+    product: 'Product', video: 'Video', platforms: 'Platforms', budget: 'Budget',
+    review: 'Review', next: 'Next', back: 'Back', launch: 'Launch Campaign',
+    launching: 'Launching...', launched: 'Campaign Launched!',
+    describeProduct: 'Describe Your Product', videoSettings: 'Video Settings',
+    choosePlatforms: 'Choose Platforms', budgetTargeting: 'Budget & Targeting',
+    reviewCampaign: 'Review Campaign', productName: 'Product Name',
+    productDesc: 'Product Description', productUrl: 'Product URL (Optional)',
+    targetAudience: 'Target Audience', videoStyle: 'Video Style',
+    videoDuration: 'Video Duration', voiceType: 'Voice Type',
+    music: 'Background Music', dailyBudget: 'Daily Budget',
+    campaignDuration: 'Campaign Duration', objective: 'Campaign Objective',
+    location: 'Location', ageRange: 'Age Range',
+    gender: 'Gender', interests: 'Interests',
+    estimatedReach: 'Est. Reach', estClicks: 'Est. Clicks', estConversions: 'Est. Conversions',
+    totalBudget: 'Total Budget', whatHappens: 'What happens after launch?',
+    nexWorking: 'NEX will produce the video in 5-15 minutes',
+    vexWorking: 'VEX will launch ads on all selected platforms',
+    pulseWorking: 'PULSE will monitor performance and auto-optimize budget',
+    sentinelWorking: 'SENTINEL will watch competitors and alert you to threats',
+    goToCampaigns: 'Go to Campaigns',
+    b2c: 'Consumer (B2C)', b2b: 'Business (B2B)', young: 'Youth 18-30', premium: 'Premium', general: 'General',
+    modern: 'Modern', cinematic: 'Cinematic', minimal: 'Minimal', energetic: 'Energetic', luxury: 'Luxury', fun: 'Fun',
+    profMale: 'Professional (Male)', profFemale: 'Professional (Female)', friendlyMale: 'Friendly (Male)',
+    friendlyFemale: 'Friendly (Female)', energeticVoice: 'Energetic', calm: 'Calm',
+    upbeat: 'Upbeat', corporate: 'Corporate', trendy: 'Trendy', epic: 'Epic', noMusic: 'No Music',
+    awareness: 'Brand Awareness', traffic: 'Website Traffic', engagement: 'Engagement',
+    leads: 'Leads', sales: 'Sales', retargeting: 'Retargeting',
+    all: 'All', male: 'Male', female: 'Female',
+    uae: 'UAE', saudi: 'Saudi Arabia', egypt: 'Egypt', kuwait: 'Kuwait',
+    qatar: 'Qatar', bahrain: 'Bahrain', allGcc: 'All GCC', mena: 'MENA',
+    tech: 'Technology', shopping: 'Shopping', fashion: 'Fashion', fitness: 'Fitness',
+    food: 'Food', travel: 'Travel', gaming: 'Gaming', business: 'Business',
+    step1Title: 'Describe Your Product', step1Desc: 'Tell NEX about your product to create a custom video',
+    step2Title: 'Video Settings', step2Desc: 'NEX will produce a video based on these settings',
+    step3Title: 'Choose Platforms', step3Desc: 'VEX will launch your ads on selected platforms',
+    step4Title: 'Budget & Targeting', step4Desc: 'PULSE will optimize your budget distribution automatically',
+    step5Title: 'Review Campaign', step5Desc: 'Make sure everything is correct before launch',
+    chars: 'chars'
+  }
+};
+
+const t = (key) => translations[currentLang][key] || key;
+
+// ===== NAVIGATION =====
+const navItems = [
+  { id: 'dashboard', icon: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', color: 'var(--amber)' },
+  { id: 'campaigns', icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', color: 'var(--cyan)' },
+  { id: 'nex', icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 16a6 6 0 1 1 0-12 6 6 0 0 1 0 12z', color: 'var(--cyan)' },
+  { id: 'vex', icon: 'M4 4h16v12H4zM8 20h8M12 16v4', color: 'var(--amber)' },
+  { id: 'pulse', icon: 'M22 12h-4l-3 9L9 3l-3 9H2', color: 'var(--green)' },
+  { id: 'sentinel', icon: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', color: 'var(--rose)' },
+  { id: 'settings', icon: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm8.5-3a8.5 8.5 0 0 0-.6-3.2l2.2-1.7-1-1.7-2.6 1.1a8.6 8.6 0 0 0-2.7-1.6L15.5 2h-2l-.5 2.6a8.5 8.5 0 0 0-2.7 1.6L7.7 5.1l-1 1.7 2.2 1.7a8.5 8.5 0 0 0-.6 3.2 8.5 8.5 0 0 0 .6 3.2l-2.2 1.7 1 1.7 2.6-1.1a8.5 8.5 0 0 0 2.7 1.6L13.5 22h2l.5-2.6a8.5 8.5 0 0 0 2.7-1.6l2.6 1.1 1-1.7-2.2-1.7a8.5 8.5 0 0 0 .6-3.2z', color: '#94a3b8' },
+];
+
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = navItems.map(item => `
+    <button class="nav-item ${currentPage === item.id ? 'active' : ''}" onclick="goTo('${item.id}')" style="--item-color:${item.color}">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:${currentPage === item.id ? item.color : 'currentColor'}">
+        <path d="${item.icon}"/>
+      </svg>
+      <span>${t(item.id)}</span>
+      ${currentPage === item.id ? `<span class="nav-dot" style="background:${item.color}"></span>` : ''}
+    </button>
+  `).join('');
+}
+
+function goTo(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('pageTitle').textContent = t(page === 'wizard' ? 'newCampaign' : page);
+  renderNav();
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'campaigns') renderCampaignsTable();
+  if (page === 'wizard') { wizardStep = 1; renderWizard(); }
+  window.scrollTo(0,0);
+  if (window.innerWidth < 768) toggleSidebar();
+}
+
+// ===== DASHBOARD DATA =====
+const campaigns = [
+  { id: 1, nameAr: 'إطلاق منتج صيفي', nameEn: 'Summer Product Launch', status: 'active', platforms: ['Instagram','TikTok'], budget: 500, spent: 320, roi: 3.2 },
+  { id: 2, nameAr: 'تخفيضات نهاية الشهر', nameEn: 'End of Month Sale', status: 'paused', platforms: ['TikTok'], budget: 800, spent: 150, roi: 1.8 },
+  { id: 3, nameAr: 'حملة تسويقية جديدة', nameEn: 'New Marketing Push', status: 'active', platforms: ['Facebook','Instagram','Google'], budget: 1200, spent: 890, roi: 4.5 },
+  { id: 4, nameAr: 'إعادة استهداف', nameEn: 'Retargeting', status: 'completed', platforms: ['Google','YouTube'], budget: 300, spent: 300, roi: 2.9 },
+];
+
+const agents = [
+  { id: 'nex', name: 'NEX', roleAr: 'مُنتج الفيديو', roleEn: 'Video Producer', color: 'var(--cyan)', progress: 78, status: 'working' },
+  { id: 'vex', name: 'VEX', roleAr: 'مُدير الإعلانات', roleEn: 'Ad Manager', color: 'var(--amber)', progress: 0, status: 'idle' },
+  { id: 'pulse', name: 'PULSE', roleAr: 'مُحلّل البيانات', roleEn: 'Data Analyst', color: 'var(--green)', progress: 45, status: 'working' },
+  { id: 'sentinel', name: 'SENTINEL', roleAr: 'مُراقب المنافسة', roleEn: 'Competition Watcher', color: 'var(--rose)', progress: 92, status: 'working' },
+];
+
+function renderDashboard() {
+  const list = document.getElementById('campaignList');
+  list.innerHTML = campaigns.slice(0,3).map(c => {
+    const progress = (c.spent / c.budget) * 100;
+    const name = currentLang === 'ar' ? c.nameAr : c.nameEn;
+    const statusColor = c.status === 'active' ? 'var(--green)' : c.status === 'paused' ? 'var(--amber)' : '#64748b';
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;background:rgba(255,255,255,0.02);margin-bottom:8px;">
+        <div style="width:3px;height:40px;border-radius:2px;background:${statusColor};flex-shrink:0;"></div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+          <div style="font-size:0.75rem;color:#64748b;margin-top:2px;">${c.platforms.join(' • ')} • $${c.budget}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:0.9rem;font-weight:700;">$${c.spent}</div>
+          <div style="font-size:0.75rem;color:var(--green);">ROI: ${c.roi}x</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const agentDiv = document.getElementById('agentStatus');
+  agentDiv.innerHTML = agents.map(a => `
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${a.status === 'working' ? 'var(--green)' : 'var(--amber)'};${a.status === 'working' ? 'animation:pulse-dot 2s infinite' : ''}"></div>
+          <div>
+            <div style="font-weight:700;font-size:0.9rem;">${a.name}</div>
+            <div style="font-size:0.75rem;color:#64748b;">${currentLang === 'ar' ? a.roleAr : a.roleEn}</div>
+          </div>
+        </div>
+        <span style="font-size:0.75rem;font-weight:700;color:${a.status === 'working' ? 'var(--green)' : 'var(--amber)'}">${a.status === 'working' ? (currentLang === 'ar' ? 'يعمل' : 'Working') : (currentLang === 'ar' ? 'في الانتظار' : 'Idle')}</span>
+      </div>
+      <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.05);overflow:hidden;">
+        <div style="height:100%;border-radius:2px;background:${a.color};width:${a.progress}%;transition:width 1s;"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCampaignsTable() {
+  const table = document.getElementById('campaignsTable');
+  const headers = currentLang === 'ar' 
+    ? ['الحملة','الحالة','المنصات','الميزانية','الأداء','ROI']
+    : ['Campaign','Status','Platforms','Budget','Performance','ROI'];
+
+  const statusMap = {
+    active: { ar: 'نشطة', en: 'Active', color: 'var(--green)', bg: 'rgba(16,185,129,0.1)' },
+    paused: { ar: 'متوقفة', en: 'Paused', color: 'var(--amber)', bg: 'rgba(245,158,11,0.1)' },
+    completed: { ar: 'مكتملة', en: 'Completed', color: '#64748b', bg: 'rgba(100,116,139,0.1)' }
+  };
+
+  table.innerHTML = `
+    <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>
+      ${campaigns.map(c => {
+        const s = statusMap[c.status];
+        const name = currentLang === 'ar' ? c.nameAr : c.nameEn;
+        const progress = (c.spent / c.budget) * 100;
+        return `
+          <tr>
+            <td><div style="font-weight:600;font-size:0.85rem;">${name}</div></td>
+            <td><span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${s.bg};color:${s.color}"><span style="width:6px;height:6px;border-radius:50%;background:${s.color};${c.status === 'active' ? 'animation:pulse-dot 2s infinite' : ''}"></span>${currentLang === 'ar' ? s.ar : s.en}</span></td>
+            <td>${c.platforms.map(p => `<span class="platform-tag">${p}</span>`).join('')}</td>
+            <td><div style="font-weight:700;font-size:0.85rem;">$${c.budget}</div><div class="progress-bar" style="margin-top:6px;"><div class="progress-fill" style="width:${progress}%"></div></div><div style="font-size:0.7rem;color:#64748b;margin-top:2px;">$${c.spent} spent</div></td>
+            <td><div style="font-size:0.85rem;">${(c.budget * 2.5).toLocaleString()} reach</div></td>
+            <td><span style="font-weight:800;color:var(--green);font-size:0.9rem;">${c.roi}x</span></td>
+          </tr>
+        `;
+      }).join('')}
+    </tbody>
+  `;
+}
+
+// ===== WIZARD =====
+function renderWizard() {
+  const container = document.getElementById('wizardContainer');
+  const steps = [
+    { id: 1, label: t('product'), icon: '📦' },
+    { id: 2, label: t('video'), icon: '🎬' },
+    { id: 3, label: t('platforms'), icon: '📱' },
+    { id: 4, label: t('budget'), icon: '💰' },
+    { id: 5, label: t('review'), icon: '✅' },
+  ];
+
+  let content = '';
+  if (wizardStep <= 5) {
+    content = `
+      <div class="wizard-steps">
+        <div class="wizard-line"><div class="wizard-line-fill" style="width:${((wizardStep-1)/4)*100}%"></div></div>
+        ${steps.map(s => `
+          <div class="wizard-step">
+            <div class="step-circle ${wizardStep > s.id ? 'done' : wizardStep === s.id ? 'current' : 'pending'}">
+              ${wizardStep > s.id ? '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>' : s.id}
+            </div>
+            <span class="step-label ${wizardStep === s.id ? 'active' : wizardStep > s.id ? 'done' : 'pending'}">${s.label}</span>
+          </div>
+        `).join('')}
+      </div>
+      <div class="wizard-content glass" style="padding:32px;">
+        ${renderWizardStep()}
+      </div>
+      <div class="wizard-nav">
+        <button class="btn btn-secondary" onclick="prevStep()" ${wizardStep === 1 ? 'disabled' : ''}>← ${t('back')}</button>
+        <button class="btn ${wizardStep === 5 ? 'btn-success' : 'btn-primary'}" onclick="nextStep()">
+          ${wizardStep === 5 ? `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg> ${t('launch')}` : t('next') + ' →'}
+        </button>
+      </div>
+    `;
+  }
+
+  container.innerHTML = content;
+}
+
+function renderWizardStep() {
+  if (wizardStep === 1) return renderStep1();
+  if (wizardStep === 2) return renderStep2();
+  if (wizardStep === 3) return renderStep3();
+  if (wizardStep === 4) return renderStep4();
+  if (wizardStep === 5) return renderStep5();
+  return '';
+}
+
+function renderStep1() {
+  const audiences = [
+    { id: 'b2c', label: 'b2c' }, { id: 'b2b', label: 'b2b' },
+    { id: 'young', label: 'young' }, { id: 'premium', label: 'premium' }, { id: 'general', label: 'general' }
+  ];
+  return `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:grid;place-items:center;margin:0 auto 16px;">
+        <svg width="32" height="32" fill="none" stroke="var(--amber)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      </div>
+      <h3 style="font-size:1.3rem;font-weight:800;margin-bottom:8px;">${t('step1Title')}</h3>
+      <p style="color:#94a3b8;font-size:0.85rem;">${t('step1Desc')}</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('productName')} *</label>
+      <input type="text" class="form-input" placeholder="${currentLang==='ar'?'مثال: ساعة ذكية':'e.g. Premium Smart Watch'}" value="${campaignData.productName}" onchange="updateData('productName', this.value)">
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('productDesc')} *</label>
+      <textarea class="form-textarea" placeholder="${currentLang==='ar'?'صف المنتج باختصار...':'Brief description...'}" onchange="updateData('productDescription', this.value)">${campaignData.productDescription}</textarea>
+      <div style="text-align:right;font-size:0.75rem;color:#64748b;margin-top:4px;">${campaignData.productDescription.length} ${t('chars')}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('productUrl')}</label>
+      <input type="url" class="form-input" placeholder="https://..." value="${campaignData.productUrl}" onchange="updateData('productUrl', this.value)">
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('targetAudience')}</label>
+      <div class="option-grid">
+        ${audiences.map(a => `
+          <button class="option-btn ${campaignData.targetAudience === a.id ? 'selected-amber' : ''}" onclick="updateData('targetAudience', '${a.id}');renderWizard();">
+            ${t(a.label)}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderStep2() {
+  const styles = [
+    { id: 'modern', icon: '⚡', label: 'modern' }, { id: 'cinematic', icon: '🎬', label: 'cinematic' },
+    { id: 'minimal', icon: '◻️', label: 'minimal' }, { id: 'energetic', icon: '🔥', label: 'energetic' },
+    { id: 'luxury', icon: '💎', label: 'luxury' }, { id: 'fun', icon: '🎉', label: 'fun' }
+  ];
+  const voices = [
+    { id: 'professional-male', label: 'profMale' }, { id: 'professional-female', label: 'profFemale' },
+    { id: 'friendly-male', label: 'friendlyMale' }, { id: 'friendly-female', label: 'friendlyFemale' },
+    { id: 'energetic', label: 'energeticVoice' }, { id: 'calm', label: 'calm' }
+  ];
+  const music = [
+    { id: 'upbeat', label: 'upbeat' }, { id: 'corporate', label: 'corporate' },
+    { id: 'trendy', label: 'trendy' }, { id: 'calm', label: 'calm' },
+    { id: 'epic', label: 'epic' }, { id: 'none', label: 'noMusic' }
+  ];
+  return `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);display:grid;place-items:center;margin:0 auto 16px;">
+        <svg width="32" height="32" fill="none" stroke="var(--cyan)" stroke-width="1.5" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/><path d="M10 8l6 4-6 4V8z"/></svg>
+      </div>
+      <h3 style="font-size:1.3rem;font-weight:800;margin-bottom:8px;">${t('step2Title')}</h3>
+      <p style="color:#94a3b8;font-size:0.85rem;">${t('step2Desc')}</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('videoStyle')}</label>
+      <div class="option-grid">
+        ${styles.map(s => `
+          <button class="option-btn ${campaignData.videoStyle === s.id ? 'selected' : ''}" onclick="updateData('videoStyle', '${s.id}');renderWizard();">
+            <span style="font-size:1.5rem;">${s.icon}</span>
+            <span>${t(s.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+    <div class="range-wrap">
+      <div class="range-header"><label class="form-label">${t('videoDuration')}</label><span class="range-value">${campaignData.videoDuration} ${currentLang==='ar'?'ثانية':'sec'}</span></div>
+      <input type="range" min="15" max="60" step="5" value="${campaignData.videoDuration}" oninput="updateData('videoDuration', parseInt(this.value));renderWizard();">
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('voiceType')}</label>
+      <div class="option-grid" style="grid-template-columns:repeat(2,1fr);">
+        ${voices.map(v => `
+          <button class="option-btn ${campaignData.voiceType === v.id ? 'selected' : ''}" onclick="updateData('voiceType', '${v.id}');renderWizard();">${t(v.label)}</button>
+        `).join('')}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('music')}</label>
+      <div class="option-grid" style="grid-template-columns:repeat(3,1fr);">
+        ${music.map(m => `
+          <button class="option-btn ${campaignData.musicStyle === m.id ? 'selected' : ''}" onclick="updateData('musicStyle', '${m.id}');renderWizard();">${t(m.label)}</button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderStep3() {
+  const platforms = [
+    { id: 'instagram', name: 'Instagram', color: '#E4405F', features: ['Reels','Stories','Feed'] },
+    { id: 'tiktok', name: 'TikTok', color: '#00f2ea', features: ['Short Videos','Trending'] },
+    { id: 'facebook', name: 'Facebook', color: '#1877F2', features: ['Feed','Stories'] },
+    { id: 'youtube', name: 'YouTube', color: '#FF0000', features: ['Shorts','In-Stream'] },
+    { id: 'google', name: 'Google', color: '#4285F4', features: ['Search','Display'] },
+    { id: 'snapchat', name: 'Snapchat', color: '#FFFC00', features: ['Stories','Discover'] },
+  ];
+  return `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);display:grid;place-items:center;margin:0 auto 16px;">
+        <svg width="32" height="32" fill="none" stroke="var(--amber)" stroke-width="1.5" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+      </div>
+      <h3 style="font-size:1.3rem;font-weight:800;margin-bottom:8px;">${t('step3Title')}</h3>
+      <p style="color:#94a3b8;font-size:0.85rem;">${t('step3Desc')}</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
+      ${platforms.map(p => {
+        const isSelected = campaignData.platforms.includes(p.id);
+        return `
+          <button onclick="togglePlatform('${p.id}')" style="position:relative;padding:20px;border-radius:16px;border:1px solid ${isSelected ? 'rgba(255,255,255,0.3)' : 'var(--border)'};background:${isSelected ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'};text-align:left;cursor:pointer;transition:all 0.2s;">
+            ${isSelected ? `<div style="position:absolute;top:12px;right:12px;width:24px;height:24px;border-radius:50%;background:var(--green);display:grid;place-items:center;"><svg width="14" height="14" fill="none" stroke="#000" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>` : ''}
+            <div style="font-size:1.8rem;margin-bottom:8px;">${p.id === 'instagram' ? '📸' : p.id === 'tiktok' ? '🎵' : p.id === 'facebook' ? '📘' : p.id === 'youtube' ? '▶️' : p.id === 'google' ? '🔍' : '👻'}</div>
+            <div style="font-weight:700;color:#f8fafc;margin-bottom:4px;">${p.name}</div>
+            <div style="font-size:0.75rem;color:#64748b;">${p.features.join(' • ')}</div>
+          </button>
+        `;
+      }).join('')}
+    </div>
+    ${campaignData.platforms.length === 0 ? `<div style="text-align:center;padding:16px;color:var(--amber);font-size:0.9rem;">⚠️ ${t('choosePlatforms')}</div>` : ''}
+    ${campaignData.platforms.length > 0 ? `
+      <div class="glass" style="margin-top:16px;padding:16px;display:flex;align-items:center;gap:12px;">
+        <div style="width:32px;height:32px;border-radius:50%;background:rgba(16,185,129,0.1);display:grid;place-items:center;"><svg width="18" height="18" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div><div style="font-size:0.9rem;font-weight:700;">${campaignData.platforms.length} ${currentLang==='ar'?'منصات مختارة':'platforms selected'}</div><div style="font-size:0.8rem;color:#64748b;">${campaignData.platforms.map(p => platforms.find(pl => pl.id === p)?.name).join(' • ')}</div></div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderStep4() {
+  const objectives = [
+    { id: 'awareness', icon: '👁️', label: 'awareness' }, { id: 'traffic', icon: '🔗', label: 'traffic' },
+    { id: 'engagement', icon: '💬', label: 'engagement' }, { id: 'leads', icon: '📋', label: 'leads' },
+    { id: 'sales', icon: '💰', label: 'sales' }, { id: 'retargeting', icon: '🎯', label: 'retargeting' }
+  ];
+  const locations = [
+    { id: 'uae', label: 'uae' }, { id: 'saudi', label: 'saudi' }, { id: 'egypt', label: 'egypt' },
+    { id: 'kuwait', label: 'kuwait' }, { id: 'qatar', label: 'qatar' }, { id: 'bahrain', label: 'bahrain' },
+    { id: 'allGcc', label: 'allGcc' }, { id: 'mena', label: 'mena' }
+  ];
+  const genders = [{ id: 'all', label: 'all' }, { id: 'male', label: 'male' }, { id: 'female', label: 'female' }];
+  const interestsList = [
+    { id: 'technology', label: 'tech' }, { id: 'shopping', label: 'shopping' }, { id: 'fashion', label: 'fashion' },
+    { id: 'fitness', label: 'fitness' }, { id: 'food', label: 'food' }, { id: 'travel', label: 'travel' },
+    { id: 'gaming', label: 'gaming' }, { id: 'business', label: 'business' }
+  ];
+  const totalBudget = campaignData.budget * campaignData.duration;
+  const estReach = Math.floor(totalBudget * 2.5);
+  const estClicks = Math.floor(totalBudget * 0.08);
+  return `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);display:grid;place-items:center;margin:0 auto 16px;">
+        <svg width="32" height="32" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h3 style="font-size:1.3rem;font-weight:800;margin-bottom:8px;">${t('step4Title')}</h3>
+      <p style="color:#94a3b8;font-size:0.85rem;">${t('step4Desc')}</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('objective')}</label>
+      <div class="option-grid" style="grid-template-columns:repeat(3,1fr);">
+        ${objectives.map(o => `
+          <button class="option-btn ${campaignData.objective === o.id ? 'selected-green' : ''}" onclick="updateData('objective', '${o.id}');renderWizard();">
+            <span style="font-size:1.3rem;">${o.icon}</span>
+            <span>${t(o.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+    <div class="glass" style="padding:24px;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <span class="form-label" style="margin:0;">${t('dailyBudget')}</span>
+        <span style="font-size:1.5rem;font-weight:900;color:var(--amber);">$${campaignData.budget}</span>
+      </div>
+      <input type="range" min="50" max="5000" step="50" value="${campaignData.budget}" oninput="updateData('budget', parseInt(this.value));renderWizard();">
+      <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#64748b;margin-top:4px;"><span>$50</span><span>$2,500</span><span>$5,000</span></div>
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+          <span class="form-label" style="margin:0;">${t('campaignDuration')}</span>
+          <span style="font-weight:800;color:var(--cyan);">${campaignData.duration} ${currentLang==='ar'?'أيام':'days'}</span>
+        </div>
+        <input type="range" min="1" max="30" step="1" value="${campaignData.duration}" oninput="updateData('duration', parseInt(this.value));renderWizard();">
+      </div>
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+        <div style="font-size:0.85rem;font-weight:700;margin-bottom:12px;">${t('estimatedResults')}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+          <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;"><div style="font-size:1.2rem;font-weight:800;color:var(--cyan);">${estReach.toLocaleString()}</div><div style="font-size:0.7rem;color:#64748b;">${t('estimatedReach')}</div></div>
+          <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;"><div style="font-size:1.2rem;font-weight:800;color:var(--amber);">${estClicks.toLocaleString()}</div><div style="font-size:0.7rem;color:#64748b;">${t('estClicks')}</div></div>
+          <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px;"><div style="font-size:1.2rem;font-weight:800;color:var(--green);">${Math.floor(totalBudget * 0.02)}</div><div style="font-size:0.7rem;color:#64748b;">${t('estConversions')}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('location')}</label>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+        ${locations.map(l => `
+          <button class="option-btn ${campaignData.audienceLocation === l.id ? 'selected-green' : ''}" style="padding:10px;font-size:0.8rem;" onclick="updateData('audienceLocation', '${l.id}');renderWizard();">${t(l.label)}</button>
+        `).join('')}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+      <div>
+        <label class="form-label">${t('ageRange')}</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" class="form-input" style="text-align:center;" value="${campaignData.audienceAge[0]}" min="13" max="75" onchange="updateData('audienceAge', [parseInt(this.value), campaignData.audienceAge[1]]);renderWizard();">
+          <span style="color:#64748b;">-</span>
+          <input type="number" class="form-input" style="text-align:center;" value="${campaignData.audienceAge[1]}" min="18" max="75" onchange="updateData('audienceAge', [campaignData.audienceAge[0], parseInt(this.value)]);renderWizard();">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">${t('gender')}</label>
+        <div style="display:flex;gap:8px;">
+          ${genders.map(g => `
+            <button class="option-btn ${campaignData.audienceGender === g.id ? 'selected-green' : ''}" style="flex:1;padding:10px;" onclick="updateData('audienceGender', '${g.id}');renderWizard();">${t(g.label)}</button>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">${t('interests')}</label>
+      <div class="tag-wrap">
+        ${interestsList.map(i => {
+          const isSel = campaignData.interests.includes(i.id);
+          return `<button class="tag-btn ${isSel ? 'selected' : ''}" onclick="toggleInterest('${i.id}');renderWizard();">${isSel ? '✓ ' : ''}${t(i.label)}</button>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderStep5() {
+  const totalBudget = campaignData.budget * campaignData.duration;
+  const platformsMap = { instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', youtube: 'YouTube', google: 'Google', snapchat: 'Snapchat' };
+  const objectivesMap = { awareness: 'awareness', traffic: 'traffic', engagement: 'engagement', leads: 'leads', sales: 'sales', retargeting: 'retargeting' };
+  const locationsMap = { uae: 'uae', saudi: 'saudi', egypt: 'egypt', kuwait: 'kuwait', qatar: 'qatar', bahrain: 'bahrain', allGcc: 'allGcc', mena: 'mena' };
+  const genderMap = { all: 'all', male: 'male', female: 'female' };
+  return `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="width:64px;height:64px;border-radius:16px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);display:grid;place-items:center;margin:0 auto 16px;">
+        <svg width="32" height="32" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </div>
+      <h3 style="font-size:1.3rem;font-weight:800;margin-bottom:8px;">${t('step5Title')}</h3>
+      <p style="color:#94a3b8;font-size:0.85rem;">${t('step5Desc')}</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+      <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:900;color:var(--amber);">$${totalBudget}</div><div style="font-size:0.75rem;color:#64748b;">${t('totalBudget')}</div></div>
+      <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:900;color:var(--cyan);">${Math.floor(totalBudget * 2.5).toLocaleString()}</div><div style="font-size:0.75rem;color:#64748b;">${t('estimatedReach')}</div></div>
+      <div class="glass" style="padding:16px;text-align:center;"><div style="font-size:1.5rem;font-weight:900;color:var(--green);">${Math.floor(totalBudget * 0.08).toLocaleString()}</div><div style="font-size:0.75rem;color:#64748b;">${t('estClicks')}</div></div>
+    </div>
+    <div class="review-card glass" style="padding:20px;">
+      <div class="review-header"><div class="review-icon" style="background:rgba(245,158,11,0.1);color:var(--amber);">📦</div><h4 style="font-weight:700;">${t('product')}</h4></div>
+      <div class="review-row"><span class="review-label">${t('productName')}</span><span class="review-value">${campaignData.productName || '—'}</span></div>
+      <div class="review-row"><span class="review-label">${t('productDesc')}</span><span class="review-value" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${campaignData.productDescription || '—'}</span></div>
+    </div>
+    <div class="review-card glass" style="padding:20px;">
+      <div class="review-header"><div class="review-icon" style="background:rgba(6,182,212,0.1);color:var(--cyan);">🎬</div><h4 style="font-weight:700;">${t('video')}</h4></div>
+      <div class="review-row"><span class="review-label">${t('videoStyle')}</span><span class="review-value">${campaignData.videoStyle}</span></div>
+      <div class="review-row"><span class="review-label">${t('videoDuration')}</span><span class="review-value">${campaignData.videoDuration}s</span></div>
+      <div class="review-row"><span class="review-label">${t('voiceType')}</span><span class="review-value">${campaignData.voiceType}</span></div>
+    </div>
+    <div class="review-card glass" style="padding:20px;">
+      <div class="review-header"><div class="review-icon" style="background:rgba(245,158,11,0.1);color:var(--amber);">📱</div><h4 style="font-weight:700;">${t('platforms')}</h4></div>
+      <div class="review-row"><span class="review-label">${t('platforms')}</span><span class="review-value">${campaignData.platforms.map(p => platformsMap[p]).join(', ')}</span></div>
+    </div>
+    <div class="review-card glass" style="padding:20px;">
+      <div class="review-header"><div class="review-icon" style="background:rgba(16,185,129,0.1);color:var(--green);">💰</div><h4 style="font-weight:700;">${t('budget')}</h4></div>
+      <div class="review-row"><span class="review-label">${t('dailyBudget')}</span><span class="review-value highlight">$${campaignData.budget}</span></div>
+      <div class="review-row"><span class="review-label">${t('campaignDuration')}</span><span class="review-value">${campaignData.duration} ${currentLang==='ar'?'أيام':'days'}</span></div>
+      <div class="review-row"><span class="review-label">${t('objective')}</span><span class="review-value">${t(objectivesMap[campaignData.objective])}</span></div>
+      <div class="review-row"><span class="review-label">${t('location')}</span><span class="review-value">${t(locationsMap[campaignData.audienceLocation])}</span></div>
+      <div class="review-row"><span class="review-label">${t('ageRange')}</span><span class="review-value">${campaignData.audienceAge[0]} - ${campaignData.audienceAge[1]}</span></div>
+      <div class="review-row"><span class="review-label">${t('gender')}</span><span class="review-value">${t(genderMap[campaignData.audienceGender])}</span></div>
+    </div>
+    <div class="glass" style="padding:20px;border-color:rgba(245,158,11,0.2);background:rgba(245,158,11,0.03);">
+      <div style="display:flex;align-items:start;gap:16px;">
+        <div style="width:48px;height:48px;border-radius:12px;background:rgba(245,158,11,0.1);display:grid;place-items:center;flex-shrink:0;">
+          <svg width="24" height="24" fill="none" stroke="var(--amber)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v14a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <div>
+          <h4 style="font-weight:700;color:var(--amber);margin-bottom:10px;">${t('whatHappens')}</h4>
+          <ul style="list-style:none;padding:0;space-y:8px;">
+            <li style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.85rem;color:#94a3b8;"><span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);flex-shrink:0;"></span><span><strong style="color:var(--cyan);">NEX</strong> ${t('nexWorking')}</span></li>
+            <li style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.85rem;color:#94a3b8;"><span style="width:6px;height:6px;border-radius:50%;background:var(--amber);flex-shrink:0;"></span><span><strong style="color:var(--amber);">VEX</strong> ${t('vexWorking')}</span></li>
+            <li style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:0.85rem;color:#94a3b8;"><span style="width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;"></span><span><strong style="color:var(--green);">PULSE</strong> ${t('pulseWorking')}</span></li>
+            <li style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:#94a3b8;"><span style="width:6px;height:6px;border-radius:50%;background:var(--rose);flex-shrink:0;"></span><span><strong style="color:var(--rose);">SENTINEL</strong> ${t('sentinelWorking')}</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function updateData(key, value) {
+  campaignData[key] = value;
+}
+
+function togglePlatform(id) {
+  const idx = campaignData.platforms.indexOf(id);
+  if (idx > -1) campaignData.platforms.splice(idx, 1);
+  else campaignData.platforms.push(id);
+  renderWizard();
+}
+
+function toggleInterest(id) {
+  const idx = campaignData.interests.indexOf(id);
+  if (idx > -1) campaignData.interests.splice(idx, 1);
+  else campaignData.interests.push(id);
+  renderWizard();
+}
+
+function nextStep() {
+  if (wizardStep < 5) { wizardStep++; renderWizard(); }
+  else launchCampaign();
+}
+
+function prevStep() {
+  if (wizardStep > 1) { wizardStep--; renderWizard(); }
+}
+
+function launchCampaign() {
+  const container = document.getElementById('wizardContainer');
+  container.innerHTML = `
+    <div class="success-screen">
+      <div class="success-icon">
+        <svg fill="none" stroke="var(--green)" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 style="font-size:2rem;font-weight:900;color:#f8fafc;margin-bottom:12px;">${t('launched')}</h2>
+      <p style="color:#94a3b8;max-width:500px;margin-bottom:32px;">
+        ${currentLang === 'ar' 
+          ? 'NEX يُنتج الفيديو الآن. VEX سيُطلق الإعلانات خلال دقائق. PULSE يُراقب الأداء. SENTINEL يُحلّل المنافسة.'
+          : 'NEX is producing the video now. VEX will launch ads within minutes. PULSE monitors performance. SENTINEL analyzes competition.'}
+      </p>
+      <div class="glass" style="padding:24px;max-width:400px;width:100%;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:0.9rem;"><span style="color:#94a3b8;">${t('product')}</span><span style="color:#f8fafc;font-weight:600;">${campaignData.productName || 'Product'}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:0.9rem;"><span style="color:#94a3b8;">${t('platforms')}</span><span style="color:#f8fafc;font-weight:600;">${campaignData.platforms.join(', ')}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:0.9rem;"><span style="color:#94a3b8;">${t('budget')}</span><span style="color:var(--amber);font-weight:800;">$${campaignData.budget * campaignData.duration}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.9rem;"><span style="color:#94a3b8;">${t('campaignDuration')}</span><span style="color:#f8fafc;font-weight:600;">${campaignData.duration} ${currentLang==='ar'?'أيام':'days'}</span></div>
+      </div>
+      <button onclick="goTo('campaigns')" class="btn btn-primary" style="margin-top:32px;font-size:1rem;padding:14px 32px;">${t('goToCampaigns')} →</button>
+    </div>
+  `;
+}
+
+// ===== LANGUAGE =====
+function toggleLang() {
+  currentLang = currentLang === 'ar' ? 'en' : 'ar';
+  document.documentElement.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('lang', currentLang);
+  document.getElementById('langBtn').textContent = currentLang === 'ar' ? 'EN' : 'AR';
+  document.getElementById('pageTitle').textContent = t(currentPage === 'wizard' ? 'newCampaign' : currentPage);
+  const newCampText = document.getElementById('newCampaignText');
+  if (newCampText) newCampText.textContent = t('newCampaign');
+  const btnNewCamp = document.getElementById('btnNewCampaign');
+  if (btnNewCamp) btnNewCamp.textContent = t('newCampaign');
+  renderNav();
+  renderDashboard();
+  renderCampaignsTable();
+  if (currentPage === 'wizard') renderWizard();
+}
+
+// ===== SIDEBAR =====
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  sidebar.classList.toggle('open');
+  overlay.classList.toggle('show');
+}
+
+// ===== INIT =====
+function init() {
+  renderNav();
+  renderDashboard();
+  renderCampaignsTable();
+}
+
+init();
+</script>
+
+</body>
+</html>
