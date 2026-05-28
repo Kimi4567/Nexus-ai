@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ProtectedRoute } from '@/components/ui/ProtectedRoute'
 import {
   Shield, ShieldAlert, ShieldCheck, AlertTriangle, Eye, TrendingDown, Globe, Bell,
 } from 'lucide-react'
@@ -48,97 +47,95 @@ export default function SentinelPage() {
   ]
 
   return (
-    <ProtectedRoute>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Sentinel - المراقبة</h1>
-          <p className="text-text-muted text-sm">نظام المراقبة والتنبيهات الذكي</p>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Sentinel - المراقبة</h1>
+        <p className="text-text-muted text-sm">نظام المراقبة والتنبيهات الذكي</p>
+      </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statusCards.map((card) => (
-            <div key={card.label} className="glass p-5" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-              <p className="text-text-muted text-sm mb-1">{card.label}</p>
+      {/* Status Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statusCards.map((card) => (
+          <div key={card.label} className="glass p-5" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+            <p className="text-text-muted text-sm mb-1">{card.label}</p>
+            <div className="flex items-center gap-2">
+              {card.status === 'healthy' ? (
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <ShieldAlert className="w-5 h-5 text-amber" />
+              )}
+              <span className="text-lg font-bold">{card.value}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Competitor Monitoring */}
+      <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Eye className="w-5 h-5 text-cyan" />
+          <h3 className="text-lg font-bold">مراقبة المنافسين</h3>
+        </div>
+        <div className="space-y-3">
+          {competitors.map((comp) => (
+            <div key={comp.name} className="flex items-center gap-4 p-4 rounded-xl bg-white/5">
+              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-text-muted" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-sm">{comp.name}</p>
+                <p className="text-xs text-text-muted">{comp.activity} · {comp.lastUpdate}</p>
+              </div>
               <div className="flex items-center gap-2">
-                {card.status === 'healthy' ? (
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                ) : (
-                  <ShieldAlert className="w-5 h-5 text-amber" />
-                )}
-                <span className="text-lg font-bold">{card.value}</span>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                  comp.threatLevel === 'high' ? 'bg-red-500/10 text-red-400' :
+                  comp.threatLevel === 'medium' ? 'bg-amber/10 text-amber' :
+                  'bg-emerald-500/10 text-emerald-400'
+                }`}>
+                  {comp.threatLevel === 'high' ? 'خطر عالي' : comp.threatLevel === 'medium' ? 'خطر متوسط' : 'خطر منخفض'}
+                </span>
               </div>
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Competitor Monitoring */}
-        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Eye className="w-5 h-5 text-cyan" />
-            <h3 className="text-lg font-bold">مراقبة المنافسين</h3>
-          </div>
-          <div className="space-y-3">
-            {competitors.map((comp) => (
-              <div key={comp.name} className="flex items-center gap-4 p-4 rounded-xl bg-white/5">
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
-                  <Globe className="w-5 h-5 text-text-muted" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{comp.name}</p>
-                  <p className="text-xs text-text-muted">{comp.activity} · {comp.lastUpdate}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                    comp.threatLevel === 'high' ? 'bg-red-500/10 text-red-400' :
-                    comp.threatLevel === 'medium' ? 'bg-amber/10 text-amber' :
-                    'bg-emerald-500/10 text-emerald-400'
-                  }`}>
-                    {comp.threatLevel === 'high' ? 'خطر عالي' : comp.threatLevel === 'medium' ? 'خطر متوسط' : 'خطر منخفض'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Alerts Feed */}
+      <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+        <div className="flex items-center gap-2 mb-4">
+          <Bell className="w-5 h-5 text-amber" />
+          <h3 className="text-lg font-bold">التنبيهات</h3>
+          <span className="px-2 py-0.5 rounded-full bg-amber/10 text-amber text-xs font-medium">
+            {alerts.filter(a => !a.read).length} جديدة
+          </span>
         </div>
-
-        {/* Alerts Feed */}
-        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="w-5 h-5 text-amber" />
-            <h3 className="text-lg font-bold">التنبيهات</h3>
-            <span className="px-2 py-0.5 rounded-full bg-amber/10 text-amber text-xs font-medium">
-              {alerts.filter(a => !a.read).length} جديدة
-            </span>
-          </div>
-          <div className="space-y-3">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                onClick={() => markRead(alert.id)}
-                className={`p-4 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
-                  alert.type === 'success' ? 'bg-emerald-500/5 border-emerald-500/20' :
-                  alert.type === 'warning' ? 'bg-amber/5 border-amber/20' :
-                  alert.type === 'error' ? 'bg-red-500/5 border-red-500/20' :
-                  'bg-cyan/5 border-cyan/20'
-                } ${!alert.read ? 'border-l-2 border-l-current' : ''}`}
-              >
-                <div className="mt-0.5">
-                  {alert.type === 'success' && <ShieldCheck className="w-5 h-5 text-emerald-400" />}
-                  {alert.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber" />}
-                  {alert.type === 'error' && <TrendingDown className="w-5 h-5 text-red-400" />}
-                  {alert.type === 'info' && <Shield className="w-5 h-5 text-cyan" />}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm">{alert.message}</p>
-                  <p className="text-xs text-text-muted mt-1">{alert.time}</p>
-                </div>
-                {!alert.read && <div className="w-2 h-2 rounded-full bg-amber mt-2" />}
+        <div className="space-y-3">
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              onClick={() => markRead(alert.id)}
+              className={`p-4 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                alert.type === 'success' ? 'bg-emerald-500/5 border-emerald-500/20' :
+                alert.type === 'warning' ? 'bg-amber/5 border-amber/20' :
+                alert.type === 'error' ? 'bg-red-500/5 border-red-500/20' :
+                'bg-cyan/5 border-cyan/20'
+              } ${!alert.read ? 'border-l-2 border-l-current' : ''}`}
+            >
+              <div className="mt-0.5">
+                {alert.type === 'success' && <ShieldCheck className="w-5 h-5 text-emerald-400" />}
+                {alert.type === 'warning' && <AlertTriangle className="w-5 h-5 text-amber" />}
+                {alert.type === 'error' && <TrendingDown className="w-5 h-5 text-red-400" />}
+                {alert.type === 'info' && <Shield className="w-5 h-5 text-cyan" />}
               </div>
-            ))}
-          </div>
+              <div className="flex-1">
+                <p className="text-sm">{alert.message}</p>
+                <p className="text-xs text-text-muted mt-1">{alert.time}</p>
+              </div>
+              {!alert.read && <div className="w-2 h-2 rounded-full bg-amber mt-2" />}
+            </div>
+          ))}
         </div>
       </div>
-    </ProtectedRoute>
+    </div>
   )
 }

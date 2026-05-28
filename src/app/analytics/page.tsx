@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ProtectedRoute } from '@/components/ui/ProtectedRoute'
 import { analyzeCampaign } from '@/services/openai'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -56,121 +55,107 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <ProtectedRoute>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">تحليلات PULSE</h1>
-            <p className="text-text-muted text-sm">بيانات وتحليلات لحملاتك</p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">تحليلات PULSE</h1>
+          <p className="text-text-muted text-sm">بيانات وتحليلات لحملاتك</p>
+        </div>
+        <div className="flex items-center gap-2 glass p-1" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}>
+          {(['7', '30', '90'] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                range === r ? 'bg-amber text-black' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {r === '7' ? '7 أيام' : r === '30' ? '30 يوم' : '90 يوم'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s) => (
+          <div key={s.label} className="glass p-5" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-text-muted text-sm">{s.label}</span>
+              <div className="p-2 rounded-lg bg-white/5 text-amber">{s.icon}</div>
+            </div>
+            <div className="flex items-end justify-between">
+              <span className="text-2xl font-bold">{s.value}</span>
+              <span className={`text-sm font-medium ${s.change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>{s.change}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 glass p-1" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px' }}>
-            {(['7', '30', '90'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  range === r
-                    ? 'bg-amber text-black'
-                    : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                {r === '7' ? '7 أيام' : r === '30' ? '30 يوم' : '90 يوم'}
-              </button>
-            ))}
-          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+          <h3 className="text-lg font-bold mb-4">المشاهدات والنقرات</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={currentData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+              <YAxis stroke="#64748b" fontSize={12} />
+              <Tooltip contentStyle={{ background: '#0a0a12', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} labelStyle={{ color: '#f8fafc' }} />
+              <Line type="monotone" dataKey="views" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="clicks" stroke="#06b6d4" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {stats.map((s) => (
-            <div key={s.label} className="glass p-5" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-text-muted text-sm">{s.label}</span>
-                <div className="p-2 rounded-lg bg-white/5 text-amber">{s.icon}</div>
+        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+          <h3 className="text-lg font-bold mb-4">الإيرادات</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={currentData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+              <YAxis stroke="#64748b" fontSize={12} />
+              <Tooltip contentStyle={{ background: '#0a0a12', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} labelStyle={{ color: '#f8fafc' }} />
+              <Bar dataKey="revenue" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+        <h3 className="text-lg font-bold mb-4">توزيع المنصات</h3>
+        <div className="space-y-4">
+          {platformData.map((p) => (
+            <div key={p.name}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm">{p.name}</span>
+                <span className="text-sm text-text-muted">{p.value}%</span>
               </div>
-              <div className="flex items-end justify-between">
-                <span className="text-2xl font-bold">{s.value}</span>
-                <span className={`text-sm font-medium ${s.change.startsWith('+') ? 'text-emerald-400' : 'text-red-400'}`}>{s.change}</span>
+              <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-l from-amber to-cyan rounded-full" style={{ width: `${p.value}%` }} />
               </div>
             </div>
           ))}
         </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-            <h3 className="text-lg font-bold mb-4">المشاهدات والنقرات</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={currentData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip
-                  contentStyle={{ background: '#0a0a12', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                  labelStyle={{ color: '#f8fafc' }}
-                />
-                <Line type="monotone" dataKey="views" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="clicks" stroke="#06b6d4" strokeWidth={2} dot={{ r: 3 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-            <h3 className="text-lg font-bold mb-4">الإيرادات</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={currentData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip
-                  contentStyle={{ background: '#0a0a12', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
-                  labelStyle={{ color: '#f8fafc' }}
-                />
-                <Bar dataKey="revenue" fill="#f59e0b" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Platform Distribution */}
-        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-          <h3 className="text-lg font-bold mb-4">توزيع المنصات</h3>
-          <div className="space-y-4">
-            {platformData.map((p) => (
-              <div key={p.name}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm">{p.name}</span>
-                  <span className="text-sm text-text-muted">{p.value}%</span>
-                </div>
-                <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-l from-amber to-cyan rounded-full" style={{ width: `${p.value}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* AI Insights */}
-        <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Wand2 className="w-5 h-5 text-amber" />
-              <h3 className="text-lg font-bold">تحليل ذكي بالذكاء الاصطناعي</h3>
-            </div>
-            <button onClick={handleAiInsight} disabled={loadingInsight} className="btn-primary text-sm py-2 px-4">
-              {loadingInsight ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-              {loadingInsight ? 'جاري التحليل...' : 'احصل على تحليل'}
-            </button>
-          </div>
-          {aiInsight ? (
-            <div className="p-4 rounded-xl bg-white/5 text-sm leading-relaxed whitespace-pre-wrap">
-              {aiInsight}
-            </div>
-          ) : (
-            <p className="text-text-muted text-sm">اضغط على الزر للحصول على تحليل ذكي لبيانات حملاتك</p>
-          )}
-        </div>
       </div>
-    </ProtectedRoute>
+
+      <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Wand2 className="w-5 h-5 text-amber" />
+            <h3 className="text-lg font-bold">تحليل ذكي بالذكاء الاصطناعي</h3>
+          </div>
+          <button onClick={handleAiInsight} disabled={loadingInsight} className="btn-primary text-sm py-2 px-4">
+            {loadingInsight ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+            {loadingInsight ? 'جاري التحليل...' : 'احصل على تحليل'}
+          </button>
+        </div>
+        {aiInsight ? (
+          <div className="p-4 rounded-xl bg-white/5 text-sm leading-relaxed whitespace-pre-wrap">
+            {aiInsight}
+          </div>
+        ) : (
+          <p className="text-text-muted text-sm">اضغط على الزر للحصول على تحليل ذكي لبيانات حملاتك</p>
+        )}
+      </div>
+    </div>
   )
 }

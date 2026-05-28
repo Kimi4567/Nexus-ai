@@ -11,7 +11,7 @@ const nextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ['@/components'],
+    // optimizePackageImports should be used for npm packages, not path aliases
   },
   eslint: {
     ignoreDuringBuilds: true,

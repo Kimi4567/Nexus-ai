@@ -1,45 +1,62 @@
-const API_KEY = typeof window !== 'undefined' ? localStorage.getItem('openai_key') || '' : ''
+/**
+ * Client-side AI service — all calls proxied through /api/ai/generate
+ * The OpenAI API key is stored server-side in process.env.OPENAI_API_KEY
+ * and never exposed to the browser.
+ */
 
-async function callOpenAI(systemPrompt: string, userMessage: string): Promise<string> {
-  if (!API_KEY) {
-    return `[Demo Mode] ${systemPrompt.slice(0, 40)}...`
+import { supabase } from '@/lib/supabaseClient'
+
+async function getAuthToken(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token ?? null
+  } catch {
+    return null
   }
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: 0.7,
-    }),
-  })
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || 'Error'
 }
 
-export async function generateVideoScript(productName: string, description: string, style: string): Promise<string> {
-  return callOpenAI(
-    'أنت كاتب سكريبت فيديو محترف. اكتب سكريبت جذاب بالعربية.',
-    `اكتب سكريبت فيديو تسويقي لـ "${productName}". الوصف: ${description}. الأسلوب: ${style}.`
-  )
+async function callAI(action: string, params: Record<string, string>): Promise<string> {
+  const token = await getAuthToken()
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  try {
+    const res = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action, ...params }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      console.error('[openai service] Error:', err)
+      return err?.error || 'حدث خطأ أثناء إنشاء المحتوى'
+    }
+
+    const data = await res.json()
+    return data.result || 'لم يتم إنشاء محتوى'
+  } catch (err: any) {
+    console.error('[openai service] Network error:', err)
+    return 'حدث خطأ في الشبكة. يرجى المحاولة مرة أخرى.'
+  }
 }
 
-export async function generateAdCopy(productName: string, platform: string, objective: string): Promise<string> {
-  return callOpenAI(
-    'أنت كاتب إعلانات محترف. اكتب نسخة إعلانية بالعربية.',
-    `اكتب 3 نسخ إعلانية لـ "${productName}" على ${platform}. الهدف: ${objective}.`
-  )
+export async function generateVideoScript(
+  productName: string,
+  description: string,
+  style: string
+): Promise<string> {
+  return callAI('video_script', { productName, description, style })
+}
+
+export async function generateAdCopy(
+  productName: string,
+  platform: string,
+  objective: string
+): Promise<string> {
+  return callAI('ad_copy', { productName, platform, objective })
 }
 
 export async function analyzeCampaign(data: string): Promise<string> {
-  return callOpenAI(
-    'أنت محلل تسويق. قدم تحليل وتوصيات بالعربية.',
-    `حلل هذه البيانات: ${data}`
-  )
+  return callAI('analyze', { data })
 }
