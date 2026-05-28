@@ -1,9 +1,10 @@
 'use client'
 
+import React, { memo } from 'react'
 import { useI18n } from '@/lib/i18n-context'
 import { Globe } from 'lucide-react'
 
-export default function LanguageSwitcher() {
+const LanguageSwitcher = memo(function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n()
 
   const toggle = () => {
@@ -26,4 +27,6 @@ export default function LanguageSwitcher() {
       <span className="text-[10px] opacity-50">{locale === 'ar' ? 'EN' : 'AR'}</span>
     </button>
   )
-}
+})
+
+export default LanguageSwitcher

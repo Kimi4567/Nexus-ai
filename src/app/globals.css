@@ -687,21 +687,30 @@ input:focus, textarea:focus, select:focus {
 
 .grid-bg {
   background-image: 
-    linear-gradient(rgba(245,158,11,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(245,158,11,0.02) 1px, transparent 1px);
-  background-size: 60px 60px;
+    linear-gradient(rgba(245,158,11,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(245,158,11,0.015) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* Static radial glow for hero — no animation, GPU-friendly */
+.hero-glow-static {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(245,158,11,0.04) 0%, transparent 50%);
 }
 
 /* ─── Floating Elements ─────────────────────────────────────────────── */
 
-.float-slow {
-  animation: float 6s ease-in-out infinite;
-}
-.float-medium {
-  animation: float 4s ease-in-out infinite;
-}
-.float-fast {
-  animation: float 2.5s ease-in-out infinite;
+/* Disable float animations on mobile to save battery */
+@media (min-width: 768px) {
+  .float-slow {
+    animation: float 6s ease-in-out infinite;
+  }
+  .float-medium {
+    animation: float 4s ease-in-out infinite;
+  }
+  .float-fast {
+    animation: float 2.5s ease-in-out infinite;
+  }
 }
 
 /* ─── Scan Line Effect ─────────────────────────────────────────────── */

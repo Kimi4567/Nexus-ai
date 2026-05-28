@@ -2,7 +2,7 @@
 
 import AgentAvatar from '@/components/ui/AgentAvatar'
 import dynamic from 'next/dynamic'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, memo } from 'react'
 import Link from 'next/link'
 import Navbar from '@/components/ui/Navbar'
 import { useI18n } from '@/lib/i18n-context'
@@ -14,9 +14,9 @@ const NeuralCanvas = dynamic(() => import('@/components/ui/NeuralCanvas'), {
   loading: () => <div className="w-full h-[500px]" />,
 })
 
-export default function LandingPage() {
+const LandingPage = memo(function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const { t, isRTL, locale } = useI18n()
+  const { t, isRTL } = useI18n()
 
   const crew = [
     {
@@ -70,10 +70,11 @@ export default function LandingPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden" style={{ background: '#020204' }}>
-      <div className="fixed inset-0 grid-bg opacity-30 pointer-events-none" />
       <Suspense fallback={<div className="w-full h-[500px]" />}>
         <NeuralCanvas />
       </Suspense>
+
+      <div className="fixed inset-0 hero-glow-static pointer-events-none" />
 
       <Navbar />
 
@@ -450,4 +451,6 @@ export default function LandingPage() {
       </footer>
     </div>
   )
-}
+})
+
+export default LandingPage
