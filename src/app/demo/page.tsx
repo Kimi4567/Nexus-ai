@@ -290,7 +290,7 @@ export default function DemoPage() {
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             <div className="flex-1 min-w-0">
               <div className="text-[11px] text-gray-500 leading-none mb-0.5">
-                🔥 <span className="text-white font-semibold">500+ campaigns</span> generated today
+                🔥 <span className="text-white font-semibold">500+ marketers</span> already using Nexus
               </div>
               <div className="text-[12px] text-gray-400 truncate">3 full campaigns free — no credit card</div>
             </div>
@@ -317,7 +317,7 @@ export default function DemoPage() {
               <h2 className="text-2xl font-bold">Your marketing strategy is ready</h2>
               <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                500+ campaigns generated today
+                500+ marketers trust Nexus
               </span>
             </div>
             <p className="text-gray-400 text-sm mt-1">

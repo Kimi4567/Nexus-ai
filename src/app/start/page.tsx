@@ -55,10 +55,10 @@ export default function StartPage() {
   const [error, setError] = useState('')
 
   const [agentStatuses, setAgentStatuses] = useState<AgentStatusItem[]>([
-    { id: 'strategist', label: 'Marketing Strategist', status: 'waiting', detail: 'Analyzing your business...' },
-    { id: 'content', label: 'Content Director', status: 'waiting', detail: 'Building content calendar...' },
-    { id: 'manager', label: 'Campaign Manager', status: 'waiting', detail: 'Setting up monitoring...' },
-    { id: 'reporting', label: 'Reporting Agent', status: 'waiting', detail: 'Configuring reports...' },
+    { id: 'strategist', label: '🧠 SAGE — Lead Marketing Strategist', status: 'waiting', detail: 'Analyzing your business and building strategy...' },
+    { id: 'content',   label: '🎨 MUSE — Creative Director',          status: 'waiting', detail: 'Writing hooks, captions, and content calendar...' },
+    { id: 'manager',   label: '⚡ PULSE — Campaign Operations',        status: 'waiting', detail: 'Setting up campaign monitoring...' },
+    { id: 'reporting', label: '📊 PRISM — Performance Analyst',        status: 'waiting', detail: 'Configuring weekly performance reports...' },
   ])
 
   // Check auth on mount

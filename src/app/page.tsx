@@ -55,14 +55,7 @@ function NexusLogo({ size = 28 }: { size?: number }) {
   )
 }
 
-// ── Animated hero product window ───────────────────────────────────────
-const INSIGHTS = [
-  { type: 'action',  icon: '⚡', msg: '2 campaigns ready to activate' },
-  { type: 'success', icon: '🧠', msg: 'Brand voice active — AI using your tone' },
-  { type: 'info',    icon: '🎨', msg: 'Visual generation complete — Q3 Launch' },
-  { type: 'warning', icon: '📋', msg: 'Summer campaign missing hero asset' },
-]
-
+// ── INSIGHT_STYLE / DOT — used in AI Presence Showcase section below ───
 const INSIGHT_STYLE: Record<string, string> = {
   action:  'text-accent  border-accent/15  bg-accent/5',
   success: 'text-emerald-400 border-emerald-500/15 bg-emerald-500/5',
@@ -74,37 +67,66 @@ const INSIGHT_DOT: Record<string, string> = {
   info: 'bg-gray-500', warning: 'bg-amber-400',
 }
 
-const CAMPAIGNS = [
-  { name: 'Q3 Product Launch',     status: 'ACTIVE',     platform: 'IG · TT · LI',  goal: 'Sales' },
-  { name: 'Brand Awareness Push',  status: 'DRAFT',      platform: 'LI · FB',        goal: 'Awareness' },
-  { name: 'Summer Sale Campaign',  status: 'COMPLETED',  platform: 'IG · TT · FB',   goal: 'Sales' },
+// ── Hero product window — 4 AI agents ─────────────────────────────────
+const HERO_AGENTS = [
+  {
+    name: 'SAGE',  icon: '🧠', color: '#6366F1',
+    title: 'Lead Marketing Strategist',
+    doing: 'Analyzing brief — building Q3 strategy...',
+    done:  'Strategy ready — 4 concepts built',
+  },
+  {
+    name: 'MUSE',  icon: '🎨', color: '#EC4899',
+    title: 'Creative Director',
+    doing: 'Writing hooks and 30-day content plan...',
+    done:  '5 hooks + calendar done',
+  },
+  {
+    name: 'PULSE', icon: '⚡', color: '#F59E0B',
+    title: 'Campaign Operations',
+    doing: 'Setting up campaign monitoring...',
+    done:  'Monitoring live — CTR tracked',
+  },
+  {
+    name: 'PRISM', icon: '📊', color: '#10B981',
+    title: 'Performance Analyst',
+    doing: 'Configuring weekly report...',
+    done:  'Report ready — $2.40 CPA · 4.1% CTR',
+  },
 ]
 
-const STATUS_DOT: Record<string, string> = {
-  ACTIVE: 'bg-emerald-400', DRAFT: 'bg-amber-400', COMPLETED: 'bg-blue-400',
-}
-const STATUS_LABEL: Record<string, string> = {
-  ACTIVE: 'Active', DRAFT: 'Draft', COMPLETED: 'Done',
-}
-const STATUS_TEXT: Record<string, string> = {
-  ACTIVE: 'text-emerald-400', DRAFT: 'text-amber-400', COMPLETED: 'text-blue-400',
-}
-
 function HeroProductWindow() {
-  const [insight, setInsight] = useState(0)
+  const [active, setActive] = useState(0)
+  const [completed, setCompleted] = useState<number[]>([])
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 200)
-    const t2 = setInterval(() => setInsight(i => (i + 1) % INSIGHTS.length), 3500)
-    return () => { clearTimeout(t1); clearInterval(t2) }
+
+    // Cycle: each agent runs for 2.2s, marks done, moves to next
+    const tick = (idx: number) => {
+      const timer = setTimeout(() => {
+        setCompleted(prev => [...prev, idx])
+        const next = (idx + 1) % HERO_AGENTS.length
+        setActive(next)
+        if (next === 0) {
+          // restart cycle
+          setTimeout(() => setCompleted([]), 400)
+        }
+        tick(next)
+      }, 2200)
+      return timer
+    }
+
+    const first = tick(0)
+    return () => { clearTimeout(t1); clearTimeout(first) }
   }, [])
 
-  const current = INSIGHTS[insight]
+  const cur = HERO_AGENTS[active]
 
   return (
     <div
-      className="relative w-full max-w-[480px] rounded-2xl overflow-hidden border border-dark-tertiary shadow-2xl"
+      className="relative w-full max-w-[460px] rounded-2xl overflow-hidden border border-[#1a1a18] shadow-2xl"
       style={{
         background: '#0e0e10',
         opacity: visible ? 1 : 0,
@@ -113,7 +135,7 @@ function HeroProductWindow() {
       }}
     >
       {/* Window chrome */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a] bg-[#0a0a0c]">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a18] bg-[#0a0a0c]">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
           <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
@@ -124,73 +146,84 @@ function HeroProductWindow() {
         </div>
       </div>
 
-      {/* AI presence bar — rotates */}
+      {/* Active agent bar — synced to current agent */}
       <div
-        key={insight}
-        className={`flex items-center gap-3 px-4 py-2.5 border-b border-[#181818] text-xs font-medium transition-all duration-300 ${INSIGHT_STYLE[current.type]}`}
+        key={active}
+        className="flex items-center gap-3 px-4 py-2.5 border-b text-[11px] font-medium"
+        style={{ borderColor: `${cur.color}25`, background: `${cur.color}08` }}
       >
         <span className="relative flex-shrink-0 w-1.5 h-1.5">
-          <span className={`absolute inset-0 rounded-full ${INSIGHT_DOT[current.type]} animate-ping opacity-60`} />
-          <span className={`relative rounded-full w-1.5 h-1.5 block ${INSIGHT_DOT[current.type]}`} />
+          <span className="absolute inset-0 rounded-full animate-ping opacity-50" style={{ background: cur.color }} />
+          <span className="relative w-1.5 h-1.5 rounded-full block" style={{ background: cur.color }} />
         </span>
-        <span className="text-[10px] uppercase tracking-widest opacity-40 font-bold flex-shrink-0">Nexus AI</span>
-        <span className="truncate">{current.icon} {current.msg}</span>
+        <span className="text-[10px] uppercase tracking-widest font-bold flex-shrink-0 opacity-50" style={{ color: cur.color }}>
+          {cur.name}
+        </span>
+        <span className="truncate" style={{ color: cur.color }}>{cur.doing}</span>
       </div>
 
-      {/* Content area */}
-      <div className="p-4 space-y-3">
-
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-semibold text-white">Recent campaigns</span>
+      {/* Agent team cards */}
+      <div className="p-4 space-y-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold text-white tracking-wide">Your AI Team</span>
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
           </span>
         </div>
 
-        {/* Campaign rows */}
-        {CAMPAIGNS.map((c, i) => (
-          <div
-            key={c.name}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#131315] border border-[#1a1a1a] hover:border-[#222] transition-colors"
-            style={{ animation: `slideUp 0.3s ease both`, animationDelay: `${i * 80 + 300}ms` }}
-          >
-            <div className="w-7 h-7 rounded-lg bg-[#1a1a1a] flex items-center justify-center text-xs flex-shrink-0">
-              {i === 0 ? '🚀' : i === 1 ? '📣' : '✅'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-medium text-gray-200 truncate">{c.name}</div>
-              <div className="text-[10px] text-gray-600">{c.platform}</div>
-            </div>
-            <div className={`flex items-center gap-1.5 text-[10px] font-semibold ${STATUS_TEXT[c.status]}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[c.status]}`} />
-              {STATUS_LABEL[c.status]}
-            </div>
-          </div>
-        ))}
+        {HERO_AGENTS.map((agent, i) => {
+          const isDone    = completed.includes(i)
+          const isRunning = i === active && !isDone
+          const isWaiting = !isDone && !isRunning
 
-        {/* Brand + Visual row */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <div className="bg-[#131315] border border-[#1a1a1a] rounded-xl p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-600">Brand Memory</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            </div>
-            <div className="text-[11px] font-semibold text-white">Voice active</div>
-            <div className="text-[10px] text-gray-600 mt-0.5">AI trained on your tone</div>
-          </div>
-          <div className="bg-[#131315] border border-[#1a1a1a] rounded-xl p-3">
-            <div className="text-[9px] font-bold uppercase tracking-widest text-gray-600 mb-2">Visual Gen</div>
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <div className="h-1 flex-1 bg-[#1f1f1f] rounded-full overflow-hidden">
-                <div className="h-1 bg-accent rounded-full w-[72%] animate-pulse" />
+          return (
+            <div
+              key={agent.name}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-500"
+              style={{
+                borderColor: isRunning ? `${agent.color}55` : isDone ? `${agent.color}22` : '#1a1a18',
+                background:  isRunning ? `${agent.color}10` : isDone ? `${agent.color}06` : '#131315',
+              }}
+            >
+              {/* Status indicator */}
+              <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                {isDone ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <circle cx="8" cy="8" r="7" stroke={agent.color} strokeWidth="1.2" />
+                    <path d="M5 8l2 2 4-4" stroke={agent.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : isRunning ? (
+                  <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin"
+                    style={{ borderColor: `${agent.color} ${agent.color}40 ${agent.color}40 ${agent.color}40` }} />
+                ) : (
+                  <div className="w-4 h-4 rounded-full border border-[#2a2a2a]" />
+                )}
               </div>
-              <span className="text-[10px] text-accent font-semibold">72%</span>
+
+              <span className="text-sm flex-shrink-0">{agent.icon}</span>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[12px] font-bold tracking-wide" style={{
+                    color: isWaiting ? '#444' : isRunning ? agent.color : '#d0d0d0',
+                  }}>
+                    {agent.name}
+                  </span>
+                  {isRunning && (
+                    <span className="text-[9px] font-bold uppercase tracking-widest px-1 py-0.5 rounded"
+                      style={{ color: agent.color, background: `${agent.color}15` }}>
+                      live
+                    </span>
+                  )}
+                </div>
+                <div className="text-[10px] truncate" style={{ color: isWaiting ? '#333' : '#666' }}>
+                  {isRunning ? agent.doing : isDone ? agent.done : agent.title}
+                </div>
+              </div>
             </div>
-            <div className="text-[11px] text-gray-400">Generating hero…</div>
-          </div>
-        </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -259,7 +292,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 // ── Capability card ────────────────────────────────────────────────────
 function CapCard({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="group p-6 rounded-2xl border border-[#1a1a1a] bg-[#0e0e10] hover:border-[#262626] hover:bg-[#111] transition-all duration-200">
+    <div className="group p-6 rounded-2xl border border-[#1a1a18] bg-[#0e0e10] hover:border-[#262626] hover:bg-[#111] transition-all duration-200">
       <div className="w-9 h-9 rounded-xl bg-[#161618] border border-dark-tertiary flex items-center justify-center mb-4 text-accent group-hover:border-accent/30 transition-colors">
         {icon}
       </div>
@@ -349,18 +382,21 @@ export default function HomePage() {
             {/* Eyebrow */}
             <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-gray-500 uppercase tracking-widest mb-5 sm:mb-6">
               <span className="w-4 h-px bg-accent hidden sm:block" />
-              Marketing Operations Infrastructure
+              AI Marketing Department
             </div>
 
             <h1 className="text-[34px] sm:text-[52px] font-bold leading-[1.05] tracking-tight text-white mb-4 sm:mb-6">
-              Operate your<br />
-              marketing with<br />
-              <span style={{ color: '#FF9500' }}>intelligence.</span>
+              4 AI agents.<br />
+              Your complete<br />
+              <span style={{ color: '#FF9500' }}>marketing team.</span>
             </h1>
 
             <p className="text-[15px] sm:text-[16px] text-gray-400 leading-relaxed mb-7 sm:mb-8 max-w-md mx-auto lg:mx-0">
-              Nexus is the operational layer between your brand and your campaigns.
-              Strategy, content, visuals, and execution — unified in one intelligent environment.
+              <span className="text-indigo-400 font-semibold">SAGE</span> builds strategy.{' '}
+              <span className="text-pink-400 font-semibold">MUSE</span> writes content.{' '}
+              <span className="text-amber-400 font-semibold">PULSE</span> runs campaigns.{' '}
+              <span className="text-emerald-400 font-semibold">PRISM</span> tracks performance.
+              You just approve the important stuff.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-8 sm:mb-12">
@@ -398,9 +434,9 @@ export default function HomePage() {
             {/* Stats */}
             <div className="flex items-center justify-center lg:justify-start gap-6 sm:gap-8 text-[12px]">
               {[
-                { val: '60s', label: 'full campaign' },
-                { val: '500+', label: 'campaigns created' },
-                { val: '$0', label: 'to get started' },
+                { val: '4',    label: 'AI specialists' },
+                { val: '60s',  label: 'first campaign' },
+                { val: '$0',   label: 'to get started' },
               ].map((s, i) => (
                 <div key={i} className="text-center lg:text-left">
                   <div className="text-white font-bold text-[18px] mb-0.5">{s.val}</div>
@@ -436,7 +472,7 @@ export default function HomePage() {
             <span className="hidden sm:block w-px h-4 bg-[#1a1a18]" />
             <span className="text-[11px] text-gray-600 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
-              500+ campaigns generated
+              500+ marketers using Nexus
             </span>
           </div>
         </div>
@@ -478,7 +514,7 @@ export default function HomePage() {
               tag: 'Execution Layer',
             },
           ].map((item) => (
-            <div key={item.step} className="p-7 bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl">
+            <div key={item.step} className="p-7 bg-[#0e0e10] border border-[#1a1a18] rounded-2xl">
               <div className="text-[11px] font-bold text-accent/40 mb-5 tabular-nums">{item.step}</div>
               <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-gray-600 bg-[#141414] px-2 py-1 rounded-full mb-4 uppercase tracking-wider">
                 {item.tag}
@@ -537,7 +573,7 @@ export default function HomePage() {
 
       {/* ── AI PRESENCE SHOWCASE ─────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-3xl p-10 md:p-16">
+        <div className="bg-[#0e0e10] border border-[#1a1a18] rounded-3xl p-10 md:p-16">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-4">AI Presence</div>
@@ -591,7 +627,7 @@ export default function HomePage() {
               className={`rounded-2xl p-7 border relative transition-all duration-150
                 ${plan.highlight
                   ? 'border-accent bg-accent/5 shadow-lg shadow-accent/5'
-                  : 'border-[#1a1a1a] bg-[#0e0e10] hover:border-[#242424]'
+                  : 'border-[#1a1a18] bg-[#0e0e10] hover:border-[#242424]'
                 }`}
             >
               {plan.highlight && (
@@ -646,7 +682,7 @@ export default function HomePage() {
 
         {/* Campaign brief input strip */}
         <div className="max-w-3xl mx-auto mb-8">
-          <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl text-[12px]">
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3.5 bg-[#0e0e10] border border-[#1a1a18] rounded-2xl text-[12px]">
             <span className="text-gray-600 font-semibold uppercase tracking-widest text-[10px]">Brief</span>
             <span className="px-2.5 py-1 bg-[#161616] border border-[#222] rounded-lg text-gray-300">FitFlow App</span>
             <span className="text-gray-700">·</span>
@@ -665,7 +701,7 @@ export default function HomePage() {
         <div className="max-w-3xl mx-auto space-y-4">
 
           {/* Strategy */}
-          <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6">
+          <div className="bg-[#0e0e10] border border-[#1a1a18] rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-[10px] font-bold uppercase tracking-widest text-accent">Campaign Strategy</span>
             </div>
@@ -688,7 +724,7 @@ export default function HomePage() {
           </div>
 
           {/* Hooks */}
-          <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6">
+          <div className="bg-[#0e0e10] border border-[#1a1a18] rounded-2xl p-6">
             <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-4">5 Ad Hooks — Ready to Record</div>
             <div className="space-y-3">
               {[
@@ -711,7 +747,7 @@ export default function HomePage() {
 
           {/* Caption + CTA */}
           <div className="grid sm:grid-cols-2 gap-4">
-            <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6">
+            <div className="bg-[#0e0e10] border border-[#1a1a18] rounded-2xl p-6">
               <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">Ready-to-Post Caption</div>
               <p className="text-[13px] text-gray-300 leading-relaxed">
                 You don't need 2 hours at the gym.<br />You need 6 minutes and a plan that sticks. 🔥<br /><br />
@@ -720,7 +756,7 @@ export default function HomePage() {
                 <span className="text-gray-500">#fitness #workoutroutine #fitnesstiktok #healthylifestyle #gymtok #fitlife</span>
               </p>
             </div>
-            <div className="bg-[#0e0e10] border border-[#1a1a1a] rounded-2xl p-6 flex flex-col">
+            <div className="bg-[#0e0e10] border border-[#1a1a18] rounded-2xl p-6 flex flex-col">
               <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-3">30-Day Content Calendar</div>
               <div className="space-y-2 flex-1">
                 {[
@@ -735,7 +771,7 @@ export default function HomePage() {
                     <span className="text-gray-600">{r.platform}</span>
                   </div>
                 ))}
-                <div className="text-[11px] text-gray-600 pt-2 border-t border-[#1a1a1a]">+ 24 more posts across 4 weeks</div>
+                <div className="text-[11px] text-gray-600 pt-2 border-t border-[#1a1a18]">+ 24 more posts across 4 weeks</div>
               </div>
             </div>
           </div>
@@ -797,7 +833,7 @@ export default function HomePage() {
 
       {/* ── FINAL CTA ───────────────────────────────────────────── */}
       <section className="max-w-4xl mx-auto px-4 sm:px-6 py-10 sm:py-16 text-center">
-        <div className="border border-[#1a1a1a] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 bg-[#0e0e10]">
+        <div className="border border-[#1a1a18] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 bg-[#0e0e10]">
           <div className="text-[10px] font-bold uppercase tracking-widest text-accent mb-6">Get started</div>
           <h2 className="text-[32px] sm:text-[36px] font-bold tracking-tight mb-4">
             Your marketing operation<br />starts here.
