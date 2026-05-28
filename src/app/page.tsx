@@ -98,7 +98,7 @@ export default function LandingPage() {
     },
     {
       name: 'Enterprise',
-      price: '299',
+      price: '249',
       period: 'USD/شهر',
       features: ['كل مميزات Pro', 'وكلاء مخصصين', 'تحليلات real-time', 'دعم 24/7 مباشر', 'On-premise option', 'مدير حساب مخصص'],
       cta: 'تواصل معنا',
@@ -491,17 +491,32 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
             <div>
               <h3 className="text-2xl font-bold gradient-text mb-4">NEXUS AI</h3>
-              <p className="text-text-muted text-sm leading-relaxed">
+              <p className="text-text-muted text-sm leading-relaxed mb-4">
                 فريق ذكاء اصطناعي متكامل لنمو علامتك التجارية. 4 وكلاء. هدف واحد: نجاحك.
               </p>
+              {/* Trust Badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/5">
+                  SSL
+                </span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-amber border border-amber/20 bg-amber/5">
+                  Stripe
+                </span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-cyan border border-cyan/20 bg-cyan/5">
+                  GDPR
+                </span>
+                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-violet border border-violet/20 bg-violet/5">
+                  AES-256
+                </span>
+              </div>
             </div>
             <div>
               <h4 className="font-bold mb-4 text-sm">الوكلاء</h4>
               <ul className="space-y-2 text-sm text-text-muted">
-                <li>NEX — منتج الفيديو</li>
-                <li>VEX — مدير الإعلانات</li>
-                <li>PULSE — المحلل</li>
-                <li>Sentinel — الحارس</li>
+                <li><Link href="/studio" className="hover:text-amber transition">NEX — منتج الفيديو</Link></li>
+                <li><Link href="/vex" className="hover:text-amber transition">VEX — مدير الإعلانات</Link></li>
+                <li><Link href="/analytics" className="hover:text-amber transition">PULSE — المحلل</Link></li>
+                <li><Link href="/sentinel" className="hover:text-amber transition">Sentinel — الحارس</Link></li>
               </ul>
             </div>
             <div>
@@ -516,16 +531,19 @@ export default function LandingPage() {
             <div>
               <h4 className="font-bold mb-4 text-sm">الشركة</h4>
               <ul className="space-y-2 text-sm text-text-muted">
-                <li>عن NEXUS AI</li>
-                <li>الأسعار</li>
-                <li>المدونة</li>
-                <li>تواصل معنا</li>
+                <li><Link href="/terms" className="hover:text-amber transition">شروط الخدمة</Link></li>
+                <li><Link href="/privacy" className="hover:text-amber transition">سياسة الخصوصية</Link></li>
+                <li><Link href="/cookies" className="hover:text-amber transition">سياسة الكوكيز</Link></li>
+                <li><Link href="/refund" className="hover:text-amber transition">سياسة الاسترداد</Link></li>
               </ul>
             </div>
           </div>
-          <div className="pt-8 border-t border-white/5 text-center">
+          <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-text-muted text-sm">
               © 2026 NEXUS AI. كل الحقوق محفوظة. مصمم للمستقبل.
+            </p>
+            <p className="text-text-muted text-xs">
+              Dubai, UAE • legal@nexus-grow.com • support@nexus-grow.com
             </p>
           </div>
         </div>

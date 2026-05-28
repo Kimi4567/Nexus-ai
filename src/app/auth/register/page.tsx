@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Shield, Cookie } from 'lucide-react'
 
 export default function RegisterPage() {
   const { signup } = useAuth()
@@ -12,6 +13,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [agreeCookies, setAgreeCookies] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -22,9 +25,19 @@ export default function RegisterPage() {
     if (!name.trim() || !email || !password) { setError('جميع الحقول مطلوبة'); return }
     if (password.length < 8) { setError('كلمة المرور يجب أن تكون 8 أحرف على الأقل'); return }
     if (password !== confirmPassword) { setError('كلمتا المرور غير متطابقتين'); return }
+    if (!agreeTerms) { setError('يجب الموافقة على الشروط وسياسة الخصوصية للمتابعة'); return }
+    if (!agreeCookies) { setError('يجب الموافقة على استخدام الكوكيز للمتابعة'); return }
     setLoading(true)
     try {
       await signup(email, password, { name })
+      // Store consent in localStorage for legal compliance
+      localStorage.setItem('nexus_consent', JSON.stringify({
+        terms: true,
+        privacy: true,
+        cookies: true,
+        timestamp: new Date().toISOString(),
+        email: email,
+      }))
       setDone(true)
     } catch (err: any) {
       const msg = err?.message || ''
@@ -41,7 +54,7 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-[#020204] text-[#f8fafc] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md text-center">
-          <div className="glass p-10 rounded-2xl border border-white/[0.08] shadow-2xl">
+          <div className="glass p-10 rounded-2xl border border-white/[0.08] shadow-2xl" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)' }}>
             <div className="text-6xl mb-6">📬</div>
             <h2 className="text-2xl font-bold mb-3">تحقق من بريدك الإلكتروني</h2>
             <p className="text-[#94a3b8] text-sm mb-2">أرسلنا رابط تأكيد إلى</p>
@@ -64,7 +77,7 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-[#020204] text-[#f8fafc] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="glass p-8 rounded-2xl border border-white/[0.08] shadow-2xl">
+        <div className="glass p-8 rounded-2xl border border-white/[0.08] shadow-2xl" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)' }}>
           <Link href="/" className="flex items-center gap-2.5 mb-8">
             <div className="w-9 h-9 border-2 border-amber-500 rounded-lg grid place-items-center font-black text-amber-500 text-lg">N</div>
             <span className="text-2xl font-extrabold tracking-wider bg-gradient-to-br from-amber-400 via-cyan-400 to-violet-500 bg-clip-text text-transparent">NEXUS AI</span>
@@ -128,6 +141,42 @@ export default function RegisterPage() {
               />
             </div>
 
+            {/* Consent Checkboxes */}
+            <div className="space-y-3 pt-2">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={e => setAgreeTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-amber-500 cursor-pointer shrink-0"
+                />
+                <span className="text-xs text-[#94a3b8] leading-relaxed">
+                  <Shield className="w-3 h-3 inline text-amber-500 mr-1" />
+                  أوافق على{' '}
+                  <Link href="/terms" target="_blank" className="text-amber-500 hover:text-amber-400 underline">شروط الخدمة</Link>
+                  {' و'}
+                  <Link href="/privacy" target="_blank" className="text-amber-500 hover:text-amber-400 underline">سياسة الخصوصية</Link>
+                  {' و '}
+                  <Link href="/refund" target="_blank" className="text-amber-500 hover:text-amber-400 underline">سياسة الاسترداد</Link>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={agreeCookies}
+                  onChange={e => setAgreeCookies(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-amber-500 cursor-pointer shrink-0"
+                />
+                <span className="text-xs text-[#94a3b8] leading-relaxed">
+                  <Cookie className="w-3 h-3 inline text-amber-500 mr-1" />
+                  أوافق على استخدام{' '}
+                  <Link href="/cookies" target="_blank" className="text-amber-500 hover:text-amber-400 underline">الكوكيز والتقنيات المشابهة</Link>
+                  {' لتحسين تجربتي'}
+                </span>
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -136,13 +185,6 @@ export default function RegisterPage() {
               {loading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب →'}
             </button>
           </form>
-
-          <p className="text-center text-xs text-[#64748b] mt-4">
-            بالتسجيل فإنك توافق على{' '}
-            <Link href="/terms" className="text-[#94a3b8] hover:text-[#f8fafc]">الشروط</Link>
-            {' و'}
-            <Link href="/privacy" className="text-[#94a3b8] hover:text-[#f8fafc]">سياسة الخصوصية</Link>
-          </p>
 
           <p className="text-center text-sm text-[#94a3b8] mt-4">
             لديك حساب بالفعل؟{' '}
