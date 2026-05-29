@@ -1,84 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-// Protected routes — require authentication
-const PROTECTED_PREFIXES = [
+const PROTECTED = [
   '/dashboard',
-  '/campaigns',
-  '/campaign',
-  '/strategy',
-  '/brand',
-  '/analytics',
   '/settings',
   '/billing',
-  '/studio',
-  '/sentinel',
-  '/schedule',
+  '/campaigns',
+  '/brand',
   '/calendar',
   '/media',
-  '/imports',
+  '/analytics',
+  '/strategy',
+  '/schedule',
   '/templates',
+  '/imports',
   '/agency',
   '/workspace',
-  '/onboarding',
+  '/campaign',
+  '/project',
+  '/studio',
+  '/sentinel',
   '/vex',
+  '/onboarding',
 ]
 
-// Public routes — always accessible
-const PUBLIC_PREFIXES = [
-  '/auth',
-  '/api',
-  '/share',
-  '/demo',
-  '/_next',
-  '/favicon',
-  '/robots',
-  '/sitemap',
-]
+const PUBLIC_ONLY = ['/auth/login', '/auth/register', '/auth/forgot-password']
 
-function isProtected(pathname: string): boolean {
-  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return false
-  if (pathname === '/') return false
-  if (pathname === '/start') return false
-  if (pathname === '/privacy') return false
-  if (pathname === '/terms') return false
-  if (pathname === '/cookies') return false
-  if (pathname === '/refund') return false
-  return PROTECTED_PREFIXES.some((p) => pathname.startsWith(p))
-}
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const isProtected = PROTECTED.some(p => pathname.startsWith(p))
+  const isPublicOnly = PUBLIC_ONLY.some(p => pathname.startsWith(p))
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
-
-  if (!isProtected(pathname)) {
-    return NextResponse.next()
-  }
-
-  // Check for Supabase session cookie
-  // Supabase stores session as sb-<project>-auth-token
-  const hasCookie = [...req.cookies.getAll()].some(
-    (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
+  // Check auth via Supabase cookie or NextAuth session
+  const supabaseToken = [...request.cookies.getAll()].find(
+    c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
   )
+  const nextAuthToken = request.cookies.get('next-auth.session-token')?.value
+  const isAuthenticated = !!(supabaseToken || nextAuthToken)
 
-  // Also check Authorization header (for API calls from mobile/external)
-  const hasAuthHeader = req.headers.get('authorization')?.startsWith('Bearer ')
-
-  if (!hasCookie && !hasAuthHeader) {
-    const loginUrl = new URL('/auth/login', req.url)
+  // Redirect unauthenticated users from protected routes
+  if (isProtected && !isAuthenticated) {
+    const loginUrl = new URL('/auth/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Redirect authenticated users away from auth pages
+  if (isPublicOnly && isAuthenticated) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|assets|.*\\..*).*)'],
 }
