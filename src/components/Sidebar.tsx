@@ -44,7 +44,7 @@ function NavLink({ item, pathname, onClick }: { item: NavItem; pathname: string;
       className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150 group
         ${isActive
           ? 'bg-white/8 text-white shadow-top-edge'
-          : 'text-[#7070849] hover:text-white hover:bg-white/4'
+          : 'text-[#707084] hover:text-white hover:bg-white/4'
         }`}
       style={isActive ? {
         background: 'rgba(255,255,255,0.07)',
@@ -258,7 +258,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-full z-30 flex flex-col transition-all duration-200 bg-sidebar
+      className={`h-full flex flex-col transition-all duration-200 bg-sidebar
         ${collapsed ? 'w-16' : 'w-56'}`}
     >
       {/* Logo */}
@@ -288,7 +288,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           <div>
             <div className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-2"
               style={{ color: '#38383e' }}>
-              Intelligence
+              الأدوات
             </div>
             <div className="space-y-0.5">
               {workNav.map(item => <NavLink key={item.href} item={item} pathname={pathname} onClick={handleNavClick} />)}
@@ -318,8 +318,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           >
             <span className="text-accent text-sm">⚡</span>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-accent leading-none mb-0.5">Go Pro</div>
-              <div className="text-[10px] leading-none" style={{ color: '#5a5a6e' }}>Unlock everything</div>
+              <div className="text-[11px] font-semibold text-accent leading-none mb-0.5">Pro ⚡</div>
+              <div className="text-[10px] leading-none" style={{ color: '#5a5a6e' }}>افتح كل الميزات</div>
             </div>
           </Link>
         )}
