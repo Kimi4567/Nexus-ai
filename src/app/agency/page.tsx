@@ -30,17 +30,8 @@ function timeSince(dateStr: string) {
   return `${Math.floor(days / 30)}mo ago`
 }
 
-function authHeader() {
-  try {
-    const raw = localStorage.getItem('sb-qabttahvjhgzwfzqnxew-auth-token') ||
-      Object.entries(localStorage).find(([k]) => k.startsWith('sb-') && k.endsWith('-auth-token'))?.[1] || ''
-    const session = raw ? JSON.parse(raw) : null
-    return session?.access_token ? `Bearer ${session.access_token}` : ''
-  } catch { return '' }
-}
-
 export default function AgencyPage() {
-  const { user, isAuthenticated, loading } = useAuth()
+  const { user, isAuthenticated, loading, authHeader } = useAuth()
   const router = useRouter()
 
   const [clients, setClients] = useState<any[]>([])

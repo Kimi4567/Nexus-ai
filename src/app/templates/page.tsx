@@ -69,7 +69,7 @@ export default function TemplatesPage() {
         </div>
 
         <div className="mt-10 text-center">
-          <Link href="/campaign/new" className="text-sm text-gray-400 hover:text-white transition">
+          <Link href="/campaigns/new" className="text-sm text-gray-400 hover:text-white transition">
             Or start from scratch →
           </Link>
         </div>

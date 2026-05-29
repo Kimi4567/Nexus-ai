@@ -315,7 +315,7 @@ export default function CampaignDetailPage() {
                 ⬇ Export PDF
               </button>
               <Link
-                href="/campaign/new"
+                href="/campaigns/new"
                 className="px-4 py-2 rounded-xl bg-accent text-dark text-sm font-bold hover:bg-accent-light transition"
               >
                 + New Campaign

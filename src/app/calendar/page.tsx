@@ -242,7 +242,7 @@ export default function CalendarPage() {
             <h1 className="text-3xl font-bold mb-1">Content Calendar</h1>
             <p className="text-gray-400">Your AI-planned content pipeline across all campaigns.</p>
           </div>
-          <Link href="/start"
+          <Link href="/campaigns/new"
             className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all">
             + New Campaign
           </Link>
@@ -347,7 +347,7 @@ export default function CalendarPage() {
               <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-white">{MONTHS[viewMonth]} {selectedDay}</h3>
-                  <Link href="/start"
+                  <Link href="/campaigns/new"
                     className="text-xs px-3 py-1.5 rounded-lg border border-accent/30 text-accent hover:bg-accent/10 transition-all">
                     + Add
                   </Link>
@@ -357,7 +357,7 @@ export default function CalendarPage() {
                   <div className="text-center py-6">
                     <div className="text-2xl mb-2">📅</div>
                     <p className="text-sm text-gray-500">No content planned for this day.</p>
-                    <Link href="/start"
+                    <Link href="/campaigns/new"
                       className="inline-block mt-3 text-xs text-accent hover:underline">
                       Create a campaign →
                     </Link>
@@ -501,7 +501,7 @@ export default function CalendarPage() {
                 }
               </p>
               {campaigns.length === 0 && (
-                <Link href="/start"
+                <Link href="/campaigns/new"
                   className="inline-flex items-center gap-1 mt-3 text-xs text-amber-400 hover:underline font-medium">
                   Generate a campaign →
                 </Link>
