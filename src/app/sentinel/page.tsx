@@ -3,6 +3,8 @@
 import AppShell from '@/components/AppShell'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 import {
   Shield, ShieldAlert, ShieldCheck, AlertTriangle, Eye, TrendingDown, Globe, Bell,
   Zap, Lock, Unlock, Radio, Radar, Siren, Skull, Target, Crosshair, ScanLine,
@@ -99,6 +101,12 @@ function RadarGrid() {
 }
 
 export default function SentinelPage() {
+  const { isAuthenticated, loading } = useAuth()
+  const router = useRouter()
+  useEffect(() => { if (!loading && !isAuthenticated) router.push('/auth/login') }, [loading, isAuthenticated, router])
+  if (loading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (!isAuthenticated) return null
+
   const [alerts, setAlerts] = useState<Alert[]>([
     { id: '1', type: 'critical', message: 'انخفاض حاد في CTR حملة "الصيف" - 2.1% فقط', source: 'VEX', time: 'منذ 3 دقائق', read: false, priority: 1 },
     { id: '2', type: 'warning', message: 'ميزانية حملة "صيف 2026" وصلت 85% من المخصص', source: 'Sentinel', time: 'منذ 25 دقيقة', read: false, priority: 2 },

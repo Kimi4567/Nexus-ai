@@ -3,6 +3,8 @@
 import AppShell from '@/components/AppShell'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/lib/auth-context'
 import { generateVideoScript } from '@/services/openai'
 import {
   Wand2, Loader2, Film, Copy, Play, Sparkles, Clapperboard, Music, Mic,
@@ -68,6 +70,12 @@ const durations = [
 ]
 
 export default function StudioPage() {
+  const { isAuthenticated, loading: authLoading } = useAuth()
+  const router = useRouter()
+  useEffect(() => { if (!authLoading && !isAuthenticated) router.push('/auth/login') }, [authLoading, isAuthenticated, router])
+  if (authLoading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+  if (!isAuthenticated) return null
+
   const [product, setProduct] = useState('')
   const [description, setDescription] = useState('')
   const [style, setStyle] = useState('marketing')
