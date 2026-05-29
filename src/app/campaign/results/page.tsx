@@ -373,7 +373,7 @@ export default function CampaignResultsPage() {
                 <span className="flex items-center gap-1 text-accent"><span>✓</span> AI Generation Complete</span>
                 {savedId && (
                   <Link href={`/campaigns/${savedId}`} className="flex items-center gap-1 text-green-400 hover:text-green-300 transition">
-                    <span>💾</span> <span>Saved to History</span>
+                    <span>💾</span> <span>حُفظ في السجل</span>
                   </Link>
                 )}
               </div>
@@ -866,7 +866,7 @@ export default function CampaignResultsPage() {
                         value={publishCaption}
                         onChange={e => setPublishCaption(e.target.value)}
                         rows={5}
-                        placeholder="Write your caption here..."
+                        placeholder="اكتب التعليق هنا..."
                         className="w-full px-4 py-3 bg-s0 border border-s4 rounded-xl text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition text-sm resize-none"
                       />
                       <div className="text-xs text-t4 text-right mt-1">{publishCaption.length} characters</div>

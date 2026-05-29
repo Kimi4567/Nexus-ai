@@ -247,7 +247,7 @@ export default function MediaLibraryPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search media"
+                placeholder="بحث في الوسائط"
                 className="rounded border border-dark-tertiary bg-dark px-3 py-2 text-sm text-white"
               />
               <select
@@ -255,9 +255,9 @@ export default function MediaLibraryPage() {
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="rounded border border-dark-tertiary bg-dark px-3 py-2 text-sm text-white"
               >
-                <option value="ALL">All</option>
-                <option value="IMAGE">Images</option>
-                <option value="VIDEO">Videos</option>
+                <option value="ALL">الكل</option>
+                <option value="IMAGE">صور</option>
+                <option value="VIDEO">فيديوهات</option>
               </select>
             </div>
           </div>
@@ -346,7 +346,7 @@ export default function MediaLibraryPage() {
           )}
 
           <div className="mt-6 flex items-center justify-between text-sm text-gray-400">
-            <div>Page {page} of {totalPages}</div>
+            <div>صفحة {page} من {totalPages}</div>
             <div className="flex gap-3">
               <button disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))} className="rounded border border-dark-tertiary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">
                 Previous
