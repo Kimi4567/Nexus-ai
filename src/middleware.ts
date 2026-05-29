@@ -1,58 +1,36 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PROTECTED = [
-  '/dashboard',
-  '/settings',
-  '/billing',
-  '/campaigns',
-  '/brand',
-  '/calendar',
-  '/media',
-  '/analytics',
-  '/strategy',
-  '/schedule',
-  '/templates',
-  '/imports',
-  '/agency',
-  '/workspace',
-  '/campaign',
-  '/project',
-  '/studio',
-  '/sentinel',
-  '/vex',
-  '/onboarding',
-]
-
+// Public-only routes (redirect to dashboard if already logged in)
 const PUBLIC_ONLY = ['/auth/login', '/auth/register', '/auth/forgot-password']
+
+// API routes — never block
+const API_PREFIX = '/api'
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isProtected = PROTECTED.some(p => pathname.startsWith(p))
+
+  // Never touch API routes
+  if (pathname.startsWith(API_PREFIX)) return NextResponse.next()
+
+  // Redirect logged-in users away from auth pages
+  // We check for Supabase cookie OR next-auth token
+  const hasCookie = [...request.cookies.getAll()].some(
+    c => (c.name.startsWith('sb-') && c.name.endsWith('-auth-token')) ||
+         c.name === 'next-auth.session-token'
+  )
+
   const isPublicOnly = PUBLIC_ONLY.some(p => pathname.startsWith(p))
 
-  // Check auth via Supabase cookie or NextAuth session
-  const supabaseToken = [...request.cookies.getAll()].find(
-    c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
-  )
-  const nextAuthToken = request.cookies.get('next-auth.session-token')?.value
-  const isAuthenticated = !!(supabaseToken || nextAuthToken)
-
-  // Redirect unauthenticated users from protected routes
-  if (isProtected && !isAuthenticated) {
-    const loginUrl = new URL('/auth/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  // Redirect authenticated users away from auth pages
-  if (isPublicOnly && isAuthenticated) {
+  // If authenticated and on auth page → go to dashboard
+  if (hasCookie && isPublicOnly) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
+  // Allow everything else — client-side auth handles protection
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|assets|.*\\..*).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|assets|.*\\..*).*)'],
 }

@@ -5,6 +5,25 @@ import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
 
+/* ═══════════════════════════════════════════════════════════════
+   NEXUS AI — Navigation Bar
+   Supports both scroll-to-section (landing page) and link-to-page navigation
+   ═══════════════════════════════════════════════════════════════ */
+
+interface NavItem {
+  label: string
+  id?: string
+  href?: string
+}
+
+const navItems: NavItem[] = [
+  { label: 'الفريق', id: 'crew' },
+  { label: 'خطوات البدء', id: 'how' },
+  { label: 'الأسعار', id: 'pricing' },
+  { label: 'الأسئلة الشائعة', id: 'faq' },
+  { label: 'كيف نسوق أنفسنا', href: '/marketing' },
+]
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -21,14 +40,6 @@ export default function Navbar() {
     if (el) el.scrollIntoView({ behavior: 'smooth' })
     setMenuOpen(false)
   }
-
-  const navItems = [
-    { label: t('agents.sectionLabel') as string, id: 'crew' },
-    { label: t('howItWorks.sectionLabel') as string, id: 'how' },
-    { label: t('nav.pricing') as string, id: 'pricing' },
-    { label: t('nav.faq') as string, id: 'faq' },
-    { label: 'كيف نسوق أنفسنا', href: '/marketing' },
-  ]
 
   return (
     <nav
@@ -49,16 +60,27 @@ export default function Navbar() {
 
         {/* Desktop Nav */}
         <div className="hidden md:flex items-center gap-2">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => item.id && scrollTo(item.id)}
-              className="text-[#94a3b8] hover:text-[#f8fafc] text-sm font-medium transition-colors relative group bg-transparent border-none cursor-pointer px-3 py-2"
-            >
-              {item.label}
-              <span className="absolute -bottom-0.5 right-3 left-3 h-0.5 bg-amber-500 transition-all duration-300 scale-x-0 group-hover:scale-x-100 origin-center rounded-full" />
-            </button>
-          ))}
+          {navItems.map((item) =>
+            item.href ? (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-[#94a3b8] hover:text-[#f8fafc] text-sm font-medium transition-colors relative group bg-transparent border-none cursor-pointer px-3 py-2 no-underline inline-block"
+              >
+                {item.label}
+                <span className="absolute -bottom-0.5 right-3 left-3 h-0.5 bg-amber-500 transition-all duration-300 scale-x-0 group-hover:scale-x-100 origin-center rounded-full" />
+              </Link>
+            ) : (
+              <button
+                key={item.id}
+                onClick={() => item.id && scrollTo(item.id)}
+                className="text-[#94a3b8] hover:text-[#f8fafc] text-sm font-medium transition-colors relative group bg-transparent border-none cursor-pointer px-3 py-2"
+              >
+                {item.label}
+                <span className="absolute -bottom-0.5 right-3 left-3 h-0.5 bg-amber-500 transition-all duration-300 scale-x-0 group-hover:scale-x-100 origin-center rounded-full" />
+              </button>
+            )
+          )}
           <div className="w-px h-5 bg-white/10 mx-1" />
           <LanguageSwitcher />
           <Link
@@ -86,16 +108,28 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="md:hidden fixed top-16 left-4 right-4 bg-[#0a0a12] border border-white/[0.08] rounded-2xl p-4 flex flex-col gap-1 z-50 shadow-2xl">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => item.id && scrollTo(item.id)}
-              className="text-[#f8fafc] py-3 px-4 rounded-lg hover:bg-white/5 transition-colors bg-transparent border-none cursor-pointer text-base"
-              style={{ textAlign: isRTL ? 'right' : 'left' }}
-            >
-              {item.label}
-            </button>
-          ))}
+          {navItems.map((item) =>
+            item.href ? (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="text-[#f8fafc] py-3 px-4 rounded-lg hover:bg-white/5 transition-colors bg-transparent border-none cursor-pointer text-base no-underline block"
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={item.id}
+                onClick={() => item.id && scrollTo(item.id)}
+                className="text-[#f8fafc] py-3 px-4 rounded-lg hover:bg-white/5 transition-colors bg-transparent border-none cursor-pointer text-base"
+                style={{ textAlign: isRTL ? 'right' : 'left' }}
+              >
+                {item.label}
+              </button>
+            )
+          )}
           <div className="mt-2 pt-2 border-t border-white/[0.08]">
             <Link
               href="/auth/login"

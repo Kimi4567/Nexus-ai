@@ -40,9 +40,8 @@ function LoginForm() {
         setLoading(false)
         return
       }
-      // Success — navigate to redirect target or dashboard
-      router.push(redirectTo)
-      router.refresh()
+      // Success — hard reload so Supabase session loads from localStorage
+      window.location.href = redirectTo
     } catch {
       setError('حدث خطأ غير متوقع. يُرجى المحاولة مجدداً.')
       setLoading(false)
