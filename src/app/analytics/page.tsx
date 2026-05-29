@@ -174,6 +174,20 @@ export default function AnalyticsPage() {
           </p>
         </div>
 
+        {/* Demo data notice */}
+        <div
+          className="flex items-center gap-3 px-5 py-3 mb-8 rounded-xl"
+          style={{
+            background: 'rgba(245,158,11,0.05)',
+            border: '1px solid rgba(245,158,11,0.2)',
+          }}
+        >
+          <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          <p className="text-sm text-amber-300/80">
+            <span className="font-bold text-amber-400">بيانات توضيحية</span> — هذه الأرقام للعرض فقط. ستظهر بياناتك الحقيقية بعد ربط حملاتك بالمنصات.
+          </p>
+        </div>
+
         {/* Time Range Selector */}
         <div className="flex items-center gap-3 mb-8">
           <div

@@ -197,6 +197,20 @@ export default function SentinelPage() {
           </p>
         </div>
 
+        {/* Demo data notice */}
+        <div
+          className="flex items-center gap-3 px-5 py-3 mb-8 rounded-xl"
+          style={{
+            background: 'rgba(6,182,212,0.05)',
+            border: '1px solid rgba(6,182,212,0.2)',
+          }}
+        >
+          <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+          <p className="text-sm text-cyan-300/80">
+            <span className="font-bold text-cyan-400">بيانات توضيحية</span> — التنبيهات وبيانات المنافسين أدناه للعرض التجريبي فقط. ستتحول إلى بيانات حقيقية بعد ربط حساباتك.
+          </p>
+        </div>
+
         {/* System Status Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[

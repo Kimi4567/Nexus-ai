@@ -41,17 +41,17 @@ const STATUS_STYLES: Record<string, string> = {
 
 function formatDate(iso: string) {
   const d = new Date(iso)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('ar-SA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function timeUntil(iso: string) {
   const diff = new Date(iso).getTime() - Date.now()
-  if (diff < 0) return 'now'
+  if (diff < 0) return 'الآن'
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
-  if (h > 24) return `${Math.floor(h / 24)}d`
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m`
+  if (h > 24) return `${Math.floor(h / 24)} يوم`
+  if (h > 0) return `${h} ساعة ${m} دقيقة`
+  return `${m} دقيقة`
 }
 
 export default function SchedulePage() {
@@ -124,7 +124,7 @@ export default function SchedulePage() {
         setSelectedPage('')
       }
     } catch {
-      alert('Failed to schedule post')
+      alert('فشل جدولة المنشور')
     } finally {
       setSubmitting(false)
     }
@@ -154,25 +154,25 @@ export default function SchedulePage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-              <span>Nexus</span><span>/</span><span className="text-gray-300">Schedule</span>
+              <span>Nexus</span><span>/</span><span className="text-gray-300">الجدولة</span>
             </div>
-            <h1 className="text-3xl font-bold mb-1">Publishing Queue</h1>
-            <p className="text-gray-400">Schedule posts — Nexus auto-publishes at the right time.</p>
+            <h1 className="text-3xl font-bold mb-1">طابور النشر</h1>
+            <p className="text-gray-400">جدوِل منشوراتك — Nexus ينشرها تلقائياً في الوقت المناسب.</p>
           </div>
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all"
             style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}>
-            + Schedule Post
+            + جدولة منشور
           </button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Queued', value: scheduled.length, color: 'text-accent' },
-            { label: 'Published', value: published.length, color: 'text-green-400' },
-            { label: 'Failed', value: failed.length, color: 'text-red-400' },
+            { label: 'في الانتظار', value: scheduled.length, color: 'text-accent' },
+            { label: 'تم النشر', value: published.length, color: 'text-green-400' },
+            { label: 'فشل النشر', value: failed.length, color: 'text-red-400' },
           ].map(s => (
             <div key={s.label} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-4">
               <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
@@ -186,12 +186,12 @@ export default function SchedulePage() {
           <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-6 mb-6 flex items-center gap-4">
             <span className="text-2xl">⚠️</span>
             <div>
-              <div className="font-semibold text-yellow-300 mb-1">No social accounts connected</div>
-              <p className="text-sm text-gray-400">Connect Facebook or Instagram to start scheduling posts.</p>
+              <div className="font-semibold text-yellow-300 mb-1">لم يتم ربط أي حساب اجتماعي</div>
+              <p className="text-sm text-gray-400">اربط Facebook أو Instagram لبدء جدولة المنشورات.</p>
             </div>
             <Link href="/settings"
               className="ml-auto shrink-0 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-sm font-semibold rounded-lg hover:bg-yellow-500/20 transition-all">
-              Connect Account →
+              ربط حساب →
             </Link>
           </div>
         )}
@@ -199,7 +199,7 @@ export default function SchedulePage() {
         {/* Queued posts */}
         {scheduled.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">Scheduled Queue</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">المنشورات المجدولة</h2>
             <div className="space-y-3">
               {scheduled.map(post => (
                 <div key={post.id} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5 flex items-start gap-4">
@@ -214,14 +214,14 @@ export default function SchedulePage() {
                     <p className="text-sm text-gray-300 mb-2 line-clamp-2">{post.caption}</p>
                     <div className="flex items-center gap-3 text-xs text-gray-600">
                       <span>🕐 {formatDate(post.scheduledAt)}</span>
-                      <span className="text-accent font-medium">in {timeUntil(post.scheduledAt)}</span>
+                      <span className="text-accent font-medium">بعد {timeUntil(post.scheduledAt)}</span>
                     </div>
                   </div>
                   <button
                     onClick={() => handleDelete(post.id)}
                     disabled={deletingId === post.id}
                     className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-dark-tertiary text-gray-600 hover:text-red-400 hover:border-red-400/30 transition-all disabled:opacity-40">
-                    {deletingId === post.id ? '...' : 'Cancel'}
+                    {deletingId === post.id ? '...' : 'إلغاء'}
                   </button>
                 </div>
               ))}
@@ -232,7 +232,7 @@ export default function SchedulePage() {
         {/* Published posts */}
         {published.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">Published</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">تم النشر</h2>
             <div className="space-y-3">
               {published.slice(0, 5).map(post => (
                 <div key={post.id} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5 flex items-start gap-4">
@@ -240,14 +240,14 @@ export default function SchedulePage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-xs font-bold text-gray-400">{post.pageName || post.platform}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-500/15 text-green-400">published</span>
+                      <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-500/15 text-green-400">تم النشر</span>
                     </div>
                     <p className="text-sm text-gray-300 mb-2 line-clamp-2">{post.caption}</p>
                     <div className="flex items-center gap-3 text-xs text-gray-600">
-                      <span>✅ {post.publishedAt ? formatDate(post.publishedAt) : 'Published'}</span>
+                      <span>✅ {post.publishedAt ? formatDate(post.publishedAt) : 'تم النشر'}</span>
                       {post.platformUrl && (
                         <a href={post.platformUrl} target="_blank" rel="noopener noreferrer"
-                          className="text-accent hover:underline">View post →</a>
+                          className="text-accent hover:underline">عرض المنشور →</a>
                       )}
                     </div>
                   </div>
@@ -260,7 +260,7 @@ export default function SchedulePage() {
         {/* Failed posts */}
         {failed.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">Failed</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">فشل النشر</h2>
             <div className="space-y-3">
               {failed.map(post => (
                 <div key={post.id} className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 flex items-start gap-4">
@@ -268,7 +268,7 @@ export default function SchedulePage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-xs font-bold text-gray-400">{post.pageName}</span>
-                      <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-red-500/15 text-red-400">failed</span>
+                      <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-red-500/15 text-red-400">فشل</span>
                     </div>
                     <p className="text-sm text-gray-300 mb-1 line-clamp-2">{post.caption}</p>
                     {post.errorMessage && (
@@ -277,7 +277,7 @@ export default function SchedulePage() {
                   </div>
                   <button onClick={() => handleDelete(post.id)}
                     className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-dark-tertiary text-gray-600 hover:text-red-400 transition-all">
-                    Dismiss
+                    تجاهل
                   </button>
                 </div>
               ))}
@@ -289,23 +289,23 @@ export default function SchedulePage() {
         {!loadingData && posts.length === 0 && (
           <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-12 text-center">
             <div className="text-4xl mb-4">📅</div>
-            <h2 className="font-bold text-white mb-2">Nothing scheduled yet</h2>
-            <p className="text-sm text-gray-500 mb-6">Schedule your first post and Nexus will auto-publish it at the right time.</p>
+            <h2 className="font-bold text-white mb-2">لا يوجد منشورات مجدولة بعد</h2>
+            <p className="text-sm text-gray-500 mb-6">جدوِل أول منشور لك وسيتولى Nexus نشره تلقائياً في الوقت المناسب.</p>
             <button onClick={() => setShowModal(true)}
               className="px-5 py-2.5 bg-accent text-white font-bold rounded-xl text-sm hover:bg-accent/90 transition-all">
-              Schedule Your First Post →
+              جدوِل أول منشور →
             </button>
           </div>
         )}
 
         {/* AI tip */}
         <div className="rounded-2xl border border-accent/20 bg-accent/5 p-5 mt-6">
-          <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">How it works</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">كيف يعمل النظام</div>
           <p className="text-sm text-gray-300 leading-relaxed">
-            Posts are automatically published every hour. The best times to post are Tuesday–Thursday between 9am–11am and 7pm–9pm in your audience's timezone.
+            يتم النشر تلقائياً كل ساعة. أفضل أوقات النشر لجمهور منطقة الشرق الأوسط هي الثلاثاء إلى الخميس بين 9 صباحاً–11 صباحاً و7 مساءً–9 مساءً بتوقيت جمهورك.
           </p>
           <Link href="/strategy" className="inline-flex items-center gap-1 mt-3 text-xs text-accent hover:underline font-medium">
-            Get AI posting schedule →
+            احصل على جدول نشر ذكي ←
           </Link>
         </div>
       </div>
@@ -319,31 +319,31 @@ export default function SchedulePage() {
 
             {/* Modal header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-dark-tertiary">
-              <h2 className="font-bold text-white">Schedule a Post</h2>
+              <h2 className="font-bold text-white">جدولة منشور</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-600 hover:text-white transition-all text-xl">×</button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5" dir="rtl">
               {/* Caption */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Caption</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">نص المنشور</label>
                 <textarea
                   value={caption}
                   onChange={e => setCaption(e.target.value)}
-                  placeholder="Write your post caption..."
+                  placeholder="اكتب نص منشورك هنا..."
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all resize-none"
                   autoFocus
                 />
-                <div className="text-right text-xs text-gray-600 mt-1">{caption.length}/2200</div>
+                <div className="text-left text-xs text-gray-600 mt-1">{caption.length}/2200</div>
               </div>
 
               {/* Account */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Account</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">الحساب</label>
                 {integrations.length === 0 ? (
                   <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
-                    No connected accounts. <Link href="/settings" className="underline">Connect one →</Link>
+                    لا توجد حسابات مربوطة. <Link href="/settings" className="underline">اربط حساباً →</Link>
                   </div>
                 ) : (
                   <select
@@ -354,7 +354,7 @@ export default function SchedulePage() {
                     }}
                     className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
                   >
-                    <option value="">Select account...</option>
+                    <option value="">اختر حساباً...</option>
                     {integrations.map(i => (
                       <option key={i.id} value={i.id}>{i.accountName || i.platform}</option>
                     ))}
@@ -365,7 +365,7 @@ export default function SchedulePage() {
               {/* Page / Profile */}
               {selectedIntegration && getPages(selectedIntegration).length > 0 && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Page / Profile</label>
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">الصفحة / الحساب</label>
                   <select
                     value={selectedPage}
                     onChange={e => {
@@ -377,7 +377,7 @@ export default function SchedulePage() {
                     }}
                     className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
                   >
-                    <option value="">Select page...</option>
+                    <option value="">اختر صفحة...</option>
                     {getPages(selectedIntegration).map((p: any) => (
                       <option key={p.id} value={p.id}>{p.name} ({p.type || 'facebook'})</option>
                     ))}
@@ -387,7 +387,7 @@ export default function SchedulePage() {
 
               {/* Date/Time */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">Schedule Date & Time</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">تاريخ ووقت النشر</label>
                 <input
                   type="datetime-local"
                   value={scheduledAt}
@@ -400,7 +400,7 @@ export default function SchedulePage() {
               {/* Image URL (optional) */}
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">
-                  Image URL <span className="text-gray-700 normal-case font-normal">(optional)</span>
+                  رابط الصورة <span className="text-gray-700 normal-case font-normal">(اختياري)</span>
                 </label>
                 <input
                   type="url"
@@ -413,17 +413,17 @@ export default function SchedulePage() {
             </div>
 
             {/* Modal footer */}
-            <div className="flex gap-3 px-6 py-4 border-t border-dark-tertiary">
+            <div className="flex gap-3 px-6 py-4 border-t border-dark-tertiary" dir="rtl">
               <button onClick={() => setShowModal(false)}
                 className="flex-1 py-3 border border-dark-tertiary text-gray-400 hover:text-white rounded-xl text-sm font-medium transition-all">
-                Cancel
+                إلغاء
               </button>
               <button
                 onClick={handleSchedule}
                 disabled={!caption || !selectedIntegration || !selectedPage || !scheduledAt || submitting}
                 className="flex-1 py-3 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Scheduling...' : 'Schedule Post →'}
+                {submitting ? 'جارٍ الجدولة...' : 'جدولة المنشور ←'}
               </button>
             </div>
           </div>

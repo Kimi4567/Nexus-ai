@@ -300,14 +300,24 @@ export default function DashboardPage() {
               </Link>
             </div>
             {recentCampaigns.length === 0 && !isDemo ? (
-              <div className="text-center py-12">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center">
-                  <Megaphone className="w-8 h-8 text-text-muted/30" />
+              <div className="text-center py-10">
+                <div
+                  className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}
+                >
+                  <Rocket className="w-7 h-7 text-amber/60" />
                 </div>
-                <p className="text-sm text-text-muted mb-2">لا توجد حملات بعد</p>
-                <p className="text-xs text-text-muted/60">ابدأ رحلتك التسويقية الأولى</p>
-                <Link href="/campaigns/new" className="text-amber text-sm hover:underline mt-3 block">
-                  إطلاق حملة جديدة 🚀
+                <p className="text-base font-semibold mb-1">أطلق أول حملة تسويقية</p>
+                <p className="text-xs text-text-muted/70 mb-5 max-w-[200px] mx-auto leading-relaxed">
+                  Nexus يبني لك استراتيجية كاملة ومحتوى جاهز للنشر في دقائق
+                </p>
+                <Link
+                  href="/campaigns/new"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
+                  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000' }}
+                >
+                  <Rocket className="w-4 h-4" />
+                  إطلاق حملة جديدة
                 </Link>
               </div>
             ) : (
@@ -368,7 +378,7 @@ export default function DashboardPage() {
                   <BarChart3 className="w-8 h-8 text-text-muted/30" />
                 </div>
                 <p className="text-sm text-text-muted mb-2">لا توجد نشاطات حتى الآن</p>
-                <p className="text-xs text-text-muted/60">الوكلاء بيستعدوا للعمل</p>
+                <p className="text-xs text-text-muted/60">الوكلاء يستعدون للانطلاق</p>
               </div>
             ) : (
               <div className="space-y-3">
