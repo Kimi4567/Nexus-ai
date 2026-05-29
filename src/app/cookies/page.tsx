@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'سياسة الكوكيز | NEXUS AI' }
+export const metadata = { title: 'سياسة ملفات تعريف الارتباط | NEXUS AI' }
 
 export default function CookiePolicyPage() {
   const year = new Date().getFullYear()
@@ -18,32 +18,32 @@ export default function CookiePolicyPage() {
           <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }}>Cookie Policy</span>
           <span className="text-text-muted text-sm">آخر تحديث: {year}</span>
         </div>
-        <h1 className="text-4xl font-bold mb-2">سياسة الكوكيز</h1>
+        <h1 className="text-4xl font-bold mb-2">سياسة ملفات تعريف الارتباط</h1>
         <p className="text-text-muted mb-10">Cookie Policy — NEXUS AI Platform</p>
 
         <div className="space-y-8">
           <section className="p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
-            <h2 className="text-lg font-bold text-emerald-400 mb-3">ما هي الكوكيز؟</h2>
+            <h2 className="text-lg font-bold text-emerald-400 mb-3">ما هي ملفات تعريف الارتباط؟</h2>
             <p className="text-sm text-text-secondary leading-relaxed">
-              الكوكيز هي ملفات نصية صغيرة تُخزن على جهازك عند زيارة موقع إلكتروني. تُستخدم للتعرف على متصفحك وتوفير تجربة أفضل. نستخدم أيضاً تقنيات مشابهة مثل local storage وsession storage.
+              ملفات تعريف الارتباط هي ملفات نصية صغيرة تُخزن على جهازك عند زيارة موقع إلكتروني. تُستخدم للتعرف على متصفحك وتوفير تجربة أفضل. نستخدم أيضاً تقنيات مشابهة مثل local storage وsession storage.
               <br /><br />
               Cookies are small text files stored on your device when you visit a website. We also use similar technologies like local storage and session storage.
             </p>
           </section>
 
           <section className="p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
-            <h2 className="text-lg font-bold text-emerald-400 mb-3">أنواع الكوكيز التي نستخدمها</h2>
+            <h2 className="text-lg font-bold text-emerald-400 mb-3">أنواع ملفات تعريف الارتباط التي نستخدمها</h2>
             <div className="space-y-4">
               <div>
-                <h3 className="font-bold text-text-primary mb-1">1. كوكيز أساسية (Essential)</h3>
+                <h3 className="font-bold text-text-primary mb-1">1. ملفات تعريف الارتباط الأساسية (Essential)</h3>
                 <p className="text-sm text-text-secondary">ضرورية لتشغيل الموقع — تذكر جلستك، تتيح لك تسجيل الدخول، وتحافظ على أمان حسابك. لا يمكن تعطيلها.</p>
               </div>
               <div>
-                <h3 className="font-bold text-text-primary mb-1">2. كوكيز وظيفية (Functional)</h3>
+                <h3 className="font-bold text-text-primary mb-1">2. ملفات تعريف الارتباط الوظيفية (Functional)</h3>
                 <p className="text-sm text-text-secondary">تذكر تفضيلاتك (مثل اللغة، الوضع المظلم) وتحسين تجربتك الشخصية.</p>
               </div>
               <div>
-                <h3 className="font-bold text-text-primary mb-1">3. كوكيز تحليلية (Analytics)</h3>
+                <h3 className="font-bold text-text-primary mb-1">3. ملفات تعريف الارتباط التحليلية (Analytics)</h3>
                 <p className="text-sm text-text-secondary">Google Analytics (مجهولة الهوية) — تساعدنا في فهم كيفية استخدام الموقع لتحسينه.</p>
               </div>
             </div>
@@ -52,21 +52,21 @@ export default function CookiePolicyPage() {
           <section className="p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
             <h2 className="text-lg font-bold text-emerald-400 mb-3">المدة</h2>
             <p className="text-sm text-text-secondary leading-relaxed">
-              • كوكيز الجلسة: تُحذف عند إغلاق المتصفح
-              • كوكيز التفضيلات: 1 سنة
-              • كوكيز التحليلات: 13 شهر (Google Analytics)
+              • ملفات تعريف ارتباط الجلسة: تُحذف عند إغلاق المتصفح
+              • ملفات تعريف الارتباط التفضيلات: 1 سنة
+              • ملفات تعريف الارتباط التحليلات: 13 شهر (Google Analytics)
             </p>
           </section>
 
           <section className="p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
             <h2 className="text-lg font-bold text-emerald-400 mb-3">كيفية التحكم</h2>
             <p className="text-sm text-text-secondary leading-relaxed">
-              يمكنك التحكم في الكوكيز عبر إعدادات متصفحك:
+              يمكنك التحكم في ملفات تعريف الارتباط عبر إعدادات متصفحك:
               • Chrome: Settings → Privacy and security → Cookies
               • Safari: Preferences → Privacy → Manage Website Data
               • Firefox: Options → Privacy & Security → Cookies
               <br /><br />
-              تعطيل الكوكيز الأساسية قد يُعيق استخدام بعض ميزات المنصة.
+              تعطيل ملفات تعريف الارتباط الأساسية قد يُعيق استخدام بعض ميزات المنصة.
             </p>
           </section>
 

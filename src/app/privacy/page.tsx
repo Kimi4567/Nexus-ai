@@ -17,7 +17,7 @@ export default function PrivacyPage() {
 المعلومات التي نجمعها تلقائياً:
 • سجل الاستخدام (الصفحات المُزارة، الميزات المُستخدمة)
 • عنوان IP، نوع المتصفح، نظام التشغيل
-• ملفات الكوكيز وتقنيات التتبع المشابهة
+• ملفات تعريف الارتباط وتقنيات التتبع المشابهة
 
 Information you provide directly: name, email, encrypted password, payment info (processed by Stripe — we don't store card data), campaign data.
 
@@ -74,14 +74,14 @@ Data stored on Supabase (AWS). Encryption: TLS 1.3 in transit, AES-256 at rest. 
 We do not sell your personal information. Trusted providers: Supabase (data), Stripe (payments), OpenAI (AI), Cloudinary (media), Vercel (hosting). All under strict confidentiality.`,
     },
     {
-      title: '6. الكوكيز والتتبع',
+      title: '6. ملفات تعريف الارتباط والتتبع',
       titleEn: '6. Cookies \u0026 Tracking',
-      body: `نستخدم الكوكيز للأغراض التالية:
+      body: `نستخدم ملفات تعريف الارتباط للأغراض التالية:
 • **أساسية**: الحفاظ على جلستك، تذكر تفضيلاتك
 • **تحليلية**: Google Analytics (مجهولة الهوية)
 • **وظيفية**: تذكر اختياراتك في الواجهة
 
-يمكنك التحكم في الكوكيز عبر إعدادات المتصفح. تعطيل الكوكيز الأساسية قد يؤثر على الوظائف.
+يمكنك التحكم في ملفات تعريف الارتباط عبر إعدادات المتصفح. تعطيل ملفات تعريف الارتباط الأساسية قد يؤثر على الوظائف.
 
 We use cookies for: essential session maintenance, preferences, and anonymous analytics (Google Analytics). Disabling essential cookies may affect functionality.`,
     },
@@ -173,7 +173,7 @@ Email: privacy@nexus-grow.com | Dubai, UAE | Response: 24-48 business hours`,
         <div className="mt-12 pt-8 flex gap-6 text-sm text-text-muted" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <Link href="/" className="hover:text-text-primary transition">← الرئيسية</Link>
           <Link href="/terms" className="hover:text-text-primary transition">شروط الخدمة</Link>
-          <Link href="/cookies" className="hover:text-text-primary transition">سياسة الكوكيز</Link>
+          <Link href="/cookies" className="hover:text-text-primary transition">سياسة ملفات تعريف الارتباط</Link>
           <Link href="/refund" className="hover:text-text-primary transition">سياسة الاسترداد</Link>
         </div>
       </div>

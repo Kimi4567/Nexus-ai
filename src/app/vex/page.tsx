@@ -215,7 +215,7 @@ export default function VexPage() {
           </div>
         </div>
 
-        {/* Ad Copy Generator */}
+        {/* مُنشئ النصوص الإعلانية */}
         <div
           className="p-8 mb-8 corner-accent"
           style={{
@@ -227,7 +227,7 @@ export default function VexPage() {
         >
           <div className="flex items-center gap-2 mb-6">
             <Sparkles className="w-5 h-5 text-amber" />
-            <h3 className="text-xl font-bold">مولد النسخ الإعلانية الذكي</h3>
+            <h3 className="text-xl font-bold">مُولّد النصوص الإعلانية الذكي</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -303,7 +303,7 @@ export default function VexPage() {
             ) : (
               <>
                 <Wand2 className="w-5 h-5" />
-                توليد 3 نسخ إعلانية
+                توليد 3 نصوص إعلانية
                 <Sparkles className="w-5 h-5" />
               </>
             )}
@@ -321,7 +321,7 @@ export default function VexPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Megaphone className="w-5 h-5 text-amber" />
-                  <span className="font-bold">النسخ الإعلانية المُولّدة</span>
+                  <span className="font-bold">النصوص الإعلانية المُولّدة</span>
                 </div>
                 <button
                   onClick={() => navigator.clipboard.writeText(copy)}

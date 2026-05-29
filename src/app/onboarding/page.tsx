@@ -176,7 +176,7 @@ export default function OnboardingPage() {
               👋
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">
-              أهلاً، {displayName}
+              مرحباً، {displayName}
             </h1>
             <p className="text-t2 text-sm mb-8 leading-relaxed">
               أنت على وشك الحصول على فريق تسويق AI كامل — استراتيجية، حملات، تقويم محتوى، وتحليلات — كل ذلك في مكان واحد.

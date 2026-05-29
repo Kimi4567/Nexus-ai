@@ -178,7 +178,7 @@ export default function DashboardPage() {
               <span className="text-xs text-amber/70 font-mono tracking-wider">NEXUS COMMAND CENTER</span>
             </div>
             <h1 className="text-3xl font-bold">
-              مرحباً{user?.user_metadata?.name ? `، ${user.user_metadata.name}` : ''} 👋
+              أهلاً بك{user?.user_metadata?.name ? `، ${user.user_metadata.name}` : ''} 👋
             </h1>
             <p className="text-text-muted text-sm">نظرة عامة على أداء حملاتك في الفضاء الرقمي</p>
           </div>

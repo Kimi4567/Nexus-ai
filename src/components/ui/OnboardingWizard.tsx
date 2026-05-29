@@ -20,18 +20,18 @@ import {
 const STEPS = [
   {
     id: 'welcome',
-    title: 'أهلاً بيك في NEXUS 🚀',
-    subtitle: 'مركبتك جاهزة للإطلاق. خلينا نجهزها في ٣ خطوات سريعة.',
+    title: 'مرحباً بك في NEXUS 🚀',
+    subtitle: 'منصتك جاهزة للانطلاق. لنجهزها في ٣ خطوات سريعة.',
   },
   {
     id: 'connect',
     title: 'اربط أول منصة',
-    subtitle: 'VEX يحتاج منصة عشان يبدأ يشتغل. اختار المنصة اللي تهمك.',
+    subtitle: 'VEX يحتاج منصة لكي يبدأ العمل. اختر المنصة التي تهمك.',
   },
   {
     id: 'launch',
     title: 'اطلق أول حملة',
-    subtitle: 'كُل حاجة جهزة. اضغط زر الإطلاق وشوف الوكلاء يشتغلوا.',
+    subtitle: 'كل شيء جاهز. اضغط زر الإطلاق وشاهد الوكلاء يعملون.',
   },
 ]
 
@@ -257,8 +257,8 @@ export default function OnboardingWizard() {
                   <div className="absolute inset-0 rounded-full border-4 border-amber/20 border-t-amber animate-spin" />
                   <Rocket className="w-8 h-8 text-amber absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                 </div>
-                <p className="text-xl font-bold mb-2">VEX بيُطلق الحملة...</p>
-                <p className="text-sm text-text-muted">NEX بيولد الفيديو · PULSE بيُحلل · Sentinel بيراقب</p>
+                <p className="text-xl font-bold mb-2">VEX يُطلق الحملة...</p>
+                <p className="text-sm text-text-muted">NEX يُنتج الفيديو · PULSE يُحلل · Sentinel يُراقب</p>
               </div>
             )}
           </div>
@@ -273,7 +273,7 @@ export default function OnboardingWizard() {
             }}
             className="text-xs text-text-muted hover:text-text-primary transition-colors"
           >
-            تخطي الـ Onboarding
+            تخطي التمهيد
           </button>
 
           {step < STEPS.length - 1 ? (

@@ -174,7 +174,7 @@ export default function StudioPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="صف المنتج بالتفصيل: الجمهور المستهدف، المميزات الرئيسية، الرسالة اللي عايز توصلها..."
+              placeholder="صف المنتج بالتفصيل: الجمهور المستهدف، المميزات الرئيسية، الرسالة التي ترغب في توصيلها..."
               className="input-nexus resize-none"
               rows={4}
             />

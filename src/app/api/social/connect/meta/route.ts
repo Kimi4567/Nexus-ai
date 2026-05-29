@@ -27,10 +27,11 @@ export async function GET(req: NextRequest) {
   const state = Buffer.from(JSON.stringify({ userId: user.id, ts: Date.now() })).toString('base64url')
 
   const scopes = [
-    'pages_show_list',
+    'instagram_basic',
+    'instagram_content_publishing',
     'pages_read_engagement',
-    'pages_manage_posts',
-    'instagram_content_publish',
+    'pages_show_list',
+    'business_management',
   ].join(',')
 
   const metaOAuthUrl =
