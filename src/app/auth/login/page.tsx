@@ -1,47 +1,50 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
+import { supabase } from '@/lib/supabaseClient'
 
-export default function LoginPage() {
-  const { login } = useAuth()
+function LoginForm() {
   const { t, isRTL } = useI18n()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const loginT = t('auth.login')
+  const redirectTo = searchParams.get('redirect') || '/dashboard'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
-    // Check if Supabase is configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    if (supabaseUrl.includes('placeholder') || !supabaseUrl) {
-      setError('⚠️ خدمة تسجيل الدخول غير متاحة حالياً. فريقنا يعمل على تفعيلها.')
-      return
-    }
-    
-    if (!email || !password) { setError(loginT?.errors?.allFields || 'All fields required'); return }
+    if (!email || !password) { setError('يُرجى تعبئة جميع الحقول'); return }
     setLoading(true)
     try {
-      await login(email, password)
-    } catch (err: any) {
-      const msg = err?.message || ''
-      if (msg.includes('Email not confirmed')) {
-        setError(loginT?.errors?.notConfirmed || 'Please verify your email first')
-      } else if (msg.includes('Invalid login credentials')) {
-        setError(loginT?.errors?.invalid || 'Invalid email or password')
-      } else {
-        setError(msg || loginT?.errors?.generic || 'Login failed')
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) {
+        const msg = authError.message || ''
+        if (msg.includes('Email not confirmed')) {
+          setError('يُرجى تأكيد بريدك الإلكتروني أولاً')
+        } else if (msg.includes('Invalid login credentials')) {
+          setError('البريد الإلكتروني أو كلمة المرور غير صحيحة')
+        } else {
+          setError(msg || 'فشل تسجيل الدخول. يُرجى المحاولة مجدداً.')
+        }
+        setLoading(false)
+        return
       }
+      // Success — navigate to redirect target or dashboard
+      router.push(redirectTo)
+      router.refresh()
+    } catch {
+      setError('حدث خطأ غير متوقع. يُرجى المحاولة مجدداً.')
       setLoading(false)
     }
   }
@@ -80,8 +83,13 @@ export default function LoginPage() {
             </div>
             <div className="flex justify-between items-center">
               <label className="flex items-center gap-2 text-sm text-[#94a3b8] cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-white/20 bg-white/5 accent-amber-500" />
-                {loginT?.rememberMe || 'Remember me'}
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-white/20 bg-white/5 accent-amber-500"
+                />
+                {isRTL ? 'تذكّرني' : 'Remember me'}
               </label>
               <Link href="/auth/forgot-password" className="text-sm text-amber-500 hover:text-amber-400 transition">
                 {loginT?.forgotPassword}
@@ -102,5 +110,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#020204]" />}>
+      <LoginForm />
+    </Suspense>
   )
 }
