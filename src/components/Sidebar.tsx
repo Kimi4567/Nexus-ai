@@ -94,6 +94,14 @@ function NavIcon({ item, pathname }: { item: NavItem; pathname: string }) {
   )
 }
 
+// ── AI Agents ──────────────────────────────────────────────────────────
+const AGENTS = [
+  { name: 'NEX',      icon: '🎬', color: '#f59e0b', role: 'مدير الإبداع' },
+  { name: 'VEX',      icon: '📣', color: '#06b6d4', role: 'استراتيجي الحملات' },
+  { name: 'PULSE',    icon: '📊', color: '#8b5cf6', role: 'محلل الأداء' },
+  { name: 'Sentinel', icon: '🛡️', color: '#10b981', role: 'حماية العلامة' },
+]
+
 // ── Main component ─────────────────────────────────────────────────────
 export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
@@ -283,7 +291,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           )}
         </div>
 
-        {/* Intelligence section */}
+        {/* Tools section */}
         {!collapsed && (
           <div>
             <div className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-2"
@@ -298,6 +306,61 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {collapsed && (
           <div className="space-y-0.5">
             {workNav.map(item => <NavIcon key={item.href} item={item} pathname={pathname} />)}
+          </div>
+        )}
+
+        {/* AI Agents section */}
+        {!collapsed && (
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-2"
+              style={{ color: '#38383e' }}>
+              الوكلاء
+            </div>
+            <div className="space-y-1 px-1">
+              {AGENTS.map(agent => (
+                <div key={agent.name}
+                  className="flex items-center gap-2.5 px-2 py-2 rounded-[9px] group cursor-default"
+                  style={{ background: 'rgba(255,255,255,0.02)' }}
+                >
+                  {/* Colored dot */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold"
+                      style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30`, color: agent.color }}>
+                      {agent.icon}
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500"
+                      style={{ border: '1.5px solid #0d0d0c', boxShadow: '0 0 4px #10b981' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[11px] font-bold leading-none mb-0.5" style={{ color: agent.color }}>
+                      {agent.name}
+                    </div>
+                    <div className="text-[9px] leading-none truncate" style={{ color: '#454555' }}>
+                      {agent.role}
+                    </div>
+                  </div>
+                  <div className="text-[8px] font-bold px-1.5 py-0.5 rounded"
+                    style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98125' }}>
+                    نشط
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {collapsed && (
+          <div className="space-y-1.5 flex flex-col items-center">
+            {AGENTS.map(agent => (
+              <div key={agent.name}
+                title={`${agent.name} — ${agent.role}`}
+                className="relative w-8 h-8 rounded-lg flex items-center justify-center text-[13px] cursor-default"
+                style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30` }}
+              >
+                {agent.icon}
+                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500"
+                  style={{ border: '1.5px solid #0d0d0c' }} />
+              </div>
+            ))}
           </div>
         )}
       </div>

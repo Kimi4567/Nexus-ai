@@ -6,7 +6,7 @@ import AppShell from '@/components/AppShell'
 
 const GOALS = [
   { id: 'grow_followers',   label: 'زيادة المتابعين',       icon: '📈', desc: 'بناء جمهور أكبر ومتفاعل' },
-  { id: 'generate_leads',   label: 'توليد Leads',            icon: '🎯', desc: 'جمع الإيميلات والاستفسارات' },
+  { id: 'generate_leads',   label: 'توليد عملاء محتملين',            icon: '🎯', desc: 'جمع الإيميلات والاستفسارات' },
   { id: 'launch_product',   label: 'إطلاق منتج جديد',       icon: '🚀', desc: 'الإعلان عن منتج وبيعه' },
   { id: 'drive_sales',      label: 'زيادة المبيعات',         icon: '💰', desc: 'تحويل الجمهور لعملاء' },
   { id: 'build_brand',      label: 'بناء الوعي بالعلامة',   icon: '✨', desc: 'ترسيخ السلطة والتميز' },
