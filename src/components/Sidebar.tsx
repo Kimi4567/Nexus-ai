@@ -220,6 +220,17 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         </svg>
       ),
     },
+    {
+      href: '/connections', label: 'ربط المنصات',
+      icon: (
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <circle cx="3.5" cy="8" r="2" />
+          <circle cx="12.5" cy="3.5" r="2" />
+          <circle cx="12.5" cy="12.5" r="2" />
+          <path d="M5.5 8h3.5M10.5 5l-1.5 3M10.5 11l-1.5-3" strokeLinecap="round" />
+        </svg>
+      ),
+    },
   ]
 
   const bottomNav: NavItem[] = [

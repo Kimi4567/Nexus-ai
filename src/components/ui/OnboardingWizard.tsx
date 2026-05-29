@@ -67,6 +67,12 @@ export default function OnboardingWizard() {
   const currentStep = STEPS[step]
 
   const handleNext = () => {
+    if (step === 1) {
+      // Step 2: go to connections hub instead of staying in wizard
+      localStorage.setItem('nexus_onboarding_done', 'true')
+      router.push('/connections')
+      return
+    }
     if (step < STEPS.length - 1) {
       setStep(step + 1)
     } else {
@@ -282,8 +288,8 @@ export default function OnboardingWizard() {
               disabled={step === 0 && !businessType}
               className="btn-primary text-sm py-2.5 px-6 btn-3d flex items-center gap-2 disabled:opacity-50"
             >
-              الخطوة التالية
-              <ChevronLeft className="w-4 h-4" />
+              {step === 1 ? 'ربط الحسابات ←' : 'الخطوة التالية'}
+              {step !== 1 && <ChevronLeft className="w-4 h-4" />}
             </button>
           ) : (
             !launched && (

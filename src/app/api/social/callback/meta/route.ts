@@ -17,11 +17,11 @@ export async function GET(req: NextRequest) {
 
   // Handle user denial
   if (errorParam) {
-    return NextResponse.redirect(`${baseUrl}/settings?social=denied`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=denied`)
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=missing_params`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=missing_params`)
   }
 
   // Decode state to get userId
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     if (Date.now() - decoded.ts > 60 * 60 * 1000) throw new Error('stale')
   } catch (e) {
     console.error('[Meta OAuth] State decode failed:', e)
-    return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=invalid_state`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
 
   const appId = process.env.META_APP_ID!
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
   if (tokenData.error || !tokenData.access_token) {
     console.error('[Meta OAuth] Token exchange failed:', tokenData)
-    return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=token_exchange`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange`)
   }
 
   const shortToken = tokenData.access_token
@@ -152,8 +152,8 @@ export async function GET(req: NextRequest) {
     console.log('[Meta OAuth] Integration saved successfully!')
   } catch (dbErr) {
     console.error('[Meta OAuth] DB upsert failed:', dbErr)
-    return NextResponse.redirect(`${baseUrl}/settings?social=error&msg=db_error`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=db_error`)
   }
 
-  return NextResponse.redirect(`${baseUrl}/settings?social=connected&platform=meta`)
+  return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=meta`)
 }

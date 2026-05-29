@@ -110,6 +110,7 @@ export default function DashboardPage() {
   const [recentCampaigns, setRecentCampaigns] = useState<RecentCampaign[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [hasConnections, setHasConnections] = useState<boolean | null>(null)
 
   const load = useCallback(async () => {
     if (isDemo) {
@@ -135,6 +136,15 @@ export default function DashboardPage() {
   }, [authHeader, isDemo])
 
   useEffect(() => { load() }, [load])
+
+  // Check connections silently
+  useEffect(() => {
+    if (isDemo) { setHasConnections(true); return }
+    fetch('/api/social/accounts', { headers: { Authorization: authHeader() } })
+      .then(r => r.json())
+      .then(d => setHasConnections((d.accounts || []).length > 0))
+      .catch(() => setHasConnections(true)) // on error, don't show banner
+  }, [authHeader, isDemo])
 
   const changeLabel = (n: number) =>
     n > 0 ? `+${n}% هذا الشهر` : n < 0 ? `${n}% هذا الشهر` : 'لا تغيير'
@@ -206,6 +216,35 @@ export default function DashboardPage() {
           <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
             <Activity className="w-4 h-4" />
             {error}
+          </div>
+        )}
+
+        {/* Connect Accounts Banner — shown when no platforms connected */}
+        {hasConnections === false && !isDemo && (
+          <div
+            className="p-4 corner-accent flex items-center justify-between flex-wrap gap-3"
+            style={{
+              background: 'rgba(6,182,212,0.04)',
+              border: '1px solid rgba(6,182,212,0.18)',
+              borderRadius: '16px',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan/10 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-cyan-400" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-cyan-300">ربط منصاتك خطوة أساسية 🔗</p>
+                <p className="text-xs text-text-muted">اربط فيسبوك وإنستجرام لتفعيل النشر التلقائي وتحليل الأداء</p>
+              </div>
+            </div>
+            <Link
+              href="/connections"
+              className="text-xs font-bold px-4 py-2 rounded-lg transition-all"
+              style={{ background: 'rgba(6,182,212,0.12)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.25)' }}
+            >
+              ربط الحسابات ←
+            </Link>
           </div>
         )}
 
