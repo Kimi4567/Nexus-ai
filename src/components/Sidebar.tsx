@@ -7,13 +7,10 @@ import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import React from 'react'
 
-// ── Types ──────────────────────────────────────────────────────────────
-interface NavItem {
-  href: string
-  label: string
-  icon: React.ReactNode
-  badge?: string
-}
+/* ═══════════════════════════════════════════════════════════════
+   NEXUS SIDEBAR — Clean, Intelligent, Premium
+   Navigation: Dashboard → Connections → 4 Agents → Settings/Billing
+   ═══════════════════════════════════════════════════════════════ */
 
 interface SidebarProps {
   collapsed: boolean
@@ -21,10 +18,10 @@ interface SidebarProps {
   onMobileClose?: () => void
 }
 
-// ── Logo ───────────────────────────────────────────────────────────────
+// ── Logo ───────────────────────────────────────────────────────
 function NexusLogo() {
   return (
-    <svg width="26" height="26" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
       <rect width="28" height="28" rx="7" fill="#FF9500" />
       <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -32,77 +29,130 @@ function NexusLogo() {
   )
 }
 
-// ── Nav link — expanded ────────────────────────────────────────────────
-function NavLink({ item, pathname, onClick }: { item: NavItem; pathname: string; onClick?: () => void }) {
-  const isActive = pathname === item.href ||
-    (item.href !== '/dashboard' && pathname.startsWith(item.href))
+// ── Section label ──────────────────────────────────────────────
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div className="text-[9px] font-bold uppercase tracking-[0.15em] px-3 pt-4 pb-1.5" style={{ color: '#2e2e38' }}>
+      {children}
+    </div>
+  )
+}
+
+// ── Nav item ──────────────────────────────────────────────────
+interface NavItemProps {
+  href: string
+  label: string
+  labelEn?: string
+  icon: React.ReactNode
+  badge?: string
+  badgeColor?: string
+  dot?: string // status dot color
+  pathname: string
+  collapsed: boolean
+  onClick?: () => void
+}
+
+function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname, collapsed, onClick }: NavItemProps) {
+  const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+
+  if (collapsed) {
+    return (
+      <Link href={href} title={label} onClick={onClick}
+        className={`flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 relative
+          ${isActive ? 'text-white' : 'text-[#464656] hover:text-[#9090a8] hover:bg-white/4'}`}
+        style={isActive ? { background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' } : {}}
+      >
+        {icon}
+        {dot && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: dot, boxShadow: `0 0 4px ${dot}` }} />}
+      </Link>
+    )
+  }
 
   return (
-    <Link
-      href={item.href}
-      onClick={onClick}
-      className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150 group
-        ${isActive
-          ? 'bg-white/8 text-white shadow-top-edge'
-          : 'text-[#707084] hover:text-white hover:bg-white/4'
-        }`}
-      style={isActive ? {
-        background: 'rgba(255,255,255,0.07)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
-      } : {}}
+    <Link href={href} onClick={onClick}
+      className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150
+        ${isActive ? 'text-white' : 'text-[#707084] hover:text-white hover:bg-white/4'}`}
+      style={isActive ? { background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' } : {}}
     >
-      {/* Active left indicator */}
-      {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r-full" />
-      )}
-      <span className={`flex-shrink-0 transition-colors ${
-        isActive ? 'text-white' : 'text-[#505060] group-hover:text-[#9090a8]'
-      }`}>
-        {item.icon}
+      {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r-full" />}
+      <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-[#505060] group-hover:text-[#9090a8]'}`}>
+        {icon}
       </span>
-      <span className="flex-1 leading-none truncate">{item.label}</span>
-      {item.badge && (
-        <span className="text-[9px] px-1.5 py-0.5 bg-accent/15 text-accent rounded-md font-bold uppercase tracking-wide">
-          {item.badge}
+      <span className="flex-1 leading-none truncate">{label}</span>
+      {labelEn && !badge && <span className="text-[9px] text-[#32323c] font-mono">{labelEn}</span>}
+      {badge && (
+        <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide"
+          style={{ background: badgeColor ? `${badgeColor}18` : 'rgba(255,149,0,0.12)', color: badgeColor || '#FF9500' }}>
+          {badge}
         </span>
       )}
+      {dot && <span className="w-1.5 h-1.5 rounded-full ml-auto" style={{ background: dot, boxShadow: `0 0 5px ${dot}` }} />}
     </Link>
   )
 }
 
-// ── Icon-only link — collapsed ─────────────────────────────────────────
-function NavIcon({ item, pathname }: { item: NavItem; pathname: string }) {
-  const isActive = pathname === item.href ||
-    (item.href !== '/dashboard' && pathname.startsWith(item.href))
-
-  return (
-    <Link
-      href={item.href}
-      title={item.label}
-      className={`flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150
-        ${isActive
-          ? 'text-white'
-          : 'text-[#464656] hover:text-[#9090a8] hover:bg-white/4'
-        }`}
-      style={isActive ? {
-        background: 'rgba(255,255,255,0.07)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)',
-      } : {}}
-    >
-      {item.icon}
-    </Link>
-  )
+// ── Icons ─────────────────────────────────────────────────────
+const Icons = {
+  dashboard: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+      <rect x="1" y="1" width="6" height="6" rx="1.5" />
+      <rect x="9" y="1" width="6" height="6" rx="1.5" />
+      <rect x="1" y="9" width="6" height="6" rx="1.5" />
+      <rect x="9" y="9" width="6" height="6" rx="1.5" />
+    </svg>
+  ),
+  connections: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="3.5" cy="8" r="2" />
+      <circle cx="12.5" cy="3.5" r="2" />
+      <circle cx="12.5" cy="12.5" r="2" />
+      <path d="M5.5 8h3.5M10.5 5l-1.5 3M10.5 11l-1.5-3" strokeLinecap="round" />
+    </svg>
+  ),
+  film: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+      <path d="M1.5 5.5h13M1.5 10.5h13M4.5 2.5v3M8 2.5v3M11.5 2.5v3M4.5 10.5v3M8 10.5v3M11.5 10.5v3" strokeLinecap="round" />
+    </svg>
+  ),
+  megaphone: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 6v4h2l5 3V3L4 6H2z" strokeLinejoin="round" />
+      <path d="M11.5 5.5c1 .5 1.5 1.5 1.5 2.5s-.5 2-1.5 2.5" strokeLinecap="round" />
+      <path d="M13 3.5c2 1 2 7 0 9" strokeLinecap="round" />
+    </svg>
+  ),
+  chart: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M1.5 12.5h13M4 12.5V8.5M7.5 12.5V5M11 12.5V7.5M14.5 12.5V3.5" strokeLinecap="round" />
+    </svg>
+  ),
+  shield: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 1.5L13 3.5v4c0 3.5-2.5 6-5 7-2.5-1-5-3.5-5-7v-4l5-2z" strokeLinejoin="round" />
+      <path d="M5.5 8l1.5 1.5 3-3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  settings: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="2" />
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" strokeLinecap="round" />
+    </svg>
+  ),
+  billing: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="4" width="13" height="9" rx="1.5" />
+      <path d="M1.5 7h13M4.5 10.5h3" strokeLinecap="round" />
+    </svg>
+  ),
+  demo: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 1.5L10.5 6l5 .5-3.5 3.5 1 5L8 12.5 3 15l1-5L.5 6.5l5-.5L8 1.5z" strokeLinejoin="round" />
+    </svg>
+  ),
 }
 
-// ── AI Agents ──────────────────────────────────────────────────────────
-const AGENTS = [
-  { name: 'NEX',      icon: '🎬', color: '#f59e0b', role: 'مدير الإبداع' },
-  { name: 'VEX',      icon: '📣', color: '#06b6d4', role: 'استراتيجي الحملات' },
-  { name: 'PULSE',    icon: '📊', color: '#8b5cf6', role: 'محلل الأداء' },
-  { name: 'Sentinel', icon: '🛡️', color: '#10b981', role: 'حماية العلامة' },
-]
-
-// ── Main component ─────────────────────────────────────────────────────
+// ── Main Sidebar ───────────────────────────────────────────────
 export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -119,305 +169,98 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
     router.push('/')
   }
 
-  const handleNavClick = () => {
-    if (onMobileClose) onMobileClose()
-  }
-
-  const mainNav: NavItem[] = [
-    {
-      href: '/dashboard', label: 'الرئيسية',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
-          <rect x="1" y="1" width="6" height="6" rx="1.5" />
-          <rect x="9" y="1" width="6" height="6" rx="1.5" />
-          <rect x="1" y="9" width="6" height="6" rx="1.5" />
-          <rect x="9" y="9" width="6" height="6" rx="1.5" />
-        </svg>
-      ),
-    },
-    {
-      href: '/campaigns', label: 'الحملات',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M2 4h12M2 8h8M2 12h5" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/campaigns/new', label: 'حملة جديدة',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="8" cy="8" r="6.5" />
-          <path d="M8 5v6M5 8h6" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-  ]
-
-  const workNav: NavItem[] = [
-    {
-      href: '/strategy', label: 'الاستراتيجية', badge: 'جديد',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M1.5 12.5L6 7l3 3 5-6.5" strokeLinecap="round" strokeLinejoin="round" />
-          <circle cx="13" cy="3" r="1.5" fill="currentColor" stroke="none" />
-        </svg>
-      ),
-    },
-    {
-      href: '/calendar', label: 'التقويم',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" />
-          <path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/analytics', label: 'التحليلات',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M1.5 12.5h13M4 12.5V8.5M7.5 12.5V5M11 12.5V7.5M14.5 12.5V3.5" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/schedule', label: 'الجدولة',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="8" cy="8" r="6.5" />
-          <path d="M8 4.5v4l2.5 2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/templates', label: 'القوالب',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1" />
-          <rect x="9" y="1.5" width="5.5" height="5.5" rx="1" />
-          <rect x="1.5" y="9" width="5.5" height="5.5" rx="1" />
-          <path d="M9 11.5h5.5M11.75 9v5" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/brand', label: 'الهوية والذاكرة',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M8 1.5L10 5.5H14L11 8l1 4-4-2.5L4 12l1-4L2 5.5h4z" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/agency', label: 'مركز الوكالة', badge: 'وكالة',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M1.5 14.5V6.5l3-2.5V14.5M1.5 14.5h13M11.5 14.5V4.5l-3.5-3-3.5 3" strokeLinecap="round" strokeLinejoin="round" />
-          <rect x="6.5" y="10" width="3" height="4.5" rx="0.5" />
-        </svg>
-      ),
-    },
-    {
-      href: '/media', label: 'مكتبة الوسائط',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
-          <circle cx="5.5" cy="5.5" r="1.5" />
-          <path d="M1.5 10.5l3.5-3 3 3 2.5-2.5L14.5 11" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/connections', label: 'ربط المنصات',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="3.5" cy="8" r="2" />
-          <circle cx="12.5" cy="3.5" r="2" />
-          <circle cx="12.5" cy="12.5" r="2" />
-          <path d="M5.5 8h3.5M10.5 5l-1.5 3M10.5 11l-1.5-3" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-  ]
-
-  const bottomNav: NavItem[] = [
-    {
-      href: '/billing', label: 'الفواتير والخطط',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <rect x="1.5" y="4" width="13" height="9" rx="1.5" />
-          <path d="M1.5 7h13M4.5 10.5h3" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-    {
-      href: '/settings', label: 'الإعدادات',
-      icon: (
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="8" cy="8" r="2" />
-          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.1 3.1l1.4 1.4M11.5 11.5l1.4 1.4M3.1 12.9l1.4-1.4M11.5 4.5l1.4-1.4" strokeLinecap="round" />
-        </svg>
-      ),
-    },
-  ]
+  const click = () => { if (onMobileClose) onMobileClose() }
 
   if (!isAuthenticated) return null
 
+  const sharedProps = { pathname, collapsed, onClick: click }
+
   return (
-    <aside
-      className={`h-full flex flex-col transition-all duration-200 bg-sidebar
-        ${collapsed ? 'w-16' : 'w-56'}`}
-    >
+    <aside className={`h-full flex flex-col transition-all duration-200 bg-sidebar ${collapsed ? 'w-16' : 'w-56'}`}>
+
       {/* Logo */}
-      <div className={`flex items-center gap-2.5 px-4 py-5 flex-shrink-0
-        ${collapsed ? 'justify-center px-0' : ''}`}
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-      >
+      <div className={`flex items-center gap-2.5 px-4 py-5 flex-shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
         <NexusLogo />
-        {!collapsed && (
-          <span className="font-bold text-white tracking-tight text-[15px] leading-none">Nexus</span>
-        )}
+        {!collapsed && <span className="font-bold text-white tracking-tight text-[15px] leading-none">Nexus</span>}
       </div>
 
       {/* Scrollable nav */}
-      <div className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
+      <div className="flex-1 overflow-y-auto py-3 px-2">
 
-        {/* Main nav */}
-        <div className="space-y-0.5">
-          {mainNav.map(item => collapsed
-            ? <NavIcon key={item.href} item={item} pathname={pathname} />
-            : <NavLink key={item.href} item={item} pathname={pathname} onClick={handleNavClick} />
-          )}
-        </div>
+        {/* Main */}
+        <NavItem href="/dashboard" label="الرئيسية" labelEn="Dashboard"
+          icon={Icons.dashboard} {...sharedProps} />
 
-        {/* Tools section */}
-        {!collapsed && (
-          <div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-2"
-              style={{ color: '#38383e' }}>
-              الأدوات
-            </div>
-            <div className="space-y-0.5">
-              {workNav.map(item => <NavLink key={item.href} item={item} pathname={pathname} onClick={handleNavClick} />)}
-            </div>
-          </div>
-        )}
-        {collapsed && (
-          <div className="space-y-0.5">
-            {workNav.map(item => <NavIcon key={item.href} item={item} pathname={pathname} />)}
-          </div>
-        )}
+        {/* Platform */}
+        {!collapsed && <SectionLabel>المنصات</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px bg-white/5" />}
+        <NavItem href="/connections" label="ربط المنصات" labelEn="Connect"
+          icon={Icons.connections} badge="مهم" badgeColor="#06b6d4" {...sharedProps} />
 
-        {/* AI Agents section */}
-        {!collapsed && (
-          <div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.12em] px-3 mb-2"
-              style={{ color: '#38383e' }}>
-              الوكلاء
-            </div>
-            <div className="space-y-1 px-1">
-              {AGENTS.map(agent => (
-                <div key={agent.name}
-                  className="flex items-center gap-2.5 px-2 py-2 rounded-[9px] group cursor-default"
-                  style={{ background: 'rgba(255,255,255,0.02)' }}
-                >
-                  {/* Colored dot */}
-                  <div className="relative flex-shrink-0">
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold"
-                      style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30`, color: agent.color }}>
-                      {agent.icon}
-                    </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500"
-                      style={{ border: '1.5px solid #0d0d0c', boxShadow: '0 0 4px #10b981' }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[11px] font-bold leading-none mb-0.5" style={{ color: agent.color }}>
-                      {agent.name}
-                    </div>
-                    <div className="text-[9px] leading-none truncate" style={{ color: '#454555' }}>
-                      {agent.role}
-                    </div>
-                  </div>
-                  <div className="text-[8px] font-bold px-1.5 py-0.5 rounded"
-                    style={{ background: '#10b98115', color: '#10b981', border: '1px solid #10b98125' }}>
-                    نشط
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {collapsed && (
-          <div className="space-y-1.5 flex flex-col items-center">
-            {AGENTS.map(agent => (
-              <div key={agent.name}
-                title={`${agent.name} — ${agent.role}`}
-                className="relative w-8 h-8 rounded-lg flex items-center justify-center text-[13px] cursor-default"
-                style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30` }}
-              >
-                {agent.icon}
-                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500"
-                  style={{ border: '1.5px solid #0d0d0c' }} />
-              </div>
-            ))}
-          </div>
-        )}
+        {/* AI Agents */}
+        {!collapsed && <SectionLabel>الوكلاء الذكيون</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px bg-white/5" />}
+
+        <NavItem href="/studio" label="NEX" labelEn="Studio"
+          icon={Icons.film} dot="#f59e0b" {...sharedProps} />
+        <NavItem href="/vex" label="VEX" labelEn="Ads"
+          icon={Icons.megaphone} dot="#06b6d4" {...sharedProps} />
+        <NavItem href="/analytics" label="PULSE" labelEn="Analytics"
+          icon={Icons.chart} dot="#8b5cf6" {...sharedProps} />
+        <NavItem href="/sentinel" label="Sentinel" labelEn="Monitor"
+          icon={Icons.shield} dot="#10b981" {...sharedProps} />
+
+        {/* Demo */}
+        {!collapsed && <SectionLabel>عرض تجريبي</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px bg-white/5" />}
+        <NavItem href="/demo" label="نسخة تجريبية" labelEn="Demo"
+          icon={Icons.demo} badge="جديد" badgeColor="#8b5cf6" {...sharedProps} />
+
       </div>
 
       {/* Bottom section */}
       <div className="flex-shrink-0 px-2 pb-3 space-y-0.5"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}
-      >
-        {/* Upgrade pill */}
+        style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
+
+        {/* Upgrade */}
         {!collapsed && pathname !== '/billing' && (
           <Link href="/billing"
-            className="flex items-center gap-2 px-3 py-2 rounded-[9px] mb-2 group transition-all duration-150"
-            style={{
-              background: 'rgba(255,149,0,0.08)',
-              border: '1px solid rgba(255,149,0,0.18)',
-              boxShadow: 'inset 0 1px 0 rgba(255,149,0,0.10)',
-            }}
-          >
+            className="flex items-center gap-2 px-3 py-2 rounded-[9px] mb-2 transition-all"
+            style={{ background: 'rgba(255,149,0,0.07)', border: '1px solid rgba(255,149,0,0.15)' }}>
             <span className="text-accent text-sm">⚡</span>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-accent leading-none mb-0.5">Pro ⚡</div>
-              <div className="text-[10px] leading-none" style={{ color: '#5a5a6e' }}>افتح كل الميزات</div>
+              <div className="text-[11px] font-semibold text-accent leading-none mb-0.5">ترقية للـ Pro</div>
+              <div className="text-[10px] leading-none" style={{ color: '#5a5a6e' }}>افتح كل الإمكانيات</div>
             </div>
           </Link>
         )}
 
-        {/* Bottom nav links */}
-        {bottomNav.map(item => collapsed
-          ? <NavIcon key={item.href} item={item} pathname={pathname} />
-          : <NavLink key={item.href} item={item} pathname={pathname} />
-        )}
+        <NavItem href="/settings" label="الإعدادات" labelEn="Settings"
+          icon={Icons.settings} {...sharedProps} />
+        <NavItem href="/billing" label="الفواتير" labelEn="Billing"
+          icon={Icons.billing} {...sharedProps} />
 
         {/* Collapse toggle */}
-        <button
-          onClick={() => setCollapsed(c => !c)}
+        <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1"
           style={{ color: '#505060' }}
           onMouseEnter={e => (e.currentTarget.style.color = '#9090a8')}
           onMouseLeave={e => (e.currentTarget.style.color = '#505060')}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor"
-            strokeWidth="1.5" strokeLinecap="round"
+          title={collapsed ? 'Expand' : 'Collapse'}>
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
             className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
             <path d="M9 2L4 7l5 5" />
           </svg>
         </button>
 
-        {/* Language Switcher */}
+        {/* Language */}
         {!collapsed && (
-          <button
-            onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-white/4 mb-1"
-            style={{ color: '#64748b', border: '1px solid rgba(255,255,255,0.05)' }}
-          >
+          <button onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-white/4"
+            style={{ color: '#64748b' }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
             <span>{locale === 'ar' ? 'English' : 'العربية'}</span>
           </button>
@@ -425,17 +268,10 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* User menu */}
         <div className="relative mt-0.5">
-          <button
-            onClick={() => setUserMenuOpen(o => !o)}
-            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150
-              hover:bg-white/4 ${collapsed ? 'justify-center' : ''}`}
-          >
+          <button onClick={() => setUserMenuOpen(o => !o)}
+            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150 hover:bg-white/4 ${collapsed ? 'justify-center' : ''}`}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{
-                background: 'rgba(255,149,0,0.12)',
-                border: '1px solid rgba(255,149,0,0.22)',
-                color: '#FF9500',
-              }}>
+              style={{ background: 'rgba(255,149,0,0.12)', border: '1px solid rgba(255,149,0,0.22)', color: '#FF9500' }}>
               {initial}
             </div>
             {!collapsed && (
@@ -453,44 +289,31 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                 style={{
                   background: '#131312',
                   border: '1px solid #1f1f1d',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 24px 48px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
-                  animation: 'slideDown 0.18s cubic-bezier(0.22,1,0.36,1) both',
-                }}
-              >
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+                }}>
                 <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                   <div className="text-[12px] font-semibold truncate text-white">{displayName}</div>
                   <div className="text-[11px] truncate" style={{ color: '#46464e' }}>{email}</div>
                 </div>
                 <div className="py-1.5 px-1">
                   {[
-                    { href: '/settings', label: 'الإعدادات' },
-                    { href: '/billing', label: 'الفواتير والخطط' },
+                    { href: '/settings', label: 'الإعدادات / Settings' },
+                    { href: '/billing', label: 'الفواتير / Billing' },
                   ].map(item => (
-                    <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all duration-100"
+                    <Link key={item.href} href={item.href} onClick={() => { setUserMenuOpen(false); click() }}
+                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all"
                       style={{ color: '#9090a8' }}
-                      onMouseEnter={e => {
-                        (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'
-                        ;(e.currentTarget as HTMLElement).style.color = '#ffffff'
-                      }}
-                      onMouseLeave={e => {
-                        (e.currentTarget as HTMLElement).style.background = 'transparent'
-                        ;(e.currentTarget as HTMLElement).style.color = '#9090a8'
-                      }}
-                    >
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9090a8' }}>
                       {item.label}
                     </Link>
                   ))}
-                </div>
-                <div className="py-1.5 px-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full text-left flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all duration-100"
-                    style={{ color: '#f87171' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.08)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    {locale === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
+                  <button onClick={handleSignOut}
+                    className="w-full flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-left"
+                    style={{ color: '#f43f5e' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(244,63,94,0.08)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    تسجيل الخروج / Sign Out
                   </button>
                 </div>
               </div>

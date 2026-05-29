@@ -1,432 +1,387 @@
 'use client'
 
+import AppShell from '@/components/AppShell'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { generateAdCopy } from '@/services/openai'
 import {
-  Wand2, Loader2, Megaphone, Copy, CheckCircle, AlertTriangle, Info,
-  Target, Globe, Zap, TrendingUp, DollarSign, BarChart3, Rocket,
-  Crosshair, Layers, Sparkles, Star, Flame
+  Loader2, Megaphone, Wand2, Sparkles, Target, TrendingUp, Copy,
+  Check, ChevronDown, DollarSign, Eye, MousePointer, Heart
 } from 'lucide-react'
+import StarField from '@/components/ui/StarField'
 
 /* ═══════════════════════════════════════════════════════════════
-   VEX COMMAND — Tactical Ad Operations Center
-   Dominating the digital universe, one campaign at a time.
+   VEX — Ads & Campaign Management Center
    ═══════════════════════════════════════════════════════════════ */
 
-interface Campaign {
+type AdType = 'awareness' | 'conversion' | 'engagement' | 'leads' | 'traffic'
+type AdPlatform = 'meta' | 'google' | 'tiktok' | 'linkedin' | 'snapchat' | 'twitter'
+type AdFormat = 'single_image' | 'carousel' | 'video' | 'story' | 'reel' | 'search'
+type OutputTab = 'copy' | 'audience' | 'budget' | 'strategy'
+
+interface AdResult {
   id: string
-  title: string
-  status: 'active' | 'paused' | 'draft'
-  platform: string
-  budget: string
-  spent: string
-  ctr: string
-  roas: string
-  impressions: string
-  conversions: number
+  type: AdType
+  platform: AdPlatform
+  prompt: string
+  output: string
+  tab: OutputTab
+  createdAt: Date
 }
 
-const platforms = [
-  { name: 'Meta', icon: 'M', color: '#1877F2', active: true },
-  { name: 'TikTok', icon: 'T', color: '#FE2C55', active: true },
-  { name: 'Google', icon: 'G', color: '#4285F4', active: true },
-  { name: 'Snapchat', icon: 'S', color: '#FFFC00', active: false },
-  { name: 'LinkedIn', icon: 'in', color: '#0A66C2', active: false },
-  { name: 'X', icon: '𝕏', color: '#FFFFFF', active: false },
-]
+function VexOrbs() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      <div className="absolute rounded-full blur-[160px] opacity-15"
+        style={{ width: 800, height: 800, background: 'radial-gradient(circle, rgba(6,182,212,0.15), transparent 70%)', top: '-20%', right: '-20%', animation: 'float 16s ease-in-out infinite' }} />
+      <div className="absolute rounded-full blur-[100px] opacity-12"
+        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%)', bottom: '10%', left: '-10%', animation: 'float 12s ease-in-out infinite reverse' }} />
+    </div>
+  )
+}
 
-const goals = [
-  { value: 'sales', label: 'مبيعات', icon: DollarSign, desc: 'زيادة المبيعات المباشرة' },
-  { value: 'leads', label: 'قيادة', icon: Target, desc: 'جمع بيانات العملاء' },
-  { value: 'awareness', label: 'وعي', icon: Globe, desc: 'زيادة الوعي بالعلامة' },
-  { value: 'engagement', label: 'تفاعل', icon: Flame, desc: 'تفاعل أكبر مع المحتوى' },
-]
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handle = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
+  return (
+    <button onClick={handle}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+      style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+      {copied ? 'تم النسخ' : 'نسخ'}
+    </button>
+  )
+}
 
-const campaigns: Campaign[] = [
-  { id: '1', title: 'حملة منتج X', status: 'active', platform: 'Meta', budget: '$500', spent: '$320', ctr: '2.4%', roas: '3.2x', impressions: '45K', conversions: 128 },
-  { id: '2', title: 'ترويج تطبيق Y', status: 'paused', platform: 'TikTok', budget: '$300', spent: '$180', ctr: '1.8%', roas: '2.1x', impressions: '32K', conversions: 67 },
-  { id: '3', title: 'وعي علامة Z', status: 'draft', platform: 'Google', budget: '$800', spent: '$0', ctr: '-', roas: '-', impressions: '-', conversions: 0 },
-  { id: '4', title: 'حملة رمضان', status: 'active', platform: 'Meta', budget: '$1200', spent: '$890', ctr: '3.1%', roas: '4.5x', impressions: '120K', conversions: 342 },
-]
+function VexSelect<T extends string>({ label, value, options, onChange }: {
+  label: string; value: T
+  options: { value: T; label: string }[]
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs text-gray-500">{label}</label>
+      <div className="relative">
+        <select value={value} onChange={e => onChange(e.target.value as T)}
+          className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>{o.label}</option>)}
+        </select>
+        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+      </div>
+    </div>
+  )
+}
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-  active: {
-    label: 'نشطة',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/8 border-emerald-500/20',
-    icon: CheckCircle,
-  },
-  paused: {
-    label: 'معلّقة',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/8 border-amber-500/20',
-    icon: AlertTriangle,
-  },
-  draft: {
-    label: 'مسودة',
-    color: 'text-text-muted',
-    bg: 'bg-white/5 border-white/10',
-    icon: Info,
-  },
+function StatCard({ icon: Icon, color, value, label }: { icon: React.ElementType; color: string; value: string; label: string }) {
+  return (
+    <div className="rounded-xl p-4 flex items-center gap-3"
+      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: `${color}18`, border: `1px solid ${color}25` }}>
+        <Icon size={16} style={{ color }} />
+      </div>
+      <div>
+        <p className="text-white text-base font-bold">{value}</p>
+        <p className="text-gray-500 text-xs">{label}</p>
+      </div>
+    </div>
+  )
 }
 
 export default function VexPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
-  useEffect(() => { if (!authLoading && !isAuthenticated) router.push('/auth/login') }, [authLoading, isAuthenticated, router])
-  if (authLoading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/auth/login')
+  }, [authLoading, isAuthenticated, router])
+
+  const [outputTab, setOutputTab] = useState<OutputTab>('copy')
+  const [adType, setAdType] = useState<AdType>('conversion')
+  const [adPlatform, setAdPlatform] = useState<AdPlatform>('meta')
+  const [adFormat, setAdFormat] = useState<AdFormat>('single_image')
+  const [budget, setBudget] = useState('500')
+  const [prompt, setPrompt] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState('')
+  const [history, setHistory] = useState<AdResult[]>([])
+
+  if (authLoading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+      <Loader2 className="animate-spin" size={32} style={{ color: '#06b6d4' }} />
+    </div>
+  )
   if (!isAuthenticated) return null
 
-  const [product, setProduct] = useState('')
-  const [goal, setGoal] = useState('sales')
-  const [audience, setAudience] = useState('')
-  const [copy, setCopy] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['Meta', 'TikTok'])
+  const outputTabs: { id: OutputTab; label: string; labelEn: string; icon: React.ElementType }[] = [
+    { id: 'copy',     label: 'نص الإعلان',    labelEn: 'Ad Copy',    icon: Megaphone },
+    { id: 'audience', label: 'الجمهور',        labelEn: 'Audience',   icon: Target },
+    { id: 'budget',   label: 'الميزانية',      labelEn: 'Budget',     icon: DollarSign },
+    { id: 'strategy', label: 'الاستراتيجية',  labelEn: 'Strategy',   icon: TrendingUp },
+  ]
 
-  const handleGenerate = async () => {
-    if (!product || !audience) return
+  const systemPrompts: Record<OutputTab, string> = {
+    copy: `أنت خبير في كتابة نصوص الإعلانات عالية التحويل على ${adPlatform}. نوع الهدف: ${adType}. الصيغة: ${adFormat}. اكتب: العنوان الرئيسي + النص التشويقي + الـ CTA + 3 إعلانات بديلة للاختبار A/B. اجعل كل نص جذاباً وموجهاً للتحويل.`,
+    audience: `أنت خبير في استهداف الجماهير الإعلانية على ${adPlatform}. نوع الإعلان: ${adType}. الميزانية: ${budget} دولار. حدد: الجمهور الأساسي + الاهتمامات + الخصائص الديموغرافية + الجماهير المشابهة + إعادة الاستهداف. قدم توصيات تفصيلية وعملية.`,
+    budget: `أنت خبير في إدارة ميزانيات الإعلانات الرقمية. المنصة: ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget} دولار شهرياً. قسّم الميزانية بشكل مثالي مع توقعات KPIs واقعية (CTR، CPC، CPL، ROAS).`,
+    strategy: `أنت استراتيجي إعلانات رقمية خبير. المنصة: ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget}$. صمّم استراتيجية كاملة: مراحل الحملة + الرسائل + مؤشرات النجاح + جدول زمني 30 يوم + توصيات الاختبار.`,
+  }
+
+  async function generate() {
+    if (!prompt.trim() || loading) return
     setLoading(true)
+    setResult('')
     try {
-      const result = await generateAdCopy(product, selectedPlatforms[0], goal)
-      setCopy(result)
-    } catch (e) {
-      setCopy('حدث خطأ أثناء توليد النسخ. يرجى المحاولة مرة أخرى.')
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systemPrompt: systemPrompts[outputTab], userPrompt: prompt, maxTokens: 1200 }),
+      })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      const output = data.content || data.result || ''
+      setResult(output)
+      setHistory(prev => [{ id: crypto.randomUUID(), type: adType, platform: adPlatform, prompt, output, tab: outputTab, createdAt: new Date() }, ...prev.slice(0, 9)])
+    } catch {
+      setResult('⚠️ فشل الاتصال بـ VEX. حاول مجدداً.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
-  const togglePlatform = (name: string) => {
-    setSelectedPlatforms(prev =>
-      prev.includes(name)
-        ? prev.filter(p => p !== name)
-        : [...prev, name]
-    )
-  }
-
-  const totalBudget = campaigns.reduce((sum, c) => sum + parseInt(c.budget.replace('$', '')), 0)
-  const totalSpent = campaigns.reduce((sum, c) => sum + parseInt(c.spent.replace('$', '')), 0)
-  const activeCampaigns = campaigns.filter(c => c.status === 'active').length
-  const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0)
+  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
+  const cyanColor = '#06b6d4'
 
   return (
-    <div className="space-y-8 relative min-h-screen">
-      {/* Ambient background glow */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        <div
-          className="absolute w-[500px] h-[500px] rounded-full opacity-10 blur-[100px]"
-          style={{
-            background: 'radial-gradient(circle, rgba(6,182,212,0.15), transparent 70%)',
-            top: '20%',
-            right: '0%',
-            animation: 'float 8s ease-in-out infinite',
-          }}
-        />
-        <div
-          className="absolute w-[400px] h-[400px] rounded-full opacity-8 blur-[80px]"
-          style={{
-            background: 'radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%)',
-            bottom: '10%',
-            left: '-5%',
-            animation: 'float 10s ease-in-out infinite reverse',
-          }}
-        />
-      </div>
+    <AppShell>
+      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+        <StarField />
+        <VexOrbs />
 
-      <div className="relative z-10">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan/20 to-blue/10 flex items-center justify-center">
-              <Crosshair className="w-4 h-4 text-cyan" />
-            </div>
-            <span className="text-xs text-cyan/70 font-mono tracking-wider">VEX COMMAND CENTER</span>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">مركز عمليات VEX</h1>
-          <p className="text-text-muted text-sm">
-            أدر حملاتك الإعلانية عبر كل المنصات من نقطة واحدة. VEX يُحسّن، يُعيد الاستهداف، ويزود العائد.
-          </p>
-        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'الحملات النشطة', value: activeCampaigns, icon: Rocket, color: 'cyan' },
-            { label: 'الميزانية الكلية', value: `$${totalBudget}`, icon: DollarSign, color: 'amber' },
-            { label: 'المصروف', value: `$${totalSpent}`, icon: TrendingUp, color: 'emerald' },
-            { label: 'التحويلات', value: totalConversions, icon: Target, color: 'purple' },
-          ].map((stat) => {
-            const Icon = stat.icon
-            return (
-              <div
-                key={stat.label}
-                className="p-5 corner-accent"
-                style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '16px',
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <Icon className={`w-4 h-4 text-${stat.color}-400`} />
-                  <span className="text-xs text-text-muted">{stat.label}</span>
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.25), rgba(6,182,212,0.08))', border: '1px solid rgba(6,182,212,0.3)', boxShadow: '0 0 30px rgba(6,182,212,0.15)' }}>
+                  <Megaphone size={26} style={{ color: cyanColor }} />
                 </div>
-                <p className="text-2xl font-bold">{stat.value}</p>
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
+                  style={{ background: cyanColor, boxShadow: `0 0 8px ${cyanColor}` }} />
               </div>
-            )
-          })}
-        </div>
-
-        {/* Connected Platforms */}
-        <div
-          className="p-6 mb-8 corner-accent"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '20px',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Globe className="w-5 h-5 text-cyan" />
-            <h3 className="font-bold">المنصات المتصلة</h3>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {platforms.map((platform) => {
-              const isSelected = selectedPlatforms.includes(platform.name)
-              return (
-                <button
-                  key={platform.name}
-                  onClick={() => togglePlatform(platform.name)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-300 ${
-                    isSelected
-                      ? 'border-white/15 bg-white/5 shadow-lg'
-                      : 'border-white/5 bg-white/2 hover:bg-white/5'
-                  }`}
-                >
-                  <span
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold"
-                    style={{ background: platform.color + '20', color: platform.color }}
-                  >
-                    {platform.icon}
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-white">VEX</h1>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                    style={{ background: 'rgba(6,182,212,0.15)', color: cyanColor, border: `1px solid rgba(6,182,212,0.3)` }}>
+                    Ads Engine
                   </span>
-                  {platform.name}
-                  {isSelected && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-emerald-400/50 shadow-sm" />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* مُنشئ النصوص الإعلانية */}
-        <div
-          className="p-8 mb-8 corner-accent"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '24px',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-6">
-            <Sparkles className="w-5 h-5 text-amber" />
-            <h3 className="text-xl font-bold">مُولّد النصوص الإعلانية الذكي</h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <Star className="w-4 h-4 text-amber" />
-                اسم المنتج أو الخدمة
-              </label>
-              <input
-                type="text"
-                value={product}
-                onChange={(e) => setProduct(e.target.value)}
-                placeholder="مثال: تطبيق fitness للياقة البدنية"
-                className="input-nexus"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                <Target className="w-4 h-4 text-cyan" />
-                الجمهور المستهدف
-              </label>
-              <input
-                type="text"
-                value={audience}
-                onChange={(e) => setAudience(e.target.value)}
-                placeholder="مثال: شاب 18-25 مهتم بالرياضة والصحة"
-                className="input-nexus"
-              />
-            </div>
-          </div>
-
-          {/* Goal Selection */}
-          <div className="mb-8">
-            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-purple-400" />
-              الهدف التسويقي
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {goals.map((g) => {
-                const Icon = g.icon
-                const isSelected = goal === g.value
-                return (
-                  <button
-                    key={g.value}
-                    onClick={() => setGoal(g.value)}
-                    className={`p-4 rounded-xl border text-center transition-all duration-300 ${
-                      isSelected
-                        ? 'border-amber/40 bg-amber/5 shadow-lg shadow-amber/5'
-                        : 'border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 mx-auto mb-2 ${isSelected ? 'text-amber' : 'text-text-muted'}`} />
-                    <p className={`text-sm font-medium ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
-                      {g.label}
-                    </p>
-                    <p className="text-[10px] text-text-muted mt-1">{g.desc}</p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !product || !audience}
-            className="btn-primary btn-3d text-lg px-8 py-4 w-full md:w-auto"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                VEX يُبدع النسخ...
-              </>
-            ) : (
-              <>
-                <Wand2 className="w-5 h-5" />
-                توليد 3 نصوص إعلانية
-                <Sparkles className="w-5 h-5" />
-              </>
-            )}
-          </button>
-
-          {copy && (
-            <div
-              className="mt-6 p-6 corner-accent energy-ring"
-              style={{
-                background: 'rgba(245,158,11,0.02)',
-                border: '1px solid rgba(245,158,11,0.1)',
-                borderRadius: '20px',
-              }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Megaphone className="w-5 h-5 text-amber" />
-                  <span className="font-bold">النصوص الإعلانية المُولّدة</span>
                 </div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(copy)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 text-sm"
-                >
-                  <Copy className="w-4 h-4" />
-                  نسخ الكل
-                </button>
+                <p className="text-gray-400 text-sm mt-0.5">محرك الإعلانات الذكي · Intelligent Ads Engine</p>
               </div>
-              <div className="p-5 rounded-xl bg-black/20 border border-white/5">
-                <pre className="text-sm text-text-secondary whitespace-pre-wrap font-medium leading-relaxed">
-                  {copy}
-                </pre>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+              style={{ background: 'rgba(6,182,212,0.1)', border: `1px solid rgba(6,182,212,0.2)`, color: cyanColor }}>
+              <Sparkles size={12} />
+              <span>GPT-4o · نشط</span>
+            </div>
+          </div>
+
+          {/* Mini stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatCard icon={Eye}          color="#06b6d4" value="—" label="مشاهدات · Impressions" />
+            <StatCard icon={MousePointer} color="#f59e0b" value="—" label="نقرات · Clicks" />
+            <StatCard icon={Heart}        color="#8b5cf6" value="—" label="تفاعلات · Engagements" />
+            <StatCard icon={DollarSign}   color="#10b981" value="—" label="تحويلات · Conversions" />
+          </div>
+
+          {/* Output tabs */}
+          <div className="flex flex-wrap gap-2">
+            {outputTabs.map(t => (
+              <button key={t.id} onClick={() => { setOutputTab(t.id); setResult('') }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{
+                  background: outputTab === t.id ? 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.08))' : 'rgba(255,255,255,0.04)',
+                  color: outputTab === t.id ? cyanColor : '#9ca3af',
+                  border: `1px solid ${outputTab === t.id ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                }}>
+                <t.icon size={15} />
+                <span>{t.label}</span>
+                <span className="opacity-50 text-xs">{t.labelEn}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Main grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Config */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
+                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                  <Target size={14} style={{ color: cyanColor }} />
+                  إعدادات الحملة
+                </h3>
+                <VexSelect<AdPlatform> label="المنصة · Platform" value={adPlatform} onChange={setAdPlatform}
+                  options={[
+                    { value: 'meta',     label: 'Meta (Facebook + Instagram)' },
+                    { value: 'google',   label: 'Google Ads' },
+                    { value: 'tiktok',   label: 'TikTok Ads' },
+                    { value: 'linkedin', label: 'LinkedIn Ads' },
+                    { value: 'snapchat', label: 'Snapchat Ads' },
+                    { value: 'twitter',  label: 'X / Twitter Ads' },
+                  ]} />
+                <VexSelect<AdType> label="هدف الحملة · Objective" value={adType} onChange={setAdType}
+                  options={[
+                    { value: 'conversion', label: 'تحويل · Conversion' },
+                    { value: 'awareness',  label: 'وعي بالعلامة · Awareness' },
+                    { value: 'engagement', label: 'تفاعل · Engagement' },
+                    { value: 'leads',      label: 'عملاء محتملون · Leads' },
+                    { value: 'traffic',    label: 'زيارات · Traffic' },
+                  ]} />
+                <VexSelect<AdFormat> label="صيغة الإعلان · Format" value={adFormat} onChange={setAdFormat}
+                  options={[
+                    { value: 'single_image', label: 'صورة · Single Image' },
+                    { value: 'carousel',     label: 'كاروسيل · Carousel' },
+                    { value: 'video',        label: 'فيديو · Video' },
+                    { value: 'story',        label: 'ستوري · Story' },
+                    { value: 'reel',         label: 'ريلز · Reel' },
+                    { value: 'search',       label: 'بحث · Search' },
+                  ]} />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-gray-500">الميزانية الشهرية ($)</label>
+                  <input type="number" value={budget} onChange={e => setBudget(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }} />
+                </div>
+              </div>
+
+              <div className="rounded-2xl p-4" style={glassCard}>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">أفكار سريعة</h3>
+                <div className="space-y-2">
+                  {['متجر ملابس أونلاين - تصفية نهاية الموسم', 'تطبيق توصيل طعام - أول طلب مجاني', 'عيادة تجميل - حجز استشارة مجانية', 'دورة تدريبية في التسويق الرقمي'].map((idea, i) => (
+                    <button key={i} onClick={() => setPrompt(idea)}
+                      className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-cyan-400"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
+                      {idea}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Prompt + Output */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
+                <textarea
+                  value={prompt}
+                  onChange={e => setPrompt(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
+                  placeholder="صف منتجك أو خدمتك ورسالتك التسويقية الرئيسية..."
+                  rows={5}
+                  className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb' }} />
+                <div className="flex justify-end">
+                  <button onClick={generate} disabled={!prompt.trim() || loading}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: prompt.trim() && !loading ? `linear-gradient(135deg, ${cyanColor}, #0891b2)` : 'rgba(255,255,255,0.05)',
+                      color: prompt.trim() && !loading ? '#0a0a0a' : '#4b5563',
+                      boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(6,182,212,0.3)` : 'none',
+                    }}>
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                    {loading ? 'جاري التوليد...' : 'ولّد الآن · Generate'}
+                  </button>
+                </div>
+              </div>
+
+              {(result || loading) && (
+                <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(6,182,212,0.2)`, boxShadow: 'rgba(6,182,212,0.05) 0 0 40px' }}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: cyanColor }}>
+                      <Sparkles size={14} />النتيجة · Output
+                    </h3>
+                    {result && !loading && <CopyBtn text={result} />}
+                  </div>
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(6,182,212,0.3)', borderTopColor: cyanColor }} />
+                      <p className="text-sm text-gray-400 animate-pulse">VEX يحلل ويولد...</p>
+                    </div>
+                  ) : (
+                    <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
+                      style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
+                      {result}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {!result && !loading && (
+                <div className="rounded-2xl p-10 flex flex-col items-center gap-4" style={glassCard}>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                    <Megaphone size={32} style={{ color: 'rgba(6,182,212,0.4)' }} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm">اختر المنصة والهدف والصيغة</p>
+                    <p className="text-gray-600 text-xs mt-1">واكتب عن منتجك ليبدأ VEX في بناء حملتك</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* History */}
+          {history.length > 0 && (
+            <div className="rounded-2xl p-5" style={glassCard}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-300">سجل التوليد · History</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">مسح الكل</button>
+              </div>
+              <div className="space-y-2">
+                {history.map(h => (
+                  <div key={h.id} onClick={() => { setResult(h.output); setOutputTab(h.tab) }}
+                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
+                    style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: 'rgba(6,182,212,0.1)', color: cyanColor, border: `1px solid rgba(6,182,212,0.2)` }}>
+                        {outputTabs.find(t => t.id === h.tab)?.label}
+                      </span>
+                      <span className="text-xs text-gray-500 truncate">{h.prompt}</span>
+                    </div>
+                    <span className="text-xs text-gray-700 flex-shrink-0">{h.platform}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
-        </div>
 
-        {/* Campaigns Table */}
-        <div
-          className="p-8 corner-accent"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '24px',
-          }}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-cyan" />
-              <h3 className="text-xl font-bold">الحملات النشطة</h3>
-            </div>
-            <span className="text-xs text-text-muted font-mono">{campaigns.length} حملة</span>
+          {/* Capabilities */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { icon: Megaphone, color: '#06b6d4', label: 'نص الإعلان',     sub: 'AI Ad Copy',     desc: 'نصوص تحويل عالية الأداء' },
+              { icon: Target,    color: '#f59e0b', label: 'استهداف الجمهور',sub: 'Audience',        desc: 'جمهور دقيق ومخصص' },
+              { icon: DollarSign,color: '#10b981', label: 'توزيع الميزانية',sub: 'Budget Split',    desc: 'تحقيق أعلى ROAS' },
+              { icon: TrendingUp,color: '#8b5cf6', label: 'استراتيجية كاملة',sub: 'Full Strategy',  desc: 'خطة 30 يوم متكاملة' },
+            ].map((c, i) => (
+              <div key={i} className="rounded-xl p-4" style={glassCard}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
+                  style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
+                  <c.icon size={16} style={{ color: c.color }} />
+                </div>
+                <p className="text-white text-sm font-medium">{c.label}</p>
+                <p className="text-gray-500 text-xs">{c.sub}</p>
+                <p className="text-gray-600 text-xs mt-1">{c.desc}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">الحملة</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">المنصة</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">الميزانية</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">المصروف</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">CTR</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">ROAS</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">التحويلات</th>
-                  <th className="text-right py-3 px-4 text-text-muted font-medium text-xs uppercase tracking-wider">الحالة</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaigns.map((c) => {
-                  const config = statusConfig[c.status]
-                  const StatusIcon = config.icon
-                  return (
-                    <tr
-                      key={c.id}
-                      className="border-b border-white/5 hover:bg-white/3 transition-colors"
-                    >
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                            <Megaphone className="w-4 h-4 text-text-muted" />
-                          </div>
-                          <span className="font-medium">{c.title}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-text-secondary">{c.platform}</td>
-                      <td className="py-4 px-4 text-text-secondary">{c.budget}</td>
-                      <td className="py-4 px-4 text-text-secondary">{c.spent}</td>
-                      <td className="py-4 px-4">
-                        <span className={c.ctr !== '-' ? 'text-emerald-400' : 'text-text-muted'}>
-                          {c.ctr}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className={c.roas !== '-' ? 'text-amber font-bold' : 'text-text-muted'}>
-                          {c.roas}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className="font-medium">{c.conversions}</span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className={`text-xs px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${config.bg} ${config.color}`}>
-                          <StatusIcon className="w-3 h-3" />
-                          {config.label}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   )
 }

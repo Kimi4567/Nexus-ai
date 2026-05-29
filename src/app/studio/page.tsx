@@ -1,405 +1,482 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
-
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { generateVideoScript } from '@/services/openai'
 import {
-  Wand2, Loader2, Film, Copy, Play, Sparkles, Clapperboard, Music, Mic,
-  Type, Layers, Star, Rocket, ChevronLeft, Clock, Zap
+  Wand2, Loader2, Film, Copy, Sparkles, Clapperboard, Mic,
+  Type, Star, Rocket, Zap, BookOpen, Hash, MessageSquare,
+  ChevronDown, Check, RefreshCw, Download, Clock, Play,
+  Layers, Target, TrendingUp, Volume2
 } from 'lucide-react'
-
-/* ═══════════════════════════════════════════════════════════════
-   STUDIO NEX — Creative Lab in the Cosmos
-   Where ideas are forged in starlight.
-   ═══════════════════════════════════════════════════════════════ */
-
-interface VideoJob {
-  id: string
-  title: string
-  status: 'pending' | 'generating' | 'ready' | 'failed'
-  progress: number
-  createdAt: string
-  duration: string
-  scenes: number
-}
-
 import StarField from '@/components/ui/StarField'
 
-// Floating creative orbs
-function CreativeOrbs() {
+/* ═══════════════════════════════════════════════════════════════
+   NEX — Creative Content Lab
+   Script · Hooks · Captions · Storyboard · Voice — All by AI
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── Types ──────────────────────────────────────────────────────
+type TabId = 'script' | 'hooks' | 'captions' | 'storyboard'
+type Tone = 'excited' | 'professional' | 'humorous' | 'emotional' | 'urgent'
+type Platform = 'instagram' | 'tiktok' | 'youtube' | 'linkedin' | 'snapchat' | 'twitter'
+type Duration = '15s' | '30s' | '60s' | '90s' | '3min'
+
+interface GenerationResult {
+  id: string
+  tab: TabId
+  prompt: string
+  output: string
+  createdAt: Date
+  platform: Platform
+}
+
+// ── Ambient background ─────────────────────────────────────────
+function NexOrbs() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div
-        className="absolute w-[600px] h-[600px] rounded-full opacity-15 blur-[120px]"
-        style={{
-          background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)',
-          top: '15%',
-          left: '-10%',
-          animation: 'float 10s ease-in-out infinite',
-        }}
-      />
-      <div
-        className="absolute w-[500px] h-[500px] rounded-full opacity-12 blur-[100px]"
-        style={{
-          background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)',
-          bottom: '10%',
-          right: '-5%',
-          animation: 'float 12s ease-in-out infinite reverse',
-        }}
-      />
+      <div className="absolute rounded-full blur-[140px] opacity-20"
+        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)', top: '-10%', left: '-15%', animation: 'float 14s ease-in-out infinite' }} />
+      <div className="absolute rounded-full blur-[100px] opacity-15"
+        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)', bottom: '5%', right: '-10%', animation: 'float 11s ease-in-out infinite reverse' }} />
+      <div className="absolute rounded-full blur-[80px] opacity-10"
+        style={{ width: 300, height: 300, background: 'radial-gradient(circle, rgba(6,182,212,0.1), transparent 70%)', top: '50%', left: '50%', animation: 'float 9s ease-in-out infinite' }} />
     </div>
   )
 }
 
-const styles = [
-  { value: 'marketing', label: 'تسويقي', icon: Zap, desc: 'مباشر ومقنع' },
-  { value: 'educational', label: 'تعليمي', icon: Type, desc: 'واضح وبسيط' },
-  { value: 'entertaining', label: 'ترفيهي', icon: Sparkles, desc: 'مرح وجذاب' },
-  { value: 'emotional', label: 'عاطفي', icon: Music, desc: 'مؤثر وعميق' },
-  { value: 'cinematic', label: 'سينمائي', icon: Clapperboard, desc: 'درامي ومبهر' },
-]
+// ── Copy button ────────────────────────────────────────────────
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  const handle = () => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button onClick={handle}
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+      style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
+      {copied ? <Check size={12} /> : <Copy size={12} />}
+      {copied ? 'تم النسخ' : 'نسخ'}
+    </button>
+  )
+}
 
-const durations = [
-  { value: '15', label: '15 ثانية', desc: 'Reels & Shorts' },
-  { value: '30', label: '30 ثانية', desc: 'إعلان قصير' },
-  { value: '60', label: '60 ثانية', desc: 'إعلان متوسط' },
-  { value: '90', label: '90 ثانية', desc: 'سرد قصصي' },
-]
+// ── Tab pill ───────────────────────────────────────────────────
+function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
+  id: TabId; label: string; labelEn: string; icon: React.ElementType
+  active: boolean; onClick: () => void
+}) {
+  return (
+    <button onClick={onClick}
+      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+      style={{
+        background: active ? 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.08))' : 'rgba(255,255,255,0.04)',
+        color: active ? '#f59e0b' : '#9ca3af',
+        border: `1px solid ${active ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.07)'}`,
+        boxShadow: active ? '0 0 20px rgba(245,158,11,0.1)' : 'none',
+      }}>
+      <Icon size={15} />
+      <span>{label}</span>
+      <span className="opacity-50 text-xs">{labelEn}</span>
+    </button>
+  )
+}
 
-export default function StudioPage() {
+// ── Select ─────────────────────────────────────────────────────
+function NexSelect<T extends string>({ label, value, options, onChange }: {
+  label: string; value: T
+  options: { value: T; label: string; labelEn?: string }[]
+  onChange: (v: T) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs text-gray-500">{label}</label>
+      <div className="relative">
+        <select value={value} onChange={e => onChange(e.target.value as T)}
+          className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
+          {options.map(o => (
+            <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>
+              {o.label}{o.labelEn ? ` · ${o.labelEn}` : ''}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+      </div>
+    </div>
+  )
+}
+
+// ── Main ───────────────────────────────────────────────────────
+export default function NexStudioPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
-  useEffect(() => { if (!authLoading && !isAuthenticated) router.push('/auth/login') }, [authLoading, isAuthenticated, router])
-  if (authLoading) return <div className="min-h-screen bg-dark flex items-center justify-center"><div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/auth/login')
+  }, [authLoading, isAuthenticated, router])
+
+  // ── State ────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<TabId>('script')
+  const [prompt, setPrompt] = useState('')
+  const [platform, setPlatform] = useState<Platform>('instagram')
+  const [tone, setTone] = useState<Tone>('excited')
+  const [duration, setDuration] = useState<Duration>('30s')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<string>('')
+  const [history, setHistory] = useState<GenerationResult[]>([])
+  const [charCount, setCharCount] = useState(0)
+  const promptRef = useRef<HTMLTextAreaElement>(null)
+
+  // ── Loading guard ────────────────────────────────────────────
+  if (authLoading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+      <Loader2 className="animate-spin text-amber-500" size={32} />
+    </div>
+  )
   if (!isAuthenticated) return null
 
-  const [product, setProduct] = useState('')
-  const [description, setDescription] = useState('')
-  const [style, setStyle] = useState('marketing')
-  const [duration, setDuration] = useState('30')
-  const [script, setScript] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [generatingEffect, setGeneratingEffect] = useState(false)
-  const [jobs] = useState<VideoJob[]>([
-    { id: '1', title: 'إعلان منتج X', status: 'ready', progress: 100, createdAt: '2026-05-28', duration: '30s', scenes: 4 },
-    { id: '2', title: 'فيديو تعليمي Y', status: 'generating', progress: 65, createdAt: '2026-05-28', duration: '60s', scenes: 6 },
-    { id: '3', title: 'ترويج خدمة Z', status: 'pending', progress: 0, createdAt: '2026-05-28', duration: '15s', scenes: 3 },
-  ])
+  // ── Tab config ───────────────────────────────────────────────
+  const tabs: { id: TabId; label: string; labelEn: string; icon: React.ElementType; placeholder: string }[] = [
+    { id: 'script',    label: 'السكريبت',   labelEn: 'Script',    icon: Film,         placeholder: 'صف المنتج أو الفكرة التي تريد تحويلها لسكريبت فيديو احترافي...' },
+    { id: 'hooks',     label: 'الهوكس',     labelEn: 'Hooks',     icon: Zap,          placeholder: 'ما المنتج أو الرسالة التي تريد جذب الانتباه بها؟' },
+    { id: 'captions',  label: 'الكابشن',    labelEn: 'Captions',  icon: MessageSquare,placeholder: 'صف المنتج أو الحدث الذي تريد كتابة كابشن له...' },
+    { id: 'storyboard',label: 'ستوري بورد', labelEn: 'Storyboard',icon: Layers,       placeholder: 'صف الفيديو المطلوب لإنشاء خطة المشاهد التفصيلية...' },
+  ]
 
-  const handleGenerate = async () => {
-    if (!product || !description) return
+  const currentTab = tabs.find(t => t.id === activeTab)!
+
+  // ── Generate ─────────────────────────────────────────────────
+  async function generate() {
+    if (!prompt.trim() || loading) return
     setLoading(true)
-    setGeneratingEffect(true)
-    try {
-      const result = await generateVideoScript(product, description, style)
-      setScript(result)
-    } catch (e) {
-      setScript('حدث خطأ أثناء توليد السكريبت. يرجى المحاولة مرة أخرى.')
+    setResult('')
+
+    const systemPrompts: Record<TabId, string> = {
+      script: `أنت خبير في كتابة سكريبتات الفيديو التسويقية. اكتب سكريبت فيديو احترافي وجذاب لمنصة ${platform} بمدة ${duration}.
+النبرة: ${tone === 'excited' ? 'حماسية ومثيرة' : tone === 'professional' ? 'احترافية وواثقة' : tone === 'humorous' ? 'مرحة وممتعة' : tone === 'emotional' ? 'عاطفية ومؤثرة' : 'عاجلة ومقنعة'}.
+الصيغة: [المشهد X] → الإجراء → الحوار. اجعل كل مشهد واضحاً وقابلاً للتنفيذ. أضف تعليمات للكاميرا والإضاءة.`,
+      hooks: `أنت خبير في صناعة هوكس الفيديوهات الفيروسية. اكتب 5 هوكس مختلفة وقوية لمنصة ${platform}.
+النبرة: ${tone}. كل هوك يجب أن يكون مختلفاً في الأسلوب: سؤال، إحصائية، تحدي، قصة، وعد.
+اجعلها قصيرة (أقل من 10 ثوانٍ) وصادمة للانتباه.`,
+      captions: `أنت خبير في كتابة الكابشنز التسويقية لمنصة ${platform}.
+اكتب 3 كابشنز مختلفة: قصير (50 كلمة)، متوسط (100 كلمة)، طويل (200 كلمة).
+أضف هاشتاقات مناسبة وCTA قوي في كل كابشن. النبرة: ${tone}.`,
+      storyboard: `أنت مخرج فيديو إبداعي. أنشئ ستوري بورد تفصيلياً لفيديو ${duration} على ${platform}.
+قسّم الفيديو إلى مشاهد واضحة مع: وصف المشهد، الحوار/الصوت، الإجراء البصري، مؤثرات الكاميرا، والمدة.
+النبرة: ${tone}.`,
     }
-    setLoading(false)
-    setTimeout(() => setGeneratingEffect(false), 2000)
+
+    try {
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemPrompt: systemPrompts[activeTab],
+          userPrompt: prompt,
+          maxTokens: 1200,
+        }),
+      })
+
+      if (!response.ok) throw new Error('فشل الاتصال بالذكاء الاصطناعي')
+      const data = await response.json()
+      const output = data.content || data.result || ''
+      setResult(output)
+      setHistory(prev => [{
+        id: crypto.randomUUID(),
+        tab: activeTab,
+        prompt,
+        output,
+        createdAt: new Date(),
+        platform,
+      }, ...prev.slice(0, 9)])
+    } catch (err) {
+      setResult('⚠️ حدث خطأ أثناء التوليد. تحقق من اتصالك وحاول مجدداً.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const statusConfig: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-    pending: {
-      label: 'معلّق',
-      color: 'text-yellow-400',
-      bg: 'bg-yellow-500/10 border-yellow-500/20',
-      icon: Clock,
-    },
-    generating: {
-      label: 'جاري الإنشاء',
-      color: 'text-cyan-400',
-      bg: 'bg-cyan-500/10 border-cyan-500/20',
-      icon: Loader2,
-    },
-    ready: {
-      label: 'جاهز',
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10 border-emerald-500/20',
-      icon: Play,
-    },
-    failed: {
-      label: 'فشل',
-      color: 'text-red-400',
-      bg: 'bg-red-500/10 border-red-500/20',
-      icon: ChevronLeft,
-    },
+  // ── UI ───────────────────────────────────────────────────────
+  const glassCard = {
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    backdropFilter: 'blur(20px)',
   }
 
   return (
     <AppShell>
-    <div className="relative min-h-screen space-y-8">
-      <StarField density="medium" />
-      <CreativeOrbs />
+      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+        <StarField />
+        <NexOrbs />
 
-      <div className="relative z-10">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber/20 to-orange/10 flex items-center justify-center">
-              <Film className="w-4 h-4 text-amber" />
-            </div>
-            <span className="text-xs text-amber/70 font-mono tracking-wider">NEX STUDIO</span>
-          </div>
-          <h1 className="text-3xl font-bold mb-2">استوديو NEX</h1>
-          <p className="text-text-muted text-sm">
-            أنشئ سكريبتات فيديو سينمائية بالذكاء الاصطناعي. اكتب الوصف، واترك NEX يصنع السحر.
-          </p>
-        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
 
-        {/* Creative Input Panel */}
-        <div
-          className="p-8 mb-8 corner-accent"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '24px',
-          }}
-        >
-          {/* Product Input */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              <Star className="w-4 h-4 text-amber" />
-              اسم المنتج أو الخدمة
-            </label>
-            <input
-              type="text"
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
-              placeholder="مثال: تطبيق fitness للياقة البدنية"
-              className="input-nexus text-lg"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              <Type className="w-4 h-4 text-cyan" />
-              الوصف والتفاصيل
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="صف المنتج بالتفصيل: الجمهور المستهدف، المميزات الرئيسية، الرسالة التي ترغب في توصيلها..."
-              className="input-nexus resize-none"
-              rows={4}
-            />
-          </div>
-
-          {/* Style Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-400" />
-              الأسلوب الإبداعي
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {styles.map((s) => {
-                const Icon = s.icon
-                const isSelected = style === s.value
-                return (
-                  <button
-                    key={s.value}
-                    onClick={() => setStyle(s.value)}
-                    className={`p-4 rounded-xl border text-center transition-all duration-300 ${
-                      isSelected
-                        ? 'border-amber/40 bg-amber/5 shadow-lg shadow-amber/5'
-                        : 'border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15'
-                    }`}
-                  >
-                    <Icon className={`w-5 h-5 mx-auto mb-2 ${isSelected ? 'text-amber' : 'text-text-muted'}`} />
-                    <p className={`text-sm font-medium ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
-                      {s.label}
-                    </p>
-                    <p className="text-[10px] text-text-muted mt-1">{s.desc}</p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Duration Selection */}
-          <div className="mb-8">
-            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-400" />
-              المدة الزمنية
-            </label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {durations.map((d) => {
-                const isSelected = duration === d.value
-                return (
-                  <button
-                    key={d.value}
-                    onClick={() => setDuration(d.value)}
-                    className={`p-3 rounded-xl border text-center transition-all duration-300 ${
-                      isSelected
-                        ? 'border-cyan/40 bg-cyan/5 shadow-lg shadow-cyan/5'
-                        : 'border-white/8 bg-white/3 hover:bg-white/5 hover:border-white/15'
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${isSelected ? 'text-cyan' : 'text-text-primary'}`}>
-                      {d.label}
-                    </p>
-                    <p className="text-[10px] text-text-muted mt-1">{d.desc}</p>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Generate Button */}
-          <button
-            onClick={handleGenerate}
-            disabled={loading || !product || !description}
-            className="btn-primary btn-3d text-lg px-8 py-4 w-full md:w-auto relative overflow-hidden"
-          >
-            {generatingEffect && (
-              <div className="absolute inset-0 bg-gradient-to-r from-amber/0 via-amber/20 to-amber/0 animate-shimmer" />
-            )}
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                NEX يُبدع السكريبت...
-              </>
-            ) : (
-              <>
-                <Wand2 className="w-5 h-5" />
-                توليد السكريبت السينمائي
-                <Sparkles className="w-5 h-5" />
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Generated Script */}
-        {script && (
-          <div
-            className="p-8 mb-8 corner-accent energy-ring"
-            style={{
-              background: 'rgba(245,158,11,0.02)',
-              backdropFilter: 'blur(30px)',
-              border: '1px solid rgba(245,158,11,0.1)',
-              borderRadius: '24px',
-            }}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber/10 flex items-center justify-center">
-                  <Clapperboard className="w-5 h-5 text-amber" />
+          {/* ── Header ─────────────────────────────────────────── */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.08))', border: '1px solid rgba(245,158,11,0.3)', boxShadow: '0 0 30px rgba(245,158,11,0.15)' }}>
+                  <Film size={26} className="text-amber-400" />
                 </div>
-                <div>
-                  <h3 className="font-bold">السكريبت المُولّد</h3>
-                  <p className="text-xs text-text-muted">بواسطة NEX — منتج الفيديو</p>
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 animate-pulse" style={{ boxShadow: '0 0 8px rgba(245,158,11,0.8)' }} />
+              </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-white">NEX</h1>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                    style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                    Studio
+                  </span>
+                </div>
+                <p className="text-gray-400 text-sm mt-0.5">مختبر المحتوى الإبداعي · Creative Content Lab</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+              style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+              <Sparkles size={12} />
+              <span>GPT-4o · نشط</span>
+            </div>
+          </div>
+
+          {/* ── Tabs ───────────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-2">
+            {tabs.map(t => (
+              <TabPill key={t.id} id={t.id} label={t.label} labelEn={t.labelEn}
+                icon={t.icon} active={activeTab === t.id} onClick={() => { setActiveTab(t.id); setResult('') }} />
+            ))}
+          </div>
+
+          {/* ── Main grid ──────────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            {/* Left: Config + Input */}
+            <div className="lg:col-span-1 space-y-4">
+
+              {/* Options card */}
+              <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
+                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                  <Target size={14} className="text-amber-500" />
+                  إعدادات التوليد
+                </h3>
+                <NexSelect<Platform>
+                  label="المنصة · Platform"
+                  value={platform}
+                  onChange={setPlatform}
+                  options={[
+                    { value: 'instagram', label: 'Instagram' },
+                    { value: 'tiktok',    label: 'TikTok' },
+                    { value: 'youtube',   label: 'YouTube' },
+                    { value: 'linkedin',  label: 'LinkedIn' },
+                    { value: 'snapchat',  label: 'Snapchat' },
+                    { value: 'twitter',   label: 'X / Twitter' },
+                  ]}
+                />
+                <NexSelect<Tone>
+                  label="النبرة · Tone"
+                  value={tone}
+                  onChange={setTone}
+                  options={[
+                    { value: 'excited',      label: 'حماسية',    labelEn: 'Excited' },
+                    { value: 'professional', label: 'احترافية',  labelEn: 'Professional' },
+                    { value: 'humorous',     label: 'مرحة',      labelEn: 'Humorous' },
+                    { value: 'emotional',    label: 'عاطفية',    labelEn: 'Emotional' },
+                    { value: 'urgent',       label: 'عاجلة',     labelEn: 'Urgent' },
+                  ]}
+                />
+                {(activeTab === 'script' || activeTab === 'storyboard') && (
+                  <NexSelect<Duration>
+                    label="المدة · Duration"
+                    value={duration}
+                    onChange={setDuration}
+                    options={[
+                      { value: '15s',  label: '15 ثانية' },
+                      { value: '30s',  label: '30 ثانية' },
+                      { value: '60s',  label: '60 ثانية' },
+                      { value: '90s',  label: '90 ثانية' },
+                      { value: '3min', label: '3 دقائق' },
+                    ]}
+                  />
+                )}
+              </div>
+
+              {/* Quick prompts */}
+              <div className="rounded-2xl p-4" style={glassCard}>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">أفكار سريعة · Quick Prompts</h3>
+                <div className="space-y-2">
+                  {[
+                    'إطلاق منتج جديد للعناية بالبشرة',
+                    'خصم 50% لفترة محدودة',
+                    'خدمة توصيل فوري للمطاعم',
+                    'دورة تعليمية في التسويق الرقمي',
+                  ].map((idea, i) => (
+                    <button key={i} onClick={() => setPrompt(idea)}
+                      className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-amber-400"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
+                      {idea}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <button
-                onClick={() => navigator.clipboard.writeText(script)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10 text-sm"
-              >
-                <Copy className="w-4 h-4" />
-                نسخ
-              </button>
             </div>
-            <div className="p-6 rounded-xl bg-black/20 border border-white/5">
-              <pre className="text-sm text-text-secondary whitespace-pre-wrap font-medium leading-relaxed">
-                {script}
-              </pre>
-            </div>
-            <div className="flex items-center gap-4 mt-6">
-              <div className="flex items-center gap-2 text-xs text-text-muted">
-                <Mic className="w-3 h-3" />
-                <span>صوت وصفي متاح</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-text-muted">
-                <Music className="w-3 h-3" />
-                <span>موسيقى خلفية مقترحة</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-text-muted">
-                <Layers className="w-3 h-3" />
-                <span>4 مشاهد</span>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Video Jobs */}
-        <div
-          className="p-8"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '24px',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-6">
-            <Rocket className="w-5 h-5 text-cyan" />
-            <h3 className="text-xl font-bold">المشاريع السينمائية</h3>
-          </div>
+            {/* Right: Prompt + Output */}
+            <div className="lg:col-span-2 space-y-4">
 
-          <div className="space-y-4">
-            {jobs.map((job) => {
-              const config = statusConfig[job.status]
-              const StatusIcon = config.icon
-              return (
-                <div
-                  key={job.id}
-                  className="flex items-center gap-4 p-5 rounded-xl bg-white/3 hover:bg-white/5 transition-all border border-transparent hover:border-white/8"
-                >
-                  {/* Thumbnail */}
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber/10 to-purple/5 flex items-center justify-center shrink-0">
-                    <Film className="w-6 h-6 text-amber/70" />
+              {/* Prompt input */}
+              <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                    <currentTab.icon size={14} className="text-amber-500" />
+                    {currentTab.label} · {currentTab.labelEn}
+                  </h3>
+                  <span className="text-xs text-gray-600">{charCount} حرف</span>
+                </div>
+
+                <textarea
+                  ref={promptRef}
+                  value={prompt}
+                  onChange={e => { setPrompt(e.target.value); setCharCount(e.target.value.length) }}
+                  onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
+                  placeholder={currentTab.placeholder}
+                  rows={5}
+                  className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#e5e7eb',
+                  }}
+                />
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Ctrl+Enter للتوليد السريع</span>
+                  <button
+                    onClick={generate}
+                    disabled={!prompt.trim() || loading}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: prompt.trim() && !loading
+                        ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                        : 'rgba(255,255,255,0.05)',
+                      color: prompt.trim() && !loading ? '#0a0a0a' : '#4b5563',
+                      cursor: prompt.trim() && !loading ? 'pointer' : 'not-allowed',
+                      boxShadow: prompt.trim() && !loading ? '0 0 30px rgba(245,158,11,0.3)' : 'none',
+                    }}>
+                    {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                    {loading ? 'جاري التوليد...' : 'ولّد الآن · Generate'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Output */}
+              {(result || loading) && (
+                <div className="rounded-2xl p-5 space-y-4" style={{
+                  ...glassCard,
+                  border: '1px solid rgba(245,158,11,0.2)',
+                  boxShadow: '0 0 40px rgba(245,158,11,0.05)',
+                }}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f59e0b' }}>
+                      <Sparkles size={14} />
+                      النتيجة · Output
+                    </h3>
+                    {result && !loading && <CopyBtn text={result} />}
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm mb-1">{job.title}</p>
-                    <div className="flex items-center gap-3 text-xs text-text-muted">
-                      <span>{job.createdAt}</span>
-                      <span className="w-1 h-1 rounded-full bg-white/20" />
-                      <span>{job.duration}</span>
-                      <span className="w-1 h-1 rounded-full bg-white/20" />
-                      <span>{job.scenes} مشاهد</span>
+                  {loading ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
+                        <Sparkles size={18} className="absolute inset-0 m-auto text-amber-400" />
+                      </div>
+                      <p className="text-sm text-gray-400 animate-pulse">NEX يبتكر المحتوى...</p>
+                    </div>
+                  ) : (
+                    <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
+                      style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
+                      {result}
+                    </pre>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!result && !loading && (
+                <div className="rounded-2xl p-10 flex flex-col items-center justify-center gap-4" style={glassCard}>
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                    <Film size={32} className="text-amber-500/50" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-gray-400 text-sm">اختر نوع المحتوى، حدد المنصة والنبرة</p>
+                    <p className="text-gray-600 text-xs mt-1">واكتب فكرتك ليبدأ NEX في الابتكار</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Generation History ─────────────────────────────── */}
+          {history.length > 0 && (
+            <div className="rounded-2xl p-5" style={glassCard}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                  <Clock size={14} className="text-gray-500" />
+                  سجل التوليد · History
+                </h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
+                  مسح الكل
+                </button>
+              </div>
+              <div className="space-y-2">
+                {history.map(h => (
+                  <div key={h.id}
+                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
+                    style={{ border: '1px solid rgba(255,255,255,0.05)' }}
+                    onClick={() => { setResult(h.output); setActiveTab(h.tab) }}>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
+                        {tabs.find(t => t.id === h.tab)?.label}
+                      </span>
+                      <span className="text-xs text-gray-500 truncate">{h.prompt}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs text-gray-700">{h.platform}</span>
+                      <span className="text-xs text-gray-700">{h.createdAt.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-                  {/* Status */}
-                  <div className="flex items-center gap-4">
-                    {/* Progress bar for generating */}
-                    {job.status === 'generating' && (
-                      <div className="w-24">
-                        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-1">
-                          <div
-                            className="h-full bg-gradient-to-l from-cyan to-blue rounded-full transition-all duration-1000"
-                            style={{ width: `${job.progress}%` }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-cyan text-center">{job.progress}%</p>
-                      </div>
-                    )}
-
-                    <span className={`text-xs px-3 py-1.5 rounded-full border flex items-center gap-1.5 ${config.bg} ${config.color}`}>
-                      <StatusIcon className={`w-3 h-3 ${job.status === 'generating' ? 'animate-spin' : ''}`} />
-                      {config.label}
-                    </span>
-
-                    {job.status === 'ready' && (
-                      <button className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/10">
-                        <Play className="w-4 h-4 text-emerald-400" />
-                      </button>
-                    )}
-                  </div>
+          {/* ── Capabilities Banner ────────────────────────────── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { icon: Film,        color: '#f59e0b', label: 'سكريبتات',     sub: 'Scripts',     desc: 'سكريبت احترافي لكل مقطع' },
+              { icon: Zap,         color: '#06b6d4', label: 'هوكس',         sub: 'Hooks',       desc: '5 هوكس جاذبة للانتباه' },
+              { icon: MessageSquare,color: '#8b5cf6',label: 'كابشنز',       sub: 'Captions',    desc: 'كابشن متكامل + هاشتاقات' },
+              { icon: Layers,      color: '#10b981', label: 'ستوري بورد',   sub: 'Storyboard',  desc: 'خطة مشاهد تفصيلية' },
+            ].map((cap, i) => (
+              <div key={i} className="rounded-xl p-4" style={glassCard}>
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
+                  style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
+                  <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-              )
-            })}
+                <p className="text-white text-sm font-medium">{cap.label}</p>
+                <p className="text-gray-500 text-xs">{cap.sub}</p>
+                <p className="text-gray-600 text-xs mt-1">{cap.desc}</p>
+              </div>
+            ))}
           </div>
+
         </div>
       </div>
-    </div>
     </AppShell>
   )
 }
