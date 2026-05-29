@@ -190,7 +190,7 @@ export default function SentinelPage() {
           </div>
           <h1 className="text-3xl font-bold mb-2">برج المراقبة</h1>
           <p className="text-text-muted text-sm">
-            Sentinel يراقب كل حاجة: الأداء، الميزانية، المنافسين، والتهديدات. لا شيء يفوته.
+            Sentinel يراقب كل شيء: الأداء، الميزانية، المنافسين، والتهديدات. لا شيء يفوته.
           </p>
         </div>
 

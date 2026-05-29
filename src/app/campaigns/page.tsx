@@ -180,7 +180,7 @@ export default function CampaignsPage() {
             {search || statusFilter ? 'لا توجد نتائج' : 'لا توجد حملات بعد'}
           </h3>
           <p className="text-text-muted text-sm mb-6">
-            {search || statusFilter ? 'جرّب تغيير الفلتر أو البحث' : 'أنشئ حملتك الأولى وخلّي AI يشتغل'}
+            {search || statusFilter ? 'جرّب تغيير الفلتر أو البحث' : 'أنشئ حملتك الأولى ودع الذكاء الاصطناعي يعمل'}
           </p>
           {!search && !statusFilter && (
             <Link href="/campaigns/new" className="btn-primary inline-flex items-center gap-2">

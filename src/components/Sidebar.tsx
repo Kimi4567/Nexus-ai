@@ -115,7 +115,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
   const mainNav: NavItem[] = [
     {
-      href: '/dashboard', label: 'Dashboard',
+      href: '/dashboard', label: 'الرئيسية',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
           <rect x="1" y="1" width="6" height="6" rx="1.5" />
@@ -126,7 +126,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/campaigns', label: 'Campaigns',
+      href: '/campaigns', label: 'الحملات',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M2 4h12M2 8h8M2 12h5" strokeLinecap="round" />
@@ -134,7 +134,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/campaign/new', label: 'New Campaign',
+      href: '/campaigns/new', label: 'حملة جديدة',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="8" cy="8" r="6.5" />
@@ -146,7 +146,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
   const workNav: NavItem[] = [
     {
-      href: '/strategy', label: 'Strategy', badge: 'New',
+      href: '/strategy', label: 'الاستراتيجية', badge: 'جديد',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M1.5 12.5L6 7l3 3 5-6.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -155,7 +155,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/calendar', label: 'Calendar',
+      href: '/calendar', label: 'التقويم',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" />
@@ -164,7 +164,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/analytics', label: 'Analytics',
+      href: '/analytics', label: 'التحليلات',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M1.5 12.5h13M4 12.5V8.5M7.5 12.5V5M11 12.5V7.5M14.5 12.5V3.5" strokeLinecap="round" />
@@ -172,7 +172,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/schedule', label: 'Schedule',
+      href: '/schedule', label: 'الجدولة',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="8" cy="8" r="6.5" />
@@ -181,7 +181,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/templates', label: 'Templates',
+      href: '/templates', label: 'القوالب',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1" />
@@ -192,7 +192,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/brand', label: 'Brand Intelligence',
+      href: '/brand', label: 'الهوية والذاكرة',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M8 1.5L10 5.5H14L11 8l1 4-4-2.5L4 12l1-4L2 5.5h4z" strokeLinecap="round" strokeLinejoin="round" />
@@ -200,7 +200,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/agency', label: 'Agency Hub', badge: 'Agency',
+      href: '/agency', label: 'مركز الوكالة', badge: 'وكالة',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M1.5 14.5V6.5l3-2.5V14.5M1.5 14.5h13M11.5 14.5V4.5l-3.5-3-3.5 3" strokeLinecap="round" strokeLinejoin="round" />
@@ -209,7 +209,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/media', label: 'Media Library',
+      href: '/media', label: 'مكتبة الوسائط',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="1.5" width="13" height="13" rx="2" />
@@ -222,7 +222,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
   const bottomNav: NavItem[] = [
     {
-      href: '/billing', label: 'Billing & Plans',
+      href: '/billing', label: 'الفواتير والخطط',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="1.5" y="4" width="13" height="9" rx="1.5" />
@@ -231,7 +231,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       ),
     },
     {
-      href: '/settings', label: 'Settings',
+      href: '/settings', label: 'الإعدادات',
       icon: (
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
           <circle cx="8" cy="8" r="2" />
@@ -373,8 +373,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                 </div>
                 <div className="py-1.5 px-1">
                   {[
-                    { href: '/settings', label: 'Settings' },
-                    { href: '/billing', label: 'Billing & Plans' },
+                    { href: '/settings', label: 'الإعدادات' },
+                    { href: '/billing', label: 'الفواتير والخطط' },
                   ].map(item => (
                     <Link key={item.href} href={item.href} onClick={() => setUserMenuOpen(false)}
                       className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all duration-100"

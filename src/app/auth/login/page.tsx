@@ -25,7 +25,7 @@ export default function LoginPage() {
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     if (supabaseUrl.includes('placeholder') || !supabaseUrl) {
-      setError('⚠️ خدمة تسجيل الدخول غير متاحة حالياً. فريقنا بيشتغل على تفعيلها.')
+      setError('⚠️ خدمة تسجيل الدخول غير متاحة حالياً. فريقنا يعمل على تفعيلها.')
       return
     }
     

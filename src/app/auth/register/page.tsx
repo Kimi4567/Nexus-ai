@@ -32,7 +32,7 @@ export default function RegisterPage() {
     // Check if Supabase is configured
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     if (supabaseUrl.includes('placeholder') || !supabaseUrl) {
-      setError('⚠️ خدمة التسجيل غير متاحة حالياً. فريقنا بيشتغل على تفعيلها. جرب تاني بعد شوية.')
+      setError('⚠️ خدمة التسجيل غير متاحة حالياً. فريقنا يعمل على تفعيلها. يُرجى المحاولة لاحقاً.')
       return
     }
     
