@@ -1,5 +1,7 @@
 'use client'
 
+import AppShell from '@/components/AppShell'
+
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { analyzeCampaign } from '@/services/openai'
@@ -142,6 +144,7 @@ export default function AnalyticsPage() {
   }
 
   return (
+    <AppShell>
     <div className="relative min-h-screen space-y-8">
       <StarField density="high" />
 
@@ -501,5 +504,6 @@ export default function AnalyticsPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }

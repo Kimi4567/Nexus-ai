@@ -1,5 +1,7 @@
 'use client'
 
+import AppShell from '@/components/AppShell'
+
 import { useState, useEffect } from 'react'
 import {
   Shield, ShieldAlert, ShieldCheck, AlertTriangle, Eye, TrendingDown, Globe, Bell,
@@ -160,6 +162,7 @@ export default function SentinelPage() {
   }
 
   return (
+    <AppShell>
     <div className="relative min-h-screen space-y-8">
       <RadarGrid />
 
@@ -409,5 +412,6 @@ export default function SentinelPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }

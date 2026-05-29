@@ -1,5 +1,7 @@
 'use client'
 
+import AppShell from '@/components/AppShell'
+
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import StatCard from '@/components/ui/StatCard'
@@ -153,6 +155,7 @@ export default function DashboardPage() {
   }
 
   return (
+    <AppShell>
     <div className="space-y-6 relative min-h-screen">
       <StarField />
       <NebulaOrbs />
@@ -429,5 +432,6 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+    </AppShell>
   )
 }

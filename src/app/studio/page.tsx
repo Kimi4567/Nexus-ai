@@ -1,5 +1,7 @@
 'use client'
 
+import AppShell from '@/components/AppShell'
+
 import { useState, useEffect } from 'react'
 import { generateVideoScript } from '@/services/openai'
 import {
@@ -121,6 +123,7 @@ export default function StudioPage() {
   }
 
   return (
+    <AppShell>
     <div className="relative min-h-screen space-y-8">
       <StarField density="medium" />
       <CreativeOrbs />
@@ -389,5 +392,6 @@ export default function StudioPage() {
         </div>
       </div>
     </div>
+    </AppShell>
   )
 }

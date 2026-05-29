@@ -1,5 +1,7 @@
 'use client'
 
+import AppShell from '@/components/AppShell'
+
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -89,6 +91,7 @@ export default function CampaignsPage() {
   const totalCount   = campaigns.length
 
   return (
+    <AppShell>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -284,5 +287,6 @@ export default function CampaignsPage() {
         </div>
       )}
     </div>
+    </AppShell>
   )
 }

@@ -27,6 +27,7 @@ export default function Navbar() {
     { label: t('howItWorks.sectionLabel') as string, id: 'how' },
     { label: t('nav.pricing') as string, id: 'pricing' },
     { label: t('nav.faq') as string, id: 'faq' },
+    { label: 'كيف نسوق أنفسنا', href: '/marketing' },
   ]
 
   return (
@@ -51,7 +52,7 @@ export default function Navbar() {
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => scrollTo(item.id)}
+              onClick={() => item.id && scrollTo(item.id)}
               className="text-[#94a3b8] hover:text-[#f8fafc] text-sm font-medium transition-colors relative group bg-transparent border-none cursor-pointer px-3 py-2"
             >
               {item.label}
@@ -88,7 +89,7 @@ export default function Navbar() {
           {navItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => scrollTo(item.id)}
+              onClick={() => item.id && scrollTo(item.id)}
               className="text-[#f8fafc] py-3 px-4 rounded-lg hover:bg-white/5 transition-colors bg-transparent border-none cursor-pointer text-base"
               style={{ textAlign: isRTL ? 'right' : 'left' }}
             >
