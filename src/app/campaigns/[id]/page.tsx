@@ -46,11 +46,11 @@ const PLATFORM_ICONS: Record<string, string> = {
 
 // Agent identity config
 const AGENT_TABS = [
-  { name: 'SAGE',  icon: '🧠', title: 'Lead Marketing Strategist', color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: 'Strategy'         },
-  { name: 'MUSE',  icon: '🎨', title: 'Creative Director',          color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: 'Ad Concepts'      },
-  { name: 'MUSE',  icon: '🎨', title: 'Creative Director',          color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: 'Visuals'          },
-  { name: 'PULSE', icon: '⚡', title: 'Campaign Operations',         color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: 'Content Calendar' },
-  { name: '',      icon: '📋', title: '',                            color: 'text-gray-400',    border: '',                     bg: '',                 label: 'Activity'         },
+  { name: 'SAGE',  icon: '🧠', title: 'كبير استراتيجيي التسويق',  color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: 'الاستراتيجية'     },
+  { name: 'MUSE',  icon: '🎨', title: 'المدير الإبداعي',            color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: 'المفاهيم الإبداعية' },
+  { name: 'MUSE',  icon: '🎨', title: 'المدير الإبداعي',            color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: 'المرئيات'          },
+  { name: 'PULSE', icon: '⚡', title: 'عمليات الحملة',              color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: 'تقويم المحتوى'    },
+  { name: '',      icon: '📋', title: '',                            color: 'text-gray-400',    border: '',                     bg: '',                 label: 'السجل'             },
 ]
 
 function AgentBanner({ idx }: { idx: number }) {
@@ -65,7 +65,7 @@ function AgentBanner({ idx }: { idx: number }) {
       </div>
       <div className="ml-auto flex items-center gap-1.5">
         <span className={`w-1.5 h-1.5 rounded-full ${agent.color.replace('text-', 'bg-')} animate-pulse`} />
-        <span className="text-xs text-gray-600">delivered this section</span>
+        <span className="text-xs text-gray-600">أنجز هذا القسم</span>
       </div>
     </div>
   )
@@ -73,10 +73,10 @@ function AgentBanner({ idx }: { idx: number }) {
 
 function timeAgo(date: string) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-  return new Date(date).toLocaleDateString()
+  if (seconds < 60) return 'الآن'
+  if (seconds < 3600) return `منذ ${Math.floor(seconds / 60)} دقيقة`
+  if (seconds < 86400) return `منذ ${Math.floor(seconds / 3600)} ساعة`
+  return new Date(date).toLocaleDateString('ar-SA')
 }
 
 function CopyBtn({ text }: { text: string }) {
@@ -86,7 +86,7 @@ function CopyBtn({ text }: { text: string }) {
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
       className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-accent hover:text-dark rounded transition font-semibold"
     >
-      {copied ? '✓' : 'Copy'}
+      {copied ? '✓' : 'نسخ'}
     </button>
   )
 }
@@ -125,14 +125,14 @@ function SaveToMemoryBtn({ text, field, authHeader }: { text: string; field: 'wi
     <button
       onClick={save}
       disabled={saving}
-      title={`Save to Brand Memory`}
+      title="حفظ في ذاكرة العلامة"
       className={`text-xs px-2 py-1 rounded transition font-semibold ${
         saved
           ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
           : 'bg-dark-tertiary hover:bg-indigo-500/20 hover:text-indigo-400 text-gray-500'
       }`}
     >
-      {saved ? '🧠 Saved' : saving ? '...' : '🧠 Save'}
+      {saved ? '🧠 محفوظ' : saving ? '...' : '🧠 حفظ'}
     </button>
   )
 }
@@ -230,8 +230,8 @@ export default function CampaignDetailPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-5xl mb-4">😕</div>
-            <h2 className="text-xl font-bold mb-2 text-white">Campaign not found</h2>
-            <Link href="/campaigns" className="text-accent hover:text-accent-light transition text-sm">← Back to Campaigns</Link>
+            <h2 className="text-xl font-bold mb-2 text-white">لم يتم العثور على الحملة</h2>
+            <Link href="/campaigns" className="text-accent hover:text-accent-light transition text-sm">← العودة للحملات</Link>
           </div>
         </div>
       </AppShell>
@@ -255,10 +255,10 @@ export default function CampaignDetailPage() {
       <AIPresenceBar authHeader={authHeader} />
       <div className="max-w-4xl mx-auto px-8 py-8 page-enter">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link href="/dashboard" className="hover:text-white transition">Dashboard</Link>
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6" dir="rtl">
+          <Link href="/dashboard" className="hover:text-white transition">الرئيسية</Link>
           <span>/</span>
-          <Link href="/campaigns" className="hover:text-white transition">Campaigns</Link>
+          <Link href="/campaigns" className="hover:text-white transition">الحملات</Link>
           <span>/</span>
           <span className="text-gray-300 truncate max-w-xs">{campaign.name}</span>
         </div>
@@ -273,11 +273,11 @@ export default function CampaignDetailPage() {
               <div>
                 <h1 className="text-2xl font-bold mb-1">{campaign.name}</h1>
                 <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400">
-                  <span className="capitalize">{campaign.goal?.toLowerCase()} campaign</span>
+                  <span>{campaign.goal?.toLowerCase()}</span>
                   <span>•</span>
                   <span>{campaign.tone}</span>
                   <span>•</span>
-                  <span>Created {timeAgo(campaign.createdAt)}</span>
+                  <span>أُنشئت {timeAgo(campaign.createdAt)}</span>
                 </div>
                 <div className="flex gap-2 mt-3">
                   {campaign.platforms.map(p => (
@@ -293,39 +293,39 @@ export default function CampaignDetailPage() {
                 onClick={() => updateCampaign({ favorite: !campaign.favorite })}
                 className={`px-4 py-2 rounded-xl border text-sm font-semibold transition ${campaign.favorite ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' : 'border-dark-tertiary text-gray-400 hover:text-yellow-400'}`}
               >
-                {campaign.favorite ? '⭐ Saved' : '☆ Save'}
+                {campaign.favorite ? '⭐ محفوظة' : '☆ حفظ'}
               </button>
               <button
                 onClick={duplicate}
                 className="px-4 py-2 rounded-xl border border-dark-tertiary text-sm font-semibold text-gray-400 hover:text-white transition"
               >
-                📋 Duplicate
+                📋 نسخ
               </button>
               <button
                 onClick={() => updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' })}
                 className="px-4 py-2 rounded-xl border border-dark-tertiary text-sm font-semibold text-gray-400 hover:text-yellow-400 transition"
               >
-                {campaign.status === 'ARCHIVED' ? '📂 Unarchive' : '📦 Archive'}
+                {campaign.status === 'ARCHIVED' ? '📂 استعادة' : '📦 أرشفة'}
               </button>
               <button
                 onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
                 className="px-4 py-2 rounded-xl border border-white/10 text-sm font-semibold text-gray-400 hover:text-white hover:border-white/20 transition"
-                title="Export as PDF"
+                title="تصدير PDF"
               >
-                ⬇ Export PDF
+                ⬇ تصدير PDF
               </button>
               <Link
                 href="/campaigns/new"
                 className="px-4 py-2 rounded-xl bg-accent text-dark text-sm font-bold hover:bg-accent-light transition"
               >
-                + New Campaign
+                + حملة جديدة
               </Link>
             </div>
           </div>
 
           {campaign.audience && (
             <div className="mt-6 pt-6 border-t border-dark-tertiary">
-              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Target Audience</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">الجمهور المستهدف</p>
               <p className="text-sm text-gray-300">{campaign.audience}</p>
             </div>
           )}
@@ -392,19 +392,19 @@ export default function CampaignDetailPage() {
                 <AgentBanner idx={0} />
                 {strategy.overview && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>🧠</span> Overview</h3>
+                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>🧠</span> نظرة عامة</h3>
                     <p className="text-gray-300 leading-relaxed">{strategy.overview}</p>
                   </div>
                 )}
                 {strategy.positioning && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>🎯</span> Positioning</h3>
+                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>🎯</span> التموضع</h3>
                     <p className="text-gray-300 leading-relaxed">{strategy.positioning}</p>
                   </div>
                 )}
                 {strategy.valueProps?.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>💎</span> Value Propositions</h3>
+                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>💎</span> مزايا المنتج</h3>
                     <ul className="space-y-2">
                       {strategy.valueProps.map((vp: string, i: number) => (
                         <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
@@ -416,7 +416,7 @@ export default function CampaignDetailPage() {
                 )}
                 {strategy.contentPillars?.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>📐</span> Content Pillars</h3>
+                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>📐</span> ركائز المحتوى</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {strategy.contentPillars.map((p: string, i: number) => (
                         <div key={i} className="bg-dark rounded-xl p-3 text-sm text-center text-gray-300 border border-dark-tertiary">{p}</div>
@@ -426,7 +426,7 @@ export default function CampaignDetailPage() {
                 )}
                 {strategy.ctaStrategies?.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>📣</span> CTA Strategies</h3>
+                    <h3 className="font-bold text-lg mb-3 flex items-center gap-2"><span>📣</span> استراتيجيات CTA</h3>
                     <ul className="space-y-2">
                       {strategy.ctaStrategies.map((cta: string, i: number) => (
                         <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
@@ -462,7 +462,7 @@ export default function CampaignDetailPage() {
                       {concept.hook && (
                         <div className="bg-dark rounded-xl p-3 mb-3">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-gray-500 uppercase tracking-wide">Hook</span>
+                            <span className="text-xs text-gray-500 uppercase tracking-wide">الهوك</span>
                             <div className="flex items-center gap-1">
                               <SaveToMemoryBtn text={concept.hook} field="winningHooks" authHeader={authHeader} />
                               <CopyBtn text={concept.hook} />
@@ -518,9 +518,9 @@ export default function CampaignDetailPage() {
             {/* Activity Tab */}
             {activeTab === 4 && (
               <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><span>📋</span> Campaign Timeline</h3>
+                <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><span>📋</span> الجدول الزمني للحملة</h3>
                 {campaign.activities.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No activity yet.</p>
+                  <p className="text-gray-500 text-sm">لا يوجد نشاط بعد.</p>
                 ) : (
                   <div className="space-y-4">
                     {campaign.activities.map((activity, i) => (

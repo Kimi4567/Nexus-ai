@@ -6,14 +6,30 @@
 
 const MODEL = 'gpt-4o-mini'
 
+// ─── CRITICAL: ALL AI OUTPUT MUST BE IN ARABIC ───────────────
+// This platform serves MENA Arabic-speaking audiences.
+// Every generated text — hooks, captions, strategies, CTAs —
+// must be written in Modern Standard Arabic (الفصحى).
+const ARABIC_MANDATE = `
+CRITICAL LANGUAGE REQUIREMENT:
+- ALL text content MUST be written in Modern Standard Arabic (MSA / الفصحى)
+- This includes: overview, positioning, valueProps, contentPillars, hooks, captions, scripts, CTAs, topics, everything
+- Do NOT write any content in English except: JSON keys, platform names, format types (Video/Carousel/etc)
+- Audience is in Saudi Arabia, UAE, and broader Arab world — write naturally for them
+- Week names in contentCalendar: use "الأسبوع الأول", "الأسبوع الثاني", etc.
+- Day names in contentCalendar: use "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"
+`
+
 // Platform-native tone guides injected into prompts
 const PLATFORM_GUIDES: Record<string, string> = {
-  TIKTOK: 'TikTok: Very casual, Gen-Z/Millennial tone, POV: or "day in my life" formats, trending audio cues, hook must hit in 0-0.5s, casual language, no corporate speak.',
-  INSTAGRAM: 'Instagram: Visually-led storytelling, aesthetic + aspirational, Reels hooks under 3s, save-worthy captions, community-driven.',
-  FACEBOOK: 'Facebook: Problem/solution format, longer captions OK, carousel performs well, target 35-55 demographics, trust + credibility signals.',
-  YOUTUBE_SHORTS: 'YouTube Shorts: Immediate payoff in first second, educational or entertaining, strong verbal hook + visual hook, direct CTA at end.',
-  LINKEDIN: 'LinkedIn: Professional insight-led, thought leadership, longer narrative OK, authority/credibility angle, B2B mindset.',
-  SNAPCHAT: 'Snapchat: Raw/authentic, fast-paced, FOMO-driven, casual and unpolished feels genuine, under 10s ideally.',
+  TIKTOK: 'TikTok: أسلوب غير رسمي وجذاب، تنسيق POV أو "يوم في حياتي"، الهوك يجب أن يضرب خلال 0-3 ثوانٍ، لغة شبابية، لا رسمية مبالغة.',
+  INSTAGRAM: 'Instagram: سرد بصري وإلهامي، هوك الـ Reels في أقل من 3 ثوانٍ، كابشن يستحق الحفظ، محتوى مجتمعي.',
+  FACEBOOK: 'Facebook: تنسيق مشكلة/حل، كابشن أطول مقبول، الـ carousel يؤدي جيداً، جمهور 30-55 سنة، إشارات الثقة والمصداقية.',
+  YOUTUBE_SHORTS: 'YouTube Shorts: قيمة فورية في الثانية الأولى، محتوى تعليمي أو ترفيهي، هوك شفهي وبصري قوي، CTA واضح في النهاية.',
+  LINKEDIN: 'LinkedIn: رؤى مهنية، قيادة فكرية، سرد أطول مقبول، زاوية السلطة والمصداقية، عقلية B2B.',
+  SNAPCHAT: 'Snapchat: أصيل وسريع، مدفوع بـ FOMO، أسلوب غير مصقول يبدو حقيقياً، أقل من 10 ثوانٍ مثالياً.',
+  Google: 'Google Ads: إعلانات بحث مختصرة وقوية، عنوان جذاب، وصف يحتوي على الكلمة المفتاحية وميزة واضحة.',
+  Snapchat: 'Snapchat: محتوى سريع وشبابي، استهداف جمهور الخليج، أسلوب عفوي وحقيقي.',
 }
 
 async function callOpenAI(
@@ -70,9 +86,8 @@ export async function generateMarketingStrategy(campaign: any, project: any): Pr
     .filter(Boolean)
     .join('\n')
 
-  const system = `You are a world-class marketing strategist and brand consultant with 15+ years of experience
-helping startups and growth-stage companies build category-defining brands. You create clear, actionable,
-platform-native marketing strategies with specific copy examples, not generic frameworks.
+  const system = `You are a world-class marketing strategist and brand consultant specializing in the MENA (Middle East & North Africa) market, with 15+ years of experience helping Arab startups and growth-stage companies build category-defining brands. You create clear, actionable, platform-native marketing strategies with specific copy examples, not generic frameworks.
+${ARABIC_MANDATE}
 Always respond with valid JSON only.`
 
   const user = `Create a complete marketing strategy for this campaign. Return a JSON object with EXACTLY these keys:
@@ -134,7 +149,8 @@ ${platformGuides || 'Create platform-native content appropriate to each platform
 Generate the contentCalendar for 4 weeks with 5-7 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
 For each calendar post, include a "caption" field with a ready-to-post caption draft (including relevant hashtags for social platforms).
 Make ALL recommendations hyper-specific to this campaign — use real copy examples, not placeholders.
-Every value prop, CTA, and hook should name the actual product/service and audience.`
+Every value prop, CTA, and hook should name the actual product/service and audience.
+REMINDER: Write ALL text content in Modern Standard Arabic (الفصحى). Only JSON keys and format labels stay in English.`
 
   return callOpenAI(system, user, true, 4096)
 }
@@ -150,10 +166,12 @@ export async function generateAdConcepts(campaign: any, project: any): Promise<a
     .filter(Boolean)
     .join('\n')
 
-  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major brands.
+  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major Arab and MENA brands.
 You write platform-native scripts — a TikTok script sounds nothing like a LinkedIn post.
-You use real copywriting techniques: pattern interrupts, open loops, social proof, specificity, FOMO.
-Your hooks are tested and specific — not generic. Always respond with valid JSON only.`
+You use real Arabic copywriting techniques: pattern interrupts, open loops, social proof, specificity, FOMO — adapted for Arab audiences.
+Your hooks are tested, specific, and written in Arabic — not generic.
+${ARABIC_MANDATE}
+Always respond with valid JSON only.`
 
   const user = `Generate exactly 5 unique ad concepts for this campaign. Return a JSON object with a "concepts" array containing exactly 5 items.
 
@@ -198,6 +216,7 @@ PLATFORM GUIDES:
 ${platformGuides || 'Adapt tone and format to each platform naturally.'}
 
 The overall campaign tone is ${campaign.tone.toLowerCase()}. All 5 concepts must feel distinctly different — different angle, different emotional trigger, different platform if possible.
+CRITICAL: All hooks, scripts, captions, and CTAs MUST be written in Modern Standard Arabic (الفصحى). Only JSON keys stay in English.
 
 Return: { "concepts": [ ...exactly 5 concepts... ] }`
 
