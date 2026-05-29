@@ -66,12 +66,12 @@ export default function CookieBanner() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.2)' }}>
               <Cookie className="w-4 h-4 text-amber" />
             </div>
-            <span className="text-sm font-bold text-text-primary">نستخدم الكوكيز</span>
+            <span className="text-sm font-bold text-text-primary">ملفات تعريف الارتباط</span>
           </div>
           <p className="text-xs text-text-muted leading-relaxed">
-            نستخدم الكوكيز لتحسين تجربتك — الحفاظ على جلستك، تذكر تفضيلاتك، وتحليل الاستخدام المجهول.
+            نستخدم ملفات تعريف الارتباط لتحسين تجربتك — الحفاظ على جلستك، تذكر تفضيلاتك، وتحليل الاستخدام المجهول.
             {' '}
-            <Link href="/cookies" className="text-amber-500 hover:text-amber-400 underline">سياسة الكوكيز</Link>
+            <Link href="/cookies" className="text-amber-500 hover:text-amber-400 underline">سياسة ملفات تعريف الارتباط</Link>
             {' • '}
             <Link href="/privacy" className="text-amber-500 hover:text-amber-400 underline">سياسة الخصوصية</Link>
           </p>

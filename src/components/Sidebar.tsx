@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
+import { useI18n } from '@/lib/i18n-context'
 import React from 'react'
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
+  const { locale, setLocale } = useI18n()
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Account'
@@ -333,6 +335,20 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           </svg>
         </button>
 
+        {/* Language Switcher */}
+        {!collapsed && (
+          <button
+            onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-white/4 mb-1"
+            style={{ color: '#64748b', border: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span>{locale === 'ar' ? 'English' : 'العربية'}</span>
+          </button>
+        )}
+
         {/* User menu */}
         <div className="relative mt-0.5">
           <button
@@ -400,7 +416,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                     onMouseEnter={e => (e.currentTarget.style.background = 'rgba(248,113,113,0.08)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    Sign out
+                    {locale === 'ar' ? 'تسجيل الخروج' : 'Sign out'}
                   </button>
                 </div>
               </div>
