@@ -1,5 +1,12 @@
+import { Metadata } from 'next'
 import Sidebar from '@/components/ui/Sidebar'
 import Topbar from '@/components/ui/Topbar'
+
+export const metadata: Metadata = {
+  title: 'Dashboard — Nexus AI',
+  description: 'Your AI marketing command center. View campaigns, AI team activity, daily content calendar, and performance insights.',
+  robots: { index: false, follow: false },
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
