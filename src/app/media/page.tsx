@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import AppShell from '@/components/AppShell'
 
@@ -26,6 +27,15 @@ const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || ''
 
 export default function MediaLibraryPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { t } = useI18n()
+  const mT = t('media')
+
+  const STATUS_LABELS: Record<string, string> = {
+    PENDING:   mT?.statusPending   as string,
+    UPLOADING: mT?.statusUploading as string,
+    SUCCESS:   mT?.statusSuccess   as string,
+    FAILED:    mT?.statusFailed    as string,
+  }
   const [media, setMedia] = useState<MediaRecord[]>([])
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([])
   const [isLoadingMedia, setIsLoadingMedia] = useState(true)
@@ -239,15 +249,15 @@ export default function MediaLibraryPage() {
         <div className="bg-dark-secondary border border-dark-tertiary rounded-lg p-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold">Media Library</h1>
-              <p className="text-gray-400 mt-1">Upload and manage your images and videos.</p>
+              <h1 className="text-2xl font-bold">{mT?.pageTitle as string}</h1>
+              <p className="text-gray-400 mt-1">{mT?.pageSubtitle as string}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="بحث في الوسائط"
+                placeholder={mT?.searchPlaceholder as string}
                 className="rounded border border-dark-tertiary bg-dark px-3 py-2 text-sm text-white"
               />
               <select
@@ -255,15 +265,15 @@ export default function MediaLibraryPage() {
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="rounded border border-dark-tertiary bg-dark px-3 py-2 text-sm text-white"
               >
-                <option value="ALL">الكل</option>
-                <option value="IMAGE">صور</option>
-                <option value="VIDEO">فيديوهات</option>
+                <option value="ALL">{mT?.filterAll as string}</option>
+                <option value="IMAGE">{mT?.filterImages as string}</option>
+                <option value="VIDEO">{mT?.filterVideos as string}</option>
               </select>
             </div>
           </div>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Upload</label>
+            <label className="block text-sm font-medium mb-2">{mT?.uploadLabel as string}</label>
             <div ref={dropRef} className="border-2 border-dashed border-dark-tertiary rounded-md p-6 text-center transition hover:border-accent">
               <input
                 id="file-input"
@@ -271,9 +281,9 @@ export default function MediaLibraryPage() {
                 className="hidden"
                 onChange={(e) => e.target.files && handleUpload(e.target.files[0])}
               />
-              <label htmlFor="file-input" className="cursor-pointer text-sm text-accent">Click to select a file</label>
-              <div className="text-sm text-gray-400 mt-2">Or drag & drop files here</div>
-              {!canUseCloudinary && <div className="text-xs text-yellow-300 mt-2">Cloudinary unavailable, uploading locally.</div>}
+              <label htmlFor="file-input" className="cursor-pointer text-sm text-accent">{mT?.uploadClick as string}</label>
+              <div className="text-sm text-gray-400 mt-2">{mT?.uploadDrop as string}</div>
+              {!canUseCloudinary && <div className="text-xs text-yellow-300 mt-2">{mT?.cloudinaryUnavailable as string}</div>}
             </div>
           </div>
 
@@ -284,13 +294,13 @@ export default function MediaLibraryPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="font-semibold text-sm truncate">{task.fileName}</div>
-                      <div className="text-xs text-gray-400">{task.status}</div>
+                      <div className="text-xs text-gray-400">{STATUS_LABELS[task.status] || task.status}</div>
                     </div>
                     <div className="text-right">
                       {task.error && <div className="text-xs text-red-400">{task.error}</div>}
                       {task.status === 'FAILED' && (
                         <button onClick={() => handleRetry(task)} className="text-accent text-xs">
-                          Retry
+                          {mT?.btnRetry as string}
                         </button>
                       )}
                     </div>
@@ -314,7 +324,7 @@ export default function MediaLibraryPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {media.length === 0 ? (
-                <div className="col-span-full rounded-lg bg-dark p-8 text-center text-gray-400">No media found.</div>
+                <div className="col-span-full rounded-lg bg-dark p-8 text-center text-gray-400">{mT?.noMedia as string}</div>
               ) : (
                 media.map((m) => (
                   <div key={m.id} className="bg-dark rounded-lg overflow-hidden border border-dark-tertiary">
@@ -336,7 +346,7 @@ export default function MediaLibraryPage() {
                       <div className="font-semibold text-sm truncate">{m.fileName}</div>
                       <div className="text-xs text-gray-400 mt-1">{m.mimeType}</div>
                       <a href={m.url} target="_blank" rel="noreferrer" className="text-accent text-sm mt-2 inline-block">
-                        Open
+                        {mT?.btnOpen as string}
                       </a>
                     </div>
                   </div>
@@ -346,13 +356,17 @@ export default function MediaLibraryPage() {
           )}
 
           <div className="mt-6 flex items-center justify-between text-sm text-gray-400">
-            <div>صفحة {page} من {totalPages}</div>
+            <div>
+              {(mT?.paginationLabel as string)
+                ?.replace('{page}', String(page))
+                ?.replace('{total}', String(totalPages))}
+            </div>
             <div className="flex gap-3">
               <button disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))} className="rounded border border-dark-tertiary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">
-                Previous
+                {mT?.btnPrevious as string}
               </button>
               <button disabled={page >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))} className="rounded border border-dark-tertiary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50">
-                Next
+                {mT?.btnNext as string}
               </button>
             </div>
           </div>

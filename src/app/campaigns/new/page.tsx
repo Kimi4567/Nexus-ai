@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, DollarSign, Settings, Rocket, Loader2,
@@ -11,25 +12,27 @@ import {
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'Google', 'Snapchat', 'YouTube']
 
-const GOAL_OPTIONS = [
-  { value: 'SALES', label: 'مبيعات' },
-  { value: 'AWARENESS', label: 'وعي بالعلامة' },
-  { value: 'ENGAGEMENT', label: 'تفاعل' },
-  { value: 'LEADS', label: 'قيادة (Leads)' },
-  { value: 'TRAFFIC', label: 'زيارات' },
-]
-
-const TONE_OPTIONS = [
-  { value: 'MODERN', label: 'عصري' },
-  { value: 'FRIENDLY', label: 'ودود' },
-  { value: 'PROFESSIONAL', label: 'احترافي' },
-  { value: 'BOLD', label: 'جريء' },
-  { value: 'INSPIRING', label: 'ملهم' },
-]
-
 export default function NewCampaignPage() {
   const router = useRouter()
   const { authHeader } = useAuth()
+  const { t, locale } = useI18n()
+  const cnT = t('campaignNew')
+
+  const GOAL_OPTIONS = [
+    { value: 'SALES',     label: cnT?.goalSALES      as string },
+    { value: 'AWARENESS', label: cnT?.goalAWARENESS  as string },
+    { value: 'ENGAGEMENT',label: cnT?.goalENGAGEMENT as string },
+    { value: 'LEADS',     label: cnT?.goalLEADS      as string },
+    { value: 'TRAFFIC',   label: cnT?.goalTRAFFIC    as string },
+  ]
+
+  const TONE_OPTIONS = [
+    { value: 'MODERN',       label: cnT?.toneMODERN       as string },
+    { value: 'FRIENDLY',     label: cnT?.toneFRIENDLY     as string },
+    { value: 'PROFESSIONAL', label: cnT?.tonePROFESSIONAL as string },
+    { value: 'BOLD',         label: cnT?.toneBOLD         as string },
+    { value: 'INSPIRING',    label: cnT?.toneINSPIRING    as string },
+  ]
 
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
@@ -46,10 +49,10 @@ export default function NewCampaignPage() {
   const totalSteps = 4
 
   const steps = [
-    { num: 1, label: 'الأساسية', icon: Target },
-    { num: 2, label: 'المنصات', icon: Megaphone },
-    { num: 3, label: 'الجمهور', icon: Settings },
-    { num: 4, label: 'المراجعة', icon: Rocket },
+    { num: 1, label: cnT?.step1Label as string, icon: Target },
+    { num: 2, label: cnT?.step2Label as string, icon: Megaphone },
+    { num: 3, label: cnT?.step3Label as string, icon: Settings },
+    { num: 4, label: cnT?.step4Label as string, icon: Rocket },
   ]
 
   const togglePlatform = (p: string) => {
@@ -70,7 +73,6 @@ export default function NewCampaignPage() {
     setError('')
 
     try {
-      // Step 1: Save campaign to DB
       const saveRes = await fetch('/api/campaigns', {
         method: 'POST',
         headers: {
@@ -82,12 +84,11 @@ export default function NewCampaignPage() {
 
       if (!saveRes.ok) {
         const err = await saveRes.json().catch(() => ({}))
-        throw new Error(err.error || 'فشل في حفظ الحملة')
+        throw new Error(err.error || cnT?.errorSave as string)
       }
 
       const { id: campaignId } = await saveRes.json()
 
-      // Step 2: Trigger AI generation (non-blocking — redirect immediately)
       fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -95,15 +96,18 @@ export default function NewCampaignPage() {
           Authorization: authHeader(),
         },
         body: JSON.stringify({ campaignId }),
-      }).catch(() => {/* generation errors are handled on the campaign page */})
+      }).catch(() => {})
 
-      // Redirect to campaign detail (will show generating state)
       router.push(`/campaigns/${campaignId}?generating=true`)
     } catch (err: any) {
-      setError(err.message || 'حدث خطأ غير متوقع')
+      setError(err.message || cnT?.errorUnexpected as string)
       setSaving(false)
     }
   }
+
+  const stepIndicatorText = (cnT?.stepIndicator as string)
+    ?.replace('{step}', String(step))
+    ?.replace('{total}', String(totalSteps))
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -113,8 +117,8 @@ export default function NewCampaignPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold">حملة جديدة</h1>
-          <p className="text-text-muted text-sm">الخطوة {step} من {totalSteps}</p>
+          <h1 className="text-2xl font-bold">{cnT?.pageTitle as string}</h1>
+          <p className="text-text-muted text-sm">{stepIndicatorText}</p>
         </div>
       </div>
 
@@ -143,31 +147,31 @@ export default function NewCampaignPage() {
         {/* Step 1: Basic Info */}
         {step === 1 && (
           <div className="space-y-4">
-            <h3 className="font-bold text-lg">المعلومات الأساسية</h3>
+            <h3 className="font-bold text-lg">{cnT?.step1Heading as string}</h3>
             <div>
-              <label className="block text-sm font-medium mb-1.5">اسم الحملة <span className="text-red-400">*</span></label>
+              <label className="block text-sm font-medium mb-1.5">{cnT?.campaignNameLabel as string} <span className="text-red-400">*</span></label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="مثال: حملة إطلاق صيف 2026"
+                placeholder={cnT?.campaignNamePlaceholder as string}
                 className="input-nexus"
                 autoFocus
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">وصف المنتج / الخدمة</label>
+              <label className="block text-sm font-medium mb-1.5">{cnT?.descriptionLabel as string}</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="اوصف المنتج أو الخدمة التي تريد الإعلان عنها..."
+                placeholder={cnT?.descriptionPlaceholder as string}
                 rows={3}
                 className="input-nexus resize-none"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">الهدف</label>
+                <label className="block text-sm font-medium mb-1.5">{cnT?.goalLabel as string}</label>
                 <select value={goal} onChange={(e) => setGoal(e.target.value)} className="input-nexus">
                   {GOAL_OPTIONS.map((g) => (
                     <option key={g.value} value={g.value}>{g.label}</option>
@@ -175,10 +179,10 @@ export default function NewCampaignPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">الأسلوب</label>
+                <label className="block text-sm font-medium mb-1.5">{cnT?.toneLabel as string}</label>
                 <select value={tone} onChange={(e) => setTone(e.target.value)} className="input-nexus">
-                  {TONE_OPTIONS.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
+                  {TONE_OPTIONS.map((tn) => (
+                    <option key={tn.value} value={tn.value}>{tn.label}</option>
                   ))}
                 </select>
               </div>
@@ -189,8 +193,8 @@ export default function NewCampaignPage() {
         {/* Step 2: Platforms */}
         {step === 2 && (
           <div className="space-y-4">
-            <h3 className="font-bold text-lg">المنصات الإعلانية</h3>
-            <p className="text-text-muted text-sm">اختر منصة أو أكثر</p>
+            <h3 className="font-bold text-lg">{cnT?.step2Heading as string}</h3>
+            <p className="text-text-muted text-sm">{cnT?.platformSubtitle as string}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {PLATFORMS.map((p) => (
                 <button
@@ -207,7 +211,7 @@ export default function NewCampaignPage() {
               ))}
             </div>
             {platforms.length === 0 && (
-              <p className="text-red-400 text-xs">اختر منصة واحدة على الأقل</p>
+              <p className="text-red-400 text-xs">{cnT?.platformRequired as string}</p>
             )}
           </div>
         )}
@@ -215,19 +219,19 @@ export default function NewCampaignPage() {
         {/* Step 3: Audience */}
         {step === 3 && (
           <div className="space-y-4">
-            <h3 className="font-bold text-lg">الجمهور المستهدف</h3>
+            <h3 className="font-bold text-lg">{cnT?.step3Heading as string}</h3>
             <div>
-              <label className="block text-sm font-medium mb-1.5">صف جمهورك المثالي</label>
+              <label className="block text-sm font-medium mb-1.5">{cnT?.audienceLabel as string}</label>
               <textarea
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
-                placeholder="مثال: شباب 18-35 سنة، مهتمين بالتقنية والموضة، في السعودية والإمارات، دخل متوسط إلى مرتفع"
+                placeholder={cnT?.audiencePlaceholder as string}
                 rows={5}
                 className="input-nexus resize-none"
                 autoFocus
               />
               <p className="text-text-muted text-xs mt-1.5">
-                كلما كان الوصف أدق، كان المحتوى الذي ينشئه الـ AI أفضل
+                {cnT?.audienceHint as string}
               </p>
             </div>
           </div>
@@ -236,27 +240,27 @@ export default function NewCampaignPage() {
         {/* Step 4: Review */}
         {step === 4 && (
           <div className="space-y-4">
-            <h3 className="font-bold text-lg">مراجعة ونشر</h3>
+            <h3 className="font-bold text-lg">{cnT?.step4Heading as string}</h3>
             <div className="space-y-3 p-4 rounded-xl bg-white/5">
               <div className="flex justify-between">
-                <span className="text-text-muted text-sm">اسم الحملة</span>
+                <span className="text-text-muted text-sm">{cnT?.reviewCampaignName as string}</span>
                 <span className="font-medium">{name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-muted text-sm">الهدف</span>
+                <span className="text-text-muted text-sm">{cnT?.reviewGoal as string}</span>
                 <span className="font-medium">{GOAL_OPTIONS.find(g => g.value === goal)?.label}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-muted text-sm">الأسلوب</span>
-                <span className="font-medium">{TONE_OPTIONS.find(t => t.value === tone)?.label}</span>
+                <span className="text-text-muted text-sm">{cnT?.reviewTone as string}</span>
+                <span className="font-medium">{TONE_OPTIONS.find(tn => tn.value === tone)?.label}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-text-muted text-sm">المنصات</span>
-                <span className="font-medium">{platforms.join('، ')}</span>
+                <span className="text-text-muted text-sm">{cnT?.reviewPlatforms as string}</span>
+                <span className="font-medium">{platforms.join(cnT?.platformJoiner as string || ', ')}</span>
               </div>
               {audience && (
                 <div className="flex justify-between gap-4">
-                  <span className="text-text-muted text-sm shrink-0">الجمهور</span>
+                  <span className="text-text-muted text-sm shrink-0">{cnT?.reviewAudience as string}</span>
                   <span className="font-medium text-sm text-left">{audience.slice(0, 60)}{audience.length > 60 ? '...' : ''}</span>
                 </div>
               )}
@@ -266,9 +270,9 @@ export default function NewCampaignPage() {
               <div className="flex items-start gap-3">
                 <Wand2 className="w-5 h-5 text-amber shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-amber text-sm">AI سيولّد المحتوى تلقائياً</p>
+                  <p className="font-semibold text-amber text-sm">{cnT?.aiNoticeTitle as string}</p>
                   <p className="text-text-muted text-xs mt-0.5">
-                    بعد الإنشاء، ستنتقل إلى صفحة الحملة حيث يبدأ NEX في توليد الاستراتيجية والمحتوى والتقويم.
+                    {cnT?.aiNoticeDesc as string}
                   </p>
                 </div>
               </div>
@@ -290,7 +294,7 @@ export default function NewCampaignPage() {
             className="btn-secondary disabled:opacity-40"
           >
             <ChevronRight className="w-4 h-4" />
-            السابق
+            {cnT?.btnPrev as string}
           </button>
 
           {step < totalSteps ? (
@@ -299,7 +303,7 @@ export default function NewCampaignPage() {
               disabled={!canNext()}
               className="btn-primary disabled:opacity-40"
             >
-              التالي
+              {cnT?.btnNext as string}
               <ChevronLeft className="w-4 h-4" />
             </button>
           ) : (
@@ -311,12 +315,12 @@ export default function NewCampaignPage() {
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  جاري الإنشاء...
+                  {cnT?.btnCreating as string}
                 </>
               ) : (
                 <>
                   <Wand2 className="w-4 h-4" />
-                  إنشاء مع AI
+                  {cnT?.btnCreate as string}
                 </>
               )}
             </button>

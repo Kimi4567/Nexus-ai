@@ -4,14 +4,29 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { UploadPanel } from '@/components/UploadPanel'
+import { useI18n } from '@/lib/i18n-context'
 
-const STEPS = [
-  { id: 1, title: 'Business Info', description: 'Tell us about your business' },
-  { id: 2, title: 'Campaign Goal', description: 'What do you want to achieve?' },
-  { id: 3, title: 'Target Audience', description: 'Who are you targeting?' },
-  { id: 4, title: 'Brand Tone', description: 'How should the content feel?' },
-  { id: 5, title: 'Platforms', description: 'Where will you publish?' },
-  { id: 6, title: 'Review & Generate', description: 'Create your campaign' },
+/* ── Bilingual data ──────────────────────────────────────────── */
+const BUSINESS_TYPES = [
+  { en: 'Ecommerce Store',    ar: 'متجر إلكتروني' },
+  { en: 'Restaurant/Cafe',    ar: 'مطعم / كافيه' },
+  { en: 'Real Estate',        ar: 'عقارات' },
+  { en: 'Beauty/Salon',       ar: 'تجميل / صالون' },
+  { en: 'Fitness/Gym',        ar: 'لياقة / جيم' },
+  { en: 'Clinic/Healthcare',  ar: 'عيادة / رعاية صحية' },
+  { en: 'Personal Brand',     ar: 'علامة شخصية' },
+  { en: 'SaaS/Tech',          ar: 'تقنية / برمجيات' },
+]
+
+const TONE_OPTIONS = [
+  { en: 'Luxury',           ar: 'فاخر' },
+  { en: 'Modern',           ar: 'عصري' },
+  { en: 'Energetic',        ar: 'نشيط' },
+  { en: 'Corporate',        ar: 'مؤسسي' },
+  { en: 'Minimal',          ar: 'بسيط' },
+  { en: 'Aggressive Sales', ar: 'مبيعات قوية' },
+  { en: 'Friendly',         ar: 'ودود' },
+  { en: 'Professional',     ar: 'احترافي' },
 ]
 
 interface CampaignData {
@@ -26,6 +41,26 @@ interface CampaignData {
 
 export function CampaignWizard({ projectId, workspaceId }: { projectId: string; workspaceId: string }) {
   const router = useRouter()
+  const { t, locale } = useI18n()
+  const cwT = t('campaignWizard')
+
+  const STEPS = [
+    { id: 1, title: cwT?.step1Title as string, description: cwT?.step1Desc as string },
+    { id: 2, title: cwT?.step2Title as string, description: cwT?.step2Desc as string },
+    { id: 3, title: cwT?.step3Title as string, description: cwT?.step3Desc as string },
+    { id: 4, title: cwT?.step4Title as string, description: cwT?.step4Desc as string },
+    { id: 5, title: cwT?.step5Title as string, description: cwT?.step5Desc as string },
+    { id: 6, title: cwT?.step6Title as string, description: cwT?.step6Desc as string },
+  ]
+
+  const GOAL_OPTIONS = [
+    { value: 'SALES',      label: cwT?.goalSales      as string, desc: cwT?.goalSalesDesc      as string },
+    { value: 'AWARENESS',  label: cwT?.goalAwareness  as string, desc: cwT?.goalAwarenessDesc  as string },
+    { value: 'LEADS',      label: cwT?.goalLeads      as string, desc: cwT?.goalLeadsDesc      as string },
+    { value: 'TRAFFIC',    label: cwT?.goalTraffic    as string, desc: cwT?.goalTrafficDesc    as string },
+    { value: 'ENGAGEMENT', label: cwT?.goalEngagement as string, desc: cwT?.goalEngagementDesc as string },
+  ]
+
   const [step, setStep] = useState(1)
   const [data, setData] = useState<CampaignData>({})
   const [loading, setLoading] = useState(false)
@@ -151,11 +186,14 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
       router.push(`/campaign/${campaign.id}`)
     } catch (error) {
       console.error('Campaign creation error:', error)
-      alert('Failed to create campaign')
     } finally {
       setLoading(false)
     }
   }
+
+  const stepIndicatorText = (cwT?.stepIndicator as string)
+    ?.replace('{step}', String(step))
+    ?.replace('{total}', String(STEPS.length))
 
   return (
     <div className="min-h-screen bg-dark">
@@ -163,10 +201,10 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
       <nav className="border-b border-dark-tertiary bg-dark-secondary sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <Link href="/dashboard" className="text-accent hover:text-accent-light transition">
-            ← Back
+            {cwT?.btnPrevious as string}
           </Link>
           <div className="text-sm text-gray-400">
-            Step {step} of {STEPS.length}
+            {stepIndicatorText}
           </div>
         </div>
       </nav>
@@ -213,64 +251,40 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
           {/* Step 1: Business Type */}
           {step === 1 && (
             <div className="space-y-4">
-              {[
-                'Ecommerce Store',
-                'Restaurant/Cafe',
-                'Real Estate',
-                'Beauty/Salon',
-                'Fitness/Gym',
-                'Clinic/Healthcare',
-                'Personal Brand',
-                'SaaS/Tech',
-              ].map(type => (
-                <button
-                  key={type}
-                  onClick={() => updateData('businessType', type)}
-                  className={`w-full text-left px-4 py-3 rounded-lg border transition ${
-                    data.businessType === type
-                      ? 'bg-accent/20 border-accent'
-                      : 'bg-dark-tertiary border-dark-tertiary hover:border-accent/50'
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
+              {BUSINESS_TYPES.map(biz => {
+                const label = locale === 'ar' ? biz.ar : biz.en
+                return (
+                  <button
+                    key={biz.en}
+                    onClick={() => updateData('businessType', biz.en)}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition ${
+                      data.businessType === biz.en
+                        ? 'bg-accent/20 border-accent'
+                        : 'bg-dark-tertiary border-dark-tertiary hover:border-accent/50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           )}
 
           {/* Step 2: Campaign Goal */}
           {step === 2 && (
             <div className="space-y-4">
-              {[
-                {
-                  value: 'SALES',
-                  label: 'Drive Sales',
-                  desc: 'Convert viewers into customers',
-                },
-                {
-                  value: 'AWARENESS',
-                  label: 'Build Awareness',
-                  desc: 'Increase brand visibility',
-                },
-                { value: 'LEADS', label: 'Generate Leads', desc: 'Collect customer info' },
-                { value: 'TRAFFIC', label: 'Drive Traffic', desc: 'Send people to your site' },
-                {
-                  value: 'ENGAGEMENT',
-                  label: 'Boost Engagement',
-                  desc: 'Likes, comments, shares',
-                },
-              ].map(goal => (
+              {GOAL_OPTIONS.map(gl => (
                 <button
-                  key={goal.value}
-                  onClick={() => updateData('goal', goal.value)}
+                  key={gl.value}
+                  onClick={() => updateData('goal', gl.value)}
                   className={`w-full text-left px-4 py-4 rounded-lg border transition ${
-                    data.goal === goal.value
+                    data.goal === gl.value
                       ? 'bg-accent/20 border-accent'
                       : 'bg-dark-tertiary border-dark-tertiary hover:border-accent/50'
                   }`}
                 >
-                  <div className="font-semibold">{goal.label}</div>
-                  <div className="text-sm text-gray-400">{goal.desc}</div>
+                  <div className="font-semibold">{gl.label}</div>
+                  <div className="text-sm text-gray-400">{gl.desc}</div>
                 </button>
               ))}
             </div>
@@ -279,11 +293,11 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
           {/* Step 3: Target Audience */}
           {step === 3 && (
             <div>
-              <label className="block text-sm font-semibold mb-3">Describe your target audience</label>
+              <label className="block text-sm font-semibold mb-3">{cwT?.audienceLabel as string}</label>
               <textarea
                 value={data.audience || ''}
                 onChange={e => updateData('audience', e.target.value)}
-                placeholder="E.g., Women aged 25-40, interested in sustainable fashion, high disposable income, Instagram users..."
+                placeholder={cwT?.audiencePlaceholder as string}
                 className="w-full bg-dark-tertiary border border-dark-tertiary rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-accent"
                 rows={4}
               />
@@ -293,28 +307,22 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
           {/* Step 4: Brand Tone */}
           {step === 4 && (
             <div className="grid grid-cols-2 gap-4">
-              {[
-                'Luxury',
-                'Modern',
-                'Energetic',
-                'Corporate',
-                'Minimal',
-                'Aggressive Sales',
-                'Friendly',
-                'Professional',
-              ].map(tone => (
-                <button
-                  key={tone}
-                  onClick={() => updateData('tone', tone)}
-                  className={`px-4 py-3 rounded-lg border transition text-center ${
-                    data.tone === tone
-                      ? 'bg-accent/20 border-accent'
-                      : 'bg-dark-tertiary border-dark-tertiary hover:border-accent/50'
-                  }`}
-                >
-                  {tone}
-                </button>
-              ))}
+              {TONE_OPTIONS.map(tn => {
+                const label = locale === 'ar' ? tn.ar : tn.en
+                return (
+                  <button
+                    key={tn.en}
+                    onClick={() => updateData('tone', tn.en)}
+                    className={`px-4 py-3 rounded-lg border transition text-center ${
+                      data.tone === tn.en
+                        ? 'bg-accent/20 border-accent'
+                        : 'bg-dark-tertiary border-dark-tertiary hover:border-accent/50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -322,12 +330,12 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
           {step === 5 && (
             <div className="grid grid-cols-2 gap-4">
               {[
-                { name: 'TikTok', icon: '🎵' },
-                { name: 'Instagram', icon: '📷' },
-                { name: 'Facebook', icon: '👍' },
-                { name: 'YouTube Shorts', icon: '▶️' },
-                { name: 'LinkedIn', icon: '💼' },
-                { name: 'Snapchat', icon: '👻' },
+                { name: 'TikTok',          icon: '🎵' },
+                { name: 'Instagram',       icon: '📷' },
+                { name: 'Facebook',        icon: '👍' },
+                { name: 'YouTube Shorts',  icon: '▶️' },
+                { name: 'LinkedIn',        icon: '💼' },
+                { name: 'Snapchat',        icon: '👻' },
               ].map(platform => (
                 <button
                   key={platform.name}
@@ -356,30 +364,42 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
             <div className="space-y-6">
               <div className="bg-dark-tertiary rounded-lg p-6 space-y-4">
                 <div>
-                  <div className="text-sm text-gray-400">Business Type</div>
-                  <div className="font-semibold">{data.businessType}</div>
+                  <div className="text-sm text-gray-400">{cwT?.reviewBusinessType as string}</div>
+                  <div className="font-semibold">
+                    {BUSINESS_TYPES.find(b => b.en === data.businessType)
+                      ? (locale === 'ar'
+                          ? BUSINESS_TYPES.find(b => b.en === data.businessType)?.ar
+                          : data.businessType)
+                      : data.businessType}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-400">Campaign Goal</div>
-                  <div className="font-semibold">{data.goal}</div>
+                  <div className="text-sm text-gray-400">{cwT?.reviewGoal as string}</div>
+                  <div className="font-semibold">
+                    {GOAL_OPTIONS.find(g => g.value === data.goal)?.label || data.goal}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-400">Target Audience</div>
+                  <div className="text-sm text-gray-400">{cwT?.reviewAudience as string}</div>
                   <div className="font-semibold">{data.audience}</div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-400">Brand Tone</div>
-                  <div className="font-semibold">{data.tone}</div>
+                  <div className="text-sm text-gray-400">{cwT?.reviewTone as string}</div>
+                  <div className="font-semibold">
+                    {TONE_OPTIONS.find(tn => tn.en === data.tone)
+                      ? (locale === 'ar'
+                          ? TONE_OPTIONS.find(tn => tn.en === data.tone)?.ar
+                          : data.tone)
+                      : data.tone}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-sm text-gray-400">Platforms</div>
+                  <div className="text-sm text-gray-400">{cwT?.reviewPlatforms as string}</div>
                   <div className="font-semibold">{data.platforms?.join(', ')}</div>
                 </div>
               </div>
               <div className="bg-accent/10 border border-accent/30 rounded-lg p-6">
-                <p className="text-sm">
-                  Ready to generate? We'll create a marketing strategy, ad concepts, scripts, and content variations optimized for your goals.
-                </p>
+                <p className="text-sm">{cwT?.readyMsg as string}</p>
               </div>
             </div>
           )}
@@ -399,7 +419,7 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
             />
             {draftStatus !== 'idle' && (
               <div className="mt-3 rounded-lg bg-dark-tertiary px-4 py-3 text-sm text-gray-300">
-                {draftStatus === 'creating' ? 'Creating draft campaign…' : 'Saving draft campaign…'}
+                {draftStatus === 'creating' ? cwT?.draftCreating as string : cwT?.draftSaving as string}
               </div>
             )}
             {draftError && (
@@ -417,7 +437,7 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
             disabled={step === 1}
             className="px-6 py-3 border border-dark-tertiary rounded-lg hover:bg-dark-tertiary transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ← Previous
+            {cwT?.btnPrevious as string}
           </button>
 
           {step < STEPS.length ? (
@@ -426,7 +446,7 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
               disabled={!validateStep(step, data)}
               className="px-6 py-3 bg-accent text-dark rounded-lg hover:bg-accent-light transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
             >
-              Next →
+              {cwT?.btnNext as string}
             </button>
           ) : (
             <button
@@ -434,7 +454,7 @@ export function CampaignWizard({ projectId, workspaceId }: { projectId: string; 
               disabled={loading}
               className="px-6 py-3 bg-accent text-dark rounded-lg hover:bg-accent-light transition disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
             >
-              {loading ? 'Creating...' : 'Create Campaign'}
+              {loading ? cwT?.btnCreating as string : cwT?.btnCreate as string}
             </button>
           )}
         </div>

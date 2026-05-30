@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useI18n } from '@/lib/i18n-context'
 
 interface MediaRecord {
   id: string
@@ -32,31 +33,27 @@ interface UploadPanelProps {
   onMediaAdded?: (media: MediaRecord) => void
 }
 
-const STATUS_LABELS: Record<UploadStatus, string> = {
-  PENDING: 'Pending',
-  UPLOADING: 'Uploading',
-  SUCCESS: 'Uploaded',
-  FAILED: 'Failed',
-}
-
 function getStorageKey(projectId?: string, campaignId?: string) {
   if (campaignId) return `nexus_upload_tasks_campaign_${campaignId}`
   if (projectId) return `nexus_upload_tasks_project_${projectId}`
   return 'nexus_upload_tasks_global'
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
 export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia = [], onMediaAdded }: UploadPanelProps) {
+  const { t } = useI18n()
+  const upT = t('uploadPanel')
+
+  const STATUS_LABELS: Record<UploadStatus, string> = {
+    PENDING:   upT?.statusPending   as string,
+    UPLOADING: upT?.statusUploading as string,
+    SUCCESS:   upT?.statusSuccess   as string,
+    FAILED:    upT?.statusFailed    as string,
+  }
+
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([])
   const [attachedMedia, setAttachedMedia] = useState<MediaRecord[]>(initialMedia)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [sessionLoading, setSessionLoading] = useState(false)
-  const [panelReady, setPanelReady] = useState(true)
   const pendingFiles = useRef<Record<string, File>>({})
   const storageKey = useMemo(() => getStorageKey(projectId, campaignId), [projectId, campaignId])
 
@@ -229,7 +226,7 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
   const handleRetry = async (taskId: string) => {
     const file = pendingFiles.current[taskId]
     if (!file) {
-      setErrorMessage('Retry failed: original file is unavailable. Please select it again.')
+      setErrorMessage(upT?.retryFileUnavailable as string)
       return
     }
     uploadFile(taskId)
@@ -255,16 +252,19 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
 
   return (
     <div className="space-y-6">
+      {/* Upload zone */}
       <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div>
-            <h2 className="text-xl font-semibold">Upload assets</h2>
-            <p className="text-sm text-gray-400">
-              Select files to attach to this campaign. Upload sessions are created automatically and refreshed on expiration.
-            </p>
+            <h2 className="text-xl font-semibold">{upT?.title as string}</h2>
+            <p className="text-sm text-gray-400">{upT?.subtitle as string}</p>
           </div>
           <div className="text-sm text-gray-400">
-            {sessionLoading ? 'Refreshing upload session…' : campaignId ? 'Attached to draft campaign' : 'Workspace-level upload'}
+            {sessionLoading
+              ? upT?.sessionRefreshing as string
+              : campaignId
+                ? upT?.attachedToDraft as string
+                : upT?.workspaceUpload as string}
           </div>
         </div>
 
@@ -280,96 +280,90 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
           <div className="mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full border border-accent/30 bg-accent/5 text-3xl">
             ⬆️
           </div>
-          <p className="text-sm text-gray-300">Drop files here, or click to select</p>
-          <p className="text-xs text-gray-500 mt-2">Images and videos supported. Upload session is created for every upload.</p>
+          <p className="text-sm text-gray-300">{upT?.dropzone as string}</p>
+          <p className="text-xs text-gray-500 mt-2">{upT?.dropzoneHint as string}</p>
         </label>
 
-        {errorMessage && <div className="mt-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-100">{errorMessage}</div>}
+        {errorMessage && (
+          <div className="mt-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-100">
+            {errorMessage}
+          </div>
+        )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-        <div className="space-y-4">
-          <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">Upload queue</h3>
-                <p className="text-sm text-gray-400">Track state, progress and retry failed uploads.</p>
-              </div>
-              <div className="text-xs text-gray-500">{uploadTasks.length} item(s)</div>
+      {/* Queue + Attached */}
+      <div className="space-y-4">
+        {/* Upload queue */}
+        <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">{upT?.queueTitle as string}</h3>
+              <p className="text-sm text-gray-400">{upT?.queueSubtitle as string}</p>
             </div>
-
-            <div className="space-y-3">
-              {uploadTasks.map((task) => (
-                <div key={task.id} className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <div className="font-medium">{task.fileName}</div>
-                      <div className="text-xs text-gray-500">{task.mimeType} • {STATUS_LABELS[task.status]}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {task.status === 'FAILED' && (
-                        <button
-                          onClick={() => handleRetry(task.id)}
-                          className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-dark"
-                        >
-                          Retry
-                        </button>
-                      )}
-                      {task.status === 'SUCCESS' && task.media && (
-                        <span className="text-xs text-emerald-300">Attached</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-dark-tertiary">
-                    <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${task.progress}%` }} />
-                  </div>
-
-                  {task.error && <div className="mt-3 text-sm text-red-300">{task.error}</div>}
-                </div>
-              ))}
-              {uploadTasks.length === 0 && <div className="text-sm text-gray-400">No uploads yet. Start by selecting a file.</div>}
+            <div className="text-xs text-gray-500">
+              {(upT?.queueItems as string)?.replace('{n}', String(uploadTasks.length))}
             </div>
           </div>
 
-          <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
-            <h3 className="text-lg font-semibold mb-3">Media attached</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {attachedMedia.length > 0 ? (
-                attachedMedia.map((media) => (
-                  <a
-                    key={media.id}
-                    href={media.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-3xl border border-dark-tertiary bg-dark-secondary p-4 transition hover:border-accent"
-                  >
-                    <div className="text-sm text-gray-400 truncate">{media.fileName}</div>
-                    <div className="mt-2 text-sm text-white">{media.type.toUpperCase()}</div>
-                    <div className="mt-1 text-xs text-gray-500">{media.mimeType}</div>
-                  </a>
-                ))
-              ) : (
-                <div className="text-sm text-gray-400">No media attached yet. Files uploaded here will be linked to the active campaign.</div>
-              )}
-            </div>
+          <div className="space-y-3">
+            {uploadTasks.map((task) => (
+              <div key={task.id} className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <div className="font-medium">{task.fileName}</div>
+                    <div className="text-xs text-gray-500">
+                      {task.mimeType} • {STATUS_LABELS[task.status] || task.status}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {task.status === 'FAILED' && (
+                      <button
+                        onClick={() => handleRetry(task.id)}
+                        className="rounded-full bg-accent px-3 py-1 text-xs font-semibold text-dark"
+                      >
+                        {upT?.btnRetry as string}
+                      </button>
+                    )}
+                    {task.status === 'SUCCESS' && task.media && (
+                      <span className="text-xs text-emerald-300">{upT?.attachedLabel as string}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-dark-tertiary">
+                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${task.progress}%` }} />
+                </div>
+
+                {task.error && <div className="mt-3 text-sm text-red-300">{task.error}</div>}
+              </div>
+            ))}
+            {uploadTasks.length === 0 && (
+              <div className="text-sm text-gray-400">{upT?.noUploads as string}</div>
+            )}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
-            <h3 className="text-lg font-semibold mb-3">Upload guidance</h3>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li>• Upload sessions are short-lived and refresh automatically.</li>
-              <li>• Failed uploads can be retried without losing any attached media.</li>
-              <li>• Uploaded media is persisted with your draft campaign.</li>
-              <li>• Files are tagged to workspace, project and campaign for future AI analysis.</li>
-            </ul>
-          </div>
-
-          <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
-            <h3 className="text-lg font-semibold mb-3">Tips</h3>
-            <p className="text-sm text-gray-400">Use upload sessions for sensitive workflow state. If a session expires while uploading, retry and the panel will obtain a fresh session token.</p>
+        {/* Media attached */}
+        <div className="bg-dark rounded-3xl border border-dark-tertiary p-6">
+          <h3 className="text-lg font-semibold mb-3">{upT?.mediaAttachedTitle as string}</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {attachedMedia.length > 0 ? (
+              attachedMedia.map((media) => (
+                <a
+                  key={media.id}
+                  href={media.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-3xl border border-dark-tertiary bg-dark-secondary p-4 transition hover:border-accent"
+                >
+                  <div className="text-sm text-gray-400 truncate">{media.fileName}</div>
+                  <div className="mt-2 text-sm text-white">{media.type.toUpperCase()}</div>
+                  <div className="mt-1 text-xs text-gray-500">{media.mimeType}</div>
+                </a>
+              ))
+            ) : (
+              <div className="text-sm text-gray-400">{upT?.noMediaAttached as string}</div>
+            )}
           </div>
         </div>
       </div>

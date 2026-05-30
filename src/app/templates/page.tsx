@@ -2,13 +2,14 @@
 
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { useEffect } from 'react'
 import AppShell from '@/components/AppShell'
 import Link from 'next/link'
-import { Sparkles, ArrowLeft } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
-   TEMPLATES — قوالب الحملات الجاهزة
+   TEMPLATES — Campaign Templates
    ═══════════════════════════════════════════════════════════════ */
 
 const TEMPLATES = [
@@ -18,10 +19,11 @@ const TEMPLATES = [
     name: 'إطلاق منتج',
     nameEn: 'Product Launch',
     desc: 'حملة إطلاق متكاملة مع هوكات، سكريبتات، وتقويم محتوى لـ 30 يوم',
+    descEn: 'A complete launch campaign with hooks, scripts, and a 30-day content calendar',
     goal: 'SALES',
     platforms: ['Instagram', 'TikTok'],
     color: '#f59e0b',
-    badge: null,
+    badge: false,
   },
   {
     id: 't2',
@@ -29,10 +31,11 @@ const TEMPLATES = [
     name: 'توليد عملاء محتملين',
     nameEn: 'Lead Generation',
     desc: 'استقطب عملاء مؤهلين برسائل موجّهة وعبارات CTA قوية',
+    descEn: 'Attract qualified leads with targeted messaging and powerful CTAs',
     goal: 'LEADS',
     platforms: ['Facebook', 'Instagram'],
     color: '#06b6d4',
-    badge: null,
+    badge: false,
   },
   {
     id: 't3',
@@ -40,10 +43,11 @@ const TEMPLATES = [
     name: 'بناء الوعي بالعلامة',
     nameEn: 'Brand Awareness',
     desc: 'عزّز حضورك وابنِ هوية قوية عبر كل المنصات',
+    descEn: 'Strengthen your presence and build a strong brand identity across all platforms',
     goal: 'AWARENESS',
     platforms: ['Instagram', 'TikTok', 'Snapchat'],
     color: '#8b5cf6',
-    badge: 'الأكثر استخداماً',
+    badge: true,
   },
   {
     id: 't4',
@@ -51,10 +55,11 @@ const TEMPLATES = [
     name: 'تنمية المجتمع',
     nameEn: 'Community Growth',
     desc: 'تفاعل مع جمهورك وابنِ قاعدة متابعين وفيّة ومتفاعلة',
+    descEn: 'Engage your audience and build a loyal, active follower base',
     goal: 'ENGAGEMENT',
     platforms: ['Instagram', 'Facebook'],
     color: '#ec4899',
-    badge: null,
+    badge: false,
   },
   {
     id: 't5',
@@ -62,10 +67,11 @@ const TEMPLATES = [
     name: 'زيادة الزيارات',
     nameEn: 'Traffic Driver',
     desc: 'قُد زيارات مستهدفة لموقعك وحوّل الزوار إلى عملاء',
+    descEn: 'Drive targeted traffic to your website and convert visitors into customers',
     goal: 'TRAFFIC',
     platforms: ['Google', 'Facebook'],
     color: '#10b981',
-    badge: null,
+    badge: false,
   },
   {
     id: 't6',
@@ -73,20 +79,13 @@ const TEMPLATES = [
     name: 'عرض محدود الوقت',
     nameEn: 'Flash Sale',
     desc: 'حملة إلحاحية عالية التأثير للعروض والخصومات الموقّتة',
+    descEn: 'High-impact urgency campaign for time-limited offers and discounts',
     goal: 'SALES',
     platforms: ['Instagram', 'TikTok', 'Snapchat'],
     color: '#ef4444',
-    badge: null,
+    badge: false,
   },
 ]
-
-const GOAL_LABELS: Record<string, string> = {
-  SALES: 'مبيعات',
-  LEADS: 'عملاء محتملون',
-  AWARENESS: 'وعي بالعلامة',
-  ENGAGEMENT: 'تفاعل',
-  TRAFFIC: 'زيارات',
-}
 
 const PLATFORM_ICONS: Record<string, string> = {
   Instagram: '📸',
@@ -99,7 +98,17 @@ const PLATFORM_ICONS: Record<string, string> = {
 
 export default function TemplatesPage() {
   const { isAuthenticated, loading } = useAuth()
+  const { t, locale } = useI18n()
+  const tplT = t('templates')
   const router = useRouter()
+
+  const GOAL_LABELS: Record<string, string> = {
+    SALES:      tplT?.goalSales      as string,
+    LEADS:      tplT?.goalLeads      as string,
+    AWARENESS:  tplT?.goalAwareness  as string,
+    ENGAGEMENT: tplT?.goalEngagement as string,
+    TRAFFIC:    tplT?.goalTraffic    as string,
+  }
 
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
@@ -114,11 +123,11 @@ export default function TemplatesPage() {
   }
   if (!isAuthenticated) return null
 
-  const useTemplate = (template: typeof TEMPLATES[0]) => {
+  const useTemplate = (tpl: typeof TEMPLATES[0]) => {
     const params = new URLSearchParams({
-      goal: template.goal,
-      platforms: template.platforms.join(','),
-      template: template.nameEn,
+      goal: tpl.goal,
+      platforms: tpl.platforms.join(','),
+      template: tpl.nameEn,
     })
     router.push(`/campaigns/new?${params.toString()}`)
   }
@@ -133,15 +142,15 @@ export default function TemplatesPage() {
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span className="text-xs text-amber-400/70 font-mono tracking-wider">NEXUS TEMPLATES</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2">قوالب الحملات</h1>
-          <p className="text-gray-400 text-sm">ابدأ من قالب مجرَّب — محدَّد بالهدف والمنصات والاستراتيجية مسبقاً.</p>
+          <h1 className="text-3xl font-bold mb-2">{tplT?.pageTitle as string}</h1>
+          <p className="text-gray-400 text-sm">{tplT?.pageSubtitle as string}</p>
         </div>
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {TEMPLATES.map(t => (
+          {TEMPLATES.map(tpl => (
             <div
-              key={t.id}
+              key={tpl.id}
               className="relative rounded-2xl p-6 transition-all group hover:scale-[1.01]"
               style={{
                 background: 'rgba(255,255,255,0.02)',
@@ -149,41 +158,40 @@ export default function TemplatesPage() {
               }}
             >
               {/* Badge */}
-              {t.badge && (
+              {tpl.badge && (
                 <div
                   className="absolute -top-3 right-5 text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: t.color, color: '#000' }}
+                  style={{ background: tpl.color, color: '#000' }}
                 >
-                  {t.badge}
+                  {tplT?.badgeMostUsed as string}
                 </div>
               )}
 
               {/* Icon */}
               <div
                 className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-4"
-                style={{ background: `${t.color}15`, border: `1px solid ${t.color}25` }}
+                style={{ background: `${tpl.color}15`, border: `1px solid ${tpl.color}25` }}
               >
-                {t.icon}
+                {tpl.icon}
               </div>
 
               {/* Content */}
-              <h3
-                className="font-bold text-lg mb-1 transition-colors"
-                style={{ color: 'inherit' }}
-              >
-                {t.name}
+              <h3 className="font-bold text-lg mb-1 transition-colors">
+                {locale === 'ar' ? tpl.name : tpl.nameEn}
               </h3>
-              <p className="text-gray-400 text-sm mb-4 leading-relaxed">{t.desc}</p>
+              <p className="text-gray-400 text-sm mb-4 leading-relaxed">
+                {locale === 'ar' ? tpl.desc : tpl.descEn}
+              </p>
 
               {/* Goal + Platforms */}
               <div className="flex flex-wrap items-center gap-2 mb-5">
                 <span
                   className="text-xs px-2.5 py-1 rounded-full font-medium"
-                  style={{ background: `${t.color}12`, color: t.color, border: `1px solid ${t.color}20` }}
+                  style={{ background: `${tpl.color}12`, color: tpl.color, border: `1px solid ${tpl.color}20` }}
                 >
-                  {GOAL_LABELS[t.goal]}
+                  {GOAL_LABELS[tpl.goal] || tpl.goal}
                 </span>
-                {t.platforms.map(p => (
+                {tpl.platforms.map(p => (
                   <span
                     key={p}
                     className="text-xs px-2 py-1 rounded-full text-gray-500"
@@ -196,11 +204,11 @@ export default function TemplatesPage() {
 
               {/* CTA */}
               <button
-                onClick={() => useTemplate(t)}
+                onClick={() => useTemplate(tpl)}
                 className="w-full py-2.5 rounded-xl font-bold text-sm transition-all text-white hover:opacity-90"
-                style={{ background: `linear-gradient(135deg, ${t.color}, ${t.color}bb)` }}
+                style={{ background: `linear-gradient(135deg, ${tpl.color}, ${tpl.color}bb)` }}
               >
-                استخدم هذا القالب ←
+                {tplT?.btnUse as string}
               </button>
             </div>
           ))}
@@ -212,7 +220,7 @@ export default function TemplatesPage() {
             href="/campaigns/new"
             className="text-sm text-gray-500 hover:text-white transition"
           >
-            أو ابدأ من الصفر ←
+            {tplT?.btnStartFromScratch as string}
           </Link>
         </div>
       </div>

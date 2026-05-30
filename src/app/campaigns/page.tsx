@@ -5,6 +5,7 @@ import AppShell from '@/components/AppShell'
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import {
   FolderKanban, Plus, Megaphone, Search, Filter,
   Loader2, Star, MoreHorizontal, RefreshCw, Wand2
@@ -24,24 +25,11 @@ interface Campaign {
   _count: { activities: number }
 }
 
-const STATUS_MAP: Record<string, { label: string; dot: string; badge: string }> = {
-  DRAFT:     { label: 'مسودة',   dot: 'bg-white/30',      badge: 'bg-white/5 text-text-secondary' },
-  ACTIVE:    { label: 'نشطة',    dot: 'bg-emerald-400',   badge: 'bg-emerald-500/10 text-emerald-400' },
-  PAUSED:    { label: 'متوقفة',  dot: 'bg-amber-400',     badge: 'bg-amber-500/10 text-amber-400' },
-  COMPLETED: { label: 'مكتملة', dot: 'bg-cyan-400',       badge: 'bg-cyan-500/10 text-cyan-400' },
-  ARCHIVED:  { label: 'مؤرشفة', dot: 'bg-white/20',       badge: 'bg-white/5 text-text-muted' },
-}
-
-const GOAL_MAP: Record<string, string> = {
-  SALES:     'مبيعات',
-  AWARENESS: 'وعي',
-  ENGAGEMENT:'تفاعل',
-  LEADS:     'Leads',
-  TRAFFIC:   'زيارات',
-}
-
 export default function CampaignsPage() {
   const { authHeader } = useAuth()
+  const { t, locale } = useI18n()
+  const cT = t('campaigns')
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -49,6 +37,23 @@ export default function CampaignsPage() {
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'name'>('updatedAt')
   const [favoriteOnly, setFavoriteOnly] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  // Status config — labels from i18n, colors/badges stay static
+  const STATUS_MAP: Record<string, { label: string; dot: string; badge: string }> = {
+    DRAFT:     { label: cT?.statusDraft     as string, dot: 'bg-white/30',      badge: 'bg-white/5 text-text-secondary' },
+    ACTIVE:    { label: cT?.statusActive    as string, dot: 'bg-emerald-400',   badge: 'bg-emerald-500/10 text-emerald-400' },
+    PAUSED:    { label: cT?.statusPaused    as string, dot: 'bg-amber-400',     badge: 'bg-amber-500/10 text-amber-400' },
+    COMPLETED: { label: cT?.statusCompleted as string, dot: 'bg-cyan-400',      badge: 'bg-cyan-500/10 text-cyan-400' },
+    ARCHIVED:  { label: cT?.statusArchived  as string, dot: 'bg-white/20',      badge: 'bg-white/5 text-text-muted' },
+  }
+
+  const GOAL_MAP: Record<string, string> = {
+    SALES:     cT?.goalSales      as string,
+    AWARENESS: cT?.goalAwareness  as string,
+    ENGAGEMENT:cT?.goalEngagement as string,
+    LEADS:     cT?.goalLeads      as string,
+    TRAFFIC:   cT?.goalTraffic    as string,
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -90,14 +95,16 @@ export default function CampaignsPage() {
   const draftCount   = campaigns.filter(c => c.status === 'DRAFT').length
   const totalCount   = campaigns.length
 
+  const dateLocale = locale === 'ar' ? 'ar-EG' : 'en-US'
+
   return (
     <AppShell>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-bold">الحملات</h1>
-          <p className="text-text-muted text-sm">إدارة ومتابعة جميع حملاتك</p>
+          <h1 className="text-2xl font-bold">{cT?.pageTitle as string}</h1>
+          <p className="text-text-muted text-sm">{cT?.pageSubtitle as string}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={load} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
@@ -105,7 +112,7 @@ export default function CampaignsPage() {
           </button>
           <Link href="/campaigns/new" className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
             <Plus className="w-4 h-4" />
-            حملة جديدة
+            {cT?.btnNewCampaign as string}
           </Link>
         </div>
       </div>
@@ -113,9 +120,9 @@ export default function CampaignsPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: 'إجمالي الحملات', value: totalCount, icon: <FolderKanban className="w-5 h-5 text-cyan-400" /> },
-          { label: 'الحملات النشطة', value: activeCount, icon: <Megaphone className="w-5 h-5 text-emerald-400" /> },
-          { label: 'المسودات', value: draftCount, icon: <Wand2 className="w-5 h-5 text-amber" /> },
+          { label: cT?.statTotal as string,  value: totalCount,  icon: <FolderKanban className="w-5 h-5 text-cyan-400" /> },
+          { label: cT?.statActive as string, value: activeCount, icon: <Megaphone className="w-5 h-5 text-emerald-400" /> },
+          { label: cT?.statDraft as string,  value: draftCount,  icon: <Wand2 className="w-5 h-5 text-amber" /> },
         ].map((s) => (
           <div key={s.label} className="glass p-5" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
             <div className="flex items-center gap-2 mb-2">{s.icon}<span className="text-text-muted text-sm">{s.label}</span></div>
@@ -132,7 +139,7 @@ export default function CampaignsPage() {
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="بحث في الحملات..."
+            placeholder={cT?.searchPlaceholder as string}
             className="input-nexus pr-10 text-sm"
           />
         </div>
@@ -142,7 +149,7 @@ export default function CampaignsPage() {
           onChange={e => setStatusFilter(e.target.value)}
           className="input-nexus text-sm w-auto"
         >
-          <option value="">كل الحالات</option>
+          <option value="">{cT?.filterAll as string}</option>
           {Object.entries(STATUS_MAP).map(([v, s]) => (
             <option key={v} value={v}>{s.label}</option>
           ))}
@@ -153,9 +160,9 @@ export default function CampaignsPage() {
           onChange={e => setSortBy(e.target.value as any)}
           className="input-nexus text-sm w-auto"
         >
-          <option value="updatedAt">الأحدث تعديلاً</option>
-          <option value="createdAt">الأحدث إنشاءً</option>
-          <option value="name">الاسم</option>
+          <option value="updatedAt">{cT?.sortNewest as string}</option>
+          <option value="createdAt">{cT?.sortOldest as string}</option>
+          <option value="name">{cT?.sortName as string}</option>
         </select>
 
         <button
@@ -167,7 +174,7 @@ export default function CampaignsPage() {
           }`}
         >
           <Star className="w-4 h-4" />
-          المحفوظة
+          {cT?.btnFavorites as string}
         </button>
       </div>
 
@@ -180,15 +187,15 @@ export default function CampaignsPage() {
         <div className="glass p-16 text-center" style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' }}>
           <Megaphone className="w-14 h-14 mx-auto mb-4 opacity-20" />
           <h3 className="text-lg font-bold mb-2">
-            {search || statusFilter ? 'لا توجد نتائج' : 'لا توجد حملات بعد'}
+            {search || statusFilter ? cT?.emptyNoResults as string : cT?.emptyNoCampaigns as string}
           </h3>
           <p className="text-text-muted text-sm mb-6">
-            {search || statusFilter ? 'جرّب تغيير الفلتر أو البحث' : 'أنشئ حملتك الأولى ودع الذكاء الاصطناعي يعمل'}
+            {search || statusFilter ? cT?.emptyNoResultsDesc as string : cT?.emptyNoCampaignsDesc as string}
           </p>
           {!search && !statusFilter && (
             <Link href="/campaigns/new" className="btn-primary inline-flex items-center gap-2">
               <Plus className="w-4 h-4" />
-              حملة جديدة
+              {cT?.btnNewCampaign as string}
             </Link>
           )}
         </div>
@@ -198,12 +205,12 @@ export default function CampaignsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">الحملة</th>
-                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">الحالة</th>
-                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">الهدف</th>
-                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">المنصات</th>
-                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">النشاط</th>
-                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">التاريخ</th>
+                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colCampaign as string}</th>
+                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colStatus as string}</th>
+                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colGoal as string}</th>
+                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colPlatforms as string}</th>
+                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colActivity as string}</th>
+                  <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colDate as string}</th>
                   <th className="px-6 py-4" />
                 </tr>
               </thead>
@@ -251,7 +258,7 @@ export default function CampaignsPage() {
                       <td className="px-6 py-4 text-sm text-text-secondary">
                         {c._count.activities > 0 ? (
                           <span className="text-xs px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400">
-                            {c._count.activities} نشاط
+                            {(cT?.activityCount as string)?.replace('{n}', String(c._count.activities))}
                           </span>
                         ) : (
                           <span className="text-text-muted text-xs">—</span>
@@ -259,7 +266,7 @@ export default function CampaignsPage() {
                       </td>
 
                       <td className="px-6 py-4 text-xs text-text-muted">
-                        {new Date(c.createdAt).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
+                        {new Date(c.createdAt).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })}
                       </td>
 
                       <td className="px-6 py-4">
