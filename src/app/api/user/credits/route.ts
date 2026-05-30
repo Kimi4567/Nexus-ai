@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/user/credits
  * Returns current credit balance and subscription status for the authenticated user.

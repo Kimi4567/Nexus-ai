@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/agents/suggestions
  * Returns pending agent suggestions for the user's workspace.

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/agents/reports
  * Returns agent reports for the user's workspace.
