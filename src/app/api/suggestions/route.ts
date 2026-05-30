@@ -82,6 +82,165 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// ── Brand Brain learning helpers ─────────────────────────────────────────────
+
+/**
+ * Merge incoming strings into an existing array.
+ * Deduplicates (case-insensitive trim), preserves order (newest first),
+ * and caps at `max` items to keep the Brain lean.
+ */
+function mergeArraySafe(existing: string[], incoming: string[], max = 20): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of [...incoming, ...existing]) {
+    const key = String(item).trim().toLowerCase()
+    if (!key) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(String(item).trim())
+  }
+  return result.slice(0, max)
+}
+
+/**
+ * Merge new summary + recommendations into the existing aiInsights JSON blob.
+ * Preserves old summary if no new one; deduplicates recommendations; stamps timestamp.
+ */
+function mergeAiInsights(
+  existing: unknown,
+  newSummary: string,
+  newRecommendations: string[]
+): { summary: string; recommendations: string[]; lastUpdated: string } {
+  const ex = existing && typeof existing === 'object' ? existing as Record<string, unknown> : {}
+  const existingRecs = Array.isArray(ex.recommendations)
+    ? (ex.recommendations as string[])
+    : []
+  return {
+    summary:         newSummary || (typeof ex.summary === 'string' ? ex.summary : ''),
+    recommendations: mergeArraySafe(existingRecs, newRecommendations, 10),
+    lastUpdated:     new Date().toISOString(),
+  }
+}
+
+/**
+ * Apply Brand Brain learning when a suggestion is APPROVED.
+ * Returns which BrandProfile fields were updated (empty = no-op).
+ *
+ * Supported:
+ *  STRATEGY        → winningAngles (contentPillars), winningHooks (campaign.topHooks),
+ *                    topPlatforms (channelMix), aiInsights (positioning + contentPillars)
+ *  Any other type  → winningHooks / winningAngles if explicitly in payload.hooks / payload.angles
+ */
+async function applyBrandBrainLearning(
+  workspaceId: string,
+  suggestion: { type: string; payload: unknown; campaignId: string | null }
+): Promise<{ brandBrainUpdated: boolean; updatedFields: string[] }> {
+  const updatedFields: string[] = []
+
+  try {
+    const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
+    if (!brandProfile) return { brandBrainUpdated: false, updatedFields: [] }
+
+    const payload = suggestion.payload && typeof suggestion.payload === 'object'
+      ? suggestion.payload as Record<string, unknown>
+      : {}
+
+    // ── Accumulated update object ───────────────────────────────────────────
+    let newWinningHooks:  string[] | undefined
+    let newWinningAngles: string[] | undefined
+    let newTopPlatforms:  string[] | undefined
+    let newAiInsights:    ReturnType<typeof mergeAiInsights> | undefined
+
+    if (suggestion.type === 'STRATEGY') {
+      const strategy = payload.strategy && typeof payload.strategy === 'object'
+        ? payload.strategy as Record<string, unknown>
+        : null
+
+      if (strategy) {
+        // 1. winningAngles ← strategy.contentPillars
+        const pillars = Array.isArray(strategy.contentPillars)
+          ? (strategy.contentPillars as string[]).filter(Boolean)
+          : []
+        if (pillars.length > 0) {
+          newWinningAngles = mergeArraySafe(brandProfile.winningAngles, pillars, 20)
+          updatedFields.push('winningAngles')
+        }
+
+        // 2. topPlatforms ← strategy.channelMix[].platform
+        if (Array.isArray(strategy.channelMix)) {
+          const platforms = (strategy.channelMix as Array<Record<string, unknown>>)
+            .map(c => String(c.platform || '').trim())
+            .filter(Boolean)
+          if (platforms.length > 0) {
+            newTopPlatforms = mergeArraySafe(brandProfile.topPlatforms, platforms, 8)
+            updatedFields.push('topPlatforms')
+          }
+        }
+
+        // 3. aiInsights ← positioning + contentPillars
+        const positioning = typeof strategy.positioning === 'string' ? strategy.positioning : ''
+        if (positioning || pillars.length > 0) {
+          newAiInsights = mergeAiInsights(brandProfile.aiInsights, positioning, pillars)
+          updatedFields.push('aiInsights')
+        }
+      }
+
+      // 4. winningHooks ← Campaign.aiOutput.topHooks (if campaignId present)
+      if (suggestion.campaignId) {
+        const campaign = await db.campaign.findUnique({
+          where: { id: suggestion.campaignId },
+          select: { aiOutput: true },
+        })
+        const aiOutput = campaign?.aiOutput && typeof campaign.aiOutput === 'object'
+          ? campaign.aiOutput as Record<string, unknown>
+          : null
+        const topHooks = Array.isArray(aiOutput?.topHooks)
+          ? (aiOutput!.topHooks as string[]).filter(Boolean)
+          : []
+        if (topHooks.length > 0) {
+          newWinningHooks = mergeArraySafe(brandProfile.winningHooks, topHooks, 20)
+          updatedFields.push('winningHooks')
+        }
+      }
+    } else {
+      // Generic: extract hooks/angles if the payload exposes them explicitly
+      if (Array.isArray(payload.hooks)) {
+        const hooks = (payload.hooks as unknown[]).map(String).filter(Boolean)
+        if (hooks.length > 0) {
+          newWinningHooks = mergeArraySafe(brandProfile.winningHooks, hooks, 20)
+          updatedFields.push('winningHooks')
+        }
+      }
+      if (Array.isArray(payload.angles)) {
+        const angles = (payload.angles as unknown[]).map(String).filter(Boolean)
+        if (angles.length > 0) {
+          newWinningAngles = mergeArraySafe(brandProfile.winningAngles, angles, 20)
+          updatedFields.push('winningAngles')
+        }
+      }
+    }
+
+    if (updatedFields.length === 0) return { brandBrainUpdated: false, updatedFields: [] }
+
+    // ── Single atomic BrandProfile update ───────────────────────────────────
+    await prisma.brandProfile.update({
+      where: { workspaceId },
+      data: {
+        ...(newWinningHooks  !== undefined ? { winningHooks:  newWinningHooks  } : {}),
+        ...(newWinningAngles !== undefined ? { winningAngles: newWinningAngles } : {}),
+        ...(newTopPlatforms  !== undefined ? { topPlatforms:  newTopPlatforms  } : {}),
+        ...(newAiInsights    !== undefined ? { aiInsights:    newAiInsights    } : {}),
+      },
+    })
+
+    return { brandBrainUpdated: true, updatedFields }
+  } catch (err) {
+    console.error('[applyBrandBrainLearning]', err)
+    // Never let a learning error block the approval itself
+    return { brandBrainUpdated: false, updatedFields: [] }
+  }
+}
+
 // ── PATCH /api/suggestions ───────────────────────────────────────────────────
 
 export async function PATCH(req: NextRequest) {
@@ -113,6 +272,8 @@ export async function PATCH(req: NextRequest) {
     if (!existing) return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 })
 
     const now = new Date()
+
+    // 1. Update suggestion status
     const updated = await db.agentSuggestion.update({
       where: { id },
       data: {
@@ -122,11 +283,27 @@ export async function PATCH(req: NextRequest) {
       },
     })
 
-    // NOTE: Brand Brain update on APPROVE is deferred to Sprint C.
-    // The status is updated here; Sprint C will read APPROVED suggestions
-    // and propagate winning hooks/angles back to BrandProfile.
+    // 2. If APPROVED → apply Brand Brain learning (non-blocking on failure)
+    let brandBrainUpdated = false
+    let updatedFields: string[] = []
 
-    return NextResponse.json({ ok: true, suggestion: { id: updated.id, status: updated.status } })
+    if (status === 'APPROVED') {
+      const learning = await applyBrandBrainLearning(workspace.id, {
+        type:       existing.type,
+        payload:    existing.payload,
+        campaignId: existing.campaignId ?? null,
+      })
+      brandBrainUpdated = learning.brandBrainUpdated
+      updatedFields     = learning.updatedFields
+    }
+
+    return NextResponse.json({
+      ok:                  true,
+      suggestionStatus:    updated.status,
+      brandBrainUpdated,
+      updatedFields,
+      suggestion: { id: updated.id, status: updated.status },
+    })
   } catch (err: any) {
     console.error('[PATCH /api/suggestions]', err)
     return NextResponse.json({ error: 'Failed to update suggestion' }, { status: 500 })

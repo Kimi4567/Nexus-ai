@@ -1483,6 +1483,8 @@ const translations: Record<Locale, Record<string, any>> = {
       agentReporting: 'التقارير',
       errorLoad: 'تعذّر تحميل الاقتراحات.',
       refresh: 'تحديث',
+      approvedBrandUpdated: 'تمت الموافقة — تم تحديث عقل العلامة',
+      approvedOnly: 'تمت الموافقة',
     },
     runStrategy: {
       btnDashboard: 'تشغيل الاستراتيجية الكاملة',
@@ -2921,6 +2923,8 @@ const translations: Record<Locale, Record<string, any>> = {
       agentReporting: 'Reporting',
       errorLoad: 'Could not load suggestions.',
       refresh: 'Refresh',
+      approvedBrandUpdated: 'Approved — Brand Brain updated',
+      approvedOnly: 'Approved',
     },
     runStrategy: {
       btnDashboard: 'Run Full Strategy',

@@ -89,6 +89,7 @@ export default function SuggestionsWidget() {
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
   const [acting, setActing]           = useState<Record<string, 'approving' | 'rejecting'>>({})
+  const [feedback, setFeedback]       = useState<Record<string, { brandBrainUpdated: boolean }>>({})
 
   const sg = t('suggestions') as Record<string, string>
 
@@ -120,10 +121,18 @@ export default function SuggestionsWidget() {
         body: JSON.stringify({ id, status }),
       })
       if (!res.ok) throw new Error('Update failed')
+      const data = await res.json()
       // Optimistically update local state
       setSuggestions(prev =>
         prev.map(s => s.id === id ? { ...s, status } : s)
       )
+      // Store Brand Brain feedback for APPROVE actions
+      if (status === 'APPROVED') {
+        setFeedback(prev => ({
+          ...prev,
+          [id]: { brandBrainUpdated: Boolean(data.brandBrainUpdated) },
+        }))
+      }
     } catch {
       // silently keep existing state — user can retry
     } finally {
@@ -231,6 +240,16 @@ export default function SuggestionsWidget() {
                 <p className="text-[11px] text-text-muted leading-relaxed mb-2 line-clamp-2">
                   {s.reasoning}
                 </p>
+
+                {/* Row 2b: approval feedback (shown after the user just approved this item) */}
+                {s.status === 'APPROVED' && feedback[s.id] !== undefined && (
+                  <p
+                    className="text-[10px] font-semibold mb-2"
+                    style={{ color: '#00BFA6' }}
+                  >
+                    ✓ {feedback[s.id].brandBrainUpdated ? sg.approvedBrandUpdated : sg.approvedOnly}
+                  </p>
+                )}
 
                 {/* Row 3: meta (agent + campaign + impact + date) */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2.5">
