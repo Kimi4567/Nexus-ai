@@ -1,467 +1,391 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import AppShell from '@/components/AppShell'
 import Link from 'next/link'
+import { useState } from 'react'
+import {
+  Film, Megaphone, BarChart2, Shield, Sparkles, Zap, TrendingUp,
+  Target, ArrowLeft, ArrowRight, Check, Star, Play, Eye, MousePointer,
+  DollarSign, Users, Activity, Bell, AlertTriangle, Calendar,
+  ChevronRight, Globe, Heart, Share2, Bookmark
+} from 'lucide-react'
+import StarField from '@/components/ui/StarField'
 
-const BUSINESS_TYPES = [
-  'E-commerce', 'SaaS / Software', 'Restaurant / Food', 'Fitness / Wellness',
-  'Real Estate', 'Beauty / Skincare', 'Education / Coaching', 'Consulting',
-  'Healthcare', 'Fashion / Apparel', 'Travel / Hospitality', 'Finance',
-  'Agency / Marketing', 'Retail', 'Other',
-]
+/* ═══════════════════════════════════════════════════════════════
+   DEMO PAGE — Full Platform Preview with Sample Data
+   Shows how Nexus AI works with realistic fake data
+   ═══════════════════════════════════════════════════════════════ */
 
-const GOALS = [
-  { value: 'SALES', label: '💰 Drive Sales', desc: 'Convert browsers into buyers' },
-  { value: 'LEADS', label: '🎯 Generate Leads', desc: 'Capture qualified prospects' },
-  { value: 'AWARENESS', label: '📣 Brand Awareness', desc: 'Get seen by more people' },
-  { value: 'ENGAGEMENT', label: '❤️ Build Community', desc: 'Grow a loyal audience' },
-  { value: 'TRAFFIC', label: '🚦 Drive Traffic', desc: 'Send visitors to your site' },
-]
-
-const PLATFORM_LABELS: Record<string, string> = {
-  INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', FACEBOOK: 'Facebook',
-  LINKEDIN: 'LinkedIn', YOUTUBE_SHORTS: 'YouTube Shorts',
+// ── Sample data ────────────────────────────────────────────────
+const DEMO_CAMPAIGN = {
+  name: 'حملة رمضان 2025 — مطعم الأصالة',
+  platform: 'Meta + TikTok',
+  goal: 'تحويل · Conversion',
+  budget: '$1,200',
+  duration: '30 يوم',
+  status: 'نشطة',
 }
 
-const GENERATION_STEPS = [
-  'Analyzing your business…',
-  'Building campaign strategy…',
-  'Crafting scroll-stopping hooks…',
-  'Writing platform-native copy…',
-  'Finalizing your results…',
+const DEMO_METRICS = [
+  { label: 'مشاهدات',    labelEn: 'Impressions',  value: '128,450', change: '+34%',  up: true,  color: '#8b5cf6' },
+  { label: 'نقرات',      labelEn: 'Clicks',        value: '9,321',   change: '+22%',  up: true,  color: '#06b6d4' },
+  { label: 'تحويلات',   labelEn: 'Conversions',   value: '412',     change: '+18%',  up: true,  color: '#10b981' },
+  { label: 'تكلفة/نقرة', labelEn: 'CPC',           value: '$0.87',   change: '-12%',  up: true,  color: '#f59e0b' },
 ]
 
+const DEMO_NEX_OUTPUT = `🎬 سكريبت رمضاني لـ TikTok (30 ثانية)
+
+[المشهد 1 — 0-5 ثواني]
+الكاميرا تصوّر مائدة إفطار عائلية دافئة
+صوت الأذان يبدأ في الخلفية
+نص: "هذا الرمضان... اجمع من تحب"
+
+[المشهد 2 — 5-15 ثانية]
+لقطات قريبة من الأطباق الشهية
+بخار يتصاعد، ألوان دافئة
+نص: "مطعم الأصالة — أكلات بيتية بلمسة مطعم"
+
+[المشهد 3 — 15-25 ثانية]
+لقطة عائلة تضحك وتأكل معاً
+CTA يظهر على الشاشة
+نص: "احجز طاولتك الآن"
+
+[المشهد 4 — 25-30 ثانية]
+شعار المطعم + رقم الحجز
+"خصم 20% على كل طلبات رمضان"`
+
+const DEMO_VEX_OUTPUT = `📢 إعلان Meta — نص عالي التحويل
+
+العنوان الرئيسي:
+"إفطار رمضاني لا يُنسى — احجز الآن بخصم 20%"
+
+النص التشويقي:
+"هل تبحث عن مكان يجمع عائلتك هذا رمضان؟
+مطعم الأصالة يقدم لك تجربة أكل بيتية أصيلة
+بأجواء رمضانية دافئة وأسعار لا تُصدّق 🌙"
+
+CTA: احجز الآن — Book Now
+
+نسخ A/B للاختبار:
+A: "طاولات محدودة — احجز قبل فوات الأوان"
+B: "خصم 20% حصري لرمضان — لا تفوّت الفرصة"
+C: "اجعل إفطارك مميزاً — العائلة تستحق الأفضل"`
+
+const DEMO_PULSE_OUTPUT = `📊 تحليل PULSE — أداء حملة رمضان
+
+✅ نقاط القوة:
+• معدل التفاعل 7.2% (أعلى من متوسط القطاع 3.8%)
+• TikTok يحقق 68% من التحويلات بـ 40% من الميزانية
+• الجمهور 25-35 سنة يستجيب بشكل مميز للمحتوى العاطفي
+
+⚠️ نقاط تحتاج تحسين:
+• إعلانات Instagram Stories بنسبة تحويل 1.2% فقط
+• الفترة 2-5 مساءً تُسجل أعلى تفاعل — زد الميزانية فيها
+
+🎯 توصيات فورية:
+1. ضاعف ميزانية TikTok من 30% إلى 50%
+2. أضف CTA أوضح في Stories
+3. اختبر فيديو 15 ثانية مقابل 30 ثانية`
+
+const DEMO_SENTINEL_OUTPUT = `🛡️ تقرير Sentinel — رصد المنافسين
+
+🔍 المنافسون النشطون:
+• مطعم النخبة: زاد إنفاقه الإعلاني 40% هذا الأسبوع
+• مطعم البيت: يستهدف نفس شريحتك (25-35) بعروض مشابهة
+
+⚡ فرص فورية:
+• كلمة "إفطار عائلي" في ارتفاع 67% في البحث هذا الأسبوع
+• لا أحد من المنافسين يستخدم محتوى "وراء الكواليس"
+
+🚨 تنبيه:
+منافس جديد "مطعم الأصل" أطلق حملة أمس بميزانية عالية
+→ يُنصح بتسريع نشر المحتوى الجديد خلال 48 ساعة`
+
+const DEMO_ALERTS = [
+  { type: 'opportunity' as const, title: 'فرصة: محتوى "وراء الكواليس" يحقق 3x تفاعل', time: 'منذ ساعتين' },
+  { type: 'warning'     as const, title: 'تنبيه: ميزانية الأسبوع استُهلكت 80%', time: 'منذ 3 ساعات' },
+  { type: 'info'        as const, title: 'PULSE: أفضل وقت نشر اليوم — 8 مساءً', time: 'منذ 5 ساعات' },
+]
+
+// ── Components ─────────────────────────────────────────────────
+function DemoOrbs() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      <div className="absolute rounded-full blur-[160px] opacity-15"
+        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)', top: '-10%', left: '-10%', animation: 'float 18s ease-in-out infinite' }} />
+      <div className="absolute rounded-full blur-[100px] opacity-12"
+        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)', bottom: '0%', right: '-10%', animation: 'float 14s ease-in-out infinite reverse' }} />
+      <div className="absolute rounded-full blur-[80px] opacity-10"
+        style={{ width: 300, height: 300, background: 'radial-gradient(circle, rgba(6,182,212,0.08), transparent 70%)', top: '50%', left: '50%', animation: 'float 10s ease-in-out infinite' }} />
+    </div>
+  )
+}
+
+function DemoBadge() {
+  return (
+    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+      style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.08))', border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b' }}>
+      <Play size={13} className="fill-current" />
+      وضع العرض التجريبي · Demo Mode
+    </div>
+  )
+}
+
+function AgentOutputCard({ agent, color, icon: Icon, label, labelEn, content, active, onClick }: {
+  agent: string; color: string; icon: React.ElementType; label: string; labelEn: string
+  content: string; active: boolean; onClick: () => void
+}) {
+  return (
+    <button onClick={onClick}
+      className="w-full text-right p-4 rounded-2xl transition-all"
+      style={{
+        background: active ? `rgba(${color === '#f59e0b' ? '245,158,11' : color === '#06b6d4' ? '6,182,212' : color === '#8b5cf6' ? '139,92,246' : '16,185,129'},0.08)` : 'rgba(255,255,255,0.03)',
+        border: `1px solid ${active ? color + '40' : 'rgba(255,255,255,0.07)'}`,
+        boxShadow: active ? `0 0 30px ${color}10` : 'none',
+      }}>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+          <Icon size={17} style={{ color }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-white">{agent}</span>
+            <span className="text-xs" style={{ color }}>{labelEn}</span>
+          </div>
+          <span className="text-xs text-gray-500">{label}</span>
+        </div>
+        {active && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />}
+      </div>
+      {active && (
+        <pre className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed text-right font-sans"
+          style={{ maxHeight: 280, overflowY: 'auto' }}>
+          {content}
+        </pre>
+      )}
+    </button>
+  )
+}
+
+// ── Main ───────────────────────────────────────────────────────
 export default function DemoPage() {
-  const [step, setStep] = useState<'form' | 'loading' | 'results'>('form')
-  const [companyName, setCompanyName] = useState('')
-  const [businessType, setBusinessType] = useState('')
-  const [goal, setGoal] = useState('')
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState('')
-  const [loadingStep, setLoadingStep] = useState(0)
-  const [copied, setCopied] = useState<string | null>(null)
-  const resultsRef = useRef<HTMLDivElement>(null)
+  const [activeAgent, setActiveAgent] = useState<'nex' | 'vex' | 'pulse' | 'sentinel'>('nex')
 
-  // Animate loading steps
-  useEffect(() => {
-    if (step !== 'loading') return
-    const interval = setInterval(() => {
-      setLoadingStep(prev => {
-        if (prev >= GENERATION_STEPS.length - 1) { clearInterval(interval); return prev }
-        return prev + 1
-      })
-    }, 700)
-    return () => clearInterval(interval)
-  }, [step])
+  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
 
-  // Scroll to results
-  useEffect(() => {
-    if (step === 'results') {
-      setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
-    }
-  }, [step])
-
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!companyName.trim() || !businessType || !goal) return
-
-    setStep('loading')
-    setLoadingStep(0)
-    setError('')
-
-    try {
-      const res = await fetch('/api/demo/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyName, businessType, goal }),
-      })
-      const data = await res.json()
-
-      if (res.status === 429) {
-        setError(data.message || 'Daily demo limit reached. Sign up for unlimited access.')
-        setStep('form')
-        return
-      }
-
-      if (!res.ok) {
-        setError('Generation failed — please try again.')
-        setStep('form')
-        return
-      }
-
-      setResult(data)
-      setStep('results')
-    } catch {
-      setError('Network error — please check your connection and try again.')
-      setStep('form')
-    }
-  }
-
-  const copy = (text: string, key: string) => {
-    navigator.clipboard.writeText(text)
-    setCopied(key)
-    setTimeout(() => setCopied(null), 2000)
-  }
-
-  const reset = () => {
-    setStep('form')
-    setResult(null)
-    setError('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+  const agentOutputs = { nex: DEMO_NEX_OUTPUT, vex: DEMO_VEX_OUTPUT, pulse: DEMO_PULSE_OUTPUT, sentinel: DEMO_SENTINEL_OUTPUT }
 
   return (
-    <div className="min-h-screen bg-dark text-white">
+    <AppShell>
+      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+        <StarField />
+        <DemoOrbs />
 
-      {/* Nav */}
-      <div className="border-b border-dark-tertiary bg-dark/90 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 28 28" fill="none">
-                <path d="M7 7L14 21L21 7" stroke="#080807" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M7 7H21" stroke="#080807" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-            </div>
-            <span className="font-bold text-sm">Nexus AI</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/auth/login" className="text-sm text-gray-400 hover:text-white transition hidden sm:block">Sign in</Link>
-            <Link href="/auth/register" className="px-4 py-2 bg-accent text-dark text-sm font-bold rounded-lg hover:bg-accent-light transition">
-              Get started free →
-            </Link>
-          </div>
-        </div>
-      </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-10">
 
-      {/* Hero */}
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-14 pb-10 text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent/10 border border-accent/20 rounded-full text-accent text-xs font-semibold mb-6">
-          ✦ Free demo — no account needed
-        </div>
-        <h1 className="text-3xl sm:text-5xl font-black leading-tight mb-4">
-          See what Nexus creates for<br />
-          <span className="text-accent">your business in 30 seconds</span>
-        </h1>
-        <p className="text-gray-400 text-base sm:text-lg max-w-xl mx-auto">
-          Enter your business details. Get a real AI-generated marketing strategy, hooks, and a ready-to-post caption — instantly.
-        </p>
-      </div>
-
-      {/* Form */}
-      {step === 'form' && (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-20">
-          <form onSubmit={handleGenerate} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6 sm:p-8 space-y-6">
-
-            {/* Company name */}
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Your company or brand name <span className="text-accent">*</span>
-              </label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={e => setCompanyName(e.target.value)}
-                placeholder="e.g. Bloom Skincare, TechVault, FitLife Studio"
-                className="w-full bg-dark border border-dark-tertiary rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent/60 transition placeholder:text-gray-600"
-                required
-                maxLength={60}
-              />
-            </div>
-
-            {/* Business type */}
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Business type <span className="text-accent">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {BUSINESS_TYPES.map(bt => (
-                  <button
-                    key={bt}
-                    type="button"
-                    onClick={() => setBusinessType(bt)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold text-left transition border ${
-                      businessType === bt
-                        ? 'bg-accent/10 border-accent/50 text-accent'
-                        : 'bg-dark border-dark-tertiary text-gray-400 hover:border-accent/30 hover:text-white'
-                    }`}
-                  >
-                    {bt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Goal */}
-            <div>
-              <label className="block text-sm font-semibold mb-2">
-                Campaign goal <span className="text-accent">*</span>
-              </label>
-              <div className="space-y-2">
-                {GOALS.map(g => (
-                  <button
-                    key={g.value}
-                    type="button"
-                    onClick={() => setGoal(g.value)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-left transition border ${
-                      goal === g.value
-                        ? 'bg-accent/10 border-accent/50'
-                        : 'bg-dark border-dark-tertiary hover:border-accent/30'
-                    }`}
-                  >
-                    <span className="font-bold text-sm">{g.label}</span>
-                    <span className="text-gray-400 text-xs hidden sm:block">{g.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {error && (
-              <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-                <span className="mt-0.5">⚠</span>
-                <div>
-                  <div>{error}</div>
-                  {error.includes('limit') && (
-                    <Link href="/auth/register" className="text-accent hover:underline font-semibold mt-1 block">
-                      Sign up free for unlimited campaigns →
-                    </Link>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={!companyName.trim() || !businessType || !goal}
-              className="w-full py-4 bg-accent text-dark font-black text-base rounded-xl hover:bg-accent-light transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Generate my campaign strategy →
-            </button>
-
-            <p className="text-center text-xs text-gray-600">
-              Free · No credit card · 3 demos per day · Results in ~15 seconds
+          {/* ── Hero banner ─────────────────────────────────────── */}
+          <div className="rounded-3xl p-8 text-center space-y-4"
+            style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(139,92,246,0.06), rgba(6,182,212,0.06))', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <DemoBadge />
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+              شاهد <span style={{ color: '#f59e0b' }}>Nexus AI</span> في العمل
+            </h1>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              هذا مثال حقيقي لكيفية عمل المنصة مع حملة تسويقية كاملة.
+              البيانات وهمية لغرض العرض فقط.
             </p>
-          </form>
-        </div>
-      )}
-
-      {/* Loading */}
-      {step === 'loading' && (
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 pb-20">
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-10 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-6">
-              <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">Building your campaign…</h2>
-            <p className="text-gray-400 text-sm mb-8">Our AI is crafting strategy and copy for {companyName}</p>
-            <div className="space-y-3 text-left max-w-sm mx-auto">
-              {GENERATION_STEPS.map((s, i) => (
-                <div key={i} className={`flex items-center gap-3 text-sm transition-all duration-300 ${
-                  i < loadingStep ? 'text-gray-600' : i === loadingStep ? 'text-accent' : 'text-gray-700'
-                }`}>
-                  <span className="flex-shrink-0">
-                    {i < loadingStep ? (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="7" stroke="#444" strokeWidth="1.5"/>
-                        <path d="M5 8l2 2 4-4" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    ) : i === loadingStep ? (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="7" stroke="#FF9500" strokeWidth="1.5"/>
-                        <circle cx="8" cy="8" r="3" fill="#FF9500" className="animate-pulse"/>
-                      </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="7" stroke="#222" strokeWidth="1.5"/>
-                      </svg>
-                    )}
-                  </span>
-                  {s}
-                </div>
-              ))}
+            <p className="text-gray-500 text-sm">
+              This is a demo with sample data · البيانات في هذه الصفحة للعرض فقط
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Link href="/auth/login"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0a0a0a', boxShadow: '0 0 30px rgba(245,158,11,0.3)' }}>
+                <Sparkles size={16} />
+                ابدأ مجاناً · Start Free
+              </Link>
+              <Link href="/dashboard"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.1)' }}>
+                لوحة التحكم الحقيقية
+                <ArrowLeft size={16} />
+              </Link>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Sticky bottom CTA bar — results only */}
-      {step === 'results' && result && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-accent/20 bg-dark/95 backdrop-blur-xl px-4 py-3 sm:py-3.5">
-          <div className="max-w-4xl mx-auto flex items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] text-gray-500 leading-none mb-0.5">
-                🔥 <span className="text-white font-semibold">500+ marketers</span> already using Nexus
-              </div>
-              <div className="text-[12px] text-gray-400 truncate">3 full campaigns free — no credit card</div>
-            </div>
-            <Link
-              href={`/auth/register?demo=1&business=${encodeURIComponent(result.companyName)}&type=${encodeURIComponent(result.businessType)}&goal=${result.goal}`}
-              className="flex-shrink-0 px-5 py-2.5 bg-accent text-dark font-black rounded-xl hover:bg-accent-light transition text-[13px] whitespace-nowrap"
-            >
-              Get full campaign free →
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* Results */}
-      {step === 'results' && result && (
-        <div ref={resultsRef} className="max-w-4xl mx-auto px-4 sm:px-6 pb-28 space-y-6">
-
-          {/* Results header */}
-          <div className="bg-gradient-to-r from-accent/15 via-accent/5 to-transparent border border-accent/20 rounded-2xl p-6">
-            <div className="flex items-center gap-2 text-accent text-sm font-semibold mb-2">
-              <span>✦</span> AI Campaign Preview for <strong>{result.companyName}</strong>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
-              <h2 className="text-2xl font-bold">Your marketing strategy is ready</h2>
-              <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                500+ marketers trust Nexus
+          {/* ── Campaign overview ────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ background: '#f59e0b' }} />
+              <h2 className="text-lg font-bold text-white">الحملة النموذجية · Sample Campaign</h2>
+              <span className="px-2 py-0.5 rounded-full text-xs"
+                style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                {DEMO_CAMPAIGN.status}
               </span>
             </div>
-            <p className="text-gray-400 text-sm mt-1">
-              Best platform: <span className="text-white font-semibold">{PLATFORM_LABELS[result.platform] || result.platform}</span>
-              {result.estimatedReach && <> · Estimated reach: <span className="text-white font-semibold">{result.estimatedReach}</span></>}
-            </p>
-          </div>
-
-          {/* Compact upgrade prompt — above the fold */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-dark-secondary border border-accent/25 rounded-2xl">
-            <div className="flex-1 text-center sm:text-left">
-              <div className="text-sm font-bold text-white mb-0.5">This is a preview — your full campaign has 5x more</div>
-              <div className="text-xs text-gray-500">Full scripts · 30-day calendar · PDF export · Brand memory</div>
-            </div>
-            <Link
-              href={`/auth/register?demo=1&business=${encodeURIComponent(result.companyName)}&type=${encodeURIComponent(result.businessType)}&goal=${result.goal}`}
-              className="flex-shrink-0 w-full sm:w-auto px-5 py-2.5 text-center bg-accent text-dark font-black rounded-xl hover:bg-accent-light transition text-sm"
-            >
-              Unlock full campaign — free →
-            </Link>
-          </div>
-
-          {/* Strategy */}
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-base flex items-center gap-2">🧠 Campaign Strategy</h3>
-              <button
-                onClick={() => copy(result.strategy, 'strategy')}
-                className="text-xs text-gray-500 hover:text-accent transition flex items-center gap-1"
-              >
-                {copied === 'strategy' ? '✓ Copied' : '⎘ Copy'}
-              </button>
-            </div>
-            <div className="bg-accent/5 border border-accent/15 rounded-xl p-4">
-              <p className="text-gray-200 leading-relaxed text-sm">{result.strategy}</p>
+            <div className="rounded-2xl p-5" style={glassCard}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-white font-bold text-lg">{DEMO_CAMPAIGN.name}</h3>
+                  <p className="text-gray-400 text-sm mt-1">{DEMO_CAMPAIGN.platform} · {DEMO_CAMPAIGN.goal} · {DEMO_CAMPAIGN.duration}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-center">
+                    <p className="text-xl font-bold" style={{ color: '#f59e0b' }}>{DEMO_CAMPAIGN.budget}</p>
+                    <p className="text-xs text-gray-500">الميزانية</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Hooks */}
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-            <h3 className="font-bold text-base mb-4 flex items-center gap-2">⚡ 3 Scroll-Stopping Hooks</h3>
-            <div className="space-y-3">
-              {(result.hooks || []).map((hook: string, i: number) => (
-                <div key={i} className="flex items-start gap-3 p-4 bg-dark rounded-xl border border-dark-tertiary group hover:border-accent/30 transition">
-                  <span className="text-accent font-black text-lg leading-none mt-0.5">{i + 1}</span>
-                  <p className="text-gray-200 text-sm leading-relaxed flex-1 italic">"{hook.replace(/^["']|["']$/g, '')}"</p>
-                  <button
-                    onClick={() => copy(hook, `hook-${i}`)}
-                    className="text-xs text-gray-600 hover:text-accent transition opacity-0 group-hover:opacity-100 flex-shrink-0"
-                  >
-                    {copied === `hook-${i}` ? '✓' : '⎘'}
-                  </button>
+          {/* ── Live metrics ─────────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ background: '#06b6d4' }} />
+              <h2 className="text-lg font-bold text-white">الأداء الحي · Live Performance</h2>
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: '#10b981' }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-green-400 inline-block" />
+                مباشر
+              </span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {DEMO_METRICS.map((m, i) => (
+                <div key={i} className="rounded-xl p-4" style={glassCard}>
+                  <p className="text-xs text-gray-500 mb-2">{m.label} · {m.labelEn}</p>
+                  <p className="text-2xl font-bold text-white">{m.value}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <TrendingUp size={11} style={{ color: m.up ? '#10b981' : '#ef4444' }} />
+                    <span className="text-xs" style={{ color: m.up ? '#10b981' : '#ef4444' }}>{m.change} من الأسبوع الماضي</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Caption */}
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-base flex items-center gap-2">📝 Ready-to-Post Caption</h3>
-              <button
-                onClick={() => copy(result.caption, 'caption')}
-                className="text-xs px-3 py-1.5 bg-accent/10 border border-accent/20 text-accent rounded-lg hover:bg-accent hover:text-dark transition font-semibold"
-              >
-                {copied === 'caption' ? '✓ Copied!' : '⎘ Copy caption'}
-              </button>
+          {/* ── 4 Agent outputs ──────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ background: '#8b5cf6' }} />
+              <h2 className="text-lg font-bold text-white">الوكلاء الذكيون · AI Agents at Work</h2>
             </div>
-            <div className="bg-dark rounded-xl p-4 border border-dark-tertiary">
-              <p className="text-gray-200 text-sm leading-relaxed">{result.caption}</p>
+            <p className="text-gray-500 text-sm mb-5">انقر على كل وكيل لرؤية ما يولّده بشكل تلقائي · Click each agent to see its output</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <AgentOutputCard
+                agent="NEX" color="#f59e0b" icon={Film}
+                label="مختبر المحتوى الإبداعي" labelEn="Creative Lab"
+                content={DEMO_NEX_OUTPUT}
+                active={activeAgent === 'nex'} onClick={() => setActiveAgent('nex')} />
+              <AgentOutputCard
+                agent="VEX" color="#06b6d4" icon={Megaphone}
+                label="محرك الإعلانات الذكي" labelEn="Ads Engine"
+                content={DEMO_VEX_OUTPUT}
+                active={activeAgent === 'vex'} onClick={() => setActiveAgent('vex')} />
+              <AgentOutputCard
+                agent="PULSE" color="#8b5cf6" icon={BarChart2}
+                label="التحليلات والرؤى" labelEn="Analytics"
+                content={DEMO_PULSE_OUTPUT}
+                active={activeAgent === 'pulse'} onClick={() => setActiveAgent('pulse')} />
+              <AgentOutputCard
+                agent="Sentinel" color="#10b981" icon={Shield}
+                label="مراقبة السوق ٢٤/٧" labelEn="Market Monitor"
+                content={DEMO_SENTINEL_OUTPUT}
+                active={activeAgent === 'sentinel'} onClick={() => setActiveAgent('sentinel')} />
             </div>
           </div>
 
-          {/* CTA preview */}
-          {result.cta && (
-            <div className="flex items-center gap-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex-shrink-0">CTA</span>
-              <p className="text-amber-300 font-semibold text-sm">{result.cta}</p>
-              <button
-                onClick={() => copy(result.cta, 'cta')}
-                className="text-xs text-gray-500 hover:text-accent transition ml-auto flex-shrink-0"
-              >
-                {copied === 'cta' ? '✓' : '⎘'}
-              </button>
+          {/* ── Alert feed ───────────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1 h-6 rounded-full" style={{ background: '#10b981' }} />
+              <h2 className="text-lg font-bold text-white">تنبيهات ذكية · Smart Alerts</h2>
             </div>
-          )}
+            <div className="space-y-3">
+              {DEMO_ALERTS.map((a, i) => {
+                const colors = {
+                  opportunity: { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', text: '#10b981', icon: TrendingUp },
+                  warning:     { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.25)',  text: '#f59e0b', icon: AlertTriangle },
+                  info:        { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.25)',   text: '#06b6d4', icon: Bell },
+                }
+                const c = colors[a.type]
+                return (
+                  <div key={i} className="flex items-center gap-3 p-4 rounded-xl"
+                    style={{ background: c.bg, border: `1px solid ${c.border}` }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${c.text}20` }}>
+                      <c.icon size={15} style={{ color: c.text }} />
+                    </div>
+                    <p className="text-sm text-white flex-1">{a.title}</p>
+                    <span className="text-xs text-gray-600 flex-shrink-0">{a.time}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
 
-          {/* What's locked / upgrade */}
-          <div className="bg-dark-secondary border border-accent/20 rounded-2xl p-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent pointer-events-none" />
-            <div className="relative">
-              <div className="text-xs font-bold text-accent uppercase tracking-wider mb-3">🔒 Full Campaign — Unlocked with Free Account</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                {[
-                  '5 complete ad concepts with full scripts',
-                  '30-day content calendar',
-                  'Platform-native captions for every post',
-                  'Exportable PDF campaign report',
-                  'Shareable campaign link',
-                  'Save to campaign history',
-                  'Brand memory — never re-enter details',
-                  'Unlimited generations on paid plans',
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm text-gray-400">
-                    <span className="text-accent text-xs">→</span> {item}
+          {/* ── Workflow steps ───────────────────────────────────── */}
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-1 h-6 rounded-full" style={{ background: '#f59e0b' }} />
+              <h2 className="text-lg font-bold text-white">كيف تعمل المنصة · How It Works</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                { step: '01', color: '#f59e0b', icon: Globe,    title: 'ربط المنصات',     body: 'وصّل حسابات Meta وGoogle وTikTok وLinkedIn في دقيقتين' },
+                { step: '02', color: '#06b6d4', icon: Sparkles, title: 'أنشئ حملة بالذكاء',body: 'NEX يكتب السكريبت، VEX يصمم الإعلان، كل شيء بنقرة واحدة' },
+                { step: '03', color: '#8b5cf6', icon: Activity, title: 'راقب الأداء',      body: 'PULSE يحلل الأرقام ويقترح التحسينات بشكل مستمر' },
+                { step: '04', color: '#10b981', icon: Shield,   title: 'ابقَ متقدماً',     body: 'Sentinel يرصد المنافسين ويُنبّهك بالفرص ٢٤/٧' },
+              ].map((s, i) => (
+                <div key={i} className="rounded-2xl p-5 space-y-3" style={glassCard}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-black" style={{ color: `${s.color}40` }}>{s.step}</span>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                      style={{ background: `${s.color}18`, border: `1px solid ${s.color}30` }}>
+                      <s.icon size={16} style={{ color: s.color }} />
+                    </div>
+                  </div>
+                  <h3 className="text-white font-bold text-sm">{s.title}</h3>
+                  <p className="text-gray-500 text-xs leading-relaxed">{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── CTA ─────────────────────────────────────────────── */}
+          <div className="rounded-3xl p-8 text-center"
+            style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(139,92,246,0.08))', border: '1px solid rgba(245,158,11,0.2)' }}>
+            <div className="flex justify-center mb-4">
+              <div className="flex -space-x-2">
+                {['#f59e0b', '#06b6d4', '#8b5cf6', '#10b981'].map((c, i) => (
+                  <div key={i} className="w-10 h-10 rounded-full border-2 border-gray-900 flex items-center justify-center"
+                    style={{ background: `${c}25`, borderColor: '#030309', zIndex: 4 - i }}>
+                    <Star size={14} style={{ color: c }} />
                   </div>
                 ))}
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Link
-                  href={`/auth/register?demo=1&business=${encodeURIComponent(result.companyName)}&type=${encodeURIComponent(result.businessType)}&goal=${result.goal}`}
-                  className="flex-1 py-3.5 text-center bg-accent text-dark font-black rounded-xl hover:bg-accent-light transition text-sm"
-                >
-                  Get the full campaign — free →
-                </Link>
-                <button
-                  onClick={reset}
-                  className="flex-1 py-3.5 border border-dark-tertiary text-gray-400 font-semibold rounded-xl hover:border-accent/40 hover:text-white transition text-sm"
-                >
-                  Try another business
-                </button>
-              </div>
-              <p className="text-xs text-gray-600 text-center mt-3">No credit card needed · 3 free campaigns included</p>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              جاهز تبدأ بحملتك الحقيقية؟
+            </h2>
+            <p className="text-gray-400 mb-6">انضم وابدأ مجاناً — لا تحتاج بطاقة ائتمانية</p>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Link href="/auth/login"
+                className="flex items-center gap-2 px-8 py-3.5 rounded-xl text-base font-semibold transition-all"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0a0a0a', boxShadow: '0 0 40px rgba(245,158,11,0.4)' }}>
+                <Sparkles size={18} />
+                ابدأ مجاناً الآن
+              </Link>
+              <Link href="/dashboard"
+                className="flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.05)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.1)' }}>
+                الدخول للوحة التحكم
+                <ArrowLeft size={15} />
+              </Link>
             </div>
           </div>
 
-          {result.remaining !== undefined && result.remaining > 0 && (
-            <p className="text-center text-xs text-gray-600">
-              {result.remaining} free demo{result.remaining !== 1 ? 's' : ''} remaining today
-            </p>
-          )}
         </div>
-      )}
-
-      {/* Footer CTA */}
-      {step === 'form' && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 pb-16 text-center">
-          <p className="text-xs text-gray-600">
-            Already have an account?{' '}
-            <Link href="/auth/login" className="text-gray-400 hover:text-white transition">Sign in →</Link>
-          </p>
-        </div>
-      )}
-
-    </div>
+      </div>
+    </AppShell>
   )
 }
