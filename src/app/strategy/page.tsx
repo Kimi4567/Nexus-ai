@@ -3,29 +3,32 @@
 import { useAuth } from '@/lib/auth-context'
 import { useState } from 'react'
 import AppShell from '@/components/AppShell'
+import { useI18n } from '@/lib/i18n-context'
 
-const GOALS = [
-  { id: 'grow_followers',   label: 'زيادة المتابعين',       icon: '📈', desc: 'بناء جمهور أكبر ومتفاعل' },
-  { id: 'generate_leads',   label: 'توليد عملاء محتملين',            icon: '🎯', desc: 'جمع الإيميلات والاستفسارات' },
-  { id: 'launch_product',   label: 'إطلاق منتج جديد',       icon: '🚀', desc: 'الإعلان عن منتج وبيعه' },
-  { id: 'drive_sales',      label: 'زيادة المبيعات',         icon: '💰', desc: 'تحويل الجمهور لعملاء' },
-  { id: 'build_brand',      label: 'بناء الوعي بالعلامة',   icon: '✨', desc: 'ترسيخ السلطة والتميز' },
-  { id: 'retain_customers', label: 'الاحتفاظ بالعملاء',     icon: '🤝', desc: 'تعزيز الولاء وتقليل الفقد' },
+// ─── Static data (icons + IDs only — labels come from i18n) ───────────────────
+
+const GOALS_DATA = [
+  { id: 'grow_followers',   icon: '📈' },
+  { id: 'generate_leads',   icon: '🎯' },
+  { id: 'launch_product',   icon: '🚀' },
+  { id: 'drive_sales',      icon: '💰' },
+  { id: 'build_brand',      icon: '✨' },
+  { id: 'retain_customers', icon: '🤝' },
 ]
 
-const PLATFORMS = [
-  { id: 'instagram', label: 'Instagram', icon: '📸' },
-  { id: 'facebook',  label: 'Facebook',  icon: '👥' },
-  { id: 'tiktok',    label: 'TikTok',    icon: '🎵' },
-  { id: 'snapchat',  label: 'Snapchat',  icon: '👻' },
-  { id: 'multi',     label: 'متعدد المنصات', icon: '🌐' },
+const PLATFORMS_DATA = [
+  { id: 'instagram', icon: '📸', label: 'Instagram' },
+  { id: 'facebook',  icon: '👥', label: 'Facebook' },
+  { id: 'tiktok',    icon: '🎵', label: 'TikTok' },
+  { id: 'snapchat',  icon: '👻', label: 'Snapchat' },
+  { id: 'multi',     icon: '🌐' },
 ]
 
-const BUDGETS = [
-  { id: 'bootstrap', label: 'مجاني',      desc: 'عضوي بالكامل، بلا إنفاق إعلاني' },
-  { id: 'small',     label: 'صغير',       desc: '500–2,000 ريال / شهر' },
-  { id: 'medium',    label: 'متوسط',      desc: '2,000–8,000 ريال / شهر' },
-  { id: 'growth',    label: 'نمو',        desc: '+8,000 ريال / شهر' },
+const BUDGETS_DATA = [
+  { id: 'bootstrap' },
+  { id: 'small' },
+  { id: 'medium' },
+  { id: 'growth' },
 ]
 
 type Strategy = {
@@ -46,6 +49,9 @@ const PILLAR_COLORS = ['#FF9500', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b']
 
 export default function StrategyPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { t, dir } = useI18n()
+  const sT = t('strategy')
+
   const [step, setStep]               = useState<'setup' | 'generating' | 'result'>('setup')
   const [goal, setGoal]               = useState('')
   const [timeframe, setTimeframe]     = useState('30')
@@ -56,6 +62,46 @@ export default function StrategyPage() {
   const [expandedWeek, setExpandedWeek] = useState<number | null>(1)
   const [error, setError]             = useState('')
 
+  // ── Localised data arrays ────────────────────────────────────────────────────
+
+  const GOALS = [
+    { id: 'grow_followers',   icon: '📈', label: sT?.goalGrowFollowers as string,   desc: sT?.goalGrowFollowersDesc as string },
+    { id: 'generate_leads',   icon: '🎯', label: sT?.goalGenerateLeads as string,   desc: sT?.goalGenerateLeadsDesc as string },
+    { id: 'launch_product',   icon: '🚀', label: sT?.goalLaunchProduct as string,   desc: sT?.goalLaunchProductDesc as string },
+    { id: 'drive_sales',      icon: '💰', label: sT?.goalDriveSales as string,       desc: sT?.goalDriveSalesDesc as string },
+    { id: 'build_brand',      icon: '✨', label: sT?.goalBuildBrand as string,       desc: sT?.goalBuildBrandDesc as string },
+    { id: 'retain_customers', icon: '🤝', label: sT?.goalRetainCustomers as string, desc: sT?.goalRetainCustomersDesc as string },
+  ]
+
+  const PLATFORMS = PLATFORMS_DATA.map(p => ({
+    ...p,
+    label: p.id === 'multi' ? sT?.platformMulti as string : p.label,
+  }))
+
+  const BUDGETS = [
+    { id: 'bootstrap', label: sT?.budgetBootstrap as string, desc: sT?.budgetBootstrapDesc as string },
+    { id: 'small',     label: sT?.budgetSmall as string,     desc: sT?.budgetSmallDesc as string },
+    { id: 'medium',    label: sT?.budgetMedium as string,    desc: sT?.budgetMediumDesc as string },
+    { id: 'growth',    label: sT?.budgetGrowth as string,    desc: sT?.budgetGrowthDesc as string },
+  ]
+
+  const TIMEFRAMES = [
+    { value: '30', label: sT?.time30 as string, sub: sT?.time30sub as string },
+    { value: '60', label: sT?.time60 as string, sub: sT?.time60sub as string },
+    { value: '90', label: sT?.time90 as string, sub: sT?.time90sub as string },
+  ]
+
+  const TABS = [
+    { id: 'overview',  label: sT?.tabOverview as string },
+    { id: 'calendar',  label: sT?.tabCalendar as string },
+    { id: 'tactics',   label: sT?.tabTactics as string },
+    { id: 'kpis',      label: sT?.tabKpis as string },
+  ]
+
+  const GEN_STEPS = [sT?.genStep1, sT?.genStep2, sT?.genStep3, sT?.genStep4]
+
+  // ── Guards ───────────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="min-h-screen bg-dark flex items-center justify-center">
@@ -64,6 +110,8 @@ export default function StrategyPage() {
     )
   }
   if (!isAuthenticated) return null
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
     if (!goal) return
@@ -81,35 +129,28 @@ export default function StrategyPage() {
         setStrategy(data.strategy)
         setStep('result')
       } else {
-        setError('فشل في توليد الاستراتيجية. حاول مرة أخرى.')
+        setError(sT?.errGenerate as string)
         setStep('setup')
       }
     } catch {
-      setError('حدث خطأ. تأكد من الاتصال وحاول مرة أخرى.')
+      setError(sT?.errNetwork as string)
       setStep('setup')
     }
   }
 
-  const TABS = [
-    { id: 'overview',  label: 'نظرة عامة' },
-    { id: 'calendar',  label: 'تقويم المحتوى' },
-    { id: 'tactics',   label: 'تكتيكات المنصات' },
-    { id: 'kpis',      label: 'مؤشرات الأداء' },
-  ]
-
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter" dir={dir}>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="mb-8">
           <div className="flex items-center gap-2 text-xs text-t3 mb-3">
             <span>Nexus</span>
             <span>/</span>
-            <span className="text-t2">الاستراتيجية</span>
+            <span className="text-t2">{sT?.breadcrumb as string}</span>
           </div>
-          <h1 className="text-3xl font-bold mb-1">مولّد الاستراتيجية بالـ AI</h1>
-          <p className="text-t2">خارطة طريق تسويقية لـ 30–90 يوماً، مبنية بالـ AI حول أهدافك.</p>
+          <h1 className="text-3xl font-bold mb-1">{sT?.title as string}</h1>
+          <p className="text-t2">{sT?.subtitle as string}</p>
         </div>
 
         {/* ── SETUP ──────────────────────────────────────────────────────── */}
@@ -124,7 +165,7 @@ export default function StrategyPage() {
 
             {/* Goal */}
             <div>
-              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">ما هو هدفك الرئيسي؟</h2>
+              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">{sT?.goalSection as string}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {GOALS.map(g => (
                   <button
@@ -146,24 +187,20 @@ export default function StrategyPage() {
 
             {/* Timeframe */}
             <div>
-              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">المدة الزمنية</h2>
+              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">{sT?.timeframeSection as string}</h2>
               <div className="flex gap-3">
-                {[
-                  { value: '30', label: '30 يوماً', sub: 'سريع' },
-                  { value: '60', label: '60 يوماً', sub: 'نمو'  },
-                  { value: '90', label: '90 يوماً', sub: 'توسع' },
-                ].map(t => (
+                {TIMEFRAMES.map(tf => (
                   <button
-                    key={t.value}
-                    onClick={() => setTimeframe(t.value)}
+                    key={tf.value}
+                    onClick={() => setTimeframe(tf.value)}
                     className={`flex-1 py-4 rounded-xl border text-center transition-all ${
-                      timeframe === t.value
+                      timeframe === tf.value
                         ? 'border-accent bg-accent/10'
                         : 'border-dark-tertiary bg-dark-secondary hover:border-accent/30'
                     }`}
                   >
-                    <div className="font-bold text-lg text-white">{t.label}</div>
-                    <div className="text-xs text-t3 mt-0.5">{t.sub}</div>
+                    <div className="font-bold text-lg text-white">{tf.label}</div>
+                    <div className="text-xs text-t3 mt-0.5">{tf.sub}</div>
                   </button>
                 ))}
               </div>
@@ -171,7 +208,7 @@ export default function StrategyPage() {
 
             {/* Platform */}
             <div>
-              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">المنصة الرئيسية</h2>
+              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">{sT?.platformSection as string}</h2>
               <div className="flex flex-wrap gap-2">
                 {PLATFORMS.map(p => (
                   <button
@@ -191,7 +228,7 @@ export default function StrategyPage() {
 
             {/* Budget */}
             <div>
-              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">مستوى الميزانية</h2>
+              <h2 className="text-sm font-semibold text-t2 mb-3 uppercase tracking-wider">{sT?.budgetSection as string}</h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {BUDGETS.map(b => (
                   <button
@@ -218,8 +255,8 @@ export default function StrategyPage() {
               style={{ boxShadow: goal ? '0 0 32px rgba(255,149,0,0.20)' : 'none' }}
             >
               {goal
-                ? `ولّد استراتيجية ${timeframe} يوماً ←`
-                : 'اختر هدفاً للمتابعة'}
+                ? (sT?.btnGenerate as string)?.replace('{days}', timeframe)
+                : sT?.btnChooseGoal as string}
             </button>
           </div>
         )}
@@ -232,17 +269,17 @@ export default function StrategyPage() {
               <div className="absolute inset-0 w-16 h-16 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
             <div className="text-center">
-              <h2 className="text-xl font-bold mb-2">جاري بناء الاستراتيجية...</h2>
-              <p className="text-t2 text-sm">تحليل علامتك والسوق وهدفك...<br />يستغرق حوالي 15 ثانية.</p>
+              <h2 className="text-xl font-bold mb-2">{sT?.generatingTitle as string}</h2>
+              <p className="text-t2 text-sm whitespace-pre-line">{sT?.generatingSubtitle as string}</p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 mt-4">
-              {['بحث السوق', 'تحديد ركائز المحتوى', 'بناء التقويم', 'تحديد مؤشرات الأداء'].map((s, i) => (
+              {GEN_STEPS.map((s, i) => (
                 <div
-                  key={s}
+                  key={i}
                   className="text-xs px-3 py-1.5 rounded-full border border-dark-tertiary text-t3 animate-pulse"
                   style={{ animationDelay: `${i * 0.3}s` }}
                 >
-                  {s}
+                  {s as string}
                 </div>
               ))}
             </div>
@@ -261,7 +298,7 @@ export default function StrategyPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">
-                    استراتيجية {strategy.timeframe}
+                    {(sT?.strategyLabel as string)?.replace('{timeframe}', strategy.timeframe)}
                   </div>
                   <h2 className="text-2xl font-bold text-white mb-2">{strategy.title}</h2>
                   <p className="text-t2 text-sm leading-relaxed">{strategy.summary}</p>
@@ -270,7 +307,7 @@ export default function StrategyPage() {
                   onClick={() => { setStep('setup'); setStrategy(null) }}
                   className="shrink-0 px-4 py-2 text-sm border border-dark-tertiary rounded-lg text-t2 hover:text-white hover:border-accent/30 transition-all"
                 >
-                  استراتيجية جديدة
+                  {sT?.btnNewStrategy as string}
                 </button>
               </div>
 
@@ -278,7 +315,7 @@ export default function StrategyPage() {
               {strategy.quickWins?.length > 0 && (
                 <div className="mt-5 pt-5 border-t border-accent/10">
                   <div className="text-xs font-bold uppercase tracking-wider text-t3 mb-3">
-                    ابدأ اليوم — أسرع نتائج
+                    {sT?.quickWinsTitle as string}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {strategy.quickWins.map((win, i) => (
@@ -315,7 +352,7 @@ export default function StrategyPage() {
 
                 {/* Content Pillars */}
                 <div className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5">
-                  <h3 className="font-bold mb-4 text-white">ركائز المحتوى</h3>
+                  <h3 className="font-bold mb-4 text-white">{sT?.pillarsTitle as string}</h3>
                   <div className="space-y-4">
                     {strategy.pillars?.map((pillar, i) => (
                       <div key={i}>
@@ -339,7 +376,7 @@ export default function StrategyPage() {
 
                 {/* Weekly Themes */}
                 <div className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5">
-                  <h3 className="font-bold mb-4 text-white">مواضيع الأسابيع</h3>
+                  <h3 className="font-bold mb-4 text-white">{sT?.weekThemesTitle as string}</h3>
                   <div className="space-y-3">
                     {strategy.themes?.map((theme, i) => (
                       <div key={i} className="p-3 rounded-lg bg-dark border border-dark-tertiary">
@@ -348,7 +385,7 @@ export default function StrategyPage() {
                             className="text-xs font-bold px-2 py-0.5 rounded-md"
                             style={{ background: `${PILLAR_COLORS[i % 5]}20`, color: PILLAR_COLORS[i % 5] }}
                           >
-                            الأسبوع {theme.week}
+                            {(sT?.weekLabel as string)?.replace('{n}', String(theme.week))}
                           </span>
                           <span className="text-sm font-semibold text-white">{theme.title}</span>
                         </div>
@@ -368,18 +405,18 @@ export default function StrategyPage() {
                 {/* Budget Strategy */}
                 {strategy.budget && (
                   <div className="md:col-span-2 rounded-xl border border-dark-tertiary bg-dark-secondary p-5">
-                    <h3 className="font-bold mb-4 text-white">استراتيجية الميزانية</h3>
+                    <h3 className="font-bold mb-4 text-white">{sT?.budgetTitle as string}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">عضوي</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">{sT?.budgetOrganic as string}</div>
                         <p className="text-sm text-t1">{strategy.budget.organic}</p>
                       </div>
                       <div>
-                        <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">مدفوع / تعزيز</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">{sT?.budgetPaid as string}</div>
                         <p className="text-sm text-t1">{strategy.budget.paid}</p>
                       </div>
                       <div>
-                        <div className="text-xs font-bold uppercase tracking-wider text-t2 mb-2">أدوات موصى بها</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-t2 mb-2">{sT?.budgetTools as string}</div>
                         <div className="space-y-1">
                           {strategy.budget.tools?.map((tool, i) => (
                             <div key={i} className="text-sm text-t1 flex items-center gap-1.5">
@@ -405,10 +442,12 @@ export default function StrategyPage() {
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-accent/15 text-accent">
-                          الأسبوع {week.week}
+                          {(sT?.weekLabel as string)?.replace('{n}', String(week.week))}
                         </span>
                         <span className="font-semibold text-white">{week.theme}</span>
-                        <span className="text-xs text-t3">{week.posts?.length} منشور</span>
+                        <span className="text-xs text-t3">
+                          {(sT?.weekPostCount as string)?.replace('{n}', String(week.posts?.length ?? 0))}
+                        </span>
                       </div>
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor"
                         strokeWidth="1.5" strokeLinecap="round"
@@ -438,7 +477,7 @@ export default function StrategyPage() {
                               href="/campaigns/new"
                               className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-accent/30 text-accent hover:bg-accent/10 transition-all"
                             >
-                              إنشاء ←
+                              {sT?.btnCreate as string}
                             </a>
                           </div>
                         ))}
@@ -465,9 +504,9 @@ export default function StrategyPage() {
                     </div>
                     <div className="space-y-2.5">
                       {[
-                        { label: 'التكرار',       value: tactic.frequency },
-                        { label: 'أفضل وقت',      value: tactic.bestTime },
-                        { label: 'نوع المحتوى',   value: tactic.contentType },
+                        { label: sT?.tacticFreq as string,        value: tactic.frequency },
+                        { label: sT?.tacticBestTime as string,    value: tactic.bestTime },
+                        { label: sT?.tacticContentType as string, value: tactic.contentType },
                       ].map(item => (
                         <div key={item.label} className="flex justify-between text-sm">
                           <span className="text-t3">{item.label}</span>
@@ -476,7 +515,7 @@ export default function StrategyPage() {
                       ))}
                     </div>
                     <div className="mt-4 pt-4 border-t border-dark-tertiary">
-                      <div className="text-xs text-t3 mb-1">نصيحة احترافية</div>
+                      <div className="text-xs text-t3 mb-1">{sT?.tacticTip as string}</div>
                       <p className="text-sm text-t1">{tactic.tip}</p>
                     </div>
                   </div>
@@ -495,7 +534,7 @@ export default function StrategyPage() {
                         className="text-xs font-bold px-2.5 py-1 rounded-lg"
                         style={{ background: `${PILLAR_COLORS[i % 5]}15`, color: PILLAR_COLORS[i % 5] }}
                       >
-                        الهدف
+                        {sT?.kpiTarget as string}
                       </div>
                     </div>
                     <div

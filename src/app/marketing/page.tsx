@@ -51,12 +51,14 @@ interface Alert {
 }
 
 interface Metric {
-  label: string
+  labelKey: string
   value: string
   change: number
   icon: any
   color: string
 }
+
+// ─── Demo data — content/messages are showcase data (exception) ───────────────
 
 const DEMO_CAMPAIGNS: Campaign[] = [
   {
@@ -200,18 +202,24 @@ const DEMO_ALERTS: Alert[] = [
   },
 ]
 
-const METRICS: Metric[] = [
-  { label: 'زوار اليوم', value: '١,٢٤٧', change: 23.5, icon: Users, color: '#06b6d4' },
-  { label: 'تسجيلات جديدة', value: '٤٣', change: 18.2, icon: Target, color: '#10b981' },
-  { label: 'معدل التحويل', value: '٣.٤٪', change: 0.8, icon: TrendingUp, color: '#f59e0b' },
-  { label: 'تكلفة التسجيل', value: '$٧.٨', change: -12.5, icon: Activity, color: '#8b5cf6' },
+// ─── Metric keys — labels resolved via i18n inside the component ──────────────
+
+const METRICS_DATA: Metric[] = [
+  { labelKey: 'metricVisitors',   value: '١,٢٤٧', change: 23.5,  icon: Users,      color: '#06b6d4' },
+  { labelKey: 'metricSignups',    value: '٤٣',     change: 18.2,  icon: Target,     color: '#10b981' },
+  { labelKey: 'metricConversion', value: '٣.٤٪',  change: 0.8,   icon: TrendingUp, color: '#f59e0b' },
+  { labelKey: 'metricCPA',        value: '$٧.٨',   change: -12.5, icon: Activity,   color: '#8b5cf6' },
 ]
 
+// ─── Sub-components — each calls useI18n to get localised badge text ──────────
+
 function StatusBadge({ status }: { status: Campaign['status'] }) {
+  const { t } = useI18n()
+  const mT = t('marketing')
   const styles = {
-    active: { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.15)', color: '#10b981', text: 'نشطة' },
-    paused: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.15)', color: '#f59e0b', text: 'متوقفة' },
-    completed: { bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.15)', color: '#06b6d4', text: 'مكتملة' },
+    active:    { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.15)',  color: '#10b981', text: mT?.statusActive as string },
+    paused:    { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.15)',  color: '#f59e0b', text: mT?.statusPaused as string },
+    completed: { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.15)',   color: '#06b6d4', text: mT?.statusCompleted as string },
   }
   const s = styles[status]
   return (
@@ -225,10 +233,12 @@ function StatusBadge({ status }: { status: Campaign['status'] }) {
 }
 
 function ContentStatusBadge({ status }: { status: ContentItem['status'] }) {
+  const { t } = useI18n()
+  const mT = t('marketing')
   const styles = {
-    generating: { bg: 'rgba(245,158,11,0.08)', color: '#f59e0b', text: 'يُنتج...' },
-    ready: { bg: 'rgba(139,92,246,0.08)', color: '#8b5cf6', text: 'جاهز' },
-    published: { bg: 'rgba(16,185,129,0.08)', color: '#10b981', text: 'منشور' },
+    generating: { bg: 'rgba(245,158,11,0.08)',  color: '#f59e0b', text: mT?.contentStatusGenerating as string },
+    ready:      { bg: 'rgba(139,92,246,0.08)',   color: '#8b5cf6', text: mT?.contentStatusReady as string },
+    published:  { bg: 'rgba(16,185,129,0.08)',   color: '#10b981', text: mT?.contentStatusPublished as string },
   }
   const s = styles[status]
   return (
@@ -242,20 +252,27 @@ function ContentStatusBadge({ status }: { status: ContentItem['status'] }) {
 }
 
 function AlertBadge({ severity }: { severity: Alert['severity'] }) {
+  const { t } = useI18n()
+  const mT = t('marketing')
   const styles = {
-    low: { bg: 'rgba(6,182,212,0.08)', color: '#06b6d4', icon: CheckCircle2 },
+    low:    { bg: 'rgba(6,182,212,0.08)',  color: '#06b6d4', icon: CheckCircle2 },
     medium: { bg: 'rgba(245,158,11,0.08)', color: '#f59e0b', icon: AlertCircle },
-    high: { bg: 'rgba(239,68,68,0.08)', color: '#ef4444', icon: AlertCircle },
+    high:   { bg: 'rgba(239,68,68,0.08)',  color: '#ef4444', icon: AlertCircle },
   }
   const s = styles[severity]
   const Icon = s.icon
+  const label = severity === 'high'
+    ? mT?.alertSeverityHigh as string
+    : severity === 'medium'
+      ? mT?.alertSeverityMedium as string
+      : mT?.alertSeverityLow as string
   return (
     <span
       className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1"
       style={{ background: s.bg, color: s.color }}
     >
       <Icon className="w-3 h-3" />
-      {severity === 'high' ? 'عالي' : severity === 'medium' ? 'متوسط' : 'منخفض'}
+      {label}
     </span>
   )
 }
@@ -300,20 +317,37 @@ function GlassCard({ children, className = '', accentColor, style = {} }: { chil
 
 export default function MarketingPage() {
   const { t, dir } = useI18n()
+  const mT = t('marketing')
+
   const [activeTab, setActiveTab] = useState<'campaigns' | 'content' | 'analytics' | 'sentinel'>('campaigns')
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null)
   const [animatedNumbers, setAnimatedNumbers] = useState(false)
 
   useEffect(() => {
-    const t = setTimeout(() => setAnimatedNumbers(true), 500)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setAnimatedNumbers(true), 500)
+    return () => clearTimeout(timer)
   }, [])
 
+  // ── Localised metric labels ─────────────────────────────────────────────────
+  const METRICS = METRICS_DATA.map(m => ({
+    ...m,
+    label: mT?.[m.labelKey as keyof typeof mT] as string ?? m.labelKey,
+  }))
+
+  // ── Agent cards data ────────────────────────────────────────────────────────
+  const agentCards = [
+    { name: 'NEX',      role: mT?.agentNexRole as string,      color: '#f59e0b', icon: Video,     status: mT?.agentNexStatus as string,      progress: 78  },
+    { name: 'VEX',      role: mT?.agentVexRole as string,      color: '#06b6d4', icon: Megaphone, status: mT?.agentVexStatus as string,      progress: 92  },
+    { name: 'PULSE',    role: mT?.agentPulseRole as string,    color: '#8b5cf6', icon: BarChart3,  status: mT?.agentPulseStatus as string,    progress: 65  },
+    { name: 'Sentinel', role: mT?.agentSentinelRole as string, color: '#ef4444', icon: Shield,    status: mT?.agentSentinelStatus as string,  progress: 100 },
+  ]
+
+  // ── Tabs ────────────────────────────────────────────────────────────────────
   const tabs = [
-    { id: 'campaigns' as const, label: 'الحملات النشطة', icon: Megaphone, color: '#06b6d4', count: DEMO_CAMPAIGNS.filter(c => c.status === 'active').length },
-    { id: 'content' as const, label: 'استوديو المحتوى', icon: Video, color: '#f59e0b', count: DEMO_CONTENT.length },
-    { id: 'analytics' as const, label: 'التحليلات', icon: BarChart3, color: '#8b5cf6', count: null },
-    { id: 'sentinel' as const, label: 'تنبيهات الحارس', icon: Shield, color: '#ef4444', count: DEMO_ALERTS.filter(a => a.severity === 'high').length },
+    { id: 'campaigns' as const, label: mT?.tabCampaigns as string, icon: Megaphone, color: '#06b6d4', count: DEMO_CAMPAIGNS.filter(c => c.status === 'active').length },
+    { id: 'content'   as const, label: mT?.tabContent as string,   icon: Video,     color: '#f59e0b', count: DEMO_CONTENT.length },
+    { id: 'analytics' as const, label: mT?.tabAnalytics as string, icon: BarChart3, color: '#8b5cf6', count: null },
+    { id: 'sentinel'  as const, label: mT?.tabSentinel as string,  icon: Shield,    color: '#ef4444', count: DEMO_ALERTS.filter(a => a.severity === 'high').length },
   ]
 
   return (
@@ -362,23 +396,18 @@ export default function MarketingPage() {
           </div>
           <h1 className="text-display mb-3">
             NEXUS AI
-            <span className="gradient-text"> يسوّق نفسه</span>
+            <span className="gradient-text"> {mT?.headerTitle as string}</span>
           </h1>
           <p className="text-text-secondary text-sm max-w-2xl mx-auto leading-relaxed">
-            شاهد كيف يستخدم NEXUS AI وكلاءه الأربعة لتسويق نفسه — في الوقت الفعلي.
+            {mT?.headerSubtitle as string}
             <br />
-            NEX يُنتج المحتوى. VEX يُدير الإعلانات. PULSE يُحلل. Sentinel يُراقب.
+            {mT?.headerSubtitle2 as string}
           </p>
         </div>
 
         {/* ═══ AGENTS WORKING ═══════════════════════════════ */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 page-enter">
-          {[
-            { name: 'NEX', role: 'يُنتج المحتوى', color: '#f59e0b', icon: Video, status: 'يُنتج فيديو...', progress: 78 },
-            { name: 'VEX', role: 'يُدير الإعلانات', color: '#06b6d4', icon: Megaphone, status: 'يُحسّن الحملة', progress: 92 },
-            { name: 'PULSE', role: 'يُحلل البيانات', color: '#8b5cf6', icon: BarChart3, status: 'تحديث لوحة التحليلات', progress: 65 },
-            { name: 'Sentinel', role: 'يُراقب السوق', color: '#ef4444', icon: Shield, status: '٥ تنبيهات جديدة', progress: 100 },
-          ].map((agent, i) => (
+          {agentCards.map((agent, i) => (
             <GlassCard key={agent.name} className="p-5" accentColor={agent.color}
               style={{ animationDelay: `${i * 100}ms` }}
             >
@@ -417,7 +446,7 @@ export default function MarketingPage() {
         {/* ═══ KPI CARDS ════════════════════════════════════ */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 page-enter">
           {METRICS.map((metric, i) => (
-            <GlassCard key={metric.label} className="p-5" style={{ animationDelay: `${i * 100}ms` }}>
+            <GlassCard key={metric.labelKey} className="p-5" style={{ animationDelay: `${i * 100}ms` }}>
               <div className="flex items-center justify-between mb-3">
                 <div
                   className="w-9 h-9 rounded-lg flex items-center justify-center"
@@ -481,12 +510,14 @@ export default function MarketingPage() {
                     <Megaphone className="w-5 h-5 text-cyan-400" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold">الحملات النشطة</h2>
-                    <p className="text-xs text-text-muted">VEX يُدير {DEMO_CAMPAIGNS.length} حملات على ٣ منصات</p>
+                    <h2 className="text-lg font-bold">{mT?.campaignsSectionTitle as string}</h2>
+                    <p className="text-xs text-text-muted">
+                      {(mT?.campaignsSectionDesc as string)?.replace('{n}', String(DEMO_CAMPAIGNS.length))}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-text-muted">الميزانية الإجمالية</div>
+                  <div className="text-sm text-text-muted">{mT?.totalBudgetLabel as string}</div>
                   <div className="text-xl font-bold text-cyan-400">$١,٠٠٠/شهر</div>
                 </div>
               </div>
@@ -509,22 +540,22 @@ export default function MarketingPage() {
                           <StatusBadge status={campaign.status} />
                         </div>
                         <div className="text-xs text-text-muted">
-                          آخر تحسين: {campaign.lastOptimized}
+                          {mT?.lastOptimizedLabel as string} {campaign.lastOptimized}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-4 gap-4 text-center">
                         <div>
                           <div className="text-sm font-bold text-text-primary">{campaign.impressions.toLocaleString('ar-SA')}</div>
-                          <div className="text-[10px] text-text-muted">انطباعات</div>
+                          <div className="text-[10px] text-text-muted">{mT?.impressionsLabel as string}</div>
                         </div>
                         <div>
                           <div className="text-sm font-bold text-text-primary">{campaign.clicks.toLocaleString('ar-SA')}</div>
-                          <div className="text-[10px] text-text-muted">نقرات</div>
+                          <div className="text-[10px] text-text-muted">{mT?.clicksLabel as string}</div>
                         </div>
                         <div>
                           <div className="text-sm font-bold text-emerald-400">{campaign.conversions}</div>
-                          <div className="text-[10px] text-text-muted">تحويلات</div>
+                          <div className="text-[10px] text-text-muted">{mT?.conversionsLabel as string}</div>
                         </div>
                         <div>
                           <div className="text-sm font-bold text-amber">${campaign.cpa}</div>
@@ -535,7 +566,7 @@ export default function MarketingPage() {
 
                     <div className="mt-3">
                       <div className="flex items-center justify-between text-xs text-text-muted mb-1">
-                        <span>الميزانية: ${campaign.spent.toFixed(2)} / ${campaign.budget}</span>
+                        <span>{mT?.budgetSpentLabel as string} ${campaign.spent.toFixed(2)} / ${campaign.budget}</span>
                         <span>{Math.round((campaign.spent / campaign.budget) * 100)}%</span>
                       </div>
                       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -566,8 +597,8 @@ export default function MarketingPage() {
                   <Video className="w-5 h-5 text-amber" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold">استوديو المحتوى</h2>
-                  <p className="text-xs text-text-muted">NEX يُنتج المحتوى التسويقي لـ NEXUS AI</p>
+                  <h2 className="text-lg font-bold">{mT?.contentSectionTitle as string}</h2>
+                  <p className="text-xs text-text-muted">{mT?.contentSectionDesc as string}</p>
                 </div>
               </div>
 
@@ -583,10 +614,10 @@ export default function MarketingPage() {
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5">
-                        {content.type === 'video' && <Video className="w-5 h-5 text-amber" />}
-                        {content.type === 'ad_copy' && <FileText className="w-5 h-5 text-cyan-400" />}
+                        {content.type === 'video'       && <Video         className="w-5 h-5 text-amber" />}
+                        {content.type === 'ad_copy'     && <FileText      className="w-5 h-5 text-cyan-400" />}
                         {content.type === 'social_post' && <MessageSquare className="w-5 h-5 text-violet-400" />}
-                        {content.type === 'script' && <FileText className="w-5 h-5 text-emerald-400" />}
+                        {content.type === 'script'      && <FileText      className="w-5 h-5 text-emerald-400" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
@@ -601,10 +632,10 @@ export default function MarketingPage() {
                           {content.metrics && (
                             <>
                               <span className="flex items-center gap-1">
-                                <Eye className="w-3 h-3" /> {content.metrics.views?.toLocaleString('ar-SA')} مشاهدة
+                                <Eye className="w-3 h-3" /> {content.metrics.views?.toLocaleString('ar-SA')} {mT?.viewsLabel as string}
                               </span>
                               <span className="flex items-center gap-1">
-                                <TrendingUp className="w-3 h-3" /> {content.metrics.engagement}% تفاعل
+                                <TrendingUp className="w-3 h-3" /> {content.metrics.engagement}{mT?.engagementLabel as string}
                               </span>
                             </>
                           )}
@@ -627,17 +658,17 @@ export default function MarketingPage() {
                   <BarChart3 className="w-5 h-5 text-violet-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold">التحليلات</h2>
-                  <p className="text-xs text-text-muted">PULSE يحلل الأداء ويقدم توصيات</p>
+                  <h2 className="text-lg font-bold">{mT?.analyticsSectionTitle as string}</h2>
+                  <p className="text-xs text-text-muted">{mT?.analyticsSectionDesc as string}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {[
-                  { label: 'زوار الموقع', current: '١,٢٤٧', target: '٥,٠٠٠', pct: 24.9, color: '#06b6d4' },
-                  { label: 'معدل التحويل', current: '٣.٤٪', target: '٥٪', pct: 68, color: '#10b981' },
-                  { label: 'تكلفة التسجيل', current: '$٧.٨', target: '$٥', pct: 64, color: '#f59e0b', inverse: true },
-                  { label: 'معدل الارتداد', current: '٤٥٪', target: '٣٥٪', pct: 77.7, color: '#ef4444', inverse: true },
+                  { label: 'زوار الموقع',    current: '١,٢٤٧', target: '٥,٠٠٠', pct: 24.9, color: '#06b6d4' },
+                  { label: 'معدل التحويل',   current: '٣.٤٪',  target: '٥٪',    pct: 68,   color: '#10b981' },
+                  { label: 'تكلفة التسجيل', current: '$٧.٨',   target: '$٥',    pct: 64,   color: '#f59e0b', inverse: true },
+                  { label: 'معدل الارتداد',  current: '٤٥٪',   target: '٣٥٪',   pct: 77.7, color: '#ef4444', inverse: true },
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -649,7 +680,7 @@ export default function MarketingPage() {
                   >
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm text-text-secondary">{item.label}</span>
-                      <span className="text-xs text-text-muted">الهدف: {item.target}</span>
+                      <span className="text-xs text-text-muted">{mT?.targetLabel as string} {item.target}</span>
                     </div>
                     <div className="text-2xl font-bold text-text-primary mb-2">{item.current}</div>
                     <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -657,14 +688,12 @@ export default function MarketingPage() {
                         className="h-full rounded-full transition-all duration-1000"
                         style={{
                           width: animatedNumbers ? `${item.pct}%` : '0%',
-                          background: item.inverse
-                            ? `linear-gradient(90deg, ${item.color}, ${item.color}80)`
-                            : `linear-gradient(90deg, ${item.color}, ${item.color}80)`,
+                          background: `linear-gradient(90deg, ${item.color}, ${item.color}80)`,
                         }}
                       />
                     </div>
                     <div className="text-[11px] text-text-muted mt-1 text-left">
-                      {item.inverse ? 'أقل أفضل' : 'أعلى أفضل'} · {Math.round(item.pct)}% من الهدف
+                      {item.inverse ? mT?.betterLower as string : mT?.betterHigher as string} · {Math.round(item.pct)}% {mT?.ofTarget as string}
                     </div>
                   </div>
                 ))}
@@ -673,7 +702,7 @@ export default function MarketingPage() {
               <div className="p-4 rounded-xl" style={{ background: 'rgba(139,92,246,0.03)', border: '1px solid rgba(139,92,246,0.1)' }}>
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4 text-violet-400" />
-                  <span className="text-sm font-bold text-violet-400">توصيات PULSE الذكية</span>
+                  <span className="text-sm font-bold text-violet-400">{mT?.pulseRecsTitle as string}</span>
                 </div>
                 <div className="space-y-2">
                   {[
@@ -702,8 +731,8 @@ export default function MarketingPage() {
                   <Shield className="w-5 h-5 text-red-400" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold">تنبيهات الحارس</h2>
-                  <p className="text-xs text-text-muted">Sentinel يراقب المنافسين ويُنبّهك بالفرص والتهديدات</p>
+                  <h2 className="text-lg font-bold">{mT?.sentinelSectionTitle as string}</h2>
+                  <p className="text-xs text-text-muted">{mT?.sentinelSectionDesc as string}</p>
                 </div>
               </div>
 
@@ -739,7 +768,7 @@ export default function MarketingPage() {
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <Bot className="w-4 h-4 text-amber" />
-                            <span className="text-xs font-bold text-amber">رد مقترح من Sentinel</span>
+                            <span className="text-xs font-bold text-amber">{mT?.suggestedResponse as string}</span>
                           </div>
                           <p className="text-text-secondary">
                             {alert.type === 'competitor' && 'ردّ بعرض "Starter مجاني مدى الحياة" لأول ١٠٠ مستخدم. أو أطلق حملة "أسعارنا لا تتغير — ثبات هو القوة".'}
@@ -761,20 +790,20 @@ export default function MarketingPage() {
         <div className="mt-12 text-center page-enter">
           <GlassCard className="p-8 max-w-2xl mx-auto" accentColor="#f59e0b">
             <Sparkles className="w-8 h-8 text-amber mx-auto mb-4" />
-            <h2 className="text-headline mb-3">هل تريد فريقاً مثل هذا لعلامتك؟</h2>
+            <h2 className="text-headline mb-3">{mT?.ctaTitle as string}</h2>
             <p className="text-text-secondary text-sm mb-6 leading-relaxed">
-              NEXUS AI لا يسوّق نفسه فقط — بل يُقدم لك نفس الأدوات لنمو علامتك التجارية.
+              {mT?.ctaSubtitle as string}
               <br />
-              ٤ وكلاء. هدف واحد: نجاحك.
+              {mT?.ctaSubtitle2 as string}
             </p>
             <a
               href="/auth/register"
               className="btn-primary inline-flex items-center gap-2 text-base py-3 px-8"
             >
               <Zap className="w-5 h-5" />
-              ابدأ مجاناً — شغّل فريقك
+              {mT?.ctaBtn as string}
             </a>
-            <p className="text-text-muted text-xs mt-4">لا حاجة لبطاقة ائتمان · تجربة Starter مجانية</p>
+            <p className="text-text-muted text-xs mt-4">{mT?.ctaNote as string}</p>
           </GlassCard>
         </div>
       </div>

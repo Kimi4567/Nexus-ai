@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState, useMemo } from 'react'
 import AppShell from '@/components/AppShell'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n-context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,6 +153,8 @@ function extractPostsFromCampaign(campaign: any, colorIndex: number): CalendarPo
 
 export default function CalendarPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { t } = useI18n()
+  const calT = t('calendar')
   const [campaigns, setCampaigns]     = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(true)
 
@@ -356,10 +359,10 @@ export default function CalendarPage() {
                 {selectedDayPosts.length === 0 ? (
                   <div className="text-center py-6">
                     <div className="text-2xl mb-2">📅</div>
-                    <p className="text-sm text-gray-500">لا يوجد محتوى مجدول لهذا اليوم.</p>
+                    <p className="text-sm text-gray-500">{calT?.emptyDay as string}</p>
                     <Link href="/campaigns/new"
                       className="inline-block mt-3 text-xs text-accent hover:underline">
-                      إنشاء حملة →
+                      {calT?.btnNewCampaign as string}
                     </Link>
                   </div>
                 ) : (
@@ -453,9 +456,9 @@ export default function CalendarPage() {
 
             {/* Platform breakdown */}
             <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-5">
-              <h3 className="font-bold text-white mb-4 text-sm">توزيع المنصات</h3>
+              <h3 className="font-bold text-white mb-4 text-sm">{calT?.platformBreakdown as string}</h3>
               {monthPosts.length === 0 ? (
-                <p className="text-sm text-gray-500">لا يوجد محتوى مجدول هذا الشهر.</p>
+                <p className="text-sm text-gray-500">{calT?.emptyMonth as string}</p>
               ) : (
                 <div className="space-y-3">
                   {Object.entries(platformBreakdown)
@@ -490,20 +493,20 @@ export default function CalendarPage() {
             <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm">⚡</span>
-                <div className="text-xs font-bold uppercase tracking-wider text-amber-400">PULSE — إدارة الحملات</div>
+                <div className="text-xs font-bold uppercase tracking-wider text-amber-400">{calT?.pulseLabel as string}</div>
               </div>
               <p className="text-sm text-gray-300 leading-relaxed">
                 {monthPosts.length === 0
-                  ? 'لا يوجد محتوى مجدول بعد. أنشئ أول حملة وسيبني PULSE تقويم المحتوى الكامل.'
+                  ? calT?.pulseEmpty as string
                   : monthPosts.length < 12
-                    ? `${monthPosts.length} منشور مخطط هذا الشهر. العلامات التجارية القوية تنشر 20–30 مرة شهرياً. أنشئ حملة أخرى لملء الفراغات.`
-                    : `خط إنتاج قوي — ${monthPosts.length} منشور عبر ${stats.platforms} منصة. استمر في تشغيل الحملات لتحقيق أقصى وصول.`
+                    ? (calT?.pulseLow as string)?.replace('{count}', String(monthPosts.length))
+                    : (calT?.pulseGood as string)?.replace('{count}', String(monthPosts.length))?.replace('{platforms}', String(stats.platforms))
                 }
               </p>
               {campaigns.length === 0 && (
                 <Link href="/campaigns/new"
                   className="inline-flex items-center gap-1 mt-3 text-xs text-amber-400 hover:underline font-medium">
-                  إنشاء حملة →
+                  {calT?.btnCreateCampaign as string}
                 </Link>
               )}
             </div>

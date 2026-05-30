@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/lib/i18n-context";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -122,6 +123,8 @@ function getQuickReplies(path: string): string[] {
 /* ------------------------------------------------------------------ */
 
 export default memo(function ChatWidget() {
+  const { t } = useI18n()
+  const cwT = t('chatWidget')
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -269,8 +272,8 @@ export default memo(function ChatWidget() {
               <Sparkles className="w-5 h-5 text-amber-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-white truncate">مساعد NEXUS AI</p>
-              <p className="text-[11px] text-emerald-400">● متصل الآن</p>
+              <p className="text-sm font-bold text-white truncate">{cwT?.title as string}</p>
+              <p className="text-[11px] text-emerald-400">{cwT?.online as string}</p>
             </div>
             <button
               onClick={() => setOpen(false)}
@@ -359,7 +362,7 @@ export default memo(function ChatWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="اكتب سؤالك هنا..."
+              placeholder={cwT?.placeholder as string}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm text-white placeholder-white/30 outline-none"
               style={{
                 background: "rgba(255,255,255,0.04)",
