@@ -23,13 +23,10 @@ interface ConnectedAccount {
   connectedAt: string
 }
 
-interface Platform {
+interface PlatformDef {
   id: string
-  name: string
-  nameAr: string
-  nameEn: string
-  descAr: string
-  descEn: string
+  nameKey: string    // t() key for platform name
+  descKey: string    // t() key for description
   icon: React.ReactNode
   color: string
   gradient: string
@@ -38,14 +35,11 @@ interface Platform {
   featuresEn: string[]
 }
 
-const PLATFORMS: Platform[] = [
+const PLATFORMS: PlatformDef[] = [
   {
     id: 'META',
-    name: 'Meta',
-    nameAr: 'Meta (فيسبوك + إنستجرام)',
-    nameEn: 'Meta (Facebook + Instagram)',
-    descAr: 'انشر وجدوِل على فيسبوك وإنستجرام مباشرةً. حلّل الأداء وأدِر الإعلانات.',
-    descEn: 'Publish and schedule on Facebook and Instagram directly. Analyze performance and manage ads.',
+    nameKey: 'connections.platformMetaName',
+    descKey: 'connections.platformMetaDesc',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <path d="M18 3C9.716 3 3 9.716 3 18s6.716 15 15 15 15-6.716 15-15S26.284 3 18 3z" fill="#1877F2" />
@@ -60,11 +54,8 @@ const PLATFORMS: Platform[] = [
   },
   {
     id: 'TIKTOK',
-    name: 'TikTok',
-    nameAr: 'TikTok',
-    nameEn: 'TikTok',
-    descAr: 'انشر فيديوهاتك القصيرة واستهدف الجمهور الشاب في السعودية والخليج.',
-    descEn: 'Publish your short videos and target young audiences in Saudi Arabia and the Gulf.',
+    nameKey: 'connections.platformTikTokName',
+    descKey: 'connections.platformTikTokDesc',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#000" />
@@ -81,11 +72,8 @@ const PLATFORMS: Platform[] = [
   },
   {
     id: 'SNAPCHAT',
-    name: 'Snapchat',
-    nameAr: 'Snapchat',
-    nameEn: 'Snapchat',
-    descAr: 'أوسع جمهور شبابي في المملكة. ربط إعلانات سناب وإدارة المحتوى.',
-    descEn: 'Largest youth audience in Saudi Arabia. Connect Snapchat Ads and manage content.',
+    nameKey: 'connections.platformSnapchatName',
+    descKey: 'connections.platformSnapchatDesc',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#FFFC00" />
@@ -100,11 +88,8 @@ const PLATFORMS: Platform[] = [
   },
   {
     id: 'GOOGLE',
-    name: 'Google Ads',
-    nameAr: 'Google Ads',
-    nameEn: 'Google Ads',
-    descAr: 'إعلانات البحث ويوتيوب. ادمج بيانات Google Ads مع تقاريرك في Nexus.',
-    descEn: 'Search and YouTube ads. Integrate Google Ads data with your Nexus reports.',
+    nameKey: 'connections.platformGoogleName',
+    descKey: 'connections.platformGoogleDesc',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#fff" />
@@ -122,11 +107,8 @@ const PLATFORMS: Platform[] = [
   },
   {
     id: 'TWITTER',
-    name: 'X (Twitter)',
-    nameAr: 'X (تويتر)',
-    nameEn: 'X (Twitter)',
-    descAr: 'جدوِل تغريداتك واستهدف جمهور الأعمال العربي على منصة X.',
-    descEn: 'Schedule your tweets and target Arabic business audiences on X.',
+    nameKey: 'connections.platformTwitterName',
+    descKey: 'connections.platformTwitterDesc',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#000" />
@@ -143,7 +125,7 @@ const PLATFORMS: Platform[] = [
 
 export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
@@ -172,19 +154,27 @@ export default function ConnectionsPage() {
     const social = params.get('social')
     const platform = params.get('platform')
     if (social === 'connected') {
-      setMessage({ type: 'success', text: `✓ تم ربط ${platform === 'meta' ? 'Meta (Facebook/Instagram)' : platform} بنجاح!` })
+      const platformName = platform === 'meta' ? 'Meta (Facebook/Instagram)' : (platform || '')
+      setMessage({
+        type: 'success',
+        text: (t('connections.successConnect') as string).replace('{platform}', platformName),
+      })
       window.history.replaceState({}, '', '/connections')
       setTimeout(() => setMessage(null), 5000)
     } else if (social === 'error') {
-      const msg = params.get('msg') || 'خطأ غير معروف'
-      setMessage({ type: 'error', text: `فشل الربط: ${msg}` })
+      const msg = params.get('msg') || t('connections.errorUnknown') as string
+      setMessage({
+        type: 'error',
+        text: (t('connections.errorConnect') as string).replace('{msg}', msg),
+      })
       window.history.replaceState({}, '', '/connections')
       setTimeout(() => setMessage(null), 8000)
     } else if (social === 'denied') {
-      setMessage({ type: 'error', text: 'تم إلغاء الربط من قِبَلك.' })
+      setMessage({ type: 'error', text: t('connections.errorDenied') as string })
       window.history.replaceState({}, '', '/connections')
       setTimeout(() => setMessage(null), 4000)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -202,11 +192,11 @@ export default function ConnectionsPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        setMessage({ type: 'error', text: data.error || 'فشل بدء الربط' })
+        setMessage({ type: 'error', text: data.error || t('connections.errorStart') as string })
         setConnecting(null)
       }
     } catch {
-      setMessage({ type: 'error', text: 'فشل الاتصال. تحقق من الإعدادات.' })
+      setMessage({ type: 'error', text: t('connections.errorConnection') as string })
       setConnecting(null)
     }
   }
@@ -220,10 +210,10 @@ export default function ConnectionsPage() {
         body: JSON.stringify({ integrationId }),
       })
       setAccounts(prev => prev.filter(a => a.id !== integrationId))
-      setMessage({ type: 'success', text: 'تم قطع الاتصال بنجاح.' })
+      setMessage({ type: 'success', text: t('connections.successDisconnect') as string })
       setTimeout(() => setMessage(null), 3000)
     } catch {
-      setMessage({ type: 'error', text: 'فشل قطع الاتصال.' })
+      setMessage({ type: 'error', text: t('connections.errorDisconnect') as string })
     } finally {
       setDisconnecting(null)
     }
@@ -252,12 +242,8 @@ export default function ConnectionsPage() {
           </div>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{locale === 'ar' ? 'ربط المنصات' : 'Connect Platforms'}</h1>
-              <p className="text-gray-400 text-sm max-w-lg">
-                {locale === 'ar'
-                  ? 'اربط حساباتك على وسائل التواصل الاجتماعي لكي يتمكن Nexus من النشر والجدولة وتحليل الأداء تلقائياً.'
-                  : 'Connect your social media accounts so Nexus can publish, schedule and analyze performance automatically.'}
-              </p>
+              <h1 className="text-3xl font-bold mb-2">{t('connections.title')}</h1>
+              <p className="text-gray-400 text-sm max-w-lg">{t('connections.subtitle')}</p>
             </div>
             <button
               onClick={fetchAccounts}
@@ -289,12 +275,8 @@ export default function ConnectionsPage() {
         <div
           className="flex items-center gap-5 p-5 mb-8 rounded-2xl"
           style={{
-            background: connectedCount > 0
-              ? 'rgba(16,185,129,0.04)'
-              : 'rgba(245,158,11,0.04)',
-            border: connectedCount > 0
-              ? '1px solid rgba(16,185,129,0.15)'
-              : '1px solid rgba(245,158,11,0.15)',
+            background: connectedCount > 0 ? 'rgba(16,185,129,0.04)' : 'rgba(245,158,11,0.04)',
+            border: connectedCount > 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(245,158,11,0.15)',
           }}
         >
           <div
@@ -309,17 +291,17 @@ export default function ConnectionsPage() {
           <div className="flex-1">
             {connectedCount === 0 ? (
               <>
-                <p className="font-bold text-amber-400 mb-0.5">{locale === 'ar' ? 'لم تربط أي منصة حتى الآن' : 'No platforms connected yet'}</p>
-                <p className="text-sm text-gray-400">{locale === 'ar' ? 'ابدأ بربط Meta لتفعيل النشر التلقائي على فيسبوك وإنستجرام.' : 'Start with Meta to enable auto-publishing on Facebook and Instagram.'}</p>
+                <p className="font-bold text-amber-400 mb-0.5">{t('connections.noneConnected')}</p>
+                <p className="text-sm text-gray-400">{t('connections.noneConnectedDesc')}</p>
               </>
             ) : (
               <>
                 <p className="font-bold text-emerald-400 mb-0.5">
-                  {locale === 'ar'
-                    ? (connectedCount === 1 ? 'منصة واحدة مربوطة' : `${connectedCount} منصات مربوطة`) + ' ✓'
-                    : `${connectedCount} platform${connectedCount > 1 ? 's' : ''} connected ✓`}
+                  {connectedCount === 1
+                    ? t('connections.platform1Connected')
+                    : `${connectedCount} ${t('connections.platformNConnected')}`}
                 </p>
-                <p className="text-sm text-gray-400">{locale === 'ar' ? 'يمكنك ربط المزيد من المنصات لتوسيع نطاق حملاتك.' : 'You can connect more platforms to expand your campaign reach.'}</p>
+                <p className="text-sm text-gray-400">{t('connections.expandDesc')}</p>
               </>
             )}
           </div>
@@ -331,8 +313,8 @@ export default function ConnectionsPage() {
               style={{ background: 'linear-gradient(135deg, #1877F2, #4c9fff)', color: '#fff' }}
             >
               {connecting === 'META'
-                ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{locale === 'ar' ? 'جارٍ الربط...' : 'Connecting...'}</span>
-                : (locale === 'ar' ? 'ابدأ بـ Meta' : 'Start with Meta')}
+                ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{t('connections.connecting')}</span>
+                : t('connections.startWithMeta')}
             </button>
           )}
         </div>
@@ -350,12 +332,8 @@ export default function ConnectionsPage() {
                 key={platform.id}
                 className="rounded-2xl overflow-hidden transition-all"
                 style={{
-                  background: isConnected
-                    ? 'rgba(16,185,129,0.03)'
-                    : 'rgba(255,255,255,0.02)',
-                  border: isConnected
-                    ? '1px solid rgba(16,185,129,0.15)'
-                    : '1px solid rgba(255,255,255,0.06)',
+                  background: isConnected ? 'rgba(16,185,129,0.03)' : 'rgba(255,255,255,0.02)',
+                  border: isConnected ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 <div className="p-6 flex items-start gap-5">
@@ -373,22 +351,22 @@ export default function ConnectionsPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
-                      <h3 className="text-lg font-bold">{locale === 'ar' ? platform.nameAr : platform.nameEn}</h3>
+                      <h3 className="text-lg font-bold">{t(platform.nameKey)}</h3>
                       {isConnected ? (
                         <span className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          {locale === 'ar' ? 'متصل' : 'Connected'}
+                          {t('connections.connected')}
                         </span>
                       ) : !platform.available ? (
                         <span className="text-xs px-3 py-1 rounded-full font-semibold bg-white/5 text-gray-500 border border-white/8">
-                          {locale === 'ar' ? 'قريباً' : 'Coming soon'}
+                          {t('connections.comingSoon')}
                         </span>
                       ) : null}
                     </div>
 
-                    <p className="text-sm text-gray-400 mb-3">{locale === 'ar' ? platform.descAr : platform.descEn}</p>
+                    <p className="text-sm text-gray-400 mb-3">{t(platform.descKey)}</p>
 
-                    {/* Features */}
+                    {/* Features — content data, locale ternary is acceptable */}
                     <div className="flex flex-wrap gap-2 mb-4">
                       {(locale === 'ar' ? platform.featuresAr : platform.featuresEn).map(f => (
                         <span
@@ -411,24 +389,24 @@ export default function ConnectionsPage() {
                         className="p-3 rounded-xl mb-4"
                         style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.1)' }}
                       >
-                        <p className="text-xs text-gray-400 mb-1">{locale === 'ar' ? 'الحساب المربوط' : 'Connected account'}</p>
+                        <p className="text-xs text-gray-400 mb-1">{t('connections.connectedAccount')}</p>
                         <p className="font-semibold text-sm text-emerald-300">{connectedAccount.accountName}</p>
                         {connectedAccount.pages?.length > 0 && (
                           <div className="mt-2 space-y-1">
-                            <p className="text-xs text-gray-500">{locale === 'ar' ? 'الصفحات والحسابات:' : 'Pages & accounts:'}</p>
+                            <p className="text-xs text-gray-500">{t('connections.pagesAndAccounts')}</p>
                             {connectedAccount.pages.map(page => (
                               <div key={page.id} className="flex items-center gap-2 text-xs text-gray-400">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 <span>{page.name}</span>
                                 {page.igAccountId && (
-                                  <span className="text-pink-400 text-[10px]">+ إنستجرام</span>
+                                  <span className="text-pink-400 text-[10px]">{t('connections.instagram')}</span>
                                 )}
                               </div>
                             ))}
                           </div>
                         )}
                         <p className="text-[10px] text-gray-600 mt-2">
-                          {locale === 'ar' ? 'تاريخ الربط:' : 'Connected:'} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
+                          {t('connections.connectedDate')} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
                         </p>
                       </div>
                     )}
@@ -448,8 +426,8 @@ export default function ConnectionsPage() {
                             }}
                           >
                             {isConnecting
-                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{locale === 'ar' ? 'جارٍ التحديث...' : 'Refreshing...'}</>
-                              : <><RefreshCw className="w-3.5 h-3.5" />{locale === 'ar' ? 'تجديد الربط' : 'Refresh'}</>}
+                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t('connections.refreshing')}</>
+                              : <><RefreshCw className="w-3.5 h-3.5" />{t('connections.refreshConnection')}</>}
                           </button>
                           <button
                             onClick={() => handleDisconnect(connectedAccount!.id)}
@@ -458,8 +436,8 @@ export default function ConnectionsPage() {
                             style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}
                           >
                             {isDisconnecting
-                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{locale === 'ar' ? 'جارٍ الفصل...' : 'Disconnecting...'}</>
-                              : <><Unplug className="w-3.5 h-3.5" />{locale === 'ar' ? 'فصل الحساب' : 'Disconnect'}</>}
+                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t('connections.disconnecting')}</>
+                              : <><Unplug className="w-3.5 h-3.5" />{t('connections.disconnectAccount')}</>}
                           </button>
                         </>
                       ) : platform.available ? (
@@ -470,13 +448,13 @@ export default function ConnectionsPage() {
                           style={{ background: `linear-gradient(135deg, ${platform.color}, ${platform.color}aa)` }}
                         >
                           {isConnecting
-                            ? <><Loader2 className="w-4 h-4 animate-spin" />{locale === 'ar' ? 'جارٍ الربط...' : 'Connecting...'}</>
-                            : <><Plug className="w-4 h-4" />{locale === 'ar' ? 'ربط الحساب' : 'Connect account'}</>}
+                            ? <><Loader2 className="w-4 h-4 animate-spin" />{t('connections.connecting')}</>
+                            : <><Plug className="w-4 h-4" />{t('connections.connectAccount')}</>}
                         </button>
                       ) : (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Zap className="w-4 h-4" />
-                          <span>{locale === 'ar' ? 'سيكون متاحاً قريباً — نعمل عليه' : 'Coming soon — we\'re working on it'}</span>
+                          <span>{t('connections.comingSoonLong')}</span>
                         </div>
                       )}
                     </div>
@@ -494,21 +472,17 @@ export default function ConnectionsPage() {
         >
           <Shield className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold mb-1">{locale === 'ar' ? 'أمان بياناتك أولويتنا' : 'Your data security is our priority'}</p>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              {locale === 'ar'
-                ? 'Nexus لا يحتفظ بكلمات المرور. نستخدم OAuth 2.0 الرسمي لكل منصة — وهو نفس الأسلوب الذي تستخدمه كبرى التطبيقات. يمكنك فصل أي حساب في أي وقت وسيتم حذف رمز الوصول فوراً.'
-                : 'Nexus never stores passwords. We use official OAuth 2.0 for each platform — the same method used by leading apps. You can disconnect any account at any time and the access token will be deleted immediately.'}
-            </p>
+            <p className="text-sm font-semibold mb-1">{t('connections.securityTitle')}</p>
+            <p className="text-xs text-gray-500 leading-relaxed">{t('connections.securityDesc')}</p>
           </div>
         </div>
 
         {/* ── Help CTA ───────────────────────────────────────── */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-600">
-            {locale === 'ar' ? 'تواجه مشكلة في الربط؟' : 'Having trouble connecting?'}{' '}
+            {t('connections.helpText')}{' '}
             <a href="mailto:support@nexus-grow.com" className="text-amber-500 hover:text-amber-400 transition">
-              {locale === 'ar' ? 'تواصل معنا' : 'Contact us'}
+              {t('connections.contactUs')}
             </a>
           </p>
         </div>

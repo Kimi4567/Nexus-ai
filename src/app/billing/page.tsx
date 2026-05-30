@@ -63,12 +63,10 @@ export default function BillingPage() {
     if (!isAuthenticated) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('success') === 'true') {
-      setNotice({ type: 'success', msg: locale === 'ar'
-        ? `🎉 مرحباً بك في Nexus AI ${params.get('plan') || ''}! اشتراكك الآن نشط.`
-        : `🎉 Welcome to Nexus AI ${params.get('plan') || ''}! Your subscription is now active.` })
+      setNotice({ type: 'success', msg: (t('billing.successMsg') as string).replace('{plan}', params.get('plan') || '') })
       window.history.replaceState({}, '', '/billing')
     } else if (params.get('cancelled') === 'true') {
-      setNotice({ type: 'error', msg: locale === 'ar' ? 'تم إلغاء عملية الدفع. لم يتم خصم أي مبلغ.' : 'Payment cancelled. No charges were made.' })
+      setNotice({ type: 'error', msg: t('billing.cancelMsg') as string })
       window.history.replaceState({}, '', '/billing')
     }
     fetch('/api/billing/status', { headers: { Authorization: authHeader() } })
@@ -87,9 +85,9 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setNotice({ type: 'error', msg: data.error || (locale === 'ar' ? 'فشل بدء عملية الدفع.' : 'Failed to start payment.') })
+      else setNotice({ type: 'error', msg: data.error || t('billing.errorCheckout') as string })
     } catch {
-      setNotice({ type: 'error', msg: locale === 'ar' ? 'فشلت عملية الدفع. يرجى المحاولة مجدداً.' : 'Payment failed. Please try again.' })
+      setNotice({ type: 'error', msg: t('billing.errorPayment') as string })
     } finally { setCheckingOut(null) }
   }
 
@@ -99,9 +97,9 @@ export default function BillingPage() {
       const res = await fetch('/api/billing/portal', { method: 'POST', headers: { Authorization: authHeader() } })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setNotice({ type: 'error', msg: locale === 'ar' ? 'تعذّر فتح بوابة الفواتير.' : 'Failed to open billing portal.' })
+      else setNotice({ type: 'error', msg: t('billing.errorPortal') as string })
     } catch {
-      setNotice({ type: 'error', msg: locale === 'ar' ? 'تعذّر فتح بوابة الفواتير.' : 'Failed to open billing portal.' })
+      setNotice({ type: 'error', msg: t('billing.errorPortal') as string })
     } finally { setOpeningPortal(false) }
   }
 
@@ -114,7 +112,7 @@ export default function BillingPage() {
 
   const currentPlan = subscriptionStatus?.plan || 'FREE'
   const isActive = subscriptionStatus?.status === 'ACTIVE'
-  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || (locale === 'ar' ? 'المستخدم' : 'User')
+  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || t('billing.user') as string
 
   const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(12px)' }
 
@@ -137,7 +135,7 @@ export default function BillingPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Zap className="w-4 h-4 text-accent-purple" />
-                <span className="text-xs font-mono uppercase tracking-widest text-text-muted">{locale === 'ar' ? 'الاشتراك' : 'SUBSCRIPTION'}</span>
+                <span className="text-xs font-mono uppercase tracking-widest text-text-muted">{t('billing.subscriptionBadge')}</span>
               </div>
               <h1 className="text-3xl font-bold font-heading text-white mb-1">{t('billing.pageTitle')}</h1>
               <p className="text-text-secondary text-sm">{t('billing.pageSubtitle')}، {displayName}.</p>
