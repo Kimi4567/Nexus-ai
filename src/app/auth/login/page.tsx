@@ -23,25 +23,25 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (!email || !password) { setError('يُرجى تعبئة جميع الحقول'); return }
+    if (!email || !password) { setError(loginT?.errors?.allFields || ''); return }
     setLoading(true)
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) {
         const msg = authError.message || ''
         if (msg.includes('Email not confirmed')) {
-          setError('يُرجى تأكيد بريدك الإلكتروني أولاً')
+          setError(loginT?.errors?.emailNotConfirmed || '')
         } else if (msg.includes('Invalid login credentials')) {
-          setError('البريد الإلكتروني أو كلمة المرور غير صحيحة')
+          setError(loginT?.errors?.invalidCredentials || '')
         } else {
-          setError(msg || 'فشل تسجيل الدخول. يُرجى المحاولة مجدداً.')
+          setError(msg || loginT?.errors?.loginFailed || '')
         }
         setLoading(false)
         return
       }
       window.location.href = redirectTo
     } catch {
-      setError('حدث خطأ غير متوقع. يُرجى المحاولة مجدداً.')
+      setError(loginT?.errors?.unexpected || '')
       setLoading(false)
     }
   }
@@ -95,7 +95,7 @@ function LoginForm() {
               <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
                 <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded border-white/20 bg-white/5 accent-violet-500" />
-                {isRTL ? 'تذكّرني' : 'Remember me'}
+                {loginT?.rememberMe}
               </label>
               <Link href="/auth/forgot-password" className="text-sm text-accent-purple hover:text-accent-purple/80 transition">
                 {loginT?.forgotPassword}

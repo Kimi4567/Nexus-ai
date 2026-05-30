@@ -38,7 +38,7 @@ const TONES = [
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, isAuthenticated, loading, authHeader } = useAuth()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const [step, setStep] = useState(0)
 
   const [brandName,  setBrandName]  = useState('')
@@ -48,10 +48,13 @@ export default function OnboardingPage() {
   const [goal,       setGoal]       = useState('')
   const [strategy,   setStrategy]   = useState<any>(null)
 
+  const ob = t('onboarding')
+
   const displayName =
     user?.user_metadata?.name?.split(' ')[0] ||
     user?.email?.split('@')[0] ||
-    'صديق'
+    (ob?.defaultName as string) ||
+    ''
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -130,6 +133,24 @@ export default function OnboardingPage() {
     </div>
   )
 
+  // Generation steps list
+  const genSteps = [ob?.genStep1, ob?.genStep2, ob?.genStep3, ob?.genStep4] as string[]
+
+  // "What awaits" items
+  const awaitItems = [
+    { icon: '📅', label: ob?.awaitItem1 as string },
+    { icon: '🎯', label: ob?.awaitItem2 as string },
+    { icon: '⚡', label: ob?.awaitItem3 as string },
+    { icon: '📊', label: ob?.awaitItem4 as string },
+  ]
+
+  // Mini-feature cards for welcome step
+  const features = [
+    { icon: '🧠', label: ob?.featureAiStrategy as string },
+    { icon: '📅', label: ob?.featureAutoCalendar as string },
+    { icon: '📊', label: ob?.featureLiveAnalytics as string },
+  ]
+
   return (
     <div
       className="min-h-screen bg-bg-base flex flex-col items-center justify-center px-4 py-12"
@@ -150,8 +171,8 @@ export default function OnboardingPage() {
       {step >= 1 && step <= 2 && (
         <div className="w-full max-w-md mb-8" dir={dir}>
           <div className="flex justify-between text-xs text-t3 mb-2">
-            <span>{locale === 'ar' ? `الخطوة ${step} من 2` : `Step ${step} of 2`}</span>
-            <span>{step === 1 ? (locale === 'ar' ? 'علامتك التجارية' : 'Your Brand') : (locale === 'ar' ? 'هدفك الأول' : 'Your Goal')}</span>
+            <span>{(ob?.stepOf as string)?.replace('{step}', String(step))}</span>
+            <span>{step === 1 ? ob?.brandStepLabel : ob?.goalStepLabel}</span>
           </div>
           <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(108,99,255,0.15)" }}>
             <div
@@ -170,26 +191,20 @@ export default function OnboardingPage() {
               👋
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">
-              {locale === 'ar' ? `مرحباً، ${displayName}` : `Welcome, ${displayName}`}
+              {(ob?.welcomeTitle as string)?.replace('{name}', displayName)}
             </h1>
             <p className="text-t2 text-sm mb-8 leading-relaxed">
-              {locale === 'ar'
-                ? 'أنت على وشك الحصول على فريق تسويق AI كامل — استراتيجية، حملات، تقويم محتوى، وتحليلات — كل ذلك في مكان واحد. 60 ثانية فقط للإعداد.'
-                : 'You\'re about to get a full AI marketing team — strategy, campaigns, content calendar, and analytics — all in one place. Just 60 seconds to set up.'}
+              {ob?.welcomeSubtitle}
             </p>
 
             <div className="grid grid-cols-3 gap-3 mb-8">
-              {[
-                { icon: '🧠', ar: 'استراتيجية AI',  en: 'AI Strategy' },
-                { icon: '📅', ar: 'تقويم تلقائي',   en: 'Auto Calendar' },
-                { icon: '📊', ar: 'تحليلات حية',     en: 'Live Analytics' },
-              ].map(f => (
+              {features.map(f => (
                 <div
-                  key={f.ar}
+                  key={f.label}
                   className="p-3 rounded-xl text-center" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)' }}
                 >
                   <div className="text-xl mb-1">{f.icon}</div>
-                  <div className="text-[11px] font-semibold text-t2">{locale === 'ar' ? f.ar : f.en}</div>
+                  <div className="text-[11px] font-semibold text-t2">{f.label}</div>
                 </div>
               ))}
             </div>
@@ -199,7 +214,7 @@ export default function OnboardingPage() {
               className="btn-gradient w-full py-3.5 text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 24px rgba(255,149,0,0.25)' }}
             >
-              {locale === 'ar' ? 'ابني نظام التسويق →' : 'Build My Marketing System →'}
+              {ob?.welcomeCta}
             </button>
           </div>
         </Card>
@@ -208,20 +223,20 @@ export default function OnboardingPage() {
       {/* ── STEP 1 — BRAND ────────────────────────────────────────────────── */}
       {step === 1 && (
         <Card>
-          <h2 className="text-xl font-bold text-white mb-1">{locale === 'ar' ? 'أخبرنا عن علامتك' : 'Tell us about your brand'}</h2>
-          <p className="text-t2 text-sm mb-6">{locale === 'ar' ? 'هذا يدرّب الـ AI على تفاصيل نشاطك التجاري.' : 'This trains the AI on your business details.'}</p>
+          <h2 className="text-xl font-bold text-white mb-1">{ob?.brandTitle}</h2>
+          <p className="text-t2 text-sm mb-6">{ob?.brandSubtitle}</p>
 
           <div className="space-y-5">
             {/* Brand name */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                {locale === 'ar' ? 'اسم العلامة / الشركة' : 'Brand / Company Name'}
+                {ob?.brandNameLabel2}
               </label>
               <input
                 type="text"
                 value={brandName}
                 onChange={e => setBrandName(e.target.value)}
-                placeholder={locale === 'ar' ? 'مثال: شركتي، متجر النور...' : 'e.g. My Company, Brand...'}
+                placeholder={ob?.brandNamePlaceholder2 as string}
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
                 autoFocus
               />
@@ -230,7 +245,7 @@ export default function OnboardingPage() {
             {/* Industry */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                {locale === 'ar' ? 'القطاع' : 'Industry'}
+                {ob?.industryLabel}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {INDUSTRIES.map(ind => (
@@ -240,7 +255,6 @@ export default function OnboardingPage() {
                     className={`p-2.5 rounded-xl border text-center transition-all ${
                       industry === ind.value
                         ? 'border-[rgba(108,99,255,0.5)] text-white' : 'border-[rgba(108,99,255,0.12)]'
-
                     }`}
                   >
                     <div className="text-lg mb-0.5">{ind.icon}</div>
@@ -253,14 +267,14 @@ export default function OnboardingPage() {
             {/* Audience */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                {locale === 'ar' ? 'الجمهور المستهدف' : 'Target Audience'}{' '}
-                <span className="text-t4 normal-case font-normal">{locale === 'ar' ? '(اختياري)' : '(optional)'}</span>
+                {ob?.audienceLabel}{' '}
+                <span className="text-t4 normal-case font-normal">{ob?.audienceOptional}</span>
               </label>
               <input
                 type="text"
                 value={audience}
                 onChange={e => setAudience(e.target.value)}
-                placeholder={locale === 'ar' ? 'مثال: شباب 18-35 مهتمون بالموضة في السعودية' : 'e.g. Young adults 18-35 interested in fashion'}
+                placeholder={ob?.audiencePlaceholder as string}
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
               />
             </div>
@@ -268,21 +282,21 @@ export default function OnboardingPage() {
             {/* Tone */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                {locale === 'ar' ? 'أسلوب العلامة' : 'Brand Tone'}
+                {ob?.toneLabel2}
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {TONES.map(t => (
+                {TONES.map(tn => (
                   <button
-                    key={t.id}
-                    onClick={() => setTone(t.id)}
+                    key={tn.id}
+                    onClick={() => setTone(tn.id)}
                     className={`p-3 rounded-xl border text-right transition-all ${
-                      tone === t.id
+                      tone === tn.id
                         ? 'border-[rgba(108,99,255,0.4)] bg-[rgba(108,99,255,0.1)]'
                          : 'border-[rgba(108,99,255,0.12)] bg-[rgba(17,21,54,0.5)] hover:border-[rgba(108,99,255,0.25)]'
                     }`}
                   >
-                    <div className="text-xs font-bold text-white">{locale === 'ar' ? t.ar : t.en}</div>
-                    <div className="text-[10px] text-t3 mt-0.5">{locale === 'ar' ? t.descAr : t.descEn}</div>
+                    <div className="text-xs font-bold text-white">{locale === 'ar' ? tn.ar : tn.en}</div>
+                    <div className="text-[10px] text-t3 mt-0.5">{locale === 'ar' ? tn.descAr : tn.descEn}</div>
                   </button>
                 ))}
               </div>
@@ -294,7 +308,7 @@ export default function OnboardingPage() {
             disabled={!brandName.trim() || !industry}
             className="btn-gradient w-full py-3.5 mt-6 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {locale === 'ar' ? 'التالي →' : 'Next →'}
+            {ob?.nextBtn}
           </button>
         </Card>
       )}
@@ -302,8 +316,8 @@ export default function OnboardingPage() {
       {/* ── STEP 2 — GOAL ─────────────────────────────────────────────────── */}
       {step === 2 && (
         <Card>
-          <h2 className="text-xl font-bold text-white mb-1">{locale === 'ar' ? 'ما هو هدفك الرئيسي الآن؟' : "What's your primary goal?"}</h2>
-          <p className="text-t2 text-sm mb-6">{locale === 'ar' ? 'سنبني استراتيجيتك الأولى لـ 30 يوماً حول هذا الهدف.' : "We'll build your first 30-day strategy around this goal."}</p>
+          <h2 className="text-xl font-bold text-white mb-1">{ob?.goalTitle}</h2>
+          <p className="text-t2 text-sm mb-6">{ob?.goalSubtitle}</p>
 
           <div className="grid grid-cols-2 gap-2 mb-6">
             {GOALS.map(g => (
@@ -327,7 +341,7 @@ export default function OnboardingPage() {
               onClick={() => setStep(1)}
               className="flex-none px-4 py-3.5 rounded-xl border text-text-muted hover:text-white text-sm transition-all" style={{ borderColor: "rgba(108,99,255,0.2)" }}
             >
-              {locale === 'ar' ? 'رجوع' : 'Back'}
+              {ob?.backBtn}
             </button>
             <button
               onClick={handleFinishSetup}
@@ -335,7 +349,7 @@ export default function OnboardingPage() {
               className="btn-gradient flex-1 py-3.5 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ boxShadow: goal ? '0 0 24px rgba(255,149,0,0.25)' : 'none' }}
             >
-              {goal ? (locale === 'ar' ? 'ولّد استراتيجيتي →' : 'Generate Strategy →') : (locale === 'ar' ? 'اختر هدفاً للمتابعة' : 'Choose a goal to continue')}
+              {goal ? ob?.generateBtn : ob?.chooseGoalBtn}
             </button>
           </div>
         </Card>
@@ -350,10 +364,10 @@ export default function OnboardingPage() {
               <div className="absolute inset-0 w-16 h-16 border-2 border-accent border-t-transparent rounded-full animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center text-2xl">🧠</div>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">{locale === 'ar' ? 'جاري بناء استراتيجيتك...' : 'Building your strategy...'}</h2>
-            <p className="text-t2 text-sm mb-6">{locale === 'ar' ? 'الـ AI يتعلم علامتك ويولّد خطتك التسويقية لـ 30 يوماً.' : 'The AI is learning your brand and generating your 30-day marketing plan.'}</p>
+            <h2 className="text-xl font-bold text-white mb-2">{ob?.generatingTitle}</h2>
+            <p className="text-t2 text-sm mb-6">{ob?.generatingSubtitle}</p>
             <div className="space-y-2.5 text-right max-w-xs mx-auto">
-              {(locale === 'ar' ? ['إعداد مساحة العمل', 'تدريب الـ AI على علامتك', 'تحليل جمهورك المستهدف', 'بناء استراتيجيتك لـ 30 يوم'] : ['Setting up workspace', 'Training AI on your brand', 'Analyzing your target audience', 'Building your 30-day strategy']).map((s, i) => (
+              {genSteps.map((s, i) => (
                 <div
                   key={s}
                   className="flex items-center gap-3 text-sm text-t2 animate-pulse"
@@ -381,9 +395,9 @@ export default function OnboardingPage() {
             style={{ borderColor: "rgba(108,99,255,0.12)", background: 'linear-gradient(135deg, rgba(108,99,255,0.10), transparent)' }}
           >
             <div className="text-2xl mb-2">🎉</div>
-            <h2 className="text-xl font-bold text-white mb-1">{locale === 'ar' ? 'نظام التسويق جاهز!' : 'Marketing System Ready!'}</h2>
+            <h2 className="text-xl font-bold text-white mb-1">{ob?.doneTitle}</h2>
             <p className="text-t2 text-sm">
-              {strategy?.title || (locale === 'ar' ? 'تم إنشاء استراتيجيتك لـ 30 يوماً.' : 'Your 30-day strategy has been created.')}
+              {strategy?.title || ob?.doneSubtitle}
             </p>
           </div>
 
@@ -391,7 +405,7 @@ export default function OnboardingPage() {
           {strategy?.quickWins?.length > 0 && (
             <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
-                {locale === 'ar' ? 'ابدأ اليوم — أسرع نتائج' : 'Start today — fastest results'}
+                {ob?.startTodayLabel}
               </div>
               <div className="space-y-2">
                 {strategy.quickWins.slice(0, 3).map((win: string, i: number) => (
@@ -407,20 +421,10 @@ export default function OnboardingPage() {
           {/* What awaits */}
           <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
             <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
-              {locale === 'ar' ? 'ما ينتظرك في Nexus' : "What's waiting for you in Nexus"}
+              {ob?.awaitingLabel}
             </div>
             <div className="space-y-2.5">
-              {(locale === 'ar' ? [
-                { icon: '📅', label: 'تقويم المحتوى لـ 30 يوماً' },
-                { icon: '🎯', label: 'تفصيل كامل لاستراتيجية الحملة' },
-                { icon: '⚡', label: 'مولّد الحملات بالـ AI' },
-                { icon: '📊', label: 'لوحة التحليلات الحية' },
-              ] : [
-                { icon: '📅', label: '30-Day Content Calendar' },
-                { icon: '🎯', label: 'Full Campaign Strategy Breakdown' },
-                { icon: '⚡', label: 'AI Campaign Generator' },
-                { icon: '📊', label: 'Live Analytics Dashboard' },
-              ]).map(item => (
+              {awaitItems.map(item => (
                 <div key={item.label} className="flex items-center gap-3 text-sm text-t1">
                   <span className="text-base">{item.icon}</span>
                   <span>{item.label}</span>
@@ -437,13 +441,13 @@ export default function OnboardingPage() {
               className="btn-gradient w-full py-3 text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}
             >
-              {locale === 'ar' ? 'اعرض استراتيجيتي الكاملة →' : 'View My Full Strategy →'}
+              {ob?.viewStrategyBtn}
             </button>
             <button
               onClick={() => router.push('/dashboard')}
               className="w-full py-2.5 border text-text-muted hover:text-white rounded-xl transition-all text-sm" style={{ borderColor: "rgba(108,99,255,0.2)" }}
             >
-              {locale === 'ar' ? 'انتقل للـ Dashboard' : 'Go to Dashboard'}
+              {ob?.goDashboardBtn}
             </button>
           </div>
         </div>

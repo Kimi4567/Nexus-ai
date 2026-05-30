@@ -28,14 +28,14 @@ export default function RegisterPage() {
     setError('')
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     if (supabaseUrl.includes('placeholder') || !supabaseUrl) {
-      setError('⚠️ خدمة التسجيل غير متاحة حالياً. يُرجى المحاولة لاحقاً.')
+      setError(errorsT?.serviceUnavailable || '')
       return
     }
-    if (!name.trim() || !email || !password) { setError(errorsT?.allFields || 'جميع الحقول مطلوبة'); return }
-    if (password.length < 8) { setError(errorsT?.passwordLength || 'يجب أن تكون كلمة المرور ٨ أحرف على الأقل'); return }
-    if (password !== confirmPassword) { setError(errorsT?.passwordMatch || 'كلمتا المرور غير متطابقتين'); return }
-    if (!agreeTerms) { setError(errorsT?.termsRequired || 'يجب الموافقة على الشروط'); return }
-    if (!agreeCookies) { setError(errorsT?.cookiesRequired || 'يجب الموافقة على الكوكيز'); return }
+    if (!name.trim() || !email || !password) { setError(errorsT?.allFields || ''); return }
+    if (password.length < 8) { setError(errorsT?.passwordLength || ''); return }
+    if (password !== confirmPassword) { setError(errorsT?.passwordMatch || ''); return }
+    if (!agreeTerms) { setError(errorsT?.termsRequired || ''); return }
+    if (!agreeCookies) { setError(errorsT?.cookiesRequired || ''); return }
     setLoading(true)
     try {
       await signup(email, password, { name })
@@ -43,8 +43,8 @@ export default function RegisterPage() {
       setDone(true)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ''
-      if (msg.includes('already registered')) setError(errorsT?.emailUsed || 'هذا البريد مستخدم بالفعل')
-      else setError(errorsT?.generic || 'فشل إنشاء الحساب. حاول مرة أخرى.')
+      if (msg.includes('already registered')) setError(errorsT?.emailUsed || '')
+      else setError(errorsT?.generic || '')
       setLoading(false)
     }
   }
