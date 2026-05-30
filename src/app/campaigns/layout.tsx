@@ -6,4 +6,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export { default } from './page'
+export default function CampaignsLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
