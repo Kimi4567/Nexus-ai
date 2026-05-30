@@ -2,6 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
+import SuggestionsWidget from '@/components/SuggestionsWidget'
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -324,6 +325,9 @@ export default function DashboardPage() {
               })}
             </div>
           </div>
+
+          {/* ── Sprint B: AI Suggestions Feed ── */}
+          <SuggestionsWidget />
 
           {/* ── Main Grid ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
