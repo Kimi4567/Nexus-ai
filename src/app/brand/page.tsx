@@ -1,506 +1,539 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import AppShell from '@/components/AppShell'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import AppShell from '@/components/AppShell'
+import { useBrandBrain, getBrandCompleteness, type BrandProfile } from '@/hooks/useBrandBrain'
+import {
+  Loader2, Brain, Check, ChevronDown, Sparkles, Save,
+  Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
+  CheckCircle2, ArrowLeft, ArrowRight, Zap
+} from 'lucide-react'
+import StarField from '@/components/ui/StarField'
 
-interface BrandProfile {
-  brandName?: string
-  industry?: string
-  description?: string
-  toneKeywords: string[]
-  avoidKeywords: string[]
-  writingStyle?: string
-  targetAudience?: string
-  audienceAge?: string
-  audienceLocation?: string
-  audiencePainPoints: string[]
-  audienceDesires: string[]
-  primaryOffer?: string
-  secondaryOffers: string[]
-  pricePoint?: string
-  uniqueAdvantages: string[]
-  visualStyle?: string
-  colorPalette: string[]
-  winningHooks: string[]
-  winningAngles: string[]
-  strategicNotes?: string
-  competitorNotes?: string
-}
+/* ═══════════════════════════════════════════════════════════════
+   BRAND BRAIN — عقل العلامة التجارية
+   كل المعلومات هنا تُحقن تلقائياً في كل وكيل ذكاء اصطناعي
+   ═══════════════════════════════════════════════════════════════ */
 
-const emptyProfile: BrandProfile = {
-  brandName: '', industry: '', description: '',
-  toneKeywords: [], avoidKeywords: [], writingStyle: '',
-  targetAudience: '', audienceAge: '', audienceLocation: '',
-  audiencePainPoints: [], audienceDesires: [],
-  primaryOffer: '', secondaryOffers: [], pricePoint: '',
-  uniqueAdvantages: [], visualStyle: '', colorPalette: [],
-  winningHooks: [], winningAngles: [], strategicNotes: '', competitorNotes: '',
-}
+type StepId = 'identity' | 'product' | 'audience' | 'voice' | 'platforms' | 'competitors'
 
-// Bilingual options — displayed in Arabic, stored in English for AI context
-const TONE_OPTIONS    = ['جريء', 'محادثاتي', 'راقي', 'بسيط', 'حيوي', 'موثوق', 'ودود', 'ذكي', 'عاجل', 'ملهم']
-const STYLE_OPTIONS   = ['قصير ومكثف', 'سرد طويل', 'نقاط مرتبة', 'تساؤلات', 'مدعوم بالأرقام', 'قصصي', 'استجابة مباشرة']
-const VISUAL_OPTIONS  = ['مينيمال', 'جرافيك جريء', 'تصوير حياتي', 'نظيف احترافي', 'داكن راقي', 'مشرق وممتع', 'افتتاحي']
-const PRICE_OPTIONS   = ['اقتصادي', 'متوسط', 'راقي', 'فاخر']
-const AGE_OPTIONS     = ['13–17', '18–24', '25–34', '35–44', '45–54', '55–64', '65+']
-
-const SECTIONS = ['الهوية', 'الصوت والأسلوب', 'الجمهور', 'العرض', 'الهوية البصرية', 'ذاكرة الحملات']
-
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function SectionHeader({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="mb-5">
-      <h2 className="text-sm font-semibold text-white">{title}</h2>
-      <p className="text-[12px] text-t3 mt-0.5">{description}</p>
-    </div>
-  )
-}
-
-function TagInput({
-  label, values, onChange, placeholder, suggestions,
-}: {
+interface Step {
+  id: StepId
   label: string
-  values: string[]
-  onChange: (vals: string[]) => void
-  placeholder?: string
-  suggestions?: string[]
+  labelEn: string
+  icon: React.ElementType
+  color: string
+  desc: string
+}
+
+const STEPS: Step[] = [
+  { id: 'identity',    label: 'الهوية',       labelEn: 'Identity',    icon: Brain,    color: '#f59e0b', desc: 'من أنتم؟' },
+  { id: 'product',     label: 'المنتج',       labelEn: 'Product',     icon: Package,  color: '#06b6d4', desc: 'ماذا تقدمون؟' },
+  { id: 'audience',    label: 'الجمهور',      labelEn: 'Audience',    icon: Users,    color: '#8b5cf6', desc: 'لمن تتحدثون؟' },
+  { id: 'voice',       label: 'الصوت',        labelEn: 'Voice',       icon: Mic,      color: '#10b981', desc: 'كيف تتحدثون؟' },
+  { id: 'platforms',   label: 'المنصات',      labelEn: 'Platforms',   icon: Globe,    color: '#ec4899', desc: 'أين تتواجدون؟' },
+  { id: 'competitors', label: 'المنافسون',    labelEn: 'Competitors', icon: Target,   color: '#f97316', desc: 'من تنافسون؟' },
+]
+
+const INDUSTRIES = [
+  'تجارة إلكترونية', 'مطاعم وأغذية', 'موضة وأزياء', 'صحة وجمال',
+  'تقنية وتطبيقات', 'عقارات', 'تعليم وتدريب', 'خدمات مهنية',
+  'سياحة وسفر', 'رياضة ولياقة', 'ديكور وأثاث', 'سيارات', 'آخر',
+]
+
+const PLATFORMS_LIST = ['Instagram', 'TikTok', 'Facebook', 'Snapchat', 'YouTube', 'LinkedIn', 'X / Twitter', 'Pinterest']
+const TONE_OPTIONS = ['حماسي', 'احترافي', 'مرح', 'عاطفي', 'جريء', 'هادئ', 'ملهم', 'مباشر', 'راقي', 'شبابي']
+const PRICE_OPTIONS = [
+  { v: 'budget',    l: 'اقتصادي' },
+  { v: 'mid-range', l: 'متوسط' },
+  { v: 'premium',   l: 'بريميوم' },
+  { v: 'luxury',    l: 'فاخر' },
+]
+const AGE_OPTIONS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55+', 'جميع الأعمار']
+
+// ── Sub-components ─────────────────────────────────────────────
+
+function TagInput({ label, placeholder, values, onChange, suggestions }: {
+  label: string; placeholder: string; values: string[]; onChange: (v: string[]) => void; suggestions?: string[]
 }) {
   const [input, setInput] = useState('')
 
   const add = (val: string) => {
-    const trimmed = val.trim()
-    if (trimmed && !values.includes(trimmed)) onChange([...values, trimmed])
+    const v = val.trim()
+    if (v && !values.includes(v)) onChange([...values, v])
     setInput('')
   }
-  const remove = (val: string) => onChange(values.filter(v => v !== val))
+
+  const remove = (i: number) => onChange(values.filter((_, idx) => idx !== i))
 
   return (
-    <div>
-      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
+    <div className="flex flex-col gap-2">
+      <label className="text-xs text-gray-500">{label}</label>
+      <div className="flex flex-wrap gap-1.5 p-3 rounded-xl min-h-[44px]"
+        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        {values.map((v, i) => (
+          <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+            style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
+            {v}
+            <button onClick={() => remove(i)} className="text-amber-500/60 hover:text-red-400 transition-colors ml-1">×</button>
+          </span>
+        ))}
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) } }}
+          placeholder={values.length ? '' : placeholder}
+          className="flex-1 min-w-[120px] bg-transparent text-sm outline-none text-gray-300 placeholder-gray-600"
+        />
+      </div>
       {suggestions && suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {suggestions.filter(s => !values.includes(s)).map(s => (
-            <button key={s} type="button" onClick={() => add(s)}
-              className="text-[11px] px-2.5 py-1 bg-s3 border border-s4 text-t3 rounded-full hover:text-white hover:border-s5 transition">
+        <div className="flex flex-wrap gap-1.5">
+          {suggestions.filter(s => !values.includes(s)).slice(0, 6).map(s => (
+            <button key={s} onClick={() => add(s)}
+              className="px-2.5 py-1 rounded-lg text-xs transition-all hover:text-amber-400"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#6b7280' }}>
               + {s}
             </button>
           ))}
         </div>
       )}
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        {values.map(v => (
-          <span key={v} className="inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 bg-accent/15 border border-accent/30 text-accent rounded-full">
-            {v}
-            <button type="button" onClick={() => remove(v)} className="hover:text-white transition leading-none">×</button>
-          </span>
-        ))}
-      </div>
-      <input
-        type="text"
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) } }}
-        placeholder={placeholder || 'اكتب واضغط Enter'}
-        className="w-full px-3 py-2 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition"
-      />
     </div>
   )
 }
 
-function TextArea({ label, value, onChange, placeholder, rows = 3 }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
-      <textarea
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        className="w-full px-3 py-2.5 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition resize-none"
-      />
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs text-gray-500">{label}</label>
+      {children}
     </div>
   )
 }
 
-function TextField({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string
+function Input({ value, onChange, placeholder, textarea }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; textarea?: boolean
 }) {
-  return (
-    <div>
-      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full px-3 py-2 bg-s1 border border-s4 rounded-lg text-sm text-t1 placeholder-t4 focus:outline-none focus:border-accent/60 transition"
-      />
-    </div>
+  const cls = "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none transition-all"
+  const style = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb' }
+  if (textarea) return (
+    <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      rows={3} className={`${cls} resize-none`} style={style} />
   )
+  return <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    className={cls} style={style} />
 }
 
-function PillSelect({ label, options, value, onChange }: {
-  label: string; options: string[]; value: string; onChange: (v: string) => void
+function ToggleGrid({ options, selected, onChange, color }: {
+  options: string[]; selected: string[]; onChange: (v: string[]) => void; color?: string
 }) {
-  return (
-    <div>
-      <label className="block text-[11px] font-medium text-t3 uppercase tracking-wide mb-2">{label}</label>
-      <div className="flex flex-wrap gap-2">
-        {options.map(opt => (
-          <button key={opt} type="button" onClick={() => onChange(value === opt ? '' : opt)}
-            className={`text-[11px] px-3 py-1.5 rounded-full border transition font-medium ${
-              value === opt
-                ? 'bg-accent border-accent text-white'
-                : 'bg-s1 border-s4 text-t3 hover:text-white hover:border-s5'
-            }`}>
-            {opt}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Main Component ───────────────────────────────────────────────────────────
-
-export default function BrandIntelligencePage() {
-  const router = useRouter()
-  const { isAuthenticated, loading, authHeader } = useAuth()
-  const [profile, setProfile]           = useState<BrandProfile>(emptyProfile)
-  const [fetching, setFetching]         = useState(true)
-  const [saving, setSaving]             = useState(false)
-  const [saved, setSaved]               = useState(false)
-  const [activeSection, setActiveSection] = useState(0)
-
-  useEffect(() => {
-    if (!loading && !isAuthenticated) router.push('/auth/login')
-  }, [loading, isAuthenticated, router])
-
-  const fetchProfile = useCallback(async () => {
-    const token = authHeader()
-    if (!token) return
-    setFetching(true)
-    try {
-      const res  = await fetch('/api/brand', { headers: { Authorization: token } })
-      const data = await res.json()
-      if (data.brandProfile) setProfile({ ...emptyProfile, ...data.brandProfile })
-    } catch { /* silent */ }
-    setFetching(false)
-  }, [authHeader])
-
-  useEffect(() => {
-    if (isAuthenticated) fetchProfile()
-  }, [isAuthenticated, fetchProfile])
-
-  const update = <K extends keyof BrandProfile>(key: K, value: BrandProfile[K]) => {
-    setProfile(prev => ({ ...prev, [key]: value }))
-    setSaved(false)
+  const c = color || '#f59e0b'
+  const toggle = (v: string) => {
+    selected.includes(v) ? onChange(selected.filter(x => x !== v)) : onChange([...selected, v])
   }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => {
+        const active = selected.includes(o)
+        return (
+          <button key={o} onClick={() => toggle(o)}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{
+              background: active ? `${c}18` : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${active ? c + '50' : 'rgba(255,255,255,0.08)'}`,
+              color: active ? c : '#9ca3af',
+            }}>
+            {active && '✓ '}{o}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function RadioGroup({ options, value, onChange }: {
+  options: { v: string; l: string }[]; value: string; onChange: (v: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => (
+        <button key={o.v} onClick={() => onChange(o.v)}
+          className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+          style={{
+            background: value === o.v ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${value === o.v ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            color: value === o.v ? '#f59e0b' : '#9ca3af',
+          }}>
+          {value === o.v && '● '}{o.l}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Main ───────────────────────────────────────────────────────
+export default function BrandBrainPage() {
+  const { isAuthenticated, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const { brand, loading, saving, saveBrand } = useBrandBrain()
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/auth/login')
+  }, [authLoading, isAuthenticated, router])
+
+  const [step, setStep] = useState<StepId>('identity')
+  const [saved, setSaved] = useState(false)
+  const [form, setForm] = useState<BrandProfile>({
+    brandName: '', industry: '', description: '',
+    primaryOffer: '', secondaryOffers: [], pricePoint: 'mid-range', uniqueAdvantages: [],
+    targetAudience: '', audienceAge: '', audienceLocation: '', audiencePainPoints: [], audienceDesires: [],
+    toneKeywords: [], avoidKeywords: [], writingStyle: '',
+    topPlatforms: [], visualStyle: '',
+    winningHooks: [], winningAngles: [], failedAngles: [], competitorNotes: '', strategicNotes: '',
+  })
+
+  // Populate form when brand loads
+  useEffect(() => {
+    if (brand) setForm(b => ({ ...b, ...brand }))
+  }, [brand])
+
+  const set = (k: keyof BrandProfile, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = async () => {
-    const token = authHeader()
-    if (!token) return
-    setSaving(true)
-    try {
-      await fetch('/api/brand', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify(profile),
-      })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch { /* silent */ }
-    setSaving(false)
+    const ok = await saveBrand(form)
+    if (ok) { setSaved(true); setTimeout(() => setSaved(false), 3000) }
   }
 
-  if (loading || fetching) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center h-64">
-          <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-        </div>
-      </AppShell>
-    )
-  }
+  const { score, missing } = getBrandCompleteness(form)
 
-  const completionFields = [
-    profile.brandName, profile.industry, profile.description,
-    profile.toneKeywords.length > 0, profile.writingStyle,
-    profile.targetAudience, profile.primaryOffer,
-  ]
-  const completionPct = Math.round((completionFields.filter(Boolean).length / completionFields.length) * 100)
+  const currentStepIdx = STEPS.findIndex(s => s.id === step)
+  const currentStep = STEPS[currentStepIdx]
+
+  if (authLoading || loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+      <Loader2 className="animate-spin text-amber-500" size={32} />
+    </div>
+  )
+  if (!isAuthenticated) return null
+
+  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
 
   return (
     <AppShell>
-      <div className="px-8 py-8 max-w-[900px] page-enter" dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+        <StarField />
+        <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+          <div className="absolute rounded-full blur-[160px] opacity-15"
+            style={{ width: 600, height: 600, background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)', top: '-10%', right: '-10%', animation: 'float 16s ease-in-out infinite' }} />
+        </div>
 
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-bold text-white mb-1">ذاكرة العلامة التجارية</h1>
-            <p className="text-sm text-t3">
-              الـ AI يقرأ هذا قبل كل حملة ليتكلم بصوتك تماماً.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-left">
-              <div className="text-[11px] text-t3 mb-1">اكتمال الملف — {completionPct}%</div>
-              <div className="w-32 h-1.5 bg-s3 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent rounded-full transition-all duration-500"
-                  style={{ width: `${completionPct}%` }}
-                />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 space-y-6">
+
+          {/* ── Header ─────────────────────────────────────────── */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.08))', border: '1px solid rgba(245,158,11,0.3)', boxShadow: '0 0 30px rgba(245,158,11,0.15)' }}>
+                  <Brain size={26} className="text-amber-400" />
+                </div>
+                {score >= 80 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center bg-green-500">
+                    <Check size={10} className="text-white" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-white">Brand Brain</h1>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                    style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                    عقل العلامة
+                  </span>
+                </div>
+                <p className="text-gray-400 text-sm mt-0.5">المعلومات هنا تُحقن تلقائياً في كل وكيل ذكاء اصطناعي</p>
               </div>
             </div>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                saved
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-accent hover:bg-accent-light text-white'
-              }`}
-            >
-              {saving ? 'جاري الحفظ...' : saved ? '✓ تم الحفظ' : 'حفظ التغييرات'}
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0"
+              style={{
+                background: saved ? 'rgba(16,185,129,0.2)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: saved ? '#10b981' : '#0a0a0a',
+                boxShadow: saved ? 'none' : '0 0 20px rgba(245,158,11,0.3)',
+                border: saved ? '1px solid rgba(16,185,129,0.3)' : 'none',
+              }}>
+              {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle2 size={14} /> : <Save size={14} />}
+              {saving ? 'جاري الحفظ...' : saved ? 'تم الحفظ ✓' : 'حفظ الكل'}
             </button>
           </div>
-        </div>
 
-        {/* ── Section tabs ───────────────────────────────────────────── */}
-        <div className="flex gap-1 mb-8 overflow-x-auto pb-1">
-          {SECTIONS.map((s, i) => (
-            <button
-              key={s}
-              onClick={() => setActiveSection(i)}
-              className={`px-3.5 py-2 rounded-lg text-[12px] font-medium whitespace-nowrap transition ${
-                activeSection === i ? 'bg-s3 text-t1' : 'text-t3 hover:text-t2'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Section content ────────────────────────────────────────── */}
-        <div className="space-y-6">
-
-          {/* 0 — Identity */}
-          {activeSection === 0 && (
-            <div className="surface-card rounded-card p-6 space-y-5">
-              <SectionHeader
-                title="هوية العلامة"
-                description="الأساس — من أنت وماذا تفعل."
-              />
-              <div className="grid grid-cols-2 gap-5">
-                <TextField
-                  label="اسم العلامة / الشركة"
-                  value={profile.brandName || ''}
-                  onChange={v => update('brandName', v)}
-                  placeholder="مثال: متجر النور، Acme Co."
-                />
-                <TextField
-                  label="القطاع"
-                  value={profile.industry || ''}
-                  onChange={v => update('industry', v)}
-                  placeholder="مثال: تجارة إلكترونية، SaaS، جمال"
-                />
+          {/* ── Completeness bar ────────────────────────────────── */}
+          <div className="rounded-2xl p-4" style={glassCard}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-500" />
+                <span className="text-sm font-semibold text-white">اكتمال الذاكرة · Brain Completeness</span>
               </div>
-              <TextArea
-                label="وصف العلامة"
-                value={profile.description || ''}
-                onChange={v => update('description', v)}
-                placeholder="ماذا تقدم؟ ما المشكلة التي تحلها؟ ما الذي يميزك؟"
-                rows={4}
-              />
+              <span className="text-sm font-bold" style={{ color: score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444' }}>
+                {score}%
+              </span>
             </div>
-          )}
-
-          {/* 1 — Voice & Tone */}
-          {activeSection === 1 && (
-            <div className="surface-card rounded-card p-6 space-y-6">
-              <SectionHeader
-                title="الصوت والأسلوب"
-                description="كيف تبدو علامتك؟ الـ AI سيكتب بهذا الأسلوب في كل حملة."
-              />
-              <TagInput
-                label="كلمات مفتاحية للأسلوب"
-                values={profile.toneKeywords}
-                onChange={v => update('toneKeywords', v)}
-                suggestions={TONE_OPTIONS}
-                placeholder="أضف وصفاً للأسلوب واضغط Enter"
-              />
-              <TagInput
-                label="كلمات / أساليب يجب تجنبها"
-                values={profile.avoidKeywords}
-                onChange={v => update('avoidKeywords', v)}
-                placeholder="مثال: 'ثوري'، تعقيدات لغوية، علامات التعجب المبالغة"
-              />
-              <PillSelect
-                label="نمط الكتابة"
-                options={STYLE_OPTIONS}
-                value={profile.writingStyle || ''}
-                onChange={v => update('writingStyle', v)}
-              />
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${score}%`, background: score >= 80 ? 'linear-gradient(90deg,#10b981,#059669)' : score >= 50 ? 'linear-gradient(90deg,#f59e0b,#d97706)' : 'linear-gradient(90deg,#ef4444,#dc2626)' }} />
             </div>
-          )}
-
-          {/* 2 — Audience */}
-          {activeSection === 2 && (
-            <div className="surface-card rounded-card p-6 space-y-6">
-              <SectionHeader
-                title="الجمهور المستهدف"
-                description="من تتكلم إليه؟ كلما كنت أكثر تحديداً، كان الـ AI أفضل."
-              />
-              <TextArea
-                label="وصف الجمهور"
-                value={profile.targetAudience || ''}
-                onChange={v => update('targetAudience', v)}
-                placeholder="صف عميلك المثالي بالتفصيل — يومه، قيمه، إحباطاته، أحلامه..."
-                rows={4}
-              />
-              <div className="grid grid-cols-2 gap-5">
-                <PillSelect
-                  label="الفئة العمرية"
-                  options={AGE_OPTIONS}
-                  value={profile.audienceAge || ''}
-                  onChange={v => update('audienceAge', v)}
-                />
-                <TextField
-                  label="الموقع / السوق"
-                  value={profile.audienceLocation || ''}
-                  onChange={v => update('audienceLocation', v)}
-                  placeholder="مثال: السعودية، الإمارات، مصر، MENA"
-                />
+            {missing.length > 0 && (
+              <p className="text-xs text-gray-600 mt-2">
+                ناقص: {missing.join('، ')}
+              </p>
+            )}
+            {score < 60 && (
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-500/80">
+                  الوكلاء سيعملون بكفاءة أقل بدون معلومات كاملة. أكمل الإعداد للحصول على أفضل نتائج.
+                </p>
               </div>
-              <TagInput
-                label="نقاط الألم"
-                values={profile.audiencePainPoints}
-                onChange={v => update('audiencePainPoints', v)}
-                placeholder="ماذا يزعجهم؟ اضغط Enter بعد كل نقطة"
-              />
-              <TagInput
-                label="الرغبات والأهداف"
-                values={profile.audienceDesires}
-                onChange={v => update('audienceDesires', v)}
-                placeholder="ماذا يريدون؟ اضغط Enter بعد كل رغبة"
-              />
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* 3 — Offer */}
-          {activeSection === 3 && (
-            <div className="surface-card rounded-card p-6 space-y-6">
-              <SectionHeader
-                title="العرض والتموضع"
-                description="ماذا تبيع ولماذا هو أفضل؟ يشكّل كل استراتيجية حملة."
-              />
-              <TextArea
-                label="العرض الرئيسي"
-                value={profile.primaryOffer || ''}
-                onChange={v => update('primaryOffer', v)}
-                placeholder="منتجك / خدمتك الأساسية وما تقدمه من قيمة..."
-                rows={3}
-              />
-              <TagInput
-                label="عروض ثانوية / إضافية"
-                values={profile.secondaryOffers}
-                onChange={v => update('secondaryOffers', v)}
-                placeholder="منتجات أخرى، إضافات، أو خدمات"
-              />
-              <PillSelect
-                label="نطاق السعر"
-                options={PRICE_OPTIONS}
-                value={profile.pricePoint || ''}
-                onChange={v => update('pricePoint', v)}
-              />
-              <TagInput
-                label="المزايا الفريدة"
-                values={profile.uniqueAdvantages}
-                onChange={v => update('uniqueAdvantages', v)}
-                placeholder="ما الذي يجعلك أفضل من البدائل؟ اضغط Enter بعد كل ميزة"
-              />
-            </div>
-          )}
+          {/* ── Step tabs ───────────────────────────────────────── */}
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {STEPS.map((s, i) => {
+              const active = step === s.id
+              return (
+                <button key={s.id} onClick={() => setStep(s.id)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex-shrink-0"
+                  style={{
+                    background: active ? `${s.color}18` : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${active ? s.color + '40' : 'rgba(255,255,255,0.07)'}`,
+                    color: active ? s.color : '#9ca3af',
+                  }}>
+                  <s.icon size={14} />
+                  <span>{s.label}</span>
+                  <span className="text-[10px] opacity-50">{s.labelEn}</span>
+                </button>
+              )
+            })}
+          </div>
 
-          {/* 4 — Visual */}
-          {activeSection === 4 && (
-            <div className="surface-card rounded-card p-6 space-y-6">
-              <SectionHeader
-                title="الهوية البصرية"
-                description="تفضيلاتك الجمالية — توجّه الاتجاه الإبداعي والصور."
-              />
-              <PillSelect
-                label="الأسلوب البصري"
-                options={VISUAL_OPTIONS}
-                value={profile.visualStyle || ''}
-                onChange={v => update('visualStyle', v)}
-              />
-              <TagInput
-                label="ألوان العلامة"
-                values={profile.colorPalette}
-                onChange={v => update('colorPalette', v)}
-                placeholder="مثال: أزرق داكن، ذهبي، #1a1a2e — اضغط Enter بعد كل لون"
-              />
+          {/* ── Step content ────────────────────────────────────── */}
+          <div className="rounded-2xl p-6 space-y-5" style={{ ...glassCard, borderColor: `${currentStep.color}25` }}>
+            <div className="flex items-center gap-3 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: `${currentStep.color}18`, border: `1px solid ${currentStep.color}30` }}>
+                <currentStep.icon size={18} style={{ color: currentStep.color }} />
+              </div>
+              <div>
+                <h2 className="text-white font-bold">{currentStep.label} · {currentStep.labelEn}</h2>
+                <p className="text-xs text-gray-500">{currentStep.desc}</p>
+              </div>
             </div>
-          )}
 
-          {/* 5 — Memory */}
-          {activeSection === 5 && (
-            <div className="surface-card rounded-card p-6 space-y-6">
-              <SectionHeader
-                title="ذاكرة الحملات"
-                description="ما الذي نجح وما الذي لم ينجح؟ الـ AI يتعلم من تاريخك."
-              />
-              <TagInput
-                label="أفضل hooks نجحت"
-                values={profile.winningHooks}
-                onChange={v => update('winningHooks', v)}
-                placeholder="افتتاحيات أثارت تفاعلاً — اضغط Enter بعد كل واحد"
-              />
-              <TagInput
-                label="أفضل زوايا تسويقية"
-                values={profile.winningAngles}
-                onChange={v => update('winningAngles', v)}
-                placeholder="زوايا حملات حوّلت — اضغط Enter بعد كل زاوية"
-              />
-              <TextArea
-                label="ملاحظات استراتيجية"
-                value={profile.strategicNotes || ''}
-                onChange={v => update('strategicNotes', v)}
-                placeholder="أي سياق استراتيجي يجب أن يعرفه الـ AI دائماً — موسمية، إعادة تموضع، إطلاقات قادمة..."
-                rows={4}
-              />
-              <TextArea
-                label="ملاحظات المنافسين"
-                value={profile.competitorNotes || ''}
-                onChange={v => update('competitorNotes', v)}
-                placeholder="من هم منافسوك؟ كيف تتميز عنهم؟"
-                rows={3}
-              />
+            {/* IDENTITY */}
+            {step === 'identity' && (
+              <div className="space-y-4">
+                <Field label="اسم العلامة التجارية *">
+                  <Input value={form.brandName || ''} onChange={v => set('brandName', v)} placeholder="مثال: مطعم الأصالة، متجر Zara Arabia..." />
+                </Field>
+                <Field label="القطاع / الصناعة *">
+                  <div className="relative">
+                    <select value={form.industry || ''} onChange={e => set('industry', e.target.value)}
+                      className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8 focus:outline-none"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: form.industry ? '#e5e7eb' : '#6b7280' }}>
+                      <option value="" style={{ background: '#0d0d1a' }}>اختر القطاع...</option>
+                      {INDUSTRIES.map(i => <option key={i} value={i} style={{ background: '#0d0d1a' }}>{i}</option>)}
+                    </select>
+                    <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  </div>
+                </Field>
+                <Field label="وصف النشاط التجاري * — ما الذي تفعله؟">
+                  <Input textarea value={form.description || ''} onChange={v => set('description', v)}
+                    placeholder="مثال: نحن مطعم عائلي متخصص في الأكلات الشامية التقليدية في الرياض، نقدم تجربة عشاء فاخرة بأسعار معقولة..." />
+                </Field>
+                <Field label="ملاحظات استراتيجية — أي معلومات أخرى مهمة عن النشاط">
+                  <Input textarea value={form.strategicNotes || ''} onChange={v => set('strategicNotes', v)}
+                    placeholder="مثال: نستهدف العائلات والمناسبات، لدينا برنامج ولاء، نسعى للتوسع في جدة..." />
+                </Field>
+              </div>
+            )}
+
+            {/* PRODUCT */}
+            {step === 'product' && (
+              <div className="space-y-4">
+                <Field label="المنتج / الخدمة الرئيسية *">
+                  <Input textarea value={form.primaryOffer || ''} onChange={v => set('primaryOffer', v)}
+                    placeholder="مثال: وجبات رمضانية للعائلات مع إمكانية الحجز المسبق وخدمة توصيل للمنازل..." />
+                </Field>
+                <TagInput label="منتجات / خدمات ثانوية أخرى"
+                  placeholder="اكتب واضغط Enter لكل منتج..."
+                  values={form.secondaryOffers || []} onChange={v => set('secondaryOffers', v)} />
+                <Field label="مستوى السعر *">
+                  <RadioGroup options={PRICE_OPTIONS} value={form.pricePoint || ''} onChange={v => set('pricePoint', v)} />
+                </Field>
+                <TagInput label="المميزات الفريدة — ما الذي يميزك عن المنافسين؟ *"
+                  placeholder="مثال: وصفات سرية، خدمة ٢٤/٧، ضمان استرداد..."
+                  values={form.uniqueAdvantages || []} onChange={v => set('uniqueAdvantages', v)} />
+              </div>
+            )}
+
+            {/* AUDIENCE */}
+            {step === 'audience' && (
+              <div className="space-y-4">
+                <Field label="وصف الجمهور المستهدف * — من هو عميلك المثالي؟">
+                  <Input textarea value={form.targetAudience || ''} onChange={v => set('targetAudience', v)}
+                    placeholder="مثال: شباب سعودي من 25-35 سنة، يعيش في المدن الكبرى، مهتم بتجارب الطعام الجديدة ويستخدم Instagram يومياً..." />
+                </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="الفئة العمرية *">
+                    <div className="flex flex-wrap gap-2">
+                      {AGE_OPTIONS.map(a => (
+                        <button key={a} onClick={() => set('audienceAge', a)}
+                          className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                          style={{
+                            background: form.audienceAge === a ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
+                            border: `1px solid ${form.audienceAge === a ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                            color: form.audienceAge === a ? '#8b5cf6' : '#9ca3af',
+                          }}>
+                          {form.audienceAge === a && '● '}{a}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="الموقع الجغرافي *">
+                    <Input value={form.audienceLocation || ''} onChange={v => set('audienceLocation', v)}
+                      placeholder="مثال: السعودية، الإمارات، مصر، الخليج العربي..." />
+                  </Field>
+                </div>
+                <TagInput label="نقاط الألم — ما المشاكل التي يعاني منها جمهورك؟"
+                  placeholder="مثال: لا وقت للطبخ، يبحث عن جودة بسعر معقول..."
+                  values={form.audiencePainPoints || []} onChange={v => set('audiencePainPoints', v)} />
+                <TagInput label="الرغبات والتطلعات — ما الذي يريده جمهورك؟"
+                  placeholder="مثال: توفير الوقت، الشعور بالفخر، تجربة مميزة..."
+                  values={form.audienceDesires || []} onChange={v => set('audienceDesires', v)} />
+              </div>
+            )}
+
+            {/* VOICE */}
+            {step === 'voice' && (
+              <div className="space-y-4">
+                <Field label="نبرة الصوت المطلوبة * — كيف تريد أن تبدو في تواصلك؟">
+                  <ToggleGrid options={TONE_OPTIONS} selected={form.toneKeywords || []}
+                    onChange={v => set('toneKeywords', v)} color="#10b981" />
+                </Field>
+                <Field label="أسلوب الكتابة المفضل">
+                  <Input value={form.writingStyle || ''} onChange={v => set('writingStyle', v)}
+                    placeholder="مثال: جمل قصيرة ومباشرة، نبرة ودية وعامية مصرية، بدون مصطلحات تقنية..." />
+                </Field>
+                <TagInput label="كلمات وأساليب يجب تجنبها"
+                  placeholder="مثال: 'رائع'، 'مميز'، المبالغة في الأوصاف..."
+                  values={form.avoidKeywords || []} onChange={v => set('avoidKeywords', v)} />
+                <TagInput label="أمثلة على هوكس نجحت معكم سابقاً (اختياري)"
+                  placeholder="هوك ناجح..."
+                  values={form.winningHooks || []} onChange={v => set('winningHooks', v)} />
+              </div>
+            )}
+
+            {/* PLATFORMS */}
+            {step === 'platforms' && (
+              <div className="space-y-4">
+                <Field label="المنصات التي تنشط فيها *">
+                  <ToggleGrid options={PLATFORMS_LIST} selected={form.topPlatforms || []}
+                    onChange={v => set('topPlatforms', v)} color="#ec4899" />
+                </Field>
+                <Field label="الأسلوب البصري المفضل">
+                  <div className="flex flex-wrap gap-2">
+                    {['minimalist', 'bold', 'lifestyle', 'corporate', 'playful', 'luxury', 'editorial'].map(style => (
+                      <button key={style} onClick={() => set('visualStyle', style)}
+                        className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                        style={{
+                          background: form.visualStyle === style ? 'rgba(236,72,153,0.15)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${form.visualStyle === style ? 'rgba(236,72,153,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                          color: form.visualStyle === style ? '#ec4899' : '#9ca3af',
+                        }}>
+                        {form.visualStyle === style && '● '}{style}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+                <TagInput label="زوايا وأساليب تسويقية نجحت (اختياري)"
+                  placeholder="مثال: تحديات TikTok، قصص العملاء..."
+                  values={form.winningAngles || []} onChange={v => set('winningAngles', v)} />
+                <TagInput label="أساليب لم تنجح وتريد تجنبها (اختياري)"
+                  placeholder="مثال: الإعلانات الترويجية المباشرة، الصور المصطنعة..."
+                  values={form.failedAngles || []} onChange={v => set('failedAngles', v)} />
+              </div>
+            )}
+
+            {/* COMPETITORS */}
+            {step === 'competitors' && (
+              <div className="space-y-4">
+                <Field label="ملاحظات عن المنافسين — من هم ونقاط قوتهم وضعفهم؟">
+                  <Input textarea value={form.competitorNotes || ''} onChange={v => set('competitorNotes', v)}
+                    placeholder="مثال: المنافس الرئيسي هو مطعم X — نقطة قوته: السعر، نقطة ضعفه: جودة الطعام وبطء التوصيل. نحن أفضل في الجودة لكن أقل وضوحاً في التسويق..." />
+                </Field>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button
+                onClick={() => currentStepIdx > 0 && setStep(STEPS[currentStepIdx - 1].id)}
+                disabled={currentStepIdx === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all"
+                style={{ color: currentStepIdx === 0 ? '#374151' : '#9ca3af', cursor: currentStepIdx === 0 ? 'not-allowed' : 'pointer' }}>
+                <ArrowRight size={15} />
+                السابق
+              </button>
+
+              <div className="flex items-center gap-1">
+                {STEPS.map((s, i) => (
+                  <button key={s.id} onClick={() => setStep(s.id)}
+                    className="w-2 h-2 rounded-full transition-all"
+                    style={{ background: step === s.id ? '#f59e0b' : 'rgba(255,255,255,0.15)', transform: step === s.id ? 'scale(1.4)' : 'scale(1)' }} />
+                ))}
+              </div>
+
+              {currentStepIdx < STEPS.length - 1 ? (
+                <button
+                  onClick={() => setStep(STEPS[currentStepIdx + 1].id)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all"
+                  style={{ color: '#f59e0b' }}>
+                  التالي
+                  <ArrowLeft size={15} />
+                </button>
+              ) : (
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all"
+                  style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0a0a0a', boxShadow: '0 0 20px rgba(245,158,11,0.25)' }}>
+                  <Zap size={14} />
+                  حفظ وتفعيل Brain
+                </button>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* ── What this does ───────────────────────────────────── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { color: '#f59e0b', icon: Brain,    label: 'NEX Studio',  desc: 'سكريبتات مخصصة لعلامتك' },
+              { color: '#06b6d4', icon: Zap,      label: 'VEX Ads',     desc: 'إعلانات بنبرة صوتك' },
+              { color: '#8b5cf6', icon: BarChart2, label: 'PULSE',       desc: 'تحليل موجّه لقطاعك' },
+              { color: '#10b981', icon: Target,   label: 'Sentinel',    desc: 'رصد منافسيك تحديداً' },
+            ].map((c, i) => (
+              <div key={i} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2"
+                  style={{ background: `${c.color}18`, border: `1px solid ${c.color}25` }}>
+                  <c.icon size={14} style={{ color: c.color }} />
+                </div>
+                <p className="text-xs font-semibold text-white">{c.label}</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">{c.desc}</p>
+              </div>
+            ))}
+          </div>
+
         </div>
-
-        {/* ── Bottom save ────────────────────────────────────────────── */}
-        <div className="mt-8 flex justify-start">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition ${
-              saved
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-accent hover:bg-accent-light text-white'
-            }`}
-          >
-            {saving ? 'جاري الحفظ...' : saved ? '✓ تم حفظ ملف العلامة' : 'حفظ التغييرات'}
-          </button>
-        </div>
-
       </div>
     </AppShell>
   )

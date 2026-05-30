@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useBrandBrain } from '@/hooks/useBrandBrain'
 import {
   Loader2, Shield, Wand2, Sparkles, AlertTriangle, Eye, Bell,
   Copy, Check, ChevronDown, Zap, Globe, TrendingUp, Search,
@@ -113,6 +114,8 @@ export default function SentinelPage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
+  const { brandContext, brand } = useBrandBrain()
+
   const [monitorType, setMonitorType] = useState<MonitorType>('competitors')
   const [industry, setIndustry] = useState('ecommerce')
   const [region, setRegion] = useState('mena')
@@ -144,11 +147,11 @@ export default function SentinelPage() {
   ]
 
   const systemPrompts: Record<MonitorType, string> = {
-    competitors: `أنت محلل استراتيجي متخصص في رصد المنافسين. القطاع: ${industry}. المنطقة: ${region}. حلل المنافسين: استراتيجياتهم التسويقية الحالية، نقاط قوتهم وضعفهم، تحركاتهم الأخيرة، وكيف يمكنك التفوق عليهم. قدم توصيات عملية فورية.`,
-    market: `أنت محلل نبض السوق الرقمي. القطاع: ${industry}. المنطقة: ${region}. رصد حالة السوق: الاتجاهات السائدة، حجم الطلب، تغيرات سلوك المستهلك، أفضل المنصات أداءً، والكلمات المفتاحية الصاعدة. قدم صورة واضحة ومحدثة.`,
-    reputation: `أنت خبير في إدارة سمعة العلامات التجارية. القطاع: ${industry}. حلل: كيفية مراقبة السمعة الرقمية، المؤشرات المهمة، كيفية الاستجابة للتعليقات، استراتيجيات بناء الصورة الإيجابية، وإدارة الأزمات.`,
-    opportunities: `أنت خبير في رصد فرص النمو التسويقية. القطاع: ${industry}. المنطقة: ${region}. حدد: الفرص غير المستغلة في السوق، الشرائح المهملة، الاتجاهات الناشئة التي يمكن ركوبها، والميزات التنافسية القابلة للبناء.`,
-    threats: `أنت محلل مخاطر تسويقية. القطاع: ${industry}. المنطقة: ${region}. حدد: التهديدات الرئيسية في السوق، المنافسون الصاعدون، التغييرات التنظيمية، التحولات في سلوك المستهلك، وكيفية الاستعداد والتكيف.`,
+    competitors: `${brandContext}أنت Sentinel، محلل استراتيجي متخصص في رصد المنافسين. القطاع: ${industry}. المنطقة: ${region}. حلل المنافسين: استراتيجياتهم التسويقية الحالية، نقاط قوتهم وضعفهم، تحركاتهم الأخيرة، وكيف يمكنك التفوق عليهم. قدم توصيات عملية فورية.`,
+    market: `${brandContext}أنت Sentinel، محلل نبض السوق الرقمي. القطاع: ${industry}. المنطقة: ${region}. رصد حالة السوق: الاتجاهات السائدة، حجم الطلب، تغيرات سلوك المستهلك، أفضل المنصات أداءً، والكلمات المفتاحية الصاعدة. قدم صورة واضحة ومحدثة.`,
+    reputation: `${brandContext}أنت Sentinel، خبير في إدارة سمعة العلامات التجارية. القطاع: ${industry}. حلل: كيفية مراقبة السمعة الرقمية، المؤشرات المهمة، كيفية الاستجابة للتعليقات، استراتيجيات بناء الصورة الإيجابية، وإدارة الأزمات.`,
+    opportunities: `${brandContext}أنت Sentinel، خبير في رصد فرص النمو التسويقية. القطاع: ${industry}. المنطقة: ${region}. حدد: الفرص غير المستغلة في السوق، الشرائح المهملة، الاتجاهات الناشئة التي يمكن ركوبها، والميزات التنافسية القابلة للبناء.`,
+    threats: `${brandContext}أنت Sentinel، محلل مخاطر تسويقية. القطاع: ${industry}. المنطقة: ${region}. حدد: التهديدات الرئيسية في السوق، المنافسون الصاعدون، التغييرات التنظيمية، التحولات في سلوك المستهلك، وكيفية الاستعداد والتكيف.`,
   }
 
   async function generate() {
@@ -207,6 +210,19 @@ export default function SentinelPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              {brand?.brandName ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+                  style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981' }}>
+                  <span>🧠</span>
+                  <span>Brain: {brand.brandName}</span>
+                </div>
+              ) : (
+                <a href="/brand" className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
+                  style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b' }}>
+                  <span>⚡</span>
+                  <span>فعّل Brand Brain</span>
+                </a>
+              )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, color: greenColor }}>
                 <Radio size={12} className={pulse ? 'opacity-100' : 'opacity-30'} style={{ transition: 'opacity 0.5s' }} />

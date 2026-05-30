@@ -10,6 +10,7 @@ import {
   Globe, Activity, Eye, ArrowUpRight, ArrowDownRight
 } from 'lucide-react'
 import StarField from '@/components/ui/StarField'
+import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
    PULSE — Analytics & Market Intelligence
@@ -106,6 +107,7 @@ export default function PulsePage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
+  const { brandContext, brand } = useBrandBrain()
   const [analysisType, setAnalysisType] = useState<AnalysisType>('performance')
   const [period, setPeriod] = useState<Period>('30d')
   const [industry, setIndustry] = useState('ecommerce')
@@ -130,11 +132,11 @@ export default function PulsePage() {
   ]
 
   const systemPrompts: Record<AnalysisType, string> = {
-    performance: `أنت محلل بيانات تسويقية خبير. الفترة: ${period}. القطاع: ${industry}. حلل أداء الحملات التسويقية وقدم: مؤشرات KPIs الرئيسية، نقاط القوة والضعف، الفرص التحسينية، والتوصيات العملية المرتبة بالأولوية.`,
-    competitors: `أنت خبير في تحليل المنافسين. القطاع: ${industry}. الفترة: ${period}. قدم تحليلاً شاملاً: نقاط القوة والضعف للمنافسين، استراتيجياتهم التسويقية، فرص التمايز، والثغرات التي يمكن استغلالها.`,
-    trends: `أنت محلل اتجاهات سوقية. القطاع: ${industry}. اكشف عن: الاتجاهات الناشئة في المحتوى والإعلانات، تغيرات سلوك الجمهور، الفرص الموسمية، والكلمات المفتاحية الصاعدة. قدم توصيات للاستفادة منها.`,
-    content: `أنت محلل أداء المحتوى الرقمي. القطاع: ${industry}. الفترة: ${period}. حلل: أنواع المحتوى الأفضل أداءً، أوقات النشر المثلى، معدلات التفاعل، الهاشتاقات الفعّالة، وتوصيات لتحسين استراتيجية المحتوى.`,
-    forecast: `أنت نموذج ذكاء اصطناعي متخصص في التوقعات التسويقية. القطاع: ${industry}. بناءً على البيانات المتاحة وبيانات السوق: توقع الأداء للأشهر الثلاثة القادمة، حدد المخاطر والفرص، وقدم خطة عمل استباقية.`,
+    performance: `${brandContext}أنت PULSE، محلل بيانات تسويقية خبير. الفترة: ${period}. القطاع: ${industry}. حلل أداء حملات العلامة التجارية أعلاه وقدم: KPIs الرئيسية، نقاط القوة والضعف، والتوصيات العملية المخصصة لهذه العلامة.`,
+    competitors:  `${brandContext}أنت PULSE، خبير تحليل منافسين. القطاع: ${industry}. قدم تحليل منافسين مخصصاً للعلامة التجارية أعلاه: من هم منافسوهم الفعليون، نقاط قوتهم وضعفهم، وفرص التمايز المتاحة.`,
+    trends:       `${brandContext}أنت PULSE، محلل اتجاهات سوقية. القطاع: ${industry}. اكشف عن الاتجاهات الأكثر صلة بالعلامة التجارية أعلاه: محتوى، إعلانات، سلوك جمهور، وفرص موسمية قادمة.`,
+    content:      `${brandContext}أنت PULSE، محلل أداء محتوى. القطاع: ${industry}. الفترة: ${period}. حلل ما هو أفضل نوع محتوى للعلامة التجارية أعلاه: أوقات النشر، أنواع المحتوى، هاشتاقات فعّالة لجمهورهم المحدد.`,
+    forecast:     `${brandContext}أنت PULSE، متخصص في التوقعات التسويقية. القطاع: ${industry}. بناءً على بيانات العلامة التجارية أعلاه، توقع الأداء للأشهر الثلاثة القادمة وقدم خطة عمل استباقية مخصصة.`,
   }
 
   async function generate() {

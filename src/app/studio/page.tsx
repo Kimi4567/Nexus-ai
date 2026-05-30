@@ -11,6 +11,7 @@ import {
   Layers, Target, TrendingUp, Volume2
 } from 'lucide-react'
 import StarField from '@/components/ui/StarField'
+import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
    NEX — Creative Content Lab
@@ -120,6 +121,7 @@ export default function NexStudioPage() {
   }, [authLoading, isAuthenticated, router])
 
   // ── State ────────────────────────────────────────────────────
+  const { brandContext, brand, completeness } = useBrandBrain()
   const [activeTab, setActiveTab] = useState<TabId>('script')
   const [prompt, setPrompt] = useState('')
   const [platform, setPlatform] = useState<Platform>('instagram')
@@ -155,19 +157,12 @@ export default function NexStudioPage() {
     setLoading(true)
     setResult('')
 
+    const toneLabel = tone === 'excited' ? 'حماسية ومثيرة' : tone === 'professional' ? 'احترافية وواثقة' : tone === 'humorous' ? 'مرحة وممتعة' : tone === 'emotional' ? 'عاطفية ومؤثرة' : 'عاجلة ومقنعة'
     const systemPrompts: Record<TabId, string> = {
-      script: `أنت خبير في كتابة سكريبتات الفيديو التسويقية. اكتب سكريبت فيديو احترافي وجذاب لمنصة ${platform} بمدة ${duration}.
-النبرة: ${tone === 'excited' ? 'حماسية ومثيرة' : tone === 'professional' ? 'احترافية وواثقة' : tone === 'humorous' ? 'مرحة وممتعة' : tone === 'emotional' ? 'عاطفية ومؤثرة' : 'عاجلة ومقنعة'}.
-الصيغة: [المشهد X] → الإجراء → الحوار. اجعل كل مشهد واضحاً وقابلاً للتنفيذ. أضف تعليمات للكاميرا والإضاءة.`,
-      hooks: `أنت خبير في صناعة هوكس الفيديوهات الفيروسية. اكتب 5 هوكس مختلفة وقوية لمنصة ${platform}.
-النبرة: ${tone}. كل هوك يجب أن يكون مختلفاً في الأسلوب: سؤال، إحصائية، تحدي، قصة، وعد.
-اجعلها قصيرة (أقل من 10 ثوانٍ) وصادمة للانتباه.`,
-      captions: `أنت خبير في كتابة الكابشنز التسويقية لمنصة ${platform}.
-اكتب 3 كابشنز مختلفة: قصير (50 كلمة)، متوسط (100 كلمة)، طويل (200 كلمة).
-أضف هاشتاقات مناسبة وCTA قوي في كل كابشن. النبرة: ${tone}.`,
-      storyboard: `أنت مخرج فيديو إبداعي. أنشئ ستوري بورد تفصيلياً لفيديو ${duration} على ${platform}.
-قسّم الفيديو إلى مشاهد واضحة مع: وصف المشهد، الحوار/الصوت، الإجراء البصري، مؤثرات الكاميرا، والمدة.
-النبرة: ${tone}.`,
+      script: `${brandContext}أنت NEX، خبير في كتابة سكريبتات الفيديو التسويقية. اكتب سكريبت فيديو احترافي وجذاب لمنصة ${platform} بمدة ${duration}. النبرة: ${toneLabel}. الصيغة: [المشهد X] → الإجراء → الحوار. اجعل كل مشهد واضحاً وقابلاً للتنفيذ. أضف تعليمات للكاميرا والإضاءة. اجعل المحتوى مخصصاً تماماً للعلامة التجارية أعلاه.`,
+      hooks: `${brandContext}أنت NEX، خبير في صناعة هوكس الفيديوهات الفيروسية. اكتب 5 هوكس مختلفة وقوية لمنصة ${platform}. النبرة: ${toneLabel}. كل هوك بأسلوب مختلف: سؤال، إحصائية، تحدي، قصة، وعد. اجعلها قصيرة (أقل من 10 ثوانٍ) ومخصصة تماماً للعلامة التجارية أعلاه.`,
+      captions: `${brandContext}أنت NEX، خبير في كتابة الكابشنز التسويقية لمنصة ${platform}. اكتب 3 كابشنز مختلفة: قصير (50 كلمة)، متوسط (100 كلمة)، طويل (200 كلمة). أضف هاشتاقات مناسبة وCTA قوي. النبرة: ${toneLabel}. اجعل المحتوى مخصصاً للعلامة التجارية أعلاه.`,
+      storyboard: `${brandContext}أنت NEX، مخرج فيديو إبداعي. أنشئ ستوري بورد تفصيلياً لفيديو ${duration} على ${platform}. قسّم الفيديو إلى مشاهد واضحة مع: وصف المشهد، الحوار/الصوت، الإجراء البصري، مؤثرات الكاميرا، والمدة. النبرة: ${toneLabel}. اجعل كل مشهد معبّراً عن هوية العلامة التجارية أعلاه.`,
     }
 
     try {
@@ -236,10 +231,24 @@ export default function NexStudioPage() {
                 <p className="text-gray-400 text-sm mt-0.5">مختبر المحتوى الإبداعي · Creative Content Lab</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-              style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-              <Sparkles size={12} />
-              <span>GPT-4o · نشط</span>
+            <div className="flex items-center gap-2">
+              {brand?.brandName ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+                  style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                  <span>Brain: {brand.brandName}</span>
+                </div>
+              ) : (
+                <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
+                  style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+                  <span>⚡ فعّل Brand Brain</span>
+                </a>
+              )}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
+                style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+                <Sparkles size={12} />
+                <span>GPT-4o · نشط</span>
+              </div>
             </div>
           </div>
 

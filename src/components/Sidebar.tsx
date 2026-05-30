@@ -150,6 +150,12 @@ const Icons = {
       <path d="M8 1.5L10.5 6l5 .5-3.5 3.5 1 5L8 12.5 3 15l1-5L.5 6.5l5-.5L8 1.5z" strokeLinejoin="round" />
     </svg>
   ),
+  brain: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M6 2.5C4 2.5 2.5 4 2.5 5.5c0 .8.3 1.5.8 2-.5.4-.8 1-.8 1.7 0 1.2.9 2.2 2 2.4V13h7v-1.4c1.1-.2 2-1.2 2-2.4 0-.7-.3-1.3-.8-1.7.5-.5.8-1.2.8-2C13.5 4 12 2.5 10 2.5c-.5 0-1 .1-1.4.3A2.5 2.5 0 0 0 6 2.5z" strokeLinejoin="round"/>
+      <path d="M6 8.5h4M7 6.5h2" strokeLinecap="round"/>
+    </svg>
+  ),
 }
 
 // ── Main Sidebar ───────────────────────────────────────────────
@@ -191,6 +197,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* Main */}
         <NavItem href="/dashboard" label="الرئيسية" labelEn="Dashboard"
           icon={Icons.dashboard} {...sharedProps} />
+        <NavItem href="/brand" label="Brand Brain" labelEn="Memory"
+          icon={Icons.brain} dot="#f59e0b" {...sharedProps} />
 
         {/* Platform */}
         {!collapsed && <SectionLabel>المنصات</SectionLabel>}

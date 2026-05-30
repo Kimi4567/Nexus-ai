@@ -9,6 +9,7 @@ import {
   Check, ChevronDown, DollarSign, Eye, MousePointer, Heart
 } from 'lucide-react'
 import StarField from '@/components/ui/StarField'
+import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
    VEX — Ads & Campaign Management Center
@@ -97,6 +98,7 @@ export default function VexPage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
+  const { brandContext, brand } = useBrandBrain()
   const [outputTab, setOutputTab] = useState<OutputTab>('copy')
   const [adType, setAdType] = useState<AdType>('conversion')
   const [adPlatform, setAdPlatform] = useState<AdPlatform>('meta')
@@ -122,10 +124,10 @@ export default function VexPage() {
   ]
 
   const systemPrompts: Record<OutputTab, string> = {
-    copy: `أنت خبير في كتابة نصوص الإعلانات عالية التحويل على ${adPlatform}. نوع الهدف: ${adType}. الصيغة: ${adFormat}. اكتب: العنوان الرئيسي + النص التشويقي + الـ CTA + 3 إعلانات بديلة للاختبار A/B. اجعل كل نص جذاباً وموجهاً للتحويل.`,
-    audience: `أنت خبير في استهداف الجماهير الإعلانية على ${adPlatform}. نوع الإعلان: ${adType}. الميزانية: ${budget} دولار. حدد: الجمهور الأساسي + الاهتمامات + الخصائص الديموغرافية + الجماهير المشابهة + إعادة الاستهداف. قدم توصيات تفصيلية وعملية.`,
-    budget: `أنت خبير في إدارة ميزانيات الإعلانات الرقمية. المنصة: ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget} دولار شهرياً. قسّم الميزانية بشكل مثالي مع توقعات KPIs واقعية (CTR، CPC، CPL، ROAS).`,
-    strategy: `أنت استراتيجي إعلانات رقمية خبير. المنصة: ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget}$. صمّم استراتيجية كاملة: مراحل الحملة + الرسائل + مؤشرات النجاح + جدول زمني 30 يوم + توصيات الاختبار.`,
+    copy:     `${brandContext}أنت VEX، خبير في كتابة نصوص الإعلانات عالية التحويل على ${adPlatform}. الهدف: ${adType}. الصيغة: ${adFormat}. اكتب: العنوان الرئيسي + النص التشويقي + الـ CTA + 3 إعلانات للاختبار A/B. اجعل كل نص مخصصاً تماماً للعلامة التجارية أعلاه.`,
+    audience: `${brandContext}أنت VEX، خبير في استهداف الجماهير الإعلانية على ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget}$. حدد الجمهور المناسب تماماً للعلامة التجارية أعلاه: الجمهور الأساسي + الاهتمامات + الديموغرافيا + الجماهير المشابهة.`,
+    budget:   `${brandContext}أنت VEX، خبير في إدارة ميزانيات الإعلانات. المنصة: ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget}$/شهر. قسّم الميزانية بشكل مثالي يناسب طبيعة العلامة التجارية أعلاه مع توقعات KPIs واقعية.`,
+    strategy: `${brandContext}أنت VEX، استراتيجي إعلانات رقمية. المنصة: ${adPlatform}. الهدف: ${adType}. الميزانية: ${budget}$. صمّم استراتيجية حملة 30 يوم كاملة ومخصصة تماماً للعلامة التجارية أعلاه.`,
   }
 
   async function generate() {
@@ -188,6 +190,18 @@ export default function VexPage() {
               <Sparkles size={12} />
               <span>GPT-4o · نشط</span>
             </div>
+            {brand?.brandName ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+                style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                <span>Brain: {brand.brandName}</span>
+              </div>
+            ) : (
+              <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+                style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)', color: '#06b6d4' }}>
+                ⚡ فعّل Brand Brain
+              </a>
+            )}
           </div>
 
           {/* Mini stats */}
