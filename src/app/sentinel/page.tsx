@@ -39,7 +39,7 @@ function SentinelOrbs() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
       <div className="absolute rounded-full blur-[160px] opacity-15"
-        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(16,185,129,0.15), transparent 70%)', bottom: '-10%', left: '-10%', animation: 'float 20s ease-in-out infinite' }} />
+        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(255,215,0,0.12), transparent 70%)', bottom: '-10%', left: '-10%', animation: 'float 20s ease-in-out infinite' }} />
       <div className="absolute rounded-full blur-[100px] opacity-12"
         style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)', top: '-5%', right: '-5%', animation: 'float 15s ease-in-out infinite reverse' }} />
     </div>
@@ -68,8 +68,8 @@ function SentinelSelect<T extends string>({ label, value, options, onChange }: {
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
-          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>{o.label}</option>)}
+          style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }}>
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
         </select>
         <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
       </div>
@@ -132,7 +132,7 @@ export default function SentinelPage() {
   }, [])
 
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
       <Loader2 className="animate-spin" size={32} style={{ color: '#10b981' }} />
     </div>
   )
@@ -176,12 +176,12 @@ export default function SentinelPage() {
     }
   }
 
-  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
+  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
   const greenColor = '#10b981'
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
         <StarField />
         <SentinelOrbs />
 
@@ -313,7 +313,7 @@ export default function SentinelPage() {
                   ].map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
                       className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-green-400"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
+                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
                       {q}
                     </button>
                   ))}
@@ -334,7 +334,7 @@ export default function SentinelPage() {
                   placeholder="صف ما تريد مراقبته — اسم منافسيك، قطاعك، أو سؤالك الاستراتيجي..."
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb' }} />
+                  style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
                 <div className="flex justify-end">
                   <button onClick={generate} disabled={!prompt.trim() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
@@ -397,7 +397,7 @@ export default function SentinelPage() {
                 {history.map(h => (
                   <div key={h.id} onClick={() => { setResult(h.output); setMonitorType(h.type) }}
                     className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                    style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(16,185,129,0.1)', color: greenColor, border: `1px solid rgba(16,185,129,0.2)` }}>

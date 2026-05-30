@@ -36,7 +36,7 @@ function VexOrbs() {
       <div className="absolute rounded-full blur-[160px] opacity-15"
         style={{ width: 800, height: 800, background: 'radial-gradient(circle, rgba(6,182,212,0.15), transparent 70%)', top: '-20%', right: '-20%', animation: 'float 16s ease-in-out infinite' }} />
       <div className="absolute rounded-full blur-[100px] opacity-12"
-        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(245,158,11,0.1), transparent 70%)', bottom: '10%', left: '-10%', animation: 'float 12s ease-in-out infinite reverse' }} />
+        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(255,107,53,0.12), transparent 70%)', bottom: '10%', left: '-10%', animation: 'float 12s ease-in-out infinite reverse' }} />
     </div>
   )
 }
@@ -65,8 +65,8 @@ function VexSelect<T extends string>({ label, value, options, onChange }: {
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
-          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>{o.label}</option>)}
+          style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }}>
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
         </select>
         <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
       </div>
@@ -77,7 +77,7 @@ function VexSelect<T extends string>({ label, value, options, onChange }: {
 function StatCard({ icon: Icon, color, value, label }: { icon: React.ElementType; color: string; value: string; label: string }) {
   return (
     <div className="rounded-xl p-4 flex items-center gap-3"
-      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)' }}>
       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ background: `${color}18`, border: `1px solid ${color}25` }}>
         <Icon size={16} style={{ color }} />
@@ -110,7 +110,7 @@ export default function VexPage() {
   const [history, setHistory] = useState<AdResult[]>([])
 
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
       <Loader2 className="animate-spin" size={32} style={{ color: '#06b6d4' }} />
     </div>
   )
@@ -152,12 +152,12 @@ export default function VexPage() {
     }
   }
 
-  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
+  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
   const cyanColor = '#06b6d4'
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
         <StarField />
         <VexOrbs />
 
@@ -207,7 +207,7 @@ export default function VexPage() {
           {/* Mini stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <StatCard icon={Eye}          color="#06b6d4" value="—" label="مشاهدات · Impressions" />
-            <StatCard icon={MousePointer} color="#f59e0b" value="—" label="نقرات · Clicks" />
+            <StatCard icon={MousePointer} color="#6C63FF" value="—" label="نقرات · Clicks" />
             <StatCard icon={Heart}        color="#8b5cf6" value="—" label="تفاعلات · Engagements" />
             <StatCard icon={DollarSign}   color="#10b981" value="—" label="تحويلات · Conversions" />
           </div>
@@ -268,7 +268,7 @@ export default function VexPage() {
                   <label className="text-xs text-gray-500">الميزانية الشهرية ($)</label>
                   <input type="number" value={budget} onChange={e => setBudget(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl text-sm"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }} />
+                    style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }} />
                 </div>
               </div>
 
@@ -278,7 +278,7 @@ export default function VexPage() {
                   {['متجر ملابس أونلاين - تصفية نهاية الموسم', 'تطبيق توصيل طعام - أول طلب مجاني', 'عيادة تجميل - حجز استشارة مجانية', 'دورة تدريبية في التسويق الرقمي'].map((idea, i) => (
                     <button key={i} onClick={() => setPrompt(idea)}
                       className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-cyan-400"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
+                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
                       {idea}
                     </button>
                   ))}
@@ -296,7 +296,7 @@ export default function VexPage() {
                   placeholder="صف منتجك أو خدمتك ورسالتك التسويقية الرئيسية..."
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb' }} />
+                  style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
                 <div className="flex justify-end">
                   <button onClick={generate} disabled={!prompt.trim() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
@@ -359,7 +359,7 @@ export default function VexPage() {
                 {history.map(h => (
                   <div key={h.id} onClick={() => { setResult(h.output); setOutputTab(h.tab) }}
                     className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                    style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(6,182,212,0.1)', color: cyanColor, border: `1px solid rgba(6,182,212,0.2)` }}>
@@ -378,7 +378,7 @@ export default function VexPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { icon: Megaphone, color: '#06b6d4', label: 'نص الإعلان',     sub: 'AI Ad Copy',     desc: 'نصوص تحويل عالية الأداء' },
-              { icon: Target,    color: '#f59e0b', label: 'استهداف الجمهور',sub: 'Audience',        desc: 'جمهور دقيق ومخصص' },
+              { icon: Target,    color: '#6C63FF', label: 'استهداف الجمهور',sub: 'Audience',        desc: 'جمهور دقيق ومخصص' },
               { icon: DollarSign,color: '#10b981', label: 'توزيع الميزانية',sub: 'Budget Split',    desc: 'تحقيق أعلى ROAS' },
               { icon: TrendingUp,color: '#8b5cf6', label: 'استراتيجية كاملة',sub: 'Full Strategy',  desc: 'خطة 30 يوم متكاملة' },
             ].map((c, i) => (

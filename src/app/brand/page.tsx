@@ -72,7 +72,7 @@ function TagInput({ label, placeholder, values, onChange, suggestions }: {
     <div className="flex flex-col gap-2">
       <label className="text-xs text-gray-500">{label}</label>
       <div className="flex flex-wrap gap-1.5 p-3 rounded-xl min-h-[44px]"
-        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)' }}>
         {values.map((v, i) => (
           <span key={i} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
             style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }}>
@@ -93,7 +93,7 @@ function TagInput({ label, placeholder, values, onChange, suggestions }: {
           {suggestions.filter(s => !values.includes(s)).slice(0, 6).map(s => (
             <button key={s} onClick={() => add(s)}
               className="px-2.5 py-1 rounded-lg text-xs transition-all hover:text-amber-400"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#6b7280' }}>
+              style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', color: '#64748b' }}>
               + {s}
             </button>
           ))}
@@ -116,7 +116,7 @@ function Input({ value, onChange, placeholder, textarea }: {
   value: string; onChange: (v: string) => void; placeholder?: string; textarea?: boolean
 }) {
   const cls = "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none transition-all"
-  const style = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb' }
+  const style = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }
   if (textarea) return (
     <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
       rows={3} className={`${cls} resize-none`} style={style} />
@@ -211,21 +211,21 @@ export default function BrandBrainPage() {
   const currentStep = STEPS[currentStepIdx]
 
   if (authLoading || loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
       <Loader2 className="animate-spin text-amber-500" size={32} />
     </div>
   )
   if (!isAuthenticated) return null
 
-  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
+  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
         <StarField />
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
           <div className="absolute rounded-full blur-[160px] opacity-15"
-            style={{ width: 600, height: 600, background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent 70%)', top: '-10%', right: '-10%', animation: 'float 16s ease-in-out infinite' }} />
+            style={{ width: 600, height: 600, background: 'radial-gradient(circle, rgba(108,99,255,0.15), transparent 70%)', top: '-10%', right: '-10%', animation: 'float 16s ease-in-out infinite' }} />
         </div>
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -341,9 +341,9 @@ export default function BrandBrainPage() {
                   <div className="relative">
                     <select value={form.industry || ''} onChange={e => set('industry', e.target.value)}
                       className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8 focus:outline-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: form.industry ? '#e5e7eb' : '#6b7280' }}>
-                      <option value="" style={{ background: '#0d0d1a' }}>اختر القطاع...</option>
-                      {INDUSTRIES.map(i => <option key={i} value={i} style={{ background: '#0d0d1a' }}>{i}</option>)}
+                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: form.industry ? '#e5e7eb' : '#6b7280' }}>
+                      <option value="" style={{ background: '#111536' }}>اختر القطاع...</option>
+                      {INDUSTRIES.map(i => <option key={i} value={i} style={{ background: '#111536' }}>{i}</option>)}
                     </select>
                     <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                   </div>
@@ -522,7 +522,7 @@ export default function BrandBrainPage() {
               { color: '#8b5cf6', icon: BarChart2, label: 'PULSE',       desc: 'تحليل موجّه لقطاعك' },
               { color: '#10b981', icon: Target,   label: 'Sentinel',    desc: 'رصد منافسيك تحديداً' },
             ].map((c, i) => (
-              <div key={i} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div key={i} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(108,99,255,0.08)' }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2"
                   style={{ background: `${c.color}18`, border: `1px solid ${c.color}25` }}>
                   <c.icon size={14} style={{ color: c.color }} />

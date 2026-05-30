@@ -27,7 +27,7 @@ export default function AppShell({ children }: AppShellProps) {
   const sidebarW = collapsed ? 'w-16' : 'w-56'
 
   return (
-    <div dir="ltr" className="min-h-screen flex" style={{ background: '#030309' }}>
+    <div dir="ltr" className="min-h-screen flex bg-bg-base">
 
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -40,8 +40,8 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Mobile top bar */}
       <div
         dir="ltr"
-        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-[#191918]"
-        style={{ background: 'rgba(8,8,7,0.92)', backdropFilter: 'blur(20px)' }}
+        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-[rgba(108,99,255,0.15)]"
+        style={{ background: 'rgba(10,14,39,0.95)', backdropFilter: 'blur(20px)' }}
       >
         <div className="flex items-center gap-2">
           <svg width="22" height="22" viewBox="0 0 28 28" fill="none">

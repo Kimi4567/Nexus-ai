@@ -215,7 +215,7 @@ export default function SettingsPage() {
         <div
           className="absolute w-[500px] h-[500px] rounded-full opacity-10 blur-[100px]"
           style={{
-            background: 'radial-gradient(circle, rgba(245,158,11,0.12), transparent 70%)',
+            background: 'radial-gradient(circle, rgba(108,99,255,0.12), transparent 70%)',
             top: '5%',
             right: '10%',
             animation: 'float 10s ease-in-out infinite',
@@ -240,12 +240,12 @@ export default function SettingsPage() {
       <div
         className={`page-enter ${className}`}
         style={{
-          background: accent ? 'rgba(245,158,11,0.03)' : 'rgba(255,255,255,0.02)',
-          border: accent ? '1px solid rgba(245,158,11,0.12)' : '1px solid rgba(255,255,255,0.06)',
+          background: accent ? 'rgba(108,99,255,0.05)' : 'rgba(17,21,54,0.5)',
+          border: accent ? '1px solid rgba(108,99,255,0.2)' : '1px solid rgba(108,99,255,0.1)',
           borderRadius: '16px',
           boxShadow: accent
-            ? '0 8px 32px rgba(245,158,11,0.04), inset 0 1px 0 rgba(255,255,255,0.04)'
-            : '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
+            ? '0 8px 32px rgba(108,99,255,0.08), inset 0 1px 0 rgba(108,99,255,0.08)'
+            : '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(108,99,255,0.04)',
           ...style,
         }}
       >
@@ -266,13 +266,13 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#020204' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
         {/* Background atmosphere */}
         <NebulaOrbs />
         <div
           className="fixed w-[800px] h-[800px] rounded-full pointer-events-none opacity-6 blur-[150px]"
           style={{
-            background: 'radial-gradient(circle, rgba(245,158,11,0.10), transparent 70%)',
+            background: 'radial-gradient(circle, rgba(108,99,255,0.10), transparent 70%)',
             top: '30%',
             left: '-10%',
             animation: 'float 14s ease-in-out infinite',
@@ -306,8 +306,8 @@ export default function SettingsPage() {
                         : 'text-text-muted hover:text-white hover:bg-white/3'
                     }`}
                     style={{
-                      background: isActive ? 'rgba(255,255,255,0.04)' : 'transparent',
-                      border: isActive ? '1px solid rgba(255,255,255,0.08)' : '1px solid transparent',
+                      background: isActive ? 'rgba(108,99,255,0.12)' : 'transparent',
+                      border: isActive ? '1px solid rgba(108,99,255,0.2)' : '1px solid transparent',
                     }}
                   >
                     <Icon className="w-4 h-4" style={{ color: isActive ? section.color : undefined }} />
@@ -317,7 +317,7 @@ export default function SettingsPage() {
                 )
               })}
 
-              <div className="pt-4 mt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="pt-4 mt-4" style={{ borderTop: '1px solid rgba(108,99,255,0.1)' }}>
                 <Link
                   href="/dashboard"
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-white hover:bg-white/3 transition-all"
@@ -341,7 +341,7 @@ export default function SettingsPage() {
                       <div
                         className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-amber"
                         style={{
-                          background: 'rgba(245,158,11,0.08)',
+                          background: 'rgba(108,99,255,0.08)',
                           border: '1px solid rgba(245,158,11,0.15)',
                         }}
                       >
@@ -354,7 +354,7 @@ export default function SettingsPage() {
                           <span
                             className="text-[11px] px-3 py-1 rounded-full font-semibold"
                             style={{
-                              background: 'rgba(245,158,11,0.08)',
+                              background: 'rgba(108,99,255,0.08)',
                               color: '#f59e0b',
                               border: '1px solid rgba(245,158,11,0.15)',
                             }}
@@ -374,7 +374,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6" style={{ borderTop: '1px solid rgba(108,99,255,0.08)' }}>
                       <div>
                         <p className="text-xs text-text-muted mb-1">عضو منذ</p>
                         <p className="text-sm font-semibold text-text-primary">{createdAt}</p>
@@ -531,7 +531,7 @@ export default function SettingsPage() {
                       <span
                         className="text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wider"
                         style={{
-                          background: 'rgba(245,158,11,0.08)',
+                          background: 'rgba(108,99,255,0.08)',
                           color: '#f59e0b',
                           border: '1px solid rgba(245,158,11,0.15)',
                         }}
@@ -555,8 +555,8 @@ export default function SettingsPage() {
                     <div
                       className="flex items-center justify-between p-4 mb-3"
                       style={{
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'rgba(17,21,54,0.5)',
+                        border: '1px solid rgba(108,99,255,0.1)',
                         borderRadius: '12px',
                       }}
                     >
@@ -616,8 +616,8 @@ export default function SettingsPage() {
                               key={page.id}
                               className="flex items-center gap-2 px-4 py-3 rounded-xl"
                               style={{
-                                background: 'rgba(255,255,255,0.01)',
-                                border: '1px solid rgba(255,255,255,0.04)',
+                                background: 'rgba(17,21,54,0.4)',
+                                border: '1px solid rgba(108,99,255,0.08)',
                               }}
                             >
                               <span className="text-sm">📄</span>
@@ -644,15 +644,15 @@ export default function SettingsPage() {
                     <div
                       className="flex items-center justify-between p-4 opacity-40"
                       style={{
-                        background: 'rgba(255,255,255,0.01)',
-                        border: '1px solid rgba(255,255,255,0.04)',
+                        background: 'rgba(17,21,54,0.4)',
+                        border: '1px solid rgba(108,99,255,0.08)',
                         borderRadius: '12px',
                       }}
                     >
                       <div className="flex items-center gap-3">
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+                          style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)' }}
                         >
                           🎵
                         </div>
@@ -714,7 +714,7 @@ export default function SettingsPage() {
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-3">
                         <span className="text-sm text-text-muted w-28 text-right">{item.label}</span>
-                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(17,21,54,0.5)' }}>
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
@@ -759,8 +759,8 @@ export default function SettingsPage() {
                     <div
                       className="flex items-center justify-between p-4"
                       style={{
-                        background: 'rgba(255,255,255,0.01)',
-                        border: '1px solid rgba(255,255,255,0.04)',
+                        background: 'rgba(17,21,54,0.4)',
+                        border: '1px solid rgba(108,99,255,0.08)',
                         borderRadius: '12px',
                       }}
                     >

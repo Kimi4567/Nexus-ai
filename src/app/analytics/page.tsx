@@ -61,8 +61,8 @@ function PulseSelect<T extends string>({ label, value, options, onChange }: {
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
-          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>{o.label}</option>)}
+          style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }}>
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
         </select>
         <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
       </div>
@@ -75,7 +75,7 @@ function MetricCard({ label, labelEn, value, change, up, color }: {
   label: string; labelEn: string; value: string; change: string; up: boolean; color: string
 }) {
   return (
-    <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+    <div className="rounded-xl p-4" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)' }}>
       <p className="text-xs text-gray-500 mb-2">{label} · {labelEn}</p>
       <p className="text-xl font-bold text-white mb-1">{value}</p>
       <div className="flex items-center gap-1">
@@ -117,7 +117,7 @@ export default function PulsePage() {
   const [history, setHistory] = useState<InsightResult[]>([])
 
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
       <Loader2 className="animate-spin" size={32} style={{ color: '#8b5cf6' }} />
     </div>
   )
@@ -161,7 +161,7 @@ export default function PulsePage() {
     }
   }
 
-  const glassCard = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }
+  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
   const purpleColor = '#8b5cf6'
 
   // Sample chart data (representative, not fake stats)
@@ -169,7 +169,7 @@ export default function PulsePage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
         <StarField />
         <PulseOrbs />
 
@@ -209,7 +209,7 @@ export default function PulsePage() {
             <MetricCard label="الوصول"       labelEn="Reach"       value="—" change="اربط حساباتك" up={true}  color={purpleColor} />
             <MetricCard label="التفاعل"      labelEn="Engagement"  value="—" change="لرؤية البيانات" up={true}  color="#06b6d4" />
             <MetricCard label="التحويلات"    labelEn="Conversions" value="—" change="من Connections" up={false} color="#10b981" />
-            <MetricCard label="معدل النمو"   labelEn="Growth"      value="—" change="للوحة التحليل"  up={true}  color="#f59e0b" />
+            <MetricCard label="معدل النمو"   labelEn="Growth"      value="—" change="للوحة التحليل"  up={true}  color="#6C63FF" />
           </div>
 
           {/* Chart preview */}
@@ -292,7 +292,7 @@ export default function PulsePage() {
                   ].map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
                       className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
+                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
                       {q}
                     </button>
                   ))}
@@ -313,7 +313,7 @@ export default function PulsePage() {
                   placeholder="صف ما تريد تحليله — حملتك، منتجك، قطاعك، أو سؤالك التسويقي..."
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb' }} />
+                  style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
                 <div className="flex justify-end">
                   <button onClick={generate} disabled={!prompt.trim() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
@@ -376,7 +376,7 @@ export default function PulsePage() {
                 {history.map(h => (
                   <div key={h.id} onClick={() => { setResult(h.output); setAnalysisType(h.type) }}
                     className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                    style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(139,92,246,0.1)', color: purpleColor, border: `1px solid rgba(139,92,246,0.2)` }}>
@@ -397,7 +397,7 @@ export default function PulsePage() {
               { icon: BarChart2,  color: '#8b5cf6', label: 'أداء الحملات', desc: 'KPIs وتوصيات' },
               { icon: Target,     color: '#06b6d4', label: 'تحليل المنافسين', desc: 'فرص التمايز' },
               { icon: TrendingUp, color: '#10b981', label: 'الاتجاهات',    desc: 'توجهات السوق' },
-              { icon: Activity,   color: '#f59e0b', label: 'أداء المحتوى', desc: 'أفضل أوقات النشر' },
+              { icon: Activity,   color: '#6C63FF', label: 'أداء المحتوى', desc: 'أفضل أوقات النشر' },
               { icon: Zap,        color: '#ec4899', label: 'توقعات AI',    desc: 'خطة 90 يوم' },
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>

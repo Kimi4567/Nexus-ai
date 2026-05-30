@@ -6,18 +6,17 @@ import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Sparkles, RefreshCw, Rocket, Eye, TrendingUp, Zap,
-  Globe, Activity, ArrowUpRight, AlertTriangle, CheckCircle2,
-  Clock, Film, Megaphone, BarChart3, Shield, Plus,
+  Sparkles, RefreshCw, Rocket, Zap,
+  Globe, ArrowUpRight, AlertTriangle, CheckCircle2,
+  Film, Megaphone, BarChart3, Shield, Plus,
   Target, Flame, Bell, ChevronRight, Wifi
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
    NEXUS DASHBOARD — مركز القيادة الذكي
-   Real-time overview: agents, campaigns, alerts, AI recommendations
+   Design: bg-base #0A0E27, glass-card, accent-purple #6C63FF
    ═══════════════════════════════════════════════════════════════ */
 
-// ── Types ──────────────────────────────────────────────────────
 interface Stats {
   campaigns: number
   activeCampaigns: number
@@ -25,7 +24,6 @@ interface Stats {
   creditsRemaining: number
   plan: string
 }
-
 interface Alert {
   id: string
   type: 'critical' | 'warning' | 'info' | 'success'
@@ -34,7 +32,6 @@ interface Alert {
   time: string
   agent: string
 }
-
 interface Campaign {
   id: string
   name: string
@@ -44,7 +41,6 @@ interface Campaign {
   goal: string
   createdAt: string
 }
-
 interface AIInsight {
   id: string
   text: string
@@ -53,20 +49,20 @@ interface AIInsight {
   priority: 'high' | 'medium' | 'low'
 }
 
-// ── Static agent definitions ───────────────────────────────────
+// Agent definitions — colors match landing page
 const AGENT_DEFS = [
-  { name: 'NEX',      role: 'منتج الفيديو',     roleEn: 'Video Producer',    icon: Film,     color: '#f59e0b', glow: 'rgba(245,158,11,0.12)', href: '/studio',    status: 'جاهز',  statusEn: 'Ready',     statusColor: '#10b981' },
-  { name: 'VEX',      role: 'مدير الإعلانات',   roleEn: 'Ads Manager',       icon: Megaphone,color: '#06b6d4', glow: 'rgba(6,182,212,0.12)',  href: '/vex',       status: 'نشط',   statusEn: 'Active',    statusColor: '#10b981' },
-  { name: 'PULSE',    role: 'المحلل الذكي',     roleEn: 'Smart Analyst',     icon: BarChart3,color: '#8b5cf6', glow: 'rgba(139,92,246,0.12)', href: '/analytics', status: 'يحلّل', statusEn: 'Analyzing', statusColor: '#f59e0b' },
-  { name: 'Sentinel', role: 'حارس العلامة',     roleEn: '24/7 Monitor',      icon: Shield,   color: '#10b981', glow: 'rgba(16,185,129,0.12)', href: '/sentinel',  status: 'يراقب', statusEn: 'Watching',  statusColor: '#10b981' },
+  { name: 'NEX',      role: 'منتج الفيديو',   roleEn: 'Video Producer',  icon: Film,     color: '#00BFA6', glow: 'rgba(0,191,166,0.12)',  href: '/studio',    status: 'جاهز',  statusColor: '#00BFA6' },
+  { name: 'VEX',      role: 'مدير الإعلانات', roleEn: 'Ads Manager',     icon: Megaphone,color: '#FF6B35', glow: 'rgba(255,107,53,0.12)', href: '/vex',       status: 'نشط',   statusColor: '#00BFA6' },
+  { name: 'PULSE',    role: 'المحلل الذكي',   roleEn: 'Smart Analyst',   icon: BarChart3,color: '#00D4FF', glow: 'rgba(0,212,255,0.12)',  href: '/analytics', status: 'يحلّل', statusColor: '#FFB800' },
+  { name: 'SENTINEL', role: 'حارس العلامة',   roleEn: '24/7 Monitor',    icon: Shield,   color: '#FFD700', glow: 'rgba(255,215,0,0.12)',  href: '/sentinel',  status: 'يراقب', statusColor: '#00BFA6' },
 ]
 
-const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
-  DRAFT:     { ar: 'مسودة',   en: 'Draft',     color: '#64748b' },
-  ACTIVE:    { ar: 'نشطة',    en: 'Active',    color: '#10b981' },
-  PAUSED:    { ar: 'متوقفة',  en: 'Paused',    color: '#f59e0b' },
-  COMPLETED: { ar: 'مكتملة', en: 'Completed', color: '#06b6d4' },
-  ARCHIVED:  { ar: 'مؤرشفة', en: 'Archived',  color: '#374151' },
+const STATUS_MAP: Record<string, { ar: string; color: string }> = {
+  DRAFT:     { ar: 'مسودة',   color: '#64748b' },
+  ACTIVE:    { ar: 'نشطة',    color: '#00BFA6' },
+  PAUSED:    { ar: 'متوقفة',  color: '#FFB800' },
+  COMPLETED: { ar: 'مكتملة', color: '#00D4FF' },
+  ARCHIVED:  { ar: 'مؤرشفة', color: '#374151' },
 }
 
 const ALERT_ICONS = {
@@ -76,31 +72,27 @@ const ALERT_ICONS = {
   success:  <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
 }
 
-const ALERT_COLORS = {
-  critical: { bg: 'rgba(244,63,94,0.06)',  border: 'rgba(244,63,94,0.2)' },
-  warning:  { bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)' },
-  info:     { bg: 'rgba(6,182,212,0.06)',  border: 'rgba(6,182,212,0.2)' },
-  success:  { bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.2)' },
+const ALERT_BG = {
+  critical: { bg: 'rgba(244,63,94,0.06)',   border: 'rgba(244,63,94,0.2)' },
+  warning:  { bg: 'rgba(255,184,0,0.06)',   border: 'rgba(255,184,0,0.2)' },
+  info:     { bg: 'rgba(108,99,255,0.06)',  border: 'rgba(108,99,255,0.2)' },
+  success:  { bg: 'rgba(0,191,166,0.06)',   border: 'rgba(0,191,166,0.2)' },
 }
 
-// ── Demo/placeholder alerts when no real data ──────────────────
-const EMPTY_ALERTS: Alert[] = []
-
-// ── Component ─────────────────────────────────────────────────
+// ─────────────────────────────────────────────
 export default function DashboardPage() {
   const { authHeader, user, isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
 
   const [stats, setStats] = useState<Stats | null>(null)
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
-  const [alerts, setAlerts] = useState<Alert[]>(EMPTY_ALERTS)
+  const [alerts, setAlerts] = useState<Alert[]>([])
   const [insights, setInsights] = useState<AIInsight[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
 
-  // Auth guard
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
@@ -109,12 +101,10 @@ export default function DashboardPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      // Load stats
       const [statsRes, campaignsRes] = await Promise.allSettled([
         fetch('/api/dashboard/stats', { headers: { Authorization: authHeader() } }),
         fetch('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: authHeader() } }),
       ])
-
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         const d = await statsRes.value.json()
         setStats({
@@ -124,34 +114,23 @@ export default function DashboardPage() {
           creditsRemaining: d.stats?.credits?.remaining ?? 0,
           plan: d.stats?.credits?.plan ?? 'FREE',
         })
-        // Build alerts from activity data
         if (d.activities?.length > 0) {
-          const builtAlerts: Alert[] = d.activities.slice(0, 4).map((a: any, i: number) => ({
-            id: String(i),
-            type: 'info' as const,
-            title: a.agent || 'Nexus',
-            body: a.action,
-            time: a.time || 'الآن',
-            agent: a.agent || 'NEX',
-          }))
-          setAlerts(builtAlerts)
+          setAlerts(d.activities.slice(0, 4).map((a: Record<string,string>, i: number) => ({
+            id: String(i), type: 'info' as const,
+            title: a.agent || 'Nexus', body: a.action,
+            time: a.time || 'الآن', agent: a.agent || 'NEX',
+          })))
         }
       }
-
       if (campaignsRes.status === 'fulfilled' && campaignsRes.value.ok) {
         const d = await campaignsRes.value.json()
         setCampaigns(d.campaigns || [])
       }
-
       setLastUpdated(new Date())
     } catch {/* silent */}
-    finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
+    finally { setLoading(false); setRefreshing(false) }
   }, [authHeader])
 
-  // Check connections
   useEffect(() => {
     fetch('/api/social/accounts', { headers: { Authorization: authHeader() } })
       .then(r => r.json())
@@ -161,52 +140,19 @@ export default function DashboardPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Auto-refresh every 5 minutes
   useEffect(() => {
     const iv = setInterval(() => load(true), 5 * 60 * 1000)
     return () => clearInterval(iv)
   }, [load])
 
-  // Generate AI insights based on state
   useEffect(() => {
-    const built: AIInsight[] = []
     if (!stats) return
-
-    if (!hasConnections) {
-      built.push({
-        id: '1', priority: 'high',
-        text: 'لم تربط أي منصة بعد — ربط Meta يفعّل النشر التلقائي وتحليل الأداء',
-        action: 'ربط المنصات الآن', href: '/connections'
-      })
-    }
-    if (stats.campaigns === 0) {
-      built.push({
-        id: '2', priority: 'high',
-        text: 'أنشئ أول حملة — Nexus سيبني لك استراتيجية كاملة ومحتوى جاهز',
-        action: 'إطلاق حملة', href: '/campaigns/new'
-      })
-    }
-    if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') {
-      built.push({
-        id: '3', priority: 'high',
-        text: `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة`,
-        action: 'ترقية الخطة', href: '/billing'
-      })
-    }
-    if (stats.campaigns > 0 && stats.activeCampaigns === 0) {
-      built.push({
-        id: '4', priority: 'medium',
-        text: 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر',
-        action: 'فتح PULSE', href: '/analytics'
-      })
-    }
-    if (built.length === 0 && stats.campaigns > 0) {
-      built.push({
-        id: '5', priority: 'low',
-        text: 'نظامك يعمل جيداً — Sentinel يراقب السوق والمنافسين ٢٤/٧',
-        action: 'عرض التقرير', href: '/sentinel'
-      })
-    }
+    const built: AIInsight[] = []
+    if (!hasConnections) built.push({ id: '1', priority: 'high', text: 'لم تربط أي منصة بعد — ربط Meta يفعّل النشر التلقائي وتحليل الأداء', action: 'ربط المنصات الآن', href: '/connections' })
+    if (stats.campaigns === 0) built.push({ id: '2', priority: 'high', text: 'أنشئ أول حملة — Nexus سيبني لك استراتيجية كاملة ومحتوى جاهز', action: 'إطلاق حملة', href: '/campaigns/new' })
+    if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') built.push({ id: '3', priority: 'high', text: `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة`, action: 'ترقية الخطة', href: '/billing' })
+    if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium', text: 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر', action: 'فتح PULSE', href: '/analytics' })
+    if (built.length === 0 && stats.campaigns > 0) built.push({ id: '5', priority: 'low', text: 'نظامك يعمل جيداً — Sentinel يراقب السوق والمنافسين ٢٤/٧', action: 'عرض التقرير', href: '/sentinel' })
     setInsights(built)
   }, [stats, hasConnections])
 
@@ -219,10 +165,10 @@ export default function DashboardPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="w-12 h-12 mx-auto mb-3 relative">
-              <div className="absolute inset-0 rounded-full border-2 border-amber-500/20 border-t-amber-400 animate-spin" />
-              <Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <div className="absolute inset-0 rounded-full border-2 border-accent-purple/20 border-t-accent-purple animate-spin" />
+              <Sparkles className="w-5 h-5 text-accent-purple absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <p className="text-gray-500 text-sm">جاري التحميل...</p>
+            <p className="text-text-muted text-sm">جاري التحميل...</p>
           </div>
         </div>
       </AppShell>
@@ -230,6 +176,10 @@ export default function DashboardPage() {
   }
 
   if (!isAuthenticated) return null
+
+  // Card style helpers
+  const glassCard = { background: 'rgba(17,21,54,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(108,99,255,0.1)' }
+  const glassCardHover = 'hover:border-[rgba(108,99,255,0.25)] hover:shadow-[0_8px_32px_rgba(108,99,255,0.15)] transition-all duration-300'
 
   return (
     <AppShell>
@@ -241,25 +191,23 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" style={{ boxShadow: '0 0 6px #10b981' }} />
-                  <span className="text-[10px] text-emerald-400/70 font-mono tracking-widest">LIVE</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" style={{ boxShadow: '0 0 6px #00BFA6' }} />
+                  <span className="text-[10px] font-mono tracking-widest text-accent-teal/70">LIVE</span>
                 </div>
-                <span className="text-[10px] text-gray-600 font-mono">آخر تحديث {timeStr}</span>
+                <span className="text-[10px] text-text-muted font-mono">آخر تحديث {timeStr}</span>
               </div>
-              <h1 className="text-2xl font-bold mb-1">
+              <h1 className="text-2xl font-bold font-heading mb-1 text-white">
                 {displayName ? `أهلاً، ${displayName}` : 'مركز القيادة'}
-                {' '}<span className="text-gray-600">👋</span>
+                {' '}<span className="text-text-muted">👋</span>
               </h1>
-              <p className="text-gray-500 text-sm">كل ما يحتاجه عملك في مكان واحد</p>
+              <p className="text-text-secondary text-sm">كل ما يحتاجه عملك في مكان واحد</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => load(true)}
-                className={`p-2.5 rounded-xl border border-white/8 text-gray-500 hover:text-white hover:border-white/15 transition-all ${refreshing ? 'animate-spin' : ''}`}>
+                className={`p-2.5 rounded-xl border border-[rgba(108,99,255,0.15)] text-text-muted hover:text-white hover:border-[rgba(108,99,255,0.3)] transition-all ${refreshing ? 'animate-spin' : ''}`}>
                 <RefreshCw className="w-4 h-4" />
               </button>
-              <Link href="/campaigns/new"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-black transition-all hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
+              <Link href="/campaigns/new" className="btn-gradient flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white">
                 <Rocket className="w-4 h-4" />
                 حملة جديدة
               </Link>
@@ -269,21 +217,20 @@ export default function DashboardPage() {
           {/* ── Connection Banner ── */}
           {hasConnections === false && (
             <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3"
-              style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.2)' }}>
+              style={{ background: 'rgba(0,191,166,0.05)', border: '1px solid rgba(0,191,166,0.2)' }}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-                  <Wifi className="w-4 h-4 text-cyan-400" />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,191,166,0.1)' }}>
+                  <Wifi className="w-4 h-4 text-accent-teal" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-cyan-300">ربط المنصات / Connect Platforms</p>
-                  <p className="text-xs text-gray-500">Meta · TikTok · Google · LinkedIn · Snapchat</p>
+                  <p className="text-sm font-bold text-accent-teal">ربط المنصات / Connect Platforms</p>
+                  <p className="text-xs text-text-muted">Meta · TikTok · Google · LinkedIn · Snapchat</p>
                 </div>
               </div>
               <Link href="/connections"
                 className="text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5"
-                style={{ background: 'rgba(6,182,212,0.10)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' }}>
-                ربط الحسابات
-                <ArrowUpRight className="w-3 h-3" />
+                style={{ background: 'rgba(0,191,166,0.1)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.2)' }}>
+                ربط الحسابات <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
           )}
@@ -291,27 +238,27 @@ export default function DashboardPage() {
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'الحملات / Campaigns', value: stats?.campaigns ?? 0, sub: `${stats?.activeCampaigns ?? 0} هذا الشهر`, icon: Target, color: '#f59e0b' },
-              { label: 'توليدات AI / Generations', value: stats?.totalGenerations ?? 0, sub: 'إجمالي كل الوكلاء', icon: Sparkles, color: '#06b6d4' },
-              { label: 'وحدات AI / Credits', value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? 'غير محدود ∞' : 'متبقية', icon: Zap, color: '#8b5cf6' },
-              { label: 'المنصات / Platforms', value: hasConnections ? '✓' : '0', sub: hasConnections ? 'متصل / Connected' : 'اربط الآن / Connect', icon: Globe, color: '#10b981' },
+              { label: 'الحملات / Campaigns',       value: stats?.campaigns ?? 0,       sub: `${stats?.activeCampaigns ?? 0} هذا الشهر`,                icon: Target,   color: '#6C63FF' },
+              { label: 'توليدات AI / Generations',  value: stats?.totalGenerations ?? 0, sub: 'إجمالي كل الوكلاء',                                      icon: Sparkles, color: '#00BFA6' },
+              { label: 'وحدات AI / Credits',        value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? 'غير محدود ∞' : 'متبقية',      icon: Zap,      color: '#00D4FF' },
+              { label: 'المنصات / Platforms',       value: hasConnections ? '✓' : '0',  sub: hasConnections ? 'متصل / Connected' : 'اربط الآن',         icon: Globe,    color: '#FFD700' },
             ].map(s => {
               const Icon = s.icon
               return (
-                <div key={s.label} className="rounded-2xl p-5 relative overflow-hidden"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-30"
+                <div key={s.label} className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`}
+                  style={glassCard}>
+                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20"
                     style={{ background: s.color }} />
                   <div className="relative">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-[11px] text-gray-500 font-medium leading-tight">{s.label}</p>
+                      <p className="text-[11px] text-text-muted font-medium leading-tight">{s.label}</p>
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center"
                         style={{ background: `${s.color}15` }}>
                         <Icon className="w-3.5 h-3.5" style={{ color: s.color }} />
                       </div>
                     </div>
                     <p className="text-2xl font-bold mb-0.5" style={{ color: s.color }}>{s.value}</p>
-                    <p className="text-[11px] text-gray-600">{s.sub}</p>
+                    <p className="text-[11px] text-text-muted">{s.sub}</p>
                   </div>
                 </div>
               )
@@ -321,16 +268,16 @@ export default function DashboardPage() {
           {/* ── AI Agents Status ── */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">الوكلاء الذكيون / AI Agents</h2>
+              <Sparkles className="w-4 h-4 text-accent-purple" />
+              <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">الوكلاء الذكيون / AI Agents</h2>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {AGENT_DEFS.map(agent => {
                 const Icon = agent.icon
                 return (
                   <Link key={agent.name} href={agent.href}
-                    className="group rounded-2xl p-4 transition-all hover:scale-[1.01]"
-                    style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${agent.color}20` }}>
+                    className={`group rounded-2xl p-4 ${glassCardHover}`}
+                    style={{ background: 'rgba(17,21,54,0.5)', border: `1px solid ${agent.color}20` }}>
                     <div className="flex items-start justify-between mb-4">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center"
                         style={{ background: agent.glow, border: `1px solid ${agent.color}30` }}>
@@ -342,7 +289,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <p className="font-bold text-sm mb-0.5" style={{ color: agent.color }}>{agent.name}</p>
-                    <p className="text-[11px] text-gray-500 mb-3">{agent.role}</p>
+                    <p className="text-[11px] text-text-muted mb-3">{agent.role}</p>
                     <div className="flex items-center gap-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ color: agent.color }}>
                       فتح الوكيل <ArrowUpRight className="w-3 h-3" />
@@ -357,14 +304,13 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* Campaigns — 2 cols */}
-            <div className="lg:col-span-2 rounded-2xl p-5"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className={`lg:col-span-2 rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Rocket className="w-4 h-4 text-amber-400" />
-                  <h3 className="font-bold text-sm">الحملات / Campaigns</h3>
+                  <Rocket className="w-4 h-4 text-accent-purple" />
+                  <h3 className="font-bold text-sm text-white">الحملات / Campaigns</h3>
                 </div>
-                <Link href="/vex" className="text-[11px] text-gray-500 hover:text-amber-400 transition flex items-center gap-1">
+                <Link href="/vex" className="text-[11px] text-text-muted hover:text-accent-purple transition flex items-center gap-1">
                   إدارة الكل <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -372,14 +318,12 @@ export default function DashboardPage() {
               {campaigns.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-                    style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.1)' }}>
-                    <Plus className="w-6 h-6 text-amber-400/40" />
+                    style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.12)' }}>
+                    <Plus className="w-6 h-6 text-accent-purple/40" />
                   </div>
-                  <p className="text-sm font-semibold text-gray-300 mb-1">لا توجد حملات بعد</p>
-                  <p className="text-xs text-gray-600 mb-5 max-w-[200px] mx-auto">أطلق أول حملة وسيبني Nexus لك استراتيجية كاملة في دقائق</p>
-                  <Link href="/campaigns/new"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-black"
-                    style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)' }}>
+                  <p className="text-sm font-semibold text-text-secondary mb-1">لا توجد حملات بعد</p>
+                  <p className="text-xs text-text-muted mb-5 max-w-[200px] mx-auto">أطلق أول حملة وسيبني Nexus لك استراتيجية كاملة في دقائق</p>
+                  <Link href="/campaigns/new" className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white">
                     <Rocket className="w-4 h-4" />
                     إطلاق أول حملة
                   </Link>
@@ -390,13 +334,14 @@ export default function DashboardPage() {
                     const si = STATUS_MAP[c.status] || STATUS_MAP.DRAFT
                     return (
                       <Link key={c.id} href={`/campaigns/${c.id}`}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/4 transition-all group">
-                        <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-base flex-shrink-0">
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all group">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+                          style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.12)' }}>
                           {c.thumbnail || '🎯'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-200 truncate group-hover:text-white transition">{c.name}</p>
-                          <p className="text-[11px] text-gray-500 truncate">{c.platforms?.slice(0, 3).join(' · ') || '—'}</p>
+                          <p className="text-sm font-medium text-text-secondary truncate group-hover:text-white transition">{c.name}</p>
+                          <p className="text-[11px] text-text-muted truncate">{c.platforms?.slice(0, 3).join(' · ') || '—'}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <div className="w-1.5 h-1.5 rounded-full" style={{ background: si.color }} />
@@ -406,7 +351,7 @@ export default function DashboardPage() {
                     )
                   })}
                   <Link href="/vex"
-                    className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] text-gray-500 hover:text-gray-300 hover:bg-white/3 transition-all">
+                    className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] text-text-muted hover:text-text-secondary hover:bg-white/3 transition-all">
                     <Plus className="w-3.5 h-3.5" />
                     إضافة حملة جديدة / New Campaign
                   </Link>
@@ -414,32 +359,29 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Right col: Insights + Alerts */}
+            {/* Right col */}
             <div className="space-y-4">
 
               {/* AI Insights */}
-              <div className="rounded-2xl p-5"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Flame className="w-4 h-4 text-amber-400" />
-                  <h3 className="font-bold text-sm">توصيات AI / Insights</h3>
+                  <Flame className="w-4 h-4 text-accent-purple" />
+                  <h3 className="font-bold text-sm text-white">توصيات AI / Insights</h3>
                 </div>
                 {insights.length === 0 ? (
                   <div className="text-center py-6">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-400/40 mx-auto mb-2" />
-                    <p className="text-xs text-gray-500">كل شيء يسير على ما يرام</p>
+                    <CheckCircle2 className="w-8 h-8 text-accent-teal/40 mx-auto mb-2" />
+                    <p className="text-xs text-text-muted">كل شيء يسير على ما يرام</p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
                     {insights.map(ins => {
-                      const colors = { high: '#f59e0b', medium: '#06b6d4', low: '#10b981' }
+                      const colors = { high: '#6C63FF', medium: '#00BFA6', low: '#00D4FF' }
                       const c = colors[ins.priority]
                       return (
                         <div key={ins.id} className="rounded-xl p-3" style={{ background: `${c}06`, border: `1px solid ${c}18` }}>
-                          <p className="text-[11px] text-gray-300 leading-relaxed mb-2">{ins.text}</p>
-                          <Link href={ins.href}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold"
-                            style={{ color: c }}>
+                          <p className="text-[11px] text-text-secondary leading-relaxed mb-2">{ins.text}</p>
+                          <Link href={ins.href} className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: c }}>
                             {ins.action} <ArrowUpRight className="w-2.5 h-2.5" />
                           </Link>
                         </div>
@@ -450,35 +392,33 @@ export default function DashboardPage() {
               </div>
 
               {/* Alerts */}
-              <div className="rounded-2xl p-5"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
                 <div className="flex items-center gap-2 mb-4">
-                  <Bell className="w-4 h-4 text-cyan-400" />
-                  <h3 className="font-bold text-sm">التنبيهات / Alerts</h3>
+                  <Bell className="w-4 h-4 text-accent-teal" />
+                  <h3 className="font-bold text-sm text-white">التنبيهات / Alerts</h3>
                 </div>
                 {alerts.length === 0 ? (
                   <div className="text-center py-6">
-                    <Shield className="w-8 h-8 text-emerald-400/30 mx-auto mb-2" />
-                    <p className="text-xs text-gray-500">لا توجد تنبيهات</p>
-                    <p className="text-[10px] text-gray-600 mt-0.5">Sentinel يراقب ٢٤/٧</p>
+                    <Shield className="w-8 h-8 text-accent-teal/30 mx-auto mb-2" />
+                    <p className="text-xs text-text-muted">لا توجد تنبيهات</p>
+                    <p className="text-[10px] text-text-muted mt-0.5">Sentinel يراقب ٢٤/٧</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {alerts.slice(0, 4).map(alert => {
-                      const cols = ALERT_COLORS[alert.type]
+                      const cols = ALERT_BG[alert.type]
                       return (
                         <div key={alert.id} className="rounded-xl p-3 flex gap-2.5"
                           style={{ background: cols.bg, border: `1px solid ${cols.border}` }}>
                           <div className="flex-shrink-0 mt-0.5">{ALERT_ICONS[alert.type]}</div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[11px] text-gray-300 leading-relaxed truncate">{alert.body}</p>
-                            <p className="text-[9px] text-gray-500 mt-0.5">{alert.agent} · {alert.time}</p>
+                            <p className="text-[11px] text-text-secondary leading-relaxed truncate">{alert.body}</p>
+                            <p className="text-[9px] text-text-muted mt-0.5">{alert.agent} · {alert.time}</p>
                           </div>
                         </div>
                       )
                     })}
-                    <Link href="/sentinel"
-                      className="flex items-center justify-center gap-1 pt-1 text-[10px] text-gray-500 hover:text-cyan-400 transition">
+                    <Link href="/sentinel" className="flex items-center justify-center gap-1 pt-1 text-[10px] text-text-muted hover:text-accent-teal transition">
                       عرض جميع التنبيهات <ChevronRight className="w-3 h-3" />
                     </Link>
                   </div>
@@ -487,20 +427,20 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Quick Access Bar ── */}
-          <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          {/* ── Quick Access ── */}
+          <div className="rounded-2xl p-4" style={{ background: 'rgba(17,21,54,0.3)', border: '1px solid rgba(108,99,255,0.08)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-3.5 h-3.5 text-amber-400" />
-              <p className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">وصول سريع / Quick Access</p>
+              <Zap className="w-3.5 h-3.5 text-accent-purple" />
+              <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider">وصول سريع / Quick Access</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: 'حملة جديدة', en: 'New Campaign', href: '/campaigns/new', color: '#f59e0b' },
-                { label: 'سكريبت فيديو', en: 'Video Script', href: '/studio', color: '#f59e0b' },
-                { label: 'نسخة إعلانية', en: 'Ad Copy', href: '/vex', color: '#06b6d4' },
-                { label: 'تحليل الأداء', en: 'Analytics', href: '/analytics', color: '#8b5cf6' },
-                { label: 'مراقبة السوق', en: 'Market Watch', href: '/sentinel', color: '#10b981' },
-                { label: 'ربط المنصات', en: 'Connect', href: '/connections', color: '#06b6d4' },
+                { label: 'حملة جديدة',   en: 'New Campaign', href: '/campaigns/new', color: '#6C63FF' },
+                { label: 'سكريبت فيديو', en: 'Video Script',  href: '/studio',        color: '#00BFA6' },
+                { label: 'نسخة إعلانية', en: 'Ad Copy',       href: '/vex',           color: '#FF6B35' },
+                { label: 'تحليل الأداء', en: 'Analytics',     href: '/analytics',     color: '#00D4FF' },
+                { label: 'مراقبة السوق', en: 'Market Watch',  href: '/sentinel',      color: '#FFD700' },
+                { label: 'ربط المنصات',  en: 'Connect',       href: '/connections',   color: '#00BFA6' },
               ].map(qa => (
                 <Link key={qa.href} href={qa.href}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-[1.02]"

@@ -8,8 +8,8 @@ import { useI18n } from '@/lib/i18n-context'
 import React from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
-   NEXUS SIDEBAR — Clean, Intelligent, Premium
-   Navigation: Dashboard → Connections → 4 Agents → Settings/Billing
+   NEXUS SIDEBAR — Premium AI Command Center
+   Design: bg-sidebar #0F1430, accent-purple #6C63FF
    ═══════════════════════════════════════════════════════════════ */
 
 interface SidebarProps {
@@ -22,7 +22,13 @@ interface SidebarProps {
 function NexusLogo() {
   return (
     <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-      <rect width="28" height="28" rx="7" fill="#FF9500" />
+      <rect width="28" height="28" rx="7" fill="url(#logoGrad)" />
+      <defs>
+        <linearGradient id="logoGrad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#6C63FF" />
+          <stop offset="1" stopColor="#00BFA6" />
+        </linearGradient>
+      </defs>
       <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
@@ -32,7 +38,7 @@ function NexusLogo() {
 // ── Section label ──────────────────────────────────────────────
 function SectionLabel({ children }: { children: string }) {
   return (
-    <div className="text-[9px] font-bold uppercase tracking-[0.15em] px-3 pt-4 pb-1.5" style={{ color: '#2e2e38' }}>
+    <div className="text-[9px] font-bold uppercase tracking-[0.15em] px-3 pt-4 pb-1.5 text-text-muted">
       {children}
     </div>
   )
@@ -46,7 +52,7 @@ interface NavItemProps {
   icon: React.ReactNode
   badge?: string
   badgeColor?: string
-  dot?: string // status dot color
+  dot?: string
   pathname: string
   collapsed: boolean
   onClick?: () => void
@@ -59,8 +65,8 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
     return (
       <Link href={href} title={label} onClick={onClick}
         className={`flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 relative
-          ${isActive ? 'text-white' : 'text-[#464656] hover:text-[#9090a8] hover:bg-white/4'}`}
-        style={isActive ? { background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' } : {}}
+          ${isActive ? 'text-white' : 'text-text-muted hover:text-text-secondary hover:bg-white/5'}`}
+        style={isActive ? { background: 'rgba(108,99,255,0.15)', boxShadow: 'inset 0 1px 0 rgba(108,99,255,0.2)' } : {}}
       >
         {icon}
         {dot && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: dot, boxShadow: `0 0 4px ${dot}` }} />}
@@ -71,18 +77,21 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
   return (
     <Link href={href} onClick={onClick}
       className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150
-        ${isActive ? 'text-white' : 'text-[#707084] hover:text-white hover:bg-white/4'}`}
-      style={isActive ? { background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' } : {}}
+        ${isActive ? 'text-white' : 'text-text-muted hover:text-white hover:bg-white/5'}`}
+      style={isActive ? { background: 'rgba(108,99,255,0.12)', boxShadow: 'inset 0 1px 0 rgba(108,99,255,0.15)' } : {}}
     >
-      {isActive && <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-l-full" />}
-      <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-[#505060] group-hover:text-[#9090a8]'}`}>
+      {isActive && (
+        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-l-full"
+          style={{ background: '#6C63FF' }} />
+      )}
+      <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-accent-purple' : 'text-text-muted'}`}>
         {icon}
       </span>
       <span className="flex-1 leading-none truncate">{label}</span>
-      {labelEn && !badge && <span className="text-[9px] text-[#32323c] font-mono">{labelEn}</span>}
+      {labelEn && !badge && <span className="text-[9px] text-text-muted font-mono opacity-60">{labelEn}</span>}
       {badge && (
         <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide"
-          style={{ background: badgeColor ? `${badgeColor}18` : 'rgba(255,149,0,0.12)', color: badgeColor || '#FF9500' }}>
+          style={{ background: badgeColor ? `${badgeColor}18` : 'rgba(108,99,255,0.15)', color: badgeColor || '#6C63FF' }}>
           {badge}
         </span>
       )}
@@ -182,13 +191,18 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const sharedProps = { pathname, collapsed, onClick: click }
 
   return (
-    <aside dir="rtl" className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`} style={{ background: '#0d0d0c', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+    <aside dir="rtl" className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
+      style={{ background: '#0F1430', borderRight: '1px solid rgba(108,99,255,0.12)' }}>
 
       {/* Logo */}
       <div className={`flex items-center gap-2.5 px-4 py-5 flex-shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        style={{ borderBottom: '1px solid rgba(108,99,255,0.08)' }}>
         <NexusLogo />
-        {!collapsed && <span className="font-bold text-white tracking-tight text-[15px] leading-none">Nexus</span>}
+        {!collapsed && (
+          <span className="font-bold text-white tracking-tight text-[15px] leading-none font-heading">
+            Nexus<span style={{ color: '#6C63FF' }}>.</span>
+          </span>
+        )}
       </div>
 
       {/* Scrollable nav */}
@@ -198,48 +212,48 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         <NavItem href="/dashboard" label="الرئيسية" labelEn="Dashboard"
           icon={Icons.dashboard} {...sharedProps} />
         <NavItem href="/brand" label="Brand Brain" labelEn="Memory"
-          icon={Icons.brain} dot="#f59e0b" {...sharedProps} />
+          icon={Icons.brain} dot="#00BFA6" {...sharedProps} />
 
         {/* Platform */}
         {!collapsed && <SectionLabel>المنصات</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px bg-white/5" />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
         <NavItem href="/connections" label="ربط المنصات" labelEn="Connect"
-          icon={Icons.connections} badge="مهم" badgeColor="#06b6d4" {...sharedProps} />
+          icon={Icons.connections} badge="مهم" badgeColor="#00BFA6" {...sharedProps} />
 
         {/* AI Agents */}
         {!collapsed && <SectionLabel>الوكلاء الذكيون</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px bg-white/5" />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
 
         <NavItem href="/studio" label="NEX" labelEn="Studio"
-          icon={Icons.film} dot="#f59e0b" {...sharedProps} />
+          icon={Icons.film} dot="#00BFA6" {...sharedProps} />
         <NavItem href="/vex" label="VEX" labelEn="Ads"
-          icon={Icons.megaphone} dot="#06b6d4" {...sharedProps} />
+          icon={Icons.megaphone} dot="#FF6B35" {...sharedProps} />
         <NavItem href="/analytics" label="PULSE" labelEn="Analytics"
-          icon={Icons.chart} dot="#8b5cf6" {...sharedProps} />
+          icon={Icons.chart} dot="#00D4FF" {...sharedProps} />
         <NavItem href="/sentinel" label="Sentinel" labelEn="Monitor"
-          icon={Icons.shield} dot="#10b981" {...sharedProps} />
+          icon={Icons.shield} dot="#FFD700" {...sharedProps} />
 
         {/* Demo */}
         {!collapsed && <SectionLabel>عرض تجريبي</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px bg-white/5" />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
         <NavItem href="/demo" label="نسخة تجريبية" labelEn="Demo"
-          icon={Icons.demo} badge="جديد" badgeColor="#8b5cf6" {...sharedProps} />
+          icon={Icons.demo} badge="جديد" badgeColor="#6C63FF" {...sharedProps} />
 
       </div>
 
       {/* Bottom section */}
       <div className="flex-shrink-0 px-2 pb-3 space-y-0.5"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
+        style={{ borderTop: '1px solid rgba(108,99,255,0.08)', paddingTop: '12px' }}>
 
         {/* Upgrade */}
         {!collapsed && pathname !== '/billing' && (
           <Link href="/billing"
             className="flex items-center gap-2 px-3 py-2 rounded-[9px] mb-2 transition-all"
-            style={{ background: 'rgba(255,149,0,0.07)', border: '1px solid rgba(255,149,0,0.15)' }}>
-            <span className="text-accent text-sm">⚡</span>
+            style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)' }}>
+            <span className="text-sm" style={{ color: '#6C63FF' }}>⚡</span>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-accent leading-none mb-0.5">ترقية للـ Pro</div>
-              <div className="text-[10px] leading-none" style={{ color: '#5a5a6e' }}>افتح كل الإمكانيات</div>
+              <div className="text-[11px] font-semibold leading-none mb-0.5" style={{ color: '#6C63FF' }}>ترقية للـ Pro</div>
+              <div className="text-[10px] leading-none text-text-muted">افتح كل الإمكانيات</div>
             </div>
           </Link>
         )}
@@ -251,10 +265,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(c => !c)}
-          className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1"
-          style={{ color: '#505060' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#9090a8')}
-          onMouseLeave={e => (e.currentTarget.style.color = '#505060')}
+          className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1 text-text-muted hover:text-text-secondary hover:bg-white/5"
           title={collapsed ? 'Expand' : 'Collapse'}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
             className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
@@ -265,8 +276,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* Language */}
         {!collapsed && (
           <button onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-white/4"
-            style={{ color: '#64748b' }}>
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-white/5 text-text-muted hover:text-text-secondary">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
@@ -277,15 +287,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* User menu */}
         <div className="relative mt-0.5">
           <button onClick={() => setUserMenuOpen(o => !o)}
-            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150 hover:bg-white/4 ${collapsed ? 'justify-center' : ''}`}>
+            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150 hover:bg-white/5 ${collapsed ? 'justify-center' : ''}`}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'rgba(255,149,0,0.12)', border: '1px solid rgba(255,149,0,0.22)', color: '#FF9500' }}>
+              style={{ background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.3)', color: '#6C63FF' }}>
               {initial}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="text-[12px] font-semibold truncate" style={{ color: '#e0e0f0' }}>{displayName}</div>
-                <div className="text-[10px] truncate" style={{ color: '#46464e' }}>{email}</div>
+                <div className="text-[12px] font-semibold truncate text-white">{displayName}</div>
+                <div className="text-[10px] truncate text-text-muted">{email}</div>
               </div>
             )}
           </button>
@@ -293,15 +303,10 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           {userMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-              <div className="absolute bottom-full left-0 mb-2 w-52 z-50 rounded-[13px] overflow-hidden"
-                style={{
-                  background: '#131312',
-                  border: '1px solid #1f1f1d',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
-                }}>
-                <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+              <div className="absolute bottom-full left-0 mb-2 w-52 z-50 rounded-[13px] overflow-hidden glass-panel">
+                <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(108,99,255,0.1)' }}>
                   <div className="text-[12px] font-semibold truncate text-white">{displayName}</div>
-                  <div className="text-[11px] truncate" style={{ color: '#46464e' }}>{email}</div>
+                  <div className="text-[11px] truncate text-text-muted">{email}</div>
                 </div>
                 <div className="py-1.5 px-1">
                   {[
@@ -309,18 +314,13 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                     { href: '/billing', label: 'الفواتير / Billing' },
                   ].map(item => (
                     <Link key={item.href} href={item.href} onClick={() => { setUserMenuOpen(false); click() }}
-                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all"
-                      style={{ color: '#9090a8' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#9090a8' }}>
+                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-text-secondary hover:text-white hover:bg-white/5">
                       {item.label}
                     </Link>
                   ))}
                   <button onClick={handleSignOut}
-                    className="w-full flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-left"
-                    style={{ color: '#f43f5e' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(244,63,94,0.08)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    className="w-full flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-left hover:bg-rose-500/10"
+                    style={{ color: '#f43f5e' }}>
                     تسجيل الخروج / Sign Out
                   </button>
                 </div>
