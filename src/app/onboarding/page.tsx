@@ -118,7 +118,7 @@ export default function OnboardingPage() {
   // ── Loading / unauthenticated guard ─────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark flex items-center justify-center">
+      <div className="min-h-screen bg-bg-base flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-accent animate-spin" />
       </div>
     )
@@ -128,7 +128,7 @@ export default function OnboardingPage() {
   // ── Shared card wrapper ──────────────────────────────────────────────────
   const Card = ({ children }: { children: ReactNode }) => (
     <div
-      className="w-full max-w-md rounded-2xl border border-dark-tertiary bg-dark-secondary p-8"
+      className="w-full max-w-md rounded-2xl glass-panel p-8"
       style={{ boxShadow: '0 0 60px rgba(255,149,0,0.07), 0 4px 32px rgba(0,0,0,0.5)' }}
       dir="rtl"
     >
@@ -138,12 +138,12 @@ export default function OnboardingPage() {
 
   return (
     <div
-      className="min-h-screen bg-dark flex flex-col items-center justify-center px-4 py-12"
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(255,149,0,0.10), transparent)' }}
+      className="min-h-screen bg-bg-base flex flex-col items-center justify-center px-4 py-12"
+      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(108,99,255,0.12), transparent)' }}
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 mb-10">
-        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center bg-accent">
+        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: "linear-gradient(135deg,#6C63FF,#00BFA6)" }}>
           <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
             <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M7 7H21"          stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -159,10 +159,10 @@ export default function OnboardingPage() {
             <span>الخطوة {step} من 2</span>
             <span>{step === 1 ? 'علامتك التجارية' : 'هدفك الأول'}</span>
           </div>
-          <div className="h-1 rounded-full bg-dark-tertiary overflow-hidden">
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(108,99,255,0.15)" }}>
             <div
-              className="h-full rounded-full bg-accent transition-all duration-500"
-              style={{ width: `${(step / 2) * 100}%` }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{ background: "linear-gradient(90deg,#6C63FF,#00BFA6)", width: `${(step / 2) * 100}%` }}
             />
           </div>
         </div>
@@ -172,7 +172,7 @@ export default function OnboardingPage() {
       {step === 0 && (
         <Card>
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-5 text-3xl">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 text-3xl" style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)" }}>
               👋
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">
@@ -191,7 +191,7 @@ export default function OnboardingPage() {
               ].map(f => (
                 <div
                   key={f.label}
-                  className="p-3 rounded-xl bg-dark border border-dark-tertiary text-center"
+                  className="p-3 rounded-xl text-center" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)' }}
                 >
                   <div className="text-xl mb-1">{f.icon}</div>
                   <div className="text-[11px] font-semibold text-t2">{f.label}</div>
@@ -201,7 +201,7 @@ export default function OnboardingPage() {
 
             <button
               onClick={() => setStep(1)}
-              className="w-full py-3.5 bg-accent hover:bg-accent-light text-white font-bold rounded-xl transition-all text-sm"
+              className="btn-gradient w-full py-3.5 text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 24px rgba(255,149,0,0.25)' }}
             >
               ابني نظام التسويق →
@@ -227,7 +227,7 @@ export default function OnboardingPage() {
                 value={brandName}
                 onChange={e => setBrandName(e.target.value)}
                 placeholder="مثال: شركتي، متجر النور..."
-                className="w-full px-4 py-3 rounded-xl bg-dark border border-dark-tertiary text-white placeholder-t4 text-sm focus:outline-none focus:border-accent/50 transition-all"
+                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
                 autoFocus
               />
             </div>
@@ -244,8 +244,8 @@ export default function OnboardingPage() {
                     onClick={() => setIndustry(ind.value)}
                     className={`p-2.5 rounded-xl border text-center transition-all ${
                       industry === ind.value
-                        ? 'border-accent bg-accent/10 text-white'
-                        : 'border-dark-tertiary bg-dark text-t2 hover:border-accent/30'
+                        ? 'border-[rgba(108,99,255,0.5)] text-white' : 'border-[rgba(108,99,255,0.12)]'
+                        
                     }`}
                   >
                     <div className="text-lg mb-0.5">{ind.icon}</div>
@@ -266,7 +266,7 @@ export default function OnboardingPage() {
                 value={audience}
                 onChange={e => setAudience(e.target.value)}
                 placeholder="مثال: شباب 18-35 مهتمون بالموضة في السعودية"
-                className="w-full px-4 py-3 rounded-xl bg-dark border border-dark-tertiary text-white placeholder-t4 text-sm focus:outline-none focus:border-accent/50 transition-all"
+                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
               />
             </div>
 
@@ -282,8 +282,8 @@ export default function OnboardingPage() {
                     onClick={() => setTone(t.id)}
                     className={`p-3 rounded-xl border text-right transition-all ${
                       tone === t.id
-                        ? 'border-accent bg-accent/10'
-                        : 'border-dark-tertiary bg-dark hover:border-accent/30'
+                        ? 'border-[rgba(108,99,255,0.4)] bg-[rgba(108,99,255,0.1)]'
+                         : 'border-[rgba(108,99,255,0.12)] bg-[rgba(17,21,54,0.5)] hover:border-[rgba(108,99,255,0.25)]'
                     }`}
                   >
                     <div className="text-xs font-bold text-white">{t.label}</div>
@@ -297,7 +297,7 @@ export default function OnboardingPage() {
           <button
             onClick={() => setStep(2)}
             disabled={!brandName.trim() || !industry}
-            className="w-full py-3.5 mt-6 bg-accent hover:bg-accent-light text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-gradient w-full py-3.5 mt-6 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             التالي →
           </button>
@@ -317,8 +317,8 @@ export default function OnboardingPage() {
                 onClick={() => setGoal(g.id)}
                 className={`p-4 rounded-xl border text-right transition-all ${
                   goal === g.id
-                    ? 'border-accent bg-accent/10'
-                    : 'border-dark-tertiary bg-dark hover:border-accent/30'
+                    ? 'border-[rgba(108,99,255,0.4)] bg-[rgba(108,99,255,0.1)]'
+                     : 'border-[rgba(108,99,255,0.12)] bg-[rgba(17,21,54,0.5)] hover:border-[rgba(108,99,255,0.25)]'
                 }`}
               >
                 <div className="text-xl mb-1.5">{g.icon}</div>
@@ -330,14 +330,14 @@ export default function OnboardingPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setStep(1)}
-              className="flex-none px-4 py-3.5 rounded-xl border border-dark-tertiary text-t2 hover:text-white hover:border-accent/30 text-sm transition-all"
+              className="flex-none px-4 py-3.5 rounded-xl border text-text-muted hover:text-white text-sm transition-all" style={{ borderColor: "rgba(108,99,255,0.2)" }}
             >
               رجوع
             </button>
             <button
               onClick={handleFinishSetup}
               disabled={!goal}
-              className="flex-1 py-3.5 bg-accent hover:bg-accent-light text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              className="btn-gradient flex-1 py-3.5 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ boxShadow: goal ? '0 0 24px rgba(255,149,0,0.25)' : 'none' }}
             >
               {goal ? 'ولّد استراتيجيتي →' : 'اختر هدفاً للمتابعة'}
@@ -364,7 +364,7 @@ export default function OnboardingPage() {
                   className="flex items-center gap-3 text-sm text-t2 animate-pulse"
                   style={{ animationDelay: `${i * 0.4}s` }}
                 >
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#6C63FF" }} />
                   {s}
                 </div>
               ))}
@@ -376,14 +376,14 @@ export default function OnboardingPage() {
       {/* ── STEP 4 — DONE ─────────────────────────────────────────────────── */}
       {step === 4 && (
         <div
-          className="w-full max-w-md rounded-2xl border border-accent/20 bg-dark-secondary overflow-hidden"
+          className="w-full max-w-md rounded-2xl glass-panel overflow-hidden"
           style={{ boxShadow: '0 0 60px rgba(255,149,0,0.12), 0 4px 32px rgba(0,0,0,0.5)' }}
           dir="rtl"
         >
           {/* Header */}
           <div
-            className="p-6 border-b border-dark-tertiary"
-            style={{ background: 'linear-gradient(135deg, rgba(255,149,0,0.08), transparent)' }}
+            className="p-6 border-b"
+            style={{ borderColor: "rgba(108,99,255,0.12)", background: 'linear-gradient(135deg, rgba(108,99,255,0.10), transparent)' }}
           >
             <div className="text-2xl mb-2">🎉</div>
             <h2 className="text-xl font-bold text-white mb-1">نظام التسويق جاهز!</h2>
@@ -394,7 +394,7 @@ export default function OnboardingPage() {
 
           {/* Quick wins */}
           {strategy?.quickWins?.length > 0 && (
-            <div className="p-5 border-b border-dark-tertiary">
+            <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
                 ابدأ اليوم — أسرع نتائج
               </div>
@@ -410,7 +410,7 @@ export default function OnboardingPage() {
           )}
 
           {/* What awaits */}
-          <div className="p-5 border-b border-dark-tertiary">
+          <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
             <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
               ما ينتظرك في Nexus
             </div>
@@ -434,14 +434,14 @@ export default function OnboardingPage() {
           <div className="p-5 space-y-2">
             <button
               onClick={() => router.push('/strategy')}
-              className="w-full py-3 bg-accent hover:bg-accent-light text-white font-bold rounded-xl transition-all text-sm"
+              className="btn-gradient w-full py-3 text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}
             >
               اعرض استراتيجيتي الكاملة →
             </button>
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full py-2.5 border border-dark-tertiary hover:border-accent/30 text-t2 hover:text-white rounded-xl transition-all text-sm"
+              className="w-full py-2.5 border text-text-muted hover:text-white rounded-xl transition-all text-sm" style={{ borderColor: "rgba(108,99,255,0.2)" }}
             >
               انتقل للـ Dashboard
             </button>
