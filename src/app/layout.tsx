@@ -54,14 +54,13 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;800&display=swap" as="style" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;600;800&display=swap" rel="stylesheet" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased overflow-x-hidden min-h-screen bg-[#020204] text-[#f8fafc]" style={{ fontFamily: "'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif" }}>
+      <body className="antialiased overflow-x-hidden min-h-screen bg-bg-base text-white" style={{ fontFamily: "'Inter', 'Noto Sans Arabic', system-ui, sans-serif", backgroundColor: '#0A0E27' }}>
         <Providers>
           <LanguageProvider>
             {children}
