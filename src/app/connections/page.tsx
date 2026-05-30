@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 import {
@@ -26,12 +27,15 @@ interface Platform {
   id: string
   name: string
   nameAr: string
+  nameEn: string
   descAr: string
+  descEn: string
   icon: React.ReactNode
   color: string
   gradient: string
   available: boolean
-  features: string[]
+  featuresAr: string[]
+  featuresEn: string[]
 }
 
 const PLATFORMS: Platform[] = [
@@ -39,7 +43,9 @@ const PLATFORMS: Platform[] = [
     id: 'META',
     name: 'Meta',
     nameAr: 'Meta (فيسبوك + إنستجرام)',
+    nameEn: 'Meta (Facebook + Instagram)',
     descAr: 'انشر وجدوِل على فيسبوك وإنستجرام مباشرةً. حلّل الأداء وأدِر الإعلانات.',
+    descEn: 'Publish and schedule on Facebook and Instagram directly. Analyze performance and manage ads.',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <path d="M18 3C9.716 3 3 9.716 3 18s6.716 15 15 15 15-6.716 15-15S26.284 3 18 3z" fill="#1877F2" />
@@ -49,13 +55,16 @@ const PLATFORMS: Platform[] = [
     color: '#1877F2',
     gradient: 'from-blue-600/20 to-indigo-600/10',
     available: true,
-    features: ['نشر تلقائي', 'جدولة المنشورات', 'إنستجرام + فيسبوك', 'إدارة الصفحات'],
+    featuresAr: ['نشر تلقائي', 'جدولة المنشورات', 'إنستجرام + فيسبوك', 'إدارة الصفحات'],
+    featuresEn: ['Auto publish', 'Post scheduling', 'Instagram + Facebook', 'Page management'],
   },
   {
     id: 'TIKTOK',
     name: 'TikTok',
     nameAr: 'TikTok',
+    nameEn: 'TikTok',
     descAr: 'انشر فيديوهاتك القصيرة واستهدف الجمهور الشاب في السعودية والخليج.',
+    descEn: 'Publish your short videos and target young audiences in Saudi Arabia and the Gulf.',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#000" />
@@ -67,13 +76,16 @@ const PLATFORMS: Platform[] = [
     color: '#FE2C55',
     gradient: 'from-rose-600/20 to-pink-600/10',
     available: false,
-    features: ['نشر الفيديوهات', 'TikTok Ads', 'تحليل المشاهدات', 'ترندات الهاشتاق'],
+    featuresAr: ['نشر الفيديوهات', 'TikTok Ads', 'تحليل المشاهدات', 'ترندات الهاشتاق'],
+    featuresEn: ['Video publishing', 'TikTok Ads', 'View analytics', 'Hashtag trends'],
   },
   {
     id: 'SNAPCHAT',
     name: 'Snapchat',
     nameAr: 'Snapchat',
+    nameEn: 'Snapchat',
     descAr: 'أوسع جمهور شبابي في المملكة. ربط إعلانات سناب وإدارة المحتوى.',
+    descEn: 'Largest youth audience in Saudi Arabia. Connect Snapchat Ads and manage content.',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#FFFC00" />
@@ -83,13 +95,16 @@ const PLATFORMS: Platform[] = [
     color: '#FFFC00',
     gradient: 'from-yellow-500/20 to-amber-500/10',
     available: false,
-    features: ['Snapchat Ads', 'Story النشر', 'استهداف السعودية', 'Lens / Filter'],
+    featuresAr: ['Snapchat Ads', 'Story النشر', 'استهداف السعودية', 'Lens / Filter'],
+    featuresEn: ['Snapchat Ads', 'Story publishing', 'Saudi targeting', 'Lens / Filter'],
   },
   {
     id: 'GOOGLE',
     name: 'Google Ads',
     nameAr: 'Google Ads',
+    nameEn: 'Google Ads',
     descAr: 'إعلانات البحث ويوتيوب. ادمج بيانات Google Ads مع تقاريرك في Nexus.',
+    descEn: 'Search and YouTube ads. Integrate Google Ads data with your Nexus reports.',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#fff" />
@@ -102,13 +117,16 @@ const PLATFORMS: Platform[] = [
     color: '#4285F4',
     gradient: 'from-blue-500/20 to-green-500/10',
     available: false,
-    features: ['Search Ads', 'YouTube Ads', 'تقارير الأداء', 'ربط Google Analytics'],
+    featuresAr: ['Search Ads', 'YouTube Ads', 'تقارير الأداء', 'ربط Google Analytics'],
+    featuresEn: ['Search Ads', 'YouTube Ads', 'Performance reports', 'Google Analytics link'],
   },
   {
     id: 'TWITTER',
     name: 'X (Twitter)',
     nameAr: 'X (تويتر)',
+    nameEn: 'X (Twitter)',
     descAr: 'جدوِل تغريداتك واستهدف جمهور الأعمال العربي على منصة X.',
+    descEn: 'Schedule your tweets and target Arabic business audiences on X.',
     icon: (
       <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
         <rect width="36" height="36" rx="10" fill="#000" />
@@ -118,12 +136,14 @@ const PLATFORMS: Platform[] = [
     color: '#000',
     gradient: 'from-slate-600/20 to-slate-800/10',
     available: false,
-    features: ['جدولة التغريدات', 'Twitter Ads', 'تحليل التفاعل', 'Threads'],
+    featuresAr: ['جدولة التغريدات', 'Twitter Ads', 'تحليل التفاعل', 'Threads'],
+    featuresEn: ['Tweet scheduling', 'Twitter Ads', 'Engagement analytics', 'Threads'],
   },
 ]
 
 export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { locale, dir } = useI18n()
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
@@ -222,7 +242,7 @@ export default function ConnectionsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-4 py-10 page-enter" dir="rtl">
+      <div className="max-w-5xl mx-auto px-4 py-10 page-enter" dir={dir}>
 
         {/* ── Header ─────────────────────────────────────────── */}
         <div className="mb-10">
@@ -232,9 +252,11 @@ export default function ConnectionsPage() {
           </div>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">ربط المنصات</h1>
+              <h1 className="text-3xl font-bold mb-2">{locale === 'ar' ? 'ربط المنصات' : 'Connect Platforms'}</h1>
               <p className="text-gray-400 text-sm max-w-lg">
-                اربط حساباتك على وسائل التواصل الاجتماعي لكي يتمكن Nexus من النشر والجدولة وتحليل الأداء تلقائياً.
+                {locale === 'ar'
+                  ? 'اربط حساباتك على وسائل التواصل الاجتماعي لكي يتمكن Nexus من النشر والجدولة وتحليل الأداء تلقائياً.'
+                  : 'Connect your social media accounts so Nexus can publish, schedule and analyze performance automatically.'}
               </p>
             </div>
             <button
@@ -287,15 +309,17 @@ export default function ConnectionsPage() {
           <div className="flex-1">
             {connectedCount === 0 ? (
               <>
-                <p className="font-bold text-amber-400 mb-0.5">لم تربط أي منصة حتى الآن</p>
-                <p className="text-sm text-gray-400">ابدأ بربط Meta لتفعيل النشر التلقائي على فيسبوك وإنستجرام.</p>
+                <p className="font-bold text-amber-400 mb-0.5">{locale === 'ar' ? 'لم تربط أي منصة حتى الآن' : 'No platforms connected yet'}</p>
+                <p className="text-sm text-gray-400">{locale === 'ar' ? 'ابدأ بربط Meta لتفعيل النشر التلقائي على فيسبوك وإنستجرام.' : 'Start with Meta to enable auto-publishing on Facebook and Instagram.'}</p>
               </>
             ) : (
               <>
                 <p className="font-bold text-emerald-400 mb-0.5">
-                  {connectedCount === 1 ? 'منصة واحدة مربوطة' : `${connectedCount} منصات مربوطة`} ✓
+                  {locale === 'ar'
+                    ? (connectedCount === 1 ? 'منصة واحدة مربوطة' : `${connectedCount} منصات مربوطة`) + ' ✓'
+                    : `${connectedCount} platform${connectedCount > 1 ? 's' : ''} connected ✓`}
                 </p>
-                <p className="text-sm text-gray-400">يمكنك ربط المزيد من المنصات لتوسيع نطاق حملاتك.</p>
+                <p className="text-sm text-gray-400">{locale === 'ar' ? 'يمكنك ربط المزيد من المنصات لتوسيع نطاق حملاتك.' : 'You can connect more platforms to expand your campaign reach.'}</p>
               </>
             )}
           </div>
@@ -307,8 +331,8 @@ export default function ConnectionsPage() {
               style={{ background: 'linear-gradient(135deg, #1877F2, #4c9fff)', color: '#fff' }}
             >
               {connecting === 'META'
-                ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />جارٍ الربط...</span>
-                : 'ابدأ بـ Meta'}
+                ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{locale === 'ar' ? 'جارٍ الربط...' : 'Connecting...'}</span>
+                : (locale === 'ar' ? 'ابدأ بـ Meta' : 'Start with Meta')}
             </button>
           )}
         </div>
@@ -349,24 +373,24 @@ export default function ConnectionsPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
-                      <h3 className="text-lg font-bold">{platform.nameAr}</h3>
+                      <h3 className="text-lg font-bold">{locale === 'ar' ? platform.nameAr : platform.nameEn}</h3>
                       {isConnected ? (
                         <span className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          متصل
+                          {locale === 'ar' ? 'متصل' : 'Connected'}
                         </span>
                       ) : !platform.available ? (
                         <span className="text-xs px-3 py-1 rounded-full font-semibold bg-white/5 text-gray-500 border border-white/8">
-                          قريباً
+                          {locale === 'ar' ? 'قريباً' : 'Coming soon'}
                         </span>
                       ) : null}
                     </div>
 
-                    <p className="text-sm text-gray-400 mb-3">{platform.descAr}</p>
+                    <p className="text-sm text-gray-400 mb-3">{locale === 'ar' ? platform.descAr : platform.descEn}</p>
 
                     {/* Features */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {platform.features.map(f => (
+                      {(locale === 'ar' ? platform.featuresAr : platform.featuresEn).map(f => (
                         <span
                           key={f}
                           className="text-xs px-2.5 py-1 rounded-lg"
@@ -387,11 +411,11 @@ export default function ConnectionsPage() {
                         className="p-3 rounded-xl mb-4"
                         style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.1)' }}
                       >
-                        <p className="text-xs text-gray-400 mb-1">الحساب المربوط</p>
+                        <p className="text-xs text-gray-400 mb-1">{locale === 'ar' ? 'الحساب المربوط' : 'Connected account'}</p>
                         <p className="font-semibold text-sm text-emerald-300">{connectedAccount.accountName}</p>
                         {connectedAccount.pages?.length > 0 && (
                           <div className="mt-2 space-y-1">
-                            <p className="text-xs text-gray-500">الصفحات والحسابات:</p>
+                            <p className="text-xs text-gray-500">{locale === 'ar' ? 'الصفحات والحسابات:' : 'Pages & accounts:'}</p>
                             {connectedAccount.pages.map(page => (
                               <div key={page.id} className="flex items-center gap-2 text-xs text-gray-400">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -404,7 +428,7 @@ export default function ConnectionsPage() {
                           </div>
                         )}
                         <p className="text-[10px] text-gray-600 mt-2">
-                          تاريخ الربط: {new Date(connectedAccount.connectedAt).toLocaleDateString('ar-SA')}
+                          {locale === 'ar' ? 'تاريخ الربط:' : 'Connected:'} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
                         </p>
                       </div>
                     )}
@@ -424,8 +448,8 @@ export default function ConnectionsPage() {
                             }}
                           >
                             {isConnecting
-                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />جارٍ التحديث...</>
-                              : <><RefreshCw className="w-3.5 h-3.5" />تجديد الربط</>}
+                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{locale === 'ar' ? 'جارٍ التحديث...' : 'Refreshing...'}</>
+                              : <><RefreshCw className="w-3.5 h-3.5" />{locale === 'ar' ? 'تجديد الربط' : 'Refresh'}</>}
                           </button>
                           <button
                             onClick={() => handleDisconnect(connectedAccount!.id)}
@@ -434,8 +458,8 @@ export default function ConnectionsPage() {
                             style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}
                           >
                             {isDisconnecting
-                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />جارٍ الفصل...</>
-                              : <><Unplug className="w-3.5 h-3.5" />فصل الحساب</>}
+                              ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{locale === 'ar' ? 'جارٍ الفصل...' : 'Disconnecting...'}</>
+                              : <><Unplug className="w-3.5 h-3.5" />{locale === 'ar' ? 'فصل الحساب' : 'Disconnect'}</>}
                           </button>
                         </>
                       ) : platform.available ? (
@@ -446,13 +470,13 @@ export default function ConnectionsPage() {
                           style={{ background: `linear-gradient(135deg, ${platform.color}, ${platform.color}aa)` }}
                         >
                           {isConnecting
-                            ? <><Loader2 className="w-4 h-4 animate-spin" />جارٍ الربط...</>
-                            : <><Plug className="w-4 h-4" />ربط الحساب</>}
+                            ? <><Loader2 className="w-4 h-4 animate-spin" />{locale === 'ar' ? 'جارٍ الربط...' : 'Connecting...'}</>
+                            : <><Plug className="w-4 h-4" />{locale === 'ar' ? 'ربط الحساب' : 'Connect account'}</>}
                         </button>
                       ) : (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Zap className="w-4 h-4" />
-                          <span>سيكون متاحاً قريباً — نعمل عليه</span>
+                          <span>{locale === 'ar' ? 'سيكون متاحاً قريباً — نعمل عليه' : 'Coming soon — we\'re working on it'}</span>
                         </div>
                       )}
                     </div>
@@ -470,10 +494,11 @@ export default function ConnectionsPage() {
         >
           <Shield className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold mb-1">أمان بياناتك أولويتنا</p>
+            <p className="text-sm font-semibold mb-1">{locale === 'ar' ? 'أمان بياناتك أولويتنا' : 'Your data security is our priority'}</p>
             <p className="text-xs text-gray-500 leading-relaxed">
-              Nexus لا يحتفظ بكلمات المرور. نستخدم OAuth 2.0 الرسمي لكل منصة — وهو نفس الأسلوب الذي تستخدمه كبرى التطبيقات.
-              يمكنك فصل أي حساب في أي وقت وسيتم حذف رمز الوصول فوراً.
+              {locale === 'ar'
+                ? 'Nexus لا يحتفظ بكلمات المرور. نستخدم OAuth 2.0 الرسمي لكل منصة — وهو نفس الأسلوب الذي تستخدمه كبرى التطبيقات. يمكنك فصل أي حساب في أي وقت وسيتم حذف رمز الوصول فوراً.'
+                : 'Nexus never stores passwords. We use official OAuth 2.0 for each platform — the same method used by leading apps. You can disconnect any account at any time and the access token will be deleted immediately.'}
             </p>
           </div>
         </div>
@@ -481,9 +506,9 @@ export default function ConnectionsPage() {
         {/* ── Help CTA ───────────────────────────────────────── */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-600">
-            تواجه مشكلة في الربط؟{' '}
+            {locale === 'ar' ? 'تواجه مشكلة في الربط؟' : 'Having trouble connecting?'}{' '}
             <a href="mailto:support@nexus-grow.com" className="text-amber-500 hover:text-amber-400 transition">
-              تواصل معنا
+              {locale === 'ar' ? 'تواصل معنا' : 'Contact us'}
             </a>
           </p>
         </div>

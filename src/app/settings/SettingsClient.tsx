@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 import AppShell from '@/components/AppShell'
 import {
@@ -30,16 +31,17 @@ interface SocialAccount {
 }
 
 const SECTIONS = [
-  { id: 'profile',   label: 'الملف الشخصي',    icon: User,    color: '#06b6d4' },
-  { id: 'security',  label: 'الأمان',          icon: Shield,  color: '#f59e0b' },
-  { id: 'accounts',  label: 'الحسابات المرتبطة', icon: Globe,   color: '#10b981' },
-  { id: 'billing',   label: 'الاشتراك',          icon: CreditCard, color: '#8b5cf6' },
-  { id: 'danger',    label: 'منطقة الخطر',       icon: AlertTriangle, color: '#ef4444' },
+  { id: 'profile',   label: 'الملف الشخصي',     labelEn: 'Profile',            icon: User,          color: '#06b6d4' },
+  { id: 'security',  label: 'الأمان',            labelEn: 'Security',           icon: Shield,        color: '#f59e0b' },
+  { id: 'accounts',  label: 'الحسابات المرتبطة', labelEn: 'Connected Accounts', icon: Globe,         color: '#10b981' },
+  { id: 'billing',   label: 'الاشتراك',           labelEn: 'Billing',            icon: CreditCard,    color: '#8b5cf6' },
+  { id: 'danger',    label: 'منطقة الخطر',        labelEn: 'Danger Zone',        icon: AlertTriangle, color: '#ef4444' },
 ]
 
 export default function SettingsPage() {
   const router = useRouter()
   const { user, isAuthenticated, loading, authHeader } = useAuth()
+  const { locale, dir } = useI18n()
 
   const [activeSection, setActiveSection] = useState('profile')
 
@@ -74,15 +76,17 @@ export default function SettingsPage() {
     const social   = params.get('social')
     const platform = params.get('platform')
     if (social === 'connected') {
-      setSocialMessage(`✓ تم ربط ${platform === 'meta' ? 'Meta (Facebook/Instagram)' : platform} بنجاح!`)
+      setSocialMessage(locale === 'ar'
+        ? `✓ تم ربط ${platform === 'meta' ? 'Meta (Facebook/Instagram)' : platform} بنجاح!`
+        : `✓ Successfully connected ${platform === 'meta' ? 'Meta (Facebook/Instagram)' : platform}!`)
       fetchSocialAccounts()
       setTimeout(() => setSocialMessage(''), 5000)
     } else if (social === 'denied') {
-      setSocialMessage('تم إلغاء الربط.')
+      setSocialMessage(locale === 'ar' ? 'تم إلغاء الربط.' : 'Connection cancelled.')
       setTimeout(() => setSocialMessage(''), 3000)
     } else if (social === 'error') {
-      const msg = params.get('msg') || 'خطأ غير معروف'
-      setSocialMessage(`فشل الربط: ${msg}`)
+      const msg = params.get('msg') || (locale === 'ar' ? 'خطأ غير معروف' : 'Unknown error')
+      setSocialMessage(locale === 'ar' ? `فشل الربط: ${msg}` : `Connection failed: ${msg}`)
       setTimeout(() => setSocialMessage(''), 10000)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,9 +123,9 @@ export default function SettingsPage() {
       const res  = await fetch('/api/social/connect/meta', { headers: { Authorization: token } })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setSocialMessage(data.error || 'فشل بدء الربط')
+      else setSocialMessage(data.error || (locale === 'ar' ? 'فشل بدء الربط' : 'Failed to start connection'))
     } catch {
-      setSocialMessage('فشل الاتصال. تحقق من إعدادات Meta App.')
+      setSocialMessage(locale === 'ar' ? 'فشل الاتصال. تحقق من إعدادات Meta App.' : 'Connection failed. Check your Meta App settings.')
     } finally {
       setSocialConnecting(false)
     }
@@ -139,7 +143,7 @@ export default function SettingsPage() {
       })
       setSocialAccounts(prev => prev.filter(a => a.id !== integrationId))
     } catch {
-      setSocialMessage('فشل قطع الاتصال.')
+      setSocialMessage(locale === 'ar' ? 'فشل قطع الاتصال.' : 'Failed to disconnect.')
     } finally {
       setDisconnecting(null)
     }
@@ -153,10 +157,10 @@ export default function SettingsPage() {
     try {
       const { error } = await supabase.auth.updateUser({ data: { name: displayName } })
       if (error) throw error
-      setNameSuccess('تم تحديث الاسم بنجاح')
+      setNameSuccess(locale === 'ar' ? 'تم تحديث الاسم بنجاح' : 'Name updated successfully')
       setTimeout(() => setNameSuccess(''), 3000)
     } catch (err: any) {
-      setNameError(err.message || 'فشل تحديث الاسم')
+      setNameError(err.message || (locale === 'ar' ? 'فشل تحديث الاسم' : 'Failed to update name'))
     } finally {
       setSavingName(false)
     }
@@ -165,18 +169,18 @@ export default function SettingsPage() {
   const handleChangePassword = async () => {
     setPasswordError('')
     setPasswordSuccess('')
-    if (newPassword.length < 8)      { setPasswordError('يجب أن تكون كلمة المرور ٨ أحرف على الأقل'); return }
-    if (newPassword !== confirmPassword) { setPasswordError('كلمتا المرور غير متطابقتين'); return }
+    if (newPassword.length < 8)      { setPasswordError(locale === 'ar' ? 'يجب أن تكون كلمة المرور ٨ أحرف على الأقل' : 'Password must be at least 8 characters'); return }
+    if (newPassword !== confirmPassword) { setPasswordError(locale === 'ar' ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match'); return }
     setSavingPassword(true)
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
-      setPasswordSuccess('تم تغيير كلمة المرور بنجاح')
+      setPasswordSuccess(locale === 'ar' ? 'تم تغيير كلمة المرور بنجاح' : 'Password changed successfully')
       setNewPassword('')
       setConfirmPassword('')
       setTimeout(() => setPasswordSuccess(''), 3000)
     } catch (err: any) {
-      setPasswordError(err.message || 'فشل تغيير كلمة المرور')
+      setPasswordError(err.message || (locale === 'ar' ? 'فشل تغيير كلمة المرور' : 'Failed to change password'))
     } finally {
       setSavingPassword(false)
     }
@@ -203,7 +207,7 @@ export default function SettingsPage() {
   const email    = user?.email || ''
   const provider = user?.app_metadata?.provider || 'email'
   const createdAt = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric' })
+    ? new Date(user.created_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : '—'
 
   const metaAccount = socialAccounts.find(a => a.platform === 'META')
@@ -266,7 +270,7 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
         {/* Background atmosphere */}
         <NebulaOrbs />
         <div
@@ -286,8 +290,8 @@ export default function SettingsPage() {
               <Settings className="w-4 h-4 text-amber" />
               <span className="text-xs text-amber/70 font-mono tracking-wider">NEXUS COMMAND CENTER</span>
             </div>
-            <h1 className="text-display mb-2">الإعدادات</h1>
-            <p className="text-text-secondary text-sm">إدارة ملفك الشخصي، الأمان، والحسابات المرتبطة</p>
+            <h1 className="text-display mb-2">{locale === 'ar' ? 'الإعدادات' : 'Settings'}</h1>
+            <p className="text-text-secondary text-sm">{locale === 'ar' ? 'إدارة ملفك الشخصي، الأمان، والحسابات المرتبطة' : 'Manage your profile, security, and connected accounts'}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -311,7 +315,7 @@ export default function SettingsPage() {
                     }}
                   >
                     <Icon className="w-4 h-4" style={{ color: isActive ? section.color : undefined }} />
-                    <span className="flex-1 text-right">{section.label}</span>
+                    <span className={`flex-1 ${locale === 'ar' ? 'text-right' : 'text-left'}`}>{locale === 'ar' ? section.label : section.labelEn}</span>
                     {isActive && <ChevronLeft className="w-4 h-4 text-amber" />}
                   </button>
                 )
@@ -323,7 +327,7 @@ export default function SettingsPage() {
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-white hover:bg-white/3 transition-all"
                 >
                   <Monitor className="w-4 h-4" />
-                  <span className="flex-1 text-right">العودة للوحة التحكم</span>
+                  <span className={`flex-1 ${locale === 'ar' ? 'text-right' : 'text-left'}`}>{locale === 'ar' ? 'العودة للوحة التحكم' : 'Back to Dashboard'}</span>
                   <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
@@ -348,7 +352,7 @@ export default function SettingsPage() {
                         {(displayName || email).charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1">
-                        <h2 className="text-headline mb-1">{displayName || 'مستخدم'}</h2>
+                        <h2 className="text-headline mb-1">{displayName || (locale === 'ar' ? 'مستخدم' : 'User')}</h2>
                         <p className="text-text-muted text-sm">{email}</p>
                         <div className="flex gap-2 mt-3">
                           <span
@@ -359,7 +363,7 @@ export default function SettingsPage() {
                               border: '1px solid rgba(245,158,11,0.15)',
                             }}
                           >
-                            {provider === 'google' ? '🔵 Google' : '📧 بريد إلكتروني'}
+                            {provider === 'google' ? '🔵 Google' : (locale === 'ar' ? '📧 بريد إلكتروني' : '📧 Email')}
                           </span>
                           <span
                             className="text-[11px] px-3 py-1 rounded-full font-semibold"
@@ -369,18 +373,18 @@ export default function SettingsPage() {
                               border: '1px solid rgba(16,185,129,0.15)',
                             }}
                           >
-                            الخطة المجانية
+                            {locale === 'ar' ? 'الخطة المجانية' : 'Free Plan'}
                           </span>
                         </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 mt-6 pt-6" style={{ borderTop: '1px solid rgba(108,99,255,0.08)' }}>
                       <div>
-                        <p className="text-xs text-text-muted mb-1">عضو منذ</p>
+                        <p className="text-xs text-text-muted mb-1">{locale === 'ar' ? 'عضو منذ' : 'Member since'}</p>
                         <p className="text-sm font-semibold text-text-primary">{createdAt}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted mb-1">معرّف المستخدم</p>
+                        <p className="text-xs text-text-muted mb-1">{locale === 'ar' ? 'معرّف المستخدم' : 'User ID'}</p>
                         <p className="text-xs font-mono text-text-muted truncate">{user?.id}</p>
                       </div>
                     </div>
@@ -388,30 +392,30 @@ export default function SettingsPage() {
 
                   {/* Edit Name */}
                   <GlassCard className="p-6">
-                    <SectionBadge color="#06b6d4" label="الملف الشخصي" />
-                    <h3 className="text-lg font-bold mb-1">الاسم المعروض</h3>
-                    <p className="text-text-muted text-sm mb-6">هذا الاسم سيظهر في لوحة التحكم والتقارير.</p>
+                    <SectionBadge color="#06b6d4" label={locale === 'ar' ? 'الملف الشخصي' : 'Profile'} />
+                    <h3 className="text-lg font-bold mb-1">{locale === 'ar' ? 'الاسم المعروض' : 'Display Name'}</h3>
+                    <p className="text-text-muted text-sm mb-6">{locale === 'ar' ? 'هذا الاسم سيظهر في لوحة التحكم والتقارير.' : 'This name will appear in your dashboard and reports.'}</p>
 
                     <div className="space-y-4 max-w-md">
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">الاسم</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">{locale === 'ar' ? 'الاسم' : 'Name'}</label>
                         <input
                           type="text"
                           value={displayName}
                           onChange={e => setDisplayName(e.target.value)}
                           className="input-nexus"
-                          placeholder="اسمك الكامل"
+                          placeholder={locale === 'ar' ? 'اسمك الكامل' : 'Your full name'}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">البريد الإلكتروني</label>
+                        <label className="block text-sm font-medium text-text-secondary mb-2">{locale === 'ar' ? 'البريد الإلكتروني' : 'Email'}</label>
                         <input
                           type="email"
                           value={email}
                           disabled
                           className="input-nexus opacity-50 cursor-not-allowed"
                         />
-                        <p className="text-xs text-text-muted mt-1">لا يمكن تغيير البريد الإلكتروني من هنا.</p>
+                        <p className="text-xs text-text-muted mt-1">{locale === 'ar' ? 'لا يمكن تغيير البريد الإلكتروني من هنا.' : 'Email cannot be changed here.'}</p>
                       </div>
 
                       {nameSuccess && (
@@ -435,11 +439,11 @@ export default function SettingsPage() {
                         {savingName ? (
                           <>
                             <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                            جاري الحفظ...
+                            {locale === 'ar' ? 'جاري الحفظ...' : 'Saving...'}
                           </>
                         ) : (
                           <>
-                            <Save className="w-4 h-4" /> حفظ الاسم
+                            <Save className="w-4 h-4" /> {locale === 'ar' ? 'حفظ الاسم' : 'Save Name'}
                           </>
                         )}
                       </button>
@@ -451,20 +455,20 @@ export default function SettingsPage() {
               {/* ═══ SECURITY ══════════════════════════════════ */}
               {activeSection === 'security' && provider !== 'google' && (
                 <GlassCard className="p-6">
-                  <SectionBadge color="#f59e0b" label="الأمان" />
-                  <h3 className="text-lg font-bold mb-1">تغيير كلمة المرور</h3>
-                  <p className="text-text-muted text-sm mb-6">اختر كلمة مرور قوية من ٨ أحرف على الأقل.</p>
+                  <SectionBadge color="#f59e0b" label={locale === 'ar' ? 'الأمان' : 'Security'} />
+                  <h3 className="text-lg font-bold mb-1">{locale === 'ar' ? 'تغيير كلمة المرور' : 'Change Password'}</h3>
+                  <p className="text-text-muted text-sm mb-6">{locale === 'ar' ? 'اختر كلمة مرور قوية من ٨ أحرف على الأقل.' : 'Choose a strong password with at least 8 characters.'}</p>
 
                   <div className="space-y-4 max-w-md">
                     <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">كلمة المرور الجديدة</label>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">{locale === 'ar' ? 'كلمة المرور الجديدة' : 'New Password'}</label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={newPassword}
                           onChange={e => setNewPassword(e.target.value)}
                           className="input-nexus pr-10"
-                          placeholder="٨ أحرف على الأقل"
+                          placeholder={locale === 'ar' ? '٨ أحرف على الأقل' : 'At least 8 characters'}
                         />
                         <button
                           type="button"
@@ -476,13 +480,13 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">تأكيد كلمة المرور</label>
+                      <label className="block text-sm font-medium text-text-secondary mb-2">{locale === 'ar' ? 'تأكيد كلمة المرور' : 'Confirm Password'}</label>
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
                         className="input-nexus"
-                        placeholder="أعد إدخال كلمة المرور"
+                        placeholder={locale === 'ar' ? 'أعد إدخال كلمة المرور' : 'Re-enter your password'}
                       />
                     </div>
 
@@ -507,11 +511,11 @@ export default function SettingsPage() {
                       {savingPassword ? (
                         <>
                           <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                          جاري التحديث...
+                          {locale === 'ar' ? 'جاري التحديث...' : 'Updating...'}
                         </>
                       ) : (
                         <>
-                          <KeyRound className="w-4 h-4" /> تحديث كلمة المرور
+                          <KeyRound className="w-4 h-4" /> {locale === 'ar' ? 'تحديث كلمة المرور' : 'Update Password'}
                         </>
                       )}
                     </button>
@@ -525,8 +529,8 @@ export default function SettingsPage() {
                   <GlassCard className="p-6">
                     <div className="flex items-center justify-between mb-1">
                       <div>
-                        <SectionBadge color="#10b981" label="الحسابات المرتبطة" />
-                        <h3 className="text-lg font-bold">المنصات الاجتماعية</h3>
+                        <SectionBadge color="#10b981" label={locale === 'ar' ? 'الحسابات المرتبطة' : 'Connected Accounts'} />
+                        <h3 className="text-lg font-bold">{locale === 'ar' ? 'المنصات الاجتماعية' : 'Social Platforms'}</h3>
                       </div>
                       <span
                         className="text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wider"
@@ -536,10 +540,10 @@ export default function SettingsPage() {
                           border: '1px solid rgba(245,158,11,0.15)',
                         }}
                       >
-                        بيتا
+                        {locale === 'ar' ? 'بيتا' : 'Beta'}
                       </span>
                     </div>
-                    <p className="text-text-muted text-sm mb-6">اربط حساباتك الاجتماعية لنشر الحملات مباشرة من NEXUS.</p>
+                    <p className="text-text-muted text-sm mb-6">{locale === 'ar' ? 'اربط حساباتك الاجتماعية لنشر الحملات مباشرة من NEXUS.' : 'Connect your social accounts to publish campaigns directly from NEXUS.'}</p>
 
                     {socialMessage && (
                       <div className={`rounded-xl p-3 text-sm mb-4 ${
@@ -571,11 +575,11 @@ export default function SettingsPage() {
                           <div className="font-semibold text-sm text-text-primary">Meta (Facebook + Instagram)</div>
                           {metaAccount ? (
                             <div className="text-xs text-text-muted mt-0.5">
-                              متصل كـ <span className="text-text-secondary font-medium">{metaAccount.accountName}</span>
-                              {' · '}{metaAccount.pages.length} صفحة
+                              {locale === 'ar' ? 'متصل كـ' : 'Connected as'} <span className="text-text-secondary font-medium">{metaAccount.accountName}</span>
+                              {' · '}{metaAccount.pages.length} {locale === 'ar' ? 'صفحة' : 'page(s)'}
                             </div>
                           ) : (
-                            <div className="text-xs text-text-muted mt-0.5">غير متصل</div>
+                            <div className="text-xs text-text-muted mt-0.5">{locale === 'ar' ? 'غير متصل' : 'Not connected'}</div>
                           )}
                         </div>
                       </div>
@@ -587,7 +591,7 @@ export default function SettingsPage() {
                         >
                           {disconnecting === metaAccount.id ? (
                             <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                          ) : 'قطع الاتصال'}
+                          ) : (locale === 'ar' ? 'قطع الاتصال' : 'Disconnect')}
                         </button>
                       ) : (
                         <button
@@ -599,7 +603,7 @@ export default function SettingsPage() {
                             <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                           ) : (
                             <span className="flex items-center gap-1">
-                              <ExternalLink className="w-3.5 h-3.5" /> ربط
+                              <ExternalLink className="w-3.5 h-3.5" /> {locale === 'ar' ? 'ربط' : 'Connect'}
                             </span>
                           )}
                         </button>
@@ -609,7 +613,7 @@ export default function SettingsPage() {
                     {/* Pages list */}
                     {metaAccount?.pages.length ? (
                       <div className="mb-4">
-                        <div className="text-[11px] text-text-muted mb-2 px-1 font-semibold uppercase tracking-wider">الصفحات المرتبطة</div>
+                        <div className="text-[11px] text-text-muted mb-2 px-1 font-semibold uppercase tracking-wider">{locale === 'ar' ? 'الصفحات المرتبطة' : 'Connected Pages'}</div>
                         <div className="space-y-2">
                           {metaAccount.pages.map(page => (
                             <div
@@ -631,7 +635,7 @@ export default function SettingsPage() {
                                     border: '1px solid rgba(236,72,153,0.15)',
                                   }}
                                 >
-                                  IG مرتبط
+                                  {locale === 'ar' ? 'IG مرتبط' : 'IG linked'}
                                 </span>
                               )}
                             </div>
@@ -658,10 +662,10 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <div className="font-semibold text-sm text-text-primary">TikTok for Business</div>
-                          <div className="text-xs text-text-muted mt-0.5">قريباً</div>
+                          <div className="text-xs text-text-muted mt-0.5">{locale === 'ar' ? 'قريباً' : 'Coming soon'}</div>
                         </div>
                       </div>
-                      <span className="text-xs text-text-muted border border-white/5 px-3 py-1.5 rounded-lg">قريباً</span>
+                      <span className="text-xs text-text-muted border border-white/5 px-3 py-1.5 rounded-lg">{locale === 'ar' ? 'قريباً' : 'Coming soon'}</span>
                     </div>
                   </GlassCard>
                 </>
@@ -670,9 +674,9 @@ export default function SettingsPage() {
               {/* ═══ BILLING ═══════════════════════════════════ */}
               {activeSection === 'billing' && (
                 <GlassCard className="p-6">
-                  <SectionBadge color="#8b5cf6" label="الاشتراك" />
-                  <h3 className="text-lg font-bold mb-1">خطتك الحالية</h3>
-                  <p className="text-text-muted text-sm mb-6">أنت حالياً على الخطة المجانية. اترقَ لفتح الميزات الكاملة.</p>
+                  <SectionBadge color="#8b5cf6" label={locale === 'ar' ? 'الاشتراك' : 'Billing'} />
+                  <h3 className="text-lg font-bold mb-1">{locale === 'ar' ? 'خطتك الحالية' : 'Your Current Plan'}</h3>
+                  <p className="text-text-muted text-sm mb-6">{locale === 'ar' ? 'أنت حالياً على الخطة المجانية. اترقَ لفتح الميزات الكاملة.' : "You're currently on the Free plan. Upgrade to unlock all features."}</p>
 
                   <div
                     className="flex items-center justify-between p-5 mb-4"
@@ -691,7 +695,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <div className="font-bold text-text-primary">Starter</div>
-                        <div className="text-sm text-text-muted">مجاني · ٥ فيديوهات/شهر</div>
+                        <div className="text-sm text-text-muted">{locale === 'ar' ? 'مجاني · ٥ فيديوهات/شهر' : 'Free · 5 videos/month'}</div>
                       </div>
                     </div>
                     <span
@@ -702,16 +706,20 @@ export default function SettingsPage() {
                         border: '1px solid rgba(16,185,129,0.15)',
                       }}
                     >
-                      نشط
+                      {locale === 'ar' ? 'نشط' : 'Active'}
                     </span>
                   </div>
 
                   <div className="space-y-3 mb-6">
-                    {[
+                    {(locale === 'ar' ? [
                       { label: 'فيديوهات/شهر', value: '٥ من ٥', pct: 100 },
                       { label: 'حملات إعلانية', value: '٣ من ٣', pct: 100 },
                       { label: 'منصات مرتبطة', value: '١ من ١', pct: 100 },
-                    ].map((item, i) => (
+                    ] : [
+                      { label: 'Videos/month', value: '5 of 5', pct: 100 },
+                      { label: 'Ad campaigns', value: '3 of 3', pct: 100 },
+                      { label: 'Connected platforms', value: '1 of 1', pct: 100 },
+                    ]).map((item, i) => (
                       <div key={i} className="flex items-center gap-3">
                         <span className="text-sm text-text-muted w-28 text-right">{item.label}</span>
                         <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(17,21,54,0.5)' }}>
@@ -734,7 +742,7 @@ export default function SettingsPage() {
                     href="/billing"
                     className="btn-primary text-sm py-2.5 px-6 inline-flex items-center gap-2"
                   >
-                    <Sparkles className="w-4 h-4" /> ترقية الخطة
+                    <Sparkles className="w-4 h-4" /> {locale === 'ar' ? 'ترقية الخطة' : 'Upgrade Plan'}
                   </Link>
                 </GlassCard>
               )}
@@ -750,8 +758,8 @@ export default function SettingsPage() {
                       <AlertTriangle className="w-5 h-5 text-red-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-red-400">منطقة الخطر</h3>
-                      <p className="text-text-muted text-sm">الإجراءات هنا دائمة ولا يمكن التراجع عنها.</p>
+                      <h3 className="text-lg font-bold text-red-400">{locale === 'ar' ? 'منطقة الخطر' : 'Danger Zone'}</h3>
+                      <p className="text-text-muted text-sm">{locale === 'ar' ? 'الإجراءات هنا دائمة ولا يمكن التراجع عنها.' : 'Actions here are permanent and cannot be undone.'}</p>
                     </div>
                   </div>
 
@@ -765,8 +773,8 @@ export default function SettingsPage() {
                       }}
                     >
                       <div>
-                        <div className="font-semibold text-sm text-text-primary">تسجيل الخروج من جميع الأجهزة</div>
-                        <div className="text-xs text-text-muted mt-1">الخروج من حساب NEXUS في كل مكان.</div>
+                        <div className="font-semibold text-sm text-text-primary">{locale === 'ar' ? 'تسجيل الخروج من جميع الأجهزة' : 'Sign out of all devices'}</div>
+                        <div className="text-xs text-text-muted mt-1">{locale === 'ar' ? 'الخروج من حساب NEXUS في كل مكان.' : 'Sign out of your NEXUS account everywhere.'}</div>
                       </div>
                       <button
                         onClick={handleSignOut}
@@ -778,7 +786,7 @@ export default function SettingsPage() {
                         ) : (
                           <LogOut className="w-4 h-4" />
                         )}
-                        تسجيل الخروج
+                        {locale === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}
                       </button>
                     </div>
                   </div>

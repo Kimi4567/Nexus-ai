@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react'
 import { Cookie, X, Check } from 'lucide-react'
 import Link from 'next/link'
+import { useI18n } from '@/lib/i18n-context'
 
 export default function CookieBanner() {
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const { locale } = useI18n()
 
   useEffect(() => {
     const consent = localStorage.getItem('nexus_cookie_consent')
@@ -66,14 +68,16 @@ export default function CookieBanner() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.2)' }}>
               <Cookie className="w-4 h-4 text-amber" />
             </div>
-            <span className="text-sm font-bold text-text-primary">ملفات تعريف الارتباط</span>
+            <span className="text-sm font-bold text-text-primary">{locale === 'ar' ? 'ملفات تعريف الارتباط' : 'Cookie Preferences'}</span>
           </div>
           <p className="text-xs text-text-muted leading-relaxed">
-            نستخدم ملفات تعريف الارتباط لتحسين تجربتك — الحفاظ على جلستك، تذكر تفضيلاتك، وتحليل الاستخدام المجهول.
+            {locale === 'ar'
+              ? 'نستخدم ملفات تعريف الارتباط لتحسين تجربتك — الحفاظ على جلستك، تذكر تفضيلاتك، وتحليل الاستخدام المجهول.'
+              : 'We use cookies to enhance your experience — keeping your session active, remembering preferences, and analyzing anonymous usage.'}
             {' '}
-            <Link href="/cookies" className="text-amber-500 hover:text-amber-400 underline">سياسة ملفات تعريف الارتباط</Link>
+            <Link href="/cookies" className="text-amber-500 hover:text-amber-400 underline">{locale === 'ar' ? 'سياسة ملفات تعريف الارتباط' : 'Cookie Policy'}</Link>
             {' • '}
-            <Link href="/privacy" className="text-amber-500 hover:text-amber-400 underline">سياسة الخصوصية</Link>
+            <Link href="/privacy" className="text-amber-500 hover:text-amber-400 underline">{locale === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}</Link>
           </p>
         </div>
 
@@ -84,14 +88,14 @@ export default function CookieBanner() {
             style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
           >
             <Check className="w-3.5 h-3.5" />
-            أوافق على الكل
+            {locale === 'ar' ? 'أوافق على الكل' : 'Accept All'}
           </button>
           <button
             onClick={acceptEssential}
             className="px-4 py-2 rounded-xl text-xs font-medium text-text-muted border border-white/10 hover:border-white/20 transition-all"
             style={{ background: 'rgba(255,255,255,0.03)' }}
           >
-            أساسية فقط
+            {locale === 'ar' ? 'أساسية فقط' : 'Essential only'}
           </button>
           <button
             onClick={() => setVisible(false)}

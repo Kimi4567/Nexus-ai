@@ -323,7 +323,7 @@ export default function SchedulePage() {
               <button onClick={() => setShowModal(false)} className="text-gray-600 hover:text-white transition-all text-xl">×</button>
             </div>
 
-            <div className="p-6 space-y-5" dir="rtl">
+            <div className="p-6 space-y-5">
               {/* Caption */}
               <div>
                 <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">نص المنشور</label>
@@ -413,7 +413,7 @@ export default function SchedulePage() {
             </div>
 
             {/* Modal footer */}
-            <div className="flex gap-3 px-6 py-4 border-t border-dark-tertiary" dir="rtl">
+            <div className="flex gap-3 px-6 py-4 border-t border-dark-tertiary">
               <button onClick={() => setShowModal(false)}
                 className="flex-1 py-3 border border-dark-tertiary text-gray-400 hover:text-white rounded-xl text-sm font-medium transition-all">
                 إلغاء

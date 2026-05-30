@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 import {
   Loader2, Shield, Wand2, Sparkles, AlertTriangle, Eye, Bell,
@@ -48,13 +49,14 @@ function SentinelOrbs() {
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const { locale } = useI18n()
   const handle = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? 'تم النسخ' : 'نسخ'}
+      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
     </button>
   )
 }
@@ -100,14 +102,11 @@ function AlertCard({ alert }: { alert: Alert }) {
   )
 }
 
-// Demo alerts (structural, not fake business data)
-const demoAlerts: Alert[] = [
-  { id: '1', type: 'info',        title: 'Sentinel جاهز للمراقبة',   body: 'ابدأ بكتابة اسم منافسيك أو قطاعك لتفعيل المراقبة',    time: 'الآن' },
-  { id: '2', type: 'opportunity', title: 'ربط المنصات يفتح رؤى أعمق', body: 'اذهب لـ Connections واربط حساباتك لتفعيل التنبيهات الحية', time: 'نصيحة' },
-]
+// Demo alerts are now rendered inside the component for locale support
 
 export default function SentinelPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
+  const { locale, dir } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
@@ -162,7 +161,7 @@ export default function SentinelPage() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemPrompt: systemPrompts[monitorType], userPrompt: prompt, maxTokens: 1400 }),
+        body: JSON.stringify({ systemPrompt: systemPrompts[monitorType], userPrompt: prompt, maxTokens: 1400, language: locale }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -181,7 +180,7 @@ export default function SentinelPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
         <StarField />
         <SentinelOrbs />
 
@@ -206,7 +205,7 @@ export default function SentinelPage() {
                     24/7 Monitor
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">مراقبة السوق والمنافسين ٢٤/٧ · Market & Competitor Intel</p>
+                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'مراقبة السوق والمنافسين ٢٤/٧' : 'Market & Competitor Intel'}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -220,13 +219,13 @@ export default function SentinelPage() {
                 <a href="/brand" className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b' }}>
                   <span>⚡</span>
-                  <span>فعّل Brand Brain</span>
+                  <span>{locale === 'ar' ? 'فعّل Brand Brain' : 'Activate Brand Brain'}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, color: greenColor }}>
                 <Radio size={12} className={pulse ? 'opacity-100' : 'opacity-30'} style={{ transition: 'opacity 0.5s' }} />
-                <span>يراقب · Watching</span>
+                <span>{locale === 'ar' ? 'يراقب' : 'Watching'}</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(139,92,246,0.1)', border: `1px solid rgba(139,92,246,0.2)`, color: '#8b5cf6' }}>
@@ -241,15 +240,21 @@ export default function SentinelPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                 <Bell size={14} style={{ color: greenColor }} />
-                تنبيهات حية · Live Alerts
+                {locale === 'ar' ? 'تنبيهات حية' : 'Live Alerts'}
               </h3>
               <div className="flex items-center gap-2 text-xs" style={{ color: greenColor }}>
                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: greenColor }} />
-                نشط
+                {locale === 'ar' ? 'نشط' : 'Active'}
               </div>
             </div>
             <div className="space-y-2">
-              {demoAlerts.map(a => <AlertCard key={a.id} alert={a} />)}
+              {(locale === 'ar' ? [
+                { id: '1', type: 'info'        as const, title: 'Sentinel جاهز للمراقبة',    body: 'ابدأ بكتابة اسم منافسيك أو قطاعك لتفعيل المراقبة',         time: 'الآن' },
+                { id: '2', type: 'opportunity' as const, title: 'ربط المنصات يفتح رؤى أعمق', body: 'اذهب لـ Connections واربط حساباتك لتفعيل التنبيهات الحية', time: 'نصيحة' },
+              ] : [
+                { id: '1', type: 'info'        as const, title: 'Sentinel is ready to monitor', body: 'Start by writing your competitors or industry to activate monitoring', time: 'Now' },
+                { id: '2', type: 'opportunity' as const, title: 'Connect platforms for deeper insights', body: 'Go to Connections and link your accounts to enable live alerts', time: 'Tip' },
+              ]).map(a => <AlertCard key={a.id} alert={a} />)}
             </div>
           </div>
 
@@ -264,8 +269,7 @@ export default function SentinelPage() {
                   border: `1px solid ${monitorType === t.id ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
                 }}>
                 <t.icon size={15} />
-                <span>{t.label}</span>
-                <span className="opacity-50 text-xs">{t.labelEn}</span>
+                <span>{locale === 'ar' ? t.label : t.labelEn}</span>
               </button>
             ))}
           </div>
@@ -277,42 +281,47 @@ export default function SentinelPage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} style={{ color: greenColor }} />
-                  إعدادات المراقبة
+                  {locale === 'ar' ? 'إعدادات المراقبة' : 'Monitor Settings'}
                 </h3>
-                <SentinelSelect label="القطاع · Industry" value={industry} onChange={setIndustry}
+                <SentinelSelect label={locale === 'ar' ? 'القطاع' : 'Industry'} value={industry} onChange={setIndustry}
                   options={[
-                    { value: 'ecommerce',  label: 'تجارة إلكترونية' },
-                    { value: 'food',       label: 'مطاعم وأغذية' },
-                    { value: 'fashion',    label: 'موضة وأزياء' },
-                    { value: 'tech',       label: 'تقنية وتطبيقات' },
-                    { value: 'health',     label: 'صحة وجمال' },
-                    { value: 'realestate', label: 'عقارات' },
-                    { value: 'education',  label: 'تعليم وتدريب' },
-                    { value: 'services',   label: 'خدمات' },
+                    { value: 'ecommerce',  label: locale === 'ar' ? 'تجارة إلكترونية' : 'E-commerce' },
+                    { value: 'food',       label: locale === 'ar' ? 'مطاعم وأغذية'    : 'Food & Beverage' },
+                    { value: 'fashion',    label: locale === 'ar' ? 'موضة وأزياء'      : 'Fashion' },
+                    { value: 'tech',       label: locale === 'ar' ? 'تقنية وتطبيقات'   : 'Tech & Apps' },
+                    { value: 'health',     label: locale === 'ar' ? 'صحة وجمال'        : 'Health & Beauty' },
+                    { value: 'realestate', label: locale === 'ar' ? 'عقارات'            : 'Real Estate' },
+                    { value: 'education',  label: locale === 'ar' ? 'تعليم وتدريب'      : 'Education' },
+                    { value: 'services',   label: locale === 'ar' ? 'خدمات'             : 'Services' },
                   ]} />
-                <SentinelSelect label="المنطقة · Region" value={region} onChange={setRegion}
+                <SentinelSelect label={locale === 'ar' ? 'المنطقة' : 'Region'} value={region} onChange={setRegion}
                   options={[
-                    { value: 'mena',          label: 'الشرق الأوسط وشمال أفريقيا' },
-                    { value: 'gcc',           label: 'دول الخليج العربي' },
-                    { value: 'saudi',         label: 'المملكة العربية السعودية' },
-                    { value: 'uae',           label: 'الإمارات العربية المتحدة' },
-                    { value: 'egypt',         label: 'مصر' },
-                    { value: 'global',        label: 'عالمي · Global' },
+                    { value: 'mena',   label: locale === 'ar' ? 'الشرق الأوسط وشمال أفريقيا' : 'MENA' },
+                    { value: 'gcc',    label: locale === 'ar' ? 'دول الخليج العربي'            : 'GCC' },
+                    { value: 'saudi',  label: locale === 'ar' ? 'المملكة العربية السعودية'     : 'Saudi Arabia' },
+                    { value: 'uae',    label: locale === 'ar' ? 'الإمارات العربية المتحدة'     : 'UAE' },
+                    { value: 'egypt',  label: locale === 'ar' ? 'مصر'                          : 'Egypt' },
+                    { value: 'global', label: locale === 'ar' ? 'عالمي'                        : 'Global' },
                   ]} />
               </div>
 
               {/* Quick queries */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">استفسارات سريعة</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'استفسارات سريعة' : 'Quick Queries'}</h3>
                 <div className="space-y-2">
-                  {[
+                  {(locale === 'ar' ? [
                     'من هم أقوى منافسيّ الحاليين وما استراتيجيتهم؟',
                     'ما الفرص غير المستغلة في سوقي الآن؟',
                     'كيف أتحقق من سمعة علامتي التجارية؟',
                     'ما التهديدات القادمة في قطاعي لهذا الربع؟',
-                  ].map((q, i) => (
+                  ] : [
+                    'Who are my strongest competitors and what is their strategy?',
+                    'What untapped opportunities exist in my market right now?',
+                    'How do I monitor my brand reputation?',
+                    'What threats are coming in my industry this quarter?',
+                  ]).map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
-                      className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-green-400"
+                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-green-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
                       style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
                       {q}
                     </button>
@@ -325,13 +334,13 @@ export default function SentinelPage() {
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  {(() => { const t = monitorTabs.find(t => t.id === monitorType)!; return <><t.icon size={14} style={{ color: greenColor }} />{t.label} · {t.labelEn}</> })()}
+                  {(() => { const t = monitorTabs.find(t => t.id === monitorType)!; return <><t.icon size={14} style={{ color: greenColor }} />{locale === 'ar' ? t.label : t.labelEn}</> })()}
                 </h3>
                 <textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder="صف ما تريد مراقبته — اسم منافسيك، قطاعك، أو سؤالك الاستراتيجي..."
+                  placeholder={locale === 'ar' ? 'صف ما تريد مراقبته — اسم منافسيك، قطاعك، أو سؤالك الاستراتيجي...' : 'Describe what to monitor — competitor names, your industry, or your strategic question...'}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
                   style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
@@ -344,7 +353,7 @@ export default function SentinelPage() {
                       boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(16,185,129,0.3)` : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                    {loading ? 'جاري الرصد...' : 'رصد الآن · Monitor'}
+                    {loading ? (locale === 'ar' ? 'جاري الرصد...' : 'Monitoring...') : (locale === 'ar' ? 'رصد الآن' : 'Monitor')}
                   </button>
                 </div>
               </div>
@@ -353,14 +362,14 @@ export default function SentinelPage() {
                 <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(16,185,129,0.2)`, boxShadow: 'rgba(16,185,129,0.05) 0 0 40px' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: greenColor }}>
-                      <Sparkles size={14} />تقرير Sentinel · Intelligence Report
+                      <Sparkles size={14} />{locale === 'ar' ? 'تقرير Sentinel' : 'Intelligence Report'}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                       <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(16,185,129,0.3)', borderTopColor: greenColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">Sentinel يرصد ويحلل...</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'Sentinel يرصد ويحلل...' : 'Sentinel is monitoring and analyzing...'}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -378,8 +387,8 @@ export default function SentinelPage() {
                     <Shield size={32} style={{ color: 'rgba(16,185,129,0.4)' }} />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">اختر نوع المراقبة وحدد القطاع والمنطقة</p>
-                    <p className="text-gray-600 text-xs mt-1">واكتب سؤالك ليبدأ Sentinel في الرصد والتحليل</p>
+                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر نوع المراقبة وحدد القطاع والمنطقة' : 'Choose monitor type, industry and region'}</p>
+                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب سؤالك ليبدأ Sentinel في الرصد والتحليل' : 'then write your question and let Sentinel monitor and analyze'}</p>
                   </div>
                 </div>
               )}
@@ -390,8 +399,8 @@ export default function SentinelPage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">سجل الرصد · Monitor History</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">مسح الكل</button>
+                <h3 className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'سجل الرصد' : 'Monitor History'}</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{locale === 'ar' ? 'مسح الكل' : 'Clear all'}</button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
@@ -401,11 +410,11 @@ export default function SentinelPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(16,185,129,0.1)', color: greenColor, border: `1px solid rgba(16,185,129,0.2)` }}>
-                        {monitorTabs.find(t => t.id === h.type)?.label}
+                        {locale === 'ar' ? monitorTabs.find(t => t.id === h.type)?.label : monitorTabs.find(t => t.id === h.type)?.labelEn}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.query}</span>
                     </div>
-                    <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 ))}
               </div>
@@ -415,19 +424,19 @@ export default function SentinelPage() {
           {/* Capabilities */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
-              { icon: Eye,          color: '#10b981', label: 'رصد المنافسين',    desc: 'استراتيجيات وتحركات' },
-              { icon: Activity,     color: '#06b6d4', label: 'نبض السوق',        desc: 'الاتجاهات الحالية' },
-              { icon: Shield,       color: '#8b5cf6', label: 'سمعة العلامة',     desc: 'مراقبة الصورة الرقمية' },
-              { icon: TrendingUp,   color: '#f59e0b', label: 'فرص النمو',        desc: 'ثغرات وفرص غير مستغلة' },
-              { icon: AlertTriangle,color: '#ef4444', label: 'التهديدات',        desc: 'مخاطر السوق المبكرة' },
+              { icon: Eye,          color: '#10b981', label: 'رصد المنافسين',  labelEn: 'Competitors',   desc: 'استراتيجيات وتحركات',      descEn: 'Strategies & moves' },
+              { icon: Activity,     color: '#06b6d4', label: 'نبض السوق',      labelEn: 'Market Pulse',  desc: 'الاتجاهات الحالية',         descEn: 'Current trends' },
+              { icon: Shield,       color: '#8b5cf6', label: 'سمعة العلامة',   labelEn: 'Brand Rep.',    desc: 'مراقبة الصورة الرقمية',     descEn: 'Digital image monitoring' },
+              { icon: TrendingUp,   color: '#f59e0b', label: 'فرص النمو',      labelEn: 'Opportunities', desc: 'ثغرات وفرص غير مستغلة',     descEn: 'Untapped gaps & chances' },
+              { icon: AlertTriangle,color: '#ef4444', label: 'التهديدات',      labelEn: 'Threats',       desc: 'مخاطر السوق المبكرة',       descEn: 'Early market risks' },
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
                   <c.icon size={16} style={{ color: c.color }} />
                 </div>
-                <p className="text-white text-xs font-medium">{c.label}</p>
-                <p className="text-gray-600 text-xs mt-1">{c.desc}</p>
+                <p className="text-white text-xs font-medium">{locale === 'ar' ? c.label : c.labelEn}</p>
+                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? c.desc : c.descEn}</p>
               </div>
             ))}
           </div>

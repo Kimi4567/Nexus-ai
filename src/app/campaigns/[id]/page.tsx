@@ -255,7 +255,7 @@ export default function CampaignDetailPage() {
       <AIPresenceBar authHeader={authHeader} />
       <div className="max-w-4xl mx-auto px-8 py-8 page-enter">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6" dir="rtl">
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <Link href="/dashboard" className="hover:text-white transition">الرئيسية</Link>
           <span>/</span>
           <Link href="/campaigns" className="hover:text-white transition">الحملات</Link>

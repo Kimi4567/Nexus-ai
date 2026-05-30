@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import {
   Loader2, Megaphone, Wand2, Sparkles, Target, TrendingUp, Copy,
   Check, ChevronDown, DollarSign, Eye, MousePointer, Heart
@@ -43,22 +44,24 @@ function VexOrbs() {
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const { locale } = useI18n()
   const handle = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? 'تم النسخ' : 'نسخ'}
+      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
     </button>
   )
 }
 
 function VexSelect<T extends string>({ label, value, options, onChange }: {
   label: string; value: T
-  options: { value: T; label: string }[]
+  options: { value: T; label: string; labelEn?: string }[]
   onChange: (v: T) => void
 }) {
+  const { locale } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs text-gray-500">{label}</label>
@@ -66,7 +69,7 @@ function VexSelect<T extends string>({ label, value, options, onChange }: {
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
           style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }}>
-          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{locale === 'ar' ? o.label : (o.labelEn || o.label)}</option>)}
         </select>
         <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
       </div>
@@ -92,6 +95,7 @@ function StatCard({ icon: Icon, color, value, label }: { icon: React.ElementType
 
 export default function VexPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
+  const { locale, dir } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
@@ -138,7 +142,7 @@ export default function VexPage() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemPrompt: systemPrompts[outputTab], userPrompt: prompt, maxTokens: 1200 }),
+        body: JSON.stringify({ systemPrompt: systemPrompts[outputTab], userPrompt: prompt, maxTokens: 1200, language: locale }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -157,7 +161,7 @@ export default function VexPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
         <StarField />
         <VexOrbs />
 
@@ -182,13 +186,13 @@ export default function VexPage() {
                     Ads Engine
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">محرك الإعلانات الذكي · Intelligent Ads Engine</p>
+                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'محرك الإعلانات الذكي' : 'Intelligent Ads Engine'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
               style={{ background: 'rgba(6,182,212,0.1)', border: `1px solid rgba(6,182,212,0.2)`, color: cyanColor }}>
               <Sparkles size={12} />
-              <span>GPT-4o · نشط</span>
+              <span>{locale === 'ar' ? 'GPT-4o · نشط' : 'GPT-4o · Active'}</span>
             </div>
             {brand?.brandName ? (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
@@ -199,17 +203,17 @@ export default function VexPage() {
             ) : (
               <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)', color: '#06b6d4' }}>
-                ⚡ فعّل Brand Brain
+                {locale === 'ar' ? '⚡ فعّل Brand Brain' : '⚡ Activate Brand Brain'}
               </a>
             )}
           </div>
 
           {/* Mini stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <StatCard icon={Eye}          color="#06b6d4" value="—" label="مشاهدات · Impressions" />
-            <StatCard icon={MousePointer} color="#6C63FF" value="—" label="نقرات · Clicks" />
-            <StatCard icon={Heart}        color="#8b5cf6" value="—" label="تفاعلات · Engagements" />
-            <StatCard icon={DollarSign}   color="#10b981" value="—" label="تحويلات · Conversions" />
+            <StatCard icon={Eye}          color="#06b6d4" value="—" label={locale === 'ar' ? 'مشاهدات' : 'Impressions'} />
+            <StatCard icon={MousePointer} color="#6C63FF" value="—" label={locale === 'ar' ? 'نقرات' : 'Clicks'} />
+            <StatCard icon={Heart}        color="#8b5cf6" value="—" label={locale === 'ar' ? 'تفاعلات' : 'Engagements'} />
+            <StatCard icon={DollarSign}   color="#10b981" value="—" label={locale === 'ar' ? 'تحويلات' : 'Conversions'} />
           </div>
 
           {/* Output tabs */}
@@ -223,8 +227,7 @@ export default function VexPage() {
                   border: `1px solid ${outputTab === t.id ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.07)'}`,
                 }}>
                 <t.icon size={15} />
-                <span>{t.label}</span>
-                <span className="opacity-50 text-xs">{t.labelEn}</span>
+                <span>{locale === 'ar' ? t.label : t.labelEn}</span>
               </button>
             ))}
           </div>
@@ -236,36 +239,36 @@ export default function VexPage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} style={{ color: cyanColor }} />
-                  إعدادات الحملة
+                  {locale === 'ar' ? 'إعدادات الحملة' : 'Campaign Settings'}
                 </h3>
-                <VexSelect<AdPlatform> label="المنصة · Platform" value={adPlatform} onChange={setAdPlatform}
+                <VexSelect<AdPlatform> label={locale === 'ar' ? 'المنصة' : 'Platform'} value={adPlatform} onChange={setAdPlatform}
                   options={[
-                    { value: 'meta',     label: 'Meta (Facebook + Instagram)' },
-                    { value: 'google',   label: 'Google Ads' },
-                    { value: 'tiktok',   label: 'TikTok Ads' },
-                    { value: 'linkedin', label: 'LinkedIn Ads' },
-                    { value: 'snapchat', label: 'Snapchat Ads' },
-                    { value: 'twitter',  label: 'X / Twitter Ads' },
+                    { value: 'meta',     label: 'Meta (فيسبوك + إنستجرام)', labelEn: 'Meta (Facebook + Instagram)' },
+                    { value: 'google',   label: 'Google Ads',               labelEn: 'Google Ads' },
+                    { value: 'tiktok',   label: 'TikTok Ads',               labelEn: 'TikTok Ads' },
+                    { value: 'linkedin', label: 'LinkedIn Ads',             labelEn: 'LinkedIn Ads' },
+                    { value: 'snapchat', label: 'Snapchat Ads',             labelEn: 'Snapchat Ads' },
+                    { value: 'twitter',  label: 'X / Twitter Ads',          labelEn: 'X / Twitter Ads' },
                   ]} />
-                <VexSelect<AdType> label="هدف الحملة · Objective" value={adType} onChange={setAdType}
+                <VexSelect<AdType> label={locale === 'ar' ? 'هدف الحملة' : 'Objective'} value={adType} onChange={setAdType}
                   options={[
-                    { value: 'conversion', label: 'تحويل · Conversion' },
-                    { value: 'awareness',  label: 'وعي بالعلامة · Awareness' },
-                    { value: 'engagement', label: 'تفاعل · Engagement' },
-                    { value: 'leads',      label: 'عملاء محتملون · Leads' },
-                    { value: 'traffic',    label: 'زيارات · Traffic' },
+                    { value: 'conversion', label: 'تحويل',           labelEn: 'Conversion' },
+                    { value: 'awareness',  label: 'وعي بالعلامة',    labelEn: 'Awareness' },
+                    { value: 'engagement', label: 'تفاعل',           labelEn: 'Engagement' },
+                    { value: 'leads',      label: 'عملاء محتملون',   labelEn: 'Leads' },
+                    { value: 'traffic',    label: 'زيارات',          labelEn: 'Traffic' },
                   ]} />
-                <VexSelect<AdFormat> label="صيغة الإعلان · Format" value={adFormat} onChange={setAdFormat}
+                <VexSelect<AdFormat> label={locale === 'ar' ? 'صيغة الإعلان' : 'Format'} value={adFormat} onChange={setAdFormat}
                   options={[
-                    { value: 'single_image', label: 'صورة · Single Image' },
-                    { value: 'carousel',     label: 'كاروسيل · Carousel' },
-                    { value: 'video',        label: 'فيديو · Video' },
-                    { value: 'story',        label: 'ستوري · Story' },
-                    { value: 'reel',         label: 'ريلز · Reel' },
-                    { value: 'search',       label: 'بحث · Search' },
+                    { value: 'single_image', label: 'صورة',    labelEn: 'Single Image' },
+                    { value: 'carousel',     label: 'كاروسيل', labelEn: 'Carousel' },
+                    { value: 'video',        label: 'فيديو',   labelEn: 'Video' },
+                    { value: 'story',        label: 'ستوري',   labelEn: 'Story' },
+                    { value: 'reel',         label: 'ريلز',    labelEn: 'Reel' },
+                    { value: 'search',       label: 'بحث',     labelEn: 'Search' },
                   ]} />
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-gray-500">الميزانية الشهرية ($)</label>
+                  <label className="text-xs text-gray-500">{locale === 'ar' ? 'الميزانية الشهرية ($)' : 'Monthly Budget ($)'}</label>
                   <input type="number" value={budget} onChange={e => setBudget(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl text-sm"
                     style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }} />
@@ -273,11 +276,21 @@ export default function VexPage() {
               </div>
 
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">أفكار سريعة</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'أفكار سريعة' : 'Quick Ideas'}</h3>
                 <div className="space-y-2">
-                  {['متجر ملابس أونلاين - تصفية نهاية الموسم', 'تطبيق توصيل طعام - أول طلب مجاني', 'عيادة تجميل - حجز استشارة مجانية', 'دورة تدريبية في التسويق الرقمي'].map((idea, i) => (
+                  {(locale === 'ar' ? [
+                    'متجر ملابس أونلاين - تصفية نهاية الموسم',
+                    'تطبيق توصيل طعام - أول طلب مجاني',
+                    'عيادة تجميل - حجز استشارة مجانية',
+                    'دورة تدريبية في التسويق الرقمي',
+                  ] : [
+                    'Online clothing store - end-of-season sale',
+                    'Food delivery app - first order free',
+                    'Beauty clinic - free consultation booking',
+                    'Digital marketing training course',
+                  ]).map((idea, i) => (
                     <button key={i} onClick={() => setPrompt(idea)}
-                      className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-cyan-400"
+                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-cyan-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
                       style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
                       {idea}
                     </button>
@@ -293,7 +306,7 @@ export default function VexPage() {
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder="صف منتجك أو خدمتك ورسالتك التسويقية الرئيسية..."
+                  placeholder={locale === 'ar' ? 'صف منتجك أو خدمتك ورسالتك التسويقية الرئيسية...' : 'Describe your product or service and your main marketing message...'}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
                   style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
@@ -306,7 +319,7 @@ export default function VexPage() {
                       boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(6,182,212,0.3)` : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? 'جاري التوليد...' : 'ولّد الآن · Generate'}
+                    {loading ? (locale === 'ar' ? 'جاري التوليد...' : 'Generating...') : (locale === 'ar' ? 'ولّد الآن' : 'Generate')}
                   </button>
                 </div>
               </div>
@@ -315,14 +328,14 @@ export default function VexPage() {
                 <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(6,182,212,0.2)`, boxShadow: 'rgba(6,182,212,0.05) 0 0 40px' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: cyanColor }}>
-                      <Sparkles size={14} />النتيجة · Output
+                      <Sparkles size={14} />{locale === 'ar' ? 'النتيجة' : 'Output'}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                       <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(6,182,212,0.3)', borderTopColor: cyanColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">VEX يحلل ويولد...</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'VEX يحلل ويولد...' : 'VEX is analyzing and generating...'}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -340,8 +353,8 @@ export default function VexPage() {
                     <Megaphone size={32} style={{ color: 'rgba(6,182,212,0.4)' }} />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">اختر المنصة والهدف والصيغة</p>
-                    <p className="text-gray-600 text-xs mt-1">واكتب عن منتجك ليبدأ VEX في بناء حملتك</p>
+                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر المنصة والهدف والصيغة' : 'Choose platform, objective and format'}</p>
+                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب عن منتجك ليبدأ VEX في بناء حملتك' : 'then describe your product and let VEX build your campaign'}</p>
                   </div>
                 </div>
               )}
@@ -352,8 +365,8 @@ export default function VexPage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">سجل التوليد · History</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">مسح الكل</button>
+                <h3 className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'سجل التوليد' : 'History'}</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{locale === 'ar' ? 'مسح الكل' : 'Clear all'}</button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
@@ -363,7 +376,7 @@ export default function VexPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(6,182,212,0.1)', color: cyanColor, border: `1px solid rgba(6,182,212,0.2)` }}>
-                        {outputTabs.find(t => t.id === h.tab)?.label}
+                        {locale === 'ar' ? outputTabs.find(t => t.id === h.tab)?.label : outputTabs.find(t => t.id === h.tab)?.labelEn}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.prompt}</span>
                     </div>
@@ -377,19 +390,18 @@ export default function VexPage() {
           {/* Capabilities */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Megaphone, color: '#06b6d4', label: 'نص الإعلان',     sub: 'AI Ad Copy',     desc: 'نصوص تحويل عالية الأداء' },
-              { icon: Target,    color: '#6C63FF', label: 'استهداف الجمهور',sub: 'Audience',        desc: 'جمهور دقيق ومخصص' },
-              { icon: DollarSign,color: '#10b981', label: 'توزيع الميزانية',sub: 'Budget Split',    desc: 'تحقيق أعلى ROAS' },
-              { icon: TrendingUp,color: '#8b5cf6', label: 'استراتيجية كاملة',sub: 'Full Strategy',  desc: 'خطة 30 يوم متكاملة' },
+              { icon: Megaphone, color: '#06b6d4', label: 'نص الإعلان',      labelEn: 'AI Ad Copy',    desc: 'نصوص تحويل عالية الأداء',  descEn: 'High-converting ad copy' },
+              { icon: Target,    color: '#6C63FF', label: 'استهداف الجمهور', labelEn: 'Audience',      desc: 'جمهور دقيق ومخصص',         descEn: 'Precise custom audience' },
+              { icon: DollarSign,color: '#10b981', label: 'توزيع الميزانية', labelEn: 'Budget Split',  desc: 'تحقيق أعلى ROAS',           descEn: 'Maximize ROAS' },
+              { icon: TrendingUp,color: '#8b5cf6', label: 'استراتيجية كاملة',labelEn: 'Full Strategy', desc: 'خطة 30 يوم متكاملة',        descEn: 'Complete 30-day plan' },
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
                   <c.icon size={16} style={{ color: c.color }} />
                 </div>
-                <p className="text-white text-sm font-medium">{c.label}</p>
-                <p className="text-gray-500 text-xs">{c.sub}</p>
-                <p className="text-gray-600 text-xs mt-1">{c.desc}</p>
+                <p className="text-white text-sm font-medium">{locale === 'ar' ? c.label : c.labelEn}</p>
+                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? c.desc : c.descEn}</p>
               </div>
             ))}
           </div>

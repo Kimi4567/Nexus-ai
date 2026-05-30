@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import {
   Wand2, Loader2, Film, Copy, Sparkles, Clapperboard, Mic,
   Type, Star, Rocket, Zap, BookOpen, Hash, MessageSquare,
@@ -50,6 +51,7 @@ function NexOrbs() {
 // ── Copy button ────────────────────────────────────────────────
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const { locale } = useI18n()
   const handle = () => {
     navigator.clipboard.writeText(text)
     setCopied(true)
@@ -60,7 +62,7 @@ function CopyBtn({ text }: { text: string }) {
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? 'تم النسخ' : 'نسخ'}
+      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
     </button>
   )
 }
@@ -70,6 +72,7 @@ function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
   id: TabId; label: string; labelEn: string; icon: React.ElementType
   active: boolean; onClick: () => void
 }) {
+  const { locale } = useI18n()
   return (
     <button onClick={onClick}
       className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
@@ -80,8 +83,7 @@ function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
         boxShadow: active ? '0 0 20px rgba(245,158,11,0.1)' : 'none',
       }}>
       <Icon size={15} />
-      <span>{label}</span>
-      <span className="opacity-50 text-xs">{labelEn}</span>
+      <span>{locale === 'ar' ? label : labelEn}</span>
     </button>
   )
 }
@@ -92,6 +94,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
   options: { value: T; label: string; labelEn?: string }[]
   onChange: (v: T) => void
 }) {
+  const { locale } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs text-gray-500">{label}</label>
@@ -101,7 +104,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
           {options.map(o => (
             <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>
-              {o.label}{o.labelEn ? ` · ${o.labelEn}` : ''}
+              {locale === 'ar' ? o.label : (o.labelEn || o.label)}
             </option>
           ))}
         </select>
@@ -114,6 +117,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
 // ── Main ───────────────────────────────────────────────────────
 export default function NexStudioPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
+  const { locale, dir } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
@@ -142,11 +146,11 @@ export default function NexStudioPage() {
   if (!isAuthenticated) return null
 
   // ── Tab config ───────────────────────────────────────────────
-  const tabs: { id: TabId; label: string; labelEn: string; icon: React.ElementType; placeholder: string }[] = [
-    { id: 'script',    label: 'السكريبت',   labelEn: 'Script',    icon: Film,         placeholder: 'صف المنتج أو الفكرة التي تريد تحويلها لسكريبت فيديو احترافي...' },
-    { id: 'hooks',     label: 'الهوكس',     labelEn: 'Hooks',     icon: Zap,          placeholder: 'ما المنتج أو الرسالة التي تريد جذب الانتباه بها؟' },
-    { id: 'captions',  label: 'الكابشن',    labelEn: 'Captions',  icon: MessageSquare,placeholder: 'صف المنتج أو الحدث الذي تريد كتابة كابشن له...' },
-    { id: 'storyboard',label: 'ستوري بورد', labelEn: 'Storyboard',icon: Layers,       placeholder: 'صف الفيديو المطلوب لإنشاء خطة المشاهد التفصيلية...' },
+  const tabs: { id: TabId; label: string; labelEn: string; icon: React.ElementType; placeholder: string; placeholderEn: string }[] = [
+    { id: 'script',    label: 'السكريبت',   labelEn: 'Script',    icon: Film,          placeholder: 'صف المنتج أو الفكرة التي تريد تحويلها لسكريبت فيديو احترافي...', placeholderEn: 'Describe the product or idea you want turned into a professional video script...' },
+    { id: 'hooks',     label: 'الهوكس',     labelEn: 'Hooks',     icon: Zap,           placeholder: 'ما المنتج أو الرسالة التي تريد جذب الانتباه بها؟',               placeholderEn: 'What product or message do you want to capture attention with?' },
+    { id: 'captions',  label: 'الكابشن',    labelEn: 'Captions',  icon: MessageSquare, placeholder: 'صف المنتج أو الحدث الذي تريد كتابة كابشن له...',                placeholderEn: 'Describe the product or event you want a caption written for...' },
+    { id: 'storyboard',label: 'ستوري بورد', labelEn: 'Storyboard',icon: Layers,        placeholder: 'صف الفيديو المطلوب لإنشاء خطة المشاهد التفصيلية...',            placeholderEn: 'Describe the video needed to create a detailed scene plan...' },
   ]
 
   const currentTab = tabs.find(t => t.id === activeTab)!
@@ -157,7 +161,9 @@ export default function NexStudioPage() {
     setLoading(true)
     setResult('')
 
-    const toneLabel = tone === 'excited' ? 'حماسية ومثيرة' : tone === 'professional' ? 'احترافية وواثقة' : tone === 'humorous' ? 'مرحة وممتعة' : tone === 'emotional' ? 'عاطفية ومؤثرة' : 'عاجلة ومقنعة'
+    const toneLabel = locale === 'ar'
+      ? (tone === 'excited' ? 'حماسية ومثيرة' : tone === 'professional' ? 'احترافية وواثقة' : tone === 'humorous' ? 'مرحة وممتعة' : tone === 'emotional' ? 'عاطفية ومؤثرة' : 'عاجلة ومقنعة')
+      : (tone === 'excited' ? 'Energetic and exciting' : tone === 'professional' ? 'Professional and confident' : tone === 'humorous' ? 'Playful and fun' : tone === 'emotional' ? 'Emotional and touching' : 'Urgent and compelling')
     const systemPrompts: Record<TabId, string> = {
       script: `${brandContext}أنت NEX، خبير في كتابة سكريبتات الفيديو التسويقية. اكتب سكريبت فيديو احترافي وجذاب لمنصة ${platform} بمدة ${duration}. النبرة: ${toneLabel}. الصيغة: [المشهد X] → الإجراء → الحوار. اجعل كل مشهد واضحاً وقابلاً للتنفيذ. أضف تعليمات للكاميرا والإضاءة. اجعل المحتوى مخصصاً تماماً للعلامة التجارية أعلاه.`,
       hooks: `${brandContext}أنت NEX، خبير في صناعة هوكس الفيديوهات الفيروسية. اكتب 5 هوكس مختلفة وقوية لمنصة ${platform}. النبرة: ${toneLabel}. كل هوك بأسلوب مختلف: سؤال، إحصائية، تحدي، قصة، وعد. اجعلها قصيرة (أقل من 10 ثوانٍ) ومخصصة تماماً للعلامة التجارية أعلاه.`,
@@ -173,10 +179,11 @@ export default function NexStudioPage() {
           systemPrompt: systemPrompts[activeTab],
           userPrompt: prompt,
           maxTokens: 1200,
+          language: locale,
         }),
       })
 
-      if (!response.ok) throw new Error('فشل الاتصال بالذكاء الاصطناعي')
+      if (!response.ok) throw new Error(locale === 'ar' ? 'فشل الاتصال بالذكاء الاصطناعي' : 'Failed to connect to AI')
       const data = await response.json()
       const output = data.content || data.result || ''
       setResult(output)
@@ -204,7 +211,7 @@ export default function NexStudioPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#030309' }} dir={dir}>
         <StarField />
         <NexOrbs />
 
@@ -228,7 +235,7 @@ export default function NexStudioPage() {
                     Studio
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">مختبر المحتوى الإبداعي · Creative Content Lab</p>
+                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'مختبر المحتوى الإبداعي' : 'Creative Content Lab'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -241,13 +248,13 @@ export default function NexStudioPage() {
               ) : (
                 <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-                  <span>⚡ فعّل Brand Brain</span>
+                  <span>{locale === 'ar' ? '⚡ فعّل Brand Brain' : '⚡ Activate Brand Brain'}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
                 <Sparkles size={12} />
-                <span>GPT-4o · نشط</span>
+                <span>{locale === 'ar' ? 'GPT-4o · نشط' : 'GPT-4o · Active'}</span>
               </div>
             </div>
           </div>
@@ -270,10 +277,10 @@ export default function NexStudioPage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} className="text-amber-500" />
-                  إعدادات التوليد
+                  {locale === 'ar' ? 'إعدادات التوليد' : 'Generation Settings'}
                 </h3>
                 <NexSelect<Platform>
-                  label="المنصة · Platform"
+                  label={locale === 'ar' ? 'المنصة' : 'Platform'}
                   value={platform}
                   onChange={setPlatform}
                   options={[
@@ -286,7 +293,7 @@ export default function NexStudioPage() {
                   ]}
                 />
                 <NexSelect<Tone>
-                  label="النبرة · Tone"
+                  label={locale === 'ar' ? 'النبرة' : 'Tone'}
                   value={tone}
                   onChange={setTone}
                   options={[
@@ -299,15 +306,15 @@ export default function NexStudioPage() {
                 />
                 {(activeTab === 'script' || activeTab === 'storyboard') && (
                   <NexSelect<Duration>
-                    label="المدة · Duration"
+                    label={locale === 'ar' ? 'المدة' : 'Duration'}
                     value={duration}
                     onChange={setDuration}
                     options={[
-                      { value: '15s',  label: '15 ثانية' },
-                      { value: '30s',  label: '30 ثانية' },
-                      { value: '60s',  label: '60 ثانية' },
-                      { value: '90s',  label: '90 ثانية' },
-                      { value: '3min', label: '3 دقائق' },
+                      { value: '15s',  label: '15 ثانية',  labelEn: '15 seconds' },
+                      { value: '30s',  label: '30 ثانية',  labelEn: '30 seconds' },
+                      { value: '60s',  label: '60 ثانية',  labelEn: '60 seconds' },
+                      { value: '90s',  label: '90 ثانية',  labelEn: '90 seconds' },
+                      { value: '3min', label: '3 دقائق',   labelEn: '3 minutes' },
                     ]}
                   />
                 )}
@@ -315,16 +322,21 @@ export default function NexStudioPage() {
 
               {/* Quick prompts */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">أفكار سريعة · Quick Prompts</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'أفكار سريعة' : 'Quick Prompts'}</h3>
                 <div className="space-y-2">
-                  {[
+                  {(locale === 'ar' ? [
                     'إطلاق منتج جديد للعناية بالبشرة',
                     'خصم 50% لفترة محدودة',
                     'خدمة توصيل فوري للمطاعم',
                     'دورة تعليمية في التسويق الرقمي',
-                  ].map((idea, i) => (
+                  ] : [
+                    'New skincare product launch',
+                    '50% off limited-time sale',
+                    'Instant restaurant delivery service',
+                    'Digital marketing online course',
+                  ]).map((idea, i) => (
                     <button key={i} onClick={() => setPrompt(idea)}
-                      className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-amber-400"
+                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-amber-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
                       style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
                       {idea}
                     </button>
@@ -341,9 +353,9 @@ export default function NexStudioPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                     <currentTab.icon size={14} className="text-amber-500" />
-                    {currentTab.label} · {currentTab.labelEn}
+                    {locale === 'ar' ? currentTab.label : currentTab.labelEn}
                   </h3>
-                  <span className="text-xs text-gray-600">{charCount} حرف</span>
+                  <span className="text-xs text-gray-600">{locale === 'ar' ? `${charCount} حرف` : `${charCount} chars`}</span>
                 </div>
 
                 <textarea
@@ -351,7 +363,7 @@ export default function NexStudioPage() {
                   value={prompt}
                   onChange={e => { setPrompt(e.target.value); setCharCount(e.target.value.length) }}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder={currentTab.placeholder}
+                  placeholder={locale === 'ar' ? currentTab.placeholder : currentTab.placeholderEn}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none transition-all"
                   style={{
@@ -362,7 +374,7 @@ export default function NexStudioPage() {
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Ctrl+Enter للتوليد السريع</span>
+                  <span className="text-xs text-gray-600">{locale === 'ar' ? 'Ctrl+Enter للتوليد السريع' : 'Ctrl+Enter to generate'}</span>
                   <button
                     onClick={generate}
                     disabled={!prompt.trim() || loading}
@@ -376,7 +388,7 @@ export default function NexStudioPage() {
                       boxShadow: prompt.trim() && !loading ? '0 0 30px rgba(245,158,11,0.3)' : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? 'جاري التوليد...' : 'ولّد الآن · Generate'}
+                    {loading ? (locale === 'ar' ? 'جاري التوليد...' : 'Generating...') : (locale === 'ar' ? 'ولّد الآن' : 'Generate')}
                   </button>
                 </div>
               </div>
@@ -391,7 +403,7 @@ export default function NexStudioPage() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f59e0b' }}>
                       <Sparkles size={14} />
-                      النتيجة · Output
+                      {locale === 'ar' ? 'النتيجة' : 'Output'}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
@@ -402,7 +414,7 @@ export default function NexStudioPage() {
                         <div className="w-16 h-16 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
                         <Sparkles size={18} className="absolute inset-0 m-auto text-amber-400" />
                       </div>
-                      <p className="text-sm text-gray-400 animate-pulse">NEX يبتكر المحتوى...</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'NEX يبتكر المحتوى...' : 'NEX is crafting your content...'}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -421,8 +433,8 @@ export default function NexStudioPage() {
                     <Film size={32} className="text-amber-500/50" />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">اختر نوع المحتوى، حدد المنصة والنبرة</p>
-                    <p className="text-gray-600 text-xs mt-1">واكتب فكرتك ليبدأ NEX في الابتكار</p>
+                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر نوع المحتوى، حدد المنصة والنبرة' : 'Choose content type, platform and tone'}</p>
+                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب فكرتك ليبدأ NEX في الابتكار' : 'then write your idea and let NEX create'}</p>
                   </div>
                 </div>
               )}
@@ -435,10 +447,10 @@ export default function NexStudioPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Clock size={14} className="text-gray-500" />
-                  سجل التوليد · History
+                  {locale === 'ar' ? 'سجل التوليد' : 'History'}
                 </h3>
                 <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
-                  مسح الكل
+                  {locale === 'ar' ? 'مسح الكل' : 'Clear all'}
                 </button>
               </div>
               <div className="space-y-2">
@@ -450,13 +462,13 @@ export default function NexStudioPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
-                        {tabs.find(t => t.id === h.tab)?.label}
+                        {locale === 'ar' ? tabs.find(t => t.id === h.tab)?.label : tabs.find(t => t.id === h.tab)?.labelEn}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.prompt}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <span className="text-xs text-gray-700">{h.platform}</span>
-                      <span className="text-xs text-gray-700">{h.createdAt.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-xs text-gray-700">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
                 ))}
@@ -467,19 +479,18 @@ export default function NexStudioPage() {
           {/* ── Capabilities Banner ────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Film,        color: '#f59e0b', label: 'سكريبتات',     sub: 'Scripts',     desc: 'سكريبت احترافي لكل مقطع' },
-              { icon: Zap,         color: '#06b6d4', label: 'هوكس',         sub: 'Hooks',       desc: '5 هوكس جاذبة للانتباه' },
-              { icon: MessageSquare,color: '#8b5cf6',label: 'كابشنز',       sub: 'Captions',    desc: 'كابشن متكامل + هاشتاقات' },
-              { icon: Layers,      color: '#10b981', label: 'ستوري بورد',   sub: 'Storyboard',  desc: 'خطة مشاهد تفصيلية' },
+              { icon: Film,         color: '#f59e0b', label: 'سكريبتات',  labelEn: 'Scripts',    desc: 'سكريبت احترافي لكل مقطع',    descEn: 'Professional script per video' },
+              { icon: Zap,          color: '#06b6d4', label: 'هوكس',      labelEn: 'Hooks',      desc: '5 هوكس جاذبة للانتباه',       descEn: '5 attention-grabbing hooks' },
+              { icon: MessageSquare,color: '#8b5cf6', label: 'كابشنز',    labelEn: 'Captions',   desc: 'كابشن متكامل + هاشتاقات',     descEn: 'Full caption + hashtags' },
+              { icon: Layers,       color: '#10b981', label: 'ستوري بورد',labelEn: 'Storyboard', desc: 'خطة مشاهد تفصيلية',           descEn: 'Detailed scene plan' },
             ].map((cap, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
                   <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-                <p className="text-white text-sm font-medium">{cap.label}</p>
-                <p className="text-gray-500 text-xs">{cap.sub}</p>
-                <p className="text-gray-600 text-xs mt-1">{cap.desc}</p>
+                <p className="text-white text-sm font-medium">{locale === 'ar' ? cap.label : cap.labelEn}</p>
+                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? cap.desc : cap.descEn}</p>
               </div>
             ))}
           </div>

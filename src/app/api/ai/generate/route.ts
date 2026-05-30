@@ -77,12 +77,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Provide systemPrompt+userPrompt or action.' }, { status: 400 })
   }
 
+  // Language instruction — appended to system prompt so AI responds in the user's locale
+  const language = (body.language as string) || ''
+  const langSuffix =
+    language === 'en' ? '\n\nIMPORTANT: You MUST respond entirely in English. Do not use any Arabic text in your response.' :
+    language === 'ar' ? '\n\nمهم: يجب أن تجيب بالعربية فقط.' :
+    ''
+
   let systemMessage: string
   let userMessage: string
   let maxTokens: number
 
   if (isNew) {
-    systemMessage = body.systemPrompt as string
+    systemMessage = (body.systemPrompt as string) + langSuffix
     userMessage   = body.userPrompt as string
     maxTokens     = Math.min((body.maxTokens as number) || 1200, 2000)
   } else {
@@ -90,7 +97,7 @@ export async function POST(req: NextRequest) {
     if (!LEGACY_SYSTEM[action]) {
       return NextResponse.json({ error: `Invalid action: ${action}` }, { status: 400 })
     }
-    systemMessage = LEGACY_SYSTEM[action]
+    systemMessage = LEGACY_SYSTEM[action] + langSuffix
     userMessage   = buildLegacyUserMessage(body)
     maxTokens     = 1500
   }

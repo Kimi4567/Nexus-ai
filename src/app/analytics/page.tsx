@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import {
   Loader2, BarChart2, Wand2, Sparkles, TrendingUp, TrendingDown,
   Copy, Check, ChevronDown, Zap, Target, RefreshCw, Calendar,
@@ -41,13 +42,14 @@ function PulseOrbs() {
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const { locale } = useI18n()
   const handle = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? 'تم النسخ' : 'نسخ'}
+      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
     </button>
   )
 }
@@ -71,16 +73,17 @@ function PulseSelect<T extends string>({ label, value, options, onChange }: {
 }
 
 // Metric card
-function MetricCard({ label, labelEn, value, change, up, color }: {
-  label: string; labelEn: string; value: string; change: string; up: boolean; color: string
+function MetricCard({ label, labelEn, value, change, changeEn, up, color }: {
+  label: string; labelEn: string; value: string; change: string; changeEn?: string; up: boolean; color: string
 }) {
+  const { locale } = useI18n()
   return (
     <div className="rounded-xl p-4" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)' }}>
-      <p className="text-xs text-gray-500 mb-2">{label} · {labelEn}</p>
+      <p className="text-xs text-gray-500 mb-2">{locale === 'ar' ? label : labelEn}</p>
       <p className="text-xl font-bold text-white mb-1">{value}</p>
       <div className="flex items-center gap-1">
         {up ? <ArrowUpRight size={12} style={{ color: '#10b981' }} /> : <ArrowDownRight size={12} style={{ color: '#ef4444' }} />}
-        <span className="text-xs" style={{ color: up ? '#10b981' : '#ef4444' }}>{change}</span>
+        <span className="text-xs" style={{ color: up ? '#10b981' : '#ef4444' }}>{locale === 'ar' ? change : (changeEn || change)}</span>
       </div>
     </div>
   )
@@ -101,6 +104,7 @@ function MiniBarChart({ data, color }: { data: number[]; color: string }) {
 
 export default function PulsePage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
+  const { locale, dir } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
@@ -147,7 +151,7 @@ export default function PulsePage() {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ systemPrompt: systemPrompts[analysisType], userPrompt: prompt, maxTokens: 1400 }),
+        body: JSON.stringify({ systemPrompt: systemPrompts[analysisType], userPrompt: prompt, maxTokens: 1400, language: locale }),
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -169,7 +173,7 @@ export default function PulsePage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
         <StarField />
         <PulseOrbs />
 
@@ -194,22 +198,22 @@ export default function PulsePage() {
                     Analytics
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">لوحة التحليلات والرؤى الذكية · Analytics & Market Intelligence</p>
+                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'لوحة التحليلات والرؤى الذكية' : 'Analytics & Market Intelligence'}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
               style={{ background: 'rgba(139,92,246,0.1)', border: `1px solid rgba(139,92,246,0.2)`, color: purpleColor }}>
               <Sparkles size={12} />
-              <span>GPT-4o · نشط</span>
+              <span>{locale === 'ar' ? 'GPT-4o · نشط' : 'GPT-4o · Active'}</span>
             </div>
           </div>
 
           {/* Metrics overview */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard label="الوصول"       labelEn="Reach"       value="—" change="اربط حساباتك" up={true}  color={purpleColor} />
-            <MetricCard label="التفاعل"      labelEn="Engagement"  value="—" change="لرؤية البيانات" up={true}  color="#06b6d4" />
-            <MetricCard label="التحويلات"    labelEn="Conversions" value="—" change="من Connections" up={false} color="#10b981" />
-            <MetricCard label="معدل النمو"   labelEn="Growth"      value="—" change="للوحة التحليل"  up={true}  color="#6C63FF" />
+            <MetricCard label="الوصول"     labelEn="Reach"       value="—" change="اربط حساباتك"   changeEn="Connect accounts"  up={true}  color={purpleColor} />
+            <MetricCard label="التفاعل"    labelEn="Engagement"  value="—" change="لرؤية البيانات"  changeEn="to see data"        up={true}  color="#06b6d4" />
+            <MetricCard label="التحويلات"  labelEn="Conversions" value="—" change="من Connections"   changeEn="via Connections"    up={false} color="#10b981" />
+            <MetricCard label="معدل النمو" labelEn="Growth"      value="—" change="للوحة التحليل"   changeEn="for analytics"      up={true}  color="#6C63FF" />
           </div>
 
           {/* Chart preview */}
@@ -217,7 +221,7 @@ export default function PulsePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Activity size={16} style={{ color: purpleColor }} />
-                <span className="text-sm font-semibold text-gray-300">نشاط الحملات · Campaign Activity</span>
+                <span className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'نشاط الحملات' : 'Campaign Activity'}</span>
               </div>
               <div className="flex items-center gap-2">
                 {(['7d','30d','90d'] as Period[]).map(p => (
@@ -230,7 +234,7 @@ export default function PulsePage() {
               </div>
             </div>
             <MiniBarChart data={chartData} color={purpleColor} />
-            <p className="text-xs text-gray-600 mt-2 text-center">ربط المنصات يتيح عرض البيانات الحقيقية · Connect platforms to see real data</p>
+            <p className="text-xs text-gray-600 mt-2 text-center">{locale === 'ar' ? 'ربط المنصات يتيح عرض البيانات الحقيقية' : 'Connect platforms to see real data'}</p>
           </div>
 
           {/* Analysis tabs */}
@@ -244,8 +248,7 @@ export default function PulsePage() {
                   border: `1px solid ${analysisType === t.id ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
                 }}>
                 <t.icon size={15} />
-                <span>{t.label}</span>
-                <span className="opacity-50 text-xs">{t.labelEn}</span>
+                <span>{locale === 'ar' ? t.label : t.labelEn}</span>
               </button>
             ))}
           </div>
@@ -257,41 +260,46 @@ export default function PulsePage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} style={{ color: purpleColor }} />
-                  إعدادات التحليل
+                  {locale === 'ar' ? 'إعدادات التحليل' : 'Analysis Settings'}
                 </h3>
-                <PulseSelect label="القطاع · Industry" value={industry} onChange={setIndustry}
+                <PulseSelect label={locale === 'ar' ? 'القطاع' : 'Industry'} value={industry} onChange={setIndustry}
                   options={[
-                    { value: 'ecommerce',   label: 'تجارة إلكترونية · E-commerce' },
-                    { value: 'food',        label: 'مطاعم وأغذية · Food & Beverage' },
-                    { value: 'fashion',     label: 'موضة وأزياء · Fashion' },
-                    { value: 'tech',        label: 'تقنية · Technology' },
-                    { value: 'health',      label: 'صحة وجمال · Health & Beauty' },
-                    { value: 'realestate',  label: 'عقارات · Real Estate' },
-                    { value: 'education',   label: 'تعليم · Education' },
-                    { value: 'services',    label: 'خدمات · Services' },
+                    { value: 'ecommerce',  label: locale === 'ar' ? 'تجارة إلكترونية' : 'E-commerce' },
+                    { value: 'food',       label: locale === 'ar' ? 'مطاعم وأغذية' : 'Food & Beverage' },
+                    { value: 'fashion',    label: locale === 'ar' ? 'موضة وأزياء' : 'Fashion' },
+                    { value: 'tech',       label: locale === 'ar' ? 'تقنية' : 'Technology' },
+                    { value: 'health',     label: locale === 'ar' ? 'صحة وجمال' : 'Health & Beauty' },
+                    { value: 'realestate', label: locale === 'ar' ? 'عقارات' : 'Real Estate' },
+                    { value: 'education',  label: locale === 'ar' ? 'تعليم' : 'Education' },
+                    { value: 'services',   label: locale === 'ar' ? 'خدمات' : 'Services' },
                   ]} />
-                <PulseSelect<Period> label="الفترة الزمنية · Period" value={period} onChange={setPeriod}
+                <PulseSelect<Period> label={locale === 'ar' ? 'الفترة الزمنية' : 'Period'} value={period} onChange={setPeriod}
                   options={[
-                    { value: '7d',  label: 'آخر 7 أيام' },
-                    { value: '30d', label: 'آخر 30 يوم' },
-                    { value: '90d', label: 'آخر 3 أشهر' },
-                    { value: '6m',  label: 'آخر 6 أشهر' },
-                    { value: '1y',  label: 'آخر سنة' },
+                    { value: '7d',  label: locale === 'ar' ? 'آخر 7 أيام'  : 'Last 7 days' },
+                    { value: '30d', label: locale === 'ar' ? 'آخر 30 يوم'  : 'Last 30 days' },
+                    { value: '90d', label: locale === 'ar' ? 'آخر 3 أشهر'  : 'Last 3 months' },
+                    { value: '6m',  label: locale === 'ar' ? 'آخر 6 أشهر'  : 'Last 6 months' },
+                    { value: '1y',  label: locale === 'ar' ? 'آخر سنة'     : 'Last year' },
                   ]} />
               </div>
 
               {/* Quick queries */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">أسئلة سريعة</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'أسئلة سريعة' : 'Quick Questions'}</h3>
                 <div className="space-y-2">
-                  {[
+                  {(locale === 'ar' ? [
                     'ما هي أفضل أوقات النشر على Instagram؟',
                     'كيف أحسّن معدل التحويل في إعلاناتي؟',
                     'ما الاتجاهات السائدة في قطاعي هذا الشهر؟',
                     'كيف تقارن حملتي بالمعايير المعتادة في السوق؟',
-                  ].map((q, i) => (
+                  ] : [
+                    'What are the best times to post on Instagram?',
+                    'How do I improve my ad conversion rate?',
+                    'What are the top trends in my industry this month?',
+                    'How does my campaign compare to market benchmarks?',
+                  ]).map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
-                      className="w-full text-right text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400"
+                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
                       style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
                       {q}
                     </button>
@@ -304,13 +312,13 @@ export default function PulsePage() {
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  {(() => { const t = analysisTabs.find(t => t.id === analysisType)!; return <><t.icon size={14} style={{ color: purpleColor }} />{t.label} · {t.labelEn}</> })()}
+                  {(() => { const t = analysisTabs.find(t => t.id === analysisType)!; return <><t.icon size={14} style={{ color: purpleColor }} />{locale === 'ar' ? t.label : t.labelEn}</> })()}
                 </h3>
                 <textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder="صف ما تريد تحليله — حملتك، منتجك، قطاعك، أو سؤالك التسويقي..."
+                  placeholder={locale === 'ar' ? 'صف ما تريد تحليله — حملتك، منتجك، قطاعك، أو سؤالك التسويقي...' : 'Describe what you want to analyze — your campaign, product, industry, or marketing question...'}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
                   style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
@@ -323,7 +331,7 @@ export default function PulsePage() {
                       boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(139,92,246,0.3)` : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? 'جاري التحليل...' : 'حلّل الآن · Analyze'}
+                    {loading ? (locale === 'ar' ? 'جاري التحليل...' : 'Analyzing...') : (locale === 'ar' ? 'حلّل الآن' : 'Analyze')}
                   </button>
                 </div>
               </div>
@@ -332,14 +340,14 @@ export default function PulsePage() {
                 <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(139,92,246,0.2)`, boxShadow: 'rgba(139,92,246,0.05) 0 0 40px' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: purpleColor }}>
-                      <Sparkles size={14} />الرؤية · Insight
+                      <Sparkles size={14} />{locale === 'ar' ? 'الرؤية' : 'Insight'}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                       <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: purpleColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">PULSE يحلل البيانات...</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'PULSE يحلل البيانات...' : 'PULSE is analyzing data...'}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -357,8 +365,8 @@ export default function PulsePage() {
                     <BarChart2 size={32} style={{ color: 'rgba(139,92,246,0.4)' }} />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">اختر نوع التحليل وحدد القطاع</p>
-                    <p className="text-gray-600 text-xs mt-1">واكتب سؤالك ليقدم PULSE رؤية عميقة</p>
+                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر نوع التحليل وحدد القطاع' : 'Choose analysis type and industry'}</p>
+                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب سؤالك ليقدم PULSE رؤية عميقة' : 'then write your question and let PULSE deliver deep insights'}</p>
                   </div>
                 </div>
               )}
@@ -369,8 +377,8 @@ export default function PulsePage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">سجل التحليلات · History</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">مسح الكل</button>
+                <h3 className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'سجل التحليلات' : 'History'}</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{locale === 'ar' ? 'مسح الكل' : 'Clear all'}</button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
@@ -380,11 +388,11 @@ export default function PulsePage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(139,92,246,0.1)', color: purpleColor, border: `1px solid rgba(139,92,246,0.2)` }}>
-                        {analysisTabs.find(t => t.id === h.type)?.label}
+                        {locale === 'ar' ? analysisTabs.find(t => t.id === h.type)?.label : analysisTabs.find(t => t.id === h.type)?.labelEn}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.query}</span>
                     </div>
-                    <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 ))}
               </div>
@@ -394,19 +402,19 @@ export default function PulsePage() {
           {/* Capabilities */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {[
-              { icon: BarChart2,  color: '#8b5cf6', label: 'أداء الحملات', desc: 'KPIs وتوصيات' },
-              { icon: Target,     color: '#06b6d4', label: 'تحليل المنافسين', desc: 'فرص التمايز' },
-              { icon: TrendingUp, color: '#10b981', label: 'الاتجاهات',    desc: 'توجهات السوق' },
-              { icon: Activity,   color: '#6C63FF', label: 'أداء المحتوى', desc: 'أفضل أوقات النشر' },
-              { icon: Zap,        color: '#ec4899', label: 'توقعات AI',    desc: 'خطة 90 يوم' },
+              { icon: BarChart2,  color: '#8b5cf6', label: 'أداء الحملات',    labelEn: 'Performance',   desc: 'KPIs وتوصيات',          descEn: 'KPIs & recommendations' },
+              { icon: Target,     color: '#06b6d4', label: 'تحليل المنافسين', labelEn: 'Competitors',   desc: 'فرص التمايز',            descEn: 'Differentiation gaps' },
+              { icon: TrendingUp, color: '#10b981', label: 'الاتجاهات',       labelEn: 'Trends',        desc: 'توجهات السوق',           descEn: 'Market direction' },
+              { icon: Activity,   color: '#6C63FF', label: 'أداء المحتوى',    labelEn: 'Content',       desc: 'أفضل أوقات النشر',       descEn: 'Best posting times' },
+              { icon: Zap,        color: '#ec4899', label: 'توقعات AI',        labelEn: 'AI Forecast',   desc: 'خطة 90 يو��',             descEn: '90-day plan' },
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
                   <c.icon size={16} style={{ color: c.color }} />
                 </div>
-                <p className="text-white text-xs font-medium">{c.label}</p>
-                <p className="text-gray-600 text-xs mt-1">{c.desc}</p>
+                <p className="text-white text-xs font-medium">{locale === 'ar' ? c.label : c.labelEn}</p>
+                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? c.desc : c.descEn}</p>
               </div>
             ))}
           </div>

@@ -52,7 +52,7 @@ const PLANS = [
 
 export default function BillingPage() {
   const { isAuthenticated, loading, user, authHeader } = useAuth()
-  const { t, locale } = useI18n()
+  const { t, locale, dir } = useI18n()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null)
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
@@ -63,10 +63,12 @@ export default function BillingPage() {
     if (!isAuthenticated) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('success') === 'true') {
-      setNotice({ type: 'success', msg: `🎉 مرحباً بك في Nexus AI ${params.get('plan') || ''}! اشتراكك الآن نشط.` })
+      setNotice({ type: 'success', msg: locale === 'ar'
+        ? `🎉 مرحباً بك في Nexus AI ${params.get('plan') || ''}! اشتراكك الآن نشط.`
+        : `🎉 Welcome to Nexus AI ${params.get('plan') || ''}! Your subscription is now active.` })
       window.history.replaceState({}, '', '/billing')
     } else if (params.get('cancelled') === 'true') {
-      setNotice({ type: 'error', msg: 'تم إلغاء عملية الدفع. لم يتم خصم أي مبلغ.' })
+      setNotice({ type: 'error', msg: locale === 'ar' ? 'تم إلغاء عملية الدفع. لم يتم خصم أي مبلغ.' : 'Payment cancelled. No charges were made.' })
       window.history.replaceState({}, '', '/billing')
     }
     fetch('/api/billing/status', { headers: { Authorization: authHeader() } })
@@ -85,9 +87,9 @@ export default function BillingPage() {
       })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setNotice({ type: 'error', msg: data.error || 'فشل بدء عملية الدفع.' })
+      else setNotice({ type: 'error', msg: data.error || (locale === 'ar' ? 'فشل بدء عملية الدفع.' : 'Failed to start payment.') })
     } catch {
-      setNotice({ type: 'error', msg: 'فشلت عملية الدفع. يرجى المحاولة مجدداً.' })
+      setNotice({ type: 'error', msg: locale === 'ar' ? 'فشلت عملية الدفع. يرجى المحاولة مجدداً.' : 'Payment failed. Please try again.' })
     } finally { setCheckingOut(null) }
   }
 
@@ -97,9 +99,9 @@ export default function BillingPage() {
       const res = await fetch('/api/billing/portal', { method: 'POST', headers: { Authorization: authHeader() } })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setNotice({ type: 'error', msg: 'تعذّر فتح بوابة الفواتير.' })
+      else setNotice({ type: 'error', msg: locale === 'ar' ? 'تعذّر فتح بوابة الفواتير.' : 'Failed to open billing portal.' })
     } catch {
-      setNotice({ type: 'error', msg: 'تعذّر فتح بوابة الفواتير.' })
+      setNotice({ type: 'error', msg: locale === 'ar' ? 'تعذّر فتح بوابة الفواتير.' : 'Failed to open billing portal.' })
     } finally { setOpeningPortal(false) }
   }
 
@@ -118,7 +120,7 @@ export default function BillingPage() {
 
   return (
     <AppShell>
-      <div dir="rtl">
+      <div dir={dir}>
 
         {/* Notice banner */}
         {notice && (

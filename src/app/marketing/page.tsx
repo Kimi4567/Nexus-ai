@@ -299,7 +299,7 @@ function GlassCard({ children, className = '', accentColor, style = {} }: { chil
 }
 
 export default function MarketingPage() {
-  const { t } = useI18n()
+  const { t, dir } = useI18n()
   const [activeTab, setActiveTab] = useState<'campaigns' | 'content' | 'analytics' | 'sentinel'>('campaigns')
   const [expandedAlert, setExpandedAlert] = useState<string | null>(null)
   const [animatedNumbers, setAnimatedNumbers] = useState(false)
@@ -317,7 +317,7 @@ export default function MarketingPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#020204] relative" dir="rtl">
+    <div className="min-h-screen bg-[#020204] relative" dir={dir}>
       <Navbar />
 
       {/* Background atmosphere */}

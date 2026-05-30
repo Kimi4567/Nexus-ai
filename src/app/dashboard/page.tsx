@@ -150,13 +150,24 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!stats) return
     const built: AIInsight[] = []
-    if (!hasConnections) built.push({ id: '1', priority: 'high', text: 'لم تربط أي منصة بعد — ربط Meta يفعّل النشر التلقائي وتحليل الأداء', action: 'ربط المنصات الآن', href: '/connections' })
-    if (stats.campaigns === 0) built.push({ id: '2', priority: 'high', text: 'أنشئ أول حملة — Nexus سيبني لك استراتيجية كاملة ومحتوى جاهز', action: 'إطلاق حملة', href: '/campaigns/new' })
-    if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') built.push({ id: '3', priority: 'high', text: `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة`, action: 'ترقية الخطة', href: '/billing' })
-    if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium', text: 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر', action: 'فتح PULSE', href: '/analytics' })
-    if (built.length === 0 && stats.campaigns > 0) built.push({ id: '5', priority: 'low', text: 'نظامك يعمل جيداً — Sentinel يراقب السوق والمنافسين ٢٤/٧', action: 'عرض التقرير', href: '/sentinel' })
+    const isAr = locale === 'ar'
+    if (!hasConnections) built.push({ id: '1', priority: 'high',
+      text:   isAr ? 'لم تربط أي منصة بعد — ربط Meta يفعّل النشر التلقائي وتحليل الأداء' : 'No platform connected yet — linking Meta enables auto-publishing and performance analytics',
+      action: isAr ? 'ربط المنصات الآن' : 'Connect Platforms Now', href: '/connections' })
+    if (stats.campaigns === 0) built.push({ id: '2', priority: 'high',
+      text:   isAr ? 'أنشئ أول حملة — Nexus سيبني لك استراتيجية كاملة ومحتوى جاهز' : 'Create your first campaign — Nexus will build a full strategy and ready-to-use content',
+      action: isAr ? 'إطلاق حملة' : 'Launch Campaign', href: '/campaigns/new' })
+    if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') built.push({ id: '3', priority: 'high',
+      text:   isAr ? `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة` : `Only ${stats.creditsRemaining} AI credits left — upgrade for unlimited power`,
+      action: isAr ? 'ترقية الخطة' : 'Upgrade Plan', href: '/billing' })
+    if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium',
+      text:   isAr ? 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر' : 'All campaigns are drafts — activate PULSE to find the best publishing time',
+      action: isAr ? 'فتح PULSE' : 'Open PULSE', href: '/analytics' })
+    if (built.length === 0 && stats.campaigns > 0) built.push({ id: '5', priority: 'low',
+      text:   isAr ? 'نظامك يعمل جيداً — Sentinel يراقب السوق والمنافسين ٢٤/٧' : 'Your system is running great — Sentinel is watching your market 24/7',
+      action: isAr ? 'عرض التقرير' : 'View Report', href: '/sentinel' })
     setInsights(built)
-  }, [stats, hasConnections])
+  }, [stats, hasConnections, locale])
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const timeStr = lastUpdated.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })

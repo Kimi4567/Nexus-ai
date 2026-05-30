@@ -177,7 +177,7 @@ export default function DemoPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir="rtl">
+      <div className="min-h-screen relative" style={{ background: '#030309' }}>
         <StarField />
         <DemoOrbs />
 
