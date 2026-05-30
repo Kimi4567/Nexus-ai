@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { Providers } from './providers'
+import { LanguageProvider } from '@/contexts/LanguageContext'
 
 export const metadata: Metadata = {
   title: 'NEXUS AI | Your AI Marketing Department',
@@ -62,7 +63,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased overflow-x-hidden min-h-screen bg-[#020204] text-[#f8fafc]" style={{ fontFamily: "'Noto Sans Arabic', 'Segoe UI', system-ui, sans-serif" }}>
         <Providers>
-          {children}
+          <LanguageProvider>
+            {children}
+          </LanguageProvider>
         </Providers>
       </body>
     </html>

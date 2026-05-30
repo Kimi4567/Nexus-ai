@@ -1,452 +1,475 @@
 'use client'
 
-import AgentAvatar from '@/components/ui/AgentAvatar'
-import { useState, useCallback, memo } from 'react'
+import { useEffect, useRef, useState, useCallback, useContext } from 'react'
 import Link from 'next/link'
-import Navbar from '@/components/ui/Navbar'
-import { useI18n } from '@/lib/i18n-context'
-import { ChevronDown, Play, Check, ArrowLeft, Zap, Shield, BarChart3, Film, Megaphone, Users, Globe, Lock } from 'lucide-react'
+import { motion, useInView, useMotionValue, useTransform } from 'framer-motion'
+import {
+  Compass, Sparkles, Megaphone, Activity, ShieldCheck, Brain,
+  Users, CheckCircle, Rocket, MessageCircle,
+  CreditCard, Cpu, Camera, Music, Search, ArrowRight,
+  Star, ChevronLeft, ChevronRight, Play, Globe, Menu, X,
+} from 'lucide-react'
+import { useTranslation } from '@/i18n'
+import { LanguageContext } from '@/contexts/LanguageContext'
 
-const LandingPage = memo(function LandingPage() {
-  const [openFaq, setOpenFaq] = useState<number | null>(null)
-  const { t, isRTL } = useI18n()
-
-  const toggleFaq = useCallback((i: number) => {
-    setOpenFaq(prev => prev === i ? null : i)
+/* ─── Particle Background ─── */
+function ParticleBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const mouseRef = useRef({ x: -1000, y: -1000 })
+  useEffect(() => {
+    const canvas = canvasRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d'); if (!ctx) return
+    let w = 0, h = 0, animId = 0
+    const particles: { x: number; y: number; vx: number; vy: number; r: number; color: string }[] = []
+    const resize = () => { w = canvas.width = canvas.offsetWidth; h = canvas.height = canvas.offsetHeight }
+    const init = () => {
+      particles.length = 0
+      const n = window.innerWidth < 768 ? 25 : 50
+      for (let i = 0; i < n; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, r: Math.random() * 2 + 1, color: Math.random() > 0.5 ? 'rgba(108,99,255,0.35)' : 'rgba(0,191,166,0.3)' })
+    }
+    const draw = () => {
+      ctx.clearRect(0, 0, w, h)
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i]
+        const dx = p.x - mouseRef.current.x, dy = p.y - mouseRef.current.y, dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < 200 && dist > 0) { const f = (200 - dist) / 200; p.vx += (dx / dist) * f * 0.5; p.vy += (dy / dist) * f * 0.5 }
+        p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.vy *= 0.99
+        if (p.x < 0) p.x = w; if (p.x > w) p.x = 0; if (p.y < 0) p.y = h; if (p.y > h) p.y = 0
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill()
+        for (let j = i + 1; j < particles.length; j++) {
+          const q = particles[j], d = Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2)
+          if (d < 150) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = `rgba(108,99,255,${0.08 * (1 - d / 150)})`; ctx.lineWidth = 0.5; ctx.stroke() }
+        }
+      }
+      animId = requestAnimationFrame(draw)
+    }
+    resize(); init(); draw()
+    const onMove = (e: MouseEvent) => { const r = canvas.getBoundingClientRect(); mouseRef.current = { x: e.clientX - r.left, y: e.clientY - r.top } }
+    const onLeave = () => { mouseRef.current = { x: -1000, y: -1000 } }
+    canvas.addEventListener('mousemove', onMove, { passive: true }); canvas.addEventListener('mouseleave', onLeave); window.addEventListener('resize', resize)
+    return () => { cancelAnimationFrame(animId); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mouseleave', onLeave); window.removeEventListener('resize', resize) }
   }, [])
+  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }} />
+}
 
-  const crew = [
-    {
-      key: 'nex',
-      color: 'from-amber to-orange',
-      badgeClass: 'agent-badge-nex',
-      icon: Film,
-      stats: { videos: '10K+', time: '< 60s' },
-    },
-    {
-      key: 'vex',
-      color: 'from-cyan to-blue',
-      badgeClass: 'agent-badge-vex',
-      icon: Megaphone,
-      stats: { campaigns: '500+', roas: '4.2x' },
-    },
-    {
-      key: 'pulse',
-      color: 'from-purple to-pink',
-      badgeClass: 'agent-badge-pulse',
-      icon: BarChart3,
-      stats: { accuracy: '94%', insights: '24/7' },
-    },
-    {
-      key: 'sentinel',
-      color: 'from-emerald to-teal',
-      badgeClass: 'agent-badge-sentinel',
-      icon: Shield,
-      stats: { uptime: '99.9%', alerts: 'Instant' },
-    },
+/* ─── Scroll Reveal ─── */
+function Reveal({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-50px' })
+  return (
+    <motion.div ref={ref} initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6, delay, ease: [0.25, 0.46, 0.45, 0.94] }} className={className}>
+      {children}
+    </motion.div>
+  )
+}
+
+/* ─── Tilt Card ─── */
+function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
+  const mx = useMotionValue(0), my = useMotionValue(0)
+  const rotateX = useTransform(my, [-100, 100], [5, -5])
+  const rotateY = useTransform(mx, [-100, 100], [-5, 5])
+  const onMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); mx.set(e.clientX - r.left - r.width / 2); my.set(e.clientY - r.top - r.height / 2) }, [mx, my])
+  const onLeave = useCallback(() => { mx.set(0); my.set(0) }, [mx, my])
+  return <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: 1000 }} onMouseMove={onMove} onMouseLeave={onLeave} className={className}>{children}</motion.div>
+}
+
+/* ─── Navbar ─── */
+function Navbar() {
+  const { t, lang } = useTranslation()
+  const { setLang } = useContext(LanguageContext)
+  const [scrolled, setScrolled] = useState(false)
+  const [open, setOpen] = useState(false)
+  const isRTL = lang === 'ar'
+  useEffect(() => { const fn = () => setScrolled(window.scrollY > 20); window.addEventListener('scroll', fn, { passive: true }); return () => window.removeEventListener('scroll', fn) }, [])
+  return (
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'backdrop-blur-xl' : ''}`}
+      style={scrolled ? { background: 'rgba(10,14,39,0.95)', borderBottom: '1px solid rgba(108,99,255,0.15)' } : {}}>
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className={`flex items-center justify-between h-16`} dir={isRTL ? 'rtl' : 'ltr'}>
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center"><Sparkles size={16} className="text-white" /></div>
+            <span className="font-heading font-bold text-white text-lg">NEXUS AI</span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-6">
+            {[{ href: '#how-it-works', label: t('nav.howItWorks') }, { href: '#pricing', label: t('nav.pricing') }, { href: '#agents', label: t('nav.aiTeam') }].map(item => (
+              <a key={item.href} href={item.href} className="text-sm transition-colors hover:text-white" style={{ color: '#8892B0' }}>{item.label}</a>
+            ))}
+          </nav>
+          <div className="hidden md:flex items-center gap-3">
+            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:text-white" style={{ color: '#8892B0', border: '1px solid rgba(108,99,255,0.2)' }}>
+              <Globe size={13} />{lang === 'ar' ? 'EN' : 'عربي'}
+            </button>
+            <Link href="/auth/login" className="text-sm px-3 py-1.5 transition-colors hover:text-white" style={{ color: '#8892B0' }}>{t('nav.login')}</Link>
+            <Link href="/auth/register" className="btn-gradient text-sm font-semibold text-white px-5 py-2 rounded-xl">{t('nav.startFreeTrial')}</Link>
+          </div>
+          <button className="md:hidden text-white p-2" onClick={() => setOpen(!open)}>{open ? <X size={20} /> : <Menu size={20} />}</button>
+        </div>
+        {open && (
+          <div className="md:hidden glass-panel rounded-xl p-4 mb-4 space-y-3" dir={isRTL ? 'rtl' : 'ltr'}>
+            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="flex items-center gap-2 text-sm w-full" style={{ color: '#8892B0' }}>
+              <Globe size={14} />{lang === 'ar' ? 'Switch to English' : 'التبديل للعربية'}
+            </button>
+            <a href="#how-it-works" className="block text-sm" style={{ color: '#8892B0' }} onClick={() => setOpen(false)}>{t('nav.howItWorks')}</a>
+            <a href="#pricing" className="block text-sm" style={{ color: '#8892B0' }} onClick={() => setOpen(false)}>{t('nav.pricing')}</a>
+            <Link href="/auth/login" className="block text-sm" style={{ color: '#8892B0' }}>{t('nav.login')}</Link>
+            <Link href="/auth/register" className="btn-gradient text-sm font-semibold text-white px-4 py-2 rounded-xl block text-center">{t('nav.startFreeTrial')}</Link>
+          </div>
+        )}
+      </div>
+    </header>
+  )
+}
+
+/* ═══════════════════════════════════════════════
+   MAIN LANDING PAGE
+   ═══════════════════════════════════════════════ */
+export default function LandingPage() {
+  const { t, lang } = useTranslation()
+  const isRTL = lang === 'ar'
+  const [testimonialIdx, setTestimonialIdx] = useState(0)
+
+  const agents = [
+    { id: 'strategist', name: 'STRATEGIST', title: t('home.strategistTitle'), desc: t('home.strategistDesc'), icon: Compass, color: '#6C63FF' },
+    { id: 'nex', name: 'NEX', title: t('home.nexTitle'), desc: t('home.nexDesc'), icon: Sparkles, color: '#00BFA6' },
+    { id: 'vex', name: 'VEX', title: t('home.vexTitle'), desc: t('home.vexDesc'), icon: Megaphone, color: '#FF6B35' },
+    { id: 'pulse', name: 'PULSE', title: t('home.pulseTitle'), desc: t('home.pulseDesc'), icon: Activity, color: '#00D4FF' },
+    { id: 'sentinel', name: 'SENTINEL', title: t('home.sentinelTitle'), desc: t('home.sentinelDesc'), icon: ShieldCheck, color: '#FFD700' },
   ]
-
+  const steps = [
+    { num: '01', title: t('home.shareBusiness'), desc: t('home.shareBusinessDesc'), icon: Users },
+    { num: '02', title: t('home.buildBrain'), desc: t('home.buildBrainDesc'), icon: Brain },
+    { num: '03', title: t('home.aiCollaborates'), desc: t('home.aiCollaboratesDesc'), icon: Sparkles },
+    { num: '04', title: t('home.reviewApprove'), desc: t('home.reviewApproveDesc'), icon: CheckCircle },
+    { num: '05', title: t('home.executeImprove'), desc: t('home.executeImproveDesc'), icon: Rocket },
+  ]
   const platforms = [
-    { name: 'Meta', icon: 'M', color: '#1877F2', connected: true },
-    { name: 'TikTok', icon: 'T', color: '#FE2C55', connected: true },
-    { name: 'Google', icon: 'G', color: '#4285F4', connected: true },
-    { name: 'Snapchat', icon: 'S', color: '#FFFC00', connected: false },
-    { name: 'LinkedIn', icon: 'in', color: '#0A66C2', connected: false },
-    { name: 'X', icon: '𝕏', color: '#FFFFFF', connected: false },
+    { name: t('settings.meta'), desc: t('settings.metaDesc'), icon: Globe, connected: true },
+    { name: t('settings.tiktok'), desc: t('settings.tiktokDesc'), icon: Music, connected: true },
+    { name: t('settings.googleAds'), desc: t('settings.googleAdsDesc'), icon: Search, connected: true },
+    { name: t('settings.linkedin'), desc: t('settings.linkedinDesc'), icon: Search, connected: false },
+    { name: t('settings.snapchat'), desc: t('settings.snapchatDesc'), icon: Camera, connected: false },
+    { name: t('settings.whatsapp'), desc: t('settings.whatsappDesc'), icon: MessageCircle, connected: true },
+    { name: t('settings.stripe'), desc: t('settings.stripeDesc'), icon: CreditCard, connected: true },
+    { name: t('settings.openai'), desc: t('settings.openaiDesc'), icon: Cpu, connected: true },
+  ]
+  const industries = [
+    { name: t('home.restaurantsCafes'), desc: t('home.restaurantsCafesDesc'), color: '#FF6B35' },
+    { name: t('home.realEstate'), desc: t('home.realEstateDesc'), color: '#6C63FF' },
+    { name: t('home.medicalClinics'), desc: t('home.medicalClinicsDesc'), color: '#00D4FF' },
+    { name: t('home.beautySalons'), desc: t('home.beautySalonsDesc'), color: '#FF69B4' },
+    { name: t('home.fitnessGyms'), desc: t('home.fitnessGymsDesc'), color: '#00BFA6' },
+    { name: t('home.ecommerce'), desc: t('home.ecommerceDesc'), color: '#FFB800' },
+  ]
+  const testimonials = [
+    { quote: isRTL ? 'فهم NEXUS AI صوت علامتنا التجارية في دقائق. المحتوى يبدو وكأنه كُتب بواسطة شخص كان جزءاً من فريقنا لسنوات.' : "NEXUS AI understood our brand voice within minutes. The content feels like it was written by someone who's been part of our team for years.", name: 'Ahmed Al-Rashid', role: isRTL ? 'مالك، مطعم زهرة الشام' : 'Owner, Zahrat Al-Sham Restaurant' },
+    { quote: isRTL ? 'سير عمل الموافقة يمنحنا تحكماً كاملاً. لا شيء يُنشر دون موافقتنا الصريحة.' : 'The approval workflow gives us complete control. Nothing goes out without our explicit approval.', name: 'Fatima Hassan', role: isRTL ? 'مدير تسويق، لومينا للعقارات' : 'Marketing Director, Lumina Real Estate' },
+    { quote: isRTL ? 'انتقلنا إلى استراتيجية كاملة لـ 90 يوماً مع تقويمات محتوى في أقل من أسبوع.' : 'We went from zero marketing structure to a full 90-day strategy with content calendars in under a week.', name: 'Omar Khalil', role: isRTL ? 'الرئيس التنفيذي، بولس فيتنس دبي' : 'CEO, Pulse Fitness Dubai' },
+  ]
+  const stats = [
+    { value: '500+', label: isRTL ? 'شركة تم تأهيلها' : 'Businesses Onboarded' },
+    { value: '50K+', label: isRTL ? 'قطعة محتوى' : 'Content Pieces Generated' },
+    { value: '10K+', label: isRTL ? 'حملة مخططة' : 'Campaigns Planned' },
+    { value: '98%', label: isRTL ? 'رضا الموافقة' : 'Approval Satisfaction' },
+  ]
+  const plans = [
+    { name: t('home.starter'), price: '499', desc: isRTL ? 'للشركات الصغيرة' : 'For small businesses', features: isRTL ? ['وكيلان ذكاء اصطناعي', '20 قطعة محتوى/شهر', '3 حملات', 'دعم عبر البريد'] : ['2 AI Agents', '20 Content/mo', '3 Campaigns', 'Email Support'], cta: t('home.startTrial'), featured: false },
+    { name: t('home.professional'), price: '1,299', desc: isRTL ? 'للفرق المتنامية' : 'For growing teams', features: isRTL ? ['جميع الوكلاء الـ 5', '100 قطعة محتوى/شهر', '10 حملات', 'تقارير متقدمة', 'سير عمل الموافقة'] : ['All 5 AI Agents', '100 Content/mo', '10 Campaigns', 'Advanced Reports', 'Approval Workflows'], cta: t('home.startTrial'), featured: true },
+    { name: t('home.business'), price: '2,999', desc: isRTL ? 'للعلامات الراسخة' : 'For established brands', features: isRTL ? ['كل شيء في المحترف', 'محتوى غير محدود', 'مدير مخصص', 'وصول API'] : ['Everything in Pro', 'Unlimited Content', 'Dedicated Manager', 'API Access'], cta: t('home.contactSales'), featured: false },
   ]
 
-  const clients = [
-    { key: 'ahmed', avatar: isRTL ? 'أ' : 'A' },
-    { key: 'sara', avatar: isRTL ? 'س' : 'S' },
-    { key: 'mohamed', avatar: isRTL ? 'م' : 'M' },
-  ]
-
-  const pricingKeys = ['starter', 'pro', 'enterprise']
-
-  const faqKeys = ['q1', 'q2', 'q3', 'q4', 'q5']
+  const C = { purple: '#6C63FF', teal: '#00BFA6', muted: '#8892B0', dim: '#5A6A8C', surface: 'rgba(15,19,50,0.6)', border: 'rgba(108,99,255,0.12)' }
 
   return (
-    <div className="relative min-h-screen overflow-hidden" style={{ background: '#020204' }}>
-      {/* CSS-only neural background — zero JS, GPU-only animation */}
-      <div className="neural-bg" />
-
-      <div className="fixed inset-0 grid-bg opacity-20 pointer-events-none" />
-
+    <div style={{ background: '#0A0E27', minHeight: '100vh' }} dir={isRTL ? 'rtl' : 'ltr'}>
       <Navbar />
 
-      {/* ═══════════════════ HERO ═══════════════════ */}
-      <section className="relative z-10 pt-32 pb-20 section-padding perspective-container">
-        <div className="container-nexus text-center">
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full hud-border mb-10 text-sm">
-            <span className="status-orb status-orb-online" />
-            <span className="text-emerald-400 font-medium">{t('hero.statusOnline')}</span>
-            <span className="text-white/20">|</span>
-            <span className="text-text-secondary">{t('hero.agentsReady')}</span>
-            <span className="text-white/20">|</span>
-            <span className="text-amber text-xs font-mono">{t('hero.version')}</span>
+      {/* ═══ HERO ═══ */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
+        <div className="absolute inset-0 bg-gradient-hero" />
+        <ParticleBackground />
+        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-24">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.teal }}>{t('home.heroOverline')}</motion.p>
+              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight mb-6">{t('home.heroTitle')}</motion.h1>
+              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="text-base sm:text-lg leading-relaxed max-w-xl mb-8" style={{ color: C.muted }}>{t('home.heroSubtitle')}</motion.p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="flex flex-wrap items-center gap-4 mb-6">
+                <Link href="/auth/register" className="btn-gradient font-heading text-sm font-semibold uppercase tracking-wide text-white px-8 py-3.5 rounded-xl inline-flex items-center gap-2">
+                  {t('home.getStarted')} <ArrowRight size={18} className={isRTL ? 'rotate-180' : ''} />
+                </Link>
+                <a href="#how-it-works" className="font-heading text-sm font-medium uppercase tracking-wide inline-flex items-center gap-2 hover:text-white transition-colors" style={{ color: C.muted }}>
+                  <Play size={16} /> {t('home.watchDemo')}
+                </a>
+              </motion.div>
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="text-xs" style={{ color: C.dim }}>
+                {t('home.noCreditCard')} · {t('home.freeTrial14')} · {t('home.cancelAnytime')}
+              </motion.p>
+            </div>
+            {/* Hero preview card */}
+            <motion.div initial={{ opacity: 0, x: isRTL ? -40 : 40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1, duration: 0.8 }} className="hidden lg:flex justify-center">
+              <TiltCard className="w-full max-w-lg">
+                <div className="glass-panel rounded-2xl p-6">
+                  <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(10,14,39,0.9)', border: `1px solid ${C.border}` }}>
+                    <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+                      <span className="text-xs font-mono text-white font-semibold">NEXUS AI — Command Center</span>
+                      <div className="flex gap-1.5">{['#ff5f57','#febc2e','#28c840'].map(c => <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}</div>
+                    </div>
+                    <div className="p-4 space-y-2">
+                      {agents.map(a => (
+                        <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'rgba(108,99,255,0.06)' }}>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${a.color}20` }}><a.icon size={14} style={{ color: a.color }} /></div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-mono font-semibold text-white">{a.name}</p>
+                            <p className="text-[10px] truncate" style={{ color: C.dim }}>{a.title}</p>
+                          </div>
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#4CAF50', boxShadow: '0 0 6px #4CAF50' }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full animate-ping" style={{ background: '#4CAF50' }} /><span className="text-xs font-mono" style={{ color: C.muted }}>5 {t('common.agentsActive')}</span></div>
+                    <span className="text-xs font-mono" style={{ color: C.teal }}>{t('common.live')}</span>
+                  </div>
+                </div>
+              </TiltCard>
+            </motion.div>
           </div>
+        </div>
+      </section>
 
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold mb-6 leading-[1.05] tracking-tight">
-            <span className="neon-text">{t('hero.headline1')}</span>
-            <br />
-            <span className="gradient-text">{t('hero.headline2')}</span>
-          </h1>
-
-          <p className="text-lg md:text-xl text-text-secondary max-w-2xl mx-auto mb-4 leading-relaxed">
-            {t('hero.subheadline')}
-          </p>
-
-          <p className="text-sm text-text-muted mb-10 max-w-xl mx-auto">
-            {t('hero.tagline')}
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link href="/auth/register" className="btn-primary btn-3d text-lg px-8 py-4">
-              <Zap className="w-5 h-5" />
-              {t('hero.ctaPrimary')}
-              <ArrowLeft className="w-5 h-5" style={{ transform: isRTL ? 'none' : 'rotate(180deg)' }} />
-            </Link>
-            <button className="btn-secondary btn-3d text-lg px-8 py-4">
-              <Play className="w-5 h-5" />
-              {t('hero.ctaDemo')}
-            </button>
+      {/* ═══ TRUSTED BY ═══ */}
+      <section className="py-12 border-b" style={{ borderColor: 'rgba(108,99,255,0.1)' }}>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-xs font-mono uppercase tracking-[2px] mb-6" style={{ color: C.dim }}>{t('home.trustedBy')}</p>
+          <div className="flex flex-wrap justify-center items-center gap-8 sm:gap-12 opacity-40">
+            {['Dubai Holding', 'Emaar', 'Aldar', 'DAMAC', 'Meraas', 'Sobha'].map(n => <span key={n} className="font-heading font-semibold text-base sm:text-lg text-white tracking-tight">{n}</span>)}
           </div>
+        </div>
+      </section>
 
-          <div className="flex items-center justify-center gap-4 mb-8">
-            <span className="text-text-muted text-sm">{t('hero.connectedNow')}</span>
-            {platforms.filter(p => p.connected).map((platform) => (
-              <div key={platform.name} className="platform-orb platform-connected" title={platform.name}>
-                <span className="text-sm font-bold" style={{ color: platform.color }}>{platform.icon}</span>
-              </div>
+      {/* ═══ AGENTS ═══ */}
+      <section id="agents" className="py-24 lg:py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.purple }}>{t('home.aiTeam')}</p>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.aiTeamSubtitle')}</h2>
+            <p className="text-base leading-relaxed max-w-xl mb-12" style={{ color: C.muted }}>{t('home.aiTeamDesc')}</p>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+            {agents.map((a, i) => (
+              <Reveal key={a.id} delay={i * 0.1}>
+                <div className="rounded-2xl p-6 h-full transition-all duration-300 hover:-translate-y-2 cursor-default"
+                  style={{ background: C.surface, border: `1px solid ${C.border}` }}
+                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${a.color}55`; el.style.boxShadow = `0 16px 48px rgba(0,0,0,0.4)` }}
+                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = C.border; el.style.boxShadow = '' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${a.color}20` }}><a.icon size={24} style={{ color: a.color }} /></div>
+                  <p className="font-mono text-[10px] font-medium uppercase tracking-[2px] mb-1" style={{ color: a.color }}>{a.name}</p>
+                  <h3 className="font-heading text-base font-semibold text-white mb-2">{a.title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: C.muted }}>{a.desc}</p>
+                </div>
+              </Reveal>
             ))}
-            <span className="text-text-muted text-sm">{t('hero.comingSoon')}</span>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════ AGENTS ═══════════════════ */}
-      <section id="crew" className="relative z-10 py-24 section-padding cv-auto">
-        <div className="container-nexus">
-          <div className="text-center mb-20">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('agents.sectionLabel')}</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('agents.title')}</h2>
-            <p className="text-text-secondary max-w-xl mx-auto">{t('agents.subtitle')}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 perspective-container">
-            {crew.map((agent, idx) => {
-              const Icon = agent.icon
-              return (
-                <div
-                  key={agent.key}
-                  className="agent-card perspective-card p-6 text-center group cursor-pointer corner-accent"
-                  style={{ animationDelay: `${idx * 150}ms` }}
-                >
-                  <div className="relative mx-auto mb-5">
-                    <AgentAvatar name={agent.key === 'sentinel' ? 'Sentinel' : agent.key.toUpperCase() as 'NEX' | 'VEX' | 'PULSE' | 'Sentinel'} size="lg" />
-                  </div>
-
-                  <h3 className="text-xl font-bold mb-1 group-hover:text-amber transition-colors">
-                    {t(`agents.${agent.key}.name`)}
-                  </h3>
-                  <p className="text-text-muted text-sm mb-1">{t(`agents.${agent.key}.fullName`)}</p>
-                  <p className="text-amber text-sm font-medium mb-4">{t(`agents.${agent.key}.role`)}</p>
-
-                  <p className="text-text-secondary text-sm leading-relaxed mb-5">
-                    {t(`agents.${agent.key}.desc`)}
-                  </p>
-
-                  <div className="flex items-center justify-center gap-4 pt-4 border-t border-white/5">
-                    {Object.entries(agent.stats).map(([key, val]) => (
-                      <div key={key} className="text-center">
-                        <div className="text-lg font-bold text-text-primary">{val}</div>
-                        <div className="text-[10px] text-text-muted uppercase tracking-wider">{key}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════ HOW IT WORKS ═══════════════════ */}
-      <section id="how" className="relative z-10 py-24 section-padding cv-auto">
-        <div className="container-nexus">
-          <div className="text-center mb-20">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('howItWorks.sectionLabel')}</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('howItWorks.title')}</h2>
-            <p className="text-text-secondary max-w-xl mx-auto">{t('howItWorks.subtitle')}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {['step1', 'step2', 'step3'].map((stepKey, idx) => {
-              const icons = [Users, Globe, Zap]
-              const colors = ['amber', 'cyan', 'emerald']
-              const Icon = icons[idx]
-              return (
-                <div key={stepKey} className="relative group">
-                  <div className="glass p-8 text-center h-full corner-accent transition-all duration-500 group-hover:scale-[1.02]">
-                    <div className="text-5xl font-black text-white/5 mb-4">{t(`howItWorks.${stepKey}.num`)}</div>
-                    <div className={`w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center bg-${colors[idx]}/10 border border-${colors[idx]}/20`}>
-                      <Icon className={`w-7 h-7 text-${colors[idx]}-400`} />
-                    </div>
-                    <h3 className="text-xl font-bold mb-3">{t(`howItWorks.${stepKey}.title`)}</h3>
-                    <p className="text-text-secondary text-sm leading-relaxed">{t(`howItWorks.${stepKey}.desc`)}</p>
-                  </div>
-                  {idx < 2 && (
-                    <div className="hidden md:block absolute top-1/2 -left-4 w-8 h-px bg-gradient-to-l from-amber/30 to-transparent" />
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════ CLIENTS ═══════════════════ */}
-      <section className="relative z-10 py-24 section-padding cv-auto">
-        <div className="container-nexus">
-          <div className="text-center mb-16">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('clients.sectionLabel')}</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('clients.title')}</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {clients.map((client, idx) => {
-              return (
-                <div key={idx} className="glass p-6 corner-accent text-center group hover:scale-[1.02] transition-transform">
-                  <div className="client-avatar mx-auto mb-4 flex items-center justify-center text-2xl font-bold text-amber">
-                    {client.avatar}
-                  </div>
-                  <h4 className="font-bold mb-1">{t(`clients.${client.key}.name`)}</h4>
-                  <p className="text-text-muted text-sm mb-4">{t(`clients.${client.key}.role`)}</p>
-                  <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                    <p className="text-emerald-400 text-sm font-medium">{t(`clients.${client.key}.result`)}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════ PRICING ═══════════════════ */}
-      <section id="pricing" className="relative z-10 py-24 section-padding cv-auto">
-        <div className="container-nexus">
-          <div className="text-center mb-20">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('pricing.sectionLabel')}</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('pricing.title')}</h2>
-            <p className="text-text-secondary max-w-xl mx-auto">{t('pricing.subtitle')}</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {pricingKeys.map((planKey) => {
-              const plan = t(`pricing.${planKey}`)
-              const isPopular = planKey === 'pro'
-              return (
-                <div
-                  key={planKey}
-                  className={`relative p-6 ${isPopular ? 'holo-glow' : ''}`}
-                  style={{
-                    background: isPopular ? 'rgba(245,158,11,0.03)' : 'rgba(255,255,255,0.02)',
-                    backdropFilter: 'blur(20px)',
-                    border: isPopular ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '20px',
-                  }}
-                >
-                  {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-amber to-orange text-black text-xs font-bold">
-                      {plan?.popular}
+      {/* ═══ HOW IT WORKS ═══ */}
+      <section id="how-it-works" className="py-24 lg:py-32" style={{ background: 'rgba(15,19,50,0.4)' }}>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.teal }}>{t('home.howItWorks')}</p>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.howItWorksSubtitle')}</h2>
+            <p className="text-base leading-relaxed max-w-xl mb-16" style={{ color: C.muted }}>{t('home.howItWorksDesc')}</p>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
+            {steps.map((s, i) => (
+              <Reveal key={s.num} delay={i * 0.1}>
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-primary flex items-center justify-center mb-5"><s.icon size={24} className="text-white" /></div>
+                  <p className="font-mono text-xs font-medium mb-2" style={{ color: C.purple }}>{s.num}</p>
+                  <h3 className="font-heading text-lg font-semibold text-white mb-2">{s.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: C.muted }}>{s.desc}</p>
+                  {i < steps.length - 1 && (
+                    <div className={`hidden lg:block absolute top-7 w-full h-[2px] ${isRTL ? 'right-full' : 'left-full'}`}>
+                      <div className="w-full h-full" style={{ background: 'linear-gradient(90deg, rgba(108,99,255,0.4), rgba(0,191,166,0.4))' }} />
                     </div>
                   )}
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                  <h3 className="text-lg font-bold mb-2">{plan?.name}</h3>
-                  <div className="mb-6">
-                    <span className="text-4xl font-extrabold">${plan?.price}</span>
-                    <span className="text-text-muted text-sm">/{plan?.period}</span>
+      {/* ═══ PLATFORMS ═══ */}
+      <section className="py-24 lg:py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.purple }}>{t('home.integrations')}</p>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.integrationsSubtitle')}</h2>
+            <p className="text-base leading-relaxed max-w-xl mb-12" style={{ color: C.muted }}>{t('home.integrationsDesc')}</p>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {platforms.map((p, i) => (
+              <Reveal key={p.name} delay={i * 0.08}>
+                <div className="glass-card rounded-xl p-5 hover:scale-[1.02] transition-transform duration-300">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'rgba(21,26,58,1)' }}><p.icon size={20} style={{ color: C.muted }} /></div>
+                    <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full border"
+                      style={p.connected ? { color: '#4CAF50', background: 'rgba(76,175,80,0.1)', borderColor: 'rgba(76,175,80,0.3)' } : { color: C.dim, background: 'rgba(90,106,140,0.1)', borderColor: 'rgba(90,106,140,0.3)' }}>
+                      {p.connected ? t('settings.connected') : t('settings.comingSoon')}
+                    </span>
                   </div>
+                  <h4 className="font-heading text-sm font-semibold text-white mb-1">{p.name}</h4>
+                  <p className="text-xs" style={{ color: C.muted }}>{p.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
 
-                  <ul className="space-y-3 mb-6">
-                    {(plan?.features || []).map((f: string) => (
-                      <li key={f} className="flex items-center gap-2 text-sm text-text-secondary">
-                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        {f}
+      {/* ═══ INDUSTRIES ═══ */}
+      <section className="py-24 lg:py-32" style={{ background: 'rgba(15,19,50,0.4)' }}>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.teal }}>{t('home.builtForBusiness')}</p>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.builtForSubtitle')}</h2>
+            <p className="text-base leading-relaxed max-w-xl mb-12" style={{ color: C.muted }}>{t('home.builtForDesc')}</p>
+          </Reveal>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {industries.map((ind, i) => (
+              <Reveal key={ind.name} delay={i * 0.1}>
+                <div className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl" style={{ border: `1px solid ${C.border}` }}>
+                  <div className="h-44 flex items-end p-6" style={{ background: `linear-gradient(135deg, ${ind.color}20 0%, ${ind.color}05 50%, #0A0E27 100%)` }}>
+                    <div><h4 className="font-heading text-xl font-semibold text-white mb-1">{ind.name}</h4><p className="text-sm" style={{ color: C.muted }}>{ind.desc}</p></div>
+                  </div>
+                  <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} w-full h-1`} style={{ background: `linear-gradient(${isRTL ? '270deg' : '90deg'}, ${ind.color}, transparent)` }} />
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ STATS + TESTIMONIALS ═══ */}
+      <section className="py-24 lg:py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4 text-center" style={{ color: C.purple }}>{t('home.trustedBusinesses')}</p>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-16 text-center">{t('home.trustSubtitle')}</h2>
+          </Reveal>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
+            {stats.map((s, i) => (
+              <Reveal key={s.label} delay={i * 0.1}>
+                <div className="text-center">
+                  <p className="font-mono text-4xl font-bold text-white mb-1">{s.value}</p>
+                  <p className="text-sm" style={{ color: C.muted }}>{s.label}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal>
+            <div className="relative max-w-2xl mx-auto">
+              <div className="glass-panel rounded-2xl p-8 sm:p-10">
+                <div className={`flex gap-1 mb-6 ${isRTL ? 'justify-end' : ''}`}>{[...Array(5)].map((_, i) => <Star key={i} size={18} style={{ color: '#FFB800', fill: '#FFB800' }} />)}</div>
+                <p className="text-base sm:text-lg leading-relaxed italic mb-8" style={{ color: C.muted }}>&ldquo;{testimonials[testimonialIdx].quote}&rdquo;</p>
+                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-semibold text-sm" style={{ background: 'rgba(108,99,255,0.3)' }}>
+                      {testimonials[testimonialIdx].name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div className={isRTL ? 'text-right' : ''}>
+                      <p className="text-sm font-semibold text-white">{testimonials[testimonialIdx].name}</p>
+                      <p className="text-xs font-mono uppercase tracking-wide" style={{ color: C.dim }}>{testimonials[testimonialIdx].role}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setTestimonialIdx(i => (i - 1 + testimonials.length) % testimonials.length)} className="p-2 rounded-lg transition-colors hover:text-white" style={{ background: 'rgba(21,26,58,1)', color: C.muted }}><ChevronLeft size={18} /></button>
+                    <button onClick={() => setTestimonialIdx(i => (i + 1) % testimonials.length)} className="p-2 rounded-lg transition-colors hover:text-white" style={{ background: 'rgba(21,26,58,1)', color: C.muted }}><ChevronRight size={18} /></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ═══ PRICING ═══ */}
+      <section id="pricing" className="py-24 lg:py-32" style={{ background: 'rgba(15,19,50,0.4)' }}>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4 text-center" style={{ color: C.teal }}>{t('home.pricing')}</p>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4 text-center">{t('home.pricingSubtitle')}</h2>
+            <p className="text-base leading-relaxed max-w-xl mx-auto mb-12 text-center" style={{ color: C.muted }}>{t('home.pricingDesc')}</p>
+          </Reveal>
+          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            {plans.map((plan, i) => (
+              <Reveal key={plan.name} delay={i * 0.1}>
+                <div className="relative rounded-2xl p-6 h-full flex flex-col"
+                  style={plan.featured
+                    ? { background: 'rgba(15,19,50,0.8)', border: '2px solid #6C63FF', boxShadow: '0 0 40px rgba(108,99,255,0.15)' }
+                    : { background: 'rgba(10,14,39,0.8)', border: `1px solid ${C.border}` }}>
+                  {plan.featured && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-primary text-white text-[11px] font-mono font-medium uppercase tracking-wide px-3 py-1 rounded-full">{t('home.mostPopular')}</span>}
+                  <h3 className="font-heading text-lg font-semibold text-white mb-2">{plan.name}</h3>
+                  <div className={`flex items-baseline gap-1 mb-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
+                    <span className="font-mono text-3xl font-bold text-white">AED {plan.price}</span>
+                    <span className="text-sm" style={{ color: C.dim }}>{t('home.perMonth')}</span>
+                  </div>
+                  <p className="text-xs mb-6" style={{ color: C.muted }}>{plan.desc}</p>
+                  <ul className="space-y-2.5 mb-8 flex-1">
+                    {plan.features.map(f => (
+                      <li key={f} className={`flex items-center gap-2 text-sm ${isRTL ? 'flex-row-reverse' : ''}`} style={{ color: C.muted }}>
+                        <CheckCircle size={15} style={{ color: C.teal, flexShrink: 0 }} />{f}
                       </li>
                     ))}
                   </ul>
-
-                  <Link
-                    href="/auth/register"
-                    className={`block text-center py-3 rounded-xl font-bold transition-all ${isPopular ? 'btn-primary' : 'btn-secondary'}`}
-                  >
-                    {plan?.cta}
-                  </Link>
+                  <Link href="/auth/register" className={`block text-center font-heading text-sm font-semibold uppercase tracking-wide py-3 rounded-xl transition-all duration-300 ${plan.featured ? 'btn-gradient text-white' : 'border text-[#6C63FF] hover:bg-[rgba(108,99,255,0.1)]'}`}
+                    style={plan.featured ? {} : { borderColor: C.purple }}>{plan.cta}</Link>
                 </div>
-              )
-            })}
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════════ SECURITY ═══════════════════ */}
-      <section className="relative z-10 py-24 section-padding">
-        <div className="container-nexus">
-          <div className="glass p-12 max-w-4xl mx-auto text-center" style={{
-            background: 'rgba(255,255,255,0.02)',
-            backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '24px',
-          }}>
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <Lock className="w-6 h-6 text-emerald-400" />
-              <h2 className="text-2xl md:text-3xl font-bold">{t('security.title')}</h2>
+      {/* ═══ FINAL CTA ═══ */}
+      <section className="relative py-32 lg:py-40 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-hero" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-96 h-96 rounded-full blur-[120px]" style={{ background: 'rgba(108,99,255,0.12)', animation: 'pulse 4s ease-in-out infinite' }} />
+        </div>
+        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Reveal>
+            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-6">{t('home.finalCtaTitle')}</h2>
+            <p className="text-base sm:text-lg leading-relaxed max-w-xl mx-auto mb-10" style={{ color: C.muted }}>{t('home.finalCtaDesc')}</p>
+            <div className={`flex flex-wrap items-center justify-center gap-4 mb-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <Link href="/auth/register" className="btn-gradient animate-pulse-glow font-heading text-sm font-semibold uppercase tracking-wide text-white px-10 py-4 rounded-xl inline-flex items-center gap-2">
+                {t('home.startTrial')} — 14 {t('home.days')} <ArrowRight size={18} className={isRTL ? 'rotate-180' : ''} />
+              </Link>
+              <Link href="/demo" className="font-heading text-sm font-medium uppercase tracking-wide transition-colors hover:text-white px-8 py-4 rounded-xl"
+                style={{ color: C.muted, border: `1px solid ${C.border}` }}>{t('home.scheduleDemo')}</Link>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
-              {[
-                { key: 'encrypted', icon: Shield },
-                { key: 'consent', icon: Users },
-                { key: 'gdpr', icon: Lock },
-              ].map((item) => {
-                const Icon = item.icon
-                return (
-                  <div key={item.key} className="text-center">
-                    <Icon className="w-8 h-8 text-amber mx-auto mb-3" />
-                    <h4 className="font-bold mb-2">{t(`security.${item.key}.title`)}</h4>
-                    <p className="text-text-muted text-sm">{t(`security.${item.key}.desc`)}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+            <p className="text-xs" style={{ color: C.dim }}>{t('home.noCreditCard')} · {t('home.fullFeatureAccess')} · {t('home.cancelAnytime')}</p>
+          </Reveal>
         </div>
       </section>
 
-      {/* ═══════════════════ FAQ ═══════════════════ */}
-      <section id="faq" className="relative z-10 py-24 section-padding">
-        <div className="container-nexus max-w-3xl">
-          <div className="text-center mb-16">
-            <p className="text-amber font-semibold mb-3 text-sm tracking-widest uppercase">{t('faq.sectionLabel')}</p>
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">{t('faq.title')}</h2>
-          </div>
-          <div className="space-y-4">
-            {faqKeys.map((faqKey, i) => {
-              return (
-                <div
-                  key={i}
-                  className="glass overflow-hidden corner-accent transition-all duration-300"
-                  style={{
-                    background: openFaq === i ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: '16px',
-                  }}
-                >
-                  <button
-                    onClick={() => toggleFaq(i)}
-                    className="w-full flex items-center justify-between p-5"
-                    style={{ textAlign: isRTL ? 'right' : 'left' }}
-                  >
-                    <span className="font-medium">{t(`faq.${faqKey}.q`)}</span>
-                    <ChevronDown
-                      className={`w-5 h-5 text-text-muted transition-transform shrink-0 ${isRTL ? 'mr-3' : 'ml-3'} ${
-                        openFaq === i ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  {openFaq === i && (
-                    <p className="px-5 pb-5 text-text-secondary text-sm leading-relaxed">{t(`faq.${faqKey}.a`)}</p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════ CTA ═══════════════════ */}
-      <section className="relative z-10 py-24 section-padding">
-        <div className="container-nexus text-center">
-          <div
-            className="glass p-12 max-w-3xl mx-auto energy-ring"
-            style={{
-              background: 'rgba(245,158,11,0.03)',
-              backdropFilter: 'blur(30px)',
-              border: '1px solid rgba(245,158,11,0.15)',
-              borderRadius: '24px',
-            }}
-          >
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">
-              {t('cta.title1')} <span className="gradient-text">{t('cta.title2')}</span>؟
-            </h2>
-            <p className="text-text-secondary mb-8 max-w-lg mx-auto">
-              {t('cta.subtitle')}
-            </p>
-            <Link href="/auth/register" className="btn-primary btn-3d text-lg px-10 py-4 inline-flex">
-              <Zap className="w-5 h-5" />
-              {t('cta.button')}
-              <ArrowLeft className="w-5 h-5" style={{ transform: isRTL ? 'none' : 'rotate(180deg)' }} />
-            </Link>
-            <p className="text-text-muted text-sm mt-4">{t('cta.note')}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════ FOOTER ═══════════════════ */}
-      <footer className="relative z-10 py-16 border-t border-white/5">
-        <div className="container-nexus">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-            <div>
-              <h3 className="text-2xl font-bold gradient-text mb-4">NEXUS AI</h3>
-              <p className="text-text-muted text-sm leading-relaxed mb-4">
-                {t('footer.description')}
-              </p>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/5">SSL</span>
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-amber border border-amber/20 bg-amber/5">Stripe</span>
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-cyan border border-cyan/20 bg-cyan/5">GDPR</span>
-                <span className="px-2 py-1 rounded-md text-[10px] font-bold text-violet border border-violet/20 bg-violet/5">AES-256</span>
-              </div>
+      {/* ═══ FOOTER ═══ */}
+      <footer className="py-12 border-t" style={{ borderColor: 'rgba(108,99,255,0.1)' }}>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
+            <div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-gradient-primary flex items-center justify-center"><Sparkles size={14} className="text-white" /></div><span className="font-heading font-bold text-white">NEXUS AI</span></div>
+            <p className="text-xs" style={{ color: C.dim }}>© 2026 NEXUS AI. {isRTL ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</p>
+            <div className={`flex items-center gap-4 text-xs ${isRTL ? 'flex-row-reverse' : ''}`} style={{ color: C.dim }}>
+              <Link href="/privacy" className="hover:text-white transition-colors">{isRTL ? 'الخصوصية' : 'Privacy'}</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">{isRTL ? 'الشروط' : 'Terms'}</Link>
             </div>
-            <div>
-              <h4 className="font-bold mb-4 text-sm">{t('footer.agents')}</h4>
-              <ul className="space-y-2 text-sm text-text-muted">
-                <li><Link href="/studio" className="hover:text-amber transition">NEX — {t('agents.nex.role')}</Link></li>
-                <li><Link href="/vex" className="hover:text-amber transition">VEX — {t('agents.vex.role')}</Link></li>
-                <li><Link href="/analytics" className="hover:text-amber transition">PULSE — {t('agents.pulse.role')}</Link></li>
-                <li><Link href="/sentinel" className="hover:text-amber transition">Sentinel — {t('agents.sentinel.role')}</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4 text-sm">{t('footer.platforms')}</h4>
-              <ul className="space-y-2 text-sm text-text-muted">
-                <li>Meta (Facebook + Instagram)</li>
-                <li>TikTok</li>
-                <li>Google Ads</li>
-                <li>Snapchat</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold mb-4 text-sm">{t('footer.legal')}</h4>
-              <ul className="space-y-2 text-sm text-text-muted">
-                <li><Link href="/terms" className="hover:text-amber transition">{t('footer.terms')}</Link></li>
-                <li><Link href="/privacy" className="hover:text-amber transition">{t('footer.privacy')}</Link></li>
-                <li><Link href="/cookies" className="hover:text-amber transition">{t('footer.cookies')}</Link></li>
-                <li><Link href="/refund" className="hover:text-amber transition">{t('footer.refund')}</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-text-muted text-sm">{t('footer.copyright')}</p>
-            <p className="text-text-muted text-xs">
-              {t('footer.location')} • {t('footer.legalEmail')} • {t('footer.supportEmail')}
-            </p>
           </div>
         </div>
       </footer>
     </div>
   )
-})
-
-export default LandingPage
+}
