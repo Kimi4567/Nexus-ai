@@ -40,6 +40,10 @@ export interface ContentDirectorInput {
   avoidKeywords?: string[]
   writingStyle?: string
   existingCaptions?: string[]
+  competitors?: string
+  region?: string
+  painPoints?: string[]
+  winningHooks?: string[]
 }
 
 export interface ContentPost {
@@ -75,8 +79,10 @@ export async function runContentDirectorAgent(
   input: ContentDirectorInput
 ): Promise<ContentDirectorOutput> {
   const systemPrompt = `You are a world-class social media content director.
-You create viral, high-converting content calendars for performance marketing campaigns.
-Every hook must be scroll-stopping. Every caption must drive action.
+You create viral, high-converting content calendars for specific brands.
+CRITICAL: Write content specific to THIS brand. No generic templates.
+Every hook must be scroll-stopping and brand-specific. Every caption must drive action for THIS audience.
+If winning hooks are provided, match that energy and style.
 Return ONLY valid JSON. No markdown outside the JSON.`
 
   const userPrompt = `
@@ -84,9 +90,14 @@ Brand: ${input.brandName}
 Tone: ${input.brandTone.join(', ')}
 Writing Style: ${input.writingStyle || 'direct and punchy'}
 Avoid: ${input.avoidKeywords?.join(', ') || 'nothing specific'}
+${input.region ? `Market / Region: ${input.region}` : ''}
+${input.competitors ? `Key Competitors (differentiate content): ${input.competitors}` : ''}
+${input.painPoints?.length ? `Audience Pain Points (address in hooks): ${input.painPoints.join(', ')}` : ''}
+${input.winningHooks?.length ? `Winning Hook Style (match this energy): ${input.winningHooks.join(' | ')}` : ''}
 
 Campaign Strategy:
 - Goal: ${input.strategy.goal}
+- Key Message: ${input.strategy.keyMessage || input.strategy.positioning}
 - Positioning: ${input.strategy.positioning}
 - Target Audience: ${input.strategy.targetAudienceRefined}
 - Content Pillars: ${input.strategy.contentPillars.join(', ')}

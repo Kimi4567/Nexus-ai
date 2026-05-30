@@ -87,13 +87,34 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Build brief from existing Brand Brain data
+    // Build brief from full Brand Brain data — inject everything
     const brief = {
       companyName: brandProfile.brandName ?? 'My Brand',
       businessType: brandProfile.industry ?? 'General Business',
       targetAudience: brandProfile.targetAudience ?? 'General audience',
       monthlyBudget: budgetOverride,
       primaryGoal: goalOverride,
+      // Extended brand brain fields
+      competitors: brandProfile.competitorNotes || undefined,
+      region: brandProfile.audienceLocation || undefined,
+      uniqueValue: brandProfile.uniqueAdvantages?.length
+        ? brandProfile.uniqueAdvantages.join(', ')
+        : undefined,
+      avoidWords: brandProfile.avoidKeywords?.length
+        ? brandProfile.avoidKeywords.join(', ')
+        : undefined,
+      writingStyle: brandProfile.writingStyle || undefined,
+      pricePoint: brandProfile.pricePoint || undefined,
+      painPoints: brandProfile.audiencePainPoints?.length
+        ? brandProfile.audiencePainPoints.join(', ')
+        : undefined,
+      desires: brandProfile.audienceDesires?.length
+        ? brandProfile.audienceDesires.join(', ')
+        : undefined,
+      primaryOffer: brandProfile.primaryOffer || undefined,
+      winningHooks: brandProfile.winningHooks?.length
+        ? brandProfile.winningHooks.slice(0, 3).join(' | ')
+        : undefined,
     }
 
     // ── Run full orchestration (reuses existing orchestrator unchanged) ──────

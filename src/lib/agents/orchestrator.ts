@@ -52,23 +52,47 @@ export async function runFullAgency(
   })
 
   try {
-    // 1. Brand context
+    // 1. Brand context — inject ALL Brand Brain fields
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
     const brandContext = brandProfile
-      ? `Brand: ${brandProfile.brandName}, Tone: ${brandProfile.toneKeywords.join(', ')}, Audience: ${brandProfile.targetAudience}`
+      ? [
+          `Brand: ${brandProfile.brandName || 'Unknown'}`,
+          brandProfile.industry ? `Industry: ${brandProfile.industry}` : '',
+          brandProfile.description ? `Business Description: ${brandProfile.description}` : '',
+          brandProfile.primaryOffer ? `Core Offer: ${brandProfile.primaryOffer}` : '',
+          brandProfile.pricePoint ? `Price Positioning: ${brandProfile.pricePoint}` : '',
+          brandProfile.uniqueAdvantages?.length ? `Unique Advantages: ${brandProfile.uniqueAdvantages.join(', ')}` : '',
+          brandProfile.targetAudience ? `Target Audience: ${brandProfile.targetAudience}` : '',
+          brandProfile.audienceAge ? `Audience Age Range: ${brandProfile.audienceAge}` : '',
+          brandProfile.audienceLocation ? `Market / Region: ${brandProfile.audienceLocation}` : '',
+          brandProfile.audiencePainPoints?.length ? `Audience Pain Points: ${brandProfile.audiencePainPoints.join(', ')}` : '',
+          brandProfile.audienceDesires?.length ? `Audience Desires: ${brandProfile.audienceDesires.join(', ')}` : '',
+          brandProfile.toneKeywords?.length ? `Brand Tone: ${brandProfile.toneKeywords.join(', ')}` : '',
+          brandProfile.writingStyle ? `Writing Style: ${brandProfile.writingStyle}` : '',
+          brandProfile.avoidKeywords?.length ? `Never use these words: ${brandProfile.avoidKeywords.join(', ')}` : '',
+          brandProfile.topPlatforms?.length ? `Best Platforms: ${brandProfile.topPlatforms.join(', ')}` : '',
+          brandProfile.winningHooks?.length ? `Winning Hooks (use as style reference): ${brandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
+          brandProfile.winningAngles?.length ? `Winning Angles: ${brandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
+          brandProfile.competitorNotes ? `Key Competitors: ${brandProfile.competitorNotes}` : '',
+          brandProfile.strategicNotes ? `Strategic Notes: ${brandProfile.strategicNotes}` : '',
+        ].filter(Boolean).join('\n')
       : ''
 
     // 2. Strategist agent
     const strategy: StrategyOutput = await runStrategistAgent(brief, brandContext)
     strategyCreated = true
 
-    // 3. Content Director agent
+    // 3. Content Director agent — pass full brand context
     const contentInput: ContentDirectorInput = {
       strategy,
       brandName: brandProfile?.brandName || brief.companyName,
       brandTone: brandProfile?.toneKeywords.length ? brandProfile.toneKeywords : ['modern', 'professional'],
       avoidKeywords: brandProfile?.avoidKeywords || [],
       writingStyle: brandProfile?.writingStyle || 'direct and engaging',
+      competitors: brandProfile?.competitorNotes || undefined,
+      region: brandProfile?.audienceLocation || undefined,
+      painPoints: brandProfile?.audiencePainPoints?.length ? brandProfile.audiencePainPoints : undefined,
+      winningHooks: brandProfile?.winningHooks?.length ? brandProfile.winningHooks.slice(0, 3) : undefined,
     }
     const content = await runContentDirectorAgent(contentInput)
     contentCreated = true
@@ -105,8 +129,11 @@ export async function runFullAgency(
         aiOutput: {
           strategy,
           contentCalendar: content.calendar,
-          topHooks: content.topHooks,
-          ctaVariations: content.ctaVariations,
+          topHooks: content.topHooks?.length ? content.topHooks : strategy.topHooks || [],
+          ctaVariations: content.ctaVariations?.length ? content.ctaVariations : strategy.ctaVariations || [],
+          captionFormulas: content.captionFormulas || [],
+          scriptTemplate: content.scriptTemplate || '',
+          contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
           generatedAt: new Date().toISOString(),
           generatedByAgents: true,
         },

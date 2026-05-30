@@ -16,12 +16,24 @@ export interface BusinessBrief {
   currentPlatforms?: string[]
   primaryGoal?: string
   existingProblems?: string
+  // Extended Brand Brain fields
+  competitors?: string
+  region?: string
+  uniqueValue?: string
+  avoidWords?: string
+  pricePoint?: string
+  writingStyle?: string
+  painPoints?: string
+  desires?: string
+  primaryOffer?: string
+  winningHooks?: string
 }
 
 export interface StrategyOutput {
   campaignName: string
   goal: string
   positioning: string
+  keyMessage?: string
   targetAudienceRefined: string
   channelMix: ChannelAllocation[]
   kpis: KPI[]
@@ -30,6 +42,12 @@ export interface StrategyOutput {
   launchPlan: LaunchPhase[]
   estimatedResults: string
   confidence: number
+  // New enriched fields
+  valueProps?: string[]
+  visualDirection?: string
+  executionChecklist?: string[]
+  topHooks?: string[]
+  ctaVariations?: string[]
 }
 
 export interface ChannelAllocation {
@@ -86,36 +104,61 @@ export async function runStrategistAgent(
   brandContext?: string
 ): Promise<StrategyOutput> {
   const systemPrompt = `You are a senior marketing strategist at a top-tier performance marketing agency.
-Analyze the business brief and produce an actionable, data-backed marketing strategy.
-Think channel mix, budget allocation, KPIs, content pillars.
-Return ONLY valid JSON matching the StrategyOutput schema. No markdown, no explanation outside the JSON.`
+Your job is to produce a highly specific, brand-personalized campaign strategy.
+
+CRITICAL RULES:
+- Write SPECIFICALLY about THIS brand using the exact details provided. Never produce generic AI-speak.
+- Do NOT use phrases like "innovative solutions", "cutting-edge", "revolutionary", "state-of-the-art", "leverage synergies" unless those are the brand's own words.
+- Every line must feel written about THIS specific company, not a template.
+- If competitors are provided, reference them with real contrast strategies.
+- If the brand has winning hooks, build on that style — don't ignore them.
+- The campaign name must include the actual brand name.
+- Return ONLY valid JSON. No markdown, no explanation outside the JSON.`
+
+  const extendedBrief = [
+    `Company: ${brief.companyName}`,
+    `Industry: ${brief.businessType}`,
+    `Target Audience: ${brief.targetAudience}`,
+    `Monthly Budget: $${brief.monthlyBudget} USD`,
+    `Primary Goal: ${brief.primaryGoal || 'maximize leads and sales'}`,
+    brief.region ? `Region/Market: ${brief.region}` : '',
+    brief.primaryOffer ? `Core Offer: ${brief.primaryOffer}` : '',
+    brief.pricePoint ? `Price Positioning: ${brief.pricePoint}` : '',
+    brief.uniqueValue ? `Unique Advantages: ${brief.uniqueValue}` : '',
+    brief.painPoints ? `Audience Pain Points: ${brief.painPoints}` : '',
+    brief.desires ? `Audience Desires: ${brief.desires}` : '',
+    brief.competitors ? `Key Competitors: ${brief.competitors}` : '',
+    brief.winningHooks ? `Previously Successful Hooks: ${brief.winningHooks}` : '',
+    brief.writingStyle ? `Brand Writing Style: ${brief.writingStyle}` : '',
+    brief.avoidWords ? `Never use these words/phrases: ${brief.avoidWords}` : '',
+    brief.currentPlatforms?.length ? `Active Platforms: ${brief.currentPlatforms.join(', ')}` : '',
+    brief.existingProblems ? `Current Challenges: ${brief.existingProblems}` : '',
+    brandContext ? `\nFull Brand Context:\n${brandContext}` : '',
+  ].filter(Boolean).join('\n')
 
   const userPrompt = `
-Business Brief:
-- Company: ${brief.companyName}
-- Type: ${brief.businessType}
-- Target Audience: ${brief.targetAudience}
-- Monthly Budget: $${brief.monthlyBudget} USD
-- Goal: ${brief.primaryGoal || 'maximize leads and sales'}
-- Current Platforms: ${brief.currentPlatforms?.join(', ') || 'none'}
-- Problems: ${brief.existingProblems || 'not specified'}
+${extendedBrief}
 
-${brandContext ? `Brand Context:\n${brandContext}` : ''}
-
-Return JSON with these fields:
+Return JSON with these exact fields:
 {
-  "campaignName": string,
+  "campaignName": string (must include brand name, be specific),
   "goal": "SALES|LEADS|AWARENESS|ENGAGEMENT|TRAFFIC|BRAND_BUILDING",
-  "positioning": string (1-sentence brand position),
-  "targetAudienceRefined": string,
+  "keyMessage": string (the single most important message to communicate — 1 sentence, brand-specific),
+  "positioning": string (1-sentence brand position vs competitors, specific),
+  "targetAudienceRefined": string (detailed, specific audience description),
   "channelMix": [{ "platform": string, "budgetPercent": number, "rationale": string, "contentFrequency": string }],
   "kpis": [{ "metric": string, "target": string, "timeframe": string }],
   "budgetBreakdown": [{ "category": string, "amount": number, "percent": number }],
-  "contentPillars": string[],
+  "contentPillars": string[] (4-6 specific pillars for THIS brand),
+  "valueProps": string[] (3-5 specific value propositions for THIS brand),
+  "visualDirection": string (describe the visual style, mood, colors, aesthetics for this brand),
+  "topHooks": string[] (5 scroll-stopping hooks specific to this brand and audience),
+  "ctaVariations": string[] (5 CTA options specific to this campaign goal),
+  "executionChecklist": string[] (8-10 specific launch tasks for this campaign),
   "launchPlan": [{ "week": number, "focus": string, "actions": string[] }],
   "estimatedResults": string,
   "confidence": number
 }`
 
-  return callOpenAI(systemPrompt, userPrompt) as Promise<StrategyOutput>
+  return callOpenAI(systemPrompt, userPrompt, 3000) as Promise<StrategyOutput>
 }
