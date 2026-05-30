@@ -4,21 +4,9 @@
  * Uses JSON mode for reliable structured output
  */
 
-const MODEL = 'gpt-4o-mini'
+import { getLanguageInstruction } from './langHelper'
 
-// ─── CRITICAL: ALL AI OUTPUT MUST BE IN ARABIC ───────────────
-// This platform serves MENA Arabic-speaking audiences.
-// Every generated text — hooks, captions, strategies, CTAs —
-// must be written in Modern Standard Arabic (الفصحى).
-const ARABIC_MANDATE = `
-CRITICAL LANGUAGE REQUIREMENT:
-- ALL text content MUST be written in Modern Standard Arabic (MSA / الفصحى)
-- This includes: overview, positioning, valueProps, contentPillars, hooks, captions, scripts, CTAs, topics, everything
-- Do NOT write any content in English except: JSON keys, platform names, format types (Video/Carousel/etc)
-- Audience is in Saudi Arabia, UAE, and broader Arab world — write naturally for them
-- Week names in contentCalendar: use "الأسبوع الأول", "الأسبوع الثاني", etc.
-- Day names in contentCalendar: use "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"
-`
+const MODEL = 'gpt-4o-mini'
 
 // Platform-native tone guides injected into prompts
 const PLATFORM_GUIDES: Record<string, string> = {
@@ -81,13 +69,14 @@ async function callOpenAI(
 // MARKETING STRATEGY
 // ─────────────────────────────────────────────
 export async function generateMarketingStrategy(campaign: any, project: any): Promise<any> {
+  const langInstruction = getLanguageInstruction(campaign.language)
   const platformGuides = (campaign.platforms || [])
     .map((p: string) => PLATFORM_GUIDES[p])
     .filter(Boolean)
     .join('\n')
 
   const system = `You are a world-class marketing strategist and brand consultant specializing in the MENA (Middle East & North Africa) market, with 15+ years of experience helping Arab startups and growth-stage companies build category-defining brands. You create clear, actionable, platform-native marketing strategies with specific copy examples, not generic frameworks.
-${ARABIC_MANDATE}
+${langInstruction}
 Always respond with valid JSON only.`
 
   const user = `Create a complete marketing strategy for this campaign. Return a JSON object with EXACTLY these keys:
@@ -150,7 +139,7 @@ Generate the contentCalendar for 4 weeks with 5-7 posts per week spread across t
 For each calendar post, include a "caption" field with a ready-to-post caption draft (including relevant hashtags for social platforms).
 Make ALL recommendations hyper-specific to this campaign — use real copy examples, not placeholders.
 Every value prop, CTA, and hook should name the actual product/service and audience.
-REMINDER: Write ALL text content in Modern Standard Arabic (الفصحى). Only JSON keys and format labels stay in English.`
+REMINDER: ${getLanguageInstruction(campaign.language)}`
 
   return callOpenAI(system, user, true, 4096)
 }
@@ -159,6 +148,7 @@ REMINDER: Write ALL text content in Modern Standard Arabic (الفصحى). Only 
 // AD CONCEPTS
 // ─────────────────────────────────────────────
 export async function generateAdConcepts(campaign: any, project: any): Promise<any[]> {
+  const langInstruction = getLanguageInstruction(campaign.language)
   const platforms = campaign.platforms || ['INSTAGRAM']
 
   const platformGuides = platforms
@@ -166,11 +156,11 @@ export async function generateAdConcepts(campaign: any, project: any): Promise<a
     .filter(Boolean)
     .join('\n')
 
-  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major Arab and MENA brands.
+  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major MENA brands.
 You write platform-native scripts — a TikTok script sounds nothing like a LinkedIn post.
-You use real Arabic copywriting techniques: pattern interrupts, open loops, social proof, specificity, FOMO — adapted for Arab audiences.
-Your hooks are tested, specific, and written in Arabic — not generic.
-${ARABIC_MANDATE}
+You use proven copywriting techniques: pattern interrupts, open loops, social proof, specificity, FOMO — adapted for MENA audiences.
+Your hooks are tested, specific, and platform-native — not generic.
+${langInstruction}
 Always respond with valid JSON only.`
 
   const user = `Generate exactly 5 unique ad concepts for this campaign. Return a JSON object with a "concepts" array containing exactly 5 items.
@@ -216,7 +206,7 @@ PLATFORM GUIDES:
 ${platformGuides || 'Adapt tone and format to each platform naturally.'}
 
 The overall campaign tone is ${campaign.tone.toLowerCase()}. All 5 concepts must feel distinctly different — different angle, different emotional trigger, different platform if possible.
-CRITICAL: All hooks, scripts, captions, and CTAs MUST be written in Modern Standard Arabic (الفصحى). Only JSON keys stay in English.
+CRITICAL: ${getLanguageInstruction(campaign.language)}
 
 Return: { "concepts": [ ...exactly 5 concepts... ] }`
 

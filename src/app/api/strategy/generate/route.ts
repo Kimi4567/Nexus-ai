@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { getLanguageInstruction } from '@/lib/ai/langHelper'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
     if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { goal, timeframe, platform, budget } = await req.json()
+    const { goal, timeframe, platform, budget, language } = await req.json()
 
     // Get brand profile for context
     const workspace = await prisma.workspace.findFirst({
@@ -62,9 +63,11 @@ Description: ${brand.description || 'Not specified'}
     const days = timeframe === '30' ? 30 : timeframe === '60' ? 60 : 90
     const weeks = Math.floor(days / 7)
 
-    const prompt = `You are a world-class marketing strategist specializing in Arabic-speaking markets (Saudi Arabia, UAE, Egypt, and MENA region). Create a detailed ${days}-day marketing strategy.
+    const langInstruction = getLanguageInstruction(language || 'ar')
 
-IMPORTANT: Write ALL text values in Arabic (العربية). Only keep platform names, tool names, and technical terms in English.
+    const prompt = `You are a world-class marketing strategist specializing in the MENA region (Saudi Arabia, UAE, Egypt, and broader Arab world). Create a detailed ${days}-day marketing strategy.
+
+${langInstruction}
 
 ${brandContext ? `BRAND CONTEXT:\n${brandContext}\n` : ''}
 GOAL: ${goal}
@@ -133,7 +136,7 @@ Return a JSON object with this EXACT structure:
   }
 }
 
-Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts per week. Make everything specific and actionable for the MENA market. Write all text in Arabic. Return only valid JSON.`
+Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts per week. Make everything specific and actionable for the MENA market. Return only valid JSON.`
 
     const strategy = await callOpenAI(prompt)
 

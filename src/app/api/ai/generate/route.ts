@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
+import { getLanguageInstruction } from '@/lib/ai/langHelper'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -30,19 +31,19 @@ function checkRateLimit(key: string): boolean {
 type LegacyAction = 'video_script' | 'ad_copy' | 'analyze'
 
 const LEGACY_SYSTEM: Record<LegacyAction, string> = {
-  video_script: 'أنت NEX، منتج فيديوهات تسويقية بخبرة ١٥ سنة. اكتب سكريبت فيديو قصير (١٥-٣٠ ثانية) بالعربية. حدد: المشهد، النص، الصوت/الموسيقى، والإيقاع. اكتب بأسلوب جذاب ومقنع.',
-  ad_copy:      'أنت VEX، كاتب إعلانات رقمية محترف. اكتب ٣ نسخ إعلانية قصيرة (headline + body + CTA) بالعربية. كل نسخة بأسلوب مختلف.',
-  analyze:      'أنت PULSE، محلل بيانات تسويقي. قدم تحليل مبسط وتوصيات قابلة للتنفيذ بالعربية. ركز على الأرقام والتوجهات.',
+  video_script: 'You are NEX, a marketing video producer with 15 years of experience. Write a short marketing video script (15-30 seconds). Specify: scene, script text, audio/music, and pacing. Write in a compelling and persuasive style.',
+  ad_copy:      'You are VEX, a professional digital advertising copywriter. Write 3 short ad copy variations (headline + body + CTA), each with a different style and angle.',
+  analyze:      'You are PULSE, a marketing data analyst. Provide a clear analysis and actionable recommendations. Focus on numbers and trends.',
 }
 
 function buildLegacyUserMessage(body: Record<string, unknown>): string {
   switch (body.action as LegacyAction) {
     case 'video_script':
-      return `اكتب سكريبت فيديو تسويقي لـ "${body.productName || 'المنتج'}". الوصف: ${body.description || 'منتج رائع'}. الأسلوب: ${body.style || 'عامي'}.${body.duration ? ` المدة: ${body.duration} ثانية.` : ''}`
+      return `Write a marketing video script for "${body.productName || 'the product'}". Description: ${body.description || 'a great product'}. Style: ${body.style || 'conversational'}.${body.duration ? ` Duration: ${body.duration} seconds.` : ''}`
     case 'ad_copy':
-      return `اكتب ٣ نسخ إعلانية لـ "${body.productName || 'المنتج'}" على منصة ${body.platform || 'Facebook'}. الهدف: ${body.objective || 'مبيعات'}.`
+      return `Write 3 ad copy variations for "${body.productName || 'the product'}" on ${body.platform || 'Facebook'}. Goal: ${body.objective || 'sales'}.`
     case 'analyze':
-      return `حلل هذه البيانات وأعطِ توصيات: ${body.data || 'لا توجد بيانات'}`
+      return `Analyze this data and provide recommendations: ${body.data || 'no data provided'}`
     default:
       return ''
   }
@@ -78,11 +79,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Language instruction — appended to system prompt so AI responds in the user's locale
-  const language = (body.language as string) || ''
-  const langSuffix =
-    language === 'en' ? '\n\nIMPORTANT: You MUST respond entirely in English. Do not use any Arabic text in your response.' :
-    language === 'ar' ? '\n\nمهم: يجب أن تجيب بالعربية فقط.' :
-    ''
+  // Defaults to 'ar' to preserve existing Arabic user behavior
+  const language = (body.language as string) || 'ar'
+  const langSuffix = '\n\n' + getLanguageInstruction(language)
 
   let systemMessage: string
   let userMessage: string

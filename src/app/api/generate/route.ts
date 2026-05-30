@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   // ────────────────────────────────────────────────────────────
 
   const body = await req.json()
-  const { campaignId } = body
+  const { campaignId, language } = body
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
   const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
@@ -73,9 +73,13 @@ export async function POST(req: NextRequest) {
   const project = await prisma.project.findUnique({ where: { id: campaign.projectId }, include: { media: true } })
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
+  // Attach language preference so AI functions use the correct output language
+  // Falls back to 'ar' (Arabic) to preserve behaviour for existing users
+  const campaignWithLang = { ...(campaign as any), language: language || 'ar' }
+
   try {
-    const strategy = await ai.generateMarketingStrategy(campaign as any, project as any)
-    const concepts = await ai.generateAdConcepts(campaign as any, project as any)
+    const strategy = await ai.generateMarketingStrategy(campaignWithLang, project as any)
+    const concepts = await ai.generateAdConcepts(campaignWithLang, project as any)
 
     const genStrategy = await prisma.generation.create({
       data: {
