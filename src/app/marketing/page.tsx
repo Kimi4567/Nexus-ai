@@ -316,7 +316,7 @@ function GlassCard({ children, className = '', accentColor, style = {} }: { chil
 }
 
 export default function MarketingPage() {
-  const { t, dir } = useI18n()
+  const { t, dir, locale } = useI18n()
   const mT = t('marketing')
 
   const [activeTab, setActiveTab] = useState<'campaigns' | 'content' | 'analytics' | 'sentinel'>('campaigns')
@@ -444,6 +444,13 @@ export default function MarketingPage() {
         </div>
 
         {/* ═══ KPI CARDS ════════════════════════════════════ */}
+        {/* Demo data notice */}
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md"
+            style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.15)' }}>
+            {locale === 'ar' ? 'بيانات تجريبية — ليست نتائج حقيقية' : 'Demo data — not real results'}
+          </span>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 page-enter">
           {METRICS.map((metric, i) => (
             <GlassCard key={metric.labelKey} className="p-5" style={{ animationDelay: `${i * 100}ms` }}>

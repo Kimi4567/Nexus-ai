@@ -14,8 +14,19 @@ import {
 } from '@/lib/uploadValidation'
 import { createRateLimiter } from '@/lib/rateLimiter'
 
-const STORAGE_DIR = path.resolve(process.cwd(), '.storage', 'uploads')
-if (!fs.existsSync(STORAGE_DIR)) fs.mkdirSync(STORAGE_DIR, { recursive: true })
+// Use /tmp on Vercel (read-only FS outside /tmp), local .storage otherwise.
+// Lazy-initialised inside each request to avoid module-level crash on cold start.
+function getStorageDir(): string | null {
+  try {
+    const dir = process.env.VERCEL
+      ? '/tmp/nexus_uploads'
+      : path.resolve(process.cwd(), '.storage', 'uploads')
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    return dir
+  } catch {
+    return null
+  }
+}
 
 const perUserRateLimit = createRateLimiter(60 * 1000, 20)
 const perIpRateLimit = createRateLimiter(60 * 1000, 50)
@@ -91,6 +102,15 @@ export async function POST(req: NextRequest) {
   const sizeCheck = validateUploadSize(mimeType, buffer.length)
   if (!sizeCheck.valid) {
     return NextResponse.json(createUploadError(413, sizeCheck.message || 'File too large', 'FILE_TOO_LARGE'), { status: 413 })
+  }
+
+  // Resolve writable storage dir (safe on Vercel + local)
+  const STORAGE_DIR = getStorageDir()
+  if (!STORAGE_DIR) {
+    return NextResponse.json(
+      createUploadError(503, 'Local storage unavailable. Please configure Cloudinary.', 'STORAGE_UNAVAILABLE'),
+      { status: 503 }
+    )
   }
 
   const id = crypto.randomUUID()

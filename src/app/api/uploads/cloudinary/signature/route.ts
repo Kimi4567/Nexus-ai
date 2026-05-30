@@ -18,26 +18,33 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json()
-    const sessionToken = body?.sessionToken
+    const body = await req.json().catch(() => ({}))
+    const sessionToken = body?.sessionToken as string | undefined
+    const requestedFolder = body?.folder as string | undefined
 
-    if (!sessionToken) {
-      return NextResponse.json(createUploadError(400, 'Upload session token is required', 'SESSION_REQUIRED'), { status: 400 })
+    // If a sessionToken is provided, validate it (strict flow from UploadPanel).
+    // If not provided, generate a signature for the folder sent in the request body
+    // (lightweight flow used by the Media Library page).
+    let folder: string
+    let resourceType = 'auto'
+
+    if (sessionToken) {
+      const session = await prisma.uploadSession.findUnique({ where: { token: sessionToken } })
+      if (!session || session.userId !== userId) {
+        await logUploadEvent({ userId, sessionId: session?.id, eventType: 'INVALID_UPLOAD_SESSION', severity: 'WARN', metadata: { sessionToken } })
+        return NextResponse.json(createUploadError(403, 'Invalid upload session', 'INVALID_SESSION'), { status: 403 })
+      }
+      if (session.status !== 'PENDING' || session.expiresAt < new Date()) {
+        await logUploadEvent({ userId, workspaceId: session.workspaceId, sessionId: session.id, eventType: 'EXPIRED_UPLOAD_SESSION', severity: 'WARN' })
+        return NextResponse.json(createUploadError(410, 'Upload session expired', 'SESSION_EXPIRED'), { status: 410 })
+      }
+      folder = normalizeCloudinaryFolder(`nexus/${session.workspaceId}`)
+      resourceType = session.resourceType || 'auto'
+    } else {
+      // Sessionless path — sign using provided folder or a user-scoped default
+      folder = normalizeCloudinaryFolder(requestedFolder || `nexus/${userId}`)
     }
 
-    const session = await prisma.uploadSession.findUnique({ where: { token: sessionToken } })
-    if (!session || session.userId !== userId) {
-      await logUploadEvent({ userId, sessionId: session?.id, eventType: 'INVALID_UPLOAD_SESSION', severity: 'WARN', metadata: { sessionToken } })
-      return NextResponse.json(createUploadError(403, 'Invalid upload session', 'INVALID_SESSION'), { status: 403 })
-    }
-
-    if (session.status !== 'PENDING' || session.expiresAt < new Date()) {
-      await logUploadEvent({ userId, workspaceId: session.workspaceId, sessionId: session.id, eventType: 'EXPIRED_UPLOAD_SESSION', severity: 'WARN' })
-      return NextResponse.json(createUploadError(410, 'Upload session expired', 'SESSION_EXPIRED'), { status: 410 })
-    }
-
-    const resourceType = session.resourceType || 'auto'
-    const folder = normalizeCloudinaryFolder(`nexus/${session.workspaceId}`)
     const timestamp = Math.floor(Date.now() / 1000)
     const paramsToSign = `folder=${folder}&resource_type=${resourceType}&timestamp=${timestamp}`
     const signature = crypto.createHash('sha1').update(paramsToSign + process.env.CLOUDINARY_API_SECRET).digest('hex')
@@ -49,7 +56,7 @@ export async function POST(req: Request) {
       timestamp,
       folder,
       resource_type: resourceType,
-      sessionToken,
+      ...(sessionToken ? { sessionToken } : {}),
     })
   } catch (err) {
     console.error('Cloudinary signature error', err)

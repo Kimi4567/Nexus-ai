@@ -64,9 +64,7 @@ const DAY_NAME_TO_INDEX: Record<string, number> = {
   mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0,
 }
 
-const DAYS   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTHS = ['January','February','March','April','May','June',
-                'July','August','September','October','November','December']
+// DAYS and MONTHS are now locale-aware, derived inside the component via Intl
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -153,8 +151,17 @@ function extractPostsFromCampaign(campaign: any, colorIndex: number): CalendarPo
 
 export default function CalendarPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const calT = t('calendar')
+
+  // Locale-aware month and day names via Intl
+  const intlLocale = locale === 'ar' ? 'ar-SA' : 'en-US'
+  const MONTHS = Array.from({ length: 12 }, (_, i) =>
+    new Intl.DateTimeFormat(intlLocale, { month: 'long' }).format(new Date(2024, i, 1))
+  )
+  const DAYS = Array.from({ length: 7 }, (_, i) =>
+    new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }).format(new Date(2024, 0, 7 + i)) // 7=Sun,8=Mon…
+  )
   const [campaigns, setCampaigns]     = useState<any[]>([])
   const [loadingData, setLoadingData] = useState(true)
 

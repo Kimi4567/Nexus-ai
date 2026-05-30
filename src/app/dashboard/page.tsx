@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [runStrategyOpen, setRunStrategyOpen] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -219,6 +221,16 @@ export default function DashboardPage() {
               <button onClick={() => load(true)}
                 className={`p-2.5 rounded-xl border border-[rgba(108,99,255,0.15)] text-text-muted hover:text-white hover:border-[rgba(108,99,255,0.3)] transition-all ${refreshing ? 'animate-spin' : ''}`}>
                 <RefreshCw className="w-4 h-4" />
+              </button>
+              {/* Sprint A: Run Full Strategy — re-triggers the full orchestration */}
+              <button
+                onClick={() => setRunStrategyOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all hover:brightness-110"
+                style={{ background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.4)', color: '#a5a0ff' }}
+              >
+                <Sparkles className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('runStrategy.btnDashboard')}</span>
+                <span className="sm:hidden">{t('runStrategy.btnDashboard')}</span>
               </button>
               <Link href="/campaigns/new" className="btn-gradient flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white">
                 <Rocket className="w-4 h-4" />
@@ -466,6 +478,16 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {/* Sprint A: Run Full Strategy modal */}
+      <RunFullStrategyModal
+        isOpen={runStrategyOpen}
+        onClose={() => {
+          setRunStrategyOpen(false)
+          // Refresh dashboard data after a successful run
+          load(true)
+        }}
+      />
     </AppShell>
   )
 }

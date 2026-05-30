@@ -59,6 +59,9 @@ export default function MediaLibraryPage() {
       const res = await fetch(`/api/media?${params.toString()}`, {
         headers: { Authorization: authHeader() },
       })
+      if (!res.ok && res.headers.get('content-type')?.includes('text/html')) {
+        throw new Error(`Server error (${res.status})`)
+      }
       const data = await res.json()
       if (data.media) {
         setMedia(data.media)
@@ -133,6 +136,9 @@ export default function MediaLibraryPage() {
     updateTask(taskId, { status: 'UPLOADING', progress: 0 })
     try {
       const signatureResponse = await fetch('/api/uploads/cloudinary/signature', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: authHeader() }, body: JSON.stringify({ folder: 'nexus/default' }) })
+      if (!signatureResponse.ok && signatureResponse.headers.get('content-type')?.includes('text/html')) {
+        throw new Error(`Signature server error (${signatureResponse.status})`)
+      }
       const signatureData = await signatureResponse.json()
       if (!signatureResponse.ok || signatureData.error) {
         throw new Error(signatureData.error || 'Cloudinary signature failed')
