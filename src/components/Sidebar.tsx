@@ -165,6 +165,40 @@ const Icons = {
       <path d="M6 8.5h4M7 6.5h2" strokeLinecap="round"/>
     </svg>
   ),
+  calendar: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" />
+      <path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" strokeLinecap="round" />
+      <path d="M4.5 9h1.5M7.5 9h1.5M10.5 9h1.5M4.5 11.5h1.5M7.5 11.5h1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  strategy: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="6.5" />
+      <circle cx="8" cy="8" r="3.5" />
+      <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  marketing: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M1.5 11.5V9L5 5.5l3 3L13 3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 3h3v3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M1.5 13.5h13" strokeLinecap="round" />
+    </svg>
+  ),
+  templates: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" />
+      <path d="M1.5 6h13M6 6v8.5" strokeLinecap="round" />
+    </svg>
+  ),
+  media: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" />
+      <circle cx="5.5" cy="7" r="1.2" />
+      <path d="M1.5 12.5l3-3 2.5 2 2-2 4 3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 }
 
 // ── Main Sidebar ───────────────────────────────────────────────
@@ -239,6 +273,20 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
         <NavItem href="/demo" label={t('sidebar.demo')}
           icon={Icons.demo} badge={t('common.new')} badgeColor="#6C63FF" {...sharedProps} />
+
+        {/* Workspace */}
+        {!collapsed && <SectionLabel>{t('sidebar.sectionWorkspace')}</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
+        <NavItem href="/calendar" label={t('sidebar.calendar')}
+          icon={Icons.calendar} {...sharedProps} />
+        <NavItem href="/strategy" label={t('sidebar.strategy')}
+          icon={Icons.strategy} {...sharedProps} />
+        <NavItem href="/marketing" label={t('sidebar.marketing')}
+          icon={Icons.marketing} {...sharedProps} />
+        <NavItem href="/templates" label={t('sidebar.templates')}
+          icon={Icons.templates} {...sharedProps} />
+        <NavItem href="/media" label={t('sidebar.media')}
+          icon={Icons.media} {...sharedProps} />
 
       </div>
 
