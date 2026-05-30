@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/agents/history
  * Returns the last N agent runs for the user's workspace.
