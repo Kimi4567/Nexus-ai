@@ -52,10 +52,10 @@ interface AIInsight {
 
 // Agent definitions — colors match landing page
 const AGENT_DEFS = [
-  { name: 'NEX',      role: 'منتج الفيديو',   roleEn: 'Video Producer',  icon: Film,     color: '#00BFA6', glow: 'rgba(0,191,166,0.12)',  href: '/studio',    status: 'جاهز',  statusColor: '#00BFA6' },
-  { name: 'VEX',      role: 'مدير الإعلانات', roleEn: 'Ads Manager',     icon: Megaphone,color: '#FF6B35', glow: 'rgba(255,107,53,0.12)', href: '/vex',       status: 'نشط',   statusColor: '#00BFA6' },
-  { name: 'PULSE',    role: 'المحلل الذكي',   roleEn: 'Smart Analyst',   icon: BarChart3,color: '#00D4FF', glow: 'rgba(0,212,255,0.12)',  href: '/analytics', status: 'يحلّل', statusColor: '#FFB800' },
-  { name: 'SENTINEL', role: 'حارس العلامة',   roleEn: '24/7 Monitor',    icon: Shield,   color: '#FFD700', glow: 'rgba(255,215,0,0.12)',  href: '/sentinel',  status: 'يراقب', statusColor: '#00BFA6' },
+  { name: 'NEX',      role: 'dashboard.nexRole',      roleEn: 'dashboard.nexRole',      statusKey: 'dashboard.agentReady',     icon: Film,     color: '#00BFA6', glow: 'rgba(0,191,166,0.12)',  href: '/studio',    statusColor: '#00BFA6' },
+  { name: 'VEX',      role: 'dashboard.vexRole',      roleEn: 'dashboard.vexRole',      statusKey: 'dashboard.agentActive',    icon: Megaphone,color: '#FF6B35', glow: 'rgba(255,107,53,0.12)', href: '/vex',                          statusColor: '#00BFA6' },
+  { name: 'PULSE',    role: 'dashboard.pulseRole',    roleEn: 'dashboard.pulseRole',    statusKey: 'dashboard.agentAnalyzing', icon: BarChart3,color: '#00D4FF', glow: 'rgba(0,212,255,0.12)',  href: '/analytics',                    statusColor: '#FFB800' },
+  { name: 'SENTINEL', role: 'dashboard.sentinelRole', roleEn: 'dashboard.sentinelRole', statusKey: 'dashboard.agentMonitoring',icon: Shield,   color: '#FFD700', glow: 'rgba(255,215,0,0.12)',  href: '/sentinel',                     statusColor: '#00BFA6' },
 ]
 
 const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
@@ -207,10 +207,10 @@ export default function DashboardPage() {
                   <div className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" style={{ boxShadow: '0 0 6px #00BFA6' }} />
                   <span className="text-[10px] font-mono tracking-widest text-accent-teal/70">LIVE</span>
                 </div>
-                <span className="text-[10px] text-text-muted font-mono">{locale === 'ar' ? `آخر تحديث ${timeStr}` : `Updated ${timeStr}`}</span>
+                <span className="text-[10px] text-text-muted font-mono">{t('dashboard.updatedAt')} {timeStr}</span>
               </div>
               <h1 className="text-2xl font-bold font-heading mb-1 text-white">
-                {displayName ? `${t('dashboard.greeting')}، ${displayName}` : (locale === 'ar' ? 'مركز القيادة' : 'Command Center')}
+                {displayName ? `${t('dashboard.greeting')}، ${displayName}` : t('dashboard.commandCenter')}
                 {' '}<span className="text-text-muted">👋</span>
               </h1>
               <p className="text-text-secondary text-sm">{t('dashboard.subtitle')}</p>
@@ -236,14 +236,14 @@ export default function DashboardPage() {
                   <Wifi className="w-4 h-4 text-accent-teal" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-accent-teal">{locale === 'ar' ? 'ربط المنصات' : 'Connect Platforms'}</p>
+                  <p className="text-sm font-bold text-accent-teal">{t('dashboard.connectPlatforms')}</p>
                   <p className="text-xs text-text-muted">Meta · TikTok · Google · LinkedIn · Snapchat</p>
                 </div>
               </div>
               <Link href="/connections"
                 className="text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5"
                 style={{ background: 'rgba(0,191,166,0.1)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.2)' }}>
-                {locale === 'ar' ? 'ربط الحسابات' : 'Connect Accounts'} <ArrowUpRight className="w-3 h-3" />
+                {t('dashboard.connectAccounts')} <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
           )}
@@ -251,10 +251,10 @@ export default function DashboardPage() {
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: locale === 'ar' ? 'الحملات' : 'Campaigns',       value: stats?.campaigns ?? 0,       sub: locale === 'ar' ? `${stats?.activeCampaigns ?? 0} هذا الشهر` : `${stats?.activeCampaigns ?? 0} this month`,  icon: Target,   color: '#6C63FF' },
-              { label: locale === 'ar' ? 'توليدات AI' : 'AI Generations',  value: stats?.totalGenerations ?? 0, sub: locale === 'ar' ? 'إجمالي كل الوكلاء' : 'All agents total',  icon: Sparkles, color: '#00BFA6' },
-              { label: t('dashboard.statCredits'),   value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? (locale === 'ar' ? 'غير محدود ∞' : 'Unlimited ∞') : t('dashboard.remaining'), icon: Zap, color: '#00D4FF' },
-              { label: locale === 'ar' ? 'المنصات' : 'Platforms',          value: hasConnections ? '✓' : '0',  sub: hasConnections ? (locale === 'ar' ? 'متصل' : 'Connected') : (locale === 'ar' ? 'اربط الآن' : 'Connect now'), icon: Globe, color: '#FFD700' },
+              { label: t('dashboard.statCampaignLabel'), value: stats?.campaigns ?? 0,       sub: `${stats?.activeCampaigns ?? 0} ${t('dashboard.thisMonth')}`,  icon: Target,   color: '#6C63FF' },
+              { label: t('dashboard.statGenerations'),   value: stats?.totalGenerations ?? 0, sub: t('dashboard.allAgentsTotal'),  icon: Sparkles, color: '#00BFA6' },
+              { label: t('dashboard.statCredits'),       value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? t('dashboard.unlimitedCredits') : t('dashboard.remaining'), icon: Zap, color: '#00D4FF' },
+              { label: t('dashboard.statPlatforms'),     value: hasConnections ? '✓' : '0',  sub: hasConnections ? t('dashboard.connected') : t('dashboard.connectNow'), icon: Globe, color: '#FFD700' },
             ].map(s => {
               const Icon = s.icon
               return (
@@ -282,7 +282,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-accent-purple" />
-              <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">{locale === 'ar' ? 'الوكلاء الذكيون' : 'AI Agents'}</h2>
+              <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">{t('dashboard.aiAgents')}</h2>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {AGENT_DEFS.map(agent => {
@@ -298,11 +298,11 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <div className="w-1.5 h-1.5 rounded-full" style={{ background: agent.statusColor, boxShadow: `0 0 5px ${agent.statusColor}` }} />
-                        <span className="text-[9px] font-medium" style={{ color: agent.statusColor }}>{agent.status}</span>
+                        <span className="text-[9px] font-medium" style={{ color: agent.statusColor }}>{t(agent.statusKey)}</span>
                       </div>
                     </div>
                     <p className="font-bold text-sm mb-0.5" style={{ color: agent.color }}>{agent.name}</p>
-                    <p className="text-[11px] text-text-muted mb-3">{locale === 'ar' ? agent.role : agent.roleEn}</p>
+                    <p className="text-[11px] text-text-muted mb-3">{t(agent.role)}</p>
                     <div className="flex items-center gap-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ color: agent.color }}>
                       {t('dashboard.launchAgent')} <ArrowUpRight className="w-3 h-3" />
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-sm text-white">{t('dashboard.campaignsTitle')}</h3>
                 </div>
                 <Link href="/vex" className="text-[11px] text-text-muted hover:text-accent-purple transition flex items-center gap-1">
-                  {locale === 'ar' ? 'إدارة الكل' : 'Manage All'} <ChevronRight className="w-3 h-3" />
+                  {t('dashboard.manageAll')} <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
 
@@ -358,7 +358,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <div className="w-1.5 h-1.5 rounded-full" style={{ background: si.color }} />
-                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.ar : si.en}</span>
+                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.ar : si.en}</span>{/* STATUS_MAP keeps ar/en for brevity */}
                         </div>
                       </Link>
                     )
@@ -379,12 +379,12 @@ export default function DashboardPage() {
               <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
                 <div className="flex items-center gap-2 mb-4">
                   <Flame className="w-4 h-4 text-accent-purple" />
-                  <h3 className="font-bold text-sm text-white">{locale === 'ar' ? 'توصيات AI' : 'AI Insights'}</h3>
+                  <h3 className="font-bold text-sm text-white">{t('dashboard.aiInsights')}</h3>
                 </div>
                 {insights.length === 0 ? (
                   <div className="text-center py-6">
                     <CheckCircle2 className="w-8 h-8 text-accent-teal/40 mx-auto mb-2" />
-                    <p className="text-xs text-text-muted">{locale === 'ar' ? 'كل شيء يسير على ما يرام' : 'Everything looks great'}</p>
+                    <p className="text-xs text-text-muted">{t('dashboard.allGood')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
@@ -414,7 +414,7 @@ export default function DashboardPage() {
                   <div className="text-center py-6">
                     <Shield className="w-8 h-8 text-accent-teal/30 mx-auto mb-2" />
                     <p className="text-xs text-text-muted">{t('sentinel.noAlerts')}</p>
-                    <p className="text-[10px] text-text-muted mt-0.5">{locale === 'ar' ? 'Sentinel يراقب ٢٤/٧' : 'Sentinel monitors 24/7'}</p>
+                    <p className="text-[10px] text-text-muted mt-0.5">{t('dashboard.sentinelMonitors')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -432,7 +432,7 @@ export default function DashboardPage() {
                       )
                     })}
                     <Link href="/sentinel" className="flex items-center justify-center gap-1 pt-1 text-[10px] text-text-muted hover:text-accent-teal transition">
-                      {locale === 'ar' ? 'عرض جميع التنبيهات' : 'View All Alerts'} <ChevronRight className="w-3 h-3" />
+                      {t('dashboard.viewAllAlerts')} <ChevronRight className="w-3 h-3" />
                     </Link>
                   </div>
                 )}
@@ -448,17 +448,17 @@ export default function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { ar: 'حملة جديدة',   en: 'New Campaign', href: '/campaigns/new', color: '#6C63FF' },
-                { ar: 'سكريبت فيديو', en: 'Video Script',  href: '/studio',        color: '#00BFA6' },
-                { ar: 'نسخة إعلانية', en: 'Ad Copy',       href: '/vex',           color: '#FF6B35' },
-                { ar: 'تحليل الأداء', en: 'Analytics',     href: '/analytics',     color: '#00D4FF' },
-                { ar: 'مراقبة السوق', en: 'Market Watch',  href: '/sentinel',      color: '#FFD700' },
-                { ar: 'ربط المنصات',  en: 'Connect',       href: '/connections',   color: '#00BFA6' },
+                { key: 'dashboard.quickNewCampaign',   href: '/campaigns/new', color: '#6C63FF' },
+                { key: 'dashboard.quickVideoScript',   href: '/studio',        color: '#00BFA6' },
+                { key: 'dashboard.quickAdCopy',        href: '/vex',           color: '#FF6B35' },
+                { key: 'dashboard.quickAnalytics',     href: '/analytics',     color: '#00D4FF' },
+                { key: 'dashboard.quickMarketWatch',   href: '/sentinel',      color: '#FFD700' },
+                { key: 'dashboard.quickConnect',       href: '/connections',   color: '#00BFA6' },
               ].map(qa => (
                 <Link key={qa.href} href={qa.href}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-[1.02]"
                   style={{ background: `${qa.color}08`, border: `1px solid ${qa.color}18`, color: qa.color }}>
-                  {locale === 'ar' ? qa.ar : qa.en}
+                  {t(qa.key)}
                 </Link>
               ))}
             </div>

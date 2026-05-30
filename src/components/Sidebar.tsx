@@ -173,6 +173,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
   const { locale, setLocale, t, dir } = useI18n()
+  // locale is used for language toggle button logic
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Account'
@@ -209,19 +210,19 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       <div className="flex-1 overflow-y-auto py-3 px-2">
 
         {/* Main */}
-        <NavItem href="/dashboard" label={locale === 'ar' ? 'الرئيسية' : 'Dashboard'}
+        <NavItem href="/dashboard" label={t('sidebar.home')}
           icon={Icons.dashboard} {...sharedProps} />
-        <NavItem href="/brand" label="Brand Brain"
+        <NavItem href="/brand" label={t('sidebar.brand')}
           icon={Icons.brain} dot="#00BFA6" {...sharedProps} />
 
         {/* Platform */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'المنصات' : 'Platforms'}</SectionLabel>}
+        {!collapsed && <SectionLabel>{t('sidebar.sectionPlatforms')}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-        <NavItem href="/connections" label={locale === 'ar' ? 'ربط المنصات' : 'Connect'}
-          icon={Icons.connections} badge={locale === 'ar' ? 'مهم' : 'Setup'} badgeColor="#00BFA6" {...sharedProps} />
+        <NavItem href="/connections" label={t('sidebar.connect')}
+          icon={Icons.connections} badge={t('sidebar.badgeSetup')} badgeColor="#00BFA6" {...sharedProps} />
 
         {/* AI Agents */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'الوكلاء الذكيون' : 'AI Agents'}</SectionLabel>}
+        {!collapsed && <SectionLabel>{t('sidebar.sectionAgents')}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
 
         <NavItem href="/studio" label="NEX"
@@ -234,10 +235,10 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           icon={Icons.shield} dot="#FFD700" {...sharedProps} />
 
         {/* Demo */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'عرض تجريبي' : 'Preview'}</SectionLabel>}
+        {!collapsed && <SectionLabel>{t('sidebar.sectionPreview')}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-        <NavItem href="/demo" label={locale === 'ar' ? 'نسخة تجريبية' : 'Demo'}
-          icon={Icons.demo} badge={locale === 'ar' ? 'جديد' : 'New'} badgeColor="#6C63FF" {...sharedProps} />
+        <NavItem href="/demo" label={t('sidebar.demo')}
+          icon={Icons.demo} badge={t('common.new')} badgeColor="#6C63FF" {...sharedProps} />
 
       </div>
 
@@ -252,21 +253,21 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)' }}>
             <span className="text-sm" style={{ color: '#6C63FF' }}>⚡</span>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold leading-none mb-0.5" style={{ color: '#6C63FF' }}>{locale === 'ar' ? 'ترقية للـ Pro' : 'Upgrade to Pro'}</div>
-              <div className="text-[10px] leading-none text-text-muted">{locale === 'ar' ? 'افتح كل الإمكانيات' : 'Unlock everything'}</div>
+              <div className="text-[11px] font-semibold leading-none mb-0.5" style={{ color: '#6C63FF' }}>{t('sidebar.upgradePro')}</div>
+              <div className="text-[10px] leading-none text-text-muted">{t('sidebar.unlockAll')}</div>
             </div>
           </Link>
         )}
 
-        <NavItem href="/settings" label={locale === 'ar' ? 'الإعدادات' : 'Settings'}
+        <NavItem href="/settings" label={t('sidebar.settings')}
           icon={Icons.settings} {...sharedProps} />
-        <NavItem href="/billing" label={locale === 'ar' ? 'الفواتير' : 'Billing'}
+        <NavItem href="/billing" label={t('sidebar.billing')}
           icon={Icons.billing} {...sharedProps} />
 
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1 text-text-muted hover:text-text-secondary hover:bg-white/5"
-          title={collapsed ? 'Expand' : 'Collapse'}>
+          title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
             className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
             <path d="M9 2L4 7l5 5" />
@@ -280,7 +281,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
-            <span>{locale === 'ar' ? 'English' : 'العربية'}</span>
+            <span>{t('language.switchLabel')}</span>
           </button>
         )}
 
@@ -310,8 +311,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                 </div>
                 <div className="py-1.5 px-1">
                   {[
-                    { href: '/settings', label: locale === 'ar' ? 'الإعدادات' : 'Settings' },
-                    { href: '/billing',  label: locale === 'ar' ? 'الفواتير'  : 'Billing' },
+                    { href: '/settings', label: t('sidebar.settings') },
+                    { href: '/billing',  label: t('sidebar.billing') },
                   ].map(item => (
                     <Link key={item.href} href={item.href} onClick={() => { setUserMenuOpen(false); click() }}
                       className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-text-secondary hover:text-white hover:bg-white/5">
