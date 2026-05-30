@@ -137,6 +137,40 @@ export default function SentinelPage() {
     return () => clearInterval(timer)
   }, [])
 
+  // Auto-populate industry dropdown from Brand Brain
+  useEffect(() => {
+    if (!brand?.industry) return
+    const val = brand.industry.toLowerCase().trim()
+    const map: Record<string, string> = {
+      'tech': 'tech', 'tech & apps': 'tech', 'تقنية': 'tech', 'تقنية وتطبيقات': 'tech',
+      'ecommerce': 'ecommerce', 'e-commerce': 'ecommerce', 'تجارة': 'ecommerce', 'تجارة إلكترونية': 'ecommerce',
+      'food': 'food', 'food & beverage': 'food', 'مطاعم': 'food', 'مطاعم وأغذية': 'food',
+      'fashion': 'fashion', 'موضة': 'fashion', 'موضة وأزياء': 'fashion',
+      'health': 'health', 'health & beauty': 'health', 'صحة': 'health', 'صحة وجمال': 'health',
+      'realestate': 'realestate', 'real estate': 'realestate', 'عقارات': 'realestate',
+      'education': 'education', 'تعليم': 'education', 'تعليم وتدريب': 'education',
+      'services': 'services', 'خدمات': 'services',
+    }
+    const matched = map[val]
+    if (matched) setIndustry(matched)
+  }, [brand])
+
+  // Auto-populate region dropdown from Brand Brain
+  useEffect(() => {
+    if (!brand?.audienceLocation) return
+    const val = brand.audienceLocation.toLowerCase().trim()
+    const map: Record<string, string> = {
+      'uae': 'uae', 'dubai': 'uae', 'abu dhabi': 'uae', 'الإمارات': 'uae', 'دبي': 'uae',
+      'saudi': 'saudi', 'saudi arabia': 'saudi', 'ksa': 'saudi', 'السعودية': 'saudi', 'المملكة العربية السعودية': 'saudi',
+      'egypt': 'egypt', 'مصر': 'egypt',
+      'gcc': 'gcc', 'الخليج': 'gcc', 'دول الخليج': 'gcc',
+      'mena': 'mena', 'الشرق الأوسط': 'mena',
+      'global': 'global', 'عالمي': 'global',
+    }
+    const matched = map[val]
+    if (matched) setRegion(matched)
+  }, [brand])
+
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
       <Loader2 className="animate-spin" size={32} style={{ color: '#10b981' }} />
@@ -211,6 +245,56 @@ export default function SentinelPage() {
     { icon: AlertTriangle, color: '#ef4444', labelKey: 'sentinel.capThreatsLabel',     descKey: 'sentinel.capThreatsDesc' },
   ]
 
+  // Brand-aware alerts — read Brand Brain state instead of showing a hardcoded generic message
+  const sg = t('sentinel') as Record<string, string>
+  const hasBrainData = !!(brand?.industry || brand?.competitorNotes || brand?.targetAudience)
+  const brandAlerts: Alert[] = hasBrainData
+    ? [
+        {
+          id: 'ba-1',
+          type: 'info' as const,
+          title: sg.brainReadyTitle,
+          body: sg.brainReadyBody,
+          time: locale === 'ar' ? 'الآن' : 'Now',
+        },
+        ...(brand?.industry ? [{
+          id: 'ba-2',
+          type: 'opportunity' as const,
+          title: `${sg.brainIndustry}: ${brand.industry}`,
+          body: brand.competitorNotes
+            ? `${sg.brainCompetitors}: ${brand.competitorNotes.slice(0, 80)}`
+            : sg.addCompetitorsHint,
+          time: locale === 'ar' ? 'نشط' : 'Active',
+        }] : []),
+        ...(brand?.audienceLocation ? [{
+          id: 'ba-3',
+          type: 'info' as const,
+          title: `${sg.brainLocation}: ${brand.audienceLocation}`,
+          body: brand.topPlatforms?.length
+            ? `${sg.brainPlatforms}: ${brand.topPlatforms.join(', ')}`
+            : locale === 'ar' ? 'المنطقة الجغرافية المستهدفة' : 'Target region defined',
+          time: locale === 'ar' ? 'نشط' : 'Active',
+        }] : []),
+      ]
+    : [
+        {
+          id: 'ba-1',
+          type: 'info' as const,
+          title: locale === 'ar' ? 'Sentinel جاهز للمراقبة' : 'Sentinel is ready to monitor',
+          body: sg.addCompetitorsHint,
+          time: locale === 'ar' ? 'الآن' : 'Now',
+        },
+        {
+          id: 'ba-2',
+          type: 'opportunity' as const,
+          title: locale === 'ar' ? 'ربط المنصات يفتح رؤى أعمق' : 'Connect platforms for deeper insights',
+          body: locale === 'ar'
+            ? 'اذهب لـ Connections واربط حساباتك لتفعيل التنبيهات'
+            : 'Go to Connections and link your accounts to enable alerts',
+          time: locale === 'ar' ? 'نصيحة' : 'Tip',
+        },
+      ]
+
   return (
     <AppShell>
       <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
@@ -281,13 +365,7 @@ export default function SentinelPage() {
               </div>
             </div>
             <div className="space-y-2">
-              {(locale === 'ar' ? [
-                { id: '1', type: 'info'        as const, title: 'Sentinel جاهز للمراقبة',    body: 'ابدأ بكتابة اسم منافسيك أو قطاعك لتفعيل المراقبة',         time: 'الآن' },
-                { id: '2', type: 'opportunity' as const, title: 'ربط المنصات يفتح رؤى أعمق', body: 'اذهب لـ Connections واربط حساباتك لتفعيل التنبيهات الحية', time: 'نصيحة' },
-              ] : [
-                { id: '1', type: 'info'        as const, title: 'Sentinel is ready to monitor', body: 'Start by writing your competitors or industry to activate monitoring', time: 'Now' },
-                { id: '2', type: 'opportunity' as const, title: 'Connect platforms for deeper insights', body: 'Go to Connections and link your accounts to enable live alerts', time: 'Tip' },
-              ]).map(a => <AlertCard key={a.id} alert={a} />)}
+              {brandAlerts.map(a => <AlertCard key={a.id} alert={a} />)}
             </div>
           </div>
 
