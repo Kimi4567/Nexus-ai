@@ -16,3 +16,4 @@ app_backup_*
 
 # FUSE temp files
 .fuse_hidden*
+.env

@@ -1,273 +1,513 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, useContext } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { motion, useInView, useMotionValue, useTransform } from 'framer-motion'
+import { motion, useInView, useMotionValue, useTransform, AnimatePresence } from 'framer-motion'
 import {
   Compass, Sparkles, Megaphone, Activity, ShieldCheck, Brain,
-  Users, CheckCircle, Rocket, MessageCircle,
-  CreditCard, Cpu, Camera, Music, Search, ArrowRight,
-  Star, ChevronLeft, ChevronRight, Play, Globe, Menu, X,
+  Users, CheckCircle, Rocket, ArrowRight, Play, Globe, Menu, X,
+  ChevronDown, Lock, Eye, Zap, Target, TrendingUp, BarChart3,
+  MessageCircle, CreditCard, Cpu, Database, Mail, Cloud,
+  ChevronLeft, ChevronRight, Star, AlertCircle, HelpCircle,
+  Building2, UtensilsCrossed, Heart, Dumbbell, ShoppingBag,
+  Scissors, MapPin, Diamond,
 } from 'lucide-react'
 import { useTranslation } from '@/i18n'
-import { LanguageContext } from '@/contexts/LanguageContext'
 
-/* ─── Particle Background ─── */
+/* ─────────────────────────────────────────────────────────────
+   PARTICLE BACKGROUND
+───────────────────────────────────────────────────────────── */
 function ParticleBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const mouseRef = useRef({ x: -1000, y: -1000 })
+
   useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return
-    const ctx = canvas.getContext('2d'); if (!ctx) return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
     let w = 0, h = 0, animId = 0
     const particles: { x: number; y: number; vx: number; vy: number; r: number; color: string }[] = []
+
     const resize = () => { w = canvas.width = canvas.offsetWidth; h = canvas.height = canvas.offsetHeight }
     const init = () => {
       particles.length = 0
-      const n = window.innerWidth < 768 ? 25 : 50
-      for (let i = 0; i < n; i++) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, r: Math.random() * 2 + 1, color: Math.random() > 0.5 ? 'rgba(108,99,255,0.35)' : 'rgba(0,191,166,0.3)' })
+      const n = window.innerWidth < 768 ? 20 : 45
+      for (let i = 0; i < n; i++) particles.push({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 1.5 + 1,
+        color: Math.random() > 0.5 ? 'rgba(108,99,255,0.35)' : 'rgba(0,191,166,0.25)',
+      })
     }
     const draw = () => {
       ctx.clearRect(0, 0, w, h)
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i]
-        const dx = p.x - mouseRef.current.x, dy = p.y - mouseRef.current.y, dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist < 200 && dist > 0) { const f = (200 - dist) / 200; p.vx += (dx / dist) * f * 0.5; p.vy += (dy / dist) * f * 0.5 }
+        const dx = p.x - mouseRef.current.x, dy = p.y - mouseRef.current.y
+        const d = Math.sqrt(dx * dx + dy * dy)
+        if (d < 180) { const f = (180 - d) / 180; p.vx += (dx / d) * f * 0.3; p.vy += (dy / d) * f * 0.3 }
         p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.vy *= 0.99
-        if (p.x < 0) p.x = w; if (p.x > w) p.x = 0; if (p.y < 0) p.y = h; if (p.y > h) p.y = 0
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill()
+        if (p.x < 0) p.x = w; if (p.x > w) p.x = 0
+        if (p.y < 0) p.y = h; if (p.y > h) p.y = 0
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = p.color; ctx.fill()
         for (let j = i + 1; j < particles.length; j++) {
-          const q = particles[j], d = Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2)
-          if (d < 150) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = `rgba(108,99,255,${0.08 * (1 - d / 150)})`; ctx.lineWidth = 0.5; ctx.stroke() }
+          const q = particles[j], dd = Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2)
+          if (dd < 120) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = `rgba(108,99,255,${0.07 * (1 - dd / 120)})`; ctx.lineWidth = 0.5; ctx.stroke() }
         }
       }
       animId = requestAnimationFrame(draw)
     }
     resize(); init(); draw()
-    const onMove = (e: MouseEvent) => { const r = canvas.getBoundingClientRect(); mouseRef.current = { x: e.clientX - r.left, y: e.clientY - r.top } }
-    const onLeave = () => { mouseRef.current = { x: -1000, y: -1000 } }
-    canvas.addEventListener('mousemove', onMove, { passive: true }); canvas.addEventListener('mouseleave', onLeave); window.addEventListener('resize', resize)
-    return () => { cancelAnimationFrame(animId); canvas.removeEventListener('mousemove', onMove); canvas.removeEventListener('mouseleave', onLeave); window.removeEventListener('resize', resize) }
+    canvas.addEventListener('mousemove', (e) => { const r = canvas.getBoundingClientRect(); mouseRef.current = { x: e.clientX - r.left, y: e.clientY - r.top } }, { passive: true })
+    window.addEventListener('resize', () => { resize(); init() })
+    return () => cancelAnimationFrame(animId)
   }, [])
+
   return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 1 }} />
 }
 
-/* ─── Scroll Reveal ─── */
-function Reveal({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+/* ─────────────────────────────────────────────────────────────
+   HELPERS
+───────────────────────────────────────────────────────── */
+function Reveal({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-50px' })
+  const inView = useInView(ref, { once: true, margin: '-60px' })
   return (
-    <motion.div ref={ref} initial={{ opacity: 0, y: 30 }} animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.6, delay, ease: [0.25, 0.46, 0.45, 0.94] }} className={className}>
+    <motion.div ref={ref} initial={{ opacity: 0, y: 28 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.65, delay, ease: [0.25, 0.46, 0.45, 0.94] as [number,number,number,number] }}
+      className={className}>
       {children}
     </motion.div>
   )
 }
 
-/* ─── Tilt Card ─── */
-function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
-  const mx = useMotionValue(0), my = useMotionValue(0)
-  const rotateX = useTransform(my, [-100, 100], [5, -5])
-  const rotateY = useTransform(mx, [-100, 100], [-5, 5])
-  const onMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => { const r = e.currentTarget.getBoundingClientRect(); mx.set(e.clientX - r.left - r.width / 2); my.set(e.clientY - r.top - r.height / 2) }, [mx, my])
-  const onLeave = useCallback(() => { mx.set(0); my.set(0) }, [mx, my])
-  return <motion.div style={{ rotateX, rotateY, transformStyle: 'preserve-3d', perspective: 1000 }} onMouseMove={onMove} onMouseLeave={onLeave} className={className}>{children}</motion.div>
+function SectionLabel({ text, color = 'text-accent-purple' }: { text: string; color?: string }) {
+  return <p className={`font-mono text-[11px] font-semibold uppercase tracking-[3px] ${color} mb-3`}>{text}</p>
 }
 
-/* ─── Navbar ─── */
-function Navbar() {
-  const { t, lang } = useTranslation()
-  const { setLang } = useContext(LanguageContext)
-  const [scrolled, setScrolled] = useState(false)
-  const [open, setOpen] = useState(false)
-  const isRTL = lang === 'ar'
-  useEffect(() => { const fn = () => setScrolled(window.scrollY > 20); window.addEventListener('scroll', fn, { passive: true }); return () => window.removeEventListener('scroll', fn) }, [])
+function SectionHeading({ children, center = false }: { children: React.ReactNode; center?: boolean }) {
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'backdrop-blur-xl' : ''}`}
-      style={scrolled ? { background: 'rgba(10,14,39,0.95)', borderBottom: '1px solid rgba(108,99,255,0.15)' } : {}}>
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className={`flex items-center justify-between h-16`} dir={isRTL ? 'rtl' : 'ltr'}>
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center"><Sparkles size={16} className="text-white" /></div>
-            <span className="font-heading font-bold text-white text-lg">NEXUS AI</span>
+    <h2 className={`font-heading text-[28px] sm:text-[36px] lg:text-[44px] font-bold text-white leading-[1.12] tracking-[-1.5px] ${center ? 'text-center' : ''}`}>
+      {children}
+    </h2>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NAVBAR
+───────────────────────────────────────────────────────── */
+function Navbar() {
+  const { lang, setLang, t } = useTranslation()
+  const [scrolled, setScrolled] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 40)
+    window.addEventListener('scroll', fn, { passive: true })
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
+
+  const links = [
+    { label: lang === 'ar' ? 'الوكلاء' : 'Agents', href: '#agents' },
+    { label: lang === 'ar' ? 'كيف يعمل' : 'How It Works', href: '#workflow' },
+    { label: lang === 'ar' ? 'الأسعار' : 'Pricing', href: '#pricing' },
+    { label: lang === 'ar' ? 'الصناعات' : 'Industries', href: '#industries' },
+  ]
+
+  return (
+    <header className={`fixed top-0 inset-x-0 z-50 h-[68px] flex items-center transition-all duration-300 ${scrolled ? 'bg-[rgba(10,14,39,0.92)] backdrop-blur-[14px] border-b border-[rgba(108,99,255,0.12)]' : 'bg-transparent'}`}>
+      <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          <span className="font-heading font-bold text-[20px] text-white tracking-tight">NEXUS</span>
+          <span className="bg-accent-purple text-white text-[10px] font-bold px-1.5 py-0.5 rounded">AI</span>
+        </Link>
+
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-8">
+          {links.map(l => (
+            <a key={l.href} href={l.href}
+              className="font-heading text-[13px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors">
+              {l.label}
+            </a>
+          ))}
+        </nav>
+
+        {/* Desktop CTAs */}
+        <div className="hidden md:flex items-center gap-3">
+          <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-text-secondary hover:text-white transition-colors px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)]">
+            <Globe size={13} />{lang === 'ar' ? 'English' : 'العربية'}
+          </button>
+          <Link href="/auth/login" className="font-heading text-[13px] font-medium text-text-secondary hover:text-white transition-colors px-4 py-2">
+            {lang === 'ar' ? 'تسجيل الدخول' : 'Sign In'}
           </Link>
-          <nav className="hidden md:flex items-center gap-6">
-            {[{ href: '#how-it-works', label: t('nav.howItWorks') }, { href: '#pricing', label: t('nav.pricing') }, { href: '#agents', label: t('nav.aiTeam') }].map(item => (
-              <a key={item.href} href={item.href} className="text-sm transition-colors hover:text-white" style={{ color: '#8892B0' }}>{item.label}</a>
-            ))}
-          </nav>
-          <div className="hidden md:flex items-center gap-3">
-            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:text-white" style={{ color: '#8892B0', border: '1px solid rgba(108,99,255,0.2)' }}>
-              <Globe size={13} />{lang === 'ar' ? 'EN' : 'عربي'}
-            </button>
-            <Link href="/auth/login" className="text-sm px-3 py-1.5 transition-colors hover:text-white" style={{ color: '#8892B0' }}>{t('nav.login')}</Link>
-            <Link href="/auth/register" className="btn-gradient text-sm font-semibold text-white px-5 py-2 rounded-xl">{t('nav.startFreeTrial')}</Link>
-          </div>
-          <button className="md:hidden text-white p-2" onClick={() => setOpen(!open)}>{open ? <X size={20} /> : <Menu size={20} />}</button>
+          <Link href="/auth/register" className="btn-gradient font-heading text-[13px] font-semibold text-white px-5 py-2.5 rounded-lg">
+            {lang === 'ar' ? 'ابدأ مجاناً' : 'Start Free'}
+          </Link>
         </div>
-        {open && (
-          <div className="md:hidden glass-panel rounded-xl p-4 mb-4 space-y-3" dir={isRTL ? 'rtl' : 'ltr'}>
-            <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')} className="flex items-center gap-2 text-sm w-full" style={{ color: '#8892B0' }}>
-              <Globe size={14} />{lang === 'ar' ? 'Switch to English' : 'التبديل للعربية'}
-            </button>
-            <a href="#how-it-works" className="block text-sm" style={{ color: '#8892B0' }} onClick={() => setOpen(false)}>{t('nav.howItWorks')}</a>
-            <a href="#pricing" className="block text-sm" style={{ color: '#8892B0' }} onClick={() => setOpen(false)}>{t('nav.pricing')}</a>
-            <Link href="/auth/login" className="block text-sm" style={{ color: '#8892B0' }}>{t('nav.login')}</Link>
-            <Link href="/auth/register" className="btn-gradient text-sm font-semibold text-white px-4 py-2 rounded-xl block text-center">{t('nav.startFreeTrial')}</Link>
-          </div>
-        )}
+
+        {/* Mobile */}
+        <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 text-white">
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </div>
+
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            className="fixed inset-0 top-[68px] z-40 bg-bg-base/98 backdrop-blur-xl md:hidden flex flex-col items-center pt-12 gap-6">
+            {links.map(l => (
+              <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
+                className="font-heading text-[18px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors">
+                {l.label}
+              </a>
+            ))}
+            <div className="flex flex-col items-center gap-3 mt-4">
+              <button onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
+                className="flex items-center gap-2 text-text-secondary hover:text-white text-[14px]">
+                <Globe size={14} />{lang === 'ar' ? 'English' : 'العربية'}
+              </button>
+              <Link href="/auth/login" onClick={() => setMobileOpen(false)} className="text-text-secondary text-[16px] hover:text-white">
+                {lang === 'ar' ? 'تسجيل الدخول' : 'Sign In'}
+              </Link>
+              <Link href="/auth/register" onClick={() => setMobileOpen(false)} className="btn-gradient text-white font-semibold px-8 py-3 rounded-lg text-[15px]">
+                {lang === 'ar' ? 'ابدأ مجاناً' : 'Start Free'}
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   )
 }
 
-/* ═══════════════════════════════════════════════
-   MAIN LANDING PAGE
-   ═══════════════════════════════════════════════ */
-export default function LandingPage() {
-  const { t, lang } = useTranslation()
-  const isRTL = lang === 'ar'
+/* ─────────────────────────────────────────────────────────────
+   HOME PAGE
+───────────────────────────────────────────────────────── */
+export default function HomePage() {
+  const { lang } = useTranslation()
+  const ar = lang === 'ar'
+  const dir = ar ? 'rtl' : 'ltr'
+  const [faqOpen, setFaqOpen] = useState<number | null>(null)
   const [testimonialIdx, setTestimonialIdx] = useState(0)
 
+  /* ── DATA ── */
   const agents = [
-    { id: 'strategist', name: 'STRATEGIST', title: t('home.strategistTitle'), desc: t('home.strategistDesc'), icon: Compass, color: '#6C63FF' },
-    { id: 'nex', name: 'NEX', title: t('home.nexTitle'), desc: t('home.nexDesc'), icon: Sparkles, color: '#00BFA6' },
-    { id: 'vex', name: 'VEX', title: t('home.vexTitle'), desc: t('home.vexDesc'), icon: Megaphone, color: '#FF6B35' },
-    { id: 'pulse', name: 'PULSE', title: t('home.pulseTitle'), desc: t('home.pulseDesc'), icon: Activity, color: '#00D4FF' },
-    { id: 'sentinel', name: 'SENTINEL', title: t('home.sentinelTitle'), desc: t('home.sentinelDesc'), icon: ShieldCheck, color: '#FFD700' },
-  ]
-  const steps = [
-    { num: '01', title: t('home.shareBusiness'), desc: t('home.shareBusinessDesc'), icon: Users },
-    { num: '02', title: t('home.buildBrain'), desc: t('home.buildBrainDesc'), icon: Brain },
-    { num: '03', title: t('home.aiCollaborates'), desc: t('home.aiCollaboratesDesc'), icon: Sparkles },
-    { num: '04', title: t('home.reviewApprove'), desc: t('home.reviewApproveDesc'), icon: CheckCircle },
-    { num: '05', title: t('home.executeImprove'), desc: t('home.executeImproveDesc'), icon: Rocket },
-  ]
-  const platforms = [
-    { name: t('settings.meta'), desc: t('settings.metaDesc'), icon: Globe, connected: true },
-    { name: t('settings.tiktok'), desc: t('settings.tiktokDesc'), icon: Music, connected: true },
-    { name: t('settings.googleAds'), desc: t('settings.googleAdsDesc'), icon: Search, connected: true },
-    { name: t('settings.linkedin'), desc: t('settings.linkedinDesc'), icon: Search, connected: false },
-    { name: t('settings.snapchat'), desc: t('settings.snapchatDesc'), icon: Camera, connected: false },
-    { name: t('settings.whatsapp'), desc: t('settings.whatsappDesc'), icon: MessageCircle, connected: true },
-    { name: t('settings.stripe'), desc: t('settings.stripeDesc'), icon: CreditCard, connected: true },
-    { name: t('settings.openai'), desc: t('settings.openaiDesc'), icon: Cpu, connected: true },
-  ]
-  const industries = [
-    { name: t('home.restaurantsCafes'), desc: t('home.restaurantsCafesDesc'), color: '#FF6B35' },
-    { name: t('home.realEstate'), desc: t('home.realEstateDesc'), color: '#6C63FF' },
-    { name: t('home.medicalClinics'), desc: t('home.medicalClinicsDesc'), color: '#00D4FF' },
-    { name: t('home.beautySalons'), desc: t('home.beautySalonsDesc'), color: '#FF69B4' },
-    { name: t('home.fitnessGyms'), desc: t('home.fitnessGymsDesc'), color: '#00BFA6' },
-    { name: t('home.ecommerce'), desc: t('home.ecommerceDesc'), color: '#FFB800' },
-  ]
-  const testimonials = [
-    { quote: isRTL ? 'فهم NEXUS AI صوت علامتنا التجارية في دقائق. المحتوى يبدو وكأنه كُتب بواسطة شخص كان جزءاً من فريقنا لسنوات.' : "NEXUS AI understood our brand voice within minutes. The content feels like it was written by someone who's been part of our team for years.", name: 'Ahmed Al-Rashid', role: isRTL ? 'مالك، مطعم زهرة الشام' : 'Owner, Zahrat Al-Sham Restaurant' },
-    { quote: isRTL ? 'سير عمل الموافقة يمنحنا تحكماً كاملاً. لا شيء يُنشر دون موافقتنا الصريحة.' : 'The approval workflow gives us complete control. Nothing goes out without our explicit approval.', name: 'Fatima Hassan', role: isRTL ? 'مدير تسويق، لومينا للعقارات' : 'Marketing Director, Lumina Real Estate' },
-    { quote: isRTL ? 'انتقلنا إلى استراتيجية كاملة لـ 90 يوماً مع تقويمات محتوى في أقل من أسبوع.' : 'We went from zero marketing structure to a full 90-day strategy with content calendars in under a week.', name: 'Omar Khalil', role: isRTL ? 'الرئيس التنفيذي، بولس فيتنس دبي' : 'CEO, Pulse Fitness Dubai' },
-  ]
-  const stats = [
-    { value: '500+', label: isRTL ? 'شركة تم تأهيلها' : 'Businesses Onboarded' },
-    { value: '50K+', label: isRTL ? 'قطعة محتوى' : 'Content Pieces Generated' },
-    { value: '10K+', label: isRTL ? 'حملة مخططة' : 'Campaigns Planned' },
-    { value: '98%', label: isRTL ? 'رضا الموافقة' : 'Approval Satisfaction' },
-  ]
-  const plans = [
-    { name: t('home.starter'), price: '499', desc: isRTL ? 'للشركات الصغيرة' : 'For small businesses', features: isRTL ? ['وكيلان ذكاء اصطناعي', '20 قطعة محتوى/شهر', '3 حملات', 'دعم عبر البريد'] : ['2 AI Agents', '20 Content/mo', '3 Campaigns', 'Email Support'], cta: t('home.startTrial'), featured: false },
-    { name: t('home.professional'), price: '1,299', desc: isRTL ? 'للفرق المتنامية' : 'For growing teams', features: isRTL ? ['جميع الوكلاء الـ 5', '100 قطعة محتوى/شهر', '10 حملات', 'تقارير متقدمة', 'سير عمل الموافقة'] : ['All 5 AI Agents', '100 Content/mo', '10 Campaigns', 'Advanced Reports', 'Approval Workflows'], cta: t('home.startTrial'), featured: true },
-    { name: t('home.business'), price: '2,999', desc: isRTL ? 'للعلامات الراسخة' : 'For established brands', features: isRTL ? ['كل شيء في المحترف', 'محتوى غير محدود', 'مدير مخصص', 'وصول API'] : ['Everything in Pro', 'Unlimited Content', 'Dedicated Manager', 'API Access'], cta: t('home.contactSales'), featured: false },
+    {
+      name: 'STRATEGIST', color: '#6C63FF', icon: Compass,
+      role: ar ? 'المخطط الاستراتيجي' : 'Strategic Planner',
+      desc: ar ? 'يحلل السوق والمنافسين ويبني خطة تسويق 90 يوماً مخصصة لعملك.' : 'Analyzes your market, competitors, and builds a 90-day marketing plan tailored to your business.',
+      output: ar ? 'خطة تسويق كاملة · تحليل منافسين · تقويم محتوى' : 'Full marketing plan · Competitor analysis · Content calendar',
+    },
+    {
+      name: 'NEX', color: '#00BFA6', icon: Sparkles,
+      role: ar ? 'منشئ المحتوى' : 'Content Creator',
+      desc: ar ? 'يكتب الكابشن والسكريبت والنصوص الإعلانية باللغتين العربية والإنجليزية بصوت علامتك التجارية.' : 'Writes captions, scripts, and ad copy in Arabic and English — in your brand voice.',
+      output: ar ? 'كابشن · سكريبت · محتوى بريد إلكتروني · نصوص SEO' : 'Captions · Scripts · Email copy · SEO content',
+    },
+    {
+      name: 'VEX', color: '#FF6B35', icon: Megaphone,
+      role: ar ? 'مدير الحملات الإعلانية' : 'Ad Campaign Manager',
+      desc: ar ? 'يبني هيكل الحملات الإعلانية مع الاستهداف والميزانيات ونصوص الإعلانات جاهزة للمراجعة.' : 'Builds ad campaign structures with targeting, budgets, and ad copy — ready for your review.',
+      output: ar ? 'هيكل الحملة · نصوص الإعلانات · استهداف الجمهور' : 'Campaign structure · Ad copy · Audience targeting',
+    },
+    {
+      name: 'PULSE', color: '#00D4FF', icon: Activity,
+      role: ar ? 'محلل الأداء' : 'Performance Analyst',
+      desc: ar ? 'يراقب الأداء ويحلل البيانات ويقترح تحسينات مبنية على الأرقام.' : 'Monitors performance, analyzes data, and recommends data-driven improvements.',
+      output: ar ? 'تقارير الأداء · رؤى قابلة للتنفيذ · تنبيهات' : 'Performance reports · Actionable insights · Alerts',
+    },
+    {
+      name: 'SENTINEL', color: '#FFD700', icon: ShieldCheck,
+      role: ar ? 'حارس العلامة التجارية' : 'Brand Safety Monitor',
+      desc: ar ? 'يراقب المنافسين وسمعة العلامة التجارية ويرصد الفرص والمخاطر في السوق.' : 'Monitors competitors, brand reputation, and identifies market opportunities and risks.',
+      output: ar ? 'تقارير المنافسين · تنبيهات السمعة · رصد السوق' : 'Competitor reports · Reputation alerts · Market monitoring',
+    },
   ]
 
-  const C = { purple: '#6C63FF', teal: '#00BFA6', muted: '#8892B0', dim: '#5A6A8C', surface: 'rgba(15,19,50,0.6)', border: 'rgba(108,99,255,0.12)' }
+  const workflowSteps = [
+    { n: '01', icon: Users,        title: ar ? 'أنشئ حسابك'            : 'Create Account',          desc: ar ? 'سجل في دقيقة واحدة'                                : 'Register in under a minute' },
+    { n: '02', icon: Brain,        title: ar ? 'ابنِ Brand Brain'       : 'Build Brand Brain',       desc: ar ? 'أدخل بيانات عملك والنبرة والجمهور والمنافسين'       : 'Enter your business data, tone, audience, and competitors' },
+    { n: '03', icon: Compass,      title: ar ? 'ولّد استراتيجيتك'       : 'Generate Strategy',       desc: ar ? 'STRATEGIST يبني خطة 90 يوماً مخصصة لعملك'           : 'STRATEGIST builds a custom 90-day plan for your business' },
+    { n: '04', icon: Sparkles,     title: ar ? 'أنشئ المحتوى'           : 'Create Content',          desc: ar ? 'NEX يكتب المحتوى بصوت علامتك التجارية'              : 'NEX writes content in your brand voice' },
+    { n: '05', icon: Megaphone,    title: ar ? 'جهّز الحملات'           : 'Prepare Campaigns',       desc: ar ? 'VEX يبني هيكل الحملات جاهزاً للمراجعة'              : 'VEX builds campaign structures ready for review' },
+    { n: '06', icon: Eye,          title: ar ? 'راجع وتحكم'             : 'Review & Control',        desc: ar ? 'كل شيء يمر عليك قبل التنفيذ'                        : 'Everything passes through you before execution' },
+    { n: '07', icon: CheckCircle,  title: ar ? 'وافق أو عدّل'           : 'Approve or Edit',         desc: ar ? 'أنت من يقرر ما يُنشر ويُطلق ويُنفق'                 : 'You decide what gets published, launched, and spent' },
+    { n: '08', icon: Rocket,       title: ar ? 'نفّذ'                    : 'Execute',                 desc: ar ? 'يدوياً الآن أو متصلاً عند الموافقة'                 : 'Manually now, or connected where approved' },
+    { n: '09', icon: BarChart3,    title: ar ? 'حلّل الأداء'             : 'Analyze Performance',    desc: ar ? 'PULSE يرصد الأداء ويولد التقارير'                   : 'PULSE monitors performance and generates reports' },
+    { n: '10', icon: TrendingUp,   title: ar ? 'تحسّن باستمرار'          : 'Continuously Improve',   desc: ar ? 'الوكلاء يتعلمون من الأداء ويحسنون الاستراتيجية'     : 'Agents learn from performance and refine the strategy' },
+  ]
+
+  const industries = [
+    { name: ar ? 'العقارات'          : 'Real Estate',      color: '#6C63FF', icon: Building2,       desc: ar ? 'حملات للمشاريع والعقارات' : 'Project launches & property campaigns' },
+    { name: ar ? 'المطاعم والكافيهات' : 'Restaurants',     color: '#FF6B35', icon: UtensilsCrossed, desc: ar ? 'محتوى يومي وعروض موسمية' : 'Daily content & seasonal offers' },
+    { name: ar ? 'العيادات الطبية'    : 'Medical Clinics', color: '#00D4FF', icon: Heart,           desc: ar ? 'تسويق موثوق وحذر للقطاع الصحي' : 'Trusted, compliant healthcare marketing' },
+    { name: ar ? 'صالونات التجميل'    : 'Beauty & Salons', color: '#FF69B4', icon: Scissors,        desc: ar ? 'محتوى بصري وترويج للخدمات' : 'Visual content & service promotions' },
+    { name: ar ? 'الصالات الرياضية'   : 'Gyms & Fitness',  color: '#00BFA6', icon: Dumbbell,        desc: ar ? 'تحديات وعروض العضوية' : 'Challenges & membership campaigns' },
+    { name: ar ? 'التجارة الإلكترونية': 'E-Commerce',      color: '#FFB800', icon: ShoppingBag,     desc: ar ? 'منتجات وتحويلات وبيع' : 'Product launches, conversions & sales' },
+    { name: ar ? 'الخدمات المحلية'    : 'Local Services',  color: '#4CAF50', icon: MapPin,          desc: ar ? 'استهداف جغرافي وحملات محلية' : 'Geo-targeting & local campaigns' },
+    { name: ar ? 'الفاخرة والريتيل'   : 'Luxury Retail',   color: '#C9A84C', icon: Diamond,         desc: ar ? 'تسويق راقٍ يعكس هوية العلامة' : 'Premium marketing matching brand prestige' },
+  ]
+
+  const integrations = [
+    { name: 'OpenAI',        icon: Cpu,         status: ar ? 'متصل — يشغّل جميع الوكلاء' : 'Connected — powers all agents',          color: '#00BFA6' },
+    { name: 'Supabase',      icon: Database,    status: ar ? 'متصل — Auth وقاعدة البيانات' : 'Connected — Auth & database',          color: '#3ECF8E' },
+    { name: 'Cloudinary',    icon: Cloud,       status: ar ? 'متصل — رفع الوسائط وإدارتها' : 'Connected — media upload & management', color: '#3448C5' },
+    { name: 'Meta / Facebook', icon: Target,    status: ar ? 'متاح عند الربط والموافقة' : 'Available when connected & approved',    color: '#1877F2' },
+    { name: 'Lemon Squeezy', icon: CreditCard,  status: ar ? 'متصل — بوابة الاشتراكات' : 'Connected — subscriptions gateway',      color: '#FFB800' },
+    { name: 'Resend',        icon: Mail,        status: ar ? 'متصل — إشعارات البريد الإلكتروني' : 'Connected — email notifications',  color: '#6C63FF' },
+  ]
+
+  const pricingPlans = [
+    {
+      name: ar ? 'المبتدئ' : 'Starter',
+      price: '499', currency: 'AED',
+      period: ar ? '/شهر' : '/month',
+      desc: ar ? 'للأعمال الصغيرة التي تبدأ رحلتها التسويقية' : 'For small businesses starting their marketing journey',
+      features: ar
+        ? ['وكيلان ذكيان (NEX + STRATEGIST)', '20 قطعة محتوى شهرياً', '3 حملات نشطة', 'Brand Brain كامل', 'مركز الموافقات', 'تنفيذ يدوي', 'دعم بريد إلكتروني']
+        : ['2 AI Agents (NEX + STRATEGIST)', '20 content pieces/month', '3 active campaigns', 'Full Brand Brain', 'Approval center', 'Manual execution', 'Email support'],
+      cta: ar ? 'ابدأ مجاناً' : 'Start Free',
+      featured: false,
+    },
+    {
+      name: ar ? 'الاحترافي' : 'Professional',
+      price: '1,299', currency: 'AED',
+      period: ar ? '/شهر' : '/month',
+      desc: ar ? 'للأعمال النامية مع تسويق نشط' : 'For growing businesses with active marketing',
+      features: ar
+        ? ['جميع الوكلاء الخمسة', '100 قطعة محتوى شهرياً', '10 حملات نشطة', 'Brand Brain متقدم', 'مركز الموافقات الكامل', 'تقارير PULSE المتقدمة', 'ربط Meta عند الموافقة', 'دعم أولوية']
+        : ['All 5 AI Agents', '100 content pieces/month', '10 active campaigns', 'Advanced Brand Brain', 'Full approval center', 'Advanced PULSE reports', 'Meta connection where approved', 'Priority support'],
+      cta: ar ? 'ابدأ مجاناً' : 'Start Free',
+      featured: true,
+    },
+    {
+      name: ar ? 'الأعمال' : 'Business',
+      price: '2,999', currency: 'AED',
+      period: ar ? '/شهر' : '/month',
+      desc: ar ? 'للعلامات الراسخة التي تتوسع' : 'For established brands scaling up',
+      features: ar
+        ? ['كل ما في الاحترافي', 'محتوى غير محدود*', 'حملات غير محدودة*', 'تقارير مخصصة', 'مدير حساب مخصص', 'وصول API', 'تدريب مخصص للوكلاء']
+        : ['Everything in Professional', 'Unlimited content*', 'Unlimited campaigns*', 'Custom reports', 'Dedicated account manager', 'API access', 'Custom agent training'],
+      cta: ar ? 'تواصل معنا' : 'Contact Sales',
+      featured: false,
+      note: ar ? '* سياسة استخدام عادل تسري' : '* Fair usage policy applies',
+    },
+  ]
+
+  const faqs = [
+    {
+      q: ar ? 'هل الذكاء الاصطناعي ينشر تلقائياً؟' : 'Does the AI publish automatically?',
+      a: ar ? 'لا. كل محتوى أو حملة أو إنفاق إعلاني يمر بمركز الموافقات أولاً. لا شيء يُنشر أو يُطلق دون موافقتك الصريحة.' : 'No. Every piece of content, campaign, or ad spend goes through the approval center first. Nothing is published or launched without your explicit approval.',
+    },
+    {
+      q: ar ? 'هل يدعم العربية والإنجليزية؟' : 'Does it support Arabic and English?',
+      a: ar ? 'نعم. الوكلاء يولدون المحتوى باللغتين. الواجهة الكاملة متاحة بالعربية والإنجليزية.' : 'Yes. The agents generate content in both languages. The full interface is available in Arabic and English.',
+    },
+    {
+      q: ar ? 'هل أحتاج موافقات Meta أو Google مسبقاً؟' : 'Do I need Meta or Google approvals first?',
+      a: ar ? 'لا. يمكنك البدء بالتنفيذ اليدوي فوراً. ربط الحسابات الإعلانية اختياري وتفعّله عندما تكون مستعداً.' : 'No. You can start with manual execution immediately. Connecting ad accounts is optional and you activate it when ready.',
+    },
+    {
+      q: ar ? 'هل يناسب قطاعي؟' : 'Does it work for my industry?',
+      a: ar ? 'NEXUS AI يعمل مع أي قطاع يحتاج تسويقاً رقمياً. Brand Brain يتكيف مع خصائص كل قطاع وعلامة تجارية.' : 'NEXUS AI works with any industry that needs digital marketing. The Brand Brain adapts to the specifics of each sector and brand.',
+    },
+    {
+      q: ar ? 'هل يمكنني البدء يدوياً قبل الربط؟' : 'Can I start manually before connecting integrations?',
+      a: ar ? 'نعم. التنفيذ اليدوي متاح من اليوم الأول. الربط بالمنصات الإعلانية اختياري وتفعّله عند جاهزيتك.' : 'Yes. Manual execution is available from day one. Platform integrations are optional and you activate them when ready.',
+    },
+    {
+      q: ar ? 'ماذا يحدث ببياناتي؟' : 'What happens to my data?',
+      a: ar ? 'بياناتك مشفرة وخاصة بك. لا يتم مشاركة بيانات عملك أو علامتك التجارية مع أطراف خارجية. أنت تتحكم في كل شيء.' : 'Your data is encrypted and belongs to you. We do not share your business or brand data with third parties. You are in full control.',
+    },
+  ]
+
+  const testimonials = [
+    {
+      quote: ar ? 'في أسبوع واحد حصلنا على خطة تسويق كاملة وتقويم محتوى لـ 30 يوماً باللغتين. هذا المستوى كان يكلفنا 15,000 درهم مع وكالة.' : 'In one week we had a full marketing plan and 30-day content calendar in both languages. That level used to cost us AED 15,000 with an agency.',
+      name: ar ? 'أحمد المنصوري' : 'Ahmed Al-Mansouri',
+      role: ar ? 'مؤسس، Real Space للعقارات' : 'Founder, Real Space Properties',
+    },
+    {
+      quote: ar ? 'أهم ميزة بالنسبة لي هي مركز الموافقات. أرى كل شيء قبل نشره. أشعر أنني لا أزال أتحكم في علامتي.' : 'The most important feature for me is the approval center. I see everything before it goes out. I still feel in control of my brand.',
+      name: ar ? 'فاطمة الزهراني' : 'Fatima Al-Zahrani',
+      role: ar ? 'مديرة، Lumina Beauty Lounge' : 'Manager, Lumina Beauty Lounge',
+    },
+    {
+      quote: ar ? 'كنا نصرف على كتّاب محتوى ومصممين وكالة في نفس الوقت. الآن فريق واحد ذكي يقوم بكل ذلك ونحن نوافق فقط.' : 'We used to spend on content writers, designers, and an agency simultaneously. Now one smart team does it all and we just approve.',
+      name: ar ? 'عمر الريامي' : 'Omar Al-Riyami',
+      role: ar ? 'الرئيس التنفيذي، FitZone Gyms' : 'CEO, FitZone Gyms',
+    },
+  ]
 
   return (
-    <div style={{ background: '#0A0E27', minHeight: '100vh' }} dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="bg-bg-base text-white" dir={dir}>
       <Navbar />
 
-      {/* ═══ HERO ═══ */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-        <div className="absolute inset-0 bg-gradient-hero" />
+      {/* ══════════════════════════════════════════
+          HERO
+      ══════════════════════════════════════════ */}
+      <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden pt-[68px]">
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(108,99,255,0.18) 0%, transparent 65%), radial-gradient(ellipse 40% 30% at 80% 80%, rgba(0,191,166,0.1) 0%, transparent 50%)' }} />
         <ParticleBackground />
-        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-24">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+
+        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-20 lg:py-28">
+          <div className="grid lg:grid-cols-2 gap-14 items-center">
+            {/* Text */}
             <div>
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.teal }}>{t('home.heroOverline')}</motion.p>
-              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight mb-6">{t('home.heroTitle')}</motion.h1>
-              <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="text-base sm:text-lg leading-relaxed max-w-xl mb-8" style={{ color: C.muted }}>{t('home.heroSubtitle')}</motion.p>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="flex flex-wrap items-center gap-4 mb-6">
-                <Link href="/auth/register" className="btn-gradient font-heading text-sm font-semibold uppercase tracking-wide text-white px-8 py-3.5 rounded-xl inline-flex items-center gap-2">
-                  {t('home.getStarted')} <ArrowRight size={18} className={isRTL ? 'rotate-180' : ''} />
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.55 }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(108,99,255,0.25)] bg-[rgba(108,99,255,0.08)] mb-6">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" />
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[2px] text-accent-teal">
+                  {ar ? 'قسم التسويق الذكي الخاص بك' : 'Your AI Marketing Department'}
+                </span>
+              </motion.div>
+
+              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.65 }}
+                className="font-heading text-[38px] sm:text-[52px] lg:text-[62px] font-bold text-white leading-[1.08] tracking-[-2px] mb-6">
+                {ar ? <>وظّف قسم تسويق<br /><span className="text-gradient">ذكي اصطناعي</span><br />في دقائق</> : <>Hire your<br /><span className="text-gradient">AI Marketing</span><br />Department</>}
+              </motion.h1>
+
+              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
+                className="text-[17px] sm:text-[19px] text-text-secondary leading-relaxed max-w-[560px] mb-9">
+                {ar
+                  ? 'NEXUS AI يفهم علامتك التجارية، يبني الاستراتيجية، ينشئ المحتوى، يجهز الحملات، ويتابع الأداء — وأنت تبقى في التحكم الكامل دائماً.'
+                  : 'NEXUS AI understands your brand, creates strategies, generates content, prepares campaigns, tracks performance, and helps your business grow — with you always in control.'}
+              </motion.p>
+
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}
+                className="flex flex-wrap items-center gap-4 mb-7">
+                <Link href="/auth/register"
+                  className="btn-gradient font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2 shadow-[0_0_30px_rgba(108,99,255,0.25)]">
+                  {ar ? 'ابدأ مجاناً' : 'Start Free'} <ArrowRight size={17} />
                 </Link>
-                <a href="#how-it-works" className="font-heading text-sm font-medium uppercase tracking-wide inline-flex items-center gap-2 hover:text-white transition-colors" style={{ color: C.muted }}>
-                  <Play size={16} /> {t('home.watchDemo')}
+                <a href="#workflow"
+                  className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors inline-flex items-center gap-2 border border-[rgba(255,255,255,0.1)] px-6 py-3.5 rounded-lg hover:border-[rgba(255,255,255,0.2)]">
+                  <Play size={15} /> {ar ? 'شاهد كيف يعمل' : 'See How It Works'}
                 </a>
               </motion.div>
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="text-xs" style={{ color: C.dim }}>
-                {t('home.noCreditCard')} · {t('home.freeTrial14')} · {t('home.cancelAnytime')}
+
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9, duration: 0.5 }}
+                className="text-[12px] text-text-muted flex items-center gap-2 flex-wrap">
+                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'بدون بطاقة ائتمان' : 'No credit card required'}</span>
+                <span className="text-text-muted">·</span>
+                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'تجربة مجانية 14 يوماً' : '14-day free trial'}</span>
+                <span className="text-text-muted">·</span>
+                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'إلغاء في أي وقت' : 'Cancel anytime'}</span>
               </motion.p>
             </div>
-            {/* Hero preview card */}
-            <motion.div initial={{ opacity: 0, x: isRTL ? -40 : 40 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 1, duration: 0.8 }} className="hidden lg:flex justify-center">
-              <TiltCard className="w-full max-w-lg">
-                <div className="glass-panel rounded-2xl p-6">
-                  <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(10,14,39,0.9)', border: `1px solid ${C.border}` }}>
-                    <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-                      <span className="text-xs font-mono text-white font-semibold">NEXUS AI — Command Center</span>
-                      <div className="flex gap-1.5">{['#ff5f57','#febc2e','#28c840'].map(c => <div key={c} className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />)}</div>
+
+            {/* Dashboard preview card */}
+            <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9, duration: 0.8 }}
+              className="hidden lg:block">
+              <div className="glass-panel rounded-2xl p-5 shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
+                {/* Fake command center preview */}
+                <div className="rounded-xl overflow-hidden" style={{ background: '#0d1035' }}>
+                  {/* Top bar */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgba(108,99,255,0.15)]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-heading font-bold text-[13px] text-white">NEXUS</span>
+                      <span className="bg-accent-purple text-white text-[9px] font-bold px-1 py-0.5 rounded">AI</span>
+                      <span className="font-mono text-[10px] text-text-muted">{ar ? 'مركز القيادة' : 'Command Center'}</span>
                     </div>
-                    <div className="p-4 space-y-2">
-                      {agents.map(a => (
-                        <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: 'rgba(108,99,255,0.06)' }}>
-                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${a.color}20` }}><a.icon size={14} style={{ color: a.color }} /></div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-mono font-semibold text-white">{a.name}</p>
-                            <p className="text-[10px] truncate" style={{ color: C.dim }}>{a.title}</p>
-                          </div>
-                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#4CAF50', boxShadow: '0 0 6px #4CAF50' }} />
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-status-approved animate-pulse" />
+                      <span className="font-mono text-[10px] text-accent-teal">{ar ? 'مباشر' : 'Live'}</span>
+                    </div>
+                  </div>
+                  {/* Metric row */}
+                  <div className="grid grid-cols-4 gap-2 p-3">
+                    {[
+                      { l: ar ? 'صحة النشاط' : 'Business Health', v: '87%', c: 'text-accent-teal' },
+                      { l: ar ? 'موافقات معلقة' : 'Pending Approvals', v: '3', c: 'text-accent-amber' },
+                      { l: ar ? 'محتوى مجدول' : 'Scheduled Content', v: '12', c: 'text-white' },
+                      { l: ar ? 'حملات نشطة' : 'Active Campaigns', v: '2', c: 'text-accent-purple' },
+                    ].map(m => (
+                      <div key={m.l} className="bg-[rgba(108,99,255,0.06)] border border-[rgba(108,99,255,0.1)] rounded-lg p-2.5 text-center">
+                        <p className={`font-mono text-[16px] font-bold ${m.c}`}>{m.v}</p>
+                        <p className="text-[8px] text-text-muted mt-0.5 leading-tight">{m.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Agent status row */}
+                  <div className="px-3 pb-3">
+                    <p className="font-mono text-[9px] text-text-muted uppercase tracking-wider mb-2">{ar ? 'حالة الوكلاء' : 'Agent Status'}</p>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[
+                        { n: 'STRATEGIST', c: '#6C63FF' }, { n: 'NEX', c: '#00BFA6' }, { n: 'VEX', c: '#FF6B35' },
+                        { n: 'PULSE', c: '#00D4FF' }, { n: 'SENTINEL', c: '#FFD700' },
+                      ].map(a => (
+                        <div key={a.n} className="rounded-lg p-2 border border-[rgba(255,255,255,0.05)]" style={{ background: `${a.c}12` }}>
+                          <div className="w-2.5 h-2.5 rounded-full mb-1.5" style={{ background: a.c }} />
+                          <p className="font-mono text-[7px] font-semibold" style={{ color: a.c }}>{a.n}</p>
+                          <p className="font-mono text-[7px] text-text-muted mt-0.5">{ar ? 'نشط' : 'Active'}</p>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2"><span className="w-2 h-2 rounded-full animate-ping" style={{ background: '#4CAF50' }} /><span className="text-xs font-mono" style={{ color: C.muted }}>5 {t('common.agentsActive')}</span></div>
-                    <span className="text-xs font-mono" style={{ color: C.teal }}>{t('common.live')}</span>
+                  {/* Pending approval preview */}
+                  <div className="mx-3 mb-3 rounded-lg border border-[rgba(255,184,0,0.2)] bg-[rgba(255,184,0,0.05)] p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-mono text-[9px] text-accent-amber uppercase tracking-wider">{ar ? 'بانتظار موافقتك' : 'Awaiting Your Approval'}</span>
+                      <span className="font-mono text-[9px] text-text-muted">NEX</span>
+                    </div>
+                    <p className="text-[11px] text-white/80 leading-snug">{ar ? 'كابشن Instagram — إطلاق مجموعة رمضان' : 'Instagram caption — Ramadan collection launch'}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[rgba(76,175,80,0.15)] text-status-approved border border-[rgba(76,175,80,0.2)]">{ar ? 'وافق' : 'Approve'}</span>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[rgba(244,67,54,0.1)] text-status-rejected border border-[rgba(244,67,54,0.2)]">{ar ? 'تعديل' : 'Edit'}</span>
+                    </div>
                   </div>
                 </div>
-              </TiltCard>
+              </div>
             </motion.div>
           </div>
         </div>
+
+        {/* Scroll cue */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2, duration: 0.5 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5">
+          <span className="text-[11px] text-text-muted font-mono">{ar ? 'اكتشف المزيد' : 'Discover more'}</span>
+          <motion.div animate={{ y: [0, 6, 0] }} transition={{ duration: 1.8, repeat: Infinity }}>
+            <ChevronDown size={18} className="text-text-muted" />
+          </motion.div>
+        </motion.div>
       </section>
 
-      {/* ═══ TRUSTED BY ═══ */}
-      <section className="py-12 border-b" style={{ borderColor: 'rgba(108,99,255,0.1)' }}>
+      {/* ══════════════════════════════════════════
+          PROBLEM
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32 border-t border-[rgba(255,255,255,0.04)]">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-xs font-mono uppercase tracking-[2px] mb-6" style={{ color: C.dim }}>{t('home.trustedBy')}</p>
-          <div className="flex flex-wrap justify-center items-center gap-8 sm:gap-12 opacity-40">
-            {['Dubai Holding', 'Emaar', 'Aldar', 'DAMAC', 'Meraas', 'Sobha'].map(n => <span key={n} className="font-heading font-semibold text-base sm:text-lg text-white tracking-tight">{n}</span>)}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ AGENTS ═══ */}
-      <section id="agents" className="py-24 lg:py-32">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.purple }}>{t('home.aiTeam')}</p>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.aiTeamSubtitle')}</h2>
-            <p className="text-base leading-relaxed max-w-xl mb-12" style={{ color: C.muted }}>{t('home.aiTeamDesc')}</p>
+          <Reveal className="max-w-[780px] mx-auto text-center">
+            <SectionLabel text={ar ? 'المشكلة' : 'The Problem'} color="text-status-rejected" />
+            <SectionHeading center>
+              {ar ? 'التسويق أصبح أكثر تعقيداً وأكثر تكلفةً من أي وقت مضى' : 'Marketing has become more complex and expensive than ever'}
+            </SectionHeading>
+            <p className="text-[16px] sm:text-[18px] text-text-secondary leading-relaxed mt-6">
+              {ar
+                ? 'الأعمال الصغيرة تبدد وقتها ومالها بإدارة وكالات ومستقلين ومنصات ومحتوى وإعلانات وتقارير بشكل منفصل — بدون تنسيق، وبدون استراتيجية موحدة.'
+                : 'Small businesses waste time and money managing agencies, freelancers, content, ads, reports, and approvals separately — without coordination and without a unified strategy.'}
+            </p>
           </Reveal>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-            {agents.map((a, i) => (
-              <Reveal key={a.id} delay={i * 0.1}>
-                <div className="rounded-2xl p-6 h-full transition-all duration-300 hover:-translate-y-2 cursor-default"
-                  style={{ background: C.surface, border: `1px solid ${C.border}` }}
-                  onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = `${a.color}55`; el.style.boxShadow = `0 16px 48px rgba(0,0,0,0.4)` }}
-                  onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = C.border; el.style.boxShadow = '' }}>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${a.color}20` }}><a.icon size={24} style={{ color: a.color }} /></div>
-                  <p className="font-mono text-[10px] font-medium uppercase tracking-[2px] mb-1" style={{ color: a.color }}>{a.name}</p>
-                  <h3 className="font-heading text-base font-semibold text-white mb-2">{a.title}</h3>
-                  <p className="text-xs leading-relaxed" style={{ color: C.muted }}>{a.desc}</p>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-16">
+            {[
+              { icon: '💸', title: ar ? 'تكاليف متفرقة' : 'Fragmented costs', desc: ar ? 'وكالة + مصمم + كاتب محتوى + مدير إعلانات = فاتورة ضخمة شهرياً بنتائج غير مضمونة' : 'Agency + designer + writer + ad manager = massive monthly bill with no guaranteed results' },
+              { icon: '⏱', title: ar ? 'وقت ضائع' : 'Wasted time', desc: ar ? 'ساعات في الموافقات والمراسلات والمتابعات — بدلاً من التركيز على تطوير العمل' : 'Hours in approvals, follow-ups, and coordination — instead of focusing on growing the business' },
+              { icon: '🎯', title: ar ? 'غياب الاستراتيجية' : 'No strategy', desc: ar ? 'محتوى عشوائي بدون خطة واضحة أو اتساق في الرسالة أو قياس للنتائج' : 'Random content without a clear plan, consistent message, or result measurement' },
+              { icon: '🔀', title: ar ? 'تشتت الأدوات' : 'Tool fragmentation', desc: ar ? 'أدوات منفصلة لكل منصة، بدون مكان واحد لرؤية الصورة الكاملة' : 'Separate tools for every platform, with no single place to see the full picture' },
+              { icon: '😰', title: ar ? 'فقدان التحكم' : 'Loss of control', desc: ar ? 'محتوى يُنشر باسمك دون مراجعتك — أو حملات تُطلق بميزانيات لم توافق عليها' : 'Content published in your name without your review — or campaigns launched with unapproved budgets' },
+              { icon: '📉', title: ar ? 'نتائج غير مقاسة' : 'Unmeasured results', desc: ar ? 'لا تقارير واضحة، لا تحليل أداء، لا معرفة بما يعمل وما لا يعمل' : 'No clear reports, no performance analysis, no knowledge of what works and what does not' },
+            ].map((p, i) => (
+              <Reveal key={p.title} delay={i * 0.08}>
+                <div className="rounded-2xl border border-[rgba(244,67,54,0.12)] bg-[rgba(244,67,54,0.04)] p-6 h-full">
+                  <span className="text-2xl mb-4 block">{p.icon}</span>
+                  <h3 className="font-heading text-[16px] font-semibold text-white mb-2">{p.title}</h3>
+                  <p className="text-[13px] text-text-secondary leading-relaxed">{p.desc}</p>
                 </div>
               </Reveal>
             ))}
@@ -275,26 +515,179 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ HOW IT WORKS ═══ */}
-      <section id="how-it-works" className="py-24 lg:py-32" style={{ background: 'rgba(15,19,50,0.4)' }}>
+      {/* ══════════════════════════════════════════
+          SOLUTION
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32 bg-bg-surface">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="max-w-[800px]">
+            <SectionLabel text={ar ? 'الحل' : 'The Solution'} color="text-accent-teal" />
+            <SectionHeading>
+              {ar ? 'قسم تسويق ذكي كامل في منصة واحدة' : 'A complete AI marketing department in one platform'}
+            </SectionHeading>
+            <p className="text-[16px] sm:text-[18px] text-text-secondary leading-relaxed mt-5 max-w-[640px]">
+              {ar
+                ? 'NEXUS AI يجمع الاستراتيجية والمحتوى والحملات والتحليلات وسلامة العلامة التجارية في مكان عمل ذكي واحد — وأنت تبقى في قمة السيطرة.'
+                : 'NEXUS AI brings strategy, content, campaigns, analytics, and brand safety into one intelligent workspace — and you stay firmly in control.'}
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-14">
+            {[
+              { icon: Brain, color: '#6C63FF', title: ar ? 'ذاكرة علامتك التجارية' : 'Your Brand Memory', desc: ar ? 'Brand Brain يحفظ نبرتك وجمهورك ومنافسيك وأهدافك — كل الوكلاء يعملون بهذا السياق' : 'Brand Brain stores your tone, audience, competitors, and goals — all agents work with this context' },
+              { icon: Users, color: '#00BFA6', title: ar ? 'فريق وكلاء متخصصين' : 'Specialized Agent Team', desc: ar ? 'خمسة وكلاء ذكيين لكل منهم دور محدد: الاستراتيجية، المحتوى، الإعلانات، التحليلات، وسلامة العلامة' : 'Five AI agents each with a defined role: strategy, content, ads, analytics, and brand safety' },
+              { icon: CheckCircle, color: '#00D4FF', title: ar ? 'موافقتك قبل كل شيء' : 'Your Approval Before Everything', desc: ar ? 'مركز الموافقات يضمن أن لا شيء يُنشر أو يُطلق أو يُنفق دون مراجعتك وموافقتك' : 'The approval center ensures nothing is published, launched, or spent without your review and approval' },
+              { icon: Zap, color: '#FFB800', title: ar ? 'تنفيذ فوري أو متصل' : 'Instant or Connected Execution', desc: ar ? 'نسخ يدوي فوري من اليوم الأول. ربط المنصات الإعلانية متاح عند جاهزيتك' : 'Manual copy-ready output from day one. Platform connections available when you are ready' },
+              { icon: BarChart3, color: '#FF6B35', title: ar ? 'تقارير وأداء مستمر' : 'Continuous Reports & Performance', desc: ar ? 'PULSE يراقب الأداء ويولد التقارير ويقترح تحسينات مبنية على البيانات الفعلية' : 'PULSE monitors performance, generates reports, and suggests data-driven improvements' },
+              { icon: Lock, color: '#4CAF50', title: ar ? 'أمان وخصوصية كاملة' : 'Full Security & Privacy', desc: ar ? 'بياناتك مشفرة. لا إنفاق إعلاني تلقائي. لا نشر دون موافقة. أنت من يتحكم دائماً' : 'Your data is encrypted. No automatic ad spend. No publishing without approval. You are always in control' },
+            ].map((s, i) => (
+              <Reveal key={s.title} delay={i * 0.08}>
+                <div className="group rounded-2xl border border-bg-border bg-bg-base p-7 h-full hover:-translate-y-1 transition-all duration-300 cursor-default"
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${s.color}40`; (e.currentTarget as HTMLElement).style.boxShadow = `0 12px 40px rgba(0,0,0,0.3)` }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ background: `${s.color}18` }}>
+                    <s.icon size={22} style={{ color: s.color }} />
+                  </div>
+                  <h3 className="font-heading text-[17px] font-semibold text-white mb-2">{s.title}</h3>
+                  <p className="text-[13px] text-text-secondary leading-relaxed">{s.desc}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          AI AGENTS
+      ══════════════════════════════════════════ */}
+      <section id="agents" className="py-24 lg:py-32">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.teal }}>{t('home.howItWorks')}</p>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.howItWorksSubtitle')}</h2>
-            <p className="text-base leading-relaxed max-w-xl mb-16" style={{ color: C.muted }}>{t('home.howItWorksDesc')}</p>
+            <SectionLabel text={ar ? 'الوكلاء الذكيون' : 'AI Agents'} color="text-accent-purple" />
+            <SectionHeading>{ar ? 'تعرّف على فريقك الذكي' : 'Meet your intelligent team'}</SectionHeading>
+            <p className="text-[16px] text-text-secondary leading-relaxed max-w-[580px] mt-4 mb-14">
+              {ar ? 'خمسة وكلاء متخصصون، كل منهم خبير في مجاله، يعملون معاً ضمن سياق علامتك التجارية.' : 'Five specialized agents, each an expert in their domain, working together within your brand context.'}
+            </p>
           </Reveal>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8">
-            {steps.map((s, i) => (
-              <Reveal key={s.num} delay={i * 0.1}>
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-primary flex items-center justify-center mb-5"><s.icon size={24} className="text-white" /></div>
-                  <p className="font-mono text-xs font-medium mb-2" style={{ color: C.purple }}>{s.num}</p>
-                  <h3 className="font-heading text-lg font-semibold text-white mb-2">{s.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color: C.muted }}>{s.desc}</p>
-                  {i < steps.length - 1 && (
-                    <div className={`hidden lg:block absolute top-7 w-full h-[2px] ${isRTL ? 'right-full' : 'left-full'}`}>
-                      <div className="w-full h-full" style={{ background: 'linear-gradient(90deg, rgba(108,99,255,0.4), rgba(0,191,166,0.4))' }} />
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+            {agents.map((agent, i) => (
+              <Reveal key={agent.name} delay={i * 0.1}>
+                <div className="group rounded-2xl border border-bg-border bg-bg-surface p-6 h-full flex flex-col transition-all duration-300 hover:-translate-y-2 cursor-default"
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${agent.color}55`; (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 50px rgba(0,0,0,0.35), 0 0 30px ${agent.color}18` }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${agent.color}18` }}>
+                    <agent.icon size={22} style={{ color: agent.color }} />
+                  </div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[2.5px] mb-1" style={{ color: agent.color }}>{agent.name}</p>
+                  <h3 className="font-heading text-[15px] font-semibold text-white mb-2">{agent.role}</h3>
+                  <p className="text-[12px] text-text-secondary leading-relaxed flex-1">{agent.desc}</p>
+                  <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
+                    <p className="text-[11px] font-mono text-text-muted">{ar ? 'المخرجات:' : 'Output:'}</p>
+                    <p className="text-[11px] text-text-secondary mt-1 leading-snug">{agent.output}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          BRAND BRAIN
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32 bg-bg-surface">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <Reveal>
+              <SectionLabel text="Brand Brain" color="text-accent-purple" />
+              <SectionHeading>{ar ? 'الذكاء الاصطناعي يتعلم علامتك التجارية' : 'AI that learns your brand'}</SectionHeading>
+              <p className="text-[16px] text-text-secondary leading-relaxed mt-5 mb-8">
+                {ar
+                  ? 'Brand Brain هو ذاكرة NEXUS AI. يحفظ كل ما يهم: نبرة علامتك التجارية، جمهورك المستهدف، منافسيك، منتجاتك، أهدافك، وتعليقاتك السابقة — ثم يحقن هذا السياق في كل وكيل لإنتاج محتوى دقيق ومتسق.'
+                  : "Brand Brain is NEXUS AI's memory. It stores everything that matters: your brand tone, target audience, competitors, products, goals, and past feedback — then injects this context into every agent to produce precise, consistent output."}
+              </p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {[
+                  ar ? 'نبرة العلامة التجارية' : 'Brand voice & tone',
+                  ar ? 'الجمهور المستهدف' : 'Target audience profiles',
+                  ar ? 'قائمة المنافسين' : 'Competitor list',
+                  ar ? 'المنتجات والخدمات' : 'Products & services',
+                  ar ? 'الأهداف التسويقية' : 'Marketing goals',
+                  ar ? 'تعليقات الموافقات السابقة' : 'Past approval feedback',
+                ].map(item => (
+                  <div key={item} className="flex items-center gap-2.5 text-[13px] text-text-secondary">
+                    <CheckCircle size={14} className="text-accent-teal shrink-0" />{item}
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+
+            {/* Brain visual */}
+            <Reveal delay={0.15}>
+              <div className="glass-panel rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 rounded-xl bg-[rgba(108,99,255,0.15)] flex items-center justify-center">
+                    <Brain size={20} className="text-accent-purple" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-[15px] font-semibold text-white">Brand Brain</p>
+                    <p className="font-mono text-[11px] text-accent-teal">{ar ? 'نشط — يحقن السياق في جميع الوكلاء' : 'Active — injecting context to all agents'}</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { label: ar ? 'العلامة التجارية' : 'Brand', value: ar ? 'نبرة محترفة ودافئة · عربي وإنجليزي' : 'Professional warm tone · Arabic & English', color: '#6C63FF' },
+                    { label: ar ? 'الجمهور' : 'Audience', value: ar ? 'أصحاب الأعمال 30-55 · الإمارات والخليج' : 'Business owners 30-55 · UAE & Gulf', color: '#00BFA6' },
+                    { label: ar ? 'الهدف الرئيسي' : 'Primary Goal', value: ar ? 'زيادة المبيعات المباشرة والوعي الرقمي' : 'Drive direct sales & digital awareness', color: '#00D4FF' },
+                    { label: ar ? 'المنافسون' : 'Competitors', value: ar ? '3 منافسين محددين · استراتيجية مراقبة نشطة' : '3 identified competitors · Active monitoring', color: '#FFB800' },
+                  ].map(row => (
+                    <div key={row.label} className="flex items-start gap-3 p-3 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)]">
+                      <div className="w-1 h-full rounded-full shrink-0 mt-1" style={{ background: row.color, minHeight: 8 }} />
+                      <div>
+                        <p className="font-mono text-[10px] text-text-muted uppercase tracking-wider">{row.label}</p>
+                        <p className="text-[12px] text-text-secondary mt-0.5">{row.value}</p>
+                      </div>
                     </div>
+                  ))}
+                </div>
+                <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)] flex items-center justify-between">
+                  <span className="text-[12px] text-text-muted">{ar ? 'آخر تحديث: منذ 2 دقيقة' : 'Last updated: 2 minutes ago'}</span>
+                  <span className="text-[11px] font-mono text-accent-purple">{ar ? 'متصل بـ 5 وكلاء' : 'Connected to 5 agents'}</span>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          WORKFLOW
+      ══════════════════════════════════════════ */}
+      <section id="workflow" className="py-24 lg:py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionLabel text={ar ? 'سير العمل' : 'Workflow'} color="text-accent-teal" />
+            <SectionHeading>{ar ? 'من الصفر إلى النتائج في 10 خطوات' : 'From zero to results in 10 steps'}</SectionHeading>
+            <p className="text-[16px] text-text-secondary leading-relaxed max-w-[580px] mt-4 mb-14">
+              {ar ? 'عملية واضحة ومنظمة تضع أنت فيها نقطة التحكم الرئيسية.' : 'A clear, structured process where you remain the primary control point.'}
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6">
+            {workflowSteps.map((step, i) => (
+              <Reveal key={step.n} delay={i * 0.06}>
+                <div className="relative">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${step.n === '06' || step.n === '07' ? 'bg-[rgba(108,99,255,0.2)] ring-2 ring-[rgba(108,99,255,0.4)]' : 'bg-[rgba(108,99,255,0.1)]'}`}>
+                    <step.icon size={20} className={step.n === '06' || step.n === '07' ? 'text-accent-purple' : 'text-text-secondary'} />
+                  </div>
+                  <p className="font-mono text-[11px] text-accent-purple mb-1.5">{step.n}</p>
+                  <h3 className="font-heading text-[15px] font-semibold text-white mb-1.5">{step.title}</h3>
+                  <p className="text-[12px] text-text-secondary leading-relaxed">{step.desc}</p>
+                  {(step.n === '06' || step.n === '07') && (
+                    <span className="mt-2 inline-block font-mono text-[9px] uppercase tracking-wider text-accent-purple bg-[rgba(108,99,255,0.1)] border border-[rgba(108,99,255,0.2)] px-2 py-0.5 rounded-full">
+                      {ar ? 'أنت هنا' : 'You here'}
+                    </span>
                   )}
                 </div>
               </Reveal>
@@ -303,131 +696,246 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ PLATFORMS ═══ */}
-      <section className="py-24 lg:py-32">
+      {/* ══════════════════════════════════════════
+          APPROVAL CONTROL
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32 bg-bg-surface">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.purple }}>{t('home.integrations')}</p>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.integrationsSubtitle')}</h2>
-            <p className="text-base leading-relaxed max-w-xl mb-12" style={{ color: C.muted }}>{t('home.integrationsDesc')}</p>
-          </Reveal>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {platforms.map((p, i) => (
-              <Reveal key={p.name} delay={i * 0.08}>
-                <div className="glass-card rounded-xl p-5 hover:scale-[1.02] transition-transform duration-300">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'rgba(21,26,58,1)' }}><p.icon size={20} style={{ color: C.muted }} /></div>
-                    <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full border"
-                      style={p.connected ? { color: '#4CAF50', background: 'rgba(76,175,80,0.1)', borderColor: 'rgba(76,175,80,0.3)' } : { color: C.dim, background: 'rgba(90,106,140,0.1)', borderColor: 'rgba(90,106,140,0.3)' }}>
-                      {p.connected ? t('settings.connected') : t('settings.comingSoon')}
-                    </span>
-                  </div>
-                  <h4 className="font-heading text-sm font-semibold text-white mb-1">{p.name}</h4>
-                  <p className="text-xs" style={{ color: C.muted }}>{p.desc}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+          <div className="max-w-[860px] mx-auto text-center">
+            <Reveal>
+              <SectionLabel text={ar ? 'التحكم الكامل' : 'Full Control'} color="text-accent-teal" />
+              <SectionHeading center>
+                {ar ? 'الذكاء الاصطناعي يعمل. أنت تتحكم.' : 'AI does the work. You stay in control.'}
+              </SectionHeading>
+              <p className="text-[17px] sm:text-[19px] text-text-secondary leading-relaxed mt-6 mb-12">
+                {ar
+                  ? 'لا شيء يُنشر، لا شيء يُطلق، لا قرش يُنفق — دون موافقتك الصريحة.'
+                  : 'Nothing is published. Nothing is launched. Not a single dirham is spent — without your explicit approval.'}
+              </p>
+            </Reveal>
 
-      {/* ═══ INDUSTRIES ═══ */}
-      <section className="py-24 lg:py-32" style={{ background: 'rgba(15,19,50,0.4)' }}>
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4" style={{ color: C.teal }}>{t('home.builtForBusiness')}</p>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4">{t('home.builtForSubtitle')}</h2>
-            <p className="text-base leading-relaxed max-w-xl mb-12" style={{ color: C.muted }}>{t('home.builtForDesc')}</p>
-          </Reveal>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {industries.map((ind, i) => (
-              <Reveal key={ind.name} delay={i * 0.1}>
-                <div className="relative rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl" style={{ border: `1px solid ${C.border}` }}>
-                  <div className="h-44 flex items-end p-6" style={{ background: `linear-gradient(135deg, ${ind.color}20 0%, ${ind.color}05 50%, #0A0E27 100%)` }}>
-                    <div><h4 className="font-heading text-xl font-semibold text-white mb-1">{ind.name}</h4><p className="text-sm" style={{ color: C.muted }}>{ind.desc}</p></div>
-                  </div>
-                  <div className={`absolute top-0 ${isRTL ? 'right-0' : 'left-0'} w-full h-1`} style={{ background: `linear-gradient(${isRTL ? '270deg' : '90deg'}, ${ind.color}, transparent)` }} />
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ STATS + TESTIMONIALS ═══ */}
-      <section className="py-24 lg:py-32">
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4 text-center" style={{ color: C.purple }}>{t('home.trustedBusinesses')}</p>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-16 text-center">{t('home.trustSubtitle')}</h2>
-          </Reveal>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
-            {stats.map((s, i) => (
-              <Reveal key={s.label} delay={i * 0.1}>
-                <div className="text-center">
-                  <p className="font-mono text-4xl font-bold text-white mb-1">{s.value}</p>
-                  <p className="text-sm" style={{ color: C.muted }}>{s.label}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-          <Reveal>
-            <div className="relative max-w-2xl mx-auto">
-              <div className="glass-panel rounded-2xl p-8 sm:p-10">
-                <div className={`flex gap-1 mb-6 ${isRTL ? 'justify-end' : ''}`}>{[...Array(5)].map((_, i) => <Star key={i} size={18} style={{ color: '#FFB800', fill: '#FFB800' }} />)}</div>
-                <p className="text-base sm:text-lg leading-relaxed italic mb-8" style={{ color: C.muted }}>&ldquo;{testimonials[testimonialIdx].quote}&rdquo;</p>
-                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <div className={`flex items-center gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-heading font-semibold text-sm" style={{ background: 'rgba(108,99,255,0.3)' }}>
-                      {testimonials[testimonialIdx].name.split(' ').map(n => n[0]).join('')}
+            <Reveal delay={0.1}>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+                {[
+                  { icon: Lock,         color: '#6C63FF', title: ar ? 'موافقة قبل النشر'        : 'Approve Before Publishing',  desc: ar ? 'كل محتوى يمر بك أولاً'              : 'Every piece of content goes through you first' },
+                  { icon: Target,       color: '#00BFA6', title: ar ? 'موافقة قبل إطلاق الحملات' : 'Approve Before Campaign Launch', desc: ar ? 'لا حملة تُطلق دون موافقتك'      : 'No campaign launches without your approval' },
+                  { icon: CreditCard,   color: '#FFB800', title: ar ? 'لا إنفاق تلقائي'          : 'No Automatic Spending',      desc: ar ? 'أنت من يقرر الميزانية والإنفاق'  : 'You decide the budget and spending' },
+                  { icon: Eye,          color: '#00D4FF', title: ar ? 'رؤية كاملة قبل التنفيذ'   : 'Full Visibility Before Execution', desc: ar ? 'راجع كل شيء قبل أن يخرج'   : 'Review everything before it goes out' },
+                ].map((c, i) => (
+                  <div key={c.title} className="glass-card rounded-xl p-5 text-center">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3" style={{ background: `${c.color}18` }}>
+                      <c.icon size={18} style={{ color: c.color }} />
                     </div>
-                    <div className={isRTL ? 'text-right' : ''}>
-                      <p className="text-sm font-semibold text-white">{testimonials[testimonialIdx].name}</p>
-                      <p className="text-xs font-mono uppercase tracking-wide" style={{ color: C.dim }}>{testimonials[testimonialIdx].role}</p>
-                    </div>
+                    <h4 className="font-heading text-[13px] font-semibold text-white mb-1.5">{c.title}</h4>
+                    <p className="text-[11px] text-text-secondary">{c.desc}</p>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setTestimonialIdx(i => (i - 1 + testimonials.length) % testimonials.length)} className="p-2 rounded-lg transition-colors hover:text-white" style={{ background: 'rgba(21,26,58,1)', color: C.muted }}><ChevronLeft size={18} /></button>
-                    <button onClick={() => setTestimonialIdx(i => (i + 1) % testimonials.length)} className="p-2 rounded-lg transition-colors hover:text-white" style={{ background: 'rgba(21,26,58,1)', color: C.muted }}><ChevronRight size={18} /></button>
-                  </div>
-                </div>
+                ))}
               </div>
+            </Reveal>
+
+            <Reveal delay={0.15}>
+              <div className="flex items-center justify-center gap-3 p-4 rounded-xl border border-[rgba(255,184,0,0.2)] bg-[rgba(255,184,0,0.05)]">
+                <AlertCircle size={16} className="text-accent-amber shrink-0" />
+                <p className="text-[13px] text-text-secondary text-start">
+                  {ar
+                    ? 'التنفيذ المتصل بالمنصات الإعلانية متاح حيث تم الربط والموافقة. التنفيذ اليدوي متاح دائماً كبديل كامل.'
+                    : 'Connected execution to ad platforms is available where integrated and approved. Manual execution is always available as a full alternative.'}
+                </p>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          INDUSTRIES
+      ══════════════════════════════════════════ */}
+      <section id="industries" className="py-24 lg:py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionLabel text={ar ? 'القطاعات' : 'Industries'} color="text-accent-teal" />
+            <SectionHeading>{ar ? 'مصمم لكل قطاع' : 'Built for every sector'}</SectionHeading>
+            <p className="text-[16px] text-text-secondary leading-relaxed max-w-[560px] mt-4 mb-12">
+              {ar ? 'Brand Brain يتكيف مع خصائص كل قطاع وكل علامة تجارية.' : 'Brand Brain adapts to the specifics of every sector and every brand.'}
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {industries.map((ind, i) => (
+              <Reveal key={ind.name} delay={i * 0.07}>
+                <div className="group relative rounded-2xl overflow-hidden border border-bg-border hover:-translate-y-1 transition-all duration-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.3)] cursor-default">
+                  <div className="h-40 flex items-end p-5"
+                    style={{ background: `linear-gradient(135deg, ${ind.color}1A 0%, ${ind.color}06 50%, #0A0E27 100%)` }}>
+                    <div>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2" style={{ background: `${ind.color}20` }}>
+                        <ind.icon size={16} style={{ color: ind.color }} />
+                      </div>
+                      <h4 className="font-heading text-[15px] font-semibold text-white">{ind.name}</h4>
+                      <p className="text-[12px] text-text-secondary mt-0.5">{ind.desc}</p>
+                    </div>
+                  </div>
+                  <div className="absolute top-0 left-0 w-full h-[2px]" style={{ background: `linear-gradient(90deg, ${ind.color}, transparent)` }} />
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          CASE STUDY — NEXUS AI uses itself
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32 bg-bg-surface">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-[860px] mx-auto">
+            <Reveal>
+              <SectionLabel text={ar ? 'دراسة حالة' : 'Case Study'} color="text-accent-amber" />
+              <SectionHeading>
+                {ar ? 'NEXUS AI يسوّق نفسه بنفسه' : 'NEXUS AI markets itself with itself'}
+              </SectionHeading>
+              <p className="text-[16px] text-text-secondary leading-relaxed mt-5 mb-10">
+                {ar
+                  ? 'فريق NEXUS AI يستخدم المنصة لتسويق NEXUS AI — من الاستراتيجية إلى المحتوى إلى الحملات. هذه الصفحة التي تقرأها الآن جزء من المخرجات التي أنتجها النظام ثم وافق عليها الفريق.'
+                  : 'The NEXUS AI team uses the platform to market NEXUS AI itself — from strategy to content to campaigns. The page you are reading now is part of the output produced by the system and approved by the team.'}
+              </p>
+              <div className="grid sm:grid-cols-3 gap-5">
+                {[
+                  { step: ar ? 'الاستراتيجية' : 'Strategy', detail: ar ? 'STRATEGIST بنى خطة الإطلاق والمحاور التسويقية' : 'STRATEGIST built the launch plan and marketing pillars' },
+                  { step: ar ? 'المحتوى' : 'Content', detail: ar ? 'NEX كتب النصوص والكابشن والرسائل التسويقية' : 'NEX wrote the copy, captions, and marketing messages' },
+                  { step: ar ? 'الموافقة' : 'Approval', detail: ar ? 'الفريق راجع ووافق قبل النشر — كما يفعل عملاؤنا' : 'The team reviewed and approved before publishing — just like our clients do' },
+                ].map((s, i) => (
+                  <div key={s.step} className="glass-card rounded-xl p-5">
+                    <p className="font-mono text-[10px] text-accent-amber uppercase tracking-wider mb-2">0{i + 1} — {s.step}</p>
+                    <p className="text-[13px] text-text-secondary leading-relaxed">{s.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          INTEGRATIONS
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <SectionLabel text={ar ? 'التكاملات' : 'Integrations'} color="text-accent-purple" />
+            <SectionHeading>{ar ? 'مبني على أدوات موثوقة' : 'Built on trusted tools'}</SectionHeading>
+            <p className="text-[16px] text-text-secondary leading-relaxed max-w-[560px] mt-4 mb-12">
+              {ar ? 'نحن نوضح بصدق ما هو متصل وما يتطلب إعداداً.' : 'We are transparent about what is connected and what requires setup.'}
+            </p>
+          </Reveal>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {integrations.map((intg, i) => (
+              <Reveal key={intg.name} delay={i * 0.08}>
+                <div className="glass-card rounded-xl p-5 flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${intg.color}18` }}>
+                    <intg.icon size={18} style={{ color: intg.color }} />
+                  </div>
+                  <div>
+                    <h4 className="font-heading text-[15px] font-semibold text-white">{intg.name}</h4>
+                    <p className="text-[12px] text-text-secondary mt-0.5">{intg.status}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          TESTIMONIALS
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32 bg-bg-surface">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-14">
+            <SectionLabel text={ar ? 'آراء العملاء' : 'What Clients Say'} color="text-accent-teal" />
+            <SectionHeading center>{ar ? 'أعمال حقيقية، نتائج حقيقية' : 'Real businesses, real results'}</SectionHeading>
+          </Reveal>
+
+          <Reveal>
+            <div className="max-w-[740px] mx-auto glass-panel rounded-2xl p-8 sm:p-10">
+              <div className="flex gap-1 mb-6">
+                {[...Array(5)].map((_, i) => <Star key={i} size={17} className="text-accent-amber fill-accent-amber" />)}
+              </div>
+              <AnimatePresence mode="wait">
+                <motion.div key={testimonialIdx}
+                  initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.35 }}>
+                  <p className="text-[16px] sm:text-[18px] text-text-secondary leading-relaxed italic mb-8">
+                    &ldquo;{testimonials[testimonialIdx].quote}&rdquo;
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-bg-elevated flex items-center justify-center font-heading font-bold text-[14px] text-white" style={{ background: 'linear-gradient(135deg,#6C63FF,#00BFA6)' }}>
+                        {testimonials[testimonialIdx].name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-[14px] font-semibold text-white">{testimonials[testimonialIdx].name}</p>
+                        <p className="text-[11px] font-mono text-text-muted">{testimonials[testimonialIdx].role}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setTestimonialIdx((n) => (n - 1 + testimonials.length) % testimonials.length)}
+                        className="p-2 rounded-lg bg-bg-elevated text-text-secondary hover:text-white transition-colors">
+                        <ChevronLeft size={16} />
+                      </button>
+                      <button onClick={() => setTestimonialIdx((n) => (n + 1) % testimonials.length)}
+                        className="p-2 rounded-lg bg-bg-elevated text-text-secondary hover:text-white transition-colors">
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ═══ PRICING ═══ */}
-      <section id="pricing" className="py-24 lg:py-32" style={{ background: 'rgba(15,19,50,0.4)' }}>
+      {/* ══════════════════════════════════════════
+          PRICING
+      ══════════════════════════════════════════ */}
+      <section id="pricing" className="py-24 lg:py-32">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <Reveal>
-            <p className="font-mono text-xs font-medium uppercase tracking-[2px] mb-4 text-center" style={{ color: C.teal }}>{t('home.pricing')}</p>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-4 text-center">{t('home.pricingSubtitle')}</h2>
-            <p className="text-base leading-relaxed max-w-xl mx-auto mb-12 text-center" style={{ color: C.muted }}>{t('home.pricingDesc')}</p>
+          <Reveal className="text-center mb-14">
+            <SectionLabel text={ar ? 'الأسعار' : 'Pricing'} color="text-accent-teal" />
+            <SectionHeading center>{ar ? 'خطط واضحة وصادقة' : 'Clear, honest pricing'}</SectionHeading>
+            <p className="text-[16px] text-text-secondary mt-4 max-w-[520px] mx-auto">
+              {ar ? 'بدون رسوم خفية. بدون ادعاءات مبالغ فيها. سياسة استخدام عادل تسري على الخطط المفتوحة.' : 'No hidden fees. No exaggerated claims. Fair usage policy applies to unlimited plans.'}
+            </p>
           </Reveal>
-          <div className="grid sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {plans.map((plan, i) => (
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1000px] mx-auto">
+            {pricingPlans.map((plan, i) => (
               <Reveal key={plan.name} delay={i * 0.1}>
-                <div className="relative rounded-2xl p-6 h-full flex flex-col"
-                  style={plan.featured
-                    ? { background: 'rgba(15,19,50,0.8)', border: '2px solid #6C63FF', boxShadow: '0 0 40px rgba(108,99,255,0.15)' }
-                    : { background: 'rgba(10,14,39,0.8)', border: `1px solid ${C.border}` }}>
-                  {plan.featured && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-primary text-white text-[11px] font-mono font-medium uppercase tracking-wide px-3 py-1 rounded-full">{t('home.mostPopular')}</span>}
-                  <h3 className="font-heading text-lg font-semibold text-white mb-2">{plan.name}</h3>
-                  <div className={`flex items-baseline gap-1 mb-2 ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
-                    <span className="font-mono text-3xl font-bold text-white">AED {plan.price}</span>
-                    <span className="text-sm" style={{ color: C.dim }}>{t('home.perMonth')}</span>
+                <div className={`relative rounded-2xl p-7 h-full flex flex-col ${plan.featured ? 'bg-bg-surface border-2 border-accent-purple shadow-[0_0_50px_rgba(108,99,255,0.12)]' : 'bg-bg-surface border border-bg-border'}`}>
+                  {plan.featured && (
+                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-primary text-white text-[11px] font-mono font-bold uppercase tracking-[1px] px-3 py-1 rounded-full whitespace-nowrap">
+                      {ar ? 'الأكثر طلباً' : 'Most Popular'}
+                    </span>
+                  )}
+                  <h3 className="font-heading text-[19px] font-bold text-white mb-2">{plan.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="font-mono text-[33px] font-bold text-white">AED {plan.price}</span>
+                    <span className="text-text-muted text-[14px]">{plan.period}</span>
                   </div>
-                  <p className="text-xs mb-6" style={{ color: C.muted }}>{plan.desc}</p>
+                  <p className="text-[13px] text-text-secondary mb-6">{plan.desc}</p>
                   <ul className="space-y-2.5 mb-8 flex-1">
                     {plan.features.map(f => (
-                      <li key={f} className={`flex items-center gap-2 text-sm ${isRTL ? 'flex-row-reverse' : ''}`} style={{ color: C.muted }}>
-                        <CheckCircle size={15} style={{ color: C.teal, flexShrink: 0 }} />{f}
+                      <li key={f} className="flex items-start gap-2 text-[13px] text-text-secondary">
+                        <CheckCircle size={14} className="text-accent-teal shrink-0 mt-0.5" />{f}
                       </li>
                     ))}
                   </ul>
-                  <Link href="/auth/register" className={`block text-center font-heading text-sm font-semibold uppercase tracking-wide py-3 rounded-xl transition-all duration-300 ${plan.featured ? 'btn-gradient text-white' : 'border text-[#6C63FF] hover:bg-[rgba(108,99,255,0.1)]'}`}
-                    style={plan.featured ? {} : { borderColor: C.purple }}>{plan.cta}</Link>
+                  {plan.note && <p className="text-[11px] text-text-muted mb-4">{plan.note}</p>}
+                  <Link href="/auth/register"
+                    className={`block text-center font-heading text-[14px] font-semibold uppercase tracking-[1px] py-3 rounded-lg transition-all duration-300 ${plan.featured ? 'btn-gradient text-white' : 'border border-accent-purple text-accent-purple hover:bg-[rgba(108,99,255,0.1)]'}`}>
+                    {plan.cta}
+                  </Link>
                 </div>
               </Reveal>
             ))}
@@ -435,38 +943,164 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══ FINAL CTA ═══ */}
-      <section className="relative py-32 lg:py-40 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-hero" />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-96 h-96 rounded-full blur-[120px]" style={{ background: 'rgba(108,99,255,0.12)', animation: 'pulse 4s ease-in-out infinite' }} />
-        </div>
-        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* ══════════════════════════════════════════
+          TRUST
+      ══════════════════════════════════════════ */}
+      <section className="py-20 bg-bg-surface border-y border-[rgba(255,255,255,0.04)]">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
-            <h2 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-6">{t('home.finalCtaTitle')}</h2>
-            <p className="text-base sm:text-lg leading-relaxed max-w-xl mx-auto mb-10" style={{ color: C.muted }}>{t('home.finalCtaDesc')}</p>
-            <div className={`flex flex-wrap items-center justify-center gap-4 mb-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Link href="/auth/register" className="btn-gradient animate-pulse-glow font-heading text-sm font-semibold uppercase tracking-wide text-white px-10 py-4 rounded-xl inline-flex items-center gap-2">
-                {t('home.startTrial')} — 14 {t('home.days')} <ArrowRight size={18} className={isRTL ? 'rotate-180' : ''} />
-              </Link>
-              <Link href="/demo" className="font-heading text-sm font-medium uppercase tracking-wide transition-colors hover:text-white px-8 py-4 rounded-xl"
-                style={{ color: C.muted, border: `1px solid ${C.border}` }}>{t('home.scheduleDemo')}</Link>
+            <p className="font-mono text-[11px] text-text-muted uppercase tracking-[2px] text-center mb-8">
+              {ar ? 'لماذا تثق بنا' : 'Why trust us'}
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
+              {[
+                { icon: Lock,        title: ar ? 'تسجيل دخول آمن'          : 'Secure Auth',           color: '#6C63FF' },
+                { icon: Eye,         title: ar ? 'مراجعة الموافقات'         : 'Approval Review',       color: '#00BFA6' },
+                { icon: AlertCircle, title: ar ? 'لا إنفاق تلقائي'           : 'No Auto-Spend',         color: '#FFB800' },
+                { icon: Database,    title: ar ? 'خصوصية البيانات'           : 'Data Privacy',          color: '#00D4FF' },
+                { icon: Users,       title: ar ? 'قرارات بشرية'              : 'Human Decisions',       color: '#FF6B35' },
+                { icon: Brain,       title: ar ? 'توصيات مبنية على البيانات' : 'AI-Assisted Insights',  color: '#4CAF50' },
+              ].map(t => (
+                <div key={t.title} className="flex flex-col items-center text-center gap-2">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${t.color}15` }}>
+                    <t.icon size={18} style={{ color: t.color }} />
+                  </div>
+                  <p className="text-[12px] font-medium text-text-secondary">{t.title}</p>
+                </div>
+              ))}
             </div>
-            <p className="text-xs" style={{ color: C.dim }}>{t('home.noCreditCard')} · {t('home.fullFeatureAccess')} · {t('home.cancelAnytime')}</p>
           </Reveal>
         </div>
       </section>
 
-      {/* ═══ FOOTER ═══ */}
-      <footer className="py-12 border-t" style={{ borderColor: 'rgba(108,99,255,0.1)' }}>
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
-            <div className="flex items-center gap-2"><div className="w-7 h-7 rounded-lg bg-gradient-primary flex items-center justify-center"><Sparkles size={14} className="text-white" /></div><span className="font-heading font-bold text-white">NEXUS AI</span></div>
-            <p className="text-xs" style={{ color: C.dim }}>© 2026 NEXUS AI. {isRTL ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</p>
-            <div className={`flex items-center gap-4 text-xs ${isRTL ? 'flex-row-reverse' : ''}`} style={{ color: C.dim }}>
-              <Link href="/privacy" className="hover:text-white transition-colors">{isRTL ? 'الخصوصية' : 'Privacy'}</Link>
-              <Link href="/terms" className="hover:text-white transition-colors">{isRTL ? 'الشروط' : 'Terms'}</Link>
+      {/* ══════════════════════════════════════════
+          FAQ
+      ══════════════════════════════════════════ */}
+      <section className="py-24 lg:py-32">
+        <div className="max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-14">
+            <SectionLabel text={ar ? 'الأسئلة الشائعة' : 'FAQ'} color="text-accent-purple" />
+            <SectionHeading center>{ar ? 'أسئلة تخطر على بالك' : 'Questions you might have'}</SectionHeading>
+          </Reveal>
+
+          <div className="space-y-3">
+            {faqs.map((faq, i) => (
+              <Reveal key={i} delay={i * 0.06}>
+                <div className="rounded-xl border border-bg-border overflow-hidden">
+                  <button onClick={() => setFaqOpen(faqOpen === i ? null : i)}
+                    className="w-full flex items-center justify-between p-5 text-start bg-bg-surface hover:bg-bg-elevated transition-colors">
+                    <span className="font-heading text-[15px] font-medium text-white">{faq.q}</span>
+                    <ChevronDown size={16} className={`text-text-muted shrink-0 transition-transform duration-300 ${faqOpen === i ? 'rotate-180' : ''}`} />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {faqOpen === i && (
+                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                        transition={{ duration: 0.28 }} className="overflow-hidden">
+                        <p className="px-5 pb-5 text-[14px] text-text-secondary leading-relaxed">{faq.a}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          FINAL CTA
+      ══════════════════════════════════════════ */}
+      <section className="relative py-32 lg:py-44 overflow-hidden bg-bg-surface">
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(108,99,255,0.12) 0%, transparent 70%)' }} />
+        <div className="relative z-10 max-w-[820px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Reveal>
+            <p className="font-mono text-[11px] uppercase tracking-[3px] text-accent-teal mb-5">{ar ? 'ابدأ اليوم' : 'Start Today'}</p>
+            <h2 className="font-heading text-[32px] sm:text-[44px] lg:text-[54px] font-bold text-white leading-[1.1] tracking-[-2px] mb-6">
+              {ar ? <>جهّز قسم التسويق<br /><span className="text-gradient">الذكي الخاص بك</span></> : <>Build your<br /><span className="text-gradient">AI Marketing Department</span></>}
+            </h2>
+            <p className="text-[17px] sm:text-[19px] text-text-secondary leading-relaxed max-w-[580px] mx-auto mb-10">
+              {ar
+                ? 'الاستراتيجية والمحتوى والحملات والتحليلات — في مكان واحد، بموافقتك الكاملة.'
+                : 'Strategy, content, campaigns, and analytics — in one place, with your full control.'}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
+              <Link href="/auth/register"
+                className="btn-gradient font-heading text-[15px] font-semibold uppercase tracking-[1px] text-white px-10 py-4 rounded-lg inline-flex items-center gap-2 shadow-[0_0_40px_rgba(108,99,255,0.3)]">
+                {ar ? 'ابدأ مجاناً — 14 يوم' : 'Start Free — 14 Days'} <ArrowRight size={18} />
+              </Link>
+              <a href="#workflow"
+                className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.25)] px-8 py-4 rounded-lg">
+                {ar ? 'شاهد كيف يعمل' : 'See How It Works'}
+              </a>
             </div>
+            <p className="text-[12px] text-text-muted">
+              {ar ? 'بدون بطاقة ائتمان · تجربة مجانية 14 يوماً · إلغاء في أي وقت' : 'No credit card · 14-day free trial · Cancel anytime'}
+            </p>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          FOOTER
+      ══════════════════════════════════════════ */}
+      <footer className="border-t border-[rgba(255,255,255,0.05)] py-14">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+            {/* Brand */}
+            <div>
+              <Link href="/" className="flex items-center gap-2 mb-4">
+                <span className="font-heading font-bold text-[20px] text-white">NEXUS</span>
+                <span className="bg-accent-purple text-white text-[10px] font-bold px-1.5 py-0.5 rounded">AI</span>
+              </Link>
+              <p className="text-[13px] text-text-secondary leading-relaxed">
+                {ar ? 'قسم التسويق الذكي الاصطناعي الخاص بعملك.' : 'Your AI marketing department for your business.'}
+              </p>
+            </div>
+            {/* Product */}
+            <div>
+              <p className="font-heading text-[13px] font-semibold text-white mb-4 uppercase tracking-[1px]">{ar ? 'المنتج' : 'Product'}</p>
+              <div className="space-y-2.5">
+                {[
+                  { label: ar ? 'الوكلاء الذكيون' : 'AI Agents', href: '#agents' },
+                  { label: 'Brand Brain', href: '#' },
+                  { label: ar ? 'كيف يعمل' : 'How It Works', href: '#workflow' },
+                  { label: ar ? 'الأسعار' : 'Pricing', href: '#pricing' },
+                ].map(l => <a key={l.href} href={l.href} className="block text-[13px] text-text-secondary hover:text-white transition-colors">{l.label}</a>)}
+              </div>
+            </div>
+            {/* Company */}
+            <div>
+              <p className="font-heading text-[13px] font-semibold text-white mb-4 uppercase tracking-[1px]">{ar ? 'الشركة' : 'Company'}</p>
+              <div className="space-y-2.5">
+                {[
+                  { label: ar ? 'القطاعات' : 'Industries', href: '#industries' },
+                  { label: ar ? 'الأسئلة الشائعة' : 'FAQ', href: '#' },
+                  { label: ar ? 'اتصل بنا' : 'Contact', href: '/contact' },
+                ].map(l => <a key={l.label} href={l.href} className="block text-[13px] text-text-secondary hover:text-white transition-colors">{l.label}</a>)}
+              </div>
+            </div>
+            {/* Legal */}
+            <div>
+              <p className="font-heading text-[13px] font-semibold text-white mb-4 uppercase tracking-[1px]">{ar ? 'قانوني' : 'Legal'}</p>
+              <div className="space-y-2.5">
+                {[
+                  { label: ar ? 'سياسة الخصوصية' : 'Privacy Policy', href: '/privacy' },
+                  { label: ar ? 'شروط الاستخدام' : 'Terms of Use', href: '/terms' },
+                  { label: ar ? 'سياسة الاسترداد' : 'Refund Policy', href: '/refund' },
+                ].map(l => <Link key={l.href} href={l.href} className="block text-[13px] text-text-secondary hover:text-white transition-colors">{l.label}</Link>)}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-[rgba(255,255,255,0.05)]">
+            <p className="text-[12px] text-text-muted">
+              © 2025 Nexus AI. {ar ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
+            </p>
+            <p className="text-[11px] text-text-muted text-center">
+              {ar
+                ? 'NEXUS AI أداة مساعدة. النتائج تعتمد على جودة بيانات الإدخال والموافقات والتنفيذ.'
+                : 'NEXUS AI is an assistive tool. Results depend on input quality, approvals, and execution.'}
+            </p>
           </div>
         </div>
       </footer>
