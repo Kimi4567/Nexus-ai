@@ -328,19 +328,25 @@ export default function HomePage() {
 
   const testimonials = [
     {
-      quote: ar ? 'في أسبوع واحد حصلنا على خطة تسويق كاملة وتقويم محتوى لـ 30 يوماً باللغتين. هذا المستوى كان يكلفنا 15,000 درهم مع وكالة.' : 'In one week we had a full marketing plan and 30-day content calendar in both languages. That level used to cost us AED 15,000 with an agency.',
-      name: ar ? 'أحمد المنصوري' : 'Ahmed Al-Mansouri',
-      role: ar ? 'مؤسس، Real Space للعقارات' : 'Founder, Real Space Properties',
+      quote: ar
+        ? 'نظام مثل هذا يمكّن الشركات العقارية من إنتاج خطة تسويق كاملة وتقويم محتوى لـ 30 يوماً دون الحاجة للتنسيق بين أطراف متعددة — المحتوى والاستراتيجية والموافقة في مكان واحد.'
+        : 'A system like this enables real estate businesses to produce a full marketing plan and 30-day content calendar — without coordinating between multiple vendors. Strategy, content, and approvals in one place.',
+      label: ar ? 'سيناريو مثال — قطاع العقارات' : 'Example scenario — Real Estate',
+      icon: '🏢',
     },
     {
-      quote: ar ? 'أهم ميزة بالنسبة لي هي مركز الموافقات. أرى كل شيء قبل نشره. أشعر أنني لا أزال أتحكم في علامتي.' : 'The most important feature for me is the approval center. I see everything before it goes out. I still feel in control of my brand.',
-      name: ar ? 'فاطمة الزهراني' : 'Fatima Al-Zahrani',
-      role: ar ? 'مديرة، Lumina Beauty Lounge' : 'Manager, Lumina Beauty Lounge',
+      quote: ar
+        ? 'مركز الموافقات مُصمَّم لأصحاب الأعمال الذين يريدون مراجعة كل قطعة محتوى قبل نشرها — مع الحفاظ الكامل على هوية العلامة التجارية.'
+        : 'The approval center is built for business owners who want to review every piece of content before it goes live — maintaining full control over brand identity.',
+      label: ar ? 'سيناريو مثال — قطاع التجميل والرفاهية' : 'Example scenario — Beauty & Wellness',
+      icon: '✨',
     },
     {
-      quote: ar ? 'كنا نصرف على كتّاب محتوى ومصممين وكالة في نفس الوقت. الآن فريق واحد ذكي يقوم بكل ذلك ونحن نوافق فقط.' : 'We used to spend on content writers, designers, and an agency simultaneously. Now one smart team does it all and we just approve.',
-      name: ar ? 'عمر الريامي' : 'Omar Al-Riyami',
-      role: ar ? 'الرئيس التنفيذي، FitZone Gyms' : 'CEO, FitZone Gyms',
+      quote: ar
+        ? 'بدلاً من توزيع العمل على كتّاب ومصممين ووكالات منفصلة، يدمج النظام التخطيط والإنتاج والموافقة في منظومة واحدة متكاملة.'
+        : 'Instead of distributing work across separate writers, designers, and agencies, the system unifies planning, production, and approvals into one integrated workflow.',
+      label: ar ? 'سيناريو مثال — قطاع اللياقة البدنية' : 'Example scenario — Fitness & Gyms',
+      icon: '💪',
     },
   ]
 
@@ -422,7 +428,7 @@ export default function HomePage() {
                   {/* Metric row */}
                   <div className="grid grid-cols-4 gap-2 p-3">
                     {[
-                      { l: ar ? 'صحة النشاط' : 'Business Health', v: '87%', c: 'text-accent-teal' },
+                      { l: ar ? 'حالة النظام' : 'System Status', v: ar ? 'نشط' : 'Active', c: 'text-accent-teal' },
                       { l: ar ? 'موافقات معلقة' : 'Pending Approvals', v: '3', c: 'text-accent-amber' },
                       { l: ar ? 'محتوى مجدول' : 'Scheduled Content', v: '12', c: 'text-white' },
                       { l: ar ? 'حملات نشطة' : 'Active Campaigns', v: '2', c: 'text-accent-purple' },
@@ -852,31 +858,25 @@ export default function HomePage() {
       <section className="py-24 lg:py-32 bg-bg-surface">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-14">
-            <SectionLabel text={ar ? 'آراء العملاء' : 'What Clients Say'} color="text-accent-teal" />
-            <SectionHeading center>{ar ? 'أعمال حقيقية، نتائج حقيقية' : 'Real businesses, real results'}</SectionHeading>
+            <SectionLabel text={ar ? 'سيناريوهات استخدام' : 'Use Case Scenarios'} color="text-accent-teal" />
+            <SectionHeading center>{ar ? 'مُصمَّم لأعمال مثل عملك' : 'Designed for businesses like yours'}</SectionHeading>
           </Reveal>
 
           <Reveal>
             <div className="max-w-[740px] mx-auto glass-panel rounded-2xl p-8 sm:p-10">
-              <div className="flex gap-1 mb-6">
-                {[...Array(5)].map((_, i) => <Star key={i} size={17} className="text-accent-amber fill-accent-amber" />)}
-              </div>
               <AnimatePresence mode="wait">
                 <motion.div key={testimonialIdx}
                   initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
                   transition={{ duration: 0.35 }}>
-                  <p className="text-[16px] sm:text-[18px] text-text-secondary leading-relaxed italic mb-8">
-                    &ldquo;{testimonials[testimonialIdx].quote}&rdquo;
+                  <p className="text-[16px] sm:text-[18px] text-text-secondary leading-relaxed mb-8">
+                    {testimonials[testimonialIdx].quote}
                   </p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-bg-elevated flex items-center justify-center font-heading font-bold text-[14px] text-white" style={{ background: 'linear-gradient(135deg,#6C63FF,#00BFA6)' }}>
-                        {testimonials[testimonialIdx].name.charAt(0)}
+                      <div className="w-10 h-10 rounded-full bg-bg-elevated flex items-center justify-center text-[18px]">
+                        {testimonials[testimonialIdx].icon}
                       </div>
-                      <div>
-                        <p className="text-[14px] font-semibold text-white">{testimonials[testimonialIdx].name}</p>
-                        <p className="text-[11px] font-mono text-text-muted">{testimonials[testimonialIdx].role}</p>
-                      </div>
+                      <p className="text-[12px] font-mono text-text-muted">{testimonials[testimonialIdx].label}</p>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => setTestimonialIdx((n) => (n - 1 + testimonials.length) % testimonials.length)}

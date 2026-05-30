@@ -241,14 +241,15 @@ export default function DemoPage() {
 
           {/* ── Live metrics ─────────────────────────────────────── */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-3">
               <div className="w-1 h-6 rounded-full" style={{ background: '#06b6d4' }} />
-              <h2 className="text-lg font-bold text-white">الأداء الحي · Live Performance</h2>
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: '#10b981' }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-green-400 inline-block" />
-                مباشر
+              <h2 className="text-lg font-bold text-white">الأداء · Performance</h2>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b' }}>
+                بيانات تجريبية · Simulated data
               </span>
             </div>
+            <p className="text-xs text-gray-600 mb-4">هذه الأرقام بيانات عرض توضيحي فقط وليست نتائج فعلية أو ضمانات أداء. · These numbers are illustrative demo data only and do not represent real results or performance guarantees.</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {DEMO_METRICS.map((m, i) => (
                 <div key={i} className="rounded-xl p-4" style={glassCard}>

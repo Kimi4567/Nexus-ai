@@ -392,7 +392,7 @@ export default function VexPage() {
             {[
               { icon: Megaphone, color: '#06b6d4', label: 'نص الإعلان',      labelEn: 'AI Ad Copy',    desc: 'نصوص تحويل عالية الأداء',  descEn: 'High-converting ad copy' },
               { icon: Target,    color: '#6C63FF', label: 'استهداف الجمهور', labelEn: 'Audience',      desc: 'جمهور دقيق ومخصص',         descEn: 'Precise custom audience' },
-              { icon: DollarSign,color: '#10b981', label: 'توزيع الميزانية', labelEn: 'Budget Split',  desc: 'تحقيق أعلى ROAS',           descEn: 'Maximize ROAS' },
+              { icon: DollarSign,color: '#10b981', label: 'توزيع الميزانية', labelEn: 'Budget Split',  desc: 'تحسين توزيع الإنفاق الإعلاني', descEn: 'Optimize ad spend allocation' },
               { icon: TrendingUp,color: '#8b5cf6', label: 'استراتيجية كاملة',labelEn: 'Full Strategy', desc: 'خطة 30 يوم متكاملة',        descEn: 'Complete 30-day plan' },
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>

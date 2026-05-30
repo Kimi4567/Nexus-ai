@@ -72,7 +72,6 @@ function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
   id: TabId; label: string; labelEn: string; icon: React.ElementType
   active: boolean; onClick: () => void
 }) {
-  const { locale } = useI18n()
   return (
     <button onClick={onClick}
       className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
@@ -83,7 +82,8 @@ function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
         boxShadow: active ? '0 0 20px rgba(245,158,11,0.1)' : 'none',
       }}>
       <Icon size={15} />
-      <span>{locale === 'ar' ? label : labelEn}</span>
+      <span>{label}</span>
+      <span className="opacity-50 text-xs">{labelEn}</span>
     </button>
   )
 }
@@ -94,7 +94,6 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
   options: { value: T; label: string; labelEn?: string }[]
   onChange: (v: T) => void
 }) {
-  const { locale } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs text-gray-500">{label}</label>
@@ -104,7 +103,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
           {options.map(o => (
             <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>
-              {locale === 'ar' ? o.label : (o.labelEn || o.label)}
+              {o.label}{o.labelEn ? ` · ${o.labelEn}` : ''}
             </option>
           ))}
         </select>
@@ -235,7 +234,7 @@ export default function NexStudioPage() {
                     Studio
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'مختبر المحتوى الإبداعي' : 'Creative Content Lab'}</p>
+                <p className="text-gray-400 text-sm mt-0.5">مختبر المحتوى الإبداعي · Creative Content Lab</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -248,13 +247,13 @@ export default function NexStudioPage() {
               ) : (
                 <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-                  <span>{locale === 'ar' ? '⚡ فعّل Brand Brain' : '⚡ Activate Brand Brain'}</span>
+                  <span>⚡ فعّل Brand Brain · Activate</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
                 <Sparkles size={12} />
-                <span>{locale === 'ar' ? 'GPT-4o · نشط' : 'GPT-4o · Active'}</span>
+                <span>GPT-4o · نشط</span>
               </div>
             </div>
           </div>
@@ -277,10 +276,10 @@ export default function NexStudioPage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} className="text-amber-500" />
-                  {locale === 'ar' ? 'إعدادات التوليد' : 'Generation Settings'}
+                  إعدادات التوليد · Generation Settings
                 </h3>
                 <NexSelect<Platform>
-                  label={locale === 'ar' ? 'المنصة' : 'Platform'}
+                  label="المنصة · Platform"
                   value={platform}
                   onChange={setPlatform}
                   options={[
@@ -293,7 +292,7 @@ export default function NexStudioPage() {
                   ]}
                 />
                 <NexSelect<Tone>
-                  label={locale === 'ar' ? 'النبرة' : 'Tone'}
+                  label="النبرة · Tone"
                   value={tone}
                   onChange={setTone}
                   options={[
@@ -306,7 +305,7 @@ export default function NexStudioPage() {
                 />
                 {(activeTab === 'script' || activeTab === 'storyboard') && (
                   <NexSelect<Duration>
-                    label={locale === 'ar' ? 'المدة' : 'Duration'}
+                    label="المدة · Duration"
                     value={duration}
                     onChange={setDuration}
                     options={[
@@ -322,7 +321,7 @@ export default function NexStudioPage() {
 
               {/* Quick prompts */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'أفكار سريعة' : 'Quick Prompts'}</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">أفكار سريعة · Quick Prompts</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
                     'إطلاق منتج جديد للعناية بالبشرة',
@@ -353,9 +352,9 @@ export default function NexStudioPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                     <currentTab.icon size={14} className="text-amber-500" />
-                    {locale === 'ar' ? currentTab.label : currentTab.labelEn}
+                    {currentTab.label} · {currentTab.labelEn}
                   </h3>
-                  <span className="text-xs text-gray-600">{locale === 'ar' ? `${charCount} حرف` : `${charCount} chars`}</span>
+                  <span className="text-xs text-gray-600">{charCount} حرف</span>
                 </div>
 
                 <textarea
@@ -374,7 +373,7 @@ export default function NexStudioPage() {
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">{locale === 'ar' ? 'Ctrl+Enter للتوليد السريع' : 'Ctrl+Enter to generate'}</span>
+                  <span className="text-xs text-gray-600">Ctrl+Enter للتوليد السريع</span>
                   <button
                     onClick={generate}
                     disabled={!prompt.trim() || loading}
@@ -388,7 +387,7 @@ export default function NexStudioPage() {
                       boxShadow: prompt.trim() && !loading ? '0 0 30px rgba(245,158,11,0.3)' : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? (locale === 'ar' ? 'جاري التوليد...' : 'Generating...') : (locale === 'ar' ? 'ولّد الآن' : 'Generate')}
+                    {loading ? 'جاري التوليد...' : 'ولّد الآن · Generate'}
                   </button>
                 </div>
               </div>
@@ -403,7 +402,7 @@ export default function NexStudioPage() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f59e0b' }}>
                       <Sparkles size={14} />
-                      {locale === 'ar' ? 'النتيجة' : 'Output'}
+                      النتيجة · Output
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
@@ -447,10 +446,10 @@ export default function NexStudioPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Clock size={14} className="text-gray-500" />
-                  {locale === 'ar' ? 'سجل التوليد' : 'History'}
+                  سجل التوليد · History
                 </h3>
                 <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
-                  {locale === 'ar' ? 'مسح الكل' : 'Clear all'}
+                  مسح الكل
                 </button>
               </div>
               <div className="space-y-2">
@@ -479,18 +478,19 @@ export default function NexStudioPage() {
           {/* ── Capabilities Banner ────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { icon: Film,         color: '#f59e0b', label: 'سكريبتات',  labelEn: 'Scripts',    desc: 'سكريبت احترافي لكل مقطع',    descEn: 'Professional script per video' },
-              { icon: Zap,          color: '#06b6d4', label: 'هوكس',      labelEn: 'Hooks',      desc: '5 هوكس جاذبة للانتباه',       descEn: '5 attention-grabbing hooks' },
-              { icon: MessageSquare,color: '#8b5cf6', label: 'كابشنز',    labelEn: 'Captions',   desc: 'كابشن متكامل + هاشتاقات',     descEn: 'Full caption + hashtags' },
-              { icon: Layers,       color: '#10b981', label: 'ستوري بورد',labelEn: 'Storyboard', desc: 'خطة مشاهد تفصيلية',           descEn: 'Detailed scene plan' },
+              { icon: Film,         color: '#f59e0b', label: 'سكريبتات',   sub: 'Scripts',    desc: 'سكريبت احترافي لكل مقطع' },
+              { icon: Zap,          color: '#06b6d4', label: 'هوكس',       sub: 'Hooks',      desc: '5 هوكس جاذبة للانتباه' },
+              { icon: MessageSquare,color: '#8b5cf6', label: 'كابشنز',     sub: 'Captions',   desc: 'كابشن متكامل + هاشتاقات' },
+              { icon: Layers,       color: '#10b981', label: 'ستوري بورد', sub: 'Storyboard', desc: 'خطة مشاهد تفصيلية' },
             ].map((cap, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
                   <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-                <p className="text-white text-sm font-medium">{locale === 'ar' ? cap.label : cap.labelEn}</p>
-                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? cap.desc : cap.descEn}</p>
+                <p className="text-white text-sm font-medium">{cap.label}</p>
+                <p className="text-gray-500 text-xs">{cap.sub}</p>
+                <p className="text-gray-600 text-xs mt-1">{cap.desc}</p>
               </div>
             ))}
           </div>
