@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/lib/auth-context'
 
 /* ═══════════════════════════════════════════════════════════════
    useBrandBrain — الذاكرة المشتركة لكل الوكلاء الذكيين
@@ -122,6 +123,7 @@ export function getBrandCompleteness(brand: BrandProfile | null): { score: numbe
 
 // ── Hook ───────────────────────────────────────────────────────
 export function useBrandBrain() {
+  const { authHeader } = useAuth()
   const [brand, setBrand] = useState<BrandProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -129,16 +131,18 @@ export function useBrandBrain() {
 
   const fetchBrand = useCallback(async () => {
     try {
-      const res = await fetch('/api/brand')
+      const res = await fetch('/api/brand', {
+        headers: { Authorization: authHeader() },
+      })
       if (!res.ok) throw new Error('Failed to load brand')
       const data = await res.json()
       setBrand(data.brandProfile || null)
-    } catch (e) {
+    } catch {
       setError('تعذّر تحميل بيانات العلامة التجارية')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [authHeader])
 
   useEffect(() => { fetchBrand() }, [fetchBrand])
 
@@ -148,7 +152,10 @@ export function useBrandBrain() {
     try {
       const res = await fetch('/api/brand', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader(),
+        },
         body: JSON.stringify(data),
       })
       if (!res.ok) throw new Error('Failed to save')
@@ -161,7 +168,7 @@ export function useBrandBrain() {
     } finally {
       setSaving(false)
     }
-  }, [])
+  }, [authHeader])
 
   const brandContext = buildBrandContext(brand)
   const { score, missing } = getBrandCompleteness(brand)
