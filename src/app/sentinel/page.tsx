@@ -36,6 +36,15 @@ interface MonitorResult {
   createdAt: Date
 }
 
+// Static monitor tab config — uses translation keys
+const MONITOR_TABS: { id: MonitorType; labelKey: string; icon: React.ElementType }[] = [
+  { id: 'competitors',   labelKey: 'sentinel.tabCompetitors',   icon: Eye },
+  { id: 'market',        labelKey: 'sentinel.tabMarket',        icon: Activity },
+  { id: 'reputation',    labelKey: 'sentinel.tabReputation',    icon: Shield },
+  { id: 'opportunities', labelKey: 'sentinel.tabOpportunities', icon: TrendingUp },
+  { id: 'threats',       labelKey: 'sentinel.tabThreats',       icon: AlertTriangle },
+]
+
 function SentinelOrbs() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
@@ -49,14 +58,14 @@ function SentinelOrbs() {
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
-  const { locale } = useI18n()
+  const { t } = useI18n()
   const handle = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
+      {copied ? t('common.copied') : t('common.copy')}
     </button>
   )
 }
@@ -102,11 +111,9 @@ function AlertCard({ alert }: { alert: Alert }) {
   )
 }
 
-// Demo alerts are now rendered inside the component for locale support
-
 export default function SentinelPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
@@ -126,8 +133,8 @@ export default function SentinelPage() {
 
   // Heartbeat animation
   useEffect(() => {
-    const t = setInterval(() => setPulse(p => !p), 2000)
-    return () => clearInterval(t)
+    const timer = setInterval(() => setPulse(p => !p), 2000)
+    return () => clearInterval(timer)
   }, [])
 
   if (authLoading) return (
@@ -137,13 +144,11 @@ export default function SentinelPage() {
   )
   if (!isAuthenticated) return null
 
-  const monitorTabs: { id: MonitorType; label: string; labelEn: string; icon: React.ElementType }[] = [
-    { id: 'competitors',  label: 'مراقبة المنافسين',  labelEn: 'Competitors',   icon: Eye },
-    { id: 'market',       label: 'نبض السوق',         labelEn: 'Market Pulse',  icon: Activity },
-    { id: 'reputation',   label: 'سمعة العلامة',       labelEn: 'Brand Rep.',    icon: Shield },
-    { id: 'opportunities',label: 'فرص السوق',          labelEn: 'Opportunities', icon: TrendingUp },
-    { id: 'threats',      label: 'تحديات وتهديدات',   labelEn: 'Threats',       icon: AlertTriangle },
-  ]
+  // Resolve translated tabs from static config
+  const monitorTabs = MONITOR_TABS.map(tab => ({
+    ...tab,
+    label: t(tab.labelKey) as string,
+  }))
 
   const systemPrompts: Record<MonitorType, string> = {
     competitors: `${brandContext}أنت Sentinel، محلل استراتيجي متخصص في رصد المنافسين. القطاع: ${industry}. المنطقة: ${region}. حلل المنافسين: استراتيجياتهم التسويقية الحالية، نقاط قوتهم وضعفهم، تحركاتهم الأخيرة، وكيف يمكنك التفوق عليهم. قدم توصيات عملية فورية.`,
@@ -169,7 +174,7 @@ export default function SentinelPage() {
       setResult(output)
       setHistory(prev => [{ id: crypto.randomUUID(), type: monitorType, query: prompt, output, createdAt: new Date() }, ...prev.slice(0, 9)])
     } catch {
-      setResult('⚠️ فشل الاتصال بـ Sentinel. حاول مجدداً.')
+      setResult(t('sentinel.errorConnect') as string)
     } finally {
       setLoading(false)
     }
@@ -177,6 +182,34 @@ export default function SentinelPage() {
 
   const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
   const greenColor = '#10b981'
+
+  const industryOptions = [
+    { value: 'ecommerce',  label: t('sentinel.industryEcommerce') as string },
+    { value: 'food',       label: t('sentinel.industryFood')       as string },
+    { value: 'fashion',    label: t('sentinel.industryFashion')    as string },
+    { value: 'tech',       label: t('sentinel.industryTech')       as string },
+    { value: 'health',     label: t('sentinel.industryHealth')     as string },
+    { value: 'realestate', label: t('sentinel.industryRealEstate') as string },
+    { value: 'education',  label: t('sentinel.industryEducation')  as string },
+    { value: 'services',   label: t('sentinel.industryServices')   as string },
+  ]
+
+  const regionOptions = [
+    { value: 'mena',   label: t('sentinel.regionMena')   as string },
+    { value: 'gcc',    label: t('sentinel.regionGcc')    as string },
+    { value: 'saudi',  label: t('sentinel.regionSaudi')  as string },
+    { value: 'uae',    label: t('sentinel.regionUae')    as string },
+    { value: 'egypt',  label: t('sentinel.regionEgypt')  as string },
+    { value: 'global', label: t('sentinel.regionGlobal') as string },
+  ]
+
+  const capabilities = [
+    { icon: Eye,           color: '#10b981', labelKey: 'sentinel.capCompetitorsLabel', descKey: 'sentinel.capCompetitorsDesc' },
+    { icon: Activity,      color: '#06b6d4', labelKey: 'sentinel.capMarketLabel',      descKey: 'sentinel.capMarketDesc' },
+    { icon: Shield,        color: '#8b5cf6', labelKey: 'sentinel.capReputationLabel',  descKey: 'sentinel.capReputationDesc' },
+    { icon: TrendingUp,    color: '#f59e0b', labelKey: 'sentinel.capOpportunitiesLabel', descKey: 'sentinel.capOpportunitiesDesc' },
+    { icon: AlertTriangle, color: '#ef4444', labelKey: 'sentinel.capThreatsLabel',     descKey: 'sentinel.capThreatsDesc' },
+  ]
 
   return (
     <AppShell>
@@ -202,10 +235,10 @@ export default function SentinelPage() {
                   <h1 className="text-2xl font-bold text-white">Sentinel</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={{ background: 'rgba(16,185,129,0.15)', color: greenColor, border: `1px solid rgba(16,185,129,0.3)` }}>
-                    24/7 Monitor
+                    {t('sentinel.badge')}
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'مراقبة السوق والمنافسين ٢٤/٧' : 'Market & Competitor Intel'}</p>
+                <p className="text-gray-400 text-sm mt-0.5">{t('sentinel.subheading')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -219,13 +252,13 @@ export default function SentinelPage() {
                 <a href="/brand" className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b' }}>
                   <span>⚡</span>
-                  <span>{locale === 'ar' ? 'فعّل Brand Brain' : 'Activate Brand Brain'}</span>
+                  <span>{t('sentinel.activateBrain')}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, color: greenColor }}>
                 <Radio size={12} className={pulse ? 'opacity-100' : 'opacity-30'} style={{ transition: 'opacity 0.5s' }} />
-                <span>{locale === 'ar' ? 'يراقب' : 'Watching'}</span>
+                <span>{t('sentinel.watching')}</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(139,92,246,0.1)', border: `1px solid rgba(139,92,246,0.2)`, color: '#8b5cf6' }}>
@@ -240,11 +273,11 @@ export default function SentinelPage() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                 <Bell size={14} style={{ color: greenColor }} />
-                {locale === 'ar' ? 'تنبيهات حية' : 'Live Alerts'}
+                {t('sentinel.liveAlerts')}
               </h3>
               <div className="flex items-center gap-2 text-xs" style={{ color: greenColor }}>
                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: greenColor }} />
-                {locale === 'ar' ? 'نشط' : 'Active'}
+                {t('sentinel.activeStatus')}
               </div>
             </div>
             <div className="space-y-2">
@@ -260,16 +293,16 @@ export default function SentinelPage() {
 
           {/* Monitor tabs */}
           <div className="flex flex-wrap gap-2">
-            {monitorTabs.map(t => (
-              <button key={t.id} onClick={() => { setMonitorType(t.id); setResult('') }}
+            {monitorTabs.map(mon => (
+              <button key={mon.id} onClick={() => { setMonitorType(mon.id); setResult('') }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: monitorType === t.id ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.08))' : 'rgba(255,255,255,0.04)',
-                  color: monitorType === t.id ? greenColor : '#9ca3af',
-                  border: `1px solid ${monitorType === t.id ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                  background: monitorType === mon.id ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.08))' : 'rgba(255,255,255,0.04)',
+                  color: monitorType === mon.id ? greenColor : '#9ca3af',
+                  border: `1px solid ${monitorType === mon.id ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
                 }}>
-                <t.icon size={15} />
-                <span>{locale === 'ar' ? t.label : t.labelEn}</span>
+                <mon.icon size={15} />
+                <span>{mon.label}</span>
               </button>
             ))}
           </div>
@@ -281,33 +314,25 @@ export default function SentinelPage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} style={{ color: greenColor }} />
-                  {locale === 'ar' ? 'إعدادات المراقبة' : 'Monitor Settings'}
+                  {t('sentinel.monitorSettings')}
                 </h3>
-                <SentinelSelect label={locale === 'ar' ? 'القطاع' : 'Industry'} value={industry} onChange={setIndustry}
-                  options={[
-                    { value: 'ecommerce',  label: locale === 'ar' ? 'تجارة إلكترونية' : 'E-commerce' },
-                    { value: 'food',       label: locale === 'ar' ? 'مطاعم وأغذية'    : 'Food & Beverage' },
-                    { value: 'fashion',    label: locale === 'ar' ? 'موضة وأزياء'      : 'Fashion' },
-                    { value: 'tech',       label: locale === 'ar' ? 'تقنية وتطبيقات'   : 'Tech & Apps' },
-                    { value: 'health',     label: locale === 'ar' ? 'صحة وجمال'        : 'Health & Beauty' },
-                    { value: 'realestate', label: locale === 'ar' ? 'عقارات'            : 'Real Estate' },
-                    { value: 'education',  label: locale === 'ar' ? 'تعليم وتدريب'      : 'Education' },
-                    { value: 'services',   label: locale === 'ar' ? 'خدمات'             : 'Services' },
-                  ]} />
-                <SentinelSelect label={locale === 'ar' ? 'المنطقة' : 'Region'} value={region} onChange={setRegion}
-                  options={[
-                    { value: 'mena',   label: locale === 'ar' ? 'الشرق الأوسط وشمال أفريقيا' : 'MENA' },
-                    { value: 'gcc',    label: locale === 'ar' ? 'دول الخليج العربي'            : 'GCC' },
-                    { value: 'saudi',  label: locale === 'ar' ? 'المملكة العربية السعودية'     : 'Saudi Arabia' },
-                    { value: 'uae',    label: locale === 'ar' ? 'الإمارات العربية المتحدة'     : 'UAE' },
-                    { value: 'egypt',  label: locale === 'ar' ? 'مصر'                          : 'Egypt' },
-                    { value: 'global', label: locale === 'ar' ? 'عالمي'                        : 'Global' },
-                  ]} />
+                <SentinelSelect
+                  label={t('sentinel.industryLabel') as string}
+                  value={industry}
+                  onChange={setIndustry}
+                  options={industryOptions}
+                />
+                <SentinelSelect
+                  label={t('sentinel.regionLabel') as string}
+                  value={region}
+                  onChange={setRegion}
+                  options={regionOptions}
+                />
               </div>
 
               {/* Quick queries */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'استفسارات سريعة' : 'Quick Queries'}</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('sentinel.quickQueries')}</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
                     'من هم أقوى منافسيّ الحاليين وما استراتيجيتهم؟',
@@ -334,13 +359,16 @@ export default function SentinelPage() {
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  {(() => { const t = monitorTabs.find(t => t.id === monitorType)!; return <><t.icon size={14} style={{ color: greenColor }} />{locale === 'ar' ? t.label : t.labelEn}</> })()}
+                  {(() => {
+                    const mon = monitorTabs.find(m => m.id === monitorType)!
+                    return <><mon.icon size={14} style={{ color: greenColor }} />{mon.label}</>
+                  })()}
                 </h3>
                 <textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder={locale === 'ar' ? 'صف ما تريد مراقبته — اسم منافسيك، قطاعك، أو سؤالك الاستراتيجي...' : 'Describe what to monitor — competitor names, your industry, or your strategic question...'}
+                  placeholder={t('sentinel.promptPlaceholder') as string}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
                   style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
@@ -353,7 +381,7 @@ export default function SentinelPage() {
                       boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(16,185,129,0.3)` : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                    {loading ? (locale === 'ar' ? 'جاري الرصد...' : 'Monitoring...') : (locale === 'ar' ? 'رصد الآن' : 'Monitor')}
+                    {loading ? t('sentinel.monitoringVerb') : t('sentinel.monitorNow')}
                   </button>
                 </div>
               </div>
@@ -362,14 +390,14 @@ export default function SentinelPage() {
                 <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(16,185,129,0.2)`, boxShadow: 'rgba(16,185,129,0.05) 0 0 40px' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: greenColor }}>
-                      <Sparkles size={14} />{locale === 'ar' ? 'تقرير Sentinel' : 'Intelligence Report'}
+                      <Sparkles size={14} />{t('sentinel.reportTitle')}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                       <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(16,185,129,0.3)', borderTopColor: greenColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'Sentinel يرصد ويحلل...' : 'Sentinel is monitoring and analyzing...'}</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{t('sentinel.processing')}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -387,8 +415,8 @@ export default function SentinelPage() {
                     <Shield size={32} style={{ color: 'rgba(16,185,129,0.4)' }} />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر نوع المراقبة وحدد القطاع والمنطقة' : 'Choose monitor type, industry and region'}</p>
-                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب سؤالك ليبدأ Sentinel في الرصد والتحليل' : 'then write your question and let Sentinel monitor and analyze'}</p>
+                    <p className="text-gray-400 text-sm">{t('sentinel.emptyTitle')}</p>
+                    <p className="text-gray-600 text-xs mt-1">{t('sentinel.emptySub')}</p>
                   </div>
                 </div>
               )}
@@ -399,8 +427,10 @@ export default function SentinelPage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'سجل الرصد' : 'Monitor History'}</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{locale === 'ar' ? 'مسح الكل' : 'Clear all'}</button>
+                <h3 className="text-sm font-semibold text-gray-300">{t('sentinel.historyTitle')}</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
+                  {t('sentinel.clearAll')}
+                </button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
@@ -410,7 +440,7 @@ export default function SentinelPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(16,185,129,0.1)', color: greenColor, border: `1px solid rgba(16,185,129,0.2)` }}>
-                        {locale === 'ar' ? monitorTabs.find(t => t.id === h.type)?.label : monitorTabs.find(t => t.id === h.type)?.labelEn}
+                        {t(monitorTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.query}</span>
                     </div>
@@ -423,20 +453,14 @@ export default function SentinelPage() {
 
           {/* Capabilities */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { icon: Eye,          color: '#10b981', label: 'رصد المنافسين',  labelEn: 'Competitors',   desc: 'استراتيجيات وتحركات',      descEn: 'Strategies & moves' },
-              { icon: Activity,     color: '#06b6d4', label: 'نبض السوق',      labelEn: 'Market Pulse',  desc: 'الاتجاهات الحالية',         descEn: 'Current trends' },
-              { icon: Shield,       color: '#8b5cf6', label: 'سمعة العلامة',   labelEn: 'Brand Rep.',    desc: 'مراقبة الصورة الرقمية',     descEn: 'Digital image monitoring' },
-              { icon: TrendingUp,   color: '#f59e0b', label: 'فرص النمو',      labelEn: 'Opportunities', desc: 'ثغرات وفرص غير مستغلة',     descEn: 'Untapped gaps & chances' },
-              { icon: AlertTriangle,color: '#ef4444', label: 'التهديدات',      labelEn: 'Threats',       desc: 'مخاطر السوق المبكرة',       descEn: 'Early market risks' },
-            ].map((c, i) => (
+            {capabilities.map((cap, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
-                  style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
-                  <c.icon size={16} style={{ color: c.color }} />
+                  style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
+                  <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-                <p className="text-white text-xs font-medium">{locale === 'ar' ? c.label : c.labelEn}</p>
-                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? c.desc : c.descEn}</p>
+                <p className="text-white text-xs font-medium">{t(cap.labelKey)}</p>
+                <p className="text-gray-600 text-xs mt-1">{t(cap.descKey)}</p>
               </div>
             ))}
           </div>

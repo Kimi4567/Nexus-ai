@@ -7,8 +7,8 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
   Loader2, BarChart2, Wand2, Sparkles, TrendingUp, TrendingDown,
-  Copy, Check, ChevronDown, Zap, Target, RefreshCw, Calendar,
-  Globe, Activity, Eye, ArrowUpRight, ArrowDownRight
+  Copy, Check, ChevronDown, Zap, Target, Calendar,
+  Activity, Eye, ArrowUpRight, ArrowDownRight
 } from 'lucide-react'
 import StarField from '@/components/ui/StarField'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
@@ -42,14 +42,14 @@ function PulseOrbs() {
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
-  const { locale } = useI18n()
+  const { t } = useI18n()
   const handle = () => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
+      {copied ? t('common.copied') : t('common.copy')}
     </button>
   )
 }
@@ -73,17 +73,17 @@ function PulseSelect<T extends string>({ label, value, options, onChange }: {
 }
 
 // Metric card
-function MetricCard({ label, labelEn, value, change, changeEn, up, color }: {
-  label: string; labelEn: string; value: string; change: string; changeEn?: string; up: boolean; color: string
+function MetricCard({ labelKey, value, changeKey, up, color }: {
+  labelKey: string; value: string; changeKey: string; up: boolean; color: string
 }) {
-  const { locale } = useI18n()
+  const { t } = useI18n()
   return (
     <div className="rounded-xl p-4" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)' }}>
-      <p className="text-xs text-gray-500 mb-2">{locale === 'ar' ? label : labelEn}</p>
+      <p className="text-xs text-gray-500 mb-2">{t(labelKey)}</p>
       <p className="text-xl font-bold text-white mb-1">{value}</p>
       <div className="flex items-center gap-1">
         {up ? <ArrowUpRight size={12} style={{ color: '#10b981' }} /> : <ArrowDownRight size={12} style={{ color: '#ef4444' }} />}
-        <span className="text-xs" style={{ color: up ? '#10b981' : '#ef4444' }}>{locale === 'ar' ? change : (changeEn || change)}</span>
+        <span className="text-xs" style={{ color: up ? '#10b981' : '#ef4444' }}>{t(changeKey)}</span>
       </div>
     </div>
   )
@@ -104,14 +104,14 @@ function MiniBarChart({ data, color }: { data: number[]; color: string }) {
 
 export default function PulsePage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
-  const { brandContext, brand } = useBrandBrain()
+  const { brandContext } = useBrandBrain()
   const [analysisType, setAnalysisType] = useState<AnalysisType>('performance')
   const [period, setPeriod] = useState<Period>('30d')
   const [industry, setIndustry] = useState('ecommerce')
@@ -127,12 +127,12 @@ export default function PulsePage() {
   )
   if (!isAuthenticated) return null
 
-  const analysisTabs: { id: AnalysisType; label: string; labelEn: string; icon: React.ElementType }[] = [
-    { id: 'performance',  label: 'أداء الحملات',   labelEn: 'Performance',  icon: BarChart2 },
-    { id: 'competitors',  label: 'المنافسون',       labelEn: 'Competitors',  icon: Target },
-    { id: 'trends',       label: 'الاتجاهات',       labelEn: 'Trends',       icon: TrendingUp },
-    { id: 'content',      label: 'أداء المحتوى',    labelEn: 'Content',      icon: Activity },
-    { id: 'forecast',     label: 'توقعات AI',        labelEn: 'AI Forecast',  icon: Zap },
+  const analysisTabs: { id: AnalysisType; labelKey: string; icon: React.ElementType }[] = [
+    { id: 'performance',  labelKey: 'analytics.tabPerformance', icon: BarChart2 },
+    { id: 'competitors',  labelKey: 'analytics.tabCompetitors', icon: Target },
+    { id: 'trends',       labelKey: 'analytics.tabTrends',      icon: TrendingUp },
+    { id: 'content',      labelKey: 'analytics.tabContent',     icon: Activity },
+    { id: 'forecast',     labelKey: 'analytics.tabForecast',    icon: Zap },
   ]
 
   const systemPrompts: Record<AnalysisType, string> = {
@@ -159,7 +159,7 @@ export default function PulsePage() {
       setResult(output)
       setHistory(prev => [{ id: crypto.randomUUID(), type: analysisType, query: prompt, output, createdAt: new Date() }, ...prev.slice(0, 9)])
     } catch {
-      setResult('⚠️ فشل الاتصال بـ PULSE. حاول مجدداً.')
+      setResult(t('analytics.errorConnect') as string)
     } finally {
       setLoading(false)
     }
@@ -195,25 +195,25 @@ export default function PulsePage() {
                   <h1 className="text-2xl font-bold text-white">PULSE</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={{ background: 'rgba(139,92,246,0.15)', color: purpleColor, border: `1px solid rgba(139,92,246,0.3)` }}>
-                    Analytics
+                    {t('analytics.badge')}
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'لوحة التحليلات والرؤى الذكية' : 'Analytics & Market Intelligence'}</p>
+                <p className="text-gray-400 text-sm mt-0.5">{t('analytics.subheading')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
               style={{ background: 'rgba(139,92,246,0.1)', border: `1px solid rgba(139,92,246,0.2)`, color: purpleColor }}>
               <Sparkles size={12} />
-              <span>{locale === 'ar' ? 'GPT-4o · نشط' : 'GPT-4o · Active'}</span>
+              <span>{t('analytics.gptActive')}</span>
             </div>
           </div>
 
           {/* Metrics overview */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard label="الوصول"     labelEn="Reach"       value="—" change="اربط حساباتك"   changeEn="Connect accounts"  up={true}  color={purpleColor} />
-            <MetricCard label="التفاعل"    labelEn="Engagement"  value="—" change="لرؤية البيانات"  changeEn="to see data"        up={true}  color="#06b6d4" />
-            <MetricCard label="التحويلات"  labelEn="Conversions" value="—" change="من Connections"   changeEn="via Connections"    up={false} color="#10b981" />
-            <MetricCard label="معدل النمو" labelEn="Growth"      value="—" change="للوحة التحليل"   changeEn="for analytics"      up={true}  color="#6C63FF" />
+            <MetricCard labelKey="analytics.reach"            value="—" changeKey="analytics.connectAccountsHint" up={true}  color={purpleColor} />
+            <MetricCard labelKey="analytics.engagementMetric" value="—" changeKey="analytics.toSeeDataHint"        up={true}  color="#06b6d4" />
+            <MetricCard labelKey="analytics.conversionsMetric"value="—" changeKey="analytics.viaConnectionsHint"   up={false} color="#10b981" />
+            <MetricCard labelKey="analytics.growth"           value="—" changeKey="analytics.forAnalyticsHint"     up={true}  color="#6C63FF" />
           </div>
 
           {/* Chart preview */}
@@ -221,7 +221,7 @@ export default function PulsePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Activity size={16} style={{ color: purpleColor }} />
-                <span className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'نشاط الحملات' : 'Campaign Activity'}</span>
+                <span className="text-sm font-semibold text-gray-300">{t('analytics.campaignActivity')}</span>
               </div>
               <div className="flex items-center gap-2">
                 {(['7d','30d','90d'] as Period[]).map(p => (
@@ -234,21 +234,21 @@ export default function PulsePage() {
               </div>
             </div>
             <MiniBarChart data={chartData} color={purpleColor} />
-            <p className="text-xs text-gray-600 mt-2 text-center">{locale === 'ar' ? 'ربط المنصات يتيح عرض البيانات الحقيقية' : 'Connect platforms to see real data'}</p>
+            <p className="text-xs text-gray-600 mt-2 text-center">{t('analytics.connectNote')}</p>
           </div>
 
           {/* Analysis tabs */}
           <div className="flex flex-wrap gap-2">
-            {analysisTabs.map(t => (
-              <button key={t.id} onClick={() => { setAnalysisType(t.id); setResult('') }}
+            {analysisTabs.map(tab => (
+              <button key={tab.id} onClick={() => { setAnalysisType(tab.id); setResult('') }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: analysisType === t.id ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08))' : 'rgba(255,255,255,0.04)',
-                  color: analysisType === t.id ? purpleColor : '#9ca3af',
-                  border: `1px solid ${analysisType === t.id ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                  background: analysisType === tab.id ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08))' : 'rgba(255,255,255,0.04)',
+                  color: analysisType === tab.id ? purpleColor : '#9ca3af',
+                  border: `1px solid ${analysisType === tab.id ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
                 }}>
-                <t.icon size={15} />
-                <span>{locale === 'ar' ? t.label : t.labelEn}</span>
+                <tab.icon size={15} />
+                <span>{t(tab.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -260,32 +260,38 @@ export default function PulsePage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} style={{ color: purpleColor }} />
-                  {locale === 'ar' ? 'إعدادات التحليل' : 'Analysis Settings'}
+                  {t('analytics.analysisSettings')}
                 </h3>
-                <PulseSelect label={locale === 'ar' ? 'القطاع' : 'Industry'} value={industry} onChange={setIndustry}
+                <PulseSelect
+                  label={t('analytics.industryLabel') as string}
+                  value={industry}
+                  onChange={setIndustry}
                   options={[
-                    { value: 'ecommerce',  label: locale === 'ar' ? 'تجارة إلكترونية' : 'E-commerce' },
-                    { value: 'food',       label: locale === 'ar' ? 'مطاعم وأغذية' : 'Food & Beverage' },
-                    { value: 'fashion',    label: locale === 'ar' ? 'موضة وأزياء' : 'Fashion' },
-                    { value: 'tech',       label: locale === 'ar' ? 'تقنية' : 'Technology' },
-                    { value: 'health',     label: locale === 'ar' ? 'صحة وجمال' : 'Health & Beauty' },
-                    { value: 'realestate', label: locale === 'ar' ? 'عقارات' : 'Real Estate' },
-                    { value: 'education',  label: locale === 'ar' ? 'تعليم' : 'Education' },
-                    { value: 'services',   label: locale === 'ar' ? 'خدمات' : 'Services' },
+                    { value: 'ecommerce',  label: t('analytics.industryEcommerce') as string },
+                    { value: 'food',       label: t('analytics.industryFood') as string },
+                    { value: 'fashion',    label: t('analytics.industryFashion') as string },
+                    { value: 'tech',       label: t('analytics.industryTech') as string },
+                    { value: 'health',     label: t('analytics.industryHealth') as string },
+                    { value: 'realestate', label: t('analytics.industryRealEstate') as string },
+                    { value: 'education',  label: t('analytics.industryEducation') as string },
+                    { value: 'services',   label: t('analytics.industryServices') as string },
                   ]} />
-                <PulseSelect<Period> label={locale === 'ar' ? 'الفترة الزمنية' : 'Period'} value={period} onChange={setPeriod}
+                <PulseSelect<Period>
+                  label={t('analytics.periodLabel') as string}
+                  value={period}
+                  onChange={setPeriod}
                   options={[
-                    { value: '7d',  label: locale === 'ar' ? 'آخر 7 أيام'  : 'Last 7 days' },
-                    { value: '30d', label: locale === 'ar' ? 'آخر 30 يوم'  : 'Last 30 days' },
-                    { value: '90d', label: locale === 'ar' ? 'آخر 3 أشهر'  : 'Last 3 months' },
-                    { value: '6m',  label: locale === 'ar' ? 'آخر 6 أشهر'  : 'Last 6 months' },
-                    { value: '1y',  label: locale === 'ar' ? 'آخر سنة'     : 'Last year' },
+                    { value: '7d',  label: t('analytics.period7d') as string },
+                    { value: '30d', label: t('analytics.period30d') as string },
+                    { value: '90d', label: t('analytics.period90d') as string },
+                    { value: '6m',  label: t('analytics.period6m') as string },
+                    { value: '1y',  label: t('analytics.period1y') as string },
                   ]} />
               </div>
 
               {/* Quick queries */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">{locale === 'ar' ? 'أسئلة سريعة' : 'Quick Questions'}</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('analytics.quickQuestions')}</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
                     'ما هي أفضل أوقات النشر على Instagram؟',
@@ -312,13 +318,16 @@ export default function PulsePage() {
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  {(() => { const t = analysisTabs.find(t => t.id === analysisType)!; return <><t.icon size={14} style={{ color: purpleColor }} />{locale === 'ar' ? t.label : t.labelEn}</> })()}
+                  {(() => {
+                    const tab = analysisTabs.find(tab => tab.id === analysisType)!
+                    return <><tab.icon size={14} style={{ color: purpleColor }} />{t(tab.labelKey)}</>
+                  })()}
                 </h3>
                 <textarea
                   value={prompt}
                   onChange={e => setPrompt(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder={locale === 'ar' ? 'صف ما تريد تحليله — حملتك، منتجك، قطاعك، أو سؤالك التسويقي...' : 'Describe what you want to analyze — your campaign, product, industry, or marketing question...'}
+                  placeholder={t('analytics.promptPlaceholder') as string}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
                   style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
@@ -331,7 +340,7 @@ export default function PulsePage() {
                       boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(139,92,246,0.3)` : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? (locale === 'ar' ? 'جاري التحليل...' : 'Analyzing...') : (locale === 'ar' ? 'حلّل الآن' : 'Analyze')}
+                    {loading ? t('analytics.analyzing') : t('analytics.analyzeNow')}
                   </button>
                 </div>
               </div>
@@ -340,14 +349,14 @@ export default function PulsePage() {
                 <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(139,92,246,0.2)`, boxShadow: 'rgba(139,92,246,0.05) 0 0 40px' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: purpleColor }}>
-                      <Sparkles size={14} />{locale === 'ar' ? 'الرؤية' : 'Insight'}
+                      <Sparkles size={14} />{t('analytics.insightTitle')}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                       <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: purpleColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'PULSE يحلل البيانات...' : 'PULSE is analyzing data...'}</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{t('analytics.processing')}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -365,8 +374,8 @@ export default function PulsePage() {
                     <BarChart2 size={32} style={{ color: 'rgba(139,92,246,0.4)' }} />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر نوع التحليل وحدد القطاع' : 'Choose analysis type and industry'}</p>
-                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب سؤالك ليقدم PULSE رؤية عميقة' : 'then write your question and let PULSE deliver deep insights'}</p>
+                    <p className="text-gray-400 text-sm">{t('analytics.emptyTitle')}</p>
+                    <p className="text-gray-600 text-xs mt-1">{t('analytics.emptySub')}</p>
                   </div>
                 </div>
               )}
@@ -377,8 +386,8 @@ export default function PulsePage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">{locale === 'ar' ? 'سجل التحليلات' : 'History'}</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{locale === 'ar' ? 'مسح الكل' : 'Clear all'}</button>
+                <h3 className="text-sm font-semibold text-gray-300">{t('analytics.historyTitle')}</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{t('analytics.clearAll')}</button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
@@ -388,7 +397,7 @@ export default function PulsePage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(139,92,246,0.1)', color: purpleColor, border: `1px solid rgba(139,92,246,0.2)` }}>
-                        {locale === 'ar' ? analysisTabs.find(t => t.id === h.type)?.label : analysisTabs.find(t => t.id === h.type)?.labelEn}
+                        {t(analysisTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.query}</span>
                     </div>
@@ -401,20 +410,20 @@ export default function PulsePage() {
 
           {/* Capabilities */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { icon: BarChart2,  color: '#8b5cf6', label: 'أداء الحملات',    labelEn: 'Performance',   desc: 'KPIs وتوصيات',          descEn: 'KPIs & recommendations' },
-              { icon: Target,     color: '#06b6d4', label: 'تحليل المنافسين', labelEn: 'Competitors',   desc: 'فرص التمايز',            descEn: 'Differentiation gaps' },
-              { icon: TrendingUp, color: '#10b981', label: 'الاتجاهات',       labelEn: 'Trends',        desc: 'توجهات السوق',           descEn: 'Market direction' },
-              { icon: Activity,   color: '#6C63FF', label: 'أداء المحتوى',    labelEn: 'Content',       desc: 'أفضل أوقات النشر',       descEn: 'Best posting times' },
-              { icon: Zap,        color: '#ec4899', label: 'توقعات AI',        labelEn: 'AI Forecast',   desc: 'خطة 90 يو��',             descEn: '90-day plan' },
-            ].map((c, i) => (
+            {([
+              { icon: BarChart2,  color: '#8b5cf6', labelKey: 'analytics.capPerformanceLabel', descKey: 'analytics.capPerformanceDesc' },
+              { icon: Target,     color: '#06b6d4', labelKey: 'analytics.capCompetitorsLabel', descKey: 'analytics.capCompetitorsDesc' },
+              { icon: TrendingUp, color: '#10b981', labelKey: 'analytics.capTrendsLabel',      descKey: 'analytics.capTrendsDesc' },
+              { icon: Activity,   color: '#6C63FF', labelKey: 'analytics.capContentLabel',     descKey: 'analytics.capContentDesc' },
+              { icon: Zap,        color: '#ec4899', labelKey: 'analytics.capForecastLabel',    descKey: 'analytics.capForecastDesc' },
+            ] as { icon: React.ElementType; color: string; labelKey: string; descKey: string }[]).map((c, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
                   <c.icon size={16} style={{ color: c.color }} />
                 </div>
-                <p className="text-white text-xs font-medium">{locale === 'ar' ? c.label : c.labelEn}</p>
-                <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? c.desc : c.descEn}</p>
+                <p className="text-white text-xs font-medium">{t(c.labelKey)}</p>
+                <p className="text-gray-600 text-xs mt-1">{t(c.descKey)}</p>
               </div>
             ))}
           </div>

@@ -1,22 +1,23 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { useEffect } from 'react'
 import {
-  Wand2, Loader2, Film, Copy, Sparkles, Clapperboard, Mic,
-  Type, Star, Rocket, Zap, BookOpen, Hash, MessageSquare,
-  ChevronDown, Check, RefreshCw, Download, Clock, Play,
-  Layers, Target, TrendingUp, Volume2
+  Wand2, Loader2, Film, Copy, Sparkles,
+  Type, Zap, MessageSquare,
+  ChevronDown, Check, Clock,
+  Layers, Target
 } from 'lucide-react'
 import StarField from '@/components/ui/StarField'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
    NEX — Creative Content Lab
-   Script · Hooks · Captions · Storyboard · Voice — All by AI
+   Script · Hooks · Captions · Storyboard — All by AI
    ═══════════════════════════════════════════════════════════════ */
 
 // ── Types ──────────────────────────────────────────────────────
@@ -33,6 +34,14 @@ interface GenerationResult {
   createdAt: Date
   platform: Platform
 }
+
+// ── Tabs static config (labelKey resolved at render time) ──────
+const TABS: { id: TabId; labelKey: string; placeholderKey: string; icon: React.ElementType }[] = [
+  { id: 'script',     labelKey: 'nex.tabScript',     placeholderKey: 'nex.scriptPlaceholder',     icon: Film },
+  { id: 'hooks',      labelKey: 'nex.tabHooks',      placeholderKey: 'nex.hooksPlaceholder',      icon: Zap },
+  { id: 'captions',   labelKey: 'nex.tabCaptions',   placeholderKey: 'nex.captionsPlaceholder',   icon: MessageSquare },
+  { id: 'storyboard', labelKey: 'nex.tabStoryboard', placeholderKey: 'nex.storyboardPlaceholder', icon: Layers },
+]
 
 // ── Ambient background ─────────────────────────────────────────
 function NexOrbs() {
@@ -51,7 +60,7 @@ function NexOrbs() {
 // ── Copy button ────────────────────────────────────────────────
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
-  const { locale } = useI18n()
+  const { t } = useI18n()
   const handle = () => {
     navigator.clipboard.writeText(text)
     setCopied(true)
@@ -62,14 +71,14 @@ function CopyBtn({ text }: { text: string }) {
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
       style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? (locale === 'ar' ? 'تم النسخ' : 'Copied!') : (locale === 'ar' ? 'نسخ' : 'Copy')}
+      {copied ? t('common.copied') : t('common.copy')}
     </button>
   )
 }
 
 // ── Tab pill ───────────────────────────────────────────────────
-function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
-  id: TabId; label: string; labelEn: string; icon: React.ElementType
+function TabPill({ id, label, icon: Icon, active, onClick }: {
+  id: TabId; label: string; icon: React.ElementType
   active: boolean; onClick: () => void
 }) {
   return (
@@ -83,7 +92,6 @@ function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
       }}>
       <Icon size={15} />
       <span>{label}</span>
-      <span className="opacity-50 text-xs">{labelEn}</span>
     </button>
   )
 }
@@ -91,7 +99,7 @@ function TabPill({ id, label, labelEn, icon: Icon, active, onClick }: {
 // ── Select ─────────────────────────────────────────────────────
 function NexSelect<T extends string>({ label, value, options, onChange }: {
   label: string; value: T
-  options: { value: T; label: string; labelEn?: string }[]
+  options: { value: T; label: string }[]
   onChange: (v: T) => void
 }) {
   return (
@@ -103,7 +111,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
           {options.map(o => (
             <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>
-              {o.label}{o.labelEn ? ` · ${o.labelEn}` : ''}
+              {o.label}
             </option>
           ))}
         </select>
@@ -116,7 +124,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
 // ── Main ───────────────────────────────────────────────────────
 export default function NexStudioPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const router = useRouter()
 
   useEffect(() => {
@@ -124,7 +132,7 @@ export default function NexStudioPage() {
   }, [authLoading, isAuthenticated, router])
 
   // ── State ────────────────────────────────────────────────────
-  const { brandContext, brand, completeness } = useBrandBrain()
+  const { brandContext, brand } = useBrandBrain()
   const [activeTab, setActiveTab] = useState<TabId>('script')
   const [prompt, setPrompt] = useState('')
   const [platform, setPlatform] = useState<Platform>('instagram')
@@ -144,15 +152,14 @@ export default function NexStudioPage() {
   )
   if (!isAuthenticated) return null
 
-  // ── Tab config ───────────────────────────────────────────────
-  const tabs: { id: TabId; label: string; labelEn: string; icon: React.ElementType; placeholder: string; placeholderEn: string }[] = [
-    { id: 'script',    label: 'السكريبت',   labelEn: 'Script',    icon: Film,          placeholder: 'صف المنتج أو الفكرة التي تريد تحويلها لسكريبت فيديو احترافي...', placeholderEn: 'Describe the product or idea you want turned into a professional video script...' },
-    { id: 'hooks',     label: 'الهوكس',     labelEn: 'Hooks',     icon: Zap,           placeholder: 'ما المنتج أو الرسالة التي تريد جذب الانتباه بها؟',               placeholderEn: 'What product or message do you want to capture attention with?' },
-    { id: 'captions',  label: 'الكابشن',    labelEn: 'Captions',  icon: MessageSquare, placeholder: 'صف المنتج أو الحدث الذي تريد كتابة كابشن له...',                placeholderEn: 'Describe the product or event you want a caption written for...' },
-    { id: 'storyboard',label: 'ستوري بورد', labelEn: 'Storyboard',icon: Layers,        placeholder: 'صف الفيديو المطلوب لإنشاء خطة المشاهد التفصيلية...',            placeholderEn: 'Describe the video needed to create a detailed scene plan...' },
-  ]
+  // ── Resolved tabs (labels + placeholders from i18n) ──────────
+  const tabs = TABS.map(tab => ({
+    ...tab,
+    label: t(tab.labelKey) as string,
+    placeholder: t(tab.placeholderKey) as string,
+  }))
 
-  const currentTab = tabs.find(t => t.id === activeTab)!
+  const currentTab = tabs.find(tab => tab.id === activeTab)!
 
   // ── Generate ─────────────────────────────────────────────────
   async function generate() {
@@ -163,6 +170,7 @@ export default function NexStudioPage() {
     const toneLabel = locale === 'ar'
       ? (tone === 'excited' ? 'حماسية ومثيرة' : tone === 'professional' ? 'احترافية وواثقة' : tone === 'humorous' ? 'مرحة وممتعة' : tone === 'emotional' ? 'عاطفية ومؤثرة' : 'عاجلة ومقنعة')
       : (tone === 'excited' ? 'Energetic and exciting' : tone === 'professional' ? 'Professional and confident' : tone === 'humorous' ? 'Playful and fun' : tone === 'emotional' ? 'Emotional and touching' : 'Urgent and compelling')
+
     const systemPrompts: Record<TabId, string> = {
       script: `${brandContext}أنت NEX، خبير في كتابة سكريبتات الفيديو التسويقية. اكتب سكريبت فيديو احترافي وجذاب لمنصة ${platform} بمدة ${duration}. النبرة: ${toneLabel}. الصيغة: [المشهد X] → الإجراء → الحوار. اجعل كل مشهد واضحاً وقابلاً للتنفيذ. أضف تعليمات للكاميرا والإضاءة. اجعل المحتوى مخصصاً تماماً للعلامة التجارية أعلاه.`,
       hooks: `${brandContext}أنت NEX، خبير في صناعة هوكس الفيديوهات الفيروسية. اكتب 5 هوكس مختلفة وقوية لمنصة ${platform}. النبرة: ${toneLabel}. كل هوك بأسلوب مختلف: سؤال، إحصائية، تحدي، قصة، وعد. اجعلها قصيرة (أقل من 10 ثوانٍ) ومخصصة تماماً للعلامة التجارية أعلاه.`,
@@ -182,7 +190,7 @@ export default function NexStudioPage() {
         }),
       })
 
-      if (!response.ok) throw new Error(locale === 'ar' ? 'فشل الاتصال بالذكاء الاصطناعي' : 'Failed to connect to AI')
+      if (!response.ok) throw new Error('generate_failed')
       const data = await response.json()
       const output = data.content || data.result || ''
       setResult(output)
@@ -194,8 +202,8 @@ export default function NexStudioPage() {
         createdAt: new Date(),
         platform,
       }, ...prev.slice(0, 9)])
-    } catch (err) {
-      setResult('⚠️ حدث خطأ أثناء التوليد. تحقق من اتصالك وحاول مجدداً.')
+    } catch {
+      setResult(t('nex.errorGenerate') as string)
     } finally {
       setLoading(false)
     }
@@ -234,7 +242,7 @@ export default function NexStudioPage() {
                     Studio
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">مختبر المحتوى الإبداعي · Creative Content Lab</p>
+                <p className="text-gray-400 text-sm mt-0.5">{t('nex.subheading')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -247,22 +255,22 @@ export default function NexStudioPage() {
               ) : (
                 <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
-                  <span>⚡ فعّل Brand Brain · Activate</span>
+                  <span>{t('nex.activateBrain')}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
                 style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', color: '#f59e0b' }}>
                 <Sparkles size={12} />
-                <span>GPT-4o · نشط</span>
+                <span>{t('nex.gptActive')}</span>
               </div>
             </div>
           </div>
 
           {/* ── Tabs ───────────────────────────────────────────── */}
           <div className="flex flex-wrap gap-2">
-            {tabs.map(t => (
-              <TabPill key={t.id} id={t.id} label={t.label} labelEn={t.labelEn}
-                icon={t.icon} active={activeTab === t.id} onClick={() => { setActiveTab(t.id); setResult('') }} />
+            {tabs.map(tab => (
+              <TabPill key={tab.id} id={tab.id} label={tab.label}
+                icon={tab.icon} active={activeTab === tab.id} onClick={() => { setActiveTab(tab.id); setResult('') }} />
             ))}
           </div>
 
@@ -276,10 +284,10 @@ export default function NexStudioPage() {
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Target size={14} className="text-amber-500" />
-                  إعدادات التوليد · Generation Settings
+                  {t('nex.generationSettings')}
                 </h3>
                 <NexSelect<Platform>
-                  label="المنصة · Platform"
+                  label={t('nex.platformLabel') as string}
                   value={platform}
                   onChange={setPlatform}
                   options={[
@@ -292,28 +300,28 @@ export default function NexStudioPage() {
                   ]}
                 />
                 <NexSelect<Tone>
-                  label="النبرة · Tone"
+                  label={t('nex.toneLabel') as string}
                   value={tone}
                   onChange={setTone}
                   options={[
-                    { value: 'excited',      label: 'حماسية',    labelEn: 'Excited' },
-                    { value: 'professional', label: 'احترافية',  labelEn: 'Professional' },
-                    { value: 'humorous',     label: 'مرحة',      labelEn: 'Humorous' },
-                    { value: 'emotional',    label: 'عاطفية',    labelEn: 'Emotional' },
-                    { value: 'urgent',       label: 'عاجلة',     labelEn: 'Urgent' },
+                    { value: 'excited',      label: t('nex.toneExcited') as string },
+                    { value: 'professional', label: t('nex.toneProfessional') as string },
+                    { value: 'humorous',     label: t('nex.toneHumorous') as string },
+                    { value: 'emotional',    label: t('nex.toneEmotional') as string },
+                    { value: 'urgent',       label: t('nex.toneUrgent') as string },
                   ]}
                 />
                 {(activeTab === 'script' || activeTab === 'storyboard') && (
                   <NexSelect<Duration>
-                    label="المدة · Duration"
+                    label={t('nex.durationLabel') as string}
                     value={duration}
                     onChange={setDuration}
                     options={[
-                      { value: '15s',  label: '15 ثانية',  labelEn: '15 seconds' },
-                      { value: '30s',  label: '30 ثانية',  labelEn: '30 seconds' },
-                      { value: '60s',  label: '60 ثانية',  labelEn: '60 seconds' },
-                      { value: '90s',  label: '90 ثانية',  labelEn: '90 seconds' },
-                      { value: '3min', label: '3 دقائق',   labelEn: '3 minutes' },
+                      { value: '15s',  label: t('nex.dur15s') as string },
+                      { value: '30s',  label: t('nex.dur30s') as string },
+                      { value: '60s',  label: t('nex.dur60s') as string },
+                      { value: '90s',  label: t('nex.dur90s') as string },
+                      { value: '3min', label: t('nex.dur3min') as string },
                     ]}
                   />
                 )}
@@ -321,7 +329,7 @@ export default function NexStudioPage() {
 
               {/* Quick prompts */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">أفكار سريعة · Quick Prompts</h3>
+                <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('nex.quickPrompts')}</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
                     'إطلاق منتج جديد للعناية بالبشرة',
@@ -352,9 +360,9 @@ export default function NexStudioPage() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                     <currentTab.icon size={14} className="text-amber-500" />
-                    {currentTab.label} · {currentTab.labelEn}
+                    {currentTab.label}
                   </h3>
-                  <span className="text-xs text-gray-600">{charCount} حرف</span>
+                  <span className="text-xs text-gray-600">{charCount} {t('nex.charsSuffix')}</span>
                 </div>
 
                 <textarea
@@ -362,7 +370,7 @@ export default function NexStudioPage() {
                   value={prompt}
                   onChange={e => { setPrompt(e.target.value); setCharCount(e.target.value.length) }}
                   onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder={locale === 'ar' ? currentTab.placeholder : currentTab.placeholderEn}
+                  placeholder={currentTab.placeholder}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none transition-all"
                   style={{
@@ -373,7 +381,7 @@ export default function NexStudioPage() {
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Ctrl+Enter للتوليد السريع</span>
+                  <span className="text-xs text-gray-600">{t('nex.ctrlEnterHint')}</span>
                   <button
                     onClick={generate}
                     disabled={!prompt.trim() || loading}
@@ -387,7 +395,7 @@ export default function NexStudioPage() {
                       boxShadow: prompt.trim() && !loading ? '0 0 30px rgba(245,158,11,0.3)' : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? 'جاري التوليد...' : 'ولّد الآن · Generate'}
+                    {loading ? t('nex.generating') : t('nex.generateNow')}
                   </button>
                 </div>
               </div>
@@ -402,7 +410,7 @@ export default function NexStudioPage() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#f59e0b' }}>
                       <Sparkles size={14} />
-                      النتيجة · Output
+                      {t('nex.outputTitle')}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
@@ -413,7 +421,7 @@ export default function NexStudioPage() {
                         <div className="w-16 h-16 rounded-full border-2 border-amber-500/30 border-t-amber-500 animate-spin" />
                         <Sparkles size={18} className="absolute inset-0 m-auto text-amber-400" />
                       </div>
-                      <p className="text-sm text-gray-400 animate-pulse">{locale === 'ar' ? 'NEX يبتكر المحتوى...' : 'NEX is crafting your content...'}</p>
+                      <p className="text-sm text-gray-400 animate-pulse">{t('nex.crafting')}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
@@ -432,8 +440,8 @@ export default function NexStudioPage() {
                     <Film size={32} className="text-amber-500/50" />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">{locale === 'ar' ? 'اختر نوع المحتوى، حدد المنصة والنبرة' : 'Choose content type, platform and tone'}</p>
-                    <p className="text-gray-600 text-xs mt-1">{locale === 'ar' ? 'واكتب فكرتك ليبدأ NEX في الابتكار' : 'then write your idea and let NEX create'}</p>
+                    <p className="text-gray-400 text-sm">{t('nex.emptyTitle')}</p>
+                    <p className="text-gray-600 text-xs mt-1">{t('nex.emptySub')}</p>
                   </div>
                 </div>
               )}
@@ -446,10 +454,10 @@ export default function NexStudioPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Clock size={14} className="text-gray-500" />
-                  سجل التوليد · History
+                  {t('nex.historyTitle')}
                 </h3>
                 <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
-                  مسح الكل
+                  {t('nex.clearAll')}
                 </button>
               </div>
               <div className="space-y-2">
@@ -461,7 +469,7 @@ export default function NexStudioPage() {
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>
-                        {locale === 'ar' ? tabs.find(t => t.id === h.tab)?.label : tabs.find(t => t.id === h.tab)?.labelEn}
+                        {tabs.find(tab => tab.id === h.tab)?.label}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.prompt}</span>
                     </div>
@@ -477,20 +485,19 @@ export default function NexStudioPage() {
 
           {/* ── Capabilities Banner ────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { icon: Film,         color: '#f59e0b', label: 'سكريبتات',   sub: 'Scripts',    desc: 'سكريبت احترافي لكل مقطع' },
-              { icon: Zap,          color: '#06b6d4', label: 'هوكس',       sub: 'Hooks',      desc: '5 هوكس جاذبة للانتباه' },
-              { icon: MessageSquare,color: '#8b5cf6', label: 'كابشنز',     sub: 'Captions',   desc: 'كابشن متكامل + هاشتاقات' },
-              { icon: Layers,       color: '#10b981', label: 'ستوري بورد', sub: 'Storyboard', desc: 'خطة مشاهد تفصيلية' },
-            ].map((cap, i) => (
+            {([
+              { icon: Film,         color: '#f59e0b', labelKey: 'nex.capScriptsLabel',   descKey: 'nex.capScriptsDesc' },
+              { icon: Zap,          color: '#06b6d4', labelKey: 'nex.capHooksLabel',     descKey: 'nex.capHooksDesc' },
+              { icon: MessageSquare,color: '#8b5cf6', labelKey: 'nex.capCaptionsLabel',  descKey: 'nex.capCaptionsDesc' },
+              { icon: Layers,       color: '#10b981', labelKey: 'nex.capStoryboardLabel',descKey: 'nex.capStoryboardDesc' },
+            ] as { icon: React.ElementType; color: string; labelKey: string; descKey: string }[]).map((cap, i) => (
               <div key={i} className="rounded-xl p-4" style={glassCard}>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
                   style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
                   <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-                <p className="text-white text-sm font-medium">{cap.label}</p>
-                <p className="text-gray-500 text-xs">{cap.sub}</p>
-                <p className="text-gray-600 text-xs mt-1">{cap.desc}</p>
+                <p className="text-white text-sm font-medium">{t(cap.labelKey)}</p>
+                <p className="text-gray-600 text-xs mt-1">{t(cap.descKey)}</p>
               </div>
             ))}
           </div>
