@@ -22,21 +22,19 @@ type StepId = 'identity' | 'product' | 'audience' | 'voice' | 'platforms' | 'com
 
 interface Step {
   id: StepId
-  label: string
-  labelEn: string
+  labelKey: string
+  descKey: string
   icon: React.ElementType
   color: string
-  desc: string
-  descEn: string
 }
 
 const STEPS: Step[] = [
-  { id: 'identity',    label: 'الهوية',       labelEn: 'Identity',    icon: Brain,    color: '#f59e0b', desc: 'من أنتم؟',       descEn: 'Who are you?' },
-  { id: 'product',     label: 'المنتج',       labelEn: 'Product',     icon: Package,  color: '#06b6d4', desc: 'ماذا تقدمون؟',  descEn: 'What do you offer?' },
-  { id: 'audience',    label: 'الجمهور',      labelEn: 'Audience',    icon: Users,    color: '#8b5cf6', desc: 'لمن تتحدثون؟', descEn: 'Who are you talking to?' },
-  { id: 'voice',       label: 'الصوت',        labelEn: 'Voice',       icon: Mic,      color: '#10b981', desc: 'كيف تتحدثون؟', descEn: 'How do you communicate?' },
-  { id: 'platforms',   label: 'المنصات',      labelEn: 'Platforms',   icon: Globe,    color: '#ec4899', desc: 'أين تتواجدون؟', descEn: 'Where are you active?' },
-  { id: 'competitors', label: 'المنافسون',    labelEn: 'Competitors', icon: Target,   color: '#f97316', desc: 'من تنافسون؟',   descEn: 'Who are your competitors?' },
+  { id: 'identity',    labelKey: 'brand.stepIdentityLabel',    descKey: 'brand.stepIdentityDesc',    icon: Brain,   color: '#f59e0b' },
+  { id: 'product',     labelKey: 'brand.stepProductLabel',     descKey: 'brand.stepProductDesc',     icon: Package, color: '#06b6d4' },
+  { id: 'audience',    labelKey: 'brand.stepAudienceLabel',    descKey: 'brand.stepAudienceDesc',    icon: Users,   color: '#8b5cf6' },
+  { id: 'voice',       labelKey: 'brand.stepVoiceLabel',       descKey: 'brand.stepVoiceDesc',       icon: Mic,     color: '#10b981' },
+  { id: 'platforms',   labelKey: 'brand.stepPlatformsLabel',   descKey: 'brand.stepPlatformsDesc',   icon: Globe,   color: '#ec4899' },
+  { id: 'competitors', labelKey: 'brand.stepCompetitorsLabel', descKey: 'brand.stepCompetitorsDesc', icon: Target,  color: '#f97316' },
 ]
 
 const INDUSTRIES_AR = [
@@ -185,7 +183,7 @@ function RadioGroup({ options, value, onChange }: {
 export default function BrandBrainPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
-  const { locale, dir } = useI18n()
+  const { locale, dir, t } = useI18n()
   const { brand, loading, saving, saveBrand } = useBrandBrain()
 
   useEffect(() => {
@@ -259,10 +257,10 @@ export default function BrandBrainPage() {
                   <h1 className="text-2xl font-bold text-white">Brand Brain</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
-                    {locale === 'ar' ? 'عقل العلامة' : 'Brand Memory'}
+                    {t('brand.badgeMemory')}
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{locale === 'ar' ? 'المعلومات هنا تُحقن تلقائياً في كل وكيل ذكاء اصطناعي' : 'This data is automatically injected into every AI agent'}</p>
+                <p className="text-gray-400 text-sm mt-0.5">{t('brand.aiInjected')}</p>
               </div>
             </div>
             <button onClick={handleSave} disabled={saving}
@@ -274,7 +272,7 @@ export default function BrandBrainPage() {
                 border: saved ? '1px solid rgba(16,185,129,0.3)' : 'none',
               }}>
               {saving ? <Loader2 size={14} className="animate-spin" /> : saved ? <CheckCircle2 size={14} /> : <Save size={14} />}
-              {saving ? (locale === 'ar' ? 'جاري الحفظ...' : 'Saving...') : saved ? (locale === 'ar' ? 'تم الحفظ ✓' : 'Saved ✓') : (locale === 'ar' ? 'حفظ الكل' : 'Save All')}
+              {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
             </button>
           </div>
 
@@ -283,7 +281,7 @@ export default function BrandBrainPage() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Sparkles size={14} className="text-amber-500" />
-                <span className="text-sm font-semibold text-white">{locale === 'ar' ? 'اكتمال الذاكرة' : 'Brain Completeness'}</span>
+                <span className="text-sm font-semibold text-white">{t('brand.completeness')}</span>
               </div>
               <span className="text-sm font-bold" style={{ color: score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444' }}>
                 {score}%
@@ -295,14 +293,14 @@ export default function BrandBrainPage() {
             </div>
             {missing.length > 0 && (
               <p className="text-xs text-gray-600 mt-2">
-                {locale === 'ar' ? 'ناقص:' : 'Missing:'} {missing.join(locale === 'ar' ? '، ' : ', ')}
+                {t('brand.missing')} {missing.join(locale === 'ar' ? '، ' : ', ')}
               </p>
             )}
             {score < 60 && (
               <div className="flex items-start gap-2 mt-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
                 <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-500/80">
-                  {locale === 'ar' ? 'الوكلاء سيعملون بكفاءة أقل بدون معلومات كاملة. أكمل الإعداد للحصول على أفضل نتائج.' : 'Agents will work less effectively without complete information. Complete the setup for best results.'}
+                  {t('brand.lowCompletenessWarning')}
                 </p>
               </div>
             )}
@@ -310,7 +308,7 @@ export default function BrandBrainPage() {
 
           {/* ── Step tabs ───────────────────────────────────────── */}
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {STEPS.map((s, i) => {
+            {STEPS.map(s => {
               const active = step === s.id
               return (
                 <button key={s.id} onClick={() => setStep(s.id)}
@@ -321,7 +319,7 @@ export default function BrandBrainPage() {
                     color: active ? s.color : '#9ca3af',
                   }}>
                   <s.icon size={14} />
-                  <span>{locale === 'ar' ? s.label : s.labelEn}</span>
+                  <span>{t(s.labelKey)}</span>
                 </button>
               )
             })}
@@ -335,24 +333,24 @@ export default function BrandBrainPage() {
                 <currentStep.icon size={18} style={{ color: currentStep.color }} />
               </div>
               <div>
-                <h2 className="text-white font-bold">{locale === 'ar' ? currentStep.label : currentStep.labelEn}</h2>
-                <p className="text-xs text-gray-500">{locale === 'ar' ? currentStep.desc : currentStep.descEn}</p>
+                <h2 className="text-white font-bold">{t(currentStep.labelKey)}</h2>
+                <p className="text-xs text-gray-500">{t(currentStep.descKey)}</p>
               </div>
             </div>
 
             {/* IDENTITY */}
             {step === 'identity' && (
               <div className="space-y-4">
-                <Field label={locale === 'ar' ? 'اسم العلامة التجارية *' : 'Brand Name *'}>
+                <Field label={t('brand.identityBrandNameLabel')}>
                   <Input value={form.brandName || ''} onChange={v => set('brandName', v)}
-                    placeholder={locale === 'ar' ? 'مثال: مطعم الأصالة، متجر Zara Arabia...' : 'e.g. Al-Asala Restaurant, Zara Arabia...'} />
+                    placeholder={t('brand.identityBrandNamePlaceholder')} />
                 </Field>
-                <Field label={locale === 'ar' ? 'القطاع / الصناعة *' : 'Industry / Sector *'}>
+                <Field label={t('brand.identityIndustryLabel')}>
                   <div className="relative">
                     <select value={form.industry || ''} onChange={e => set('industry', e.target.value)}
                       className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8 focus:outline-none"
                       style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: form.industry ? '#e5e7eb' : '#6b7280' }}>
-                      <option value="" style={{ background: '#111536' }}>{locale === 'ar' ? 'اختر القطاع...' : 'Select industry...'}</option>
+                      <option value="" style={{ background: '#111536' }}>{t('brand.identityIndustryPlaceholder')}</option>
                       {(locale === 'ar' ? INDUSTRIES_AR : INDUSTRIES_EN).map((ind, idx) => (
                         <option key={idx} value={ind} style={{ background: '#111536' }}>{ind}</option>
                       ))}
@@ -360,17 +358,13 @@ export default function BrandBrainPage() {
                     <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                   </div>
                 </Field>
-                <Field label={locale === 'ar' ? 'وصف النشاط التجاري * — ما الذي تفعله؟' : 'Business Description * — What do you do?'}>
+                <Field label={t('brand.identityDescLabel')}>
                   <Input textarea value={form.description || ''} onChange={v => set('description', v)}
-                    placeholder={locale === 'ar'
-                      ? 'مثال: نحن مطعم عائلي متخصص في الأكلات الشامية التقليدية في الرياض، نقدم تجربة عشاء فاخرة بأسعار معقولة...'
-                      : 'e.g. We are a family restaurant specializing in traditional Levantine cuisine in Riyadh, offering a premium dining experience at reasonable prices...'} />
+                    placeholder={t('brand.identityDescPlaceholder')} />
                 </Field>
-                <Field label={locale === 'ar' ? 'ملاحظات استراتيجية — أي معلومات أخرى مهمة عن النشاط' : 'Strategic Notes — Any other important information'}>
+                <Field label={t('brand.identityNotesLabel')}>
                   <Input textarea value={form.strategicNotes || ''} onChange={v => set('strategicNotes', v)}
-                    placeholder={locale === 'ar'
-                      ? 'مثال: نستهدف العائلات والمناسبات، لدينا برنامج ولاء، نسعى للتوسع في جدة...'
-                      : 'e.g. We target families and events, we have a loyalty program, we aim to expand to Jeddah...'} />
+                    placeholder={t('brand.identityNotesPlaceholder')} />
                 </Field>
               </div>
             )}
@@ -378,24 +372,22 @@ export default function BrandBrainPage() {
             {/* PRODUCT */}
             {step === 'product' && (
               <div className="space-y-4">
-                <Field label={locale === 'ar' ? 'المنتج / الخدمة الرئيسية *' : 'Primary Product / Service *'}>
+                <Field label={t('brand.productPrimaryLabel')}>
                   <Input textarea value={form.primaryOffer || ''} onChange={v => set('primaryOffer', v)}
-                    placeholder={locale === 'ar'
-                      ? 'مثال: وجبات رمضانية للعائلات مع إمكانية الحجز المسبق وخدمة توصيل للمنازل...'
-                      : 'e.g. Ramadan family meals with pre-booking and home delivery service...'} />
+                    placeholder={t('brand.productPrimaryPlaceholder')} />
                 </Field>
                 <TagInput
-                  label={locale === 'ar' ? 'منتجات / خدمات ثانوية أخرى' : 'Other Secondary Products / Services'}
-                  placeholder={locale === 'ar' ? 'اكتب واضغط Enter لكل منتج...' : 'Type and press Enter for each item...'}
+                  label={t('brand.productSecondaryLabel')}
+                  placeholder={t('brand.productSecondaryPlaceholder')}
                   values={form.secondaryOffers || []} onChange={v => set('secondaryOffers', v)} />
-                <Field label={locale === 'ar' ? 'مستوى السعر *' : 'Price Point *'}>
+                <Field label={t('brand.productPriceLabel')}>
                   <RadioGroup
                     options={PRICE_OPTIONS.map(o => ({ v: o.v, l: locale === 'ar' ? o.l : o.lEn }))}
                     value={form.pricePoint || ''} onChange={v => set('pricePoint', v)} />
                 </Field>
                 <TagInput
-                  label={locale === 'ar' ? 'المميزات الفريدة — ما الذي يميزك عن المنافسين؟ *' : 'Unique Advantages — What sets you apart? *'}
-                  placeholder={locale === 'ar' ? 'مثال: وصفات سرية، خدمة ٢٤/٧، ضمان استرداد...' : 'e.g. Secret recipes, 24/7 service, money-back guarantee...'}
+                  label={t('brand.productAdvantagesLabel')}
+                  placeholder={t('brand.productAdvantagesPlaceholder')}
                   values={form.uniqueAdvantages || []} onChange={v => set('uniqueAdvantages', v)} />
               </div>
             )}
@@ -403,14 +395,12 @@ export default function BrandBrainPage() {
             {/* AUDIENCE */}
             {step === 'audience' && (
               <div className="space-y-4">
-                <Field label={locale === 'ar' ? 'وصف الجمهور المستهدف * — من هو عميلك المثالي؟' : 'Target Audience * — Who is your ideal customer?'}>
+                <Field label={t('brand.audienceDescLabel')}>
                   <Input textarea value={form.targetAudience || ''} onChange={v => set('targetAudience', v)}
-                    placeholder={locale === 'ar'
-                      ? 'مثال: شباب سعودي من 25-35 سنة، يعيش في المدن الكبرى، مهتم بتجارب الطعام الجديدة ويستخدم Instagram يومياً...'
-                      : 'e.g. Saudi youth aged 25-35, living in major cities, interested in new food experiences and uses Instagram daily...'} />
+                    placeholder={t('brand.audienceDescPlaceholder')} />
                 </Field>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label={locale === 'ar' ? 'الفئة العمرية *' : 'Age Group *'}>
+                  <Field label={t('brand.audienceAgeLabel')}>
                     <div className="flex flex-wrap gap-2">
                       {(locale === 'ar' ? AGE_OPTIONS_AR : AGE_OPTIONS_EN).map(a => (
                         <button key={a} onClick={() => set('audienceAge', a)}
@@ -425,18 +415,18 @@ export default function BrandBrainPage() {
                       ))}
                     </div>
                   </Field>
-                  <Field label={locale === 'ar' ? 'الموقع الجغرافي *' : 'Geographic Location *'}>
+                  <Field label={t('brand.audienceLocationLabel')}>
                     <Input value={form.audienceLocation || ''} onChange={v => set('audienceLocation', v)}
-                      placeholder={locale === 'ar' ? 'مثال: السعودية، الإمارات، مصر، الخليج العربي...' : 'e.g. Saudi Arabia, UAE, Egypt, Gulf region...'} />
+                      placeholder={t('brand.audienceLocationPlaceholder')} />
                   </Field>
                 </div>
                 <TagInput
-                  label={locale === 'ar' ? 'نقاط الألم — ما المشاكل التي يعاني منها جمهورك؟' : 'Pain Points — What problems does your audience face?'}
-                  placeholder={locale === 'ar' ? 'مثال: لا وقت للطبخ، يبحث عن جودة بسعر معقول...' : 'e.g. No time to cook, looking for quality at a fair price...'}
+                  label={t('brand.audiencePainLabel')}
+                  placeholder={t('brand.audiencePainPlaceholder')}
                   values={form.audiencePainPoints || []} onChange={v => set('audiencePainPoints', v)} />
                 <TagInput
-                  label={locale === 'ar' ? 'الرغبات والتطلعات — ما الذي يريده جمهورك؟' : 'Desires & Aspirations — What does your audience want?'}
-                  placeholder={locale === 'ar' ? 'مثال: توفير الوقت، الشعور بالفخر، تجربة مميزة...' : 'e.g. Saving time, feeling proud, a premium experience...'}
+                  label={t('brand.audienceDesireLabel')}
+                  placeholder={t('brand.audienceDesirePlaceholder')}
                   values={form.audienceDesires || []} onChange={v => set('audienceDesires', v)} />
               </div>
             )}
@@ -444,23 +434,21 @@ export default function BrandBrainPage() {
             {/* VOICE */}
             {step === 'voice' && (
               <div className="space-y-4">
-                <Field label={locale === 'ar' ? 'نبرة الصوت المطلوبة * — كيف تريد أن تبدو في تواصلك؟' : 'Desired Tone * — How do you want to sound?'}>
+                <Field label={t('brand.voiceToneLabel')}>
                   <ToggleGrid options={locale === 'ar' ? TONE_OPTIONS_AR : TONE_OPTIONS_EN} selected={form.toneKeywords || []}
                     onChange={v => set('toneKeywords', v)} color="#10b981" />
                 </Field>
-                <Field label={locale === 'ar' ? 'أسلوب الكتابة المفضل' : 'Preferred Writing Style'}>
+                <Field label={t('brand.voiceStyleLabel')}>
                   <Input value={form.writingStyle || ''} onChange={v => set('writingStyle', v)}
-                    placeholder={locale === 'ar'
-                      ? 'مثال: جمل قصيرة ومباشرة، نبرة ودية وعامية مصرية، بدون مصطلحات تقنية...'
-                      : 'e.g. Short and direct sentences, friendly conversational tone, no technical jargon...'} />
+                    placeholder={t('brand.voiceStylePlaceholder')} />
                 </Field>
                 <TagInput
-                  label={locale === 'ar' ? 'كلمات وأساليب يجب تجنبها' : 'Words & Styles to Avoid'}
-                  placeholder={locale === 'ar' ? "مثال: 'رائع'، 'مميز'، المبالغة في الأوصاف..." : "e.g. 'amazing', 'unique', excessive adjectives..."}
+                  label={t('brand.voiceAvoidLabel')}
+                  placeholder={t('brand.voiceAvoidPlaceholder')}
                   values={form.avoidKeywords || []} onChange={v => set('avoidKeywords', v)} />
                 <TagInput
-                  label={locale === 'ar' ? 'أمثلة على هوكس نجحت معكم سابقاً (اختياري)' : 'Winning Hooks from past content (optional)'}
-                  placeholder={locale === 'ar' ? 'هوك ناجح...' : 'A winning hook...'}
+                  label={t('brand.voiceHooksLabel')}
+                  placeholder={t('brand.voiceHooksPlaceholder')}
                   values={form.winningHooks || []} onChange={v => set('winningHooks', v)} />
               </div>
             )}
@@ -468,11 +456,11 @@ export default function BrandBrainPage() {
             {/* PLATFORMS */}
             {step === 'platforms' && (
               <div className="space-y-4">
-                <Field label={locale === 'ar' ? 'المنصات التي تنشط فيها *' : 'Active Platforms *'}>
+                <Field label={t('brand.platformsActiveLabel')}>
                   <ToggleGrid options={PLATFORMS_LIST} selected={form.topPlatforms || []}
                     onChange={v => set('topPlatforms', v)} color="#ec4899" />
                 </Field>
-                <Field label={locale === 'ar' ? 'الأسلوب البصري المفضل' : 'Preferred Visual Style'}>
+                <Field label={t('brand.platformsVisualLabel')}>
                   <div className="flex flex-wrap gap-2">
                     {['minimalist', 'bold', 'lifestyle', 'corporate', 'playful', 'luxury', 'editorial'].map(style => (
                       <button key={style} onClick={() => set('visualStyle', style)}
@@ -488,12 +476,12 @@ export default function BrandBrainPage() {
                   </div>
                 </Field>
                 <TagInput
-                  label={locale === 'ar' ? 'زوايا وأساليب تسويقية نجحت (اختياري)' : 'Winning marketing angles (optional)'}
-                  placeholder={locale === 'ar' ? 'مثال: تحديات TikTok، قصص العملاء...' : 'e.g. TikTok challenges, customer stories...'}
+                  label={t('brand.platformsAnglesLabel')}
+                  placeholder={t('brand.platformsAnglesPlaceholder')}
                   values={form.winningAngles || []} onChange={v => set('winningAngles', v)} />
                 <TagInput
-                  label={locale === 'ar' ? 'أساليب لم تنجح وتريد تجنبها (اختياري)' : 'Failed approaches to avoid (optional)'}
-                  placeholder={locale === 'ar' ? 'مثال: الإعلانات الترويجية المباشرة، الصور المصطنعة...' : 'e.g. Direct promotional ads, staged photos...'}
+                  label={t('brand.platformsFailedLabel')}
+                  placeholder={t('brand.platformsFailedPlaceholder')}
                   values={form.failedAngles || []} onChange={v => set('failedAngles', v)} />
               </div>
             )}
@@ -501,11 +489,9 @@ export default function BrandBrainPage() {
             {/* COMPETITORS */}
             {step === 'competitors' && (
               <div className="space-y-4">
-                <Field label={locale === 'ar' ? 'ملاحظات عن المنافسين — من هم ونقاط قوتهم وضعفهم؟' : 'Competitor Notes — Who are they and their strengths/weaknesses?'}>
+                <Field label={t('brand.competitorsNotesLabel')}>
                   <Input textarea value={form.competitorNotes || ''} onChange={v => set('competitorNotes', v)}
-                    placeholder={locale === 'ar'
-                      ? 'مثال: المنافس الرئيسي هو مطعم X — نقطة قوته: السعر، نقطة ضعفه: جودة الطعام وبطء التوصيل. نحن أفضل في الجودة لكن أقل وضوحاً في التسويق...'
-                      : 'e.g. Main competitor is Restaurant X — strength: price, weakness: food quality and slow delivery. We are better in quality but less visible in marketing...'} />
+                    placeholder={t('brand.competitorsNotesPlaceholder')} />
                 </Field>
               </div>
             )}
@@ -518,11 +504,11 @@ export default function BrandBrainPage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all"
                 style={{ color: currentStepIdx === 0 ? '#374151' : '#9ca3af', cursor: currentStepIdx === 0 ? 'not-allowed' : 'pointer' }}>
                 <ArrowRight size={15} />
-                {locale === 'ar' ? 'السابق' : 'Previous'}
+                {t('brand.navPrevious')}
               </button>
 
               <div className="flex items-center gap-1">
-                {STEPS.map((s, i) => (
+                {STEPS.map(s => (
                   <button key={s.id} onClick={() => setStep(s.id)}
                     className="w-2 h-2 rounded-full transition-all"
                     style={{ background: step === s.id ? '#f59e0b' : 'rgba(255,255,255,0.15)', transform: step === s.id ? 'scale(1.4)' : 'scale(1)' }} />
@@ -534,7 +520,7 @@ export default function BrandBrainPage() {
                   onClick={() => setStep(STEPS[currentStepIdx + 1].id)}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all"
                   style={{ color: '#f59e0b' }}>
-                  {locale === 'ar' ? 'التالي' : 'Next'}
+                  {t('brand.navNext')}
                   <ArrowLeft size={15} />
                 </button>
               ) : (
@@ -542,7 +528,7 @@ export default function BrandBrainPage() {
                   className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all"
                   style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0a0a0a', boxShadow: '0 0 20px rgba(245,158,11,0.25)' }}>
                   <Zap size={14} />
-                  {locale === 'ar' ? 'حفظ وتفعيل Brain' : 'Save & Activate Brain'}
+                  {t('brand.navSaveActivate')}
                 </button>
               )}
             </div>
@@ -551,10 +537,10 @@ export default function BrandBrainPage() {
           {/* ── What this does ───────────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { color: '#f59e0b', icon: Brain,    label: 'NEX Studio',  desc: 'سكريبتات مخصصة لعلامتك',  descEn: 'Custom scripts for your brand' },
-              { color: '#06b6d4', icon: Zap,      label: 'VEX Ads',     desc: 'إعلانات بنبرة صوتك',       descEn: 'Ads in your brand voice' },
-              { color: '#8b5cf6', icon: BarChart2, label: 'PULSE',      desc: 'تحليل موجّه لقطاعك',       descEn: 'Analysis focused on your sector' },
-              { color: '#10b981', icon: Target,   label: 'Sentinel',    desc: 'رصد منافسيك تحديداً',      descEn: 'Monitor your specific competitors' },
+              { color: '#f59e0b', icon: Brain,    label: 'NEX Studio',  descKey: 'brand.nexCardDesc' },
+              { color: '#06b6d4', icon: Zap,      label: 'VEX Ads',     descKey: 'brand.vexCardDesc' },
+              { color: '#8b5cf6', icon: BarChart2, label: 'PULSE',      descKey: 'brand.pulseCardDesc' },
+              { color: '#10b981', icon: Target,   label: 'Sentinel',    descKey: 'brand.sentinelCardDesc' },
             ].map((c, i) => (
               <div key={i} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(108,99,255,0.08)' }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2"
@@ -562,7 +548,7 @@ export default function BrandBrainPage() {
                   <c.icon size={14} style={{ color: c.color }} />
                 </div>
                 <p className="text-xs font-semibold text-white">{c.label}</p>
-                <p className="text-[11px] text-gray-600 mt-0.5">{locale === 'ar' ? c.desc : c.descEn}</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">{t(c.descKey)}</p>
               </div>
             ))}
           </div>
