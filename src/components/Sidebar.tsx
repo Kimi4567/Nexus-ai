@@ -74,7 +74,7 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
         ${isActive ? 'text-white' : 'text-[#707084] hover:text-white hover:bg-white/4'}`}
       style={isActive ? { background: 'rgba(255,255,255,0.07)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' } : {}}
     >
-      {isActive && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r-full" />}
+      {isActive && <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-l-full" />}
       <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-white' : 'text-[#505060] group-hover:text-[#9090a8]'}`}>
         {icon}
       </span>
@@ -176,7 +176,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const sharedProps = { pathname, collapsed, onClick: click }
 
   return (
-    <aside className={`h-full flex flex-col transition-all duration-200 bg-sidebar ${collapsed ? 'w-16' : 'w-56'}`}>
+    <aside dir="rtl" className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`} style={{ background: '#0d0d0c', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
 
       {/* Logo */}
       <div className={`flex items-center gap-2.5 px-4 py-5 flex-shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}
@@ -275,7 +275,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               {initial}
             </div>
             {!collapsed && (
-              <div className="flex-1 text-left min-w-0">
+              <div className="flex-1 min-w-0">
                 <div className="text-[12px] font-semibold truncate" style={{ color: '#e0e0f0' }}>{displayName}</div>
                 <div className="text-[10px] truncate" style={{ color: '#46464e' }}>{email}</div>
               </div>

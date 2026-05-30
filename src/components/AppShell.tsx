@@ -27,7 +27,7 @@ export default function AppShell({ children }: AppShellProps) {
   const sidebarW = collapsed ? 'w-16' : 'w-56'
 
   return (
-    <div className="min-h-screen bg-atmospheric flex">
+    <div dir="ltr" className="min-h-screen flex" style={{ background: '#030309' }}>
 
       {/* Mobile overlay */}
       {mobileOpen && (
@@ -39,6 +39,7 @@ export default function AppShell({ children }: AppShellProps) {
 
       {/* Mobile top bar */}
       <div
+        dir="ltr"
         className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-[#191918]"
         style={{ background: 'rgba(8,8,7,0.92)', backdropFilter: 'blur(20px)' }}
       >
@@ -83,8 +84,8 @@ export default function AppShell({ children }: AppShellProps) {
       ──────────────────────────────────────────────────────────────────── */}
       <div className={`hidden md:block flex-shrink-0 transition-all duration-200 ${sidebarW}`} />
 
-      {/* Main content */}
-      <main className="flex-1 min-h-screen overflow-y-auto transition-all duration-200 pt-12 md:pt-0">
+      {/* Main content — dir="rtl" so all pages inherit RTL regardless of AppShell being ltr */}
+      <main dir="rtl" className="flex-1 min-h-screen overflow-y-auto transition-all duration-200 pt-12 md:pt-0">
         {children}
       </main>
     </div>
