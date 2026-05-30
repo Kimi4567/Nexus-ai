@@ -3,48 +3,42 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { Check, Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 const INDUSTRIES = [
-  { value: 'ecommerce',   label: 'تجارة إلكترونية', icon: '🛍️' },
-  { value: 'saas',        label: 'برمجيات / تقنية',  icon: '💻' },
-  { value: 'agency',      label: 'وكالة إعلانية',     icon: '🏢' },
-  { value: 'fitness',     label: 'لياقة وصحة',        icon: '💪' },
-  { value: 'food',        label: 'أغذية ومشروبات',    icon: '🍕' },
-  { value: 'real_estate', label: 'عقارات',             icon: '🏠' },
-  { value: 'beauty',      label: 'جمال وعناية',        icon: '✨' },
-  { value: 'consulting',  label: 'استشارات',           icon: '📊' },
-  { value: 'other',       label: 'أخرى',               icon: '🌐' },
+  { value: 'ecommerce',   ar: 'تجارة إلكترونية', en: 'E-commerce',    icon: '🛍️' },
+  { value: 'saas',        ar: 'برمجيات / تقنية',  en: 'Software / Tech', icon: '💻' },
+  { value: 'agency',      ar: 'وكالة إعلانية',     en: 'Ad Agency',      icon: '🏢' },
+  { value: 'fitness',     ar: 'لياقة وصحة',        en: 'Fitness & Health',icon: '💪' },
+  { value: 'food',        ar: 'أغذية ومشروبات',    en: 'Food & Beverage', icon: '🍕' },
+  { value: 'real_estate', ar: 'عقارات',             en: 'Real Estate',     icon: '🏠' },
+  { value: 'beauty',      ar: 'جمال وعناية',        en: 'Beauty & Care',   icon: '✨' },
+  { value: 'consulting',  ar: 'استشارات',           en: 'Consulting',      icon: '📊' },
+  { value: 'other',       ar: 'أخرى',               en: 'Other',           icon: '🌐' },
 ]
 
 const GOALS = [
-  { id: 'grow_followers',   label: 'زيادة المتابعين',        icon: '📈' },
-  { id: 'generate_leads',   label: 'توليد Leads',             icon: '🎯' },
-  { id: 'launch_product',   label: 'إطلاق منتج جديد',        icon: '🚀' },
-  { id: 'drive_sales',      label: 'زيادة المبيعات',          icon: '💰' },
-  { id: 'build_brand',      label: 'بناء الوعي بالعلامة',    icon: '🌟' },
-  { id: 'retain_customers', label: 'الاحتفاظ بالعملاء',       icon: '🤝' },
+  { id: 'grow_followers',   ar: 'زيادة المتابعين',        en: 'Grow Followers',    icon: '📈' },
+  { id: 'generate_leads',   ar: 'توليد Leads',             en: 'Generate Leads',    icon: '🎯' },
+  { id: 'launch_product',   ar: 'إطلاق منتج جديد',        en: 'Launch Product',    icon: '🚀' },
+  { id: 'drive_sales',      ar: 'زيادة المبيعات',          en: 'Drive Sales',       icon: '💰' },
+  { id: 'build_brand',      ar: 'بناء الوعي بالعلامة',    en: 'Build Brand',       icon: '🌟' },
+  { id: 'retain_customers', ar: 'الاحتفاظ بالعملاء',       en: 'Retain Customers',  icon: '🤝' },
 ]
 
 const TONES = [
-  { id: 'bold',         label: 'جريء ومباشر',       desc: 'قوي، واثق، بلا تعقيد' },
-  { id: 'friendly',     label: 'ودود ودافئ',          desc: 'قريب، محادثاتي، إنساني' },
-  { id: 'professional', label: 'راقي واحترافي',       desc: 'متطور، موثوق، رسمي' },
-  { id: 'playful',      label: 'مرح وإبداعي',         desc: 'حيوي، ملهم، طازج' },
-]
-
-// Generating steps — shown during AI loading
-const GENERATING_STEPS = [
-  'إعداد مساحة العمل',
-  'تدريب الـ AI على علامتك',
-  'تحليل جمهورك المستهدف',
-  'بناء استراتيجيتك لـ 30 يوم',
+  { id: 'bold',         ar: 'جريء ومباشر',       en: 'Bold & Direct',      descAr: 'قوي، واثق، بلا تعقيد',       descEn: 'Strong, confident, no fluff' },
+  { id: 'friendly',     ar: 'ودود ودافئ',          en: 'Friendly & Warm',    descAr: 'قريب، محادثاتي، إنساني',      descEn: 'Approachable, conversational, human' },
+  { id: 'professional', ar: 'راقي واحترافي',       en: 'Premium & Pro',      descAr: 'متطور، موثوق، رسمي',          descEn: 'Sophisticated, trusted, formal' },
+  { id: 'playful',      ar: 'مرح وإبداعي',         en: 'Playful & Creative', descAr: 'حيوي، ملهم، طازج',            descEn: 'Vibrant, inspiring, fresh' },
 ]
 
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, isAuthenticated, loading, authHeader } = useAuth()
+  const { locale, dir } = useI18n()
   const [step, setStep] = useState(0)
 
   const [brandName,  setBrandName]  = useState('')
@@ -130,7 +124,7 @@ export default function OnboardingPage() {
     <div
       className="w-full max-w-md rounded-2xl glass-panel p-8"
       style={{ boxShadow: '0 0 60px rgba(255,149,0,0.07), 0 4px 32px rgba(0,0,0,0.5)' }}
-      dir="rtl"
+      dir={dir}
     >
       {children}
     </div>
@@ -154,10 +148,10 @@ export default function OnboardingPage() {
 
       {/* Progress bar — visible on steps 1 & 2 */}
       {step >= 1 && step <= 2 && (
-        <div className="w-full max-w-md mb-8" dir="rtl">
+        <div className="w-full max-w-md mb-8" dir={dir}>
           <div className="flex justify-between text-xs text-t3 mb-2">
-            <span>الخطوة {step} من 2</span>
-            <span>{step === 1 ? 'علامتك التجارية' : 'هدفك الأول'}</span>
+            <span>{locale === 'ar' ? `الخطوة ${step} من 2` : `Step ${step} of 2`}</span>
+            <span>{step === 1 ? (locale === 'ar' ? 'علامتك التجارية' : 'Your Brand') : (locale === 'ar' ? 'هدفك الأول' : 'Your Goal')}</span>
           </div>
           <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(108,99,255,0.15)" }}>
             <div
@@ -176,25 +170,26 @@ export default function OnboardingPage() {
               👋
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">
-              مرحباً، {displayName}
+              {locale === 'ar' ? `مرحباً، ${displayName}` : `Welcome, ${displayName}`}
             </h1>
             <p className="text-t2 text-sm mb-8 leading-relaxed">
-              أنت على وشك الحصول على فريق تسويق AI كامل — استراتيجية، حملات، تقويم محتوى، وتحليلات — كل ذلك في مكان واحد.
-              60 ثانية فقط للإعداد.
+              {locale === 'ar'
+                ? 'أنت على وشك الحصول على فريق تسويق AI كامل — استراتيجية، حملات، تقويم محتوى، وتحليلات — كل ذلك في مكان واحد. 60 ثانية فقط للإعداد.'
+                : 'You\'re about to get a full AI marketing team — strategy, campaigns, content calendar, and analytics — all in one place. Just 60 seconds to set up.'}
             </p>
 
             <div className="grid grid-cols-3 gap-3 mb-8">
               {[
-                { icon: '🧠', label: 'استراتيجية AI' },
-                { icon: '📅', label: 'تقويم تلقائي' },
-                { icon: '📊', label: 'تحليلات حية' },
+                { icon: '🧠', ar: 'استراتيجية AI',  en: 'AI Strategy' },
+                { icon: '📅', ar: 'تقويم تلقائي',   en: 'Auto Calendar' },
+                { icon: '📊', ar: 'تحليلات حية',     en: 'Live Analytics' },
               ].map(f => (
                 <div
-                  key={f.label}
+                  key={f.ar}
                   className="p-3 rounded-xl text-center" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)' }}
                 >
                   <div className="text-xl mb-1">{f.icon}</div>
-                  <div className="text-[11px] font-semibold text-t2">{f.label}</div>
+                  <div className="text-[11px] font-semibold text-t2">{locale === 'ar' ? f.ar : f.en}</div>
                 </div>
               ))}
             </div>
@@ -204,7 +199,7 @@ export default function OnboardingPage() {
               className="btn-gradient w-full py-3.5 text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 24px rgba(255,149,0,0.25)' }}
             >
-              ابني نظام التسويق →
+              {locale === 'ar' ? 'ابني نظام التسويق →' : 'Build My Marketing System →'}
             </button>
           </div>
         </Card>
@@ -213,20 +208,20 @@ export default function OnboardingPage() {
       {/* ── STEP 1 — BRAND ────────────────────────────────────────────────── */}
       {step === 1 && (
         <Card>
-          <h2 className="text-xl font-bold text-white mb-1">أخبرنا عن علامتك</h2>
-          <p className="text-t2 text-sm mb-6">هذا يدرّب الـ AI على تفاصيل نشاطك التجاري.</p>
+          <h2 className="text-xl font-bold text-white mb-1">{locale === 'ar' ? 'أخبرنا عن علامتك' : 'Tell us about your brand'}</h2>
+          <p className="text-t2 text-sm mb-6">{locale === 'ar' ? 'هذا يدرّب الـ AI على تفاصيل نشاطك التجاري.' : 'This trains the AI on your business details.'}</p>
 
           <div className="space-y-5">
             {/* Brand name */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                اسم العلامة / الشركة
+                {locale === 'ar' ? 'اسم العلامة / الشركة' : 'Brand / Company Name'}
               </label>
               <input
                 type="text"
                 value={brandName}
                 onChange={e => setBrandName(e.target.value)}
-                placeholder="مثال: شركتي، متجر النور..."
+                placeholder={locale === 'ar' ? 'مثال: شركتي، متجر النور...' : 'e.g. My Company, Brand...'}
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
                 autoFocus
               />
@@ -235,7 +230,7 @@ export default function OnboardingPage() {
             {/* Industry */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                القطاع
+                {locale === 'ar' ? 'القطاع' : 'Industry'}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {INDUSTRIES.map(ind => (
@@ -245,11 +240,11 @@ export default function OnboardingPage() {
                     className={`p-2.5 rounded-xl border text-center transition-all ${
                       industry === ind.value
                         ? 'border-[rgba(108,99,255,0.5)] text-white' : 'border-[rgba(108,99,255,0.12)]'
-                        
+
                     }`}
                   >
                     <div className="text-lg mb-0.5">{ind.icon}</div>
-                    <div className="text-[10px] font-semibold leading-tight">{ind.label}</div>
+                    <div className="text-[10px] font-semibold leading-tight">{locale === 'ar' ? ind.ar : ind.en}</div>
                   </button>
                 ))}
               </div>
@@ -258,14 +253,14 @@ export default function OnboardingPage() {
             {/* Audience */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                الجمهور المستهدف{' '}
-                <span className="text-t4 normal-case font-normal">(اختياري)</span>
+                {locale === 'ar' ? 'الجمهور المستهدف' : 'Target Audience'}{' '}
+                <span className="text-t4 normal-case font-normal">{locale === 'ar' ? '(اختياري)' : '(optional)'}</span>
               </label>
               <input
                 type="text"
                 value={audience}
                 onChange={e => setAudience(e.target.value)}
-                placeholder="مثال: شباب 18-35 مهتمون بالموضة في السعودية"
+                placeholder={locale === 'ar' ? 'مثال: شباب 18-35 مهتمون بالموضة في السعودية' : 'e.g. Young adults 18-35 interested in fashion'}
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
               />
             </div>
@@ -273,7 +268,7 @@ export default function OnboardingPage() {
             {/* Tone */}
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wider text-t3 mb-2 block">
-                أسلوب العلامة
+                {locale === 'ar' ? 'أسلوب العلامة' : 'Brand Tone'}
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {TONES.map(t => (
@@ -286,8 +281,8 @@ export default function OnboardingPage() {
                          : 'border-[rgba(108,99,255,0.12)] bg-[rgba(17,21,54,0.5)] hover:border-[rgba(108,99,255,0.25)]'
                     }`}
                   >
-                    <div className="text-xs font-bold text-white">{t.label}</div>
-                    <div className="text-[10px] text-t3 mt-0.5">{t.desc}</div>
+                    <div className="text-xs font-bold text-white">{locale === 'ar' ? t.ar : t.en}</div>
+                    <div className="text-[10px] text-t3 mt-0.5">{locale === 'ar' ? t.descAr : t.descEn}</div>
                   </button>
                 ))}
               </div>
@@ -299,7 +294,7 @@ export default function OnboardingPage() {
             disabled={!brandName.trim() || !industry}
             className="btn-gradient w-full py-3.5 mt-6 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            التالي →
+            {locale === 'ar' ? 'التالي →' : 'Next →'}
           </button>
         </Card>
       )}
@@ -307,8 +302,8 @@ export default function OnboardingPage() {
       {/* ── STEP 2 — GOAL ─────────────────────────────────────────────────── */}
       {step === 2 && (
         <Card>
-          <h2 className="text-xl font-bold text-white mb-1">ما هو هدفك الرئيسي الآن؟</h2>
-          <p className="text-t2 text-sm mb-6">سنبني استراتيجيتك الأولى لـ 30 يوماً حول هذا الهدف.</p>
+          <h2 className="text-xl font-bold text-white mb-1">{locale === 'ar' ? 'ما هو هدفك الرئيسي الآن؟' : "What's your primary goal?"}</h2>
+          <p className="text-t2 text-sm mb-6">{locale === 'ar' ? 'سنبني استراتيجيتك الأولى لـ 30 يوماً حول هذا الهدف.' : "We'll build your first 30-day strategy around this goal."}</p>
 
           <div className="grid grid-cols-2 gap-2 mb-6">
             {GOALS.map(g => (
@@ -322,7 +317,7 @@ export default function OnboardingPage() {
                 }`}
               >
                 <div className="text-xl mb-1.5">{g.icon}</div>
-                <div className="text-xs font-semibold text-white leading-tight">{g.label}</div>
+                <div className="text-xs font-semibold text-white leading-tight">{locale === 'ar' ? g.ar : g.en}</div>
               </button>
             ))}
           </div>
@@ -332,7 +327,7 @@ export default function OnboardingPage() {
               onClick={() => setStep(1)}
               className="flex-none px-4 py-3.5 rounded-xl border text-text-muted hover:text-white text-sm transition-all" style={{ borderColor: "rgba(108,99,255,0.2)" }}
             >
-              رجوع
+              {locale === 'ar' ? 'رجوع' : 'Back'}
             </button>
             <button
               onClick={handleFinishSetup}
@@ -340,7 +335,7 @@ export default function OnboardingPage() {
               className="btn-gradient flex-1 py-3.5 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ boxShadow: goal ? '0 0 24px rgba(255,149,0,0.25)' : 'none' }}
             >
-              {goal ? 'ولّد استراتيجيتي →' : 'اختر هدفاً للمتابعة'}
+              {goal ? (locale === 'ar' ? 'ولّد استراتيجيتي →' : 'Generate Strategy →') : (locale === 'ar' ? 'اختر هدفاً للمتابعة' : 'Choose a goal to continue')}
             </button>
           </div>
         </Card>
@@ -355,10 +350,10 @@ export default function OnboardingPage() {
               <div className="absolute inset-0 w-16 h-16 border-2 border-accent border-t-transparent rounded-full animate-spin" />
               <div className="absolute inset-0 flex items-center justify-center text-2xl">🧠</div>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">جاري بناء استراتيجيتك...</h2>
-            <p className="text-t2 text-sm mb-6">الـ AI يتعلم علامتك ويولّد خطتك التسويقية لـ 30 يوماً.</p>
+            <h2 className="text-xl font-bold text-white mb-2">{locale === 'ar' ? 'جاري بناء استراتيجيتك...' : 'Building your strategy...'}</h2>
+            <p className="text-t2 text-sm mb-6">{locale === 'ar' ? 'الـ AI يتعلم علامتك ويولّد خطتك التسويقية لـ 30 يوماً.' : 'The AI is learning your brand and generating your 30-day marketing plan.'}</p>
             <div className="space-y-2.5 text-right max-w-xs mx-auto">
-              {GENERATING_STEPS.map((s, i) => (
+              {(locale === 'ar' ? ['إعداد مساحة العمل', 'تدريب الـ AI على علامتك', 'تحليل جمهورك المستهدف', 'بناء استراتيجيتك لـ 30 يوم'] : ['Setting up workspace', 'Training AI on your brand', 'Analyzing your target audience', 'Building your 30-day strategy']).map((s, i) => (
                 <div
                   key={s}
                   className="flex items-center gap-3 text-sm text-t2 animate-pulse"
@@ -378,7 +373,7 @@ export default function OnboardingPage() {
         <div
           className="w-full max-w-md rounded-2xl glass-panel overflow-hidden"
           style={{ boxShadow: '0 0 60px rgba(255,149,0,0.12), 0 4px 32px rgba(0,0,0,0.5)' }}
-          dir="rtl"
+          dir={dir}
         >
           {/* Header */}
           <div
@@ -386,9 +381,9 @@ export default function OnboardingPage() {
             style={{ borderColor: "rgba(108,99,255,0.12)", background: 'linear-gradient(135deg, rgba(108,99,255,0.10), transparent)' }}
           >
             <div className="text-2xl mb-2">🎉</div>
-            <h2 className="text-xl font-bold text-white mb-1">نظام التسويق جاهز!</h2>
+            <h2 className="text-xl font-bold text-white mb-1">{locale === 'ar' ? 'نظام التسويق جاهز!' : 'Marketing System Ready!'}</h2>
             <p className="text-t2 text-sm">
-              {strategy?.title || 'تم إنشاء استراتيجيتك لـ 30 يوماً.'}
+              {strategy?.title || (locale === 'ar' ? 'تم إنشاء استراتيجيتك لـ 30 يوماً.' : 'Your 30-day strategy has been created.')}
             </p>
           </div>
 
@@ -396,7 +391,7 @@ export default function OnboardingPage() {
           {strategy?.quickWins?.length > 0 && (
             <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
-                ابدأ اليوم — أسرع نتائج
+                {locale === 'ar' ? 'ابدأ اليوم — أسرع نتائج' : 'Start today — fastest results'}
               </div>
               <div className="space-y-2">
                 {strategy.quickWins.slice(0, 3).map((win: string, i: number) => (
@@ -412,15 +407,20 @@ export default function OnboardingPage() {
           {/* What awaits */}
           <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
             <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
-              ما ينتظرك في Nexus
+              {locale === 'ar' ? 'ما ينتظرك في Nexus' : "What's waiting for you in Nexus"}
             </div>
             <div className="space-y-2.5">
-              {[
+              {(locale === 'ar' ? [
                 { icon: '📅', label: 'تقويم المحتوى لـ 30 يوماً' },
                 { icon: '🎯', label: 'تفصيل كامل لاستراتيجية الحملة' },
                 { icon: '⚡', label: 'مولّد الحملات بالـ AI' },
                 { icon: '📊', label: 'لوحة التحليلات الحية' },
-              ].map(item => (
+              ] : [
+                { icon: '📅', label: '30-Day Content Calendar' },
+                { icon: '🎯', label: 'Full Campaign Strategy Breakdown' },
+                { icon: '⚡', label: 'AI Campaign Generator' },
+                { icon: '📊', label: 'Live Analytics Dashboard' },
+              ]).map(item => (
                 <div key={item.label} className="flex items-center gap-3 text-sm text-t1">
                   <span className="text-base">{item.icon}</span>
                   <span>{item.label}</span>
@@ -437,13 +437,13 @@ export default function OnboardingPage() {
               className="btn-gradient w-full py-3 text-white font-bold rounded-xl transition-all text-sm"
               style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}
             >
-              اعرض استراتيجيتي الكاملة →
+              {locale === 'ar' ? 'اعرض استراتيجيتي الكاملة →' : 'View My Full Strategy →'}
             </button>
             <button
               onClick={() => router.push('/dashboard')}
               className="w-full py-2.5 border text-text-muted hover:text-white rounded-xl transition-all text-sm" style={{ borderColor: "rgba(108,99,255,0.2)" }}
             >
-              انتقل للـ Dashboard
+              {locale === 'ar' ? 'انتقل للـ Dashboard' : 'Go to Dashboard'}
             </button>
           </div>
         </div>

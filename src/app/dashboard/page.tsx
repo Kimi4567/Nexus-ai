@@ -3,6 +3,7 @@
 import AppShell from '@/components/AppShell'
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -57,12 +58,12 @@ const AGENT_DEFS = [
   { name: 'SENTINEL', role: 'حارس العلامة',   roleEn: '24/7 Monitor',    icon: Shield,   color: '#FFD700', glow: 'rgba(255,215,0,0.12)',  href: '/sentinel',  status: 'يراقب', statusColor: '#00BFA6' },
 ]
 
-const STATUS_MAP: Record<string, { ar: string; color: string }> = {
-  DRAFT:     { ar: 'مسودة',   color: '#64748b' },
-  ACTIVE:    { ar: 'نشطة',    color: '#00BFA6' },
-  PAUSED:    { ar: 'متوقفة',  color: '#FFB800' },
-  COMPLETED: { ar: 'مكتملة', color: '#00D4FF' },
-  ARCHIVED:  { ar: 'مؤرشفة', color: '#374151' },
+const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
+  DRAFT:     { ar: 'مسودة',   en: 'Draft',     color: '#64748b' },
+  ACTIVE:    { ar: 'نشطة',    en: 'Active',    color: '#00BFA6' },
+  PAUSED:    { ar: 'متوقفة',  en: 'Paused',   color: '#FFB800' },
+  COMPLETED: { ar: 'مكتملة', en: 'Completed', color: '#00D4FF' },
+  ARCHIVED:  { ar: 'مؤرشفة', en: 'Archived',  color: '#374151' },
 }
 
 const ALERT_ICONS = {
@@ -82,6 +83,7 @@ const ALERT_BG = {
 // ─────────────────────────────────────────────
 export default function DashboardPage() {
   const { authHeader, user, isAuthenticated, loading: authLoading } = useAuth()
+  const { t, locale } = useI18n()
   const router = useRouter()
 
   const [stats, setStats] = useState<Stats | null>(null)
@@ -157,7 +159,7 @@ export default function DashboardPage() {
   }, [stats, hasConnections])
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
-  const timeStr = lastUpdated.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })
+  const timeStr = lastUpdated.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 
   if (authLoading || loading) {
     return (
@@ -168,7 +170,7 @@ export default function DashboardPage() {
               <div className="absolute inset-0 rounded-full border-2 border-accent-purple/20 border-t-accent-purple animate-spin" />
               <Sparkles className="w-5 h-5 text-accent-purple absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <p className="text-text-muted text-sm">جاري التحميل...</p>
+            <p className="text-text-muted text-sm">{t('common.loading')}</p>
           </div>
         </div>
       </AppShell>
@@ -194,13 +196,13 @@ export default function DashboardPage() {
                   <div className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" style={{ boxShadow: '0 0 6px #00BFA6' }} />
                   <span className="text-[10px] font-mono tracking-widest text-accent-teal/70">LIVE</span>
                 </div>
-                <span className="text-[10px] text-text-muted font-mono">آخر تحديث {timeStr}</span>
+                <span className="text-[10px] text-text-muted font-mono">{locale === 'ar' ? `آخر تحديث ${timeStr}` : `Updated ${timeStr}`}</span>
               </div>
               <h1 className="text-2xl font-bold font-heading mb-1 text-white">
-                {displayName ? `أهلاً، ${displayName}` : 'مركز القيادة'}
+                {displayName ? `${t('dashboard.greeting')}، ${displayName}` : (locale === 'ar' ? 'مركز القيادة' : 'Command Center')}
                 {' '}<span className="text-text-muted">👋</span>
               </h1>
-              <p className="text-text-secondary text-sm">كل ما يحتاجه عملك في مكان واحد</p>
+              <p className="text-text-secondary text-sm">{t('dashboard.subtitle')}</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => load(true)}
@@ -209,7 +211,7 @@ export default function DashboardPage() {
               </button>
               <Link href="/campaigns/new" className="btn-gradient flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white">
                 <Rocket className="w-4 h-4" />
-                حملة جديدة
+                {t('dashboard.createCampaign')}
               </Link>
             </div>
           </div>
@@ -223,14 +225,14 @@ export default function DashboardPage() {
                   <Wifi className="w-4 h-4 text-accent-teal" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-accent-teal">ربط المنصات / Connect Platforms</p>
+                  <p className="text-sm font-bold text-accent-teal">{locale === 'ar' ? 'ربط المنصات' : 'Connect Platforms'}</p>
                   <p className="text-xs text-text-muted">Meta · TikTok · Google · LinkedIn · Snapchat</p>
                 </div>
               </div>
               <Link href="/connections"
                 className="text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5"
                 style={{ background: 'rgba(0,191,166,0.1)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.2)' }}>
-                ربط الحسابات <ArrowUpRight className="w-3 h-3" />
+                {locale === 'ar' ? 'ربط الحسابات' : 'Connect Accounts'} <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
           )}
@@ -238,10 +240,10 @@ export default function DashboardPage() {
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'الحملات / Campaigns',       value: stats?.campaigns ?? 0,       sub: `${stats?.activeCampaigns ?? 0} هذا الشهر`,                icon: Target,   color: '#6C63FF' },
-              { label: 'توليدات AI / Generations',  value: stats?.totalGenerations ?? 0, sub: 'إجمالي كل الوكلاء',                                      icon: Sparkles, color: '#00BFA6' },
-              { label: 'وحدات AI / Credits',        value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? 'غير محدود ∞' : 'متبقية',      icon: Zap,      color: '#00D4FF' },
-              { label: 'المنصات / Platforms',       value: hasConnections ? '✓' : '0',  sub: hasConnections ? 'متصل / Connected' : 'اربط الآن',         icon: Globe,    color: '#FFD700' },
+              { label: locale === 'ar' ? 'الحملات' : 'Campaigns',       value: stats?.campaigns ?? 0,       sub: locale === 'ar' ? `${stats?.activeCampaigns ?? 0} هذا الشهر` : `${stats?.activeCampaigns ?? 0} this month`,  icon: Target,   color: '#6C63FF' },
+              { label: locale === 'ar' ? 'توليدات AI' : 'AI Generations',  value: stats?.totalGenerations ?? 0, sub: locale === 'ar' ? 'إجمالي كل الوكلاء' : 'All agents total',  icon: Sparkles, color: '#00BFA6' },
+              { label: t('dashboard.statCredits'),   value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? (locale === 'ar' ? 'غير محدود ∞' : 'Unlimited ∞') : t('dashboard.remaining'), icon: Zap, color: '#00D4FF' },
+              { label: locale === 'ar' ? 'المنصات' : 'Platforms',          value: hasConnections ? '✓' : '0',  sub: hasConnections ? (locale === 'ar' ? 'متصل' : 'Connected') : (locale === 'ar' ? 'اربط الآن' : 'Connect now'), icon: Globe, color: '#FFD700' },
             ].map(s => {
               const Icon = s.icon
               return (
@@ -269,7 +271,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-accent-purple" />
-              <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">الوكلاء الذكيون / AI Agents</h2>
+              <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">{locale === 'ar' ? 'الوكلاء الذكيون' : 'AI Agents'}</h2>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {AGENT_DEFS.map(agent => {
@@ -289,10 +291,10 @@ export default function DashboardPage() {
                       </div>
                     </div>
                     <p className="font-bold text-sm mb-0.5" style={{ color: agent.color }}>{agent.name}</p>
-                    <p className="text-[11px] text-text-muted mb-3">{agent.role}</p>
+                    <p className="text-[11px] text-text-muted mb-3">{locale === 'ar' ? agent.role : agent.roleEn}</p>
                     <div className="flex items-center gap-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ color: agent.color }}>
-                      فتح الوكيل <ArrowUpRight className="w-3 h-3" />
+                      {t('dashboard.launchAgent')} <ArrowUpRight className="w-3 h-3" />
                     </div>
                   </Link>
                 )
@@ -308,10 +310,10 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Rocket className="w-4 h-4 text-accent-purple" />
-                  <h3 className="font-bold text-sm text-white">الحملات / Campaigns</h3>
+                  <h3 className="font-bold text-sm text-white">{t('dashboard.campaignsTitle')}</h3>
                 </div>
                 <Link href="/vex" className="text-[11px] text-text-muted hover:text-accent-purple transition flex items-center gap-1">
-                  إدارة الكل <ChevronRight className="w-3 h-3" />
+                  {locale === 'ar' ? 'إدارة الكل' : 'Manage All'} <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
 
@@ -321,11 +323,11 @@ export default function DashboardPage() {
                     style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.12)' }}>
                     <Plus className="w-6 h-6 text-accent-purple/40" />
                   </div>
-                  <p className="text-sm font-semibold text-text-secondary mb-1">لا توجد حملات بعد</p>
-                  <p className="text-xs text-text-muted mb-5 max-w-[200px] mx-auto">أطلق أول حملة وسيبني Nexus لك استراتيجية كاملة في دقائق</p>
+                  <p className="text-sm font-semibold text-text-secondary mb-1">{t('dashboard.noCampaigns')}</p>
+                  <p className="text-xs text-text-muted mb-5 max-w-[200px] mx-auto">{t('dashboard.noCampaignsDesc')}</p>
                   <Link href="/campaigns/new" className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white">
                     <Rocket className="w-4 h-4" />
-                    إطلاق أول حملة
+                    {t('dashboard.createCampaign')}
                   </Link>
                 </div>
               ) : (
@@ -345,7 +347,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <div className="w-1.5 h-1.5 rounded-full" style={{ background: si.color }} />
-                          <span className="text-[10px]" style={{ color: si.color }}>{si.ar}</span>
+                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.ar : si.en}</span>
                         </div>
                       </Link>
                     )
@@ -353,7 +355,7 @@ export default function DashboardPage() {
                   <Link href="/vex"
                     className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] text-text-muted hover:text-text-secondary hover:bg-white/3 transition-all">
                     <Plus className="w-3.5 h-3.5" />
-                    إضافة حملة جديدة / New Campaign
+                    {t('dashboard.createCampaign')}
                   </Link>
                 </div>
               )}
@@ -366,12 +368,12 @@ export default function DashboardPage() {
               <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
                 <div className="flex items-center gap-2 mb-4">
                   <Flame className="w-4 h-4 text-accent-purple" />
-                  <h3 className="font-bold text-sm text-white">توصيات AI / Insights</h3>
+                  <h3 className="font-bold text-sm text-white">{locale === 'ar' ? 'توصيات AI' : 'AI Insights'}</h3>
                 </div>
                 {insights.length === 0 ? (
                   <div className="text-center py-6">
                     <CheckCircle2 className="w-8 h-8 text-accent-teal/40 mx-auto mb-2" />
-                    <p className="text-xs text-text-muted">كل شيء يسير على ما يرام</p>
+                    <p className="text-xs text-text-muted">{locale === 'ar' ? 'كل شيء يسير على ما يرام' : 'Everything looks great'}</p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
@@ -395,13 +397,13 @@ export default function DashboardPage() {
               <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
                 <div className="flex items-center gap-2 mb-4">
                   <Bell className="w-4 h-4 text-accent-teal" />
-                  <h3 className="font-bold text-sm text-white">التنبيهات / Alerts</h3>
+                  <h3 className="font-bold text-sm text-white">{t('sentinel.alertsTitle')}</h3>
                 </div>
                 {alerts.length === 0 ? (
                   <div className="text-center py-6">
                     <Shield className="w-8 h-8 text-accent-teal/30 mx-auto mb-2" />
-                    <p className="text-xs text-text-muted">لا توجد تنبيهات</p>
-                    <p className="text-[10px] text-text-muted mt-0.5">Sentinel يراقب ٢٤/٧</p>
+                    <p className="text-xs text-text-muted">{t('sentinel.noAlerts')}</p>
+                    <p className="text-[10px] text-text-muted mt-0.5">{locale === 'ar' ? 'Sentinel يراقب ٢٤/٧' : 'Sentinel monitors 24/7'}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -419,7 +421,7 @@ export default function DashboardPage() {
                       )
                     })}
                     <Link href="/sentinel" className="flex items-center justify-center gap-1 pt-1 text-[10px] text-text-muted hover:text-accent-teal transition">
-                      عرض جميع التنبيهات <ChevronRight className="w-3 h-3" />
+                      {locale === 'ar' ? 'عرض جميع التنبيهات' : 'View All Alerts'} <ChevronRight className="w-3 h-3" />
                     </Link>
                   </div>
                 )}
@@ -431,22 +433,21 @@ export default function DashboardPage() {
           <div className="rounded-2xl p-4" style={{ background: 'rgba(17,21,54,0.3)', border: '1px solid rgba(108,99,255,0.08)' }}>
             <div className="flex items-center gap-2 mb-3">
               <Zap className="w-3.5 h-3.5 text-accent-purple" />
-              <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider">وصول سريع / Quick Access</p>
+              <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider">{t('dashboard.quickAccess')}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { label: 'حملة جديدة',   en: 'New Campaign', href: '/campaigns/new', color: '#6C63FF' },
-                { label: 'سكريبت فيديو', en: 'Video Script',  href: '/studio',        color: '#00BFA6' },
-                { label: 'نسخة إعلانية', en: 'Ad Copy',       href: '/vex',           color: '#FF6B35' },
-                { label: 'تحليل الأداء', en: 'Analytics',     href: '/analytics',     color: '#00D4FF' },
-                { label: 'مراقبة السوق', en: 'Market Watch',  href: '/sentinel',      color: '#FFD700' },
-                { label: 'ربط المنصات',  en: 'Connect',       href: '/connections',   color: '#00BFA6' },
+                { ar: 'حملة جديدة',   en: 'New Campaign', href: '/campaigns/new', color: '#6C63FF' },
+                { ar: 'سكريبت فيديو', en: 'Video Script',  href: '/studio',        color: '#00BFA6' },
+                { ar: 'نسخة إعلانية', en: 'Ad Copy',       href: '/vex',           color: '#FF6B35' },
+                { ar: 'تحليل الأداء', en: 'Analytics',     href: '/analytics',     color: '#00D4FF' },
+                { ar: 'مراقبة السوق', en: 'Market Watch',  href: '/sentinel',      color: '#FFD700' },
+                { ar: 'ربط المنصات',  en: 'Connect',       href: '/connections',   color: '#00BFA6' },
               ].map(qa => (
                 <Link key={qa.href} href={qa.href}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-[1.02]"
                   style={{ background: `${qa.color}08`, border: `1px solid ${qa.color}18`, color: qa.color }}>
-                  {qa.label}
-                  <span className="text-[9px] opacity-50">{qa.en}</span>
+                  {locale === 'ar' ? qa.ar : qa.en}
                 </Link>
               ))}
             </div>

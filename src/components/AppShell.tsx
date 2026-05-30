@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Sidebar from './Sidebar'
+import { useI18n } from '@/lib/i18n-context'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -23,6 +24,7 @@ interface AppShellProps {
 export default function AppShell({ children }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { dir } = useI18n()
 
   const sidebarW = collapsed ? 'w-16' : 'w-56'
 
@@ -84,8 +86,8 @@ export default function AppShell({ children }: AppShellProps) {
       ──────────────────────────────────────────────────────────────────── */}
       <div className={`hidden md:block flex-shrink-0 transition-all duration-200 ${sidebarW}`} />
 
-      {/* Main content — dir="rtl" so all pages inherit RTL regardless of AppShell being ltr */}
-      <main dir="rtl" className="flex-1 min-h-screen overflow-y-auto transition-all duration-200 pt-12 md:pt-0">
+      {/* Main content — dir driven by locale from useI18n() */}
+      <main dir={dir} className="flex-1 min-h-screen overflow-y-auto transition-all duration-200 pt-12 md:pt-0">
         {children}
       </main>
     </div>

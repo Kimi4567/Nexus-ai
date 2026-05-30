@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import { Sparkles, Zap, CheckCircle2, Settings2 } from 'lucide-react'
@@ -14,8 +15,10 @@ const PLANS = [
     accentColor: '#6C63FF',
     featured: false,
     badge: null,
-    description: 'مثالي للأفراد والمبدعين',
-    features: ['50 رصيد ذكاء اصطناعي / شهر', '3 حملات / شهر', 'مساحة عمل واحدة', 'تصدير PDF', 'دعم بالبريد الإلكتروني'],
+    descAr: 'مثالي للأفراد والمبدعين',
+    descEn: 'Perfect for individuals and creators',
+    featuresAr: ['50 رصيد ذكاء اصطناعي / شهر', '3 حملات / شهر', 'مساحة عمل واحدة', 'تصدير PDF', 'دعم بالبريد الإلكتروني'],
+    featuresEn: ['50 AI credits / month', '3 campaigns / month', '1 workspace', 'PDF export', 'Email support'],
   },
   {
     id: 'pro',
@@ -24,9 +27,13 @@ const PLANS = [
     price: 79,
     accentColor: '#6C63FF',
     featured: true,
+    badgeAr: 'الأكثر شيوعاً',
+    badgeEn: 'Most Popular',
     badge: 'الأكثر شيوعاً',
-    description: 'للعلامات التجارية النامية',
-    features: ['200 رصيد ذكاء اصطناعي / شهر', 'حملات غير محدودة', '3 مساحات عمل', 'نشر على السوشيال ميديا', 'دعم متقدم'],
+    descAr: 'للعلامات التجارية النامية',
+    descEn: 'For growing brands',
+    featuresAr: ['200 رصيد ذكاء اصطناعي / شهر', 'حملات غير محدودة', '3 مساحات عمل', 'نشر على السوشيال ميديا', 'دعم متقدم'],
+    featuresEn: ['200 AI credits / month', 'Unlimited campaigns', '3 workspaces', 'Social media publishing', 'Advanced support'],
   },
   {
     id: 'agency',
@@ -36,13 +43,16 @@ const PLANS = [
     accentColor: '#00BFA6',
     featured: false,
     badge: null,
-    description: 'للوكالات والفرق',
-    features: ['رصيد ذكاء اصطناعي غير محدود', 'حملات غير محدودة', '10 مساحات عمل', 'تصدير بالعلامة البيضاء', 'دعم مخصص'],
+    descAr: 'للوكالات والفرق',
+    descEn: 'For agencies and teams',
+    featuresAr: ['رصيد ذكاء اصطناعي غير محدود', 'حملات غير محدودة', '10 مساحات عمل', 'تصدير بالعلامة البيضاء', 'دعم مخصص'],
+    featuresEn: ['Unlimited AI credits', 'Unlimited campaigns', '10 workspaces', 'White-label export', 'Dedicated support'],
   },
 ]
 
 export default function BillingPage() {
   const { isAuthenticated, loading, user, authHeader } = useAuth()
+  const { t, locale } = useI18n()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null)
   const [checkingOut, setCheckingOut] = useState<string | null>(null)
@@ -102,7 +112,7 @@ export default function BillingPage() {
 
   const currentPlan = subscriptionStatus?.plan || 'FREE'
   const isActive = subscriptionStatus?.status === 'ACTIVE'
-  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'المستخدم'
+  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || (locale === 'ar' ? 'المستخدم' : 'User')
 
   const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(12px)' }
 
@@ -125,17 +135,17 @@ export default function BillingPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Zap className="w-4 h-4 text-accent-purple" />
-                <span className="text-xs font-mono uppercase tracking-widest text-text-muted">الاشتراك</span>
+                <span className="text-xs font-mono uppercase tracking-widest text-text-muted">{locale === 'ar' ? 'الاشتراك' : 'SUBSCRIPTION'}</span>
               </div>
-              <h1 className="text-3xl font-bold font-heading text-white mb-1">الفواتير والخطط</h1>
-              <p className="text-text-secondary text-sm">إدارة اشتراكك، {displayName}.</p>
+              <h1 className="text-3xl font-bold font-heading text-white mb-1">{t('billing.pageTitle')}</h1>
+              <p className="text-text-secondary text-sm">{t('billing.pageSubtitle')}، {displayName}.</p>
             </div>
             {isActive && (
               <button onClick={handleManageSubscription} disabled={openingPortal}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-60"
                 style={glassCard}>
                 <Settings2 className="w-4 h-4 text-accent-purple" />
-                {openingPortal ? 'جارٍ الفتح...' : 'إدارة الاشتراك'}
+                {openingPortal ? t('billing.opening') : t('billing.manageSubscription')}
               </button>
             )}
           </div>
@@ -143,9 +153,9 @@ export default function BillingPage() {
           {/* Current Status */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             {[
-              { label: 'الخطة الحالية',        value: currentPlan,    icon: '🏷️', featured: true },
-              { label: 'الحالة',               value: isActive ? 'نشط' : 'مجاني', icon: '✅', featured: false },
-              { label: 'أرصدة الذكاء الاصطناعي', value: subscriptionStatus?.credits === -1 ? 'غير محدودة' : String(subscriptionStatus?.credits ?? '—'), icon: '⚡', featured: false },
+              { label: t('billing.currentPlan'),  value: currentPlan,    icon: '🏷️', featured: true },
+              { label: t('billing.status'),      value: isActive ? t('billing.active') : t('billing.free'), icon: '✅', featured: false },
+              { label: t('billing.credits'),     value: subscriptionStatus?.credits === -1 ? t('billing.unlimited') : String(subscriptionStatus?.credits ?? '—'), icon: '⚡', featured: false },
             ].map(stat => (
               <div key={stat.label} className="rounded-xl p-5" style={{
                 background: stat.featured ? 'rgba(108,99,255,0.08)' : 'rgba(17,21,54,0.5)',
@@ -164,11 +174,11 @@ export default function BillingPage() {
             <div className="rounded-xl p-5 mb-10 flex items-center justify-between gap-4"
               style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.2)' }}>
               <div>
-                <div className="font-bold text-accent-purple mb-1">أنت على الخطة المجانية</div>
-                <div className="text-sm text-text-secondary">قم بالترقية للحصول على المزيد من أرصدة الذكاء الاصطناعي وحملات غير محدودة والنشر على السوشيال ميديا.</div>
+                <div className="font-bold text-accent-purple mb-1">{t('billing.upgradePromptTitle')}</div>
+                <div className="text-sm text-text-secondary">{t('billing.upgradePromptDesc')}</div>
               </div>
               <a href="#plans" className="btn-gradient px-5 py-2.5 rounded-xl font-bold text-sm text-white whitespace-nowrap">
-                الترقية الآن
+                {t('billing.upgradeNow')}
               </a>
             </div>
           )}
@@ -186,24 +196,24 @@ export default function BillingPage() {
                     boxShadow: plan.featured ? '0 0 40px rgba(108,99,255,0.15)' : 'none',
                   }}>
 
-                  {plan.badge && (
+                  {(plan.badgeAr || plan.badge) && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-white text-xs font-bold px-4 py-1 rounded-full"
                       style={{ background: 'linear-gradient(135deg, #6C63FF, #9333EA)' }}>
-                      {plan.badge}
+                      {locale === 'ar' ? (plan.badgeAr || plan.badge) : (plan.badgeEn || plan.badge)}
                     </div>
                   )}
 
                   <div className="mb-2">
-                    <h3 className="text-xl font-bold font-heading mb-1 text-white">{plan.nameAr}</h3>
-                    <p className="text-xs text-text-muted mb-3">{plan.description}</p>
+                    <h3 className="text-xl font-bold font-heading mb-1 text-white">{locale === 'ar' ? plan.nameAr : plan.name}</h3>
+                    <p className="text-xs text-text-muted mb-3">{locale === 'ar' ? plan.descAr : plan.descEn}</p>
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-black text-white">${plan.price}</span>
-                      <span className="text-text-muted text-sm">/شهر</span>
+                      <span className="text-text-muted text-sm">{t('billing.perMonth')}</span>
                     </div>
                   </div>
 
                   <ul className="space-y-3 mb-8 mt-6">
-                    {plan.features.map(f => (
+                    {(locale === 'ar' ? plan.featuresAr : plan.featuresEn).map(f => (
                       <li key={f} className="flex items-center gap-2 text-sm text-text-secondary">
                         <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: plan.accentColor }} />
                         {f}
@@ -214,13 +224,13 @@ export default function BillingPage() {
                   {isCurrent ? (
                     <div className="w-full py-3 text-center rounded-xl text-sm font-semibold"
                       style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.3)', color: '#6C63FF' }}>
-                      ✓ خطتك الحالية
+                      {t('billing.currentPlanBadge')}
                     </div>
                   ) : (
                     <button onClick={() => handleUpgrade(plan.id)} disabled={checkingOut === plan.id}
                       className={`w-full py-3 rounded-xl font-bold transition-all text-sm disabled:opacity-60 ${plan.featured ? 'btn-gradient text-white' : 'text-white hover:opacity-90'}`}
                       style={!plan.featured ? { background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.2)' } : {}}>
-                      {checkingOut === plan.id ? '→ جارٍ التوجيه...' : `الترقية إلى ${plan.nameAr}`}
+                      {checkingOut === plan.id ? t('billing.redirecting') : `${t('billing.upgradeTo')} ${locale === 'ar' ? plan.nameAr : plan.name}`}
                     </button>
                   )}
                 </div>
@@ -232,15 +242,20 @@ export default function BillingPage() {
           <div className="rounded-2xl p-8" style={glassCard}>
             <div className="flex items-center gap-2 mb-6">
               <Sparkles className="w-4 h-4 text-accent-purple" />
-              <h2 className="text-xl font-bold font-heading text-white">الأسئلة الشائعة</h2>
+              <h2 className="text-xl font-bold font-heading text-white">{t('billing.faqTitle')}</h2>
             </div>
             <div className="space-y-6">
-              {[
+              {(locale === 'ar' ? [
                 { q: 'هل يمكنني الإلغاء في أي وقت؟',  a: 'نعم. يمكنك الإلغاء في أي وقت من خلال زر "إدارة الاشتراك". ستحتفظ بالوصول حتى نهاية فترة الفوترة.' },
                 { q: 'ما هي أرصدة الذكاء الاصطناعي؟',  a: 'كل توليد للحملات يستهلك أرصدة. تتجدد الأرصدة شهرياً ولا تُنقل الأرصدة غير المستخدمة.' },
                 { q: 'هل المدفوعات آمنة؟',              a: 'جميع المدفوعات تتم عبر Lemon Squeezy — بنية تحتية موثوقة للمدفوعات.' },
                 { q: 'هل تقدمون استردادًا للمبالغ؟',   a: 'نقدم ضمان استرداد الأموال خلال 7 أيام. تواصل مع الدعم إذا لم تكن راضياً.' },
-              ].map(faq => (
+              ] : [
+                { q: 'Can I cancel at any time?',  a: 'Yes. You can cancel anytime via the "Manage Subscription" button. Access is maintained until the end of your billing period.' },
+                { q: 'What are AI credits?',       a: 'Each campaign generation consumes credits. Credits renew monthly and unused credits do not carry over.' },
+                { q: 'Are payments secure?',       a: 'All payments go through Lemon Squeezy — a trusted payment infrastructure.' },
+                { q: 'Do you offer refunds?',      a: 'We offer a 7-day money-back guarantee. Contact support if you\'re not satisfied.' },
+              ]).map(faq => (
                 <div key={faq.q} className="pb-6 last:pb-0" style={{ borderBottom: '1px solid rgba(108,99,255,0.08)' }}>
                   <h3 className="font-semibold mb-2 text-white">{faq.q}</h3>
                   <p className="text-text-secondary text-sm leading-relaxed">{faq.a}</p>

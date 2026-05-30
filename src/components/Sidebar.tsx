@@ -172,7 +172,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const pathname = usePathname()
   const router = useRouter()
   const { user, isAuthenticated } = useAuth()
-  const { locale, setLocale } = useI18n()
+  const { locale, setLocale, t, dir } = useI18n()
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Account'
@@ -191,7 +191,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const sharedProps = { pathname, collapsed, onClick: click }
 
   return (
-    <aside dir="rtl" className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
+    <aside dir={dir} className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
       style={{ background: '#0F1430', borderRight: '1px solid rgba(108,99,255,0.12)' }}>
 
       {/* Logo */}
@@ -209,35 +209,35 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       <div className="flex-1 overflow-y-auto py-3 px-2">
 
         {/* Main */}
-        <NavItem href="/dashboard" label="الرئيسية" labelEn="Dashboard"
+        <NavItem href="/dashboard" label={locale === 'ar' ? 'الرئيسية' : 'Dashboard'}
           icon={Icons.dashboard} {...sharedProps} />
-        <NavItem href="/brand" label="Brand Brain" labelEn="Memory"
+        <NavItem href="/brand" label="Brand Brain"
           icon={Icons.brain} dot="#00BFA6" {...sharedProps} />
 
         {/* Platform */}
-        {!collapsed && <SectionLabel>المنصات</SectionLabel>}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'المنصات' : 'Platforms'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-        <NavItem href="/connections" label="ربط المنصات" labelEn="Connect"
-          icon={Icons.connections} badge="مهم" badgeColor="#00BFA6" {...sharedProps} />
+        <NavItem href="/connections" label={locale === 'ar' ? 'ربط المنصات' : 'Connect'}
+          icon={Icons.connections} badge={locale === 'ar' ? 'مهم' : 'Setup'} badgeColor="#00BFA6" {...sharedProps} />
 
         {/* AI Agents */}
-        {!collapsed && <SectionLabel>الوكلاء الذكيون</SectionLabel>}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'الوكلاء الذكيون' : 'AI Agents'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
 
-        <NavItem href="/studio" label="NEX" labelEn="Studio"
+        <NavItem href="/studio" label="NEX"
           icon={Icons.film} dot="#00BFA6" {...sharedProps} />
-        <NavItem href="/vex" label="VEX" labelEn="Ads"
+        <NavItem href="/vex" label="VEX"
           icon={Icons.megaphone} dot="#FF6B35" {...sharedProps} />
-        <NavItem href="/analytics" label="PULSE" labelEn="Analytics"
+        <NavItem href="/analytics" label="PULSE"
           icon={Icons.chart} dot="#00D4FF" {...sharedProps} />
-        <NavItem href="/sentinel" label="Sentinel" labelEn="Monitor"
+        <NavItem href="/sentinel" label="Sentinel"
           icon={Icons.shield} dot="#FFD700" {...sharedProps} />
 
         {/* Demo */}
-        {!collapsed && <SectionLabel>عرض تجريبي</SectionLabel>}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'عرض تجريبي' : 'Preview'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-        <NavItem href="/demo" label="نسخة تجريبية" labelEn="Demo"
-          icon={Icons.demo} badge="جديد" badgeColor="#6C63FF" {...sharedProps} />
+        <NavItem href="/demo" label={locale === 'ar' ? 'نسخة تجريبية' : 'Demo'}
+          icon={Icons.demo} badge={locale === 'ar' ? 'جديد' : 'New'} badgeColor="#6C63FF" {...sharedProps} />
 
       </div>
 
@@ -252,15 +252,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)' }}>
             <span className="text-sm" style={{ color: '#6C63FF' }}>⚡</span>
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold leading-none mb-0.5" style={{ color: '#6C63FF' }}>ترقية للـ Pro</div>
-              <div className="text-[10px] leading-none text-text-muted">افتح كل الإمكانيات</div>
+              <div className="text-[11px] font-semibold leading-none mb-0.5" style={{ color: '#6C63FF' }}>{locale === 'ar' ? 'ترقية للـ Pro' : 'Upgrade to Pro'}</div>
+              <div className="text-[10px] leading-none text-text-muted">{locale === 'ar' ? 'افتح كل الإمكانيات' : 'Unlock everything'}</div>
             </div>
           </Link>
         )}
 
-        <NavItem href="/settings" label="الإعدادات" labelEn="Settings"
+        <NavItem href="/settings" label={locale === 'ar' ? 'الإعدادات' : 'Settings'}
           icon={Icons.settings} {...sharedProps} />
-        <NavItem href="/billing" label="الفواتير" labelEn="Billing"
+        <NavItem href="/billing" label={locale === 'ar' ? 'الفواتير' : 'Billing'}
           icon={Icons.billing} {...sharedProps} />
 
         {/* Collapse toggle */}
@@ -310,8 +310,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                 </div>
                 <div className="py-1.5 px-1">
                   {[
-                    { href: '/settings', label: 'الإعدادات / Settings' },
-                    { href: '/billing', label: 'الفواتير / Billing' },
+                    { href: '/settings', label: locale === 'ar' ? 'الإعدادات' : 'Settings' },
+                    { href: '/billing',  label: locale === 'ar' ? 'الفواتير'  : 'Billing' },
                   ].map(item => (
                     <Link key={item.href} href={item.href} onClick={() => { setUserMenuOpen(false); click() }}
                       className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-text-secondary hover:text-white hover:bg-white/5">
@@ -321,7 +321,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                   <button onClick={handleSignOut}
                     className="w-full flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-left hover:bg-rose-500/10"
                     style={{ color: '#f43f5e' }}>
-                    تسجيل الخروج / Sign Out
+                    {t('nav.logout')}
                   </button>
                 </div>
               </div>
