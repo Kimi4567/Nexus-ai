@@ -75,6 +75,43 @@ function buildCalendarItems(campaignId: string, aiOutput: any): CalendarItem[] {
   const anchor = getNextMonday()
   const items: CalendarItem[] = []
 
+  // ── Priority 1: Sprint M weeklyExecutionPlan ─────────────────────────────
+  const weeklyExecutionPlan: any[] = aiOutput?.strategy?.weeklyExecutionPlan || []
+  if (weeklyExecutionPlan.length > 0) {
+    for (const wk of weeklyExecutionPlan) {
+      const weekNum: number = parseInt(wk.week ?? '1', 10) || 1
+      const weekIndex = weekNum - 1
+      const deliverables: string[] = Array.isArray(wk.deliverables) ? wk.deliverables : []
+      const platforms: string[] = Array.isArray(wk.platforms) ? wk.platforms : ['general']
+
+      deliverables.forEach((deliverable: string, di: number) => {
+        // Spread deliverables across Mon–Fri of the week
+        const dayOffset = di % 5  // 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri
+        const date = new Date(anchor)
+        date.setDate(anchor.getDate() + weekIndex * 7 + dayOffset)
+
+        items.push({
+          id: `${campaignId}_wex_w${weekNum}_${items.length}`,
+          campaignId,
+          week: weekNum,
+          date: toDateString(date),
+          platform: (platforms[di % platforms.length] || 'general').toUpperCase(),
+          topic: deliverable,
+          title: wk.theme,
+          hook: wk.keyMessage,
+          caption: wk.organicFocus,
+          cta: undefined,
+          visualNote: wk.theme,
+          contentType: wk.paidFocus ? 'paid' : 'organic',
+          status: 'planned',
+          source: 'campaign_ai_output',
+        })
+      })
+    }
+    return items
+  }
+
+  // ── Priority 2: contentCalendar (week/posts format) ──────────────────────
   // contentCalendar is array of { week, posts: [...] }
   const contentCalendar: any[] = aiOutput?.contentCalendar || []
 
@@ -116,7 +153,7 @@ function buildCalendarItems(campaignId: string, aiOutput: any): CalendarItem[] {
     return items
   }
 
-  // Fallback: weeklyPlan format [{ week, theme, posts/days: [...] }]
+  // ── Priority 3: weeklyPlan format [{ week, theme, posts/days: [...] }] ────
   const weeklyPlan: any[] = aiOutput?.strategy?.weeklyPlan || []
   if (weeklyPlan.length > 0) {
     for (const weekObj of weeklyPlan) {
@@ -204,6 +241,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const anchorDebug = getNextMonday()
     console.log('[push-to-calendar] campaign:', params.id)
     console.log('[push-to-calendar] aiOutput keys:', Object.keys(aiOutput))
+    console.log('[push-to-calendar] strategy.weeklyExecutionPlan length:', (aiOutput?.strategy?.weeklyExecutionPlan ?? []).length)
     console.log('[push-to-calendar] contentCalendar length:', (aiOutput?.contentCalendar ?? []).length)
     console.log('[push-to-calendar] strategy.contentCalendar length:', (aiOutput?.strategy?.contentCalendar ?? []).length)
     console.log('[push-to-calendar] strategy.weeklyPlan length:', (aiOutput?.strategy?.weeklyPlan ?? []).length)

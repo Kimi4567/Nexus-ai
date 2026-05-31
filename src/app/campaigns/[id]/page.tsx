@@ -1561,24 +1561,49 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Readiness Checklist (Sprint M) */}
+                {/* Readiness Checklist (Sprint M) — actionable */}
                 {readinessChecklist.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✅</span> {cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {readinessChecklist.map((item: any, i: number) => (
-                        <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
-                          item.done
-                            ? 'border-green-500/30 bg-green-500/5 text-green-400'
-                            : 'border-dark-tertiary text-gray-400'
-                        }`}>
-                          <span className="flex-shrink-0 text-sm">{item.done ? '✓' : '○'}</span>
-                          <span>{item.label}</span>
-                          {item.done && (
-                            <span className="ml-auto text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
-                          )}
-                        </div>
-                      ))}
+                      {readinessChecklist.map((item: any, i: number) => {
+                        const lc = (item.label || item.item || '').toLowerCase()
+                        const atype = (item.actionType || '').toUpperCase()
+                        const isBrandBrain = atype === 'BRAND_BRAIN' || lc.includes('brand brain') || lc.includes('brand profile')
+                        const isAssets = atype === 'ASSETS' || (lc.includes('asset') && !lc.includes('sentinel')) || lc.includes('upload') || lc.includes('photo')
+                        const isSentinel = atype === 'SENTINEL' || lc.includes('sentinel') || (lc.includes('review') && !lc.includes('brand'))
+                        const isCalendar = atype === 'CALENDAR' || lc.includes('calendar') || lc.includes('schedule') || lc.includes('push')
+                        const isApproval = atype === 'APPROVAL' || lc.includes('approv')
+                        return (
+                          <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
+                            item.done
+                              ? 'border-green-500/30 bg-green-500/5 text-green-400'
+                              : 'border-dark-tertiary text-gray-400'
+                          }`}>
+                            <span className="flex-shrink-0 text-sm">{item.done ? '✓' : '○'}</span>
+                            <span className="flex-1">{item.label || item.item}</span>
+                            {item.done ? (
+                              <span className="ml-auto text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
+                            ) : isBrandBrain ? (
+                              <Link href="/brand" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition whitespace-nowrap">→ Brand</Link>
+                            ) : isAssets ? (
+                              <Link href="/media" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition whitespace-nowrap">→ Media</Link>
+                            ) : isSentinel ? (
+                              <button onClick={handleSentinelReview} disabled={sentinelState === 'reviewing'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 whitespace-nowrap">
+                                {sentinelState === 'reviewing' ? '⏳' : '→ Review'}
+                              </button>
+                            ) : isCalendar ? (
+                              <button onClick={() => handlePushToCalendar(false)} disabled={calendarPushState === 'pushing'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition disabled:opacity-50 whitespace-nowrap">
+                                {calendarPushState === 'pushing' ? '⏳' : '→ Push'}
+                              </button>
+                            ) : isApproval ? (
+                              <button onClick={handleApprove} disabled={approvalState === 'approving' || approvalState === 'done'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30 transition disabled:opacity-50 whitespace-nowrap">
+                                {approvalState === 'done' ? '✓' : '→ Approve'}
+                              </button>
+                            ) : null}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

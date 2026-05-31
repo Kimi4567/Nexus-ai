@@ -36,6 +36,12 @@ export interface SentinelReviewInput {
     riskNotes?: string[]
     diagnosis?: string
     offerCTAStrategy?: any
+    // Sprint M operational fields
+    doNotDoYet?: string[]
+    readinessChecklist?: any[]
+    adSetupPlan?: any
+    funnelStages?: any[]
+    contentAnglesDetailed?: any[]
   }
   content?: {
     topHooks?: string[]
@@ -114,6 +120,22 @@ export async function runSentinelReview(input: SentinelReviewInput): Promise<Sen
   const avoidWords = (b.avoidKeywords || []).join(', ')
   const brandTone = (b.toneKeywords || []).join(', ')
 
+  // Sprint M operational fields
+  const doNotDoYet = (s.doNotDoYet || []).map(d => `- ${d}`).join('\n')
+  const readinessIncomplete = (s.readinessChecklist || [])
+    .filter((item: any) => !item.done)
+    .map((item: any) => `- ${item.label || item.item || ''}`)
+    .join('\n')
+  const funnelStagesSample = (s.funnelStages || []).slice(0, 3).map((fs: any) =>
+    `${fs.stage || ''}: ${fs.goal || ''} / tactics: ${(fs.tactics || []).join(', ')}`
+  ).join('\n')
+  const contentAnglesSample = (s.contentAnglesDetailed || []).slice(0, 3).map((a: any) =>
+    `[${a.platform || '?'} ${a.funnelStage || ''}] ${a.title || a.angle || ''}: hook="${a.hook || ''}", cta="${a.cta || ''}"`
+  ).join('\n')
+  const adSetupSummary = s.adSetupPlan
+    ? `Objective: ${s.adSetupPlan.objective || ''} | Platform: ${s.adSetupPlan.platformPriority || ''} | Budget: ${s.adSetupPlan.testBudget || ''} | Target: ${s.adSetupPlan.targeting || ''}`
+    : ''
+
   const systemPrompt = `${langInstruction}
 
 You are Sentinel — an AI campaign compliance and brand safety reviewer.
@@ -155,7 +177,11 @@ STRATEGY:
 - Positioning: ${s.positioning || 'Not specified'}
 - Key message: ${s.keyMessage || 'Not specified'}
 - Differentiation: ${s.differentiation || 'Not specified'}
-${riskNotesSample ? `- Strategy risk notes:\n${riskNotesSample}` : ''}
+${riskNotesSample ? `- Risk notes:\n${riskNotesSample}` : ''}
+${doNotDoYet ? `- Do NOT do yet (flagged by strategy):\n${doNotDoYet}` : ''}
+${readinessIncomplete ? `- Incomplete readiness items:\n${readinessIncomplete}` : ''}
+${funnelStagesSample ? `- Funnel stages:\n${funnelStagesSample}` : ''}
+${adSetupSummary ? `- Ad setup plan: ${adSetupSummary}` : ''}
 
 CONTENT SAMPLE:
 ${hooksSample || 'No hooks found'}
@@ -170,6 +196,8 @@ ${scriptSample || ''}
 
 CONTENT CALENDAR SAMPLE:
 ${calendarSample || 'No calendar posts found'}
+
+${contentAnglesSample ? `CONTENT ANGLES (Sprint M):\n${contentAnglesSample}` : ''}
 
 ${input.creativeBriefDirection ? `CREATIVE DIRECTION:\n${input.creativeBriefDirection}` : ''}
 

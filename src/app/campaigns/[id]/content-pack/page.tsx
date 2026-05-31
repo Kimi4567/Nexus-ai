@@ -126,13 +126,15 @@ export default function ContentPackPage() {
   const captionFormulas: string[] = aiOutput?.captionFormulas || []
   const scriptTemplate: string = aiOutput?.scriptTemplate || ''
   const contentAngles: string[] = strategy.contentAngles || []
+  const contentAnglesDetailed: any[] = strategy.contentAnglesDetailed || []
   const contentCalendar: any[] = aiOutput?.contentCalendar || strategy.contentCalendar || []
   const channelStrategy: any[] = strategy.channelStrategy || []
 
-  // Build platform list from calendar posts
-  const calendarPlatforms = Array.from(new Set(
-    contentCalendar.flatMap(week => (week.posts || []).map((p: any) => p.platform as string))
-  )).filter(Boolean)
+  // Build platform list from calendar posts + detailed angles
+  const calendarPlatforms = Array.from(new Set([
+    ...contentCalendar.flatMap(week => (week.posts || []).map((p: any) => p.platform as string)),
+    ...contentAnglesDetailed.map(a => (a.platform as string)?.toUpperCase()).filter(Boolean),
+  ])).filter(Boolean)
 
   const allPlatforms = ['ALL', ...calendarPlatforms]
 
@@ -145,6 +147,11 @@ export default function ContentPackPage() {
           posts: (week.posts || []).filter((p: any) => p.platform === activePlatform),
         }))
         .filter(week => week.posts.length > 0)
+
+  // Filter detailed angles by active platform
+  const filteredAngles = activePlatform === 'ALL'
+    ? contentAnglesDetailed
+    : contentAnglesDetailed.filter(a => (a.platform as string)?.toUpperCase() === activePlatform)
 
   const platformInfo = channelStrategy.find((ch: any) =>
     ch.platform?.toUpperCase() === activePlatform.toUpperCase()
@@ -394,8 +401,71 @@ export default function ContentPackPage() {
               </div>
             )}
 
-            {/* Content Angles */}
-            {contentAngles.length > 0 && (
+            {/* Content Angles — rich (Sprint M) or fallback string list */}
+            {filteredAngles.length > 0 ? (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: '#555' }}>💡 Content Angles ({filteredAngles.length})</span>
+                  <CopyAllButton texts={filteredAngles.map((a: any) => [a.hook, a.caption, a.cta].filter(Boolean).join('\n'))} />
+                </div>
+                {filteredAngles.map((angle: any, i: number) => (
+                  <div key={i} style={{
+                    ...s.captionCard,
+                    marginBottom: 12,
+                    padding: '14px 16px',
+                    border: '1px solid #E0E0E0',
+                    borderRadius: 10,
+                  }}>
+                    {/* Angle header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' as const }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#111', flex: 1 }}>{angle.title || angle.angle || `Angle ${i + 1}`}</span>
+                      {angle.platform && (
+                        <span style={s.badge('#6366F1')}>{PLATFORM_ICONS[angle.platform?.toUpperCase()] || '🌐'} {angle.platform}</span>
+                      )}
+                      {angle.format && <span style={s.badge('#10B981')}>{angle.format}</span>}
+                      {angle.funnelStage && <span style={s.badge('#F59E0B')}>{angle.funnelStage}</span>}
+                    </div>
+                    {/* Hook */}
+                    {angle.hook && (
+                      <div style={{ ...s.fieldRow, marginBottom: 8 }}>
+                        <span style={s.fieldLabel}>Hook</span>
+                        <div style={s.copyRow}>
+                          <span style={{ ...s.fieldValue, color: '#FF9500', fontWeight: 600, fontStyle: 'italic' }}>"{angle.hook}"</span>
+                          <CopyButton text={angle.hook} />
+                        </div>
+                      </div>
+                    )}
+                    {/* Caption */}
+                    {angle.caption && (
+                      <div style={{ ...s.fieldRow, marginBottom: 8 }}>
+                        <span style={s.fieldLabel}>Caption</span>
+                        <div style={s.copyRow}>
+                          <span style={s.fieldValue}>{angle.caption}</span>
+                          <CopyButton text={angle.caption} />
+                        </div>
+                      </div>
+                    )}
+                    {/* CTA */}
+                    {angle.cta && (
+                      <div style={{ ...s.fieldRow, marginBottom: angle.assetNeeded ? 8 : 0 }}>
+                        <span style={s.fieldLabel}>CTA</span>
+                        <div style={s.copyRow}>
+                          <span style={{ ...s.fieldValue, color: '#22C55E', fontWeight: 600 }}>{angle.cta}</span>
+                          <CopyButton text={angle.cta} />
+                        </div>
+                      </div>
+                    )}
+                    {/* Asset needed */}
+                    {angle.assetNeeded && (
+                      <div style={{ ...s.fieldRow, marginBottom: 0, marginTop: 4 }}>
+                        <span style={{ ...s.fieldLabel, color: '#C084FC' }}>Asset</span>
+                        <span style={{ ...s.fieldValue, color: '#7C3AED', fontStyle: 'italic', fontSize: 12 }}>{angle.assetNeeded}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : contentAngles.length > 0 && (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: '#555' }}>💡 Content Angles ({contentAngles.length})</span>

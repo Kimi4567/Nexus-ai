@@ -100,6 +100,12 @@ export async function POST(req: NextRequest, { params }: Params) {
         riskNotes: Array.isArray(strategy.riskNotes) ? strategy.riskNotes : [],
         diagnosis: strategy.diagnosis ?? undefined,
         offerCTAStrategy: strategy.offerCTAStrategy ?? undefined,
+        // Sprint M operational fields
+        doNotDoYet: Array.isArray(strategy.doNotDoYet) ? strategy.doNotDoYet : [],
+        readinessChecklist: Array.isArray(strategy.readinessChecklist) ? strategy.readinessChecklist : [],
+        adSetupPlan: strategy.adSetupPlan ?? undefined,
+        funnelStages: Array.isArray(strategy.funnelStages) ? strategy.funnelStages : [],
+        contentAnglesDetailed: Array.isArray(strategy.contentAnglesDetailed) ? strategy.contentAnglesDetailed.slice(0, 5) : [],
       },
       content,
       calendar: Array.isArray(calendar) ? calendar.slice(0, 20) : [],

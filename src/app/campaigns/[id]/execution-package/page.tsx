@@ -96,6 +96,19 @@ export default function ExecutionPackagePage() {
   const riskNotes: string[] = strategy.riskNotes || []
   const executionChecklist: string[] = strategy.executionChecklist || []
 
+  // Sprint M structured fields (with fallback to legacy)
+  const diagnosisDetails: any = strategy.diagnosisDetails || null
+  const businessObjective: any = strategy.businessObjective || null
+  const audienceSegmentsDetailed: any[] = strategy.audienceSegmentsDetailed || []
+  const funnelStages: any[] = strategy.funnelStages || []
+  const assetRequirements: any = strategy.assetRequirements || null
+  const adSetupPlan: any = strategy.adSetupPlan || null
+  const weeklyExecutionPlan: any[] = strategy.weeklyExecutionPlan || []
+  const readinessChecklist: any[] = strategy.readinessChecklist || []
+  const doNotDoYet: string[] = strategy.doNotDoYet || []
+  const successMetricsDetailed: any[] = strategy.successMetricsDetailed || []
+  const contentAnglesDetailed: any[] = strategy.contentAnglesDetailed || []
+
   const date = new Date(campaign.createdAt).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
   })
@@ -236,6 +249,38 @@ export default function ExecutionPackagePage() {
         .cal-hook { font-size: 11px; color: #FF9500; font-style: italic; display: block; margin-top: 2px; }
         .cal-type { font-size: 10px; background: #F0F0F0; padding: 2px 8px; border-radius: 20px; color: #888; white-space: nowrap; }
 
+        /* Sprint M — extra styles */
+        .m-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .m-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+        .m-tag-red { background: #FEE2E2; color: #DC2626; }
+        .m-tag-yellow { background: #FEF9C3; color: #CA8A04; }
+        .m-tag-blue { background: #DBEAFE; color: #1D4ED8; }
+        .m-tag-green { background: #DCFCE7; color: #15803D; }
+        .m-tag-purple { background: #F3E8FF; color: #7C3AED; }
+        .m-tag-orange { background: #FFEDD5; color: #C2410C; }
+        .m-asset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .m-asset-box { border-radius: 8px; padding: 10px 12px; }
+        .m-seg-card { background: #F9F9F9; border: 1px solid #E8E8E8; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+        .m-seg-name { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 4px; }
+        .m-seg-detail { font-size: 12px; color: #555; line-height: 1.6; }
+        .m-funnel-card { border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; }
+        .m-obj-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px solid #F0F0F0; font-size: 13px; }
+        .m-obj-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #AAA; width: 100px; flex-shrink: 0; padding-top: 2px; }
+        .m-obj-value { flex: 1; color: #333; }
+        .m-adsetup-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #F0F0F0; font-size: 12px; align-items: flex-start; }
+        .m-adsetup-label { font-weight: 700; color: #999; width: 120px; flex-shrink: 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; padding-top: 1px; }
+        .m-adsetup-value { flex: 1; color: #333; }
+        .m-wex-card { background: white; border: 1px solid #E8E8E8; border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; }
+        .m-wex-week { font-size: 13px; font-weight: 800; color: #111; margin-bottom: 4px; }
+        .m-wex-theme { font-size: 12px; color: #666; font-style: italic; margin-bottom: 8px; }
+        .m-wex-msg { background: #EEF2FF; border-radius: 6px; padding: 7px 10px; font-size: 12px; color: #4338CA; font-style: italic; margin-bottom: 8px; }
+        .m-check-item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid #F0F0F0; font-size: 13px; }
+        .m-check-item:last-child { border-bottom: none; }
+        .m-donot-item { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #FEE2E2; font-size: 13px; color: #7F1D1D; }
+        .m-donot-item:last-child { border-bottom: none; }
+        .m-metric-row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid #F0F0F0; font-size: 12px; }
+        .m-metric-row:last-child { border-bottom: none; }
+
         /* Footer */
         .doc-footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #EDEDED; display: flex; justify-content: space-between; align-items: center; }
         .footer-brand { font-size: 12px; font-weight: 700; color: #FF9500; letter-spacing: 0.1em; }
@@ -292,10 +337,41 @@ export default function ExecutionPackagePage() {
             <span className="ab-title">· Chief Marketing Strategist</span>
           </div>
 
-          {strategy.diagnosis && (
+          {/* Diagnosis — Sprint M detailed or legacy */}
+          {(diagnosisDetails || strategy.diagnosis) && (
             <div className="diagnosis">
               <div className="diagnosis-label">🔎 Marketing Diagnosis</div>
-              <div className="diagnosis-text">{strategy.diagnosis}</div>
+              {diagnosisDetails ? (
+                <div>
+                  {diagnosisDetails.currentSituation && <div className="diagnosis-text" style={{ marginBottom: 6 }}><strong>Situation:</strong> {diagnosisDetails.currentSituation}</div>}
+                  {diagnosisDetails.biggestChallenge && <div className="diagnosis-text" style={{ marginBottom: 6 }}><strong>Challenge:</strong> {diagnosisDetails.biggestChallenge}</div>}
+                  {diagnosisDetails.marketOpportunity && <div className="diagnosis-text" style={{ marginBottom: 6 }}><strong>Opportunity:</strong> {diagnosisDetails.marketOpportunity}</div>}
+                  {diagnosisDetails.criticalAssumption && <div className="diagnosis-text"><strong>Key Assumption:</strong> {diagnosisDetails.criticalAssumption}</div>}
+                </div>
+              ) : (
+                <div className="diagnosis-text">{strategy.diagnosis}</div>
+              )}
+            </div>
+          )}
+
+          {/* Business Objective (Sprint M) */}
+          {businessObjective && (
+            <div className="card" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
+              <div className="card-label" style={{ color: '#4338CA' }}>🎯 Business Objective</div>
+              <div style={{ marginTop: 8 }}>
+                {[
+                  { label: 'Primary Goal', value: businessObjective.primaryGoal },
+                  { label: 'Revenue Target', value: businessObjective.revenueTarget },
+                  { label: 'Timeline', value: businessObjective.timeline },
+                  { label: 'Success Looks Like', value: businessObjective.successLooksLike },
+                  { label: 'Constraint', value: businessObjective.biggestConstraint },
+                ].filter(r => r.value).map((r, i) => (
+                  <div key={i} className="m-obj-row">
+                    <span className="m-obj-label">{r.label}</span>
+                    <span className="m-obj-value">{r.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -320,49 +396,100 @@ export default function ExecutionPackagePage() {
             </div>
           )}
 
-          {audienceSegments.length > 0 && (
+          {/* Audience Segments — detailed (Sprint M) or legacy */}
+          {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
             <div className="card">
               <div className="card-label">👥 Audience Segments</div>
-              <ul className="seg-list" style={{ marginTop: 8 }}>
-                {audienceSegments.map((seg, i) => (
-                  <li key={i} className="seg-item">
-                    <span className="seg-num">{i + 1}</span>
-                    <span>{seg}</span>
-                  </li>
-                ))}
-              </ul>
+              {audienceSegmentsDetailed.length > 0 ? (
+                <div style={{ marginTop: 8 }}>
+                  {audienceSegmentsDetailed.map((seg: any, i: number) => (
+                    <div key={i} className="m-seg-card">
+                      <div className="m-seg-name">{seg.name || seg.segment || `Segment ${i + 1}`}</div>
+                      {seg.description && <div className="m-seg-detail">{seg.description}</div>}
+                      {seg.painPoint && <div className="m-seg-detail" style={{ marginTop: 4 }}><strong>Pain:</strong> {seg.painPoint}</div>}
+                      {seg.desire && <div className="m-seg-detail"><strong>Desire:</strong> {seg.desire}</div>}
+                      {(seg.channel || seg.messagingAngle) && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                          {seg.channel && <span className="m-tag m-tag-blue">{seg.channel}</span>}
+                          {seg.messagingAngle && <span className="m-tag m-tag-purple">{seg.messagingAngle}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul className="seg-list" style={{ marginTop: 8 }}>
+                  {audienceSegments.map((seg, i) => (
+                    <li key={i} className="seg-item">
+                      <span className="seg-num">{i + 1}</span>
+                      <span>{seg}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
-          {strategy.funnelStrategy && (
+          {/* Funnel — detailed (Sprint M) or legacy */}
+          {(funnelStages.length > 0 || strategy.funnelStrategy) && (
             <div className="card">
-              <div className="card-label">🔻 Funnel Strategy</div>
-              <div className="funnel-grid" style={{ marginTop: 10 }}>
-                {strategy.funnelStrategy.awareness && (
-                  <div className="funnel-cell fc-awareness">
-                    <div className="funnel-stage" style={{ color: '#1D4ED8' }}>📢 Awareness</div>
-                    <div className="funnel-text">{strategy.funnelStrategy.awareness}</div>
-                  </div>
-                )}
-                {strategy.funnelStrategy.consideration && (
-                  <div className="funnel-cell fc-consideration">
-                    <div className="funnel-stage" style={{ color: '#7C3AED' }}>🤔 Consideration</div>
-                    <div className="funnel-text">{strategy.funnelStrategy.consideration}</div>
-                  </div>
-                )}
-                {strategy.funnelStrategy.conversion && (
-                  <div className="funnel-cell fc-conversion">
-                    <div className="funnel-stage" style={{ color: '#065F46' }}>✅ Conversion</div>
-                    <div className="funnel-text">{strategy.funnelStrategy.conversion}</div>
-                  </div>
-                )}
-                {strategy.funnelStrategy.retention && (
-                  <div className="funnel-cell fc-retention">
-                    <div className="funnel-stage" style={{ color: '#92400E' }}>🔄 Retention</div>
-                    <div className="funnel-text">{strategy.funnelStrategy.retention}</div>
-                  </div>
-                )}
-              </div>
+              <div className="card-label">🔻 Funnel Mechanism</div>
+              {funnelStages.length > 0 ? (
+                <div style={{ marginTop: 10 }}>
+                  {funnelStages.map((fs: any, i: number) => {
+                    const colors: Record<string, string> = {
+                      awareness: '#1D4ED8', consideration: '#7C3AED',
+                      conversion: '#065F46', retention: '#92400E', activation: '#B45309',
+                    }
+                    const bgColors: Record<string, string> = {
+                      awareness: '#EFF6FF', consideration: '#F5F3FF',
+                      conversion: '#ECFDF5', retention: '#FFFBEB', activation: '#FFF7ED',
+                    }
+                    const stage = (fs.stage || '').toLowerCase()
+                    const color = colors[stage] || '#374151'
+                    const bg = bgColors[stage] || '#F9F9F9'
+                    return (
+                      <div key={i} className="m-funnel-card" style={{ background: bg, border: `1px solid ${color}30`, marginBottom: 8 }}>
+                        <div className="funnel-stage" style={{ color }}>{fs.stage}</div>
+                        {fs.goal && <div className="funnel-text" style={{ marginBottom: 4 }}><strong>Goal:</strong> {fs.goal}</div>}
+                        {fs.mechanism && <div className="funnel-text" style={{ marginBottom: 4 }}><strong>Mechanism:</strong> {fs.mechanism}</div>}
+                        {Array.isArray(fs.tactics) && fs.tactics.length > 0 && (
+                          <div className="funnel-text">{fs.tactics.map((t: string, j: number) => (
+                            <span key={j} className="m-tag m-tag-blue" style={{ marginRight: 4, marginBottom: 2, display: 'inline-block' }}>{t}</span>
+                          ))}</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : strategy.funnelStrategy && (
+                <div className="funnel-grid" style={{ marginTop: 10 }}>
+                  {strategy.funnelStrategy.awareness && (
+                    <div className="funnel-cell fc-awareness">
+                      <div className="funnel-stage" style={{ color: '#1D4ED8' }}>📢 Awareness</div>
+                      <div className="funnel-text">{strategy.funnelStrategy.awareness}</div>
+                    </div>
+                  )}
+                  {strategy.funnelStrategy.consideration && (
+                    <div className="funnel-cell fc-consideration">
+                      <div className="funnel-stage" style={{ color: '#7C3AED' }}>🤔 Consideration</div>
+                      <div className="funnel-text">{strategy.funnelStrategy.consideration}</div>
+                    </div>
+                  )}
+                  {strategy.funnelStrategy.conversion && (
+                    <div className="funnel-cell fc-conversion">
+                      <div className="funnel-stage" style={{ color: '#065F46' }}>✅ Conversion</div>
+                      <div className="funnel-text">{strategy.funnelStrategy.conversion}</div>
+                    </div>
+                  )}
+                  {strategy.funnelStrategy.retention && (
+                    <div className="funnel-cell fc-retention">
+                      <div className="funnel-stage" style={{ color: '#92400E' }}>🔄 Retention</div>
+                      <div className="funnel-text">{strategy.funnelStrategy.retention}</div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -385,13 +512,145 @@ export default function ExecutionPackagePage() {
               </div>
             </div>
           )}
+
+          {/* Asset Requirements (Sprint M) */}
+          {assetRequirements && (
+            <div className="card">
+              <div className="card-label">📦 Asset Requirements</div>
+              <div className="m-asset-grid">
+                {assetRequirements.mustHave?.length > 0 && (
+                  <div className="m-asset-box" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>🔴 Must Have</div>
+                    {assetRequirements.mustHave.map((item: string, i: number) => (
+                      <div key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0', display: 'flex', gap: 6 }}>
+                        <span style={{ color: '#DC2626', flexShrink: 0 }}>·</span>{item}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {assetRequirements.forAds?.length > 0 && (
+                  <div className="m-asset-box" style={{ background: '#EEF2FF', border: '1px solid #C7D2FE' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>🎯 For Ads</div>
+                    {assetRequirements.forAds.map((item: string, i: number) => (
+                      <div key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0', display: 'flex', gap: 6 }}>
+                        <span style={{ color: '#4338CA', flexShrink: 0 }}>·</span>{item}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {assetRequirements.forOrganic?.length > 0 && (
+                  <div className="m-asset-box" style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>📱 For Organic</div>
+                    {assetRequirements.forOrganic.map((item: string, i: number) => (
+                      <div key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0', display: 'flex', gap: 6 }}>
+                        <span style={{ color: '#15803D', flexShrink: 0 }}>·</span>{item}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {assetRequirements.nextToCreate?.length > 0 && (
+                  <div className="m-asset-box" style={{ background: '#FFF7ED', border: '1px solid #FDBA74' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>📸 Shoot Next</div>
+                    {assetRequirements.nextToCreate.map((item: string, i: number) => (
+                      <div key={i} style={{ fontSize: 12, color: '#374151', padding: '2px 0', display: 'flex', gap: 6 }}>
+                        <span style={{ color: '#C2410C', flexShrink: 0 }}>·</span>{item}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* ── SECTION 2: 4-WEEK EXECUTION PLAN ── */}
-        {weeklyPlan.length > 0 && (
+        {/* ── SECTION 1B: VEX AD SETUP PLAN (Sprint M) ── */}
+        {adSetupPlan && (
           <div className="section page-break">
             <div className="sec-divider">
-              <div className="sec-label">4-Week Execution Plan</div>
+              <div className="sec-label">VEX Ad Setup Plan</div>
+              <div className="sec-line" />
+            </div>
+            <div className="agent-banner ab-pulse">
+              <span style={{ fontSize: 16 }}>⚡</span>
+              <span className="ab-name pulse">VEX</span>
+              <span className="ab-title">· Ad Setup Draft (manual setup guide)</span>
+            </div>
+            <div className="card">
+              <div className="card-label">📣 Ad Campaign Draft</div>
+              <div style={{ marginTop: 8 }}>
+                {[
+                  { label: 'Objective', value: adSetupPlan.objective },
+                  { label: 'Targeting', value: adSetupPlan.targeting },
+                  { label: 'Platform Priority', value: adSetupPlan.platformPriority },
+                  { label: 'Test Budget', value: adSetupPlan.testBudget },
+                  { label: 'Duration', value: adSetupPlan.duration },
+                  { label: 'Landing Path', value: adSetupPlan.landingPath },
+                  { label: 'Tracking', value: adSetupPlan.tracking },
+                ].filter(r => r.value).map((r, i) => (
+                  <div key={i} className="m-adsetup-row">
+                    <span className="m-adsetup-label">{r.label}</span>
+                    <span className="m-adsetup-value">{r.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {adSetupPlan.creativeFormats?.length > 0 && (
+              <div className="card">
+                <div className="card-label">🎨 Creative Formats</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {adSetupPlan.creativeFormats.map((f: string, i: number) => (
+                    <span key={i} className="m-tag m-tag-blue">{f}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {adSetupPlan.adCopyAngles?.length > 0 && (
+              <div className="card">
+                <div className="card-label">✍�� Ad Copy Angles</div>
+                {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
+                  <div key={i} className="m-adsetup-row">
+                    <span className="m-adsetup-label">Angle {i + 1}</span>
+                    <span className="m-adsetup-value">{angle}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {adSetupPlan.abTestPlan && (
+              <div className="card">
+                <div className="card-label">🔬 A/B Test Plan</div>
+                <div className="card-body" style={{ marginTop: 6 }}>{adSetupPlan.abTestPlan}</div>
+              </div>
+            )}
+            {adSetupPlan.preLaunchChecklist?.length > 0 && (
+              <div className="card">
+                <div className="card-label">✅ Pre-Launch Checklist</div>
+                <ul className="checklist" style={{ marginTop: 8 }}>
+                  {adSetupPlan.preLaunchChecklist.map((item: string, i: number) => (
+                    <li key={i}><div className="check-box" /><span>{item}</span></li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {adSetupPlan.notReadyIf?.length > 0 && (
+              <div className="card" style={{ background: '#FFF5F5', border: '1px solid #FECACA' }}>
+                <div className="card-label" style={{ color: '#DC2626' }}>🚫 Do NOT Launch If…</div>
+                <div style={{ marginTop: 8 }}>
+                  {adSetupPlan.notReadyIf.map((item: string, i: number) => (
+                    <div key={i} className="risk-item">
+                      <span className="risk-icon">!</span><span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SECTION 2: WEEKLY EXECUTION PLAN — Sprint M preferred ── */}
+        {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+          <div className="section page-break">
+            <div className="sec-divider">
+              <div className="sec-label">{weeklyExecutionPlan.length > 0 ? 'Weekly Execution Plan' : '4-Week Execution Plan'}</div>
               <div className="sec-line" />
             </div>
 
@@ -401,7 +660,52 @@ export default function ExecutionPackagePage() {
               <span className="ab-title">· Campaign Operations</span>
             </div>
 
-            {weeklyPlan.map((wk: any, i: number) => (
+            {weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan.map((wk: any, i: number) => (
+              <div key={i} className="m-wex-card">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div className="m-wex-week">Week {wk.week}{wk.theme ? ` — ${wk.theme}` : ''}</div>
+                  {wk.successMetric && <div className="week-cta">{wk.successMetric}</div>}
+                </div>
+                {wk.keyMessage && <div className="m-wex-msg">"{wk.keyMessage}"</div>}
+                <div className="week-grid">
+                  {wk.deliverables?.length > 0 && (
+                    <div>
+                      <div className="week-sub">Deliverables ({wk.contentPieces || wk.deliverables.length})</div>
+                      <div className="week-sub-body">
+                        {wk.deliverables.map((d: string, di: number) => (
+                          <div key={di} className="week-item">
+                            <span className="week-item-dot" style={{ color: '#22C55E' }}>□</span>
+                            <span>{d}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    {wk.organicFocus && (
+                      <div style={{ marginBottom: 8 }}>
+                        <div className="week-sub">Organic Focus</div>
+                        <div className="week-sub-body"><div className="week-item"><span className="week-item-dot" style={{ color: '#22C55E' }}>·</span><span>{wk.organicFocus}</span></div></div>
+                      </div>
+                    )}
+                    {wk.paidFocus && (
+                      <div>
+                        <div className="week-sub">Paid Focus</div>
+                        <div className="week-sub-body"><div className="week-item"><span className="week-item-dot" style={{ color: '#6366F1' }}>·</span><span>{wk.paidFocus}</span></div></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {(Array.isArray(wk.platforms) && wk.platforms.length > 0) && (
+                  <div className="week-channels" style={{ marginTop: 8 }}>
+                    {wk.platforms.map((ch: string, ci: number) => (
+                      <span key={ci} className="week-ch-badge">{ch}</span>
+                    ))}
+                    {wk.adBudget && <span className="week-ch-badge" style={{ background: '#FFF7ED', color: '#C2410C' }}>Budget: {wk.adBudget}</span>}
+                  </div>
+                )}
+              </div>
+            )) : weeklyPlan.map((wk: any, i: number) => (
               <div key={i} className="week-card">
                 <div className="week-hdr">
                   <div className="week-title">Week {wk.week}</div>
@@ -415,10 +719,7 @@ export default function ExecutionPackagePage() {
                       <div className="week-sub">Content Themes</div>
                       <div className="week-sub-body">
                         {wk.contentThemes.map((t: string, ti: number) => (
-                          <div key={ti} className="week-item">
-                            <span className="week-item-dot" style={{ color: '#FF9500' }}>·</span>
-                            <span>{t}</span>
-                          </div>
+                          <div key={ti} className="week-item"><span className="week-item-dot" style={{ color: '#FF9500' }}>·</span><span>{t}</span></div>
                         ))}
                       </div>
                     </div>
@@ -428,10 +729,7 @@ export default function ExecutionPackagePage() {
                       <div className="week-sub">Deliverables</div>
                       <div className="week-sub-body">
                         {wk.deliverables.map((d: string, di: number) => (
-                          <div key={di} className="week-item">
-                            <span className="week-item-dot" style={{ color: '#22C55E' }}>□</span>
-                            <span>{d}</span>
-                          </div>
+                          <div key={di} className="week-item"><span className="week-item-dot" style={{ color: '#22C55E' }}>□</span><span>{d}</span></div>
                         ))}
                       </div>
                     </div>
@@ -544,33 +842,59 @@ export default function ExecutionPackagePage() {
           </div>
         )}
 
-        {/* ── SECTION 5: EXECUTION CHECKLIST + METRICS + RISK ── */}
-        {(executionChecklist.length > 0 || successMetrics.length > 0 || riskNotes.length > 0) && (
+        {/* ── SECTION 5: READINESS CHECKLIST + METRICS + RISK + DO NOT DO ── */}
+        {(readinessChecklist.length > 0 || executionChecklist.length > 0 || successMetrics.length > 0 || successMetricsDetailed.length > 0 || riskNotes.length > 0 || doNotDoYet.length > 0) && (
           <div className="section page-break">
             <div className="sec-divider">
-              <div className="sec-label">Execution Checklist & Compliance</div>
+              <div className="sec-label">Readiness, Metrics & Compliance</div>
               <div className="sec-line" />
             </div>
 
-            {executionChecklist.length > 0 && (
+            {/* Readiness Checklist — Sprint M preferred */}
+            {(readinessChecklist.length > 0 || executionChecklist.length > 0) && (
               <div className="card">
-                <div className="card-label">✅ Launch Checklist</div>
+                <div className="card-label">✅ {readinessChecklist.length > 0 ? 'Launch Readiness' : 'Launch Checklist'}</div>
                 <ul className="checklist" style={{ marginTop: 8 }}>
-                  {executionChecklist.map((item, i) => (
-                    <li key={i}>
-                      <div className="check-box" />
-                      <span>{item}</span>
+                  {(readinessChecklist.length > 0 ? readinessChecklist : executionChecklist.map(item => ({ label: item, done: false }))).map((item: any, i: number) => (
+                    <li key={i} className="m-check-item">
+                      <div className="check-box" style={{ borderColor: item.done ? '#22C55E' : '#DDD', background: item.done ? '#22C55E18' : 'transparent' }}>
+                        {item.done && <span style={{ fontSize: 9, color: '#16A34A', fontWeight: 700, lineHeight: '14px', display: 'block', textAlign: 'center' }}>✓</span>}
+                      </div>
+                      <span style={{ color: item.done ? '#16A34A' : '#333' }}>{item.label || item}</span>
+                      {item.done && <span style={{ marginLeft: 'auto', fontSize: 10, color: '#16A34A', fontWeight: 600 }}>Done</span>}
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            {successMetrics.length > 0 && (
+            {/* Do Not Do Yet (Sprint M) */}
+            {doNotDoYet.length > 0 && (
+              <div className="card" style={{ background: '#FFF5F5', border: '1px solid #FECACA' }}>
+                <div className="card-label" style={{ color: '#DC2626' }}>🚫 Do NOT Do Yet</div>
+                <div style={{ marginTop: 8 }}>
+                  {doNotDoYet.map((item: string, i: number) => (
+                    <div key={i} className="m-donot-item">
+                      <span className="risk-icon">✗</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Success Metrics — Sprint M detailed or legacy */}
+            {(successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
               <div className="card">
                 <div className="card-label">📈 Success Metrics</div>
                 <div style={{ marginTop: 8 }}>
-                  {successMetrics.map((metric, i) => (
+                  {successMetricsDetailed.length > 0 ? successMetricsDetailed.map((m: any, i: number) => (
+                    <div key={i} className="m-metric-row">
+                      {m.category && <span className="m-tag m-tag-blue" style={{ marginRight: 8, flexShrink: 0 }}>{m.category}</span>}
+                      <span style={{ flex: 1, color: '#333' }}>{m.metric || m.kpi || m}</span>
+                      {m.target && <span style={{ color: '#FF9500', fontWeight: 600, fontSize: 12, marginLeft: 8 }}>{m.target}</span>}
+                    </div>
+                  )) : successMetrics.map((metric: string, i: number) => (
                     <div key={i} className="metric-item">
                       <span className="metric-dot">✓</span>
                       <span>{metric}</span>
@@ -580,13 +904,14 @@ export default function ExecutionPackagePage() {
               </div>
             )}
 
+            {/* Risk Notes */}
             {riskNotes.length > 0 && (
-              <div className="card" style={{ background: '#FFF5F5', border: '1px solid #FECACA' }}>
-                <div className="card-label" style={{ color: '#DC2626' }}>⚠️ Risk & Compliance Notes</div>
+              <div className="card" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <div className="card-label" style={{ color: '#B45309' }}>⚠️ Risk & Compliance Notes</div>
                 <div style={{ marginTop: 8 }}>
-                  {riskNotes.map((note, i) => (
-                    <div key={i} className="risk-item">
-                      <span className="risk-icon">!</span>
+                  {riskNotes.map((note: string, i: number) => (
+                    <div key={i} className="risk-item" style={{ borderBottomColor: '#FDE68A', color: '#78350F' }}>
+                      <span style={{ color: '#B45309' }}>!</span>
                       <span>{note}</span>
                     </div>
                   ))}

@@ -269,6 +269,7 @@ export default function CreativeBriefPage() {
   )
 
   const hasStrategy = !!(campaign.aiOutput?.strategy)
+  const assetRequirements: any = campaign.aiOutput?.strategy?.assetRequirements || null
   const imageMedia = mediaItems.filter(m => m.type === 'IMAGE' || m.type === 'LOGO')
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
 
@@ -380,25 +381,160 @@ export default function CreativeBriefPage() {
         {mode === 'asset' && !generating && (
           <div className="no-print">
             {mediaItems.length === 0 ? (
-              <div style={{
-                background: '#fff', border: '1px dashed #D1D5DB', borderRadius: 12,
-                padding: '32px 24px', textAlign: 'center', marginBottom: 24,
-              }}>
-                <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>No media in your workspace yet</p>
-                <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>Upload photos, videos, or logos via the Media Library, then return here to analyze them.</p>
-                <a
-                  href="/media"
-                  target="_blank"
-                  style={{
-                    display: 'inline-block', padding: '8px 18px', borderRadius: 8,
-                    background: '#6366F1', color: '#fff', fontSize: 13, fontWeight: 600,
-                    textDecoration: 'none',
-                  }}
-                >
-                  Open Media Library ↗
-                </a>
+              <div>
+                {/* Strategy Asset Requirements — show when no media */}
+                {assetRequirements ? (
+                  <div style={{ marginBottom: 24 }}>
+                    <SectionCard title="What to Upload First — Strategy Asset Requirements" icon="📋" accent="#6366F1">
+                      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6B7280' }}>
+                        Your strategy identified these assets before you can execute. Upload them in the Media Library, then return here to analyze them.
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        {assetRequirements.mustHave?.length > 0 && (
+                          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: 0.5 }}>🔴 Must Have</p>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                              {assetRequirements.mustHave.map((item: string, i: number) => (
+                                <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
+                                  <span style={{ color: '#DC2626', flexShrink: 0 }}>·</span>{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {assetRequirements.niceToHave?.length > 0 && (
+                          <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: 0.5 }}>🟡 Nice to Have</p>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                              {assetRequirements.niceToHave.map((item: string, i: number) => (
+                                <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
+                                  <span style={{ color: '#D97706', flexShrink: 0 }}>·</span>{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {assetRequirements.forAds?.length > 0 && (
+                          <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 8, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: 0.5 }}>🎯 For Paid Ads</p>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                              {assetRequirements.forAds.map((item: string, i: number) => (
+                                <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
+                                  <span style={{ color: '#4338CA', flexShrink: 0 }}>·</span>{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {assetRequirements.forOrganic?.length > 0 && (
+                          <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 8, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: 0.5 }}>📱 For Organic</p>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                              {assetRequirements.forOrganic.map((item: string, i: number) => (
+                                <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
+                                  <span style={{ color: '#15803D', flexShrink: 0 }}>·</span>{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {assetRequirements.forProof?.length > 0 && (
+                          <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: 0.5 }}>⭐ Social Proof</p>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                              {assetRequirements.forProof.map((item: string, i: number) => (
+                                <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
+                                  <span style={{ color: '#7C3AED', flexShrink: 0 }}>·</span>{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {assetRequirements.nextToCreate?.length > 0 && (
+                          <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 8, padding: '12px 14px' }}>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', letterSpacing: 0.5 }}>📸 Shoot Next</p>
+                            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                              {assetRequirements.nextToCreate.map((item: string, i: number) => (
+                                <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
+                                  <span style={{ color: '#C2410C', flexShrink: 0 }}>·</span>{item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 16, textAlign: 'center' }}>
+                        <a
+                          href="/media"
+                          target="_blank"
+                          style={{
+                            display: 'inline-block', padding: '9px 20px', borderRadius: 8,
+                            background: '#6366F1', color: '#fff', fontSize: 13, fontWeight: 700,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          Upload Assets to Media Library ↗
+                        </a>
+                      </div>
+                    </SectionCard>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: '#fff', border: '1px dashed #D1D5DB', borderRadius: 12,
+                    padding: '32px 24px', textAlign: 'center', marginBottom: 24,
+                  }}>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>No media in your workspace yet</p>
+                    <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>Upload photos, videos, or logos via the Media Library, then return here to analyze them.</p>
+                    <a
+                      href="/media"
+                      target="_blank"
+                      style={{
+                        display: 'inline-block', padding: '8px 18px', borderRadius: 8,
+                        background: '#6366F1', color: '#fff', fontSize: 13, fontWeight: 600,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Open Media Library ↗
+                    </a>
+                  </div>
+                )}
               </div>
             ) : (
+              <>
+              {/* Strategy asset requirements — guidance when media exists */}
+              {assetRequirements && (assetRequirements.mustHave?.length > 0 || assetRequirements.nextToCreate?.length > 0) && (
+                <div style={{
+                  background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 10,
+                  padding: '12px 16px', marginBottom: 16,
+                }}>
+                  <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#15803D' }}>
+                    📋 Strategy Asset Guidance
+                  </p>
+                  <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' as const }}>
+                    {assetRequirements.mustHave?.length > 0 && (
+                      <div>
+                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Must Have</p>
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                          {assetRequirements.mustHave.slice(0, 3).map((item: string, i: number) => (
+                            <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {assetRequirements.nextToCreate?.length > 0 && (
+                      <div>
+                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Shoot Next</p>
+                        <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                          {assetRequirements.nextToCreate.slice(0, 3).map((item: string, i: number) => (
+                            <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div style={{
                 background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
                 padding: 20, marginBottom: 20,
@@ -491,6 +627,7 @@ export default function CreativeBriefPage() {
                   </p>
                 )}
               </div>
+              </>
             )}
           </div>
         )}
