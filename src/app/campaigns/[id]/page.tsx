@@ -256,6 +256,13 @@ export default function CampaignDetailPage() {
   const captionFormulas: string[] = aiOutput?.captionFormulas || []
   const scriptTemplate: string = aiOutput?.scriptTemplate || ''
   const contentCalendar: any[] = aiOutput?.contentCalendar || strategy.contentCalendar || []
+  // Sprint D2 — deep strategy fields
+  const contentAngles: string[] = strategy.contentAngles || []
+  const audienceSegments: string[] = strategy.audienceSegments || []
+  const weeklyPlan: any[] = strategy.weeklyPlan || []
+  const channelStrategy: any[] = strategy.channelStrategy || []
+  const successMetrics: string[] = strategy.successMetrics || []
+  const riskNotes: string[] = strategy.riskNotes || []
 
   const visualContext = {
     campaignId: campaign.id,
@@ -450,6 +457,16 @@ export default function CampaignDetailPage() {
               <div className="space-y-4">
                 <AgentBanner idx={0} />
 
+                {/* Diagnosis — first section, sets the stage */}
+                {strategy.diagnosis && (
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-6">
+                    <h3 className="font-bold text-sm text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-2">
+                      <span>🔎</span> {cdT?.sectionDiagnosis || 'Marketing Diagnosis'}
+                    </h3>
+                    <p className="text-gray-200 text-sm leading-relaxed">{strategy.diagnosis}</p>
+                  </div>
+                )}
+
                 {/* Key Message — flagship section */}
                 {strategy.keyMessage && (
                   <div className="bg-indigo-500/8 border border-indigo-500/20 rounded-2xl p-6">
@@ -463,19 +480,56 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Overview */}
-                {strategy.overview && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>🧠</span> {cdT?.sectionOverview}</h3>
-                    <p className="text-gray-300 leading-relaxed text-sm">{strategy.overview}</p>
-                  </div>
-                )}
-
                 {/* Positioning */}
                 {strategy.positioning && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>🎯</span> {cdT?.sectionPositioning}</h3>
                     <p className="text-gray-300 leading-relaxed text-sm">{strategy.positioning}</p>
+                  </div>
+                )}
+
+                {/* Differentiation */}
+                {strategy.differentiation && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</h3>
+                    <p className="text-gray-300 leading-relaxed text-sm">{strategy.differentiation}</p>
+                  </div>
+                )}
+
+                {/* Audience Segments */}
+                {audienceSegments.length > 0 && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>👥</span> {cdT?.sectionAudienceSegments || 'Audience Segments'}</h3>
+                    <div className="space-y-2">
+                      {audienceSegments.map((seg: string, i: number) => (
+                        <div key={i} className="flex items-start gap-2 bg-dark rounded-xl p-3 border border-dark-tertiary text-sm">
+                          <span className="text-accent font-bold flex-shrink-0">{i + 1}</span>
+                          <span className="text-gray-300">{seg}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Funnel Strategy */}
+                {strategy.funnelStrategy && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🔻</span> {cdT?.sectionFunnelStrategy || 'Funnel Strategy'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {([
+                        { key: 'awareness',     icon: '📢', label: cdT?.funnelAwareness     || 'Awareness',     color: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
+                        { key: 'consideration', icon: '🤔', label: cdT?.funnelConsideration || 'Consideration', color: 'border-purple-500/30 bg-purple-500/5 text-purple-400' },
+                        { key: 'conversion',    icon: '✅', label: cdT?.funnelConversion    || 'Conversion',    color: 'border-green-500/30 bg-green-500/5 text-green-400' },
+                        { key: 'retention',     icon: '🔄', label: cdT?.funnelRetention     || 'Retention',     color: 'border-amber-500/30 bg-amber-500/5 text-amber-400' },
+                      ] as const).map(({ key, icon, label, color }) => (
+                        strategy.funnelStrategy[key] && (
+                          <div key={key} className={`rounded-xl p-4 border ${color}`}>
+                            <p className="font-semibold text-xs uppercase tracking-wide mb-2">{icon} {label}</p>
+                            <p className="text-gray-300 text-sm leading-relaxed">{strategy.funnelStrategy[key]}</p>
+                          </div>
+                        )
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -497,6 +551,47 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* Offer & CTA Strategy */}
+                {strategy.offerCTAStrategy && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📣</span> {cdT?.sectionOfferCTA || 'Offer & CTA Strategy'}</h3>
+                    <div className="space-y-3">
+                      {strategy.offerCTAStrategy.primaryCTA && (
+                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-accent/20">
+                          <span className="text-xs text-accent font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaPrimary || 'Primary CTA'}</span>
+                          <p className="text-white text-sm font-semibold flex-1">{strategy.offerCTAStrategy.primaryCTA}</p>
+                          <CopyBtn text={strategy.offerCTAStrategy.primaryCTA} label={cdT?.copyBtn || 'Copy'} />
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.secondaryCTA && (
+                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-xs text-gray-500 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaSecondary || 'Secondary CTA'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.secondaryCTA}</p>
+                          <CopyBtn text={strategy.offerCTAStrategy.secondaryCTA} label={cdT?.copyBtn || 'Copy'} />
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.leadMagnet && (
+                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-xs text-blue-400 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaLeadMagnet || 'Lead Magnet'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.leadMagnet}</p>
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.betaOffer && (
+                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-xs text-purple-400 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaBetaOffer || 'Beta Offer'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.betaOffer}</p>
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.contactFlow && (
+                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-xs text-green-400 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaContactFlow || 'Contact Flow'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.contactFlow}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Content Pillars */}
                 {strategy.contentPillars?.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
@@ -509,7 +604,7 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Channel Mix */}
+                {/* Channel Mix (budget allocation) */}
                 {strategy.channelMix?.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📡</span> {cdT?.sectionChannelMix}</h3>
@@ -530,6 +625,49 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* Channel Strategy — per-platform detail */}
+                {channelStrategy.length > 0 && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🗺️</span> {cdT?.sectionChannelStrategy || 'Channel Strategy'}</h3>
+                    <div className="space-y-3">
+                      {channelStrategy.map((ch: any, i: number) => (
+                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                          <p className="font-bold text-sm text-accent capitalize mb-3">{ch.platform}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                            {ch.role && (
+                              <div>
+                                <span className="text-gray-500 uppercase tracking-wide">{cdT?.channelRole || 'Role'}: </span>
+                                <span className="text-gray-300">{ch.role}</span>
+                              </div>
+                            )}
+                            {ch.contentType && (
+                              <div>
+                                <span className="text-gray-500 uppercase tracking-wide">{cdT?.channelContentType || 'Content Type'}: </span>
+                                <span className="text-gray-300">{ch.contentType}</span>
+                              </div>
+                            )}
+                            {ch.postingApproach && (
+                              <div>
+                                <span className="text-gray-500 uppercase tracking-wide">{cdT?.channelApproach || 'Approach'}: </span>
+                                <span className="text-gray-300">{ch.postingApproach}</span>
+                              </div>
+                            )}
+                            {ch.cta && (
+                              <div>
+                                <span className="text-gray-500 uppercase tracking-wide">CTA: </span>
+                                <span className="text-accent">{ch.cta}</span>
+                              </div>
+                            )}
+                          </div>
+                          {ch.rationale && (
+                            <p className="text-gray-500 text-xs mt-2 italic">{ch.rationale}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* KPIs */}
                 {strategy.kpis?.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
@@ -543,6 +681,20 @@ export default function CampaignDetailPage() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Success Metrics */}
+                {successMetrics.length > 0 && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📈</span> {cdT?.sectionSuccessMetrics || 'Success Metrics'}</h3>
+                    <ul className="space-y-2">
+                      {successMetrics.map((metric: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                          <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span> {metric}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
@@ -568,17 +720,27 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* CTA Strategies from strategy (fallback) */}
-                {strategy.ctaStrategies?.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📣</span> {cdT?.sectionCtaStrategies}</h3>
+                {/* Risk & Compliance Notes */}
+                {riskNotes.length > 0 && (
+                  <div className="bg-dark-secondary border border-red-500/15 rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-red-400"><span>⚠️</span> {cdT?.sectionRiskNotes || 'Risk & Compliance Notes'}</h3>
                     <ul className="space-y-2">
-                      {strategy.ctaStrategies.map((cta: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                          <span className="text-accent mt-0.5">→</span> {cta}
+                      {riskNotes.map((note: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-gray-400 text-sm">
+                          <span className="text-red-400 mt-0.5 flex-shrink-0">!</span> {note}
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {/* Next Best Action — prominent closing callout */}
+                {strategy.nextBestAction && (
+                  <div className="bg-accent/8 border border-accent/30 rounded-2xl p-6">
+                    <h3 className="font-bold text-sm text-accent uppercase tracking-wide mb-2 flex items-center gap-2">
+                      <span>🚀</span> {cdT?.sectionNextBestAction || 'Next Best Action'}
+                    </h3>
+                    <p className="text-white text-base font-semibold leading-relaxed">{strategy.nextBestAction}</p>
                   </div>
                 )}
               </div>
@@ -664,8 +826,36 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* Content Angles */}
+                {contentAngles.length > 0 && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAngles || 'Content Angles'}</h3>
+                    <div className="space-y-2">
+                      {contentAngles.map((angle: string, i: number) => (
+                        <div key={i} className="flex items-start justify-between gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <div className="flex items-start gap-2 flex-1">
+                            <span className="text-accent font-bold text-xs w-5 flex-shrink-0 mt-0.5">{i + 1}</span>
+                            <p className="text-gray-300 text-sm leading-relaxed">{angle}</p>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <SaveToMemoryBtn
+                              text={angle}
+                              field="winningAngles"
+                              authHeader={authHeader}
+                              saveLabel={cdT?.saveToMemoryBtn || '🧠 Save'}
+                              savedLabel={cdT?.savedToMemoryBtn || '🧠 Saved'}
+                              title={cdT?.saveToMemoryTitle || 'Save to Brand Memory'}
+                            />
+                            <CopyBtn text={angle} label={cdT?.copyBtn || 'Copy'} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Fallback if all empty */}
-                {topHooks.length === 0 && ctaVariations.length === 0 && captionFormulas.length === 0 && (
+                {topHooks.length === 0 && ctaVariations.length === 0 && captionFormulas.length === 0 && contentAngles.length === 0 && (
                   <EmptySection icon="✍️" message={cdT?.emptyHooksDesc || 'No content generated yet.'} />
                 )}
               </div>
@@ -675,27 +865,102 @@ export default function CampaignDetailPage() {
             {activeTab === 2 && (
               <div className="space-y-4">
                 <AgentBanner idx={2} />
-                {contentCalendar.length > 0 ? (
-                  contentCalendar.map((week: any, wi: number) => (
-                    <div key={wi} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                      <h3 className="font-bold mb-2 text-amber-400">{week.week || `Week ${wi + 1}`}</h3>
-                      {week.theme && <p className="text-xs text-gray-500 mb-4 italic">{week.theme}</p>}
-                      <div className="space-y-2">
-                        {(week.posts || []).map((post: any, pi: number) => (
-                          <div key={pi} className="flex items-start gap-4 bg-dark rounded-xl p-3 text-sm">
-                            <span className="text-gray-500 w-16 flex-shrink-0">{post.day}</span>
-                            <span className="flex-shrink-0">{PLATFORM_ICONS[post.platform] || '🌐'}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-gray-300">{post.topic || post.contentPillar}</p>
-                              {post.hook && <p className="text-accent text-xs mt-1 truncate">"{post.hook}"</p>}
-                            </div>
-                            <span className="text-xs text-gray-500 bg-dark-tertiary px-2 py-1 rounded-full flex-shrink-0">{post.type || post.format}</span>
+
+                {/* Weekly Execution Plan (Sprint D2 — rich version) */}
+                {weeklyPlan.length > 0 && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}</p>
+                    {weeklyPlan.map((wk: any, wi: number) => (
+                      <div key={wi} className="bg-dark-secondary border border-amber-500/20 rounded-2xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
+                          {wk.cta && (
+                            <span className="text-xs bg-accent/10 border border-accent/20 text-accent px-3 py-1 rounded-full font-semibold">
+                              CTA: {wk.cta}
+                            </span>
+                          )}
+                        </div>
+                        {wk.objective && (
+                          <div className="mb-3">
+                            <span className="text-xs text-gray-500 uppercase tracking-wide">{cdT?.weekObjective || 'Objective'}: </span>
+                            <span className="text-gray-200 text-sm font-semibold">{wk.objective}</span>
                           </div>
-                        ))}
+                        )}
+                        {wk.keyMessage && (
+                          <div className="mb-3 bg-dark rounded-xl p-3 border border-indigo-500/20">
+                            <span className="text-xs text-indigo-400 uppercase tracking-wide">{cdT?.weekKeyMessage || 'Key Message'}: </span>
+                            <span className="text-gray-300 text-sm">"{wk.keyMessage}"</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                          {wk.contentThemes?.length > 0 && (
+                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekThemes || 'Themes'}</p>
+                              <ul className="space-y-1">
+                                {wk.contentThemes.map((theme: string, ti: number) => (
+                                  <li key={ti} className="text-gray-300 text-xs flex items-start gap-1">
+                                    <span className="text-accent mt-0.5">·</span> {theme}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {wk.deliverables?.length > 0 && (
+                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekDeliverables || 'Deliverables'}</p>
+                              <ul className="space-y-1">
+                                {wk.deliverables.map((d: string, di: number) => (
+                                  <li key={di} className="text-gray-300 text-xs flex items-start gap-1">
+                                    <span className="text-green-400 mt-0.5">□</span> {d}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        {wk.channels?.length > 0 && (
+                          <div className="flex gap-2 mt-3 flex-wrap">
+                            {wk.channels.map((ch: string, ci: number) => (
+                              <span key={ci} className="text-xs bg-dark border border-dark-tertiary px-2 py-1 rounded-full text-gray-400 capitalize">
+                                {PLATFORM_ICONS[ch.toUpperCase()] || '🌐'} {ch}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))
-                ) : (
+                    ))}
+                  </div>
+                )}
+
+                {/* Content Calendar (NEX-generated posts) */}
+                {contentCalendar.length > 0 && (
+                  <div className="space-y-4">
+                    {weeklyPlan.length > 0 && (
+                      <p className="text-xs text-gray-500 uppercase tracking-wide px-1 pt-2">Content Calendar</p>
+                    )}
+                    {contentCalendar.map((week: any, wi: number) => (
+                      <div key={wi} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                        <h3 className="font-bold mb-2 text-amber-400">{week.week || `Week ${wi + 1}`}</h3>
+                        {week.theme && <p className="text-xs text-gray-500 mb-4 italic">{week.theme}</p>}
+                        <div className="space-y-2">
+                          {(week.posts || []).map((post: any, pi: number) => (
+                            <div key={pi} className="flex items-start gap-4 bg-dark rounded-xl p-3 text-sm">
+                              <span className="text-gray-500 w-16 flex-shrink-0">{post.day}</span>
+                              <span className="flex-shrink-0">{PLATFORM_ICONS[post.platform] || '🌐'}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-gray-300">{post.topic || post.contentPillar}</p>
+                                {post.hook && <p className="text-accent text-xs mt-1 truncate">"{post.hook}"</p>}
+                              </div>
+                              <span className="text-xs text-gray-500 bg-dark-tertiary px-2 py-1 rounded-full flex-shrink-0">{post.type || post.format}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {weeklyPlan.length === 0 && contentCalendar.length === 0 && (
                   <EmptySection icon="📅" message={cdT?.emptyCalendarDesc || 'Content calendar not available yet.'} />
                 )}
               </div>
