@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
         fileName,
         type: mediaType as any,
         mimeType,
-        url: `/storage/uploads/${safeName}`,
+        url: `/api/storage/uploads/${safeName}`,
         size: buffer.length,
         duration,
         category: category || 'upload',
