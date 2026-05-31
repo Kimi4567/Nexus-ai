@@ -97,6 +97,7 @@ export default function DashboardPage() {
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
+  const [suggestionsKey, setSuggestionsKey] = useState(0)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -327,7 +328,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Sprint B: AI Suggestions Feed ── */}
-          <SuggestionsWidget />
+          <SuggestionsWidget refreshKey={suggestionsKey} />
 
           {/* ── Main Grid ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -491,6 +492,7 @@ export default function DashboardPage() {
           // Refresh dashboard data after a successful run
           load(true)
         }}
+        onSuccess={() => setSuggestionsKey(k => k + 1)}
       />
     </AppShell>
   )

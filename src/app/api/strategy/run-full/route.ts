@@ -121,6 +121,7 @@ export async function POST(req: NextRequest) {
       campaignName: campaign?.name ?? null,
       suggestions: result.suggestions,
       creditsRemaining: credit.creditsRemaining,
+      creditsUsed: credit.creditsUsed,
       errors: result.errors,
     })
   } catch (err: any) {

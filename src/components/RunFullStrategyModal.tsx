@@ -6,8 +6,8 @@
  * Triggered from the dashboard to re-run the full agency orchestration.
  * Calls POST /api/strategy/run-full — which reuses runFullAgency() unchanged.
  *
- * States: running → success | credits | no_brand | error
- * Progress is simulated with timed steps while the API call runs (~15–25s).
+ * States: running → success | no_campaign | credits | no_brand | error
+ * Progress is simulated with timed steps while the API call runs (~15-25s).
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -17,9 +17,10 @@ import { useI18n } from '@/lib/i18n-context'
 import {
   Cpu, BarChart3, Film, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
+  Brain, Globe, AlertCircle,
 } from 'lucide-react'
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface RunResult {
   ok?: boolean
@@ -27,48 +28,57 @@ interface RunResult {
   campaignName?: string | null
   suggestions?: number
   creditsRemaining?: number
+  creditsUsed?: number
   errors?: string[]
   error?: string
   upgradeUrl?: string
   redirectUrl?: string
+  /** Present when error === 'INSUFFICIENT_CREDITS' */
+  requiredCredits?: number
+  currentCredits?: number
 }
 
-type Phase = 'running' | 'success' | 'error' | 'credits' | 'no_brand'
+type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
+  /** Called when strategy run completes successfully — before modal closes */
+  onSuccess?: () => void
 }
 
-// ── Progress step definitions ────────────────────────────────────────────────
+// ── Progress step definitions ─────────────────────────────────────────────────
 
-// Duration in ms to spend on each step before auto-advancing.
-// The last step (index 5) never auto-advances — it waits for the API.
 const STEP_DURATIONS = [1500, 3000, 4000, 3500, 3000]
-
-const STEP_ICONS = [Cpu, BarChart3, Film, Megaphone, Shield, Zap]
+const STEP_ICONS  = [Cpu, BarChart3, Film, Megaphone, Shield, Zap]
 const STEP_COLORS = ['#6C63FF', '#6C63FF', '#00BFA6', '#FF6B35', '#FFD700', '#00D4FF']
 const STEP_KEYS   = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const
 
-// ── Component ────────────────────────────────────────────────────────────────
+// ── Shared card style ─────────────────────────────────────────────────────────
 
-export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
+const CARD_STYLE: React.CSSProperties = {
+  background: 'rgba(17,21,54,0.97)',
+  border: '1px solid rgba(108,99,255,0.25)',
+  boxShadow: '0 24px 80px rgba(108,99,255,0.2)',
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Props) {
   const { authHeader } = useAuth()
   const { t, dir, locale } = useI18n()
 
-  const [phase, setPhase]               = useState<Phase>('running')
-  const [currentStep, setCurrentStep]   = useState(0)
-  const [result, setResult]             = useState<RunResult | null>(null)
+  const [phase, setPhase]             = useState<Phase>('running')
+  const [currentStep, setCurrentStep] = useState(0)
+  const [result, setResult]           = useState<RunResult | null>(null)
 
-  // Stable ref to avoid stale-closure issues in the effect
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
 
-  // ── Core effect: fires every time isOpen flips to true ───────────────────
+  // ── Core effect ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen) return
 
-    // Reset state for this run
     setPhase('running')
     setCurrentStep(0)
     setResult(null)
@@ -77,7 +87,7 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
     const timers: ReturnType<typeof setTimeout>[] = []
     let apiDone = false
 
-    // Auto-advance through steps 0–4 on a timer
+    // Auto-advance steps on a timer
     let cumulative = 0
     STEP_DURATIONS.forEach((duration, i) => {
       cumulative += duration
@@ -88,7 +98,6 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
       )
     })
 
-    // Fire the API call in parallel
     fetch('/api/strategy/run-full', {
       method: 'POST',
       headers: {
@@ -97,11 +106,9 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
       },
       body: JSON.stringify({ language: locale }),
     })
-      .then(res => res.json().then((data: RunResult) => ({ ok: res.ok, status: res.status, data })))
+      .then(res => res.json().then((data: RunResult) => ({ ok: res.ok, data })))
       .then(({ ok, data }) => {
         if (cancelled) return
-
-        // Stop the step timers — API result takes priority
         apiDone = true
         timers.forEach(clearTimeout)
 
@@ -117,13 +124,19 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
           return
         }
 
-        // Fast-forward to the final step, then reveal success after a short pause
+        // Fast-forward to last step then show result
         setCurrentStep(5)
         timers.push(
           setTimeout(() => {
             if (!cancelled) {
               setResult(data)
-              setPhase('success')
+              // If run succeeded but no campaign was created, show a specific state
+              if (!data.campaignId) {
+                setPhase('no_campaign')
+              } else {
+                setPhase('success')
+                onSuccess?.()
+              }
             }
           }, 600)
         )
@@ -139,18 +152,20 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
       cancelled = true
       timers.forEach(clearTimeout)
     }
-  }, [isOpen]) // intentional: authHeader captured via ref
+  }, [isOpen]) // intentional: authHeader + onSuccess captured via ref / stable
 
   if (!isOpen) return null
 
-  // ── Shared card style ─────────────────────────────────────────────────────
-  const cardStyle: React.CSSProperties = {
-    background: 'rgba(17,21,54,0.97)',
-    border: '1px solid rgba(108,99,255,0.25)',
-    boxShadow: '0 24px 80px rgba(108,99,255,0.2)',
-  }
-
   const rs = t('runStrategy') as Record<string, string>
+
+  // Language label from locale
+  const langLabel = locale === 'ar' ? rs.chipLangAr : rs.chipLangEn
+
+  // Credits remaining display
+  const creditsLeftDisplay =
+    result?.creditsRemaining === -1
+      ? rs.statUnlimited
+      : (result?.creditsRemaining ?? '—')
 
   return (
     <div
@@ -159,12 +174,11 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-md rounded-2xl overflow-hidden relative" style={cardStyle}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden relative" style={CARD_STYLE}>
 
-        {/* ═══════════════ RUNNING PHASE ═══════════════ */}
+        {/* ══════════════ RUNNING PHASE ══════════════ */}
         {phase === 'running' && (
           <div className="p-6">
-            {/* Header */}
             <div className="flex items-start justify-between mb-6">
               <div>
                 <h2 className="text-lg font-bold text-white">{rs.modalTitle}</h2>
@@ -177,60 +191,38 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
               </div>
             </div>
 
-            {/* Step list */}
             <div className="space-y-2">
               {STEP_KEYS.map((key, i) => {
-                const Icon  = STEP_ICONS[i]
-                const color = STEP_COLORS[i]
-                const isDone    = i < currentStep
-                const isActive  = i === currentStep
-                const isPending = i > currentStep
+                const Icon     = STEP_ICONS[i]
+                const color    = STEP_COLORS[i]
+                const isDone   = i < currentStep
+                const isActive = i === currentStep
 
                 return (
-                  <div
-                    key={key}
+                  <div key={key}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300"
                     style={{
-                      background: isActive  ? `${color}12`
-                                : isDone    ? 'rgba(0,191,166,0.05)'
-                                : 'transparent',
-                      border: `1px solid ${
-                        isActive  ? `${color}35`
-                        : isDone  ? 'rgba(0,191,166,0.18)'
-                        : 'rgba(108,99,255,0.08)'
-                      }`,
+                      background: isActive ? `${color}12` : isDone ? 'rgba(0,191,166,0.05)' : 'transparent',
+                      border: `1px solid ${isActive ? `${color}35` : isDone ? 'rgba(0,191,166,0.18)' : 'rgba(108,99,255,0.08)'}`,
                     }}
                   >
-                    {/* Icon */}
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
                         background: isDone   ? 'rgba(0,191,166,0.15)'
                                   : isActive ? `${color}18`
                                   : 'rgba(108,99,255,0.06)',
-                      }}
-                    >
+                      }}>
                       {isDone ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-accent-teal" />
                       ) : isActive ? (
-                        <div
-                          className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
-                          style={{ borderColor: `${color}40`, borderTopColor: color }}
-                        />
+                        <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
+                          style={{ borderColor: `${color}40`, borderTopColor: color }} />
                       ) : (
-                        <Icon className="w-3.5 h-3.5" style={{ color, opacity: isPending ? 0.2 : 1 }} />
+                        <Icon className="w-3.5 h-3.5" style={{ color, opacity: i > currentStep ? 0.2 : 1 }} />
                       )}
                     </div>
-
-                    {/* Label */}
-                    <span
-                      className="text-sm font-medium transition-colors"
-                      style={{
-                        color: isDone   ? '#00BFA6'
-                             : isActive ? 'white'
-                             : 'rgba(255,255,255,0.22)',
-                      }}
-                    >
+                    <span className="text-sm font-medium transition-colors"
+                      style={{ color: isDone ? '#00BFA6' : isActive ? 'white' : 'rgba(255,255,255,0.22)' }}>
                       {rs[key]}
                     </span>
                   </div>
@@ -242,127 +234,182 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
           </div>
         )}
 
-        {/* ═══════════════ SUCCESS PHASE ═══════════════ */}
+        {/* ══════════════ SUCCESS PHASE ══════════════ */}
         {phase === 'success' && result && (
           <div className="p-6">
-            {/* Close */}
-            <button
-              onClick={onClose}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all"
-            >
+            <button onClick={onClose}
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
 
-            {/* Icon + title */}
+            {/* Header */}
             <div className="text-center mb-5">
-              <div
-                className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(0,191,166,0.12)', border: '1px solid rgba(0,191,166,0.25)' }}
-              >
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(0,191,166,0.12)', border: '1px solid rgba(0,191,166,0.25)' }}>
                 <CheckCircle2 className="w-7 h-7 text-accent-teal" />
               </div>
               <h2 className="text-xl font-bold text-white mb-1">{rs.successTitle}</h2>
               <p className="text-sm text-text-muted">{rs.successSub}</p>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div
-                className="rounded-xl p-3 text-center"
-                style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.15)' }}
-              >
-                <p className="text-xl font-bold text-accent-purple">1</p>
-                <p className="text-[10px] text-text-muted mt-0.5">{rs.statCampaign}</p>
-              </div>
-              <div
-                className="rounded-xl p-3 text-center"
-                style={{ background: 'rgba(0,191,166,0.08)', border: '1px solid rgba(0,191,166,0.15)' }}
-              >
-                <p className="text-xl font-bold text-accent-teal">{result.suggestions ?? 1}</p>
-                <p className="text-[10px] text-text-muted mt-0.5">{rs.statSuggestions}</p>
-              </div>
-            </div>
-
-            {/* Campaign name chip */}
+            {/* Campaign name */}
             {result.campaignName && (
-              <div
-                className="rounded-xl p-3 mb-5"
-                style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.12)' }}
-              >
-                <p className="text-[10px] text-text-muted mb-0.5">{rs.campaignCreated}</p>
-                <p className="text-sm font-semibold text-white truncate">{result.campaignName}</p>
+              <div className="rounded-xl p-3 mb-4"
+                style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.18)' }}>
+                <p className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">{rs.campaignCreated}</p>
+                <p className="text-sm font-bold text-white truncate">{result.campaignName}</p>
               </div>
             )}
 
-            {/* Next-step CTAs */}
-            <div className="grid grid-cols-2 gap-2">
-              {result.campaignId && (
-                <Link
-                  href={`/campaigns/${result.campaignId}`}
-                  onClick={onClose}
-                  className="col-span-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient"
-                >
-                  <Rocket className="w-4 h-4" />
-                  {rs.successCampaign}
-                </Link>
-              )}
-              <Link
-                href="/campaigns"
-                onClick={onClose}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
-                style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#a5a0ff' }}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
+            {/* 4-cell stat grid */}
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {[
+                {
+                  value: '1',
+                  label: rs.statCampaign,
+                  color: '#6C63FF',
+                  bg: 'rgba(108,99,255,0.08)',
+                  border: 'rgba(108,99,255,0.18)',
+                },
+                {
+                  value: String(result.suggestions ?? 0),
+                  label: rs.statSuggestions,
+                  color: '#00BFA6',
+                  bg: 'rgba(0,191,166,0.08)',
+                  border: 'rgba(0,191,166,0.18)',
+                },
+                {
+                  value: String(result.creditsUsed ?? 5),
+                  label: rs.statCreditsUsed,
+                  color: '#FF6B35',
+                  bg: 'rgba(255,107,53,0.08)',
+                  border: 'rgba(255,107,53,0.18)',
+                },
+                {
+                  value: String(creditsLeftDisplay),
+                  label: rs.statCreditsLeft,
+                  color: '#00D4FF',
+                  bg: 'rgba(0,212,255,0.08)',
+                  border: 'rgba(0,212,255,0.18)',
+                },
+              ].map(({ value, label, color, bg, border }) => (
+                <div key={label} className="rounded-xl p-2.5 text-center"
+                  style={{ background: bg, border: `1px solid ${border}` }}>
+                  <p className="text-base font-bold leading-none mb-1" style={{ color }}>{value}</p>
+                  <p className="text-[9px] text-text-muted leading-tight">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Context chips */}
+            <div className="flex gap-2 mb-5">
+              <span className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-lg"
+                style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#a5a0ff' }}>
+                <Brain className="w-3 h-3" />
+                {rs.chipBrandBrain}
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-lg"
+                style={{ background: 'rgba(0,212,255,0.08)', border: '1px solid rgba(0,212,255,0.18)', color: '#00D4FF' }}>
+                <Globe className="w-3 h-3" />
+                {langLabel}
+              </span>
+            </div>
+
+            {/* PRIMARY CTA */}
+            {result.campaignId ? (
+              <Link href={`/campaigns/${result.campaignId}`} onClick={onClose}
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
+                <Rocket className="w-4 h-4" />
+                {rs.successCampaign}
+              </Link>
+            ) : (
+              <Link href="/campaigns" onClick={onClose}
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
+                <Sparkles className="w-4 h-4" />
                 {rs.successCampaigns}
               </Link>
-              <Link
-                href="/brand"
-                onClick={onClose}
+            )}
+
+            {/* SECONDARY CTAs */}
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={onClose}
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
-                style={{ background: 'rgba(0,191,166,0.1)', border: '1px solid rgba(0,191,166,0.2)', color: '#00BFA6' }}
-              >
+                style={{ background: 'rgba(255,184,0,0.08)', border: '1px solid rgba(255,184,0,0.2)', color: '#FFB800' }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                {rs.successSuggestions}
+              </button>
+              <Link href="/brand" onClick={onClose}
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
+                style={{ background: 'rgba(0,191,166,0.08)', border: '1px solid rgba(0,191,166,0.18)', color: '#00BFA6' }}>
                 <Cpu className="w-3.5 h-3.5" />
                 {rs.successBrand}
               </Link>
-              {result.campaignId && (
-                <Link
-                  href={`/campaigns/${result.campaignId}`}
-                  onClick={onClose}
-                  className="col-span-2 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
-                  style={{ background: 'rgba(255,215,0,0.08)', border: '1px solid rgba(255,215,0,0.2)', color: '#FFD700' }}
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  {rs.successSuggestions}
-                </Link>
-              )}
             </div>
           </div>
         )}
 
-        {/* ═══════════════ CREDITS EXHAUSTED ═══════════════ */}
+        {/* ══════════════ NO CAMPAIGN CREATED ══════════════ */}
+        {phase === 'no_campaign' && (
+          <div className="p-6 text-center">
+            <button onClick={onClose}
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.25)' }}>
+              <AlertCircle className="w-7 h-7" style={{ color: '#FFB800' }} />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-1">{rs.noResultTitle}</h2>
+            <p className="text-sm text-text-muted mb-6">{rs.noResultDesc}</p>
+            <div className="flex gap-3">
+              <button onClick={onClose}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
+                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
+                {rs.errorClose}
+              </button>
+              <button onClick={() => { setPhase('running'); setCurrentStep(0); setResult(null) }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
+                <Sparkles className="w-4 h-4" />
+                {rs.errorRetry}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════════ CREDITS PHASE ══════════════ */}
         {phase === 'credits' && (
           <div className="p-6 text-center">
-            <div
-              className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(255,107,53,0.12)', border: '1px solid rgba(255,107,53,0.25)' }}
-            >
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(255,107,53,0.12)', border: '1px solid rgba(255,107,53,0.25)' }}>
               <Zap className="w-7 h-7" style={{ color: '#FF6B35' }} />
             </div>
             <h2 className="text-xl font-bold text-white mb-1">{rs.creditsTitle}</h2>
-            <p className="text-sm text-text-muted mb-6">{rs.creditsDesc}</p>
+            <p className="text-sm text-text-muted mb-4">{rs.creditsDesc}</p>
+
+            {/* Show actual credit numbers if available */}
+            {result?.requiredCredits !== undefined && (
+              <div className="grid grid-cols-2 gap-2 mb-5">
+                <div className="rounded-xl p-3 text-center"
+                  style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.2)' }}>
+                  <p className="text-lg font-bold" style={{ color: '#FF6B35' }}>{result.requiredCredits}</p>
+                  <p className="text-[10px] text-text-muted">{rs.creditsNeed}</p>
+                </div>
+                <div className="rounded-xl p-3 text-center"
+                  style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)' }}>
+                  <p className="text-lg font-bold text-accent-purple">{result.currentCredits ?? 0}</p>
+                  <p className="text-[10px] text-text-muted">{rs.creditsHave}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3">
-              <button
-                onClick={onClose}
+              <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}
-              >
+                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <Link
-                href="/billing"
-                onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient"
-              >
+              <Link href="/billing" onClick={onClose}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
                 <ArrowUpRight className="w-4 h-4" />
                 {rs.creditsUpgrade}
               </Link>
@@ -370,30 +417,23 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
           </div>
         )}
 
-        {/* ═══════════════ NO BRAND PROFILE ═══════════════ */}
+        {/* ══════════════ NO BRAND PROFILE ══════════════ */}
         {phase === 'no_brand' && (
           <div className="p-6 text-center">
-            <div
-              className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)' }}
-            >
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)' }}>
               <Cpu className="w-7 h-7 text-accent-purple" />
             </div>
             <h2 className="text-xl font-bold text-white mb-1">{rs.noBrandTitle}</h2>
             <p className="text-sm text-text-muted mb-6">{rs.noBrandDesc}</p>
             <div className="flex gap-3">
-              <button
-                onClick={onClose}
+              <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}
-              >
+                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <Link
-                href="/brand"
-                onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient"
-              >
+              <Link href="/brand" onClick={onClose}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
                 <ArrowUpRight className="w-4 h-4" />
                 {rs.noBrandBtn}
               </Link>
@@ -401,31 +441,25 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
           </div>
         )}
 
-        {/* ═══════════════ GENERIC ERROR ═══════════════ */}
+        {/* ══════════════ GENERIC ERROR ══════════════ */}
         {phase === 'error' && (
           <div className="p-6 text-center">
-            <div
-              className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}
-            >
+            <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}>
               <XCircle className="w-7 h-7 text-rose-400" />
             </div>
             <h2 className="text-xl font-bold text-white mb-1">{rs.errorTitle}</h2>
-            <p className="text-sm text-text-muted mb-2">
+            <p className="text-sm text-text-muted mb-5">
               {result?.error || result?.errors?.[0] || 'An unexpected error occurred.'}
             </p>
-            <div className="flex gap-3 mt-5">
-              <button
-                onClick={onClose}
+            <div className="flex gap-3">
+              <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}
-              >
+                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <button
-                onClick={() => { setPhase('running'); setCurrentStep(0); setResult(null) }}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient"
-              >
+              <button onClick={() => { setPhase('running'); setCurrentStep(0); setResult(null) }}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
                 <Sparkles className="w-4 h-4" />
                 {rs.errorRetry}
               </button>

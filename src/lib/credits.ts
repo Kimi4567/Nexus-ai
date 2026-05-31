@@ -61,6 +61,8 @@ const LOW_CREDITS_THRESHOLD = 4
 export interface CreditDeductionOk {
   ok: true
   creditsRemaining: number
+  /** How many credits were deducted for this action (0 for unlimited users) */
+  creditsUsed: number
   /** true for paid plans that have aiCredits = -1 (unlimited) */
   isUnlimited: boolean
 }
@@ -127,7 +129,7 @@ export async function checkAndDeductCredits(
       data: { monthlyGenerations: { increment: 1 } },
     })
     await _trackUsage(userId, cost)
-    return { ok: true, creditsRemaining: -1, isUnlimited: true }
+    return { ok: true, creditsRemaining: -1, creditsUsed: 0, isUnlimited: true }
   }
 
   // ── First-time FREE user: grant starter credits ────────────────────────────
@@ -187,7 +189,7 @@ export async function checkAndDeductCredits(
     ).catch((e: Error) => console.error('[Credits low email]', e.message))
   }
 
-  return { ok: true, creditsRemaining: newCredits, isUnlimited: false }
+  return { ok: true, creditsRemaining: newCredits, creditsUsed: cost, isUnlimited: false }
 }
 
 // ── Internal: usage table tracking ────────────────────────────────────────────

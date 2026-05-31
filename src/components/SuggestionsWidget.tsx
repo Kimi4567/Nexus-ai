@@ -81,7 +81,15 @@ function relativeTime(dateStr: string, locale: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function SuggestionsWidget() {
+interface SuggestionsWidgetProps {
+  /**
+   * Increment this number to trigger a fresh data load from outside.
+   * Useful after a Run Full Strategy completes to show new suggestions immediately.
+   */
+  refreshKey?: number
+}
+
+export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetProps) {
   const { authHeader } = useAuth()
   const { t, locale, dir } = useI18n()
 
@@ -110,7 +118,8 @@ export default function SuggestionsWidget() {
     }
   }, [authHeader, sg.errorLoad])
 
-  useEffect(() => { load() }, [load])
+  // Re-load when refreshKey changes (triggered externally after a strategy run)
+  useEffect(() => { load() }, [load, refreshKey])
 
   const act = useCallback(async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setActing(prev => ({ ...prev, [id]: status === 'APPROVED' ? 'approving' : 'rejecting' }))
