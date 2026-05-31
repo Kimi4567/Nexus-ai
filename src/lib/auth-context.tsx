@@ -1,35 +1,78 @@
 'use client'
 
-import { ReactNode, useEffect, useState, useCallback } from 'react'
+import {
+  ReactNode,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import supabase from './supabaseClient'
 import type { User, Session } from '@supabase/supabase-js'
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>
+// ── Auth context shape ──────────────────────────────────────────────────────
+
+interface AuthContextType {
+  user: User | null
+  session: Session | null
+  /** true while the initial session is being read from storage */
+  loading: boolean
+  isAuthenticated: boolean
+  login: (email: string, password: string) => Promise<void>
+  signup: (email: string, password: string, options?: { name?: string }) => Promise<void>
+  logout: () => Promise<void>
+  /** Returns "Bearer <access_token>" or "" if not authenticated */
+  authHeader: () => string
 }
 
-export function useAuth() {
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+// ── Provider ────────────────────────────────────────────────────────────────
+// Holds the SINGLE shared auth state for the entire app.
+// All useAuth() calls read from here — no more per-component independent state.
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
+  // loading stays true until getSession() resolves — the only reliable way to know
+  // whether a persisted session exists.
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
     let mounted = true
 
+    // ── Step 1: authoritative initial-session read ───────────────────────────
+    // getSession() reads the persisted token from localStorage, auto-refreshes
+    // if needed, and returns the final valid session (or null).
+    // We use this — NOT onAuthStateChange's INITIAL_SESSION — to set loading=false,
+    // because INITIAL_SESSION can fire with null during an in-progress token refresh,
+    // which would incorrectly trigger a redirect to /auth/login.
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
       setSession(data.session)
       setUser(data.session?.user ?? null)
-      setLoading(false)
+      setLoading(false)          // ← only place loading goes false
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setSession(sess)
-      setUser(sess?.user ?? null)
-      setLoading(false)
-    })
+    // ── Step 2: subscribe to subsequent auth events ──────────────────────────
+    // We skip INITIAL_SESSION here (handled by getSession above).
+    // We only react to real state transitions: sign-in, sign-out, token refresh.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, sess) => {
+        // Skip INITIAL_SESSION — getSession() handles the boot state.
+        // Reacting to it causes a race: it sometimes fires null while a token
+        // refresh is still in progress, which incorrectly clears the user state.
+        if (event === 'INITIAL_SESSION') return
+
+        if (!mounted) return
+        setSession(sess)
+        setUser(sess?.user ?? null)
+        // loading is already false by this point (set by getSession above)
+      }
+    )
 
     return () => {
       mounted = false
@@ -37,14 +80,21 @@ export function useAuth() {
     }
   }, [])
 
+  // ── Auth actions ─────────────────────────────────────────────────────────
+
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    router.push('/onboarding') // onboarding checks if workspace exists → redirects to dashboard
+    // Login page handles redirect via window.location.href — we don't push here
+    // to avoid double-navigation. If called programmatically, push to onboarding.
+    router.push('/onboarding')
   }, [router])
 
-  // signup does NOT redirect — the register page shows "check your email" screen
-  const signup = useCallback(async (email: string, password: string, options?: { name?: string }) => {
+  const signup = useCallback(async (
+    email: string,
+    password: string,
+    options?: { name?: string },
+  ) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -60,21 +110,40 @@ export function useAuth() {
     router.push('/')
   }, [router])
 
+  // authHeader reads from the shared session — always up-to-date after token refresh
   const authHeader = useCallback((): string => {
     return session?.access_token ? `Bearer ${session.access_token}` : ''
   }, [session])
 
-  return {
-    user,
-    session,
-    loading,
-    isAuthenticated: !!user,
-    login,
-    signup,
-    logout,
-    authHeader,
-  }
+  return (
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      isAuthenticated: !!user,
+      login,
+      signup,
+      logout,
+      authHeader,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
+
+// ── Consumer hook ─────────────────────────────────────────────────────────────
+// All components call this — they share the same state from AuthProvider.
+
+export function useAuth(): AuthContextType {
+  const ctx = useContext(AuthContext)
+  if (!ctx) {
+    throw new Error('useAuth() must be used inside <AuthProvider>. Make sure it is in providers.tsx.')
+  }
+  return ctx
+}
+
+// ── Protected-route helper ─────────────────────────────────────────────────
+// Waits for loading to finish before deciding to redirect.
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
@@ -82,6 +151,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   useEffect(() => {
+    // Only redirect once loading is done AND the user is confirmed not authenticated
     if (!loading && !isAuthenticated && !pathname.startsWith('/auth')) {
       router.push('/auth/login')
     }
@@ -90,7 +160,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-dark flex items-center justify-center">
-        <div className="text-gray-400">Loading...</div>
+        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }

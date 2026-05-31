@@ -10,7 +10,7 @@ import {
   Target, Megaphone, DollarSign, Settings, Rocket, Loader2,
 } from 'lucide-react'
 
-const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'Google', 'Snapchat', 'YouTube']
+const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
 
 export default function NewCampaignPage() {
   const router = useRouter()

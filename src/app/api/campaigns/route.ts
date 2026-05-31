@@ -1,6 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import type { Platform } from '@prisma/client'
+
+// Map display names → Prisma Platform enum values
+const PLATFORM_MAP: Record<string, string> = {
+  facebook:       'FACEBOOK',
+  instagram:      'INSTAGRAM',
+  tiktok:         'TIKTOK',
+  'youtube shorts': 'YOUTUBE_SHORTS',
+  youtube:        'YOUTUBE_SHORTS',
+  snapchat:       'SNAPCHAT',
+  linkedin:       'LINKEDIN',
+  twitter:        'TWITTER',
+  website:        'WEBSITE',
+  // already-uppercase passthrough
+  FACEBOOK:        'FACEBOOK',
+  INSTAGRAM:       'INSTAGRAM',
+  TIKTOK:          'TIKTOK',
+  YOUTUBE_SHORTS:  'YOUTUBE_SHORTS',
+  SNAPCHAT:        'SNAPCHAT',
+  LINKEDIN:        'LINKEDIN',
+  TWITTER:         'TWITTER',
+  WEBSITE:         'WEBSITE',
+}
+
+function normalizePlatforms(raw: string[]): Platform[] {
+  const valid = new Set(Object.values(PLATFORM_MAP))
+  return raw
+    .map((p) => PLATFORM_MAP[p] ?? PLATFORM_MAP[p.toLowerCase()] ?? null)
+    .filter((p): p is string => p !== null && valid.has(p)) as Platform[]
+}
 
 // Helper — get or create default workspace+project for a user
 async function getOrCreateDefaultProject(userId: string): Promise<{ workspaceId: string; projectId: string } | null> {
@@ -40,6 +70,9 @@ export async function POST(req: NextRequest) {
     const THUMBNAILS = ['🚀', '⚡', '🎯', '🔥', '💡', '🌟', '📣', '🎪', '💎', '🎨']
     const thumbnail = THUMBNAILS[Math.floor(Math.random() * THUMBNAILS.length)]
 
+    // Normalize display names → Prisma enum values (e.g. 'Facebook' → 'FACEBOOK')
+    const normalizedPlatforms = normalizePlatforms(Array.isArray(platforms) ? platforms : [])
+
     const campaign = await prisma.campaign.create({
       data: {
         name,
@@ -47,7 +80,7 @@ export async function POST(req: NextRequest) {
         goal: goal || 'SALES',
         audience: audience || '',
         tone: tone || 'MODERN',
-        platforms: platforms || [],
+        platforms: normalizedPlatforms,
         workspaceId: ids.workspaceId,
         projectId: ids.projectId,
         status: 'DRAFT',
