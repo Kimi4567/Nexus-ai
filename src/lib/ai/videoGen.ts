@@ -259,7 +259,12 @@ export function isVideoProviderAvailable(): boolean {
 
 /**
  * Submit a video generation prediction to Replicate.
- * Returns the prediction object (async — poll for completion).
+ *
+ * REPLICATE_VIDEO_MODEL_VERSION can be either:
+ *   - A version hash (64-char hex) → POST /v1/predictions with { version, input }
+ *   - A model name (e.g. "minimax/video-01-live") → POST /v1/models/{owner}/{name}/predictions
+ *
+ * Replicate API requires Bearer auth (not Token).
  */
 export async function submitReplicatePrediction(
   prompt: string,
@@ -275,28 +280,47 @@ export async function submitReplicatePrediction(
   // Clamp duration to values most models support
   const duration = durationSeconds >= 10 ? 10 : 5
 
-  const response = await fetch('https://api.replicate.com/v1/predictions', {
+  // Keep input minimal — extra params cause 422 on models that don't support them
+  const input = { prompt, aspect_ratio: '16:9', duration }
+
+  // Determine whether modelVersion is a named model ("owner/name") or a version hash
+  const isModelName = modelVersion.includes('/')
+
+  let url: string
+  let body: object
+
+  if (isModelName) {
+    // Named model path: POST /v1/models/{owner}/{name}/predictions
+    url = `https://api.replicate.com/v1/models/${modelVersion}/predictions`
+    body = { input }
+  } else {
+    // Legacy version hash: POST /v1/predictions with version field
+    url = 'https://api.replicate.com/v1/predictions'
+    body = { version: modelVersion, input }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[videoGen] Replicate submit →', url, JSON.stringify(body).slice(0, 200))
+  }
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Token ${token}`,
+      // Replicate requires Bearer, not Token
+      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({
-      version: modelVersion,
-      input: {
-        prompt,
-        aspect_ratio: '16:9',
-        duration,
-        // Common optional params — ignored if model doesn't support them
-        num_frames: duration * 24,
-        fps: 24,
-      },
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
-    const msg = (err as any)?.detail || (err as any)?.error || `Replicate API error: ${response.status}`
+    const msg =
+      (err as any)?.detail ||
+      (err as any)?.error ||
+      JSON.stringify(err) ||
+      `Replicate API error: ${response.status}`
+    console.error('[videoGen] Replicate submit error:', msg)
     throw new Error(msg)
   }
 
@@ -314,7 +338,9 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
   const response = await fetch(
     `https://api.replicate.com/v1/predictions/${predictionId}`,
     {
-      headers: { Authorization: `Token ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     }
   )
 
