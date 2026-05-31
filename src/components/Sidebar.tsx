@@ -118,28 +118,11 @@ const Icons = {
       <path d="M5.5 8h3.5M10.5 5l-1.5 3M10.5 11l-1.5-3" strokeLinecap="round" />
     </svg>
   ),
-  film: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-      <path d="M1.5 5.5h13M1.5 10.5h13M4.5 2.5v3M8 2.5v3M11.5 2.5v3M4.5 10.5v3M8 10.5v3M11.5 10.5v3" strokeLinecap="round" />
-    </svg>
-  ),
-  megaphone: (
+  campaigns: (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 6v4h2l5 3V3L4 6H2z" strokeLinejoin="round" />
       <path d="M11.5 5.5c1 .5 1.5 1.5 1.5 2.5s-.5 2-1.5 2.5" strokeLinecap="round" />
       <path d="M13 3.5c2 1 2 7 0 9" strokeLinecap="round" />
-    </svg>
-  ),
-  chart: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M1.5 12.5h13M4 12.5V8.5M7.5 12.5V5M11 12.5V7.5M14.5 12.5V3.5" strokeLinecap="round" />
-    </svg>
-  ),
-  shield: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M8 1.5L13 3.5v4c0 3.5-2.5 6-5 7-2.5-1-5-3.5-5-7v-4l5-2z" strokeLinejoin="round" />
-      <path d="M5.5 8l1.5 1.5 3-3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   settings: (
@@ -154,11 +137,6 @@ const Icons = {
       <path d="M1.5 7h13M4.5 10.5h3" strokeLinecap="round" />
     </svg>
   ),
-  demo: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M8 1.5L10.5 6l5 .5-3.5 3.5 1 5L8 12.5 3 15l1-5L.5 6.5l5-.5L8 1.5z" strokeLinejoin="round" />
-    </svg>
-  ),
   brain: (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M6 2.5C4 2.5 2.5 4 2.5 5.5c0 .8.3 1.5.8 2-.5.4-.8 1-.8 1.7 0 1.2.9 2.2 2 2.4V13h7v-1.4c1.1-.2 2-1.2 2-2.4 0-.7-.3-1.3-.8-1.7.5-.5.8-1.2.8-2C13.5 4 12 2.5 10 2.5c-.5 0-1 .1-1.4.3A2.5 2.5 0 0 0 6 2.5z" strokeLinejoin="round"/>
@@ -170,26 +148,6 @@ const Icons = {
       <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" />
       <path d="M1.5 6.5h13M5 1.5v2M11 1.5v2" strokeLinecap="round" />
       <path d="M4.5 9h1.5M7.5 9h1.5M10.5 9h1.5M4.5 11.5h1.5M7.5 11.5h1.5" strokeLinecap="round" />
-    </svg>
-  ),
-  strategy: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="8" cy="8" r="6.5" />
-      <circle cx="8" cy="8" r="3.5" />
-      <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  ),
-  marketing: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M1.5 11.5V9L5 5.5l3 3L13 3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M10 3h3v3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M1.5 13.5h13" strokeLinecap="round" />
-    </svg>
-  ),
-  templates: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" />
-      <path d="M1.5 6h13M6 6v8.5" strokeLinecap="round" />
     </svg>
   ),
   media: (
@@ -249,44 +207,21 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         <NavItem href="/brand" label={t('sidebar.brand')}
           icon={Icons.brain} dot="#00BFA6" {...sharedProps} />
 
+        {/* Core Loop */}
+        {!collapsed && <SectionLabel>Core</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
+        <NavItem href="/campaigns" label="Campaigns"
+          icon={Icons.campaigns} {...sharedProps} />
+        <NavItem href="/calendar" label={t('sidebar.calendar')}
+          icon={Icons.calendar} {...sharedProps} />
+        <NavItem href="/media" label={t('sidebar.media')}
+          icon={Icons.media} {...sharedProps} />
+
         {/* Platform */}
         {!collapsed && <SectionLabel>{t('sidebar.sectionPlatforms')}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
         <NavItem href="/connections" label={t('sidebar.connect')}
           icon={Icons.connections} badge={t('sidebar.badgeSetup')} badgeColor="#00BFA6" {...sharedProps} />
-
-        {/* AI Agents */}
-        {!collapsed && <SectionLabel>{t('sidebar.sectionAgents')}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-
-        <NavItem href="/studio" label="NEX"
-          icon={Icons.film} dot="#00BFA6" {...sharedProps} />
-        <NavItem href="/vex" label="VEX"
-          icon={Icons.megaphone} dot="#FF6B35" {...sharedProps} />
-        <NavItem href="/analytics" label="PULSE"
-          icon={Icons.chart} dot="#00D4FF" {...sharedProps} />
-        <NavItem href="/sentinel" label="Sentinel"
-          icon={Icons.shield} dot="#FFD700" {...sharedProps} />
-
-        {/* Demo */}
-        {!collapsed && <SectionLabel>{t('sidebar.sectionPreview')}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-        <NavItem href="/demo" label={t('sidebar.demo')}
-          icon={Icons.demo} badge={t('common.new')} badgeColor="#6C63FF" {...sharedProps} />
-
-        {/* Workspace */}
-        {!collapsed && <SectionLabel>{t('sidebar.sectionWorkspace')}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(108,99,255,0.1)' }} />}
-        <NavItem href="/calendar" label={t('sidebar.calendar')}
-          icon={Icons.calendar} {...sharedProps} />
-        <NavItem href="/strategy" label={t('sidebar.strategy')}
-          icon={Icons.strategy} {...sharedProps} />
-        <NavItem href="/marketing" label={t('sidebar.marketing')}
-          icon={Icons.marketing} {...sharedProps} />
-        <NavItem href="/templates" label={t('sidebar.templates')}
-          icon={Icons.templates} {...sharedProps} />
-        <NavItem href="/media" label={t('sidebar.media')}
-          icon={Icons.media} {...sharedProps} />
 
       </div>
 
