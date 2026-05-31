@@ -375,6 +375,19 @@ export default function CampaignDetailPage() {
   const channelStrategy: any[] = strategy.channelStrategy || []
   const successMetrics: string[] = strategy.successMetrics || []
   const riskNotes: string[] = strategy.riskNotes || []
+  // Sprint M — operational strategy fields
+  const businessObjective: any = strategy.businessObjective || null
+  const diagnosisDetails: any = strategy.diagnosisDetails || null
+  const audienceSegmentsDetailed: any[] = strategy.audienceSegmentsDetailed || []
+  const funnelStages: any[] = strategy.funnelStages || []
+  const contentAnglesDetailed: any[] = strategy.contentAnglesDetailed || []
+  const weeklyExecutionPlan: any[] = strategy.weeklyExecutionPlan || []
+  const assetRequirements: any = strategy.assetRequirements || null
+  const adSetupPlan: any = strategy.adSetupPlan || null
+  const readinessChecklist: any[] = strategy.readinessChecklist || []
+  const doNotDoYet: string[] = strategy.doNotDoYet || []
+  const successMetricsDetailed: any[] = strategy.successMetricsDetailed || []
+  const executionAssumptions: string[] = strategy.executionAssumptions || []
   // Sprint F — creative brief
   const creativeBrief = aiOutput?.creativeBrief || null
   const creativeMode: 'asset' | 'concept' | null = aiOutput?.creativeMode || null
@@ -965,6 +978,49 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* Diagnosis Details — compact structured breakdown (Sprint M) */}
+                {diagnosisDetails && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {[
+                      { label: cdT?.diagStage || 'Stage', value: diagnosisDetails.stage, color: 'text-amber-400' },
+                      { label: cdT?.diagBottleneck || 'Bottleneck', value: diagnosisDetails.bottleneck, color: 'text-orange-400' },
+                      { label: cdT?.diagTrustGap || 'Trust Gap', value: diagnosisDetails.trustGap, color: 'text-red-400' },
+                      { label: cdT?.diagRisk || 'Main Risk', value: diagnosisDetails.mainRisk, color: 'text-red-400' },
+                      { label: cdT?.diagPaidAdsReady || 'Paid Ads Ready', value: diagnosisDetails.readyForPaidAds ? '✓ Yes' : '✗ Not yet', color: diagnosisDetails.readyForPaidAds ? 'text-green-400' : 'text-amber-400' },
+                      diagnosisDetails.readyForPaidAdsReason ? { label: 'Reason', value: diagnosisDetails.readyForPaidAdsReason, color: 'text-gray-400' } : null,
+                    ].filter(Boolean).map((item: any, i: number) => (
+                      <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                        <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.label}</p>
+                        <p className={`text-xs font-medium leading-snug ${item.color}`}>{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Business Objective (Sprint M) */}
+                {businessObjective && (
+                  <div className="bg-dark-secondary border border-indigo-500/25 rounded-2xl p-6">
+                    <h3 className="font-bold text-sm text-indigo-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+                      <span>🎯</span> {cdT?.sectionBusinessObjective || 'Business Objective'}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        { label: cdT?.businessObjPrimary || 'Business Objective', value: businessObjective.primary, icon: '🏆' },
+                        { label: cdT?.businessObjMarketing || 'Marketing Objective', value: businessObjective.marketing, icon: '📣' },
+                        { label: cdT?.businessObjConversion || 'Conversion Action', value: businessObjective.conversionAction, icon: '⚡' },
+                        { label: cdT?.businessObjAction || 'Expected User Action', value: businessObjective.expectedUserAction, icon: '👆' },
+                        { label: cdT?.businessObjWhyNow || 'Why Now', value: businessObjective.whyNow, icon: '⏰' },
+                        { label: cdT?.businessObjSuccess30 || 'Success in 30 Days', value: businessObjective.successIn30Days, icon: '📅' },
+                      ].filter(item => item.value).map((item, i) => (
+                        <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.icon} {item.label}</p>
+                          <p className="text-sm text-gray-200 leading-snug">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Key Message — flagship section */}
                 {strategy.keyMessage && (
                   <div className="bg-indigo-500/8 border border-indigo-500/20 rounded-2xl p-6">
@@ -994,40 +1050,165 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Audience Segments */}
-                {audienceSegments.length > 0 && (
+                {/* Audience Segments — Sprint M detailed view (fallback to simple strings) */}
+                {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>👥</span> {cdT?.sectionAudienceSegments || 'Audience Segments'}</h3>
-                    <div className="space-y-2">
-                      {audienceSegments.map((seg: string, i: number) => (
-                        <div key={i} className="flex items-start gap-2 bg-dark rounded-xl p-3 border border-dark-tertiary text-sm">
-                          <span className="text-accent font-bold flex-shrink-0">{i + 1}</span>
-                          <span className="text-gray-300">{seg}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>👥</span> {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}</h3>
+                    {audienceSegmentsDetailed.length > 0 ? (
+                      <div className="space-y-4">
+                        {audienceSegmentsDetailed.map((seg: any, i: number) => (
+                          <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">#{i + 1}</span>
+                              <p className="text-sm font-bold text-white">{seg.segment}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {seg.situation && (
+                                <div className="col-span-2">
+                                  <span className="text-gray-600 uppercase tracking-wide">Situation: </span>
+                                  <span className="text-gray-300">{seg.situation}</span>
+                                </div>
+                              )}
+                              {seg.pain && (
+                                <div>
+                                  <span className="text-red-400 uppercase tracking-wide">Pain: </span>
+                                  <span className="text-gray-400">{seg.pain}</span>
+                                </div>
+                              )}
+                              {seg.desiredOutcome && (
+                                <div>
+                                  <span className="text-green-400 uppercase tracking-wide">Wants: </span>
+                                  <span className="text-gray-400">{seg.desiredOutcome}</span>
+                                </div>
+                              )}
+                              {seg.objection && (
+                                <div>
+                                  <span className="text-amber-400 uppercase tracking-wide">Objection: </span>
+                                  <span className="text-gray-400">{seg.objection}</span>
+                                </div>
+                              )}
+                              {seg.message && (
+                                <div>
+                                  <span className="text-indigo-400 uppercase tracking-wide">Message: </span>
+                                  <span className="text-gray-300 font-medium">{seg.message}</span>
+                                </div>
+                              )}
+                            </div>
+                            {(seg.platform || seg.format || seg.cta) && (
+                              <div className="flex items-center gap-3 mt-3 pt-2 border-t border-dark-tertiary text-xs">
+                                {seg.platform && <span className="text-gray-500">📱 {seg.platform}</span>}
+                                {seg.format && <span className="text-gray-500">📄 {seg.format}</span>}
+                                {seg.cta && <span className="text-accent font-semibold ml-auto">{seg.cta}</span>}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {audienceSegments.map((seg: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 bg-dark rounded-xl p-3 border border-dark-tertiary text-sm">
+                            <span className="text-accent font-bold flex-shrink-0">{i + 1}</span>
+                            <span className="text-gray-300">{seg}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Funnel Strategy */}
-                {strategy.funnelStrategy && (
+                {/* Funnel Stages — Sprint M detailed (fallback to funnelStrategy) */}
+                {(funnelStages.length > 0 || strategy.funnelStrategy) && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🔻</span> {cdT?.sectionFunnelStrategy || 'Funnel Strategy'}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {([
-                        { key: 'awareness',     icon: '📢', label: cdT?.funnelAwareness     || 'Awareness',     color: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
-                        { key: 'consideration', icon: '🤔', label: cdT?.funnelConsideration || 'Consideration', color: 'border-purple-500/30 bg-purple-500/5 text-purple-400' },
-                        { key: 'conversion',    icon: '✅', label: cdT?.funnelConversion    || 'Conversion',    color: 'border-green-500/30 bg-green-500/5 text-green-400' },
-                        { key: 'retention',     icon: '🔄', label: cdT?.funnelRetention     || 'Retention',     color: 'border-amber-500/30 bg-amber-500/5 text-amber-400' },
-                      ] as const).map(({ key, icon, label, color }) => (
-                        strategy.funnelStrategy[key] && (
-                          <div key={key} className={`rounded-xl p-4 border ${color}`}>
-                            <p className="font-semibold text-xs uppercase tracking-wide mb-2">{icon} {label}</p>
-                            <p className="text-gray-300 text-sm leading-relaxed">{strategy.funnelStrategy[key]}</p>
-                          </div>
-                        )
-                      ))}
-                    </div>
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🔻</span> {cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Funnel'}</h3>
+                    {funnelStages.length > 0 ? (
+                      <div className="space-y-3">
+                        {funnelStages.map((stage: any, i: number) => {
+                          const stageColors: Record<string, string> = {
+                            awareness: 'border-blue-500/30 bg-blue-500/5',
+                            consideration: 'border-purple-500/30 bg-purple-500/5',
+                            conversion: 'border-green-500/30 bg-green-500/5',
+                            followUp: 'border-amber-500/30 bg-amber-500/5',
+                          }
+                          const stageIcons: Record<string, string> = {
+                            awareness: '📢', consideration: '🤔', conversion: '✅', followUp: '🔄',
+                          }
+                          const stageColor = stageColors[stage.stage] || 'border-dark-tertiary bg-dark'
+                          const stageIcon = stageIcons[stage.stage] || '📌'
+                          return (
+                            <div key={i} className={`rounded-xl p-4 border ${stageColor}`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <p className="font-bold text-xs uppercase tracking-wide text-white">{stageIcon} {stage.stage}</p>
+                                {stage.productArea && (
+                                  <span className="text-[10px] text-gray-600 bg-dark px-2 py-0.5 rounded border border-dark-tertiary">
+                                    {cdT?.funnelProductArea || 'Powers'}: {stage.productArea}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                {stage.userMindset && (
+                                  <div>
+                                    <span className="text-gray-600 uppercase tracking-wide">{cdT?.funnelMindset || 'Mindset'}: </span>
+                                    <span className="text-gray-400 italic">{stage.userMindset}</span>
+                                  </div>
+                                )}
+                                {stage.message && (
+                                  <div>
+                                    <span className="text-gray-600 uppercase tracking-wide">Message: </span>
+                                    <span className="text-gray-200 font-medium">{stage.message}</span>
+                                  </div>
+                                )}
+                                {stage.contentType && (
+                                  <div>
+                                    <span className="text-gray-600 uppercase tracking-wide">Format: </span>
+                                    <span className="text-gray-400">{stage.contentType}</span>
+                                  </div>
+                                )}
+                                {stage.platform && (
+                                  <div>
+                                    <span className="text-gray-600 uppercase tracking-wide">Platform: </span>
+                                    <span className="text-gray-400">{stage.platform}</span>
+                                  </div>
+                                )}
+                                {stage.cta && (
+                                  <div>
+                                    <span className="text-gray-600 uppercase tracking-wide">CTA: </span>
+                                    <span className="text-accent font-semibold">{stage.cta}</span>
+                                  </div>
+                                )}
+                                {stage.successMetric && (
+                                  <div>
+                                    <span className="text-gray-600 uppercase tracking-wide">{cdT?.weekSuccessMetric || 'Metric'}: </span>
+                                    <span className="text-gray-400">{stage.successMetric}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {stage.nextStep && (
+                                <p className="text-[11px] text-gray-500 mt-2 pt-2 border-t border-dark-tertiary">
+                                  → {cdT?.funnelNextStep || 'Next'}: {stage.nextStep}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : strategy.funnelStrategy && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {([
+                          { key: 'awareness',     icon: '📢', label: cdT?.funnelAwareness     || 'Awareness',     color: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
+                          { key: 'consideration', icon: '🤔', label: cdT?.funnelConsideration || 'Consideration', color: 'border-purple-500/30 bg-purple-500/5 text-purple-400' },
+                          { key: 'conversion',    icon: '✅', label: cdT?.funnelConversion    || 'Conversion',    color: 'border-green-500/30 bg-green-500/5 text-green-400' },
+                          { key: 'retention',     icon: '🔄', label: cdT?.funnelRetention     || 'Retention',     color: 'border-amber-500/30 bg-amber-500/5 text-amber-400' },
+                        ] as const).map(({ key, icon, label, color }) => (
+                          strategy.funnelStrategy[key] && (
+                            <div key={key} className={`rounded-xl p-4 border ${color}`}>
+                              <p className="font-semibold text-xs uppercase tracking-wide mb-2">{icon} {label}</p>
+                              <p className="text-gray-300 text-sm leading-relaxed">{strategy.funnelStrategy[key]}</p>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1182,17 +1363,54 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Success Metrics */}
-                {successMetrics.length > 0 && (
+                {/* Success Metrics — Sprint M detailed view (fallback to strings) */}
+                {(successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📈</span> {cdT?.sectionSuccessMetrics || 'Success Metrics'}</h3>
-                    <ul className="space-y-2">
-                      {successMetrics.map((metric: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                          <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span> {metric}
-                        </li>
-                      ))}
-                    </ul>
+                    {successMetricsDetailed.length > 0 ? (
+                      <div className="space-y-2">
+                        {(['lead', 'engagement', 'conversion', 'operational'] as const).map((cat) => {
+                          const catMetrics = successMetricsDetailed.filter((m: any) => m.category === cat)
+                          if (!catMetrics.length) return null
+                          const catLabels: Record<string, string> = {
+                            lead: cdT?.metricLead || 'Lead',
+                            engagement: cdT?.metricEngagement || 'Engagement',
+                            conversion: cdT?.metricConversion || 'Conversion',
+                            operational: cdT?.metricOperational || 'Operational',
+                          }
+                          const catColors: Record<string, string> = {
+                            lead: 'text-blue-400',
+                            engagement: 'text-pink-400',
+                            conversion: 'text-green-400',
+                            operational: 'text-amber-400',
+                          }
+                          return (
+                            <div key={cat}>
+                              <p className={`text-[10px] font-bold uppercase tracking-wide mb-1.5 ${catColors[cat]}`}>{catLabels[cat]}</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {catMetrics.map((m: any, i: number) => (
+                                  <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
+                                    <div>
+                                      <p className="text-xs text-gray-300">{m.metric}</p>
+                                      <p className="text-[10px] text-gray-600">{m.timeframe}</p>
+                                    </div>
+                                    <span className={`text-sm font-bold flex-shrink-0 ${catColors[cat]}`}>{m.target}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <ul className="space-y-2">
+                        {successMetrics.map((metric: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                            <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span> {metric}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 )}
 
@@ -1218,6 +1436,167 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* Asset Requirements (Sprint M) */}
+                {assetRequirements && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📦</span> {cdT?.sectionAssetRequirements || 'Asset Requirements'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {assetRequirements.mustHave?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetMustHave || 'Must Have'}</p>
+                          <ul className="space-y-1">
+                            {assetRequirements.mustHave.map((a: string, i: number) => (
+                              <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                                <span className="text-red-400 mt-0.5 flex-shrink-0">✦</span>{a}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {assetRequirements.niceToHave?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
+                          <ul className="space-y-1">
+                            {assetRequirements.niceToHave.map((a: string, i: number) => (
+                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                                <span className="text-amber-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {assetRequirements.forAds?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-blue-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetForAds || 'For Paid Ads'}</p>
+                          <ul className="space-y-1">
+                            {assetRequirements.forAds.map((a: string, i: number) => (
+                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                                <span className="text-blue-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {assetRequirements.forProof?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-green-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetForProof || 'For Proof / Trust'}</p>
+                          <ul className="space-y-1">
+                            {assetRequirements.forProof.map((a: string, i: number) => (
+                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                                <span className="text-green-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    {assetRequirements.nextToCreate?.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-dark-tertiary">
+                        <p className="text-xs text-accent font-bold uppercase tracking-wide mb-2">{cdT?.assetNextToCreate || 'Create These First'}</p>
+                        <ol className="space-y-1">
+                          {assetRequirements.nextToCreate.map((a: string, i: number) => (
+                            <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                              <span className="text-accent font-bold w-4 flex-shrink-0">{i + 1}.</span>{a}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                    {assetRequirements.canStartWithoutNote && (
+                      <p className="text-xs text-gray-500 mt-3 italic">
+                        {assetRequirements.canStartWithout ? `✓ ${cdT?.assetCanStart || 'Can start without these'}` : `⚠ ${cdT?.assetCannotStart || 'Required before starting'}`}: {assetRequirements.canStartWithoutNote}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* VEX Ad Setup Plan (Sprint M) */}
+                {adSetupPlan && (
+                  <div className="bg-dark-secondary border border-blue-500/20 rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2 text-blue-400"><span>📡</span> {cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                      {[
+                        { label: cdT?.adTestBudget || 'Test Budget', value: adSetupPlan.testBudget },
+                        { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
+                        { label: cdT?.adAbTest || 'A/B Test Plan', value: adSetupPlan.abTestPlan },
+                        { label: cdT?.adLandingPath || 'Landing Path', value: adSetupPlan.landingPath },
+                        { label: cdT?.adTracking || 'Tracking Required', value: adSetupPlan.trackingRequired },
+                      ].filter(item => item.value).map((item, i) => (
+                        <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.label}</p>
+                          <p className="text-xs text-gray-200 leading-snug">{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {adSetupPlan.targeting && (
+                      <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-3">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
+                        <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
+                      </div>
+                    )}
+                    {adSetupPlan.adCopyAngles?.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Ad Copy Angles</p>
+                        <div className="space-y-1">
+                          {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
+                            <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
+                              <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {adSetupPlan.notReadyIf?.length > 0 && (
+                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+                        <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-2">{cdT?.adNotReadyIf || 'Do not launch ads if'}</p>
+                        <ul className="space-y-1">
+                          {adSetupPlan.notReadyIf.map((item: string, i: number) => (
+                            <li key={i} className="text-xs text-amber-300/70 flex items-start gap-1.5">
+                              <span className="flex-shrink-0 mt-0.5">⚠</span>{item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Readiness Checklist (Sprint M) */}
+                {readinessChecklist.length > 0 && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✅</span> {cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {readinessChecklist.map((item: any, i: number) => (
+                        <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
+                          item.done
+                            ? 'border-green-500/30 bg-green-500/5 text-green-400'
+                            : 'border-dark-tertiary text-gray-400'
+                        }`}>
+                          <span className="flex-shrink-0 text-sm">{item.done ? '✓' : '○'}</span>
+                          <span>{item.label}</span>
+                          {item.done && (
+                            <span className="ml-auto text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Do Not Do Yet (Sprint M) */}
+                {doNotDoYet.length > 0 && (
+                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-red-400"><span>🚫</span> {cdT?.sectionDoNotDoYet || 'Do Not Do Yet'}</h3>
+                    <ul className="space-y-2">
+                      {doNotDoYet.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-red-300/80">
+                          <span className="text-red-500 mt-0.5 flex-shrink-0 font-bold">✗</span>{item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Risk & Compliance Notes */}
                 {riskNotes.length > 0 && (
                   <div className="bg-dark-secondary border border-red-500/15 rounded-2xl p-6">
@@ -1226,6 +1605,20 @@ export default function CampaignDetailPage() {
                       {riskNotes.map((note: string, i: number) => (
                         <li key={i} className="flex items-start gap-2 text-gray-400 text-sm">
                           <span className="text-red-400 mt-0.5 flex-shrink-0">!</span> {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Execution Assumptions (Sprint M) */}
+                {executionAssumptions.length > 0 && (
+                  <div className="bg-dark-secondary border border-gray-500/15 rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-gray-400"><span>📋</span> {cdT?.sectionExecutionAssumptions || 'Execution Assumptions'}</h3>
+                    <ul className="space-y-2">
+                      {executionAssumptions.map((item: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-gray-500 text-sm">
+                          <span className="text-gray-600 mt-0.5 flex-shrink-0">·</span>{item}
                         </li>
                       ))}
                     </ul>
@@ -1324,8 +1717,77 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Content Angles */}
-                {contentAngles.length > 0 && (
+                {/* Content Angles — Sprint M detailed view (show both) */}
+                {contentAnglesDetailed.length > 0 && (
+                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</h3>
+                    <div className="space-y-3">
+                      {contentAnglesDetailed.map((angle: any, i: number) => (
+                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-accent font-bold text-xs bg-accent/10 px-2 py-0.5 rounded">{i + 1}</span>
+                              <p className="text-sm font-bold text-white">{angle.title}</p>
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <SaveToMemoryBtn
+                                text={angle.title}
+                                field="winningAngles"
+                                authHeader={authHeader}
+                                saveLabel={cdT?.saveToMemoryBtn || '🧠 Save'}
+                                savedLabel={cdT?.savedToMemoryBtn || '🧠 Saved'}
+                                title={cdT?.saveToMemoryTitle || 'Save to Brand Memory'}
+                              />
+                              <CopyBtn text={`${angle.title}\n${angle.hook}`} label={cdT?.copyBtn || 'Copy'} />
+                            </div>
+                          </div>
+                          {angle.hook && (
+                            <p className="text-sm text-indigo-300 italic mb-2">"{angle.hook}"</p>
+                          )}
+                          <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                            {angle.pain && (
+                              <div>
+                                <span className="text-gray-600 uppercase tracking-wide">{cdT?.anglePain || 'Pain'}: </span>
+                                <span className="text-gray-400">{angle.pain}</span>
+                              </div>
+                            )}
+                            {angle.format && (
+                              <div>
+                                <span className="text-gray-600 uppercase tracking-wide">Format: </span>
+                                <span className="text-gray-400">{angle.format}</span>
+                              </div>
+                            )}
+                            {angle.platform && (
+                              <div>
+                                <span className="text-gray-600 uppercase tracking-wide">Platform: </span>
+                                <span className="text-gray-400">{angle.platform}</span>
+                              </div>
+                            )}
+                            {angle.asset && (
+                              <div>
+                                <span className="text-gray-600 uppercase tracking-wide">{cdT?.angleAsset || 'Asset'}: </span>
+                                <span className="text-gray-400">{angle.asset}</span>
+                              </div>
+                            )}
+                          </div>
+                          {(angle.cta || angle.funnelStage) && (
+                            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-dark-tertiary text-xs">
+                              {angle.funnelStage && (
+                                <span className="text-gray-600 capitalize">{angle.funnelStage}</span>
+                              )}
+                              {angle.cta && (
+                                <span className="ml-auto text-accent font-semibold">{angle.cta}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Content Angles — legacy string list */}
+                {contentAngles.length > 0 && contentAnglesDetailed.length === 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-2">
@@ -1353,7 +1815,7 @@ export default function CampaignDetailPage() {
                 )}
 
                 {/* Fallback if all empty */}
-                {topHooks.length === 0 && ctaVariations.length === 0 && captionFormulas.length === 0 && contentAngles.length === 0 && (
+                {topHooks.length === 0 && ctaVariations.length === 0 && captionFormulas.length === 0 && contentAngles.length === 0 && contentAnglesDetailed.length === 0 && (
                   <EmptySection icon="✍️" message={cdT?.emptyHooksDesc || 'No content generated yet.'} />
                 )}
               </div>
@@ -1364,8 +1826,88 @@ export default function CampaignDetailPage() {
               <div className="space-y-4">
                 <AgentBanner idx={2} />
 
-                {/* Weekly Execution Plan (Sprint D2 — rich version) */}
-                {weeklyPlan.length > 0 && (
+                {/* Weekly Execution Plan — Sprint M detailed (shown when available) */}
+                {weeklyExecutionPlan.length > 0 && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyExecutionPlan || '4-Week Execution Plan'}</p>
+                    {weeklyExecutionPlan.map((wk: any, wi: number) => (
+                      <div key={wi} className="bg-dark-secondary border border-amber-500/20 rounded-2xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
+                          {wk.cta && (
+                            <span className="text-xs bg-accent/10 border border-accent/20 text-accent px-3 py-1 rounded-full font-semibold">
+                              CTA: {wk.cta}
+                            </span>
+                          )}
+                        </div>
+                        {wk.objective && (
+                          <div className="mb-3">
+                            <span className="text-xs text-gray-500 uppercase tracking-wide">{cdT?.weekObjective || 'Objective'}: </span>
+                            <span className="text-gray-200 text-sm font-semibold">{wk.objective}</span>
+                          </div>
+                        )}
+                        {wk.keyMessage && (
+                          <div className="mb-3 bg-dark rounded-xl p-3 border border-indigo-500/20">
+                            <span className="text-xs text-indigo-400 uppercase tracking-wide">{cdT?.weekKeyMessage || 'Key Message'}: </span>
+                            <span className="text-gray-300 text-sm">"{wk.keyMessage}"</span>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                          {wk.deliverables?.length > 0 && (
+                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekDeliverables || 'Deliverables'}</p>
+                              <ul className="space-y-1">
+                                {wk.deliverables.map((d: string, di: number) => (
+                                  <li key={di} className="text-gray-300 text-xs flex items-start gap-1">
+                                    <span className="text-accent mt-0.5">·</span> {d}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {wk.assetsNeeded?.length > 0 && (
+                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
+                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekAssets || 'Assets Needed'}</p>
+                              <ul className="space-y-1">
+                                {wk.assetsNeeded.map((a: string, ai: number) => (
+                                  <li key={ai} className="text-gray-400 text-xs flex items-start gap-1">
+                                    <span className="text-amber-400/60 mt-0.5">◦</span> {a}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        {wk.successMetric && (
+                          <div className="mt-3 text-xs">
+                            <span className="text-gray-500 uppercase tracking-wide">{cdT?.weekSuccessMetric || 'Metric'}: </span>
+                            <span className="text-green-400">{wk.successMetric}</span>
+                          </div>
+                        )}
+                        {wk.executionNote && (
+                          <div className="mt-2 px-3 py-2 bg-blue-500/5 border border-blue-500/15 rounded-lg">
+                            <p className="text-xs text-blue-300 italic">{cdT?.weekExecutionNote || 'Note'}: {wk.executionNote}</p>
+                          </div>
+                        )}
+                        {wk.reviewPoints?.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-dark-tertiary">
+                            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">{cdT?.weekReviewPoints || 'Review at end of week'}</p>
+                            <ul className="space-y-1">
+                              {wk.reviewPoints.map((rp: string, ri: number) => (
+                                <li key={ri} className="text-xs text-gray-500 flex items-start gap-1.5">
+                                  <span className="text-gray-600 mt-0.5">→</span>{rp}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Weekly Execution Plan (Sprint D2 — rich version, shown when M version not available) */}
+                {weeklyPlan.length > 0 && weeklyExecutionPlan.length === 0 && (
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}</p>
                     {weeklyPlan.map((wk: any, wi: number) => (
@@ -1458,7 +2000,7 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {weeklyPlan.length === 0 && contentCalendar.length === 0 && (
+                {weeklyExecutionPlan.length === 0 && weeklyPlan.length === 0 && contentCalendar.length === 0 && (
                   <EmptySection icon="📅" message={cdT?.emptyCalendarDesc || 'Content calendar not available yet.'} />
                 )}
               </div>
