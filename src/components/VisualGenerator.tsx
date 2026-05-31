@@ -92,16 +92,19 @@ function GeneratingAnimation() {
 function VisualCard({
   visual,
   onSetPrimary,
-  onArchive,
+  onDelete,
   onRegenerate,
 }: {
   visual: Visual
   onSetPrimary: (id: string) => void
-  onArchive: (id: string) => void
+  onDelete: (id: string) => Promise<void>
   onRegenerate: (visual: Visual) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const handleDownload = async () => {
     if (!visual.imageUrl) return
@@ -119,8 +122,23 @@ function VisualCard({
     setDownloading(false)
   }
 
+  const handleConfirmDelete = async () => {
+    setDeleting(true)
+    setDeleteError('')
+    try {
+      await onDelete(visual.id)
+      // Parent removes from list — no further state update needed
+    } catch (err: any) {
+      setDeleteError(err.message || 'Could not delete visual. Please try again.')
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
   return (
-    <div className={`relative group bg-[#141414] border rounded-xl overflow-hidden transition-all ${
+    // overflow-hidden removed from card root — only applied to image container below
+    // This lets the absolutely-positioned dropdown menu escape the card boundary
+    <div className={`relative group bg-[#141414] border rounded-xl transition-all ${
       visual.isPrimary ? 'border-accent/60 ring-1 ring-accent/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'
     }`}>
       {/* Primary badge */}
@@ -130,8 +148,8 @@ function VisualCard({
         </div>
       )}
 
-      {/* Image */}
-      <div className="aspect-video bg-[#0f0f0f] flex items-center justify-center">
+      {/* Image — overflow-hidden scoped here only */}
+      <div className="aspect-video bg-[#0f0f0f] flex items-center justify-center rounded-t-xl overflow-hidden">
         {visual.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -144,78 +162,106 @@ function VisualCard({
         )}
       </div>
 
-      {/* Metadata bar */}
-      <div className="px-3 py-2.5 flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-medium text-gray-300 truncate">
-            {visual.visualStyle} · {visual.visualType.replace('_', ' ')}
-          </div>
-          <div className="text-[10px] text-gray-600 mt-0.5">
-            {new Date(visual.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </div>
+      {/* Delete error */}
+      {deleteError && (
+        <div className="px-3 pt-2 text-[10px] text-red-400">{deleteError}</div>
+      )}
+
+      {/* Inline delete confirm */}
+      {confirmDelete && (
+        <div className="px-3 py-2.5 flex items-center gap-2 bg-red-500/10 border-t border-red-500/20">
+          <div className="flex-1 text-[11px] text-red-300 font-medium">Delete this visual?</div>
+          <button
+            onClick={() => setConfirmDelete(false)}
+            disabled={deleting}
+            className="px-2.5 py-1 text-[10px] font-semibold text-gray-400 hover:text-white border border-white/10 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirmDelete}
+            disabled={deleting}
+            className="px-2.5 py-1 text-[10px] font-semibold text-white bg-red-500 hover:bg-red-400 disabled:opacity-50 rounded-lg transition"
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
         </div>
+      )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            title="Download"
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M6 1v7M3 5.5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M1.5 10.5h9" strokeLinecap="round" />
-            </svg>
-          </button>
+      {/* Metadata bar */}
+      {!confirmDelete && (
+        <div className="px-3 py-2.5 flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] font-medium text-gray-300 truncate">
+              {visual.visualStyle} · {visual.visualType.replace('_', ' ')}
+            </div>
+            <div className="text-[10px] text-gray-600 mt-0.5">
+              {new Date(visual.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
 
-          <button
-            onClick={() => onRegenerate(visual)}
-            title="Regenerate from same strategy"
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M1.5 6a4.5 4.5 0 108.5-2" strokeLinecap="round" />
-              <path d="M10 2l.5 1.5L9 4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-
-          {/* More menu */}
-          <div className="relative">
+          {/* Actions */}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              onClick={() => setMenuOpen(o => !o)}
+              onClick={handleDownload}
+              disabled={downloading}
+              title="Download"
               className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
             >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                <circle cx="6" cy="2" r="1" />
-                <circle cx="6" cy="6" r="1" />
-                <circle cx="6" cy="10" r="1" />
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M6 1v7M3 5.5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M1.5 10.5h9" strokeLinecap="round" />
               </svg>
             </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setMenuOpen(false)} />
-                <div className="absolute bottom-full right-0 mb-1 w-40 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-30 overflow-hidden py-1">
-                  {!visual.isPrimary && (
+
+            <button
+              onClick={() => onRegenerate(visual)}
+              title="Regenerate from same strategy"
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M1.5 6a4.5 4.5 0 108.5-2" strokeLinecap="round" />
+                <path d="M10 2l.5 1.5L9 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {/* More menu — uses fixed positioning to escape any ancestor overflow */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(o => !o)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                  <circle cx="6" cy="2" r="1" />
+                  <circle cx="6" cy="6" r="1" />
+                  <circle cx="6" cy="10" r="1" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute bottom-full right-0 mb-1 w-44 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 py-1">
+                    {!visual.isPrimary && (
+                      <button
+                        onClick={() => { onSetPrimary(visual.id); setMenuOpen(false) }}
+                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 transition"
+                      >
+                        Set as primary
+                      </button>
+                    )}
                     <button
-                      onClick={() => { onSetPrimary(visual.id); setMenuOpen(false) }}
-                      className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 transition"
+                      onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
+                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition"
                     >
-                      Set as primary
+                      Delete visual
                     </button>
-                  )}
-                  <button
-                    onClick={() => { onArchive(visual.id); setMenuOpen(false) }}
-                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition"
-                  >
-                    Archive visual
-                  </button>
-                </div>
-              </>
-            )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -291,14 +337,17 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
     setVisuals(prev => prev.map(v => ({ ...v, isPrimary: v.id === id })))
   }
 
-  const handleArchive = async (id: string) => {
+  const handleDelete = async (id: string) => {
     const token = authHeader()
     if (!token) return
-    await fetch(`/api/visuals/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: token },
-      body: JSON.stringify({ isArchived: true }),
+    const res = await fetch(`/api/visuals/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: token },
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Could not delete visual. Please try again.')
+    }
     setVisuals(prev => prev.filter(v => v.id !== id))
   }
 
@@ -395,7 +444,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
             onClick={() => handleGenerate()}
             className="w-full py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-lg transition"
           >
-            Generate with DALL·E 3 →
+            Generate visual →
           </button>
         </div>
       )}
@@ -422,7 +471,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
               key={v.id}
               visual={v}
               onSetPrimary={handleSetPrimary}
-              onArchive={handleArchive}
+              onDelete={handleDelete}
               onRegenerate={handleRegenerate}
             />
           ))}

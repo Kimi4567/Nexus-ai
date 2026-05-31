@@ -1,12 +1,24 @@
 /**
  * POST /api/visuals/generate
- * Strategy-driven image generation — DALL-E 3 + Cloudinary.
- * Returns the completed visual synchronously (with up to 60s timeout on Vercel).
+ *
+ * Strategy-driven image generation.
+ * Fetches Brand Brain + Strategy from DB to build a rich VisualContext,
+ * then routes to the correct brand-category prompt builder.
+ *
+ * Model: gpt-image-1 (replaces deprecated dall-e-3).
+ * Returns the completed visual synchronously (Vercel 60s timeout).
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { buildImagePrompt, generateWithDallE, uploadToCloudinary, VisualStyle, VisualType } from '@/lib/ai/imageGen'
+import {
+  buildImagePrompt,
+  generateWithDallE,
+  uploadToCloudinary,
+  VisualContext,
+  VisualStyle,
+  VisualType,
+} from '@/lib/ai/imageGen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -20,14 +32,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const {
     campaignId,
-    visualType = 'HERO' as VisualType,
-    visualStyle = 'Premium' as VisualStyle,
-    // Campaign context (passed from client)
+    visualType    = 'HERO'    as VisualType,
+    visualStyle   = 'Premium' as VisualStyle,
+    // Client can pass overrides — DB is the authoritative source for brand context
     campaignName,
     campaignGoal,
     campaignTone,
     audience,
-    // Brand context (passed from client)
     brandName,
     brandToneWords,
     primaryOffer,
@@ -36,52 +47,101 @@ export async function POST(req: NextRequest) {
     parentId,
   } = body
 
-  // Get workspace
+  // ── Get workspace ──────────────────────────────────────────────────────────
   const workspace = await prisma.workspace.findFirst({
     where: { ownerId: userId },
     orderBy: { createdAt: 'asc' },
   })
   if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
 
-  // Build the strategy-driven prompt
-  const prompt = buildImagePrompt({
+  // ── Fetch campaign + Brand Brain + Strategy ────────────────────────────────
+  // If no campaignId, we still fetch the brand profile for workspace-level generation
+  let campaign: any = null
+  let brand: any = null
+
+  try {
+    if (campaignId) {
+      campaign = await (prisma as any).campaign.findFirst({
+        where: { id: campaignId, workspace: { ownerId: userId } },
+        include: {
+          workspace: { include: { brandProfile: true } },
+        },
+      })
+      brand = campaign?.workspace?.brandProfile
+    } else {
+      // No campaign — fetch brand profile directly from workspace
+      const ws = await (prisma as any).workspace.findFirst({
+        where: { ownerId: userId },
+        include: { brandProfile: true },
+      })
+      brand = ws?.brandProfile
+    }
+  } catch {
+    // Non-fatal — proceed without brand context
+  }
+
+  // ── Extract Strategy fields from aiOutput ─────────────────────────────────
+  const aiOutput = (campaign?.aiOutput as any) || {}
+  const strategy = aiOutput.strategy || {}
+
+  // ── Build rich VisualContext (DB wins over client params for brand fields) ─
+  const ctx: VisualContext = {
     visualType,
     visualStyle,
-    campaignName,
-    campaignGoal,
-    campaignTone,
-    audience,
-    brandName,
-    brandToneWords,
-    primaryOffer,
-    industry,
-  })
+    // Campaign
+    campaignName: campaignName || campaign?.name || undefined,
+    campaignGoal: campaignGoal || campaign?.goal || undefined,
+    campaignTone: campaignTone || campaign?.tone || undefined,
+    audience:     audience    || campaign?.audience || undefined,
+    // Brand Brain — prefer DB values
+    brandName:      brand?.brandName    || brandName    || undefined,
+    primaryOffer:   brand?.primaryOffer || primaryOffer || undefined,
+    industry:       brand?.industry     || industry     || undefined,
+    brandToneWords: brand?.toneKeywords?.length
+      ? brand.toneKeywords
+      : (brandToneWords || []),
+    colorPalette: Array.isArray(brand?.colorPalette)
+      ? brand.colorPalette.join(', ')
+      : (brand?.colorPalette || undefined),
+    visualStylePref: brand?.visualStyle || undefined,
+    uniqueAdvantages: Array.isArray(brand?.uniqueAdvantages)
+      ? brand.uniqueAdvantages.slice(0, 3).join(', ')
+      : undefined,
+    // Strategy fields (Sprint M)
+    positioning:     strategy.positioning     || undefined,
+    visualDirection: strategy.visualDirection || undefined,
+    differentiation: strategy.differentiation || undefined,
+    keyMessage:      strategy.keyMessage      || undefined,
+  }
 
-  // Create the DB record in GENERATING state
+  // ── Build the strategy-driven prompt ─────────────────────────────────────
+  const prompt = buildImagePrompt(ctx)
+
+  // ── Create the DB record in GENERATING state ──────────────────────────────
   let visual: any
   try {
     visual = await db.generatedVisual.create({
       data: {
-        workspaceId: workspace.id,
-        campaignId: campaignId || null,
+        workspaceId:  workspace.id,
+        campaignId:   campaignId || null,
         visualType,
         visualStyle,
-        prompt: `${visualStyle} ${visualType.toLowerCase().replace('_', ' ')} for ${campaignName || 'campaign'}`,
+        prompt:       `${visualStyle} ${visualType.toLowerCase().replace('_', ' ')} for ${ctx.campaignName || 'campaign'}`,
         enhancedPrompt: prompt,
-        campaignName: campaignName || null,
-        campaignGoal: campaignGoal || null,
-        campaignTone: campaignTone || null,
-        audience: audience || null,
-        brandName: brandName || null,
-        brandToneWords: brandToneWords || [],
-        status: 'GENERATING',
+        campaignName:  ctx.campaignName || null,
+        campaignGoal:  ctx.campaignGoal || null,
+        campaignTone:  ctx.campaignTone || null,
+        audience:      ctx.audience     || null,
+        brandName:     ctx.brandName    || null,
+        brandToneWords: ctx.brandToneWords || [],
+        status:  'GENERATING',
         version: 1,
         parentId: parentId || null,
       },
     })
   } catch (dbErr) {
-    console.error('[visuals/generate] DB create error (table may not exist):', dbErr)
-    // Table not yet created — run generation anyway and return without DB persistence
+    console.error('[visuals/generate] DB create error (table may not exist yet):', dbErr)
+    // Proceed without DB persistence — useful during schema migrations
     try {
       const dalleUrl = await generateWithDallE(prompt)
       return NextResponse.json({
@@ -99,34 +159,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Run DALL-E generation
+  // ── Run gpt-image-1 generation ────────────────────────────────────────────
   try {
     const dalleUrl = await generateWithDallE(prompt)
 
     // Persist to Cloudinary
-    const publicId = `visual_${visual.id}`
+    const publicId    = `visual_${visual.id}`
     const permanentUrl = await uploadToCloudinary(dalleUrl, publicId)
 
     // Update DB to COMPLETED
     const updated = await db.generatedVisual.update({
       where: { id: visual.id },
-      data: {
-        status: 'COMPLETED',
-        imageUrl: permanentUrl,
-      },
+      data:  { status: 'COMPLETED', imageUrl: permanentUrl },
     })
 
     return NextResponse.json({ visual: updated })
   } catch (err: any) {
     console.error('[visuals/generate] Generation error:', err)
 
-    // Update DB to FAILED
+    // Update DB to FAILED (non-blocking)
     await db.generatedVisual.update({
       where: { id: visual.id },
-      data: {
-        status: 'FAILED',
-        errorMessage: err.message || 'Generation failed',
-      },
+      data:  { status: 'FAILED', errorMessage: err.message || 'Generation failed' },
     }).catch(() => {})
 
     return NextResponse.json({ error: err.message || 'Image generation failed' }, { status: 500 })
