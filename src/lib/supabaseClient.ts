@@ -8,11 +8,31 @@ if (typeof window !== 'undefined' && (!supabaseUrl || !supabaseAnonKey || supaba
   console.warn('[Nexus] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
+// Explicit localStorage adapter — avoids issues where Supabase storage
+// detection fails in some Next.js App Router SSR/hydration edge cases.
+// The SSR guard (typeof window check) prevents server-side crashes.
+const nexusStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window === 'undefined') return null
+    try { return window.localStorage.getItem(key) } catch { return null }
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window === 'undefined') return
+    try { window.localStorage.setItem(key, value) } catch {}
+  },
+  removeItem: (key: string): void => {
+    if (typeof window === 'undefined') return
+    try { window.localStorage.removeItem(key) } catch {}
+  },
+}
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    storage: nexusStorage,
+    storageKey: 'nexus-auth-token',
   },
 })
 

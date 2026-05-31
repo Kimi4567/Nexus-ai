@@ -43,34 +43,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    // resolved prevents double-setting state from two async sources
+    let resolved = false
 
-    // ── Step 1: authoritative initial-session read ───────────────────────────
-    // getSession() reads the persisted token from localStorage, auto-refreshes
-    // if needed, and returns the final valid session (or null).
-    // We use this — NOT onAuthStateChange's INITIAL_SESSION — to set loading=false,
-    // because INITIAL_SESSION can fire with null during an in-progress token refresh,
-    // which would incorrectly trigger a redirect to /auth/login.
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-      setLoading(false)          // ← only place loading goes false
-    })
+    const resolveAuth = (sess: Session | null) => {
+      if (!mounted || resolved) return
+      resolved = true
+      setSession(sess)
+      setUser(sess?.user ?? null)
+      setLoading(false)
+    }
 
-    // ── Step 2: subscribe to subsequent auth events ──────────────────────────
-    // We skip INITIAL_SESSION here (handled by getSession above).
-    // We only react to real state transitions: sign-in, sign-out, token refresh.
+    // ── Source 1: getSession() ────────────────────────────────────────────────
+    // Reads from localStorage, auto-refreshes access token if expired,
+    // returns the final valid session (or null if refresh fails).
+    // Primary and most reliable source — handles network gracefully.
+    supabase.auth.getSession()
+      .then(({ data }) => resolveAuth(data.session))
+      .catch(() => resolveAuth(null))
+
+    // ── Source 2: onAuthStateChange ───────────────────────────────────────────
+    // Dual role:
+    //   a) INITIAL_SESSION with a valid session = fast-path before getSession resolves
+    //      (we ignore INITIAL_SESSION null — that fires during in-progress refresh)
+    //   b) SIGNED_IN / SIGNED_OUT / TOKEN_REFRESHED update state after boot
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, sess) => {
-        // Skip INITIAL_SESSION — getSession() handles the boot state.
-        // Reacting to it causes a race: it sometimes fires null while a token
-        // refresh is still in progress, which incorrectly clears the user state.
-        if (event === 'INITIAL_SESSION') return
-
         if (!mounted) return
+
+        if (event === 'INITIAL_SESSION') {
+          // Fast-path: use it only when it has a real session and we haven't resolved yet
+          if (sess && !resolved) resolveAuth(sess)
+          return
+        }
+
+        // Post-boot state transitions — always update
         setSession(sess)
         setUser(sess?.user ?? null)
-        // loading is already false by this point (set by getSession above)
+        if (!resolved) resolveAuth(sess)
       }
     )
 
