@@ -126,6 +126,7 @@ export default function CampaignDetailPage() {
   const [activeTab, setActiveTab] = useState(0)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(isGenerating)
+  const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // Unified product agent tabs
@@ -223,6 +224,28 @@ export default function CampaignDetailPage() {
     const res = await fetch(`/api/campaigns/${campaignId}/duplicate`, { method: 'POST', headers: { Authorization: token } })
     const d = await res.json()
     if (d.campaign) router.push(`/campaigns/${d.campaign.id}`)
+  }
+
+  const handleApprove = async () => {
+    const token = authHeader()
+    if (!token || !campaign) return
+    setApprovalState('approving')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ status: 'ACTIVE' }),
+      })
+      const d = await res.json()
+      if (d.campaign) {
+        setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
+        setApprovalState('done')
+      } else {
+        setApprovalState('idle')
+      }
+    } catch {
+      setApprovalState('idle')
+    }
   }
 
   if (loading || fetching) {
@@ -360,42 +383,126 @@ export default function CampaignDetailPage() {
           </div>
         </div>
 
-        {/* Next Actions panel — only when aiOutput exists */}
+        {/* ── Execution Pipeline Panel — only when aiOutput exists ──────── */}
         {aiOutput && (
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl px-5 py-4 mb-6">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">{cdT?.nextActionsTitle}</p>
-            <div className="flex flex-wrap gap-2">
-              {/* Working: Export PDF */}
-              <button
-                onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-accent/30 bg-accent/10 text-accent text-xs font-semibold hover:bg-accent/20 transition"
-              >
-                ⬇ {cdT?.btnExportPdf}
-              </button>
-              {/* Working: Sentinel review — links to Sentinel page */}
-              <Link
-                href="/sentinel"
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold hover:bg-green-500/15 transition"
-              >
-                🔍 {cdT?.actionSentinelReview}
-              </Link>
-              {/* Deferred: Push to Calendar */}
-              <button
-                disabled
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-600 text-xs font-semibold cursor-not-allowed opacity-50"
-                title={cdT?.actionComingSoon}
-              >
-                📅 {cdT?.actionPushCalendar} — {cdT?.actionComingSoon}
-              </button>
-              {/* Deferred: Export Package */}
-              <button
-                disabled
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-600 text-xs font-semibold cursor-not-allowed opacity-50"
-                title={cdT?.actionComingSoon}
-              >
-                📦 {cdT?.actionExportPackage} — {cdT?.actionComingSoon}
-              </button>
+          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl px-5 py-5 mb-6">
+
+            {/* Pipeline stage tracker */}
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">{cdT?.pipelineLabel || 'Campaign Pipeline'}</p>
+            <div className="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1 flex-wrap">
+              {[
+                { key: 'strategy', label: cdT?.pipelineStrategy || 'Strategy', done: true },
+                { key: 'content',  label: cdT?.pipelineContent  || 'Content',  done: !!(topHooks.length > 0 || contentCalendar.length > 0) },
+                { key: 'approved', label: cdT?.pipelineApproved || 'Approved', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                { key: 'executing',label: cdT?.pipelineExecuting|| 'Executing', done: false, dim: true },
+              ].map((stage, i, arr) => (
+                <div key={stage.key} className="flex items-center gap-1.5">
+                  <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${
+                    stage.done
+                      ? 'bg-green-500/15 text-green-400 border-green-500/30'
+                      : stage.dim
+                        ? 'bg-transparent text-gray-700 border-dark-tertiary'
+                        : 'bg-accent/10 text-accent border-accent/25'
+                  }`}>
+                    {stage.done ? '✓ ' : ''}{stage.label}
+                  </span>
+                  {i < arr.length - 1 && <span className="text-gray-700 text-xs">→</span>}
+                </div>
+              ))}
             </div>
+
+            {/* Action groups */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              {/* Group 1: Prepare */}
+              <div>
+                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupPrepare || 'Prepare'}</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => window.open(`/campaigns/${campaign.id}/content-pack`, '_blank')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-accent/30 bg-accent/8 text-accent text-xs font-semibold hover:bg-accent/15 transition text-left"
+                  >
+                    {cdT?.stepContentPack || '📦 Content Pack'}
+                    <span className="ml-auto text-accent/50 text-xs">↗</span>
+                  </button>
+                  <button
+                    onClick={() => window.open(`/campaigns/${campaign.id}/execution-package`, '_blank')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-500/30 bg-purple-500/8 text-purple-400 text-xs font-semibold hover:bg-purple-500/15 transition text-left"
+                  >
+                    {cdT?.stepExecutionPkg || '📋 Execution Package'}
+                    <span className="ml-auto text-purple-400/50 text-xs">↗</span>
+                  </button>
+                  <button
+                    onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-400 text-xs font-semibold hover:text-white hover:border-white/20 transition text-left"
+                  >
+                    {cdT?.stepExportPdf || '⬇ Export PDF'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 2: Launch */}
+              <div>
+                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupLaunch || 'Launch'}</p>
+                <div className="space-y-2">
+                  {campaign.status === 'ACTIVE' || approvalState === 'done' ? (
+                    <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold">
+                      {cdT?.stepApprovedBadge || '✅ Campaign Approved'}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setApprovalState('confirming')}
+                      disabled={approvalState === 'approving'}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold hover:bg-green-500/15 transition text-left disabled:opacity-60"
+                    >
+                      {approvalState === 'approving' ? '...' : (cdT?.stepApproveCampaign || '✅ Approve for Execution')}
+                    </button>
+                  )}
+                  <button disabled className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-700 text-xs font-semibold cursor-not-allowed opacity-40 text-left">
+                    {cdT?.stepCalendarSoon || '📅 Calendar — Coming Soon'}
+                  </button>
+                  <button disabled className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-700 text-xs font-semibold cursor-not-allowed opacity-40 text-left">
+                    {cdT?.stepAdsSoon || '🎯 Ad Campaign — Coming Soon'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Group 3: Monitor */}
+              <div>
+                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupMonitor || 'Monitor'}</p>
+                <div className="space-y-2">
+                  <Link
+                    href="/sentinel"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/8 text-blue-400 text-xs font-semibold hover:bg-blue-500/15 transition"
+                  >
+                    {cdT?.stepSentinel || '🔍 Sentinel Review'}
+                    <span className="ml-auto text-blue-400/50 text-xs">↗</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Inline approval confirmation */}
+            {approvalState === 'confirming' && (
+              <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
+                <p className="text-sm font-semibold text-green-400 mb-1">{cdT?.approveConfirmTitle || 'Approve campaign for execution?'}</p>
+                <p className="text-xs text-gray-400 mb-3">{cdT?.approveConfirmBody || 'This marks the campaign as Active. Your team can start executing all deliverables.'}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleApprove}
+                    className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                  >
+                    {cdT?.approveConfirmBtn || 'Yes, Approve'}
+                  </button>
+                  <button
+                    onClick={() => setApprovalState('idle')}
+                    className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition"
+                  >
+                    {cdT?.approveCancelBtn || 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
