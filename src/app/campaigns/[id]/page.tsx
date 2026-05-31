@@ -127,6 +127,8 @@ export default function CampaignDetailPage() {
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(isGenerating)
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
+  const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
+  const [sentinelError, setSentinelError] = useState('')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // Unified product agent tabs
@@ -248,6 +250,36 @@ export default function CampaignDetailPage() {
     }
   }
 
+  const handleSentinelReview = async () => {
+    const token = authHeader()
+    if (!token || !campaign) return
+    setSentinelState('reviewing')
+    setSentinelError('')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/sentinel-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ language: locale }),
+      })
+      const d = await res.json()
+      if (d.sentinelReview) {
+        // Patch local campaign state with updated aiOutput
+        setCampaign(prev => {
+          if (!prev) return prev
+          const existing = (prev.aiOutput as any) || {}
+          return { ...prev, aiOutput: { ...existing, sentinelReview: d.sentinelReview } }
+        })
+        setSentinelState('done')
+      } else {
+        setSentinelError(d.error || 'Review failed')
+        setSentinelState('idle')
+      }
+    } catch {
+      setSentinelError('Network error — please try again')
+      setSentinelState('idle')
+    }
+  }
+
   if (loading || fetching) {
     return (
       <AppShell>
@@ -289,6 +321,10 @@ export default function CampaignDetailPage() {
   // Sprint F — creative brief
   const creativeBrief = aiOutput?.creativeBrief || null
   const creativeMode: 'asset' | 'concept' | null = aiOutput?.creativeMode || null
+  // Sprint G — sentinel review
+  const sentinelReview = aiOutput?.sentinelReview || null
+  const sentinelStatus: 'not_reviewed' | 'passed' | 'needs_attention' =
+    sentinelReview ? sentinelReview.status : 'not_reviewed'
 
   const visualContext = {
     campaignId: campaign.id,
@@ -392,24 +428,28 @@ export default function CampaignDetailPage() {
 
             {/* Pipeline stage tracker */}
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">{cdT?.pipelineLabel || 'Campaign Pipeline'}</p>
-            <div className="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1 flex-wrap">
+            <div className="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1 flex-nowrap">
               {[
-                { key: 'strategy', label: cdT?.pipelineStrategy || 'Strategy', done: true },
-                { key: 'content',  label: cdT?.pipelineContent  || 'Content',  done: !!(topHooks.length > 0 || contentCalendar.length > 0) },
-                { key: 'approved', label: cdT?.pipelineApproved || 'Approved', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
-                { key: 'executing',label: cdT?.pipelineExecuting|| 'Executing', done: false, dim: true },
+                { key: 'strategy',  label: cdT?.pipelineStrategy  || 'Strategy',  done: true },
+                { key: 'content',   label: cdT?.pipelineContent   || 'Content',   done: !!(topHooks.length > 0 || contentCalendar.length > 0) },
+                { key: 'creative',  label: cdT?.pipelineCreative  || 'Creative',  done: !!creativeBrief },
+                { key: 'sentinel',  label: cdT?.pipelineSentinel  || 'Sentinel',  done: sentinelStatus === 'passed', warn: sentinelStatus === 'needs_attention' },
+                { key: 'approved',  label: cdT?.pipelineApproved  || 'Approved',  done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                { key: 'executing', label: cdT?.pipelineExecuting || 'Executing', done: false, dim: true },
               ].map((stage, i, arr) => (
-                <div key={stage.key} className="flex items-center gap-1.5">
+                <div key={stage.key} className="flex items-center gap-1.5 flex-shrink-0">
                   <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${
                     stage.done
                       ? 'bg-green-500/15 text-green-400 border-green-500/30'
-                      : stage.dim
-                        ? 'bg-transparent text-gray-700 border-dark-tertiary'
-                        : 'bg-accent/10 text-accent border-accent/25'
+                      : (stage as any).warn
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : stage.dim
+                          ? 'bg-transparent text-gray-700 border-dark-tertiary'
+                          : 'bg-accent/10 text-accent border-accent/25'
                   }`}>
-                    {stage.done ? '✓ ' : ''}{stage.label}
+                    {stage.done ? '✓ ' : (stage as any).warn ? '⚠ ' : ''}{stage.label}
                   </span>
-                  {i < arr.length - 1 && <span className="text-gray-700 text-xs">→</span>}
+                  {i < arr.length - 1 && <span className="text-gray-700 text-xs flex-shrink-0">→</span>}
                 </div>
               ))}
             </div>
@@ -470,24 +510,64 @@ export default function CampaignDetailPage() {
                 </div>
               </div>
 
-              {/* Group 3: Monitor */}
+              {/* Group 3: Review */}
               <div>
-                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupMonitor || 'Monitor'}</p>
+                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupReview || 'Review'}</p>
                 <div className="space-y-2">
+                  <button
+                    onClick={handleSentinelReview}
+                    disabled={sentinelState === 'reviewing'}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition text-left disabled:opacity-60 ${
+                      sentinelStatus === 'passed'
+                        ? 'border-green-500/30 bg-green-500/8 text-green-400 hover:bg-green-500/15'
+                        : sentinelStatus === 'needs_attention'
+                          ? 'border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15'
+                          : 'border-blue-500/30 bg-blue-500/8 text-blue-400 hover:bg-blue-500/15'
+                    }`}
+                  >
+                    {sentinelState === 'reviewing'
+                      ? (cdT?.sentinelReviewing || '⏳ Reviewing...')
+                      : sentinelStatus === 'passed'
+                        ? (cdT?.sentinelPassedBtn || '✅ Review Passed — Re-run')
+                        : sentinelStatus === 'needs_attention'
+                          ? (cdT?.sentinelReRunBtn || '⚠️ Needs Attention — Re-run')
+                          : (cdT?.stepSentinelRun || '🔍 Run Sentinel Review')
+                    }
+                  </button>
                   <Link
                     href="/sentinel"
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/8 text-blue-400 text-xs font-semibold hover:bg-blue-500/15 transition"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-500 text-xs font-semibold hover:text-gray-300 transition"
                   >
-                    {cdT?.stepSentinel || '🔍 Sentinel Review'}
-                    <span className="ml-auto text-blue-400/50 text-xs">↗</span>
+                    {cdT?.stepSentinelPage || '↗ Open Sentinel'}
+                    <span className="ml-auto text-gray-700 text-xs">↗</span>
                   </Link>
                 </div>
               </div>
             </div>
 
+            {/* Inline Sentinel review error */}
+            {sentinelError && sentinelState === 'idle' && (
+              <div className="mt-4 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+                <p className="text-xs text-red-400">⚠️ {sentinelError}</p>
+              </div>
+            )}
+
             {/* Inline approval confirmation */}
             {approvalState === 'confirming' && (
               <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
+                {/* Sentinel warning — shown if not reviewed or needs attention */}
+                {sentinelStatus === 'not_reviewed' && (
+                  <div className="mb-3 p-3 bg-amber-500/8 border border-amber-500/25 rounded-lg">
+                    <p className="text-xs font-semibold text-amber-400 mb-0.5">⚠️ {cdT?.sentinelNoReviewWarning || 'Sentinel review has not been completed yet.'}</p>
+                    <p className="text-xs text-gray-500">{cdT?.sentinelNoReviewWarningDesc || 'We recommend running a Sentinel review before approving. You can still approve without it.'}</p>
+                  </div>
+                )}
+                {sentinelStatus === 'needs_attention' && (
+                  <div className="mb-3 p-3 bg-amber-500/8 border border-amber-500/25 rounded-lg">
+                    <p className="text-xs font-semibold text-amber-400 mb-0.5">⚠️ {cdT?.sentinelNeedsAttentionWarning || 'Sentinel review flagged issues that need attention.'}</p>
+                    <p className="text-xs text-gray-500">{cdT?.sentinelNeedsAttentionDesc || 'Review the Sentinel findings below before executing. You can still approve if you choose.'}</p>
+                  </div>
+                )}
                 <p className="text-sm font-semibold text-green-400 mb-1">{cdT?.approveConfirmTitle || 'Approve campaign for execution?'}</p>
                 <p className="text-xs text-gray-400 mb-3">{cdT?.approveConfirmBody || 'This marks the campaign as Active. Your team can start executing all deliverables.'}</p>
                 <div className="flex gap-2">
@@ -504,6 +584,157 @@ export default function CampaignDetailPage() {
                     {cdT?.approveCancelBtn || 'Cancel'}
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Sentinel Review Card — Sprint G ──────────────────────────── */}
+        {aiOutput && (
+          <div className={`bg-dark-secondary rounded-2xl px-5 py-5 mb-6 border ${
+            sentinelStatus === 'passed'
+              ? 'border-green-500/30'
+              : sentinelStatus === 'needs_attention'
+                ? 'border-amber-500/30'
+                : 'border-dark-tertiary'
+          }`}>
+
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔍</span>
+                <h3 className="font-bold text-sm text-white">{cdT?.sentinelReviewTitle || 'Sentinel Review'}</h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+                  sentinelStatus === 'passed'
+                    ? 'bg-green-500/15 text-green-400 border-green-500/30'
+                    : sentinelStatus === 'needs_attention'
+                      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                      : 'bg-dark-tertiary text-gray-600 border-dark-tertiary'
+                }`}>
+                  {sentinelStatus === 'passed'
+                    ? (cdT?.sentinelStatusPassed || '✓ Passed')
+                    : sentinelStatus === 'needs_attention'
+                      ? (cdT?.sentinelStatusNeeds || '⚠ Needs Attention')
+                      : (cdT?.sentinelStatusNotReviewed || 'Not Reviewed')
+                  }
+                </span>
+              </div>
+              {sentinelReview && (
+                <span className="text-xs text-gray-600">
+                  {new Date(sentinelReview.reviewedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
+                </span>
+              )}
+            </div>
+
+            {/* Scores row — shown when review exists */}
+            {sentinelReview && (
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* Risk Score */}
+                <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-gray-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
+                    <span className={`text-sm font-bold ${
+                      sentinelReview.riskScore < 30 ? 'text-green-400'
+                      : sentinelReview.riskScore < 50 ? 'text-amber-400'
+                      : 'text-red-400'
+                    }`}>{sentinelReview.riskScore}/100</span>
+                  </div>
+                  <div className="h-1.5 bg-dark-tertiary rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${
+                      sentinelReview.riskScore < 30 ? 'bg-green-500'
+                      : sentinelReview.riskScore < 50 ? 'bg-amber-500'
+                      : 'bg-red-500'
+                    }`} style={{ width: `${sentinelReview.riskScore}%` }} />
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
+                </div>
+                {/* Brand Consistency */}
+                <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-gray-500">{cdT?.sentinelBrandScore || 'Brand Consistency'}</span>
+                    <span className={`text-sm font-bold ${
+                      sentinelReview.brandConsistencyScore >= 75 ? 'text-green-400'
+                      : sentinelReview.brandConsistencyScore >= 55 ? 'text-amber-400'
+                      : 'text-red-400'
+                    }`}>{sentinelReview.brandConsistencyScore}/100</span>
+                  </div>
+                  <div className="h-1.5 bg-dark-tertiary rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${
+                      sentinelReview.brandConsistencyScore >= 75 ? 'bg-green-500'
+                      : sentinelReview.brandConsistencyScore >= 55 ? 'bg-amber-500'
+                      : 'bg-red-500'
+                    }`} style={{ width: `${sentinelReview.brandConsistencyScore}%` }} />
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            {sentinelReview?.summary && (
+              <p className="text-sm text-gray-300 leading-relaxed mb-4">{sentinelReview.summary}</p>
+            )}
+
+            {/* Detail notes — collapsible sections */}
+            {sentinelReview && (
+              <div className="space-y-3">
+                {/* Claim Safety */}
+                {sentinelReview.claimSafetyNotes && (
+                  <div className="border border-dark-tertiary rounded-xl p-3">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">{cdT?.sentinelClaimSafety || 'Claim Safety'}</p>
+                    <p className="text-xs text-gray-400 leading-relaxed">{sentinelReview.claimSafetyNotes}</p>
+                  </div>
+                )}
+                {/* Tone Consistency */}
+                {sentinelReview.toneConsistencyNotes && (
+                  <div className="border border-dark-tertiary rounded-xl p-3">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">{cdT?.sentinelToneConsistency || 'Tone Consistency'}</p>
+                    <p className="text-xs text-gray-400 leading-relaxed">{sentinelReview.toneConsistencyNotes}</p>
+                  </div>
+                )}
+                {/* Compliance Warnings */}
+                {sentinelReview.complianceWarnings?.length > 0 && (
+                  <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-3">
+                    <p className="text-xs font-bold text-amber-400 uppercase tracking-wide mb-2">{cdT?.sentinelComplianceWarnings || 'Compliance Warnings'}</p>
+                    <ul className="space-y-1.5">
+                      {sentinelReview.complianceWarnings.map((w: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-amber-300">
+                          <span className="flex-shrink-0 mt-0.5">⚠</span>
+                          <span>{w}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {/* Recommended Fixes */}
+                {sentinelReview.recommendedFixes?.length > 0 && (
+                  <div className="border border-blue-500/20 bg-blue-500/5 rounded-xl p-3">
+                    <p className="text-xs font-bold text-blue-400 uppercase tracking-wide mb-2">{cdT?.sentinelRecommendedFixes || 'Recommended Fixes'}</p>
+                    <ul className="space-y-1.5">
+                      {sentinelReview.recommendedFixes.map((fix: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-blue-300">
+                          <span className="flex-shrink-0 mt-0.5 text-blue-500">→</span>
+                          <span>{fix}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Empty state — not reviewed yet */}
+            {!sentinelReview && sentinelState !== 'reviewing' && (
+              <p className="text-xs text-gray-600 text-center py-2">
+                {cdT?.sentinelNotReviewedDesc || 'Run a Sentinel review to check brand consistency, claim safety, and execution readiness before approving.'}
+              </p>
+            )}
+
+            {/* Reviewing state */}
+            {sentinelState === 'reviewing' && (
+              <div className="flex items-center gap-3 py-3">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <p className="text-xs text-blue-400">{cdT?.sentinelReviewingMsg || 'Sentinel is reviewing your campaign content...'}</p>
               </div>
             )}
           </div>
