@@ -59,14 +59,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     const mode: 'asset' | 'concept' = body.mode === 'asset' ? 'asset' : 'concept'
     const mediaIds: string[] = Array.isArray(body.mediaIds) ? body.mediaIds : []
 
-    // Fetch campaign with workspace, brand, and media
+    // Fetch campaign with workspace and brand (no media include — see note below)
     const campaign = await (prisma as any).campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
       include: {
         workspace: {
           include: { brandProfile: true },
         },
-        media: true,
       },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -118,12 +117,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     let creativeBrief
 
     if (mode === 'asset') {
-      const allMedia: any[] = Array.isArray(campaign.media) ? campaign.media : []
-
-      // Use specified mediaIds if provided; otherwise all campaign-linked media
-      const selectedMedia = mediaIds.length > 0
-        ? allMedia.filter(m => mediaIds.includes(m.id))
-        : allMedia
+      // NOTE: Media uploaded via the Media Library has campaignId = null — it's workspace-level.
+      // campaign.media (campaign-linked) is always empty for workspace uploads.
+      // Fix: query workspace media directly, optionally filtered by the selected mediaIds.
+      const mediaFilter: any = { workspaceId: campaign.workspaceId }
+      if (mediaIds.length > 0) mediaFilter.id = { in: mediaIds }
+      const selectedMedia = await prisma.media.findMany({ where: mediaFilter, take: 20 })
 
       if (selectedMedia.length === 0) {
         return NextResponse.json(

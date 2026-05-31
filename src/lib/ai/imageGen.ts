@@ -119,7 +119,7 @@ export async function generateWithDallE(prompt: string): Promise<string> {
       n: 1,
       size: '1792x1024',  // wide format, best for hero/marketing
       quality: 'standard', // 'hd' costs 2x — use standard for MVP
-      style: 'vivid',
+      // style: 'vivid' removed — causes 'Unknown parameter: style' error in current API
     }),
   })
 
