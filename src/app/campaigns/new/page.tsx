@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { getBrandBrainReadiness, BrandReadinessResult } from '@/lib/brandReadiness'
 import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
-  Target, Megaphone, DollarSign, Settings, Rocket, Loader2,
+  Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
 } from 'lucide-react'
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
@@ -37,6 +38,17 @@ export default function NewCampaignPage() {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
+
+  // Fetch Brand Brain readiness once on mount
+  useEffect(() => {
+    fetch('/api/brand', { headers: { Authorization: authHeader() } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Form fields
   const [name, setName] = useState('')
@@ -67,7 +79,9 @@ export default function NewCampaignPage() {
     return true
   }
 
-  const handleCreate = async () => {
+  const brandNotReady = brandReadiness !== null && !brandReadiness.ready
+
+  const handleCreate = async (skipGeneration = false) => {
     if (!name.trim()) return
     setSaving(true)
     setError('')
@@ -89,7 +103,13 @@ export default function NewCampaignPage() {
 
       const { id: campaignId } = await saveRes.json()
 
-      // Kick off generation (async — user proceeds to campaign detail)
+      // If Brand Brain is incomplete or caller explicitly skips AI, save as draft only
+      if (skipGeneration || brandNotReady) {
+        router.push(`/campaigns/${campaignId}`)
+        return
+      }
+
+      // Kick off AI generation (async — user proceeds to campaign detail)
       fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -100,7 +120,6 @@ export default function NewCampaignPage() {
       }).then(async res => {
         if (res.status === 402) {
           const d = await res.json().catch(() => ({}))
-          // Surface credit error on the create page if we're still here
           if (d.error === 'INSUFFICIENT_CREDITS') {
             setSaving(false)
             setError(`Not enough credits to generate strategy (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade your plan.`)
@@ -251,6 +270,41 @@ export default function NewCampaignPage() {
         {step === 4 && (
           <div className="space-y-4">
             <h3 className="font-bold text-lg">{cnT?.step4Heading as string}</h3>
+
+            {/* Brand Brain gate warning */}
+            {brandNotReady && brandReadiness && (
+              <div className="rounded-xl p-4"
+                style={{ background: 'rgba(255,184,0,0.06)', border: '1px solid rgba(255,184,0,0.25)' }}>
+                <div className="flex items-start gap-3">
+                  <Brain className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#FFB800' }}>
+                      {(t('brandGate') as Record<string,string>).campaignTitle}
+                    </p>
+                    <p className="text-xs text-text-muted mb-2">
+                      {(t('brandGate') as Record<string,string>).campaignDesc}
+                    </p>
+                    {brandReadiness.missingRequired.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {brandReadiness.missingRequired.map(key => (
+                          <span key={key}
+                            className="text-[10px] px-1.5 py-0.5 rounded"
+                            style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                            {(t('brandGate') as Record<string,string>)[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <Link href="/brand"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold"
+                      style={{ color: '#FFB800' }}>
+                      {(t('brandGate') as Record<string,string>).completeBrandBtn} →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3 p-4 rounded-xl bg-white/5">
               <div className="flex justify-between">
                 <span className="text-text-muted text-sm">{cnT?.reviewCampaignName as string}</span>
@@ -316,9 +370,21 @@ export default function NewCampaignPage() {
               {cnT?.btnNext as string}
               <ChevronLeft className="w-4 h-4" />
             </button>
+          ) : brandNotReady ? (
+            /* Brand not ready: split into two actions */
+            <div className="flex flex-col gap-2 items-end">
+              <button
+                onClick={() => handleCreate(true)}
+                disabled={saving || !name.trim()}
+                className="btn-secondary disabled:opacity-40 min-w-[160px] flex items-center gap-1.5"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                {(t('brandGate') as Record<string,string>).saveDraftBtn}
+              </button>
+            </div>
           ) : (
             <button
-              onClick={handleCreate}
+              onClick={() => handleCreate(false)}
               disabled={saving || !name.trim()}
               className="btn-primary disabled:opacity-40 min-w-[140px]"
             >

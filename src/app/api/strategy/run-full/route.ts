@@ -13,6 +13,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
+import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,6 +52,21 @@ export async function POST(req: NextRequest) {
         {
           error: 'NO_BRAND_PROFILE',
           message: 'Brand Brain not set up. Please complete your brand profile first.',
+          redirectUrl: '/brand',
+        },
+        { status: 422 }
+      )
+    }
+
+    // Defense-in-depth: check Brand Brain readiness before spending credits
+    const readiness = getBrandBrainReadiness(brandProfile as any)
+    if (!readiness.ready) {
+      return NextResponse.json(
+        {
+          error: 'BRAND_BRAIN_INCOMPLETE',
+          message: `Brand Brain is missing required fields: ${readiness.missingRequired.join(', ')}.`,
+          missingRequired: readiness.missingRequired,
+          score: readiness.score,
           redirectUrl: '/brand',
         },
         { status: 422 }

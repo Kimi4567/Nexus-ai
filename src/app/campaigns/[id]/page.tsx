@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
 import AIPresenceBar from '@/components/AIPresenceBar'
+import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 
 interface Activity {
   id: string
@@ -124,6 +125,8 @@ export default function CampaignDetailPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(0)
+  const [brandScore, setBrandScore] = useState<number | null>(null)
+  const [brandNoticeDismissed, setBrandNoticeDismissed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(isGenerating)
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
@@ -189,7 +192,17 @@ export default function CampaignDetailPage() {
     if (!loading && !isAuthenticated) { router.push('/auth/login'); return }
     if (!isAuthenticated) return
     fetchCampaign().finally(() => setFetching(false))
-  }, [loading, isAuthenticated, fetchCampaign, router])
+    // Fetch brand readiness for the quality notice
+    const token = authHeader()
+    if (token) {
+      fetch('/api/brand', { headers: { Authorization: token } })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) setBrandScore(getBrandBrainReadiness(data.brandProfile).score)
+        })
+        .catch(() => {})
+    }
+  }, [loading, isAuthenticated, fetchCampaign, router, authHeader])
 
   // Poll for AI output when generating=true
   useEffect(() => {
@@ -408,6 +421,30 @@ export default function CampaignDetailPage() {
           <span>/</span>
           <span className="text-gray-300 truncate max-w-xs">{campaign.name}</span>
         </div>
+
+        {/* Brand Brain quality notice (shown when score < 60 and not dismissed) */}
+        {brandScore !== null && brandScore < 60 && !brandNoticeDismissed && (() => {
+          const bg = t('brandGate') as Record<string, string>
+          return (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4 justify-between"
+              style={{ background: 'rgba(255,184,0,0.05)', border: '1px solid rgba(255,184,0,0.18)' }}>
+              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                <span className="text-sm" style={{ color: '#FFB800' }}>⚠</span>
+                <p className="text-xs text-text-muted">{bg.campaignNotice}</p>
+                <Link href="/brand"
+                  className="text-[11px] font-bold flex-shrink-0"
+                  style={{ color: '#FFB800' }}>
+                  {bg.campaignNoticeBtn} →
+                </Link>
+              </div>
+              <button
+                onClick={() => setBrandNoticeDismissed(true)}
+                className="text-text-muted hover:text-white transition-all text-xs px-1 flex-shrink-0">
+                ✕
+              </button>
+            </div>
+          )
+        })()}
 
         {/* Header card */}
         <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6 mb-4">

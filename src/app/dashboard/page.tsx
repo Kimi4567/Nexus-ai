@@ -6,13 +6,14 @@ import SuggestionsWidget from '@/components/SuggestionsWidget'
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { getBrandBrainReadiness, BrandReadinessResult } from '@/lib/brandReadiness'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Sparkles, RefreshCw, Rocket, Zap,
   Globe, ArrowUpRight, AlertTriangle, CheckCircle2,
   Film, Megaphone, BarChart3, Shield, Plus,
-  Target, Flame, Bell, ChevronRight, Wifi
+  Target, Flame, Bell, ChevronRight, Wifi, Brain,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -98,6 +99,8 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
   const [suggestionsKey, setSuggestionsKey] = useState(0)
+  const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
+  const [brandCardDismissed, setBrandCardDismissed] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -145,6 +148,17 @@ export default function DashboardPage() {
   }, [authHeader])
 
   useEffect(() => { load() }, [load])
+
+  // Brand readiness — single fetch on mount after auth confirmed
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetch('/api/brand', { headers: { Authorization: authHeader() } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+      })
+      .catch(() => {})
+  }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const iv = setInterval(() => load(true), 5 * 60 * 1000)
@@ -261,6 +275,51 @@ export default function DashboardPage() {
               </Link>
             </div>
           )}
+
+          {/* ── Brand Brain Incomplete Card ── */}
+          {brandReadiness && !brandReadiness.ready && !brandCardDismissed && (() => {
+            const bg = t('brandGate') as Record<string, string>
+            const missing = brandReadiness.missingRequired.length
+            return (
+              <div className="rounded-2xl p-4 flex items-start justify-between flex-wrap gap-3"
+                style={{ background: 'rgba(255,184,0,0.05)', border: '1px solid rgba(255,184,0,0.2)' }}>
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: 'rgba(255,184,0,0.1)' }}>
+                    <Brain className="w-4 h-4" style={{ color: '#FFB800' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#FFB800' }}>{bg.dashCardTitle}</p>
+                    <p className="text-xs text-text-muted mb-2">{bg.dashCardDesc}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {brandReadiness.missingRequired.slice(0, 4).map(key => (
+                        <span key={key}
+                          className="text-[10px] px-1.5 py-0.5 rounded"
+                          style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.15)' }}>
+                          {bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key}
+                        </span>
+                      ))}
+                      {missing > 4 && (
+                        <span className="text-[10px] text-text-muted">+{missing - 4}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Link href="/brand"
+                    className="text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all hover:brightness-110"
+                    style={{ background: 'rgba(255,184,0,0.1)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.2)' }}>
+                    {bg.dashCardBtn}
+                  </Link>
+                  <button
+                    onClick={() => setBrandCardDismissed(true)}
+                    className="text-xs text-text-muted hover:text-white transition-all px-2 py-2 rounded-lg hover:bg-white/5">
+                    {bg.dashCardDismiss}
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

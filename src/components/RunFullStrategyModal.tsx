@@ -6,7 +6,10 @@
  * Triggered from the dashboard to re-run the full agency orchestration.
  * Calls POST /api/strategy/run-full — which reuses runFullAgency() unchanged.
  *
- * States: running → success | no_campaign | credits | no_brand | error
+ * Pre-flight gate: fetches /api/brand first. If Brand Brain is incomplete,
+ * the modal shows a gate screen (hard block) before spending any credits.
+ *
+ * States: running -> success | no_campaign | credits | no_brand | gate | error
  * Progress is simulated with timed steps while the API call runs (~15-25s).
  */
 
@@ -14,13 +17,14 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '@/lib/brandReadiness'
 import {
   Cpu, BarChart3, Film, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
-  Brain, Globe, AlertCircle,
+  Brain, Globe, AlertCircle, AlertTriangle,
 } from 'lucide-react'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// -- Types -------------------------------------------------------------------
 
 interface RunResult {
   ok?: boolean
@@ -33,28 +37,26 @@ interface RunResult {
   error?: string
   upgradeUrl?: string
   redirectUrl?: string
-  /** Present when error === 'INSUFFICIENT_CREDITS' */
   requiredCredits?: number
   currentCredits?: number
 }
 
-type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand'
+type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
-  /** Called when strategy run completes successfully — before modal closes */
   onSuccess?: () => void
 }
 
-// ── Progress step definitions ─────────────────────────────────────────────────
+// -- Progress steps ----------------------------------------------------------
 
 const STEP_DURATIONS = [1500, 3000, 4000, 3500, 3000]
-const STEP_ICONS  = [Cpu, BarChart3, Film, Megaphone, Shield, Zap]
-const STEP_COLORS = ['#6C63FF', '#6C63FF', '#00BFA6', '#FF6B35', '#FFD700', '#00D4FF']
-const STEP_KEYS   = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const
+const STEP_ICONS     = [Cpu, BarChart3, Film, Megaphone, Shield, Zap]
+const STEP_COLORS    = ['#6C63FF', '#6C63FF', '#00BFA6', '#FF6B35', '#FFD700', '#00D4FF']
+const STEP_KEYS      = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const
 
-// ── Shared card style ─────────────────────────────────────────────────────────
+// -- Shared card style -------------------------------------------------------
 
 const CARD_STYLE: React.CSSProperties = {
   background: 'rgba(17,21,54,0.97)',
@@ -62,7 +64,13 @@ const CARD_STYLE: React.CSSProperties = {
   boxShadow: '0 24px 80px rgba(108,99,255,0.2)',
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// -- i18n key -> field label helper ------------------------------------------
+
+const FIELD_KEY_MAP: RequiredFieldKey[] = [
+  'brandName', 'industry', 'description', 'targetAudience', 'topPlatforms',
+]
+
+// -- Component ---------------------------------------------------------------
 
 export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Props) {
   const { authHeader } = useAuth()
@@ -71,80 +79,105 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   const [phase, setPhase]             = useState<Phase>('running')
   const [currentStep, setCurrentStep] = useState(0)
   const [result, setResult]           = useState<RunResult | null>(null)
+  const [gateData, setGateData]       = useState<BrandReadinessResult | null>(null)
+  // runKey increments on retry to re-trigger the effect while modal stays open
+  const [runKey, setRunKey]           = useState(0)
 
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
 
-  // ── Core effect ───────────────────────────────────────────────────────────
+  // -- Core effect -----------------------------------------------------------
   useEffect(() => {
     if (!isOpen) return
 
     setPhase('running')
     setCurrentStep(0)
     setResult(null)
+    setGateData(null)
 
     let cancelled = false
     const timers: ReturnType<typeof setTimeout>[] = []
     let apiDone = false
 
-    // Auto-advance steps on a timer
-    let cumulative = 0
-    STEP_DURATIONS.forEach((duration, i) => {
-      cumulative += duration
-      timers.push(
-        setTimeout(() => {
-          if (!cancelled && !apiDone) setCurrentStep(i + 1)
-        }, cumulative)
-      )
+    // Pre-flight: check Brand Brain readiness before spending credits
+    fetch('/api/brand', {
+      headers: { Authorization: authHeaderRef.current() },
     })
-
-    fetch('/api/strategy/run-full', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: authHeaderRef.current(),
-      },
-      body: JSON.stringify({ language: locale }),
-    })
-      .then(res => res.json().then((data: RunResult) => ({ ok: res.ok, data })))
-      .then(({ ok, data }) => {
+      .then(res => (res.ok ? res.json() : null))
+      .then((data: { brandProfile?: object | null } | null) => {
         if (cancelled) return
-        apiDone = true
-        timers.forEach(clearTimeout)
 
-        if (!ok || data.error) {
-          setResult(data)
-          if (data.error === 'INSUFFICIENT_CREDITS' || data.error === 'CREDITS_EXHAUSTED') {
-            setPhase('credits')
-          } else if (data.error === 'NO_BRAND_PROFILE' || data.error === 'NO_WORKSPACE') {
-            setPhase('no_brand')
-          } else {
-            setPhase('error')
-          }
+        const readiness = getBrandBrainReadiness(data?.brandProfile as any)
+
+        if (!readiness.ready) {
+          setGateData(readiness)
+          setPhase('gate')
           return
         }
 
-        // Fast-forward to last step then show result
-        setCurrentStep(5)
-        timers.push(
-          setTimeout(() => {
-            if (!cancelled) {
-              setResult(data)
-              // If run succeeded but no campaign was created, show a specific state
-              if (!data.campaignId) {
-                setPhase('no_campaign')
+        // Brand Brain is ready -- start timers + main API call
+        let cumulative = 0
+        STEP_DURATIONS.forEach((duration, i) => {
+          cumulative += duration
+          timers.push(
+            setTimeout(() => {
+              if (!cancelled && !apiDone) setCurrentStep(i + 1)
+            }, cumulative)
+          )
+        })
+
+        fetch('/api/strategy/run-full', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: authHeaderRef.current(),
+          },
+          body: JSON.stringify({ language: locale }),
+        })
+          .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
+          .then(({ ok, data: d }) => {
+            if (cancelled) return
+            apiDone = true
+            timers.forEach(clearTimeout)
+
+            if (!ok || d.error) {
+              setResult(d)
+              if (d.error === 'INSUFFICIENT_CREDITS' || d.error === 'CREDITS_EXHAUSTED') {
+                setPhase('credits')
+              } else if (d.error === 'NO_BRAND_PROFILE' || d.error === 'NO_WORKSPACE') {
+                setPhase('no_brand')
               } else {
-                setPhase('success')
-                onSuccess?.()
+                setPhase('error')
               }
+              return
             }
-          }, 600)
-        )
+
+            setCurrentStep(5)
+            timers.push(
+              setTimeout(() => {
+                if (!cancelled) {
+                  setResult(d)
+                  if (!d.campaignId) {
+                    setPhase('no_campaign')
+                  } else {
+                    setPhase('success')
+                    onSuccess?.()
+                  }
+                }
+              }, 600)
+            )
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setPhase('error')
+              setResult({ ok: false, error: 'Network error. Please check your connection.' })
+            }
+          })
       })
       .catch(() => {
         if (!cancelled) {
           setPhase('error')
-          setResult({ ok: false, error: 'Network error. Please check your connection.' })
+          setResult({ ok: false, error: 'Could not verify brand profile. Please try again.' })
         }
       })
 
@@ -152,20 +185,30 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       cancelled = true
       timers.forEach(clearTimeout)
     }
-  }, [isOpen]) // intentional: authHeader + onSuccess captured via ref / stable
+  }, [isOpen, runKey]) // runKey increments on retry
 
   if (!isOpen) return null
 
   const rs = t('runStrategy') as Record<string, string>
+  const bg = t('brandGate')   as Record<string, string>
 
-  // Language label from locale
   const langLabel = locale === 'ar' ? rs.chipLangAr : rs.chipLangEn
 
-  // Credits remaining display
   const creditsLeftDisplay =
     result?.creditsRemaining === -1
       ? rs.statUnlimited
-      : (result?.creditsRemaining ?? '—')
+      : (result?.creditsRemaining ?? '--')
+
+  // Helper: translate a required field key to a human label
+  const fieldLabel = (key: RequiredFieldKey) =>
+    bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key
+
+  const retry = () => {
+    setPhase('running')
+    setCurrentStep(0)
+    setResult(null)
+    setRunKey(k => k + 1)
+  }
 
   return (
     <div
@@ -176,7 +219,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     >
       <div className="w-full max-w-md rounded-2xl overflow-hidden relative" style={CARD_STYLE}>
 
-        {/* ══════════════ RUNNING PHASE ══════════════ */}
+        {/* ========== RUNNING PHASE ========== */}
         {phase === 'running' && (
           <div className="p-6">
             <div className="flex items-start justify-between mb-6">
@@ -197,7 +240,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 const color    = STEP_COLORS[i]
                 const isDone   = i < currentStep
                 const isActive = i === currentStep
-
                 return (
                   <div key={key}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300"
@@ -234,7 +276,86 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           </div>
         )}
 
-        {/* ══════════════ SUCCESS PHASE ══════════════ */}
+        {/* ========== GATE PHASE (Brand Brain incomplete — hard block) ========== */}
+        {phase === 'gate' && gateData && (
+          <div className="p-6">
+            <button onClick={onClose}
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Icon + title */}
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.25)' }}>
+                <Brain className="w-7 h-7" style={{ color: '#FFB800' }} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">{bg.runStrategyTitle}</h2>
+              <p className="text-sm text-text-muted leading-relaxed">{bg.runStrategyDesc}</p>
+            </div>
+
+            {/* Missing required fields */}
+            {gateData.missingRequired.length > 0 && (
+              <div className="rounded-xl p-4 mb-3"
+                style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2.5"
+                  style={{ color: '#EF4444' }}>
+                  {bg.requiredLabel} — {bg.missingFieldsLabel}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {gateData.missingRequired.map(key => (
+                    <span key={key}
+                      className="text-[11px] font-medium px-2 py-1 rounded-lg"
+                      style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                      {fieldLabel(key)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Missing recommended fields (lighter treatment) */}
+            {gateData.missingRecommended.length > 0 && (
+              <div className="rounded-xl p-3 mb-4"
+                style={{ background: 'rgba(108,99,255,0.04)', border: '1px solid rgba(108,99,255,0.1)' }}>
+                <p className="text-[10px] font-medium text-text-muted mb-2">
+                  {bg.recommendedLabel}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {gateData.missingRecommended.slice(0, 4).map(key => (
+                    <span key={key}
+                      className="text-[10px] px-2 py-0.5 rounded-lg"
+                      style={{ background: 'rgba(108,99,255,0.08)', color: '#a5a0ff', border: '1px solid rgba(108,99,255,0.15)' }}>
+                      {bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Why it matters */}
+            <div className="rounded-xl p-3 mb-5"
+              style={{ background: 'rgba(0,191,166,0.04)', border: '1px solid rgba(0,191,166,0.1)' }}>
+              <p className="text-[10px] font-bold text-accent-teal mb-0.5">{bg.whyMatters}</p>
+              <p className="text-[10px] text-text-muted leading-relaxed">{bg.whyMattersDesc}</p>
+            </div>
+
+            {/* CTA: Complete Brand Brain (primary — hard block) */}
+            <Link href="/brand" onClick={onClose}
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white btn-gradient mb-2 transition-all hover:brightness-110">
+              <Brain className="w-4 h-4" />
+              {bg.completeBrandBtn}
+            </Link>
+
+            <button onClick={onClose}
+              className="w-full px-4 py-2 rounded-xl text-xs text-text-muted hover:text-white transition-all"
+              style={{ border: '1px solid rgba(108,99,255,0.15)' }}>
+              {rs.errorClose}
+            </button>
+          </div>
+        )}
+
+        {/* ========== SUCCESS PHASE ========== */}
         {phase === 'success' && result && (
           <div className="p-6">
             <button onClick={onClose}
@@ -242,7 +363,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <X className="w-4 h-4" />
             </button>
 
-            {/* Header */}
             <div className="text-center mb-5">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
                 style={{ background: 'rgba(0,191,166,0.12)', border: '1px solid rgba(0,191,166,0.25)' }}>
@@ -252,7 +372,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <p className="text-sm text-text-muted">{rs.successSub}</p>
             </div>
 
-            {/* Campaign name */}
             {result.campaignName && (
               <div className="rounded-xl p-3 mb-4"
                 style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.18)' }}>
@@ -261,47 +380,21 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               </div>
             )}
 
-            {/* 4-cell stat grid */}
             <div className="grid grid-cols-4 gap-2 mb-4">
               {[
-                {
-                  value: '1',
-                  label: rs.statCampaign,
-                  color: '#6C63FF',
-                  bg: 'rgba(108,99,255,0.08)',
-                  border: 'rgba(108,99,255,0.18)',
-                },
-                {
-                  value: String(result.suggestions ?? 0),
-                  label: rs.statSuggestions,
-                  color: '#00BFA6',
-                  bg: 'rgba(0,191,166,0.08)',
-                  border: 'rgba(0,191,166,0.18)',
-                },
-                {
-                  value: String(result.creditsUsed ?? 5),
-                  label: rs.statCreditsUsed,
-                  color: '#FF6B35',
-                  bg: 'rgba(255,107,53,0.08)',
-                  border: 'rgba(255,107,53,0.18)',
-                },
-                {
-                  value: String(creditsLeftDisplay),
-                  label: rs.statCreditsLeft,
-                  color: '#00D4FF',
-                  bg: 'rgba(0,212,255,0.08)',
-                  border: 'rgba(0,212,255,0.18)',
-                },
-              ].map(({ value, label, color, bg, border }) => (
+                { value: '1',                            label: rs.statCampaign,     color: '#6C63FF', bg: 'rgba(108,99,255,0.08)',  border: 'rgba(108,99,255,0.18)' },
+                { value: String(result.suggestions ?? 0),label: rs.statSuggestions,  color: '#00BFA6', bg: 'rgba(0,191,166,0.08)',   border: 'rgba(0,191,166,0.18)' },
+                { value: String(result.creditsUsed ?? 5), label: rs.statCreditsUsed,  color: '#FF6B35', bg: 'rgba(255,107,53,0.08)',  border: 'rgba(255,107,53,0.18)' },
+                { value: String(creditsLeftDisplay),      label: rs.statCreditsLeft,  color: '#00D4FF', bg: 'rgba(0,212,255,0.08)',   border: 'rgba(0,212,255,0.18)' },
+              ].map(({ value, label, color, bg: cellBg, border }) => (
                 <div key={label} className="rounded-xl p-2.5 text-center"
-                  style={{ background: bg, border: `1px solid ${border}` }}>
+                  style={{ background: cellBg, border: `1px solid ${border}` }}>
                   <p className="text-base font-bold leading-none mb-1" style={{ color }}>{value}</p>
                   <p className="text-[9px] text-text-muted leading-tight">{label}</p>
                 </div>
               ))}
             </div>
 
-            {/* Context chips */}
             <div className="flex gap-2 mb-5">
               <span className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-lg"
                 style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#a5a0ff' }}>
@@ -315,7 +408,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               </span>
             </div>
 
-            {/* PRIMARY CTA */}
             {result.campaignId ? (
               <Link href={`/campaigns/${result.campaignId}`} onClick={onClose}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
@@ -330,7 +422,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               </Link>
             )}
 
-            {/* SECONDARY CTAs */}
             <div className="grid grid-cols-2 gap-2">
               <button onClick={onClose}
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
@@ -348,7 +439,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           </div>
         )}
 
-        {/* ══════════════ NO CAMPAIGN CREATED ══════════════ */}
+        {/* ========== NO CAMPAIGN CREATED ========== */}
         {phase === 'no_campaign' && (
           <div className="p-6 text-center">
             <button onClick={onClose}
@@ -367,7 +458,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <button onClick={() => { setPhase('running'); setCurrentStep(0); setResult(null) }}
+              <button onClick={retry}
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
                 <Sparkles className="w-4 h-4" />
                 {rs.errorRetry}
@@ -376,7 +467,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           </div>
         )}
 
-        {/* ══════════════ CREDITS PHASE ══════════════ */}
+        {/* ========== CREDITS PHASE ========== */}
         {phase === 'credits' && (
           <div className="p-6 text-center">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
@@ -386,7 +477,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             <h2 className="text-xl font-bold text-white mb-1">{rs.creditsTitle}</h2>
             <p className="text-sm text-text-muted mb-4">{rs.creditsDesc}</p>
 
-            {/* Show actual credit numbers if available */}
             {result?.requiredCredits !== undefined && (
               <div className="grid grid-cols-2 gap-2 mb-5">
                 <div className="rounded-xl p-3 text-center"
@@ -417,7 +507,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           </div>
         )}
 
-        {/* ══════════════ NO BRAND PROFILE ══════════════ */}
+        {/* ========== NO BRAND PROFILE (server-side gate) ========== */}
         {phase === 'no_brand' && (
           <div className="p-6 text-center">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
@@ -441,7 +531,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           </div>
         )}
 
-        {/* ══════════════ GENERIC ERROR ══════════════ */}
+        {/* ========== GENERIC ERROR ========== */}
         {phase === 'error' && (
           <div className="p-6 text-center">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
@@ -458,7 +548,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <button onClick={() => { setPhase('running'); setCurrentStep(0); setResult(null) }}
+              <button onClick={retry}
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
                 <Sparkles className="w-4 h-4" />
                 {rs.errorRetry}

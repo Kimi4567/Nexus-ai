@@ -1700,6 +1700,48 @@ const translations: Record<Locale, Record<string, any>> = {
       noResultTitle: 'لم تُنشأ حملة',
       noResultDesc: 'تم تشغيل الاستراتيجية لكن لم يُنشأ أي محتوى. حاول مرة أخرى.',
     },
+    brandGate: {
+      // Gate titles per action
+      runStrategyTitle: 'أكمل Brand Brain أولاً',
+      runStrategyDesc: 'نحتاج إلى بعض تفاصيل علامتك التجارية لبناء استراتيجية دقيقة ومفيدة. هذا يستغرق دقيقتين فقط.',
+      campaignTitle: 'Brand Brain غير مكتمل',
+      campaignDesc: 'أكمل Brand Brain للحصول على محتوى مُولَّد بدقة أعلى وأكثر تخصيصاً لعملك.',
+      // Required field labels
+      fieldBrandName: 'اسم العلامة التجارية',
+      fieldIndustry: 'القطاع / الصناعة',
+      fieldDescription: 'وصف العمل أو القيمة المقترحة',
+      fieldTargetAudience: 'الجمهور المستهدف',
+      fieldTopPlatforms: 'المنصات الرئيسية',
+      // Recommended field labels
+      fieldCompetitorNotes: 'المنافسون',
+      fieldWritingStyle: 'الأسلوب والنبرة',
+      fieldAvoidKeywords: 'كلمات يجب تجنبها',
+      fieldAudienceLocation: 'الموقع أو السوق',
+      fieldPrimaryOffer: 'العرض الرئيسي',
+      // Actions
+      completeBrandBtn: 'إكمال Brand Brain',
+      continueAnywayBtn: 'المتابعة على أي حال',
+      saveDraftBtn: 'حفظ كمسودة (بدون ذكاء اصطناعي)',
+      // Section labels
+      requiredLabel: 'مطلوبة',
+      recommendedLabel: 'موصى بها',
+      missingFieldsLabel: 'الحقول الناقصة',
+      whyMatters: 'لماذا يهم هذا؟',
+      whyMattersDesc: 'كلما كان Brand Brain أكمل، كان المحتوى المُولَّد أدق وأكثر فائدة.',
+      // Dashboard card
+      dashCardTitle: 'أكمل Brand Brain لتحسين مخرجات الذكاء الاصطناعي',
+      dashCardDesc: 'بعض الحقول المطلوبة مفقودة — هذا يؤثر على جودة المحتوى المُولَّد.',
+      dashCardBtn: 'إكمال الآن',
+      dashCardDismiss: 'لاحقاً',
+      dashCardFields: 'حقل ناقص',
+      dashCardFieldsPlural: 'حقول ناقصة',
+      // Campaign detail notice
+      campaignNotice: 'قد تتحسن جودة هذه الحملة بعد إكمال Brand Brain.',
+      campaignNoticeBtn: 'إكمال Brand Brain',
+      // Score
+      scoreLabelComplete: 'مكتمل',
+      scoreLabelIncomplete: 'غير مكتمل',
+    },
   },
   en: {
     nav: {
@@ -3323,6 +3365,48 @@ const translations: Record<Locale, Record<string, any>> = {
       infoUsing: 'Using your Brand Brain data',
       noResultTitle: 'No campaign created',
       noResultDesc: 'The strategy ran but no content was created. Please try again.',
+    },
+    brandGate: {
+      // Gate titles per action
+      runStrategyTitle: 'Complete Brand Brain first',
+      runStrategyDesc: 'A few brand details are needed to build a useful, targeted strategy. This takes just 2 minutes.',
+      campaignTitle: 'Brand Brain incomplete',
+      campaignDesc: 'Complete your Brand Brain to get more accurate, personalized AI-generated content.',
+      // Required field labels
+      fieldBrandName: 'Brand name',
+      fieldIndustry: 'Industry / sector',
+      fieldDescription: 'Business description or value proposition',
+      fieldTargetAudience: 'Target audience',
+      fieldTopPlatforms: 'Main platforms',
+      // Recommended field labels
+      fieldCompetitorNotes: 'Competitors',
+      fieldWritingStyle: 'Tone & voice',
+      fieldAvoidKeywords: 'Words to avoid',
+      fieldAudienceLocation: 'Audience location / market',
+      fieldPrimaryOffer: 'Main offer',
+      // Actions
+      completeBrandBtn: 'Complete Brand Brain',
+      continueAnywayBtn: 'Continue anyway',
+      saveDraftBtn: 'Save as Draft (no AI)',
+      // Section labels
+      requiredLabel: 'Required',
+      recommendedLabel: 'Recommended',
+      missingFieldsLabel: 'Missing fields',
+      whyMatters: 'Why this matters',
+      whyMattersDesc: 'The more complete your Brand Brain, the more accurate and useful the AI output will be.',
+      // Dashboard card
+      dashCardTitle: 'Complete Brand Brain to improve AI output',
+      dashCardDesc: 'Some required fields are missing — this affects the quality of generated content.',
+      dashCardBtn: 'Complete now',
+      dashCardDismiss: 'Later',
+      dashCardFields: 'field missing',
+      dashCardFieldsPlural: 'fields missing',
+      // Campaign detail notice
+      campaignNotice: 'Campaign quality may improve after completing Brand Brain.',
+      campaignNoticeBtn: 'Complete Brand Brain',
+      // Score
+      scoreLabelComplete: 'Complete',
+      scoreLabelIncomplete: 'Incomplete',
     },
   },
 };
