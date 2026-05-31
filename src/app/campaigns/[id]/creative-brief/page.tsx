@@ -210,6 +210,11 @@ export default function CreativeBriefPage() {
   const handleGenerate = async () => {
     const token = authHeader()
     if (!token || !campaign) return
+    // Guard: in asset mode, require at least one asset selected
+    if (mode === 'asset' && mediaItems.length > 0 && selectedMedia.size === 0) {
+      setError('Select at least one asset to analyze. / اختر أصلًا واحدًا على الأقل للتحليل')
+      return
+    }
     setGenerating(true)
     setError('')
     try {
@@ -239,6 +244,7 @@ export default function CreativeBriefPage() {
 
   // ── Asset selection ──
   const toggleMedia = (id: string) => {
+    setError('')
     setSelectedMedia(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -248,6 +254,7 @@ export default function CreativeBriefPage() {
   }
 
   const toggleAll = () => {
+    setError('')
     if (selectedMedia.size === mediaItems.length) {
       setSelectedMedia(new Set())
     } else {
@@ -621,6 +628,12 @@ export default function CreativeBriefPage() {
                   })}
                 </div>
 
+                {/* Selection-required hint */}
+                {selectedMedia.size === 0 && (
+                  <p style={{ margin: '12px 0 0', fontSize: 12, fontWeight: 600, color: '#F59E0B', textAlign: 'center' }}>
+                    ☝️ Select at least one asset to analyze &nbsp;/&nbsp; اختر أصلًا واحدًا على الأقل للتحليل
+                  </p>
+                )}
                 {videoMedia.length > 0 && (
                   <p style={{ margin: '10px 0 0', fontSize: 11, color: '#9CA3AF' }}>
                     ℹ️ Video analysis (frame-level) is coming in V2. Videos will be included with a manual review note.
@@ -645,17 +658,17 @@ export default function CreativeBriefPage() {
             )}
             <button
               onClick={handleGenerate}
-              disabled={mode === 'asset' && mediaItems.length === 0}
+              disabled={mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)}
               style={{
                 width: '100%', padding: '14px 24px', borderRadius: 10, border: 'none',
-                background: (mode === 'asset' && mediaItems.length === 0) ? '#E5E7EB' : '#6366F1',
-                color: (mode === 'asset' && mediaItems.length === 0) ? '#9CA3AF' : '#fff',
-                fontSize: 14, fontWeight: 700, cursor: (mode === 'asset' && mediaItems.length === 0) ? 'not-allowed' : 'pointer',
+                background: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#E5E7EB' : '#6366F1',
+                color: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#9CA3AF' : '#fff',
+                fontSize: 14, fontWeight: 700, cursor: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s',
               }}
             >
               {mode === 'asset'
-                ? `🔍 Analyze ${selectedMedia.size > 0 ? `${selectedMedia.size} Selected Asset${selectedMedia.size !== 1 ? 's' : ''}` : 'All Assets'} with AI`
+                ? `🔍 Analyze ${selectedMedia.size > 0 ? `${selectedMedia.size} Selected Asset${selectedMedia.size !== 1 ? 's' : ''}` : 'Assets'} with AI`
                 : '✨ Generate Visual Concepts'
               }
             </button>
