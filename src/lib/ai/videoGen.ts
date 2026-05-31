@@ -250,11 +250,9 @@ Rules:
  * Server-side only — never call from client.
  */
 export function isVideoProviderAvailable(): boolean {
-  return !!(
-    process.env.REPLICATE_API_TOKEN &&
-    process.env.REPLICATE_API_TOKEN !== 'r8_dummy' &&
-    process.env.REPLICATE_VIDEO_MODEL_VERSION
-  )
+  const token = process.env.REPLICATE_API_TOKEN?.trim()
+  const model = process.env.REPLICATE_VIDEO_MODEL_VERSION?.trim()
+  return !!(token && token !== 'r8_dummy' && model)
 }
 
 /**
@@ -270,8 +268,8 @@ export async function submitReplicatePrediction(
   prompt: string,
   durationSeconds: number = 5,
 ): Promise<ReplicatePrediction> {
-  const token = process.env.REPLICATE_API_TOKEN
-  const modelVersion = process.env.REPLICATE_VIDEO_MODEL_VERSION
+  const token = process.env.REPLICATE_API_TOKEN?.trim()
+  const modelVersion = process.env.REPLICATE_VIDEO_MODEL_VERSION?.trim()
 
   if (!token || !modelVersion) {
     throw new Error('REPLICATE_API_TOKEN or REPLICATE_VIDEO_MODEL_VERSION not configured')
@@ -314,14 +312,16 @@ export async function submitReplicatePrediction(
   })
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    const msg =
-      (err as any)?.detail ||
-      (err as any)?.error ||
-      JSON.stringify(err) ||
-      `Replicate API error: ${response.status}`
-    console.error('[videoGen] Replicate submit error:', msg)
-    throw new Error(msg)
+    const rawBody = await response.text().catch(() => '')
+    let msg: string
+    try {
+      const err = JSON.parse(rawBody)
+      msg = (err as any)?.detail || (err as any)?.error || rawBody || `Replicate API error: ${response.status}`
+    } catch {
+      msg = rawBody || `Replicate API error: ${response.status}`
+    }
+    console.error('[videoGen] Replicate submit error:', response.status, msg)
+    throw new Error(`Replicate ${response.status}: ${msg}`)
   }
 
   return response.json() as Promise<ReplicatePrediction>
@@ -332,7 +332,7 @@ export async function submitReplicatePrediction(
  * Returns the latest prediction status and output.
  */
 export async function pollReplicatePrediction(predictionId: string): Promise<ReplicatePrediction> {
-  const token = process.env.REPLICATE_API_TOKEN
+  const token = process.env.REPLICATE_API_TOKEN?.trim()
   if (!token) throw new Error('REPLICATE_API_TOKEN not configured')
 
   const response = await fetch(
@@ -345,8 +345,15 @@ export async function pollReplicatePrediction(predictionId: string): Promise<Rep
   )
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}))
-    throw new Error((err as any)?.detail || `Replicate poll error: ${response.status}`)
+    const rawBody = await response.text().catch(() => '')
+    let msg: string
+    try {
+      const err = JSON.parse(rawBody)
+      msg = (err as any)?.detail || (err as any)?.error || rawBody || `Replicate poll error: ${response.status}`
+    } catch {
+      msg = rawBody || `Replicate poll error: ${response.status}`
+    }
+    throw new Error(`Replicate poll ${response.status}: ${msg}`)
   }
 
   return response.json() as Promise<ReplicatePrediction>
