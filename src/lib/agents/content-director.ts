@@ -8,6 +8,7 @@
  */
 
 import { StrategyOutput } from './strategist'
+import { getLanguageInstruction } from '@/lib/ai/langHelper'
 
 async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 3000): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -44,6 +45,8 @@ export interface ContentDirectorInput {
   region?: string
   painPoints?: string[]
   winningHooks?: string[]
+  // Language preference: 'ar' | 'en' | 'bilingual'
+  language?: string
 }
 
 export interface ContentPost {
@@ -78,7 +81,10 @@ export interface ContentDirectorOutput {
 export async function runContentDirectorAgent(
   input: ContentDirectorInput
 ): Promise<ContentDirectorOutput> {
-  const systemPrompt = `You are a world-class social media content director.
+  const langInstruction = getLanguageInstruction(input.language)
+  const systemPrompt = `${langInstruction}
+
+You are a world-class social media content director.
 You create viral, high-converting content calendars for specific brands.
 CRITICAL: Write content specific to THIS brand. No generic templates.
 Every hook must be scroll-stopping and brand-specific. Every caption must drive action for THIS audience.

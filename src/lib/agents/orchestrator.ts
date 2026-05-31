@@ -79,7 +79,7 @@ export async function runFullAgency(
       : ''
 
     // 2. Strategist agent
-    const strategy: StrategyOutput = await runStrategistAgent(brief, brandContext)
+    const strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language)
     strategyCreated = true
 
     // 3. Content Director agent — pass full brand context
@@ -93,6 +93,7 @@ export async function runFullAgency(
       region: brandProfile?.audienceLocation || undefined,
       painPoints: brandProfile?.audiencePainPoints?.length ? brandProfile.audiencePainPoints : undefined,
       winningHooks: brandProfile?.winningHooks?.length ? brandProfile.winningHooks.slice(0, 3) : undefined,
+      language: brief.language,
     }
     const content = await runContentDirectorAgent(contentInput)
     contentCreated = true

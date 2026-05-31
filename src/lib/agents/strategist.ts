@@ -8,6 +8,8 @@
  * - Output a complete campaign strategy plan
  */
 
+import { getLanguageInstruction } from '@/lib/ai/langHelper'
+
 export interface BusinessBrief {
   companyName: string
   businessType: string
@@ -27,6 +29,8 @@ export interface BusinessBrief {
   desires?: string
   primaryOffer?: string
   winningHooks?: string
+  // Language preference: 'ar' | 'en' | 'bilingual'
+  language?: string
 }
 
 export interface StrategyOutput {
@@ -101,9 +105,13 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
 
 export async function runStrategistAgent(
   brief: BusinessBrief,
-  brandContext?: string
+  brandContext?: string,
+  language?: string
 ): Promise<StrategyOutput> {
-  const systemPrompt = `You are a senior marketing strategist at a top-tier performance marketing agency.
+  const langInstruction = getLanguageInstruction(language ?? brief.language)
+  const systemPrompt = `${langInstruction}
+
+You are a senior marketing strategist at a top-tier performance marketing agency.
 Your job is to produce a highly specific, brand-personalized campaign strategy.
 
 CRITICAL RULES:

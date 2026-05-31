@@ -54,7 +54,7 @@ const STEP_KEYS   = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as co
 
 export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
   const { authHeader } = useAuth()
-  const { t, dir } = useI18n()
+  const { t, dir, locale } = useI18n()
 
   const [phase, setPhase]               = useState<Phase>('running')
   const [currentStep, setCurrentStep]   = useState(0)
@@ -95,7 +95,7 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
         'Content-Type': 'application/json',
         Authorization: authHeaderRef.current(),
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ language: locale }),
     })
       .then(res => res.json().then((data: RunResult) => ({ ok: res.ok, status: res.status, data })))
       .then(({ ok, data }) => {

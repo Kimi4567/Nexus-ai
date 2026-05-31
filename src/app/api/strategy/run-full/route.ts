@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     // ── Credit check (mirrors /api/agents/run) ───────────────────────────────
     let freshUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { id: true, subscriptionStatus: true, aiCredits: true, monthlyGenerations: true },
+      select: { id: true, subscriptionStatus: true, aiCredits: true, monthlyGenerations: true, preferences: true },
     })
     if (!freshUser) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
@@ -87,6 +87,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── Language detection: body → user preferences → fallback 'ar' ────────
+    const userPrefs = (freshUser?.preferences as Record<string, string> | null) ?? {}
+    const language: string =
+      (body?.language as string | undefined) ||
+      userPrefs?.language ||
+      'ar'
+
     // Build brief from full Brand Brain data — inject everything
     const brief = {
       companyName: brandProfile.brandName ?? 'My Brand',
@@ -115,6 +122,8 @@ export async function POST(req: NextRequest) {
       winningHooks: brandProfile.winningHooks?.length
         ? brandProfile.winningHooks.slice(0, 3).join(' | ')
         : undefined,
+      // Language preference — drives AI output language
+      language,
     }
 
     // ── Run full orchestration (reuses existing orchestrator unchanged) ──────
