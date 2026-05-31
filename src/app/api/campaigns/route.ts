@@ -142,6 +142,7 @@ export async function GET(req: NextRequest) {
         lastViewedAt: true,
         createdAt: true,
         updatedAt: true,
+        aiOutput: true,  // Required by calendar page to extract calendarItems / contentCalendar
         _count: { select: { activities: true } },
       },
     })

@@ -200,8 +200,22 @@ export async function POST(req: NextRequest, { params }: Params) {
       })
     }
 
+    // Debug: log source shape before building
+    const anchorDebug = getNextMonday()
+    console.log('[push-to-calendar] campaign:', params.id)
+    console.log('[push-to-calendar] aiOutput keys:', Object.keys(aiOutput))
+    console.log('[push-to-calendar] contentCalendar length:', (aiOutput?.contentCalendar ?? []).length)
+    console.log('[push-to-calendar] strategy.contentCalendar length:', (aiOutput?.strategy?.contentCalendar ?? []).length)
+    console.log('[push-to-calendar] strategy.weeklyPlan length:', (aiOutput?.strategy?.weeklyPlan ?? []).length)
+    console.log('[push-to-calendar] anchor date (next Monday):', anchorDebug.toISOString().split('T')[0])
+
     // Build calendar items from AI output
     const calendarItems = buildCalendarItems(params.id, aiOutput)
+
+    console.log('[push-to-calendar] items built:', calendarItems.length)
+    if (calendarItems.length > 0) {
+      console.log('[push-to-calendar] date range:', calendarItems[0].date, '→', calendarItems[calendarItems.length - 1].date)
+    }
 
     if (calendarItems.length === 0) {
       return NextResponse.json({ error: 'NO_CONTENT_CALENDAR' }, { status: 422 })

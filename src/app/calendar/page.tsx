@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
@@ -257,9 +257,13 @@ export default function CalendarPage() {
   const [loadingData, setLoadingData] = useState(true)
 
   const now = new Date()
-  const [viewMonth, setViewMonth] = useState(now.getMonth())
-  const [viewYear,  setViewYear]  = useState(now.getFullYear())
+  const [viewMonth, setViewMonth]     = useState(now.getMonth())
+  const [viewYear,  setViewYear]      = useState(now.getFullYear())
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
+
+  // Auto-jump state: set when we detect items only exist in a non-current month
+  const [autoJumpBanner, setAutoJumpBanner]   = useState<string | null>(null)
+  const hasAutoJumpedRef                       = useRef(false)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -282,6 +286,39 @@ export default function CalendarPage() {
     () => allPosts.filter(p => p.month === viewMonth && p.year === viewYear),
     [allPosts, viewMonth, viewYear]
   )
+
+  /**
+   * Auto-jump: after campaigns load, if there are pushed calendar items but none
+   * fall in the currently-viewed month, jump to the earliest month that has items
+   * and show a one-time hint banner so the user knows why the view changed.
+   */
+  useEffect(() => {
+    if (loadingData) return
+    if (hasAutoJumpedRef.current) return
+
+    // Only consider items that were explicitly pushed (absolute dates from push-to-calendar)
+    const pushedPosts = allPosts.filter(p => p.source === 'campaign_ai_output')
+    if (pushedPosts.length === 0) return
+
+    const curMonth = now.getMonth()
+    const curYear  = now.getFullYear()
+    const currentMonthHasItems = pushedPosts.some(p => p.month === curMonth && p.year === curYear)
+    if (currentMonthHasItems) return
+
+    // Sort to find the earliest month that has items
+    const sorted = [...pushedPosts].sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : a.month - b.month
+    )
+
+    const target = sorted[0]
+    hasAutoJumpedRef.current = true
+    setViewMonth(target.month)
+    setViewYear(target.year)
+    // Banner label uses Intl formatter for locale-aware month name
+    const label = new Intl.DateTimeFormat(intlLocale, { month: 'long', year: 'numeric' })
+      .format(new Date(target.year, target.month, 1))
+    setAutoJumpBanner(label)
+  }, [loadingData, allPosts])
 
   const getPostsForDay = (day: number) =>
     monthPosts.filter(p => p.day === day)
@@ -348,6 +385,28 @@ export default function CalendarPage() {
             + New Campaign
           </Link>
         </div>
+
+        {/* Auto-jump hint banner */}
+        {autoJumpBanner && (
+          <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-xl border border-cyan-500/25 bg-cyan-500/8 text-sm">
+            <div className="flex items-center gap-2 text-cyan-300">
+              <span>📅</span>
+              <span>
+                {locale === 'ar'
+                  ? `تم الانتقال إلى ${autoJumpBanner} — هذا هو الشهر الذي تم جدولة محتواك فيه`
+                  : `Jumped to ${autoJumpBanner} — that's where your scheduled content landed`
+                }
+              </span>
+            </div>
+            <button
+              onClick={() => setAutoJumpBanner(null)}
+              className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all text-xs font-bold"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
