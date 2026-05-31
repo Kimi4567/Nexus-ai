@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 type Params = { params: { id: string } }
 
@@ -39,6 +40,13 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // -- Unified credit check + deduction --------------------------------------
+  const credit = await checkAndDeductCredits(userId, 'SENTINEL_REVIEW')
+  if (!credit.ok) {
+    return NextResponse.json(credit, { status: 402 })
+  }
+  // --------------------------------------------------------------------------
 
   try {
     const body = await req.json().catch(() => ({}))
@@ -125,7 +133,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ sentinelReview })
+    return NextResponse.json({ sentinelReview, creditsRemaining: credit.creditsRemaining })
   } catch (err: any) {
     console.error('[sentinel-review POST]', err)
     return NextResponse.json({ error: err.message || 'Review failed' }, { status: 500 })

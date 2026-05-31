@@ -89,6 +89,7 @@ export default function NewCampaignPage() {
 
       const { id: campaignId } = await saveRes.json()
 
+      // Kick off generation (async — user proceeds to campaign detail)
       fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -96,6 +97,15 @@ export default function NewCampaignPage() {
           Authorization: authHeader(),
         },
         body: JSON.stringify({ campaignId }),
+      }).then(async res => {
+        if (res.status === 402) {
+          const d = await res.json().catch(() => ({}))
+          // Surface credit error on the create page if we're still here
+          if (d.error === 'INSUFFICIENT_CREDITS') {
+            setSaving(false)
+            setError(`Not enough credits to generate strategy (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade your plan.`)
+          }
+        }
       }).catch(() => {})
 
       router.push(`/campaigns/${campaignId}?generating=true`)

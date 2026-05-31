@@ -107,7 +107,7 @@ export default function RunFullStrategyModal({ isOpen, onClose }: Props) {
 
         if (!ok || data.error) {
           setResult(data)
-          if (data.error === 'CREDITS_EXHAUSTED') {
+          if (data.error === 'INSUFFICIENT_CREDITS' || data.error === 'CREDITS_EXHAUSTED') {
             setPhase('credits')
           } else if (data.error === 'NO_BRAND_PROFILE' || data.error === 'NO_WORKSPACE') {
             setPhase('no_brand')

@@ -14,6 +14,7 @@ import {
   CampaignContext,
   AssetItem,
 } from '@/lib/agents/visual-director'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 type Params = { params: { id: string } }
 
@@ -45,6 +46,13 @@ export async function GET(req: NextRequest, { params }: Params) {
 export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // -- Unified credit check + deduction --------------------------------------
+  const credit = await checkAndDeductCredits(userId, 'CREATIVE_BRIEF')
+  if (!credit.ok) {
+    return NextResponse.json(credit, { status: 402 })
+  }
+  // --------------------------------------------------------------------------
 
   try {
     const body = await req.json()
@@ -160,7 +168,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       },
     }).catch(() => {})
 
-    return NextResponse.json({ creativeBrief, creativeMode: mode })
+    return NextResponse.json({ creativeBrief, creativeMode: mode, creditsRemaining: credit.creditsRemaining })
   } catch (err: any) {
     console.error('[creative-brief POST]', err)
     return NextResponse.json({ error: err.message || 'Generation failed' }, { status: 500 })

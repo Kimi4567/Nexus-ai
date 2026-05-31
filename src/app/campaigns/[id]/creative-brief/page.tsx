@@ -225,6 +225,8 @@ export default function CreativeBriefPage() {
       const d = await res.json()
       if (d.creativeBrief) {
         setCreativeBrief(d.creativeBrief)
+      } else if (d.error === 'INSUFFICIENT_CREDITS') {
+        setError(`Not enough credits (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade your plan to continue.`)
       } else {
         setError(d.error || 'Generation failed')
       }

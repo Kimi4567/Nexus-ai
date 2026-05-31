@@ -3,12 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
-import { sendCreditsLowEmail } from '@/lib/email/resend'
-
-const LOW_CREDITS_THRESHOLD = 10 // warn when exactly 1 generation left
-
-const CREDITS_PER_GENERATION = 10
-const FREE_CREDITS = 30 // 3 free generations for new users
+import { checkAndDeductCredits } from '@/lib/credits'
 
 // Simple in-memory rate limiter per user (MVP)
 const RATE_WINDOW_MS = 60_000
@@ -29,39 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
   }
 
-  // ── Credit check ────────────────────────────────────────────
-  let dbUser = await prisma.user.findUnique({ where: { id: userId } })
-
-  // Give free credits to brand new users (first generation ever)
-  if (dbUser && dbUser.aiCredits === 0 && dbUser.subscriptionStatus === 'FREE') {
-    const usageCount = await prisma.usage.aggregate({
-      where: { userId },
-      _sum: { generationsCount: true },
-    })
-    const totalGenerations = usageCount._sum.generationsCount || 0
-
-    if (totalGenerations === 0) {
-      // First time user — grant free starter credits
-      dbUser = await prisma.user.update({
-        where: { id: userId },
-        data: { aiCredits: FREE_CREDITS },
-      })
-    }
+  // ── Unified credit check + deduction ────────────────────────────────────────
+  const credit = await checkAndDeductCredits(userId, 'CAMPAIGN_GENERATION')
+  if (!credit.ok) {
+    return NextResponse.json(credit, { status: 402 })
   }
-
-  const currentCredits = dbUser?.aiCredits || 0
-  const isPaidUser = dbUser?.subscriptionStatus === 'ACTIVE'
-
-  // Block free users with no credits
-  if (!isPaidUser && currentCredits < CREDITS_PER_GENERATION) {
-    return NextResponse.json({
-      error: 'NO_CREDITS',
-      message: 'You have used all your free AI credits. Upgrade to continue generating campaigns.',
-      creditsRemaining: currentCredits,
-      upgradeUrl: '/billing',
-    }, { status: 402 })
-  }
-  // ────────────────────────────────────────────────────────────
+  // ────────────────────────────────────────────────────────────────────────────
 
   const body = await req.json()
   const { campaignId, language } = body
@@ -105,31 +73,13 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Deduct credits — unlimited for paid users
-    if (!isPaidUser) {
-      const newCredits = Math.max(0, currentCredits - CREDITS_PER_GENERATION)
-      await prisma.user.update({ where: { id: userId }, data: { aiCredits: newCredits } })
-
-      // Fire credits-low warning email (non-blocking) when exactly 1 generation left
-      if (newCredits === LOW_CREDITS_THRESHOLD && dbUser?.email) {
-        sendCreditsLowEmail(dbUser.email, dbUser.name || dbUser.email.split('@')[0], newCredits)
-          .catch(e => console.error('[Credits low email] Failed:', e.message))
-      }
-    }
-
-    // Record usage always
-    const nowDate = new Date()
-    const month = nowDate.getMonth() + 1
-    const year = nowDate.getFullYear()
-    await prisma.usage.upsert({
-      where: { userId_month_year: { userId, month, year } as any },
-      update: { aiCreditsUsed: { increment: CREDITS_PER_GENERATION }, generationsCount: { increment: 1 } as any },
-      create: { userId, month, year, aiCreditsUsed: CREDITS_PER_GENERATION, generationsCount: 1 },
+    return NextResponse.json({
+      strategy,
+      concepts,
+      genStrategy,
+      genConcepts,
+      creditsRemaining: credit.creditsRemaining,
     })
-
-    const creditsRemaining = isPaidUser ? -1 : Math.max(0, currentCredits - CREDITS_PER_GENERATION)
-
-    return NextResponse.json({ strategy, concepts, genStrategy, genConcepts, creditsRemaining })
   } catch (error) {
     console.error('Generate failed:', error)
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 })

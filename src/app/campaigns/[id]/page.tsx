@@ -274,6 +274,9 @@ export default function CampaignDetailPage() {
           return { ...prev, aiOutput: { ...existing, sentinelReview: d.sentinelReview } }
         })
         setSentinelState('done')
+      } else if (d.error === 'INSUFFICIENT_CREDITS') {
+        setSentinelError(`Not enough credits (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade to continue.`)
+        setSentinelState('idle')
       } else {
         setSentinelError(d.error || 'Review failed')
         setSentinelState('idle')
