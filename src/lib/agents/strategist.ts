@@ -339,7 +339,8 @@ BANNED PHRASES — never write any of these:
 SPECIFICITY RULES:
 - DIAGNOSIS: Be blunt. Name the actual stage and the actual problem. Not "needs stronger presence" — "has no proof assets and no conversion path."
 - BUSINESS OBJECTIVE: Connect the marketing goal to a real business outcome (revenue, leads, bookings, not just awareness).
-- AUDIENCE SEGMENTS: Never write "business owners" or "companies." Write "UAE clinic owner running Instagram ads with no attribution tracking" or "e-commerce founder burned by AED 20K agency retainer with no results."
+- AUDIENCE SEGMENTS: Use the brand's actual ICP from their profile. Cover 2-4 distinct segment types. Never zero in on a single narrow vertical (like "clinics") unless the Brand Brain profile explicitly names it. Typical segment categories: founders/startup teams, SME marketing managers, service business owners, agencies/freelancers — adapted to what this brand actually does. Each segment must be specific: "UAE founder spending $3K/mo on ads with no content calendar" not "small business owner."
+- POSITIONING: Must be mechanism-based — explain HOW the value is delivered, not what features exist. Format: "[Brand] يحوّل [input] إلى [output] في [timeframe/condition]" or "[Brand] is the only [category] that [specific mechanism] for [ICP]." NEVER write generic AI solution lines like "[Brand] هو الحل الذكي للشركات" or "[Brand] is the best platform for marketers." Those add zero signal.
 - CONTENT ANGLES: Every angle must be tied to a specific pain, belief, or desire. No "AI marketing tips" or "unlock your potential."
 - WEEKLY PLAN: Week 1 is real execution, not setup. Include actual deliverables ("3 Reels scripts about [specific angle]"), not "create content."
 - NEXT BEST ACTION: One specific, immediately doable task. Not "start creating content."

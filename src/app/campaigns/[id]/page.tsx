@@ -968,6 +968,17 @@ export default function CampaignDetailPage() {
               <div className="space-y-4">
                 <AgentBanner idx={0} />
 
+                {/* ── Next Best Action — pinned at top for instant scannability ── */}
+                {strategy.nextBestAction && (
+                  <div className="bg-accent/10 border-2 border-accent/40 rounded-2xl p-4 flex items-start gap-3">
+                    <span className="text-2xl flex-shrink-0">🚀</span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-accent uppercase tracking-widest font-bold mb-1">{cdT?.nextActionBannerLabel || 'Next Action'}</p>
+                      <p className="text-white text-sm font-semibold leading-relaxed">{strategy.nextBestAction}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Diagnosis — first section, sets the stage */}
                 {strategy.diagnosis && (
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-6">
@@ -1436,6 +1447,15 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* ── Section group: Execution Prep ── */}
+                {(assetRequirements || adSetupPlan || strategy.executionChecklist?.length > 0) && (
+                  <div className="flex items-center gap-3 pt-2">
+                    <div className="flex-1 h-px bg-dark-tertiary" />
+                    <span className="text-[10px] text-gray-600 uppercase tracking-widest font-semibold whitespace-nowrap">{cdT?.sectionGroupExecution || 'Execution Prep'}</span>
+                    <div className="flex-1 h-px bg-dark-tertiary" />
+                  </div>
+                )}
+
                 {/* Asset Requirements (Sprint M) */}
                 {assetRequirements && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
@@ -1561,6 +1581,15 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* ── Section group: Readiness & Compliance ── */}
+                {(readinessChecklist.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0) && (
+                  <div className="flex items-center gap-3 pt-2">
+                    <div className="flex-1 h-px bg-dark-tertiary" />
+                    <span className="text-[10px] text-gray-600 uppercase tracking-widest font-semibold whitespace-nowrap">{cdT?.sectionGroupReadiness || 'Readiness & Compliance'}</span>
+                    <div className="flex-1 h-px bg-dark-tertiary" />
+                  </div>
+                )}
+
                 {/* Readiness Checklist (Sprint M) — actionable */}
                 {readinessChecklist.length > 0 && (
                   <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
@@ -1585,20 +1614,20 @@ export default function CampaignDetailPage() {
                             {item.done ? (
                               <span className="ml-auto text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
                             ) : isBrandBrain ? (
-                              <Link href="/brand" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition whitespace-nowrap">→ Brand</Link>
+                              <Link href="/brand" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition whitespace-nowrap">{cdT?.readinessActionBrand || '→ Brand'}</Link>
                             ) : isAssets ? (
-                              <Link href="/media" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition whitespace-nowrap">→ Media</Link>
+                              <Link href="/media" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition whitespace-nowrap">{cdT?.readinessActionMedia || '→ Media'}</Link>
                             ) : isSentinel ? (
                               <button onClick={handleSentinelReview} disabled={sentinelState === 'reviewing'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {sentinelState === 'reviewing' ? '⏳' : '→ Review'}
+                                {sentinelState === 'reviewing' ? (cdT?.readinessActionReviewing || '⏳') : (cdT?.readinessActionReview || '→ Review')}
                               </button>
                             ) : isCalendar ? (
                               <button onClick={() => handlePushToCalendar(false)} disabled={calendarPushState === 'pushing'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {calendarPushState === 'pushing' ? '⏳' : '→ Push'}
+                                {calendarPushState === 'pushing' ? (cdT?.readinessActionPushing || '⏳') : (cdT?.readinessActionPush || '→ Push')}
                               </button>
                             ) : isApproval ? (
                               <button onClick={handleApprove} disabled={approvalState === 'approving' || approvalState === 'done'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {approvalState === 'done' ? '✓' : '→ Approve'}
+                                {approvalState === 'done' ? '✓' : (cdT?.readinessActionApprove || '→ Approve')}
                               </button>
                             ) : null}
                           </div>
