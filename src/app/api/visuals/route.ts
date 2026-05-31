@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     const where: any = {
       workspaceId: workspace.id,
       isArchived: false,
-      status: { not: 'ARCHIVED' },
+      // Only return visuals with a usable image — skip FAILED/GENERATING records
+      status: 'COMPLETED',
     }
     if (campaignId) where.campaignId = campaignId
 
