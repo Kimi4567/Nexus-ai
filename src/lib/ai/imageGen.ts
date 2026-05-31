@@ -100,8 +100,9 @@ export function buildImagePrompt(ctx: VisualContext): string {
 }
 
 /**
- * Generate image via DALL-E 3. Returns the image URL.
- * Caller is responsible for persisting to Cloudinary.
+ * Generate image via gpt-image-1 (replaces dall-e-3 which was deprecated).
+ * Returns a data URI (base64 PNG) — gpt-image-1 no longer returns hosted URLs.
+ * Caller should upload the data URI to Cloudinary for permanent storage.
  */
 export async function generateWithDallE(prompt: string): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY
@@ -114,25 +115,27 @@ export async function generateWithDallE(prompt: string): Promise<string> {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
+      model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1792x1024',  // wide format, best for hero/marketing
-      quality: 'standard', // 'hd' costs 2x — use standard for MVP
-      // style: 'vivid' removed — causes 'Unknown parameter: style' error in current API
+      size: '1536x1024',  // wide landscape — gpt-image-1 supported: 1024x1024, 1024x1536, 1536x1024
+      quality: 'medium',  // low | medium | high | auto
     }),
   })
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
-    throw new Error(err?.error?.message || `DALL-E API error: ${response.status}`)
+    throw new Error(err?.error?.message || `Image generation API error: ${response.status}`)
   }
 
   const data = await response.json()
-  const imageUrl = data?.data?.[0]?.url
-  if (!imageUrl) throw new Error('DALL-E returned no image URL')
 
-  return imageUrl
+  // gpt-image-1 returns b64_json, not a URL
+  const b64 = data?.data?.[0]?.b64_json
+  if (!b64) throw new Error('Image generation returned no image data')
+
+  // Return as data URI — uploadToCloudinary accepts data URIs as the file parameter
+  return `data:image/png;base64,${b64}`
 }
 
 /**
@@ -145,8 +148,9 @@ export async function uploadToCloudinary(imageUrl: string, publicId: string): Pr
   const apiSecret = process.env.CLOUDINARY_API_SECRET
 
   if (!cloudName || !apiKey || !apiSecret) {
-    // If Cloudinary not configured, return the DALL-E URL directly (temporary)
-    console.warn('[imageGen] Cloudinary not configured — returning DALL-E URL directly')
+    // Cloudinary not configured — if it's a data URI we can't store it long-term
+    // but for local dev this allows the feature to work without Cloudinary
+    console.warn('[imageGen] Cloudinary not configured — image will be ephemeral')
     return imageUrl
   }
 
@@ -175,7 +179,9 @@ export async function uploadToCloudinary(imageUrl: string, publicId: string): Pr
   )
 
   if (!uploadRes.ok) {
-    console.error('[imageGen] Cloudinary upload failed — falling back to DALL-E URL')
+    const cloudErr = await uploadRes.json().catch(() => ({}))
+    console.error('[imageGen] Cloudinary upload failed:', cloudErr)
+    // Fall back to data URI — client can still render it, but it won't persist permanently
     return imageUrl
   }
 
