@@ -46,7 +46,9 @@ export async function POST(req: Request) {
     }
 
     const timestamp = Math.floor(Date.now() / 1000)
-    const paramsToSign = `folder=${folder}&resource_type=${resourceType}&timestamp=${timestamp}`
+    // resource_type is specified in the upload URL path, NOT in the signed params.
+    // Including it here causes "Invalid Signature" errors.
+    const paramsToSign = `folder=${folder}&timestamp=${timestamp}`
     const signature = crypto.createHash('sha1').update(paramsToSign + process.env.CLOUDINARY_API_SECRET).digest('hex')
 
     return NextResponse.json({

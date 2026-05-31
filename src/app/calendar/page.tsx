@@ -21,7 +21,10 @@ type CalendarPost = {
   type: string
   topic: string
   hook?: string
+  caption?: string
   cta?: string
+  visualNote?: string
+  source?: 'campaign_ai_output' | 'legacy'
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -104,47 +107,135 @@ function resolveDayOffset(raw: string | number): number {
   return 0
 }
 
-/** Extract CalendarPost[] from a single campaign's aiOutput */
+/** Extract CalendarPost[] from a single campaign's aiOutput.
+ *  Priority:
+ *  1. aiOutput.calendarItems — Sprint H pushed items with absolute dates
+ *  2. aiOutput.contentCalendar / aiOutput.strategy.contentCalendar (flat array with week/posts)
+ *  3. Legacy: aiOutput.strategy.contentCalendar.weeks (old nested format)
+ */
 function extractPostsFromCampaign(campaign: any, colorIndex: number): CalendarPost[] {
   const aiOutput = campaign.aiOutput
-  if (!aiOutput?.strategy?.contentCalendar?.weeks) return []
+  if (!aiOutput) return []
 
   const color = CAMPAIGN_COLORS[colorIndex % CAMPAIGN_COLORS.length]
-  const createdAt = new Date(campaign.createdAt)
-  const weekStart = getMondayOfWeek(createdAt)   // Monday of campaign-creation week
-
+  const campaignName = campaign.title || campaign.name || 'Campaign'
   const posts: CalendarPost[] = []
 
-  aiOutput.strategy.contentCalendar.weeks.forEach((week: any, weekIdx: number) => {
-    if (!Array.isArray(week.posts)) return
-
-    week.posts.forEach((post: any, postIdx: number) => {
-      const dayOffset  = resolveDayOffset(post.day ?? post.dayOfWeek ?? 1)
-      const weekOffset = weekIdx * 7
-      const postDate   = new Date(weekStart)
-      postDate.setDate(postDate.getDate() + weekOffset + dayOffset)
-
-      const platform = post.platform || campaign.platform || 'Instagram'
-
+  // ── PATH 1: Sprint H pushed items (absolute dates already stored) ──────────
+  const calendarItems: any[] = aiOutput.calendarItems || []
+  if (calendarItems.length > 0) {
+    calendarItems.forEach((item: any) => {
+      if (!item.date) return
+      const d = new Date(item.date + 'T00:00:00')
+      if (isNaN(d.getTime())) return
+      const platform = normaliseplatform(item.platform)
       posts.push({
-        id:            `${campaign.id}-w${weekIdx}-p${postIdx}`,
+        id:            item.id || `${campaign.id}-ci-${posts.length}`,
         campaignId:    campaign.id,
-        campaignName:  campaign.title || campaign.name || 'Campaign',
+        campaignName,
         campaignColor: color.dot,
-        date:          postDate.toISOString().slice(0, 10),
-        day:           postDate.getDate(),
-        month:         postDate.getMonth(),
-        year:          postDate.getFullYear(),
+        date:          item.date,
+        day:           d.getDate(),
+        month:         d.getMonth(),
+        year:          d.getFullYear(),
         platform,
-        type:          post.type || post.contentType || 'Post',
-        topic:         post.topic || post.title || post.content || 'Content',
-        hook:          post.hook,
-        cta:           post.cta,
+        type:          item.contentType || 'Post',
+        topic:         item.topic || item.title || 'Content',
+        hook:          item.hook,
+        caption:       item.caption,
+        cta:           item.cta,
+        visualNote:    item.visualNote,
+        source:        'campaign_ai_output',
       })
     })
-  })
+    return posts
+  }
+
+  // ── PATH 2: Flat contentCalendar array (AI output format) ─────────────────
+  const flatCalendar: any[] = aiOutput.contentCalendar || aiOutput.strategy?.contentCalendar || []
+  if (Array.isArray(flatCalendar) && flatCalendar.length > 0 && flatCalendar[0]?.posts) {
+    const createdAt = new Date(campaign.createdAt)
+    const weekStart = getMondayOfWeek(createdAt)
+
+    flatCalendar.forEach((weekObj: any, weekIdx: number) => {
+      if (!Array.isArray(weekObj.posts)) return
+      weekObj.posts.forEach((post: any, postIdx: number) => {
+        const dayOffset  = resolveDayOffset(post.day ?? post.dayOfWeek ?? 1)
+        const weekOffset = weekIdx * 7
+        const postDate   = new Date(weekStart)
+        postDate.setDate(postDate.getDate() + weekOffset + dayOffset)
+        const platform = normaliseplatform(post.platform)
+        posts.push({
+          id:            `${campaign.id}-fc${weekIdx}-p${postIdx}`,
+          campaignId:    campaign.id,
+          campaignName,
+          campaignColor: color.dot,
+          date:          postDate.toISOString().slice(0, 10),
+          day:           postDate.getDate(),
+          month:         postDate.getMonth(),
+          year:          postDate.getFullYear(),
+          platform,
+          type:          post.type || post.contentType || 'Post',
+          topic:         post.topic || post.title || post.content || 'Content',
+          hook:          post.hook,
+          caption:       post.caption || post.content,
+          cta:           post.cta,
+          visualNote:    post.visual || post.visualNote,
+          source:        'legacy',
+        })
+      })
+    })
+    if (posts.length > 0) return posts
+  }
+
+  // ── PATH 3: Legacy nested format ───────────────────────────────────────────
+  const weeks: any[] = aiOutput.strategy?.contentCalendar?.weeks || []
+  if (weeks.length > 0) {
+    const createdAt = new Date(campaign.createdAt)
+    const weekStart = getMondayOfWeek(createdAt)
+
+    weeks.forEach((week: any, weekIdx: number) => {
+      if (!Array.isArray(week.posts)) return
+      week.posts.forEach((post: any, postIdx: number) => {
+        const dayOffset  = resolveDayOffset(post.day ?? post.dayOfWeek ?? 1)
+        const weekOffset = weekIdx * 7
+        const postDate   = new Date(weekStart)
+        postDate.setDate(postDate.getDate() + weekOffset + dayOffset)
+        const platform = normaliseplatform(post.platform)
+        posts.push({
+          id:            `${campaign.id}-w${weekIdx}-p${postIdx}`,
+          campaignId:    campaign.id,
+          campaignName,
+          campaignColor: color.dot,
+          date:          postDate.toISOString().slice(0, 10),
+          day:           postDate.getDate(),
+          month:         postDate.getMonth(),
+          year:          postDate.getFullYear(),
+          platform,
+          type:          post.type || post.contentType || 'Post',
+          topic:         post.topic || post.title || post.content || 'Content',
+          hook:          post.hook,
+          caption:       post.caption,
+          cta:           post.cta,
+          source:        'legacy',
+        })
+      })
+    })
+  }
 
   return posts
+}
+
+/** Normalise platform strings to a display-friendly form */
+function normaliseplatform(raw: string | undefined): string {
+  if (!raw) return 'Instagram'
+  const map: Record<string, string> = {
+    instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn',
+    tiktok: 'TikTok', twitter: 'Twitter', youtube: 'YouTube',
+    youtube_shorts: 'YouTube', snapchat: 'Snapchat', pinterest: 'Pinterest',
+    general: 'Instagram',
+  }
+  return map[raw.toLowerCase()] || raw
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -401,6 +492,13 @@ export default function CalendarPage() {
                           </p>
                         )}
 
+                        {/* Caption */}
+                        {post.caption && (
+                          <p className="text-[11px] text-gray-500 leading-relaxed mb-1 line-clamp-2">
+                            {post.caption}
+                          </p>
+                        )}
+
                         {/* CTA */}
                         {post.cta && (
                           <p className="text-[11px] text-accent font-medium">
@@ -408,16 +506,28 @@ export default function CalendarPage() {
                           </p>
                         )}
 
-                        {/* Campaign link */}
+                        {/* Visual note */}
+                        {post.visualNote && (
+                          <p className="text-[10px] text-purple-400/70 mt-1">
+                            🎨 {post.visualNote}
+                          </p>
+                        )}
+
+                        {/* Campaign link + pushed badge */}
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-dark-tertiary">
                           <span className="text-[10px] text-gray-600 flex items-center gap-1">
                             <span className="w-2 h-2 rounded-full inline-block"
                               style={{ background: post.campaignColor }} />
                             {post.campaignName}
+                            {post.source === 'campaign_ai_output' && (
+                              <span className="ml-1 px-1 rounded bg-cyan-500/15 text-cyan-500 text-[9px] font-semibold">
+                                {calT?.calendarCampaignBadge as string || 'Campaign'}
+                              </span>
+                            )}
                           </span>
                           <Link href={`/campaigns/${post.campaignId}`}
                             className="text-[10px] text-accent hover:underline">
-                            View →
+                            {calT?.calendarViewCampaign as string || 'View'} →
                           </Link>
                         </div>
                       </div>

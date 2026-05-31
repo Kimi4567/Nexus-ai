@@ -129,6 +129,10 @@ export default function CampaignDetailPage() {
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
+  // Sprint H — Push to Calendar
+  const [calendarPushState, setCalendarPushState] = useState<'idle' | 'pushing' | 'done' | 'already'>('idle')
+  const [calendarPushCount, setCalendarPushCount] = useState(0)
+  const [calendarPushError, setCalendarPushError] = useState('')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // Unified product agent tabs
@@ -280,6 +284,43 @@ export default function CampaignDetailPage() {
     }
   }
 
+  // Sprint H — Push to Calendar
+  const handlePushToCalendar = async (force = false) => {
+    const token = authHeader()
+    if (!token || !campaign) return
+    setCalendarPushState('pushing')
+    setCalendarPushError('')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/push-to-calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ force }),
+      })
+      const d = await res.json()
+      if (d.alreadyPushed && !force) {
+        setCalendarPushCount(d.count ?? 0)
+        setCalendarPushState('already')
+      } else if (d.success) {
+        setCalendarPushCount(d.count ?? 0)
+        setCalendarPushState('done')
+        // Update local aiOutput with calendarPushedAt
+        setCampaign(prev => prev ? {
+          ...prev,
+          aiOutput: { ...(prev.aiOutput as any), calendarPushedAt: d.pushedAt }
+        } : prev)
+      } else if (d.error === 'NO_CONTENT_CALENDAR') {
+        setCalendarPushError(cdT?.pushCalendarNoContent || 'No content calendar found. Run Full Strategy first.')
+        setCalendarPushState('idle')
+      } else {
+        setCalendarPushError(d.error || cdT?.pushCalendarFailed || 'Push failed. Please try again.')
+        setCalendarPushState('idle')
+      }
+    } catch {
+      setCalendarPushError(cdT?.pushCalendarFailed || 'Push failed. Please try again.')
+      setCalendarPushState('idle')
+    }
+  }
+
   if (loading || fetching) {
     return (
       <AppShell>
@@ -325,6 +366,14 @@ export default function CampaignDetailPage() {
   const sentinelReview = aiOutput?.sentinelReview || null
   const sentinelStatus: 'not_reviewed' | 'passed' | 'needs_attention' =
     sentinelReview ? sentinelReview.status : 'not_reviewed'
+  // Sprint H — calendar push state from stored aiOutput
+  const storedCalendarPushedAt: string | null = aiOutput?.calendarPushedAt || null
+  const storedCalendarCount: number = (aiOutput?.calendarItems ?? []).length
+  const hasContentCalendar: boolean =
+    (aiOutput?.contentCalendar?.length > 0) ||
+    (aiOutput?.strategy?.contentCalendar?.length > 0) ||
+    (aiOutput?.strategy?.weeklyPlan?.length > 0) ||
+    (aiOutput?.strategy?.contentPillars?.length > 0)
 
   const visualContext = {
     campaignId: campaign.id,
@@ -501,9 +550,77 @@ export default function CampaignDetailPage() {
                       {approvalState === 'approving' ? '...' : (cdT?.stepApproveCampaign || '✅ Approve for Execution')}
                     </button>
                   )}
-                  <button disabled className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-700 text-xs font-semibold cursor-not-allowed opacity-40 text-left">
-                    {cdT?.stepCalendarSoon || '📅 Calendar — Coming Soon'}
-                  </button>
+                  {/* Push to Calendar — Sprint H */}
+                  {calendarPushState === 'done' || (calendarPushState === 'idle' && storedCalendarPushedAt) ? (
+                    <div className="space-y-1">
+                      <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/8 text-cyan-400 text-xs font-semibold">
+                        {cdT?.pushCalendarSuccess?.replace('{count}', String(calendarPushState === 'done' ? calendarPushCount : storedCalendarCount)) || `✅ ${calendarPushState === 'done' ? calendarPushCount : storedCalendarCount} items pushed`}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link href="/calendar" className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-cyan-500/20 text-cyan-500 text-xs font-semibold hover:bg-cyan-500/10 transition">
+                          {cdT?.pushCalendarOpenLink || '→ Open Calendar'}
+                        </Link>
+                        <button
+                          onClick={() => handlePushToCalendar(true)}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-dark-tertiary text-gray-500 text-xs hover:text-gray-300 transition"
+                        >
+                          {cdT?.pushCalendarRepush || 'Re-push'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : calendarPushState === 'already' ? (
+                    <div className="space-y-1">
+                      <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/8 text-cyan-400 text-xs font-semibold">
+                        {cdT?.pushCalendarAlready || '✅ Already on calendar'}
+                        <span className="ml-auto text-cyan-600 font-normal">{calendarPushCount} items</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link href="/calendar" className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-cyan-500/20 text-cyan-500 text-xs font-semibold hover:bg-cyan-500/10 transition">
+                          {cdT?.pushCalendarOpenLink || '→ Open Calendar'}
+                        </Link>
+                        <button
+                          onClick={() => handlePushToCalendar(true)}
+                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-dark-tertiary text-gray-500 text-xs hover:text-gray-300 transition"
+                        >
+                          {cdT?.pushCalendarRepush || 'Re-push'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {/* Sentinel warning */}
+                      {sentinelStatus === 'not_reviewed' && (
+                        <p className="text-amber-500/70 text-xs px-1">{cdT?.pushCalendarSentinelWarn || '⚠ Sentinel review not complete.'}</p>
+                      )}
+                      {/* Approval warning */}
+                      {campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
+                        <p className="text-gray-600 text-xs px-1">{cdT?.pushCalendarApprovalWarn || '⚠ Campaign not yet approved.'}</p>
+                      )}
+                      <button
+                        onClick={() => handlePushToCalendar(false)}
+                        disabled={calendarPushState === 'pushing' || !hasContentCalendar}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition text-left disabled:opacity-50 ${
+                          hasContentCalendar
+                            ? 'border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/15'
+                            : 'border-dark-tertiary text-gray-600 cursor-not-allowed'
+                        }`}
+                      >
+                        {calendarPushState === 'pushing'
+                          ? (cdT?.pushCalendarPushing || '⏳ Pushing...')
+                          : (cdT?.stepPushCalendar || '📅 Push to Calendar')
+                        }
+                        {hasContentCalendar && calendarPushState !== 'pushing' && (
+                          <span className="ml-auto text-cyan-600 text-xs">→</span>
+                        )}
+                      </button>
+                      {calendarPushError && (
+                        <p className="text-red-400 text-xs px-1">{calendarPushError}</p>
+                      )}
+                      {!hasContentCalendar && (
+                        <p className="text-gray-600 text-xs px-1">{cdT?.pushCalendarNoContent || 'Run Full Strategy first to enable.'}</p>
+                      )}
+                    </div>
+                  )}
                   <button disabled className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-700 text-xs font-semibold cursor-not-allowed opacity-40 text-left">
                     {cdT?.stepAdsSoon || '🎯 Ad Campaign — Coming Soon'}
                   </button>

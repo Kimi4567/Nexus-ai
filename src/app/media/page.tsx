@@ -99,6 +99,19 @@ interface MediaRecord {
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || ''
 
+// Returns an MP4-transcoded Cloudinary URL for browser-compatible video playback.
+// MOV/QuickTime files are not playable inline in browsers — Cloudinary can transcode
+// them to MP4 on-the-fly via the f_mp4 transformation parameter.
+function getVideoPlaybackUrl(media: MediaRecord): { src: string; type: string } {
+  if (media.cloudinaryId && CLOUD_NAME) {
+    return {
+      src: `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/f_mp4,q_auto/${media.cloudinaryId}`,
+      type: 'video/mp4',
+    }
+  }
+  return { src: media.url, type: media.mimeType }
+}
+
 // ── Preview Modal ──────────────────────────────────────────────────────────────
 function PreviewModal({
   media,
@@ -151,20 +164,24 @@ function PreviewModal({
               className="max-w-full max-h-[70vh] object-contain"
             />
           )}
-          {isVideo && (
-            <video
-              controls
-              autoPlay={false}
-              className="max-w-full max-h-[70vh]"
-              poster={
-                media.cloudinaryId && CLOUD_NAME
-                  ? `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${media.cloudinaryId}.jpg`
-                  : undefined
-              }
-            >
-              <source src={media.url} type={media.mimeType} />
-            </video>
-          )}
+          {isVideo && (() => {
+            const { src, type } = getVideoPlaybackUrl(media)
+            return (
+              <video
+                key={src}
+                controls
+                autoPlay={false}
+                className="max-w-full max-h-[70vh]"
+                poster={
+                  media.cloudinaryId && CLOUD_NAME
+                    ? `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/so_0/${media.cloudinaryId}.jpg`
+                    : undefined
+                }
+              >
+                <source src={src} type={type} />
+              </video>
+            )
+          })()}
           {!isImage && !isVideo && (
             <div className="text-gray-400 text-sm p-8">{media.fileName}</div>
           )}
@@ -276,11 +293,11 @@ function MediaCard({
             preload="metadata"
             poster={
               media.cloudinaryId && CLOUD_NAME
-                ? `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${media.cloudinaryId}.jpg`
+                ? `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/so_0/${media.cloudinaryId}.jpg`
                 : undefined
             }
           >
-            <source src={media.url} type={media.mimeType} />
+            {(() => { const { src, type } = getVideoPlaybackUrl(media); return <source src={src} type={type} /> })()}
           </video>
         ) : (
           <img
