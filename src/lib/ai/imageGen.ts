@@ -99,7 +99,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ],
 }
 
-type BrandCategory =
+export type BrandCategory =
   | 'saas_ai_tech'
   | 'real_estate'
   | 'food_beverage'
@@ -110,7 +110,16 @@ type BrandCategory =
   | 'finance'
   | 'general'
 
-function detectBrandCategory(ctx: VisualContext): BrandCategory {
+export interface BrandDetectionContext {
+  industry?: string
+  brandName?: string
+  campaignName?: string
+  primaryOffer?: string
+  positioning?: string
+  differentiation?: string
+}
+
+export function detectBrandCategory(ctx: BrandDetectionContext): BrandCategory {
   const text = [
     ctx.industry, ctx.brandName, ctx.campaignName, ctx.primaryOffer,
     ctx.positioning, ctx.differentiation,

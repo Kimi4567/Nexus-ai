@@ -39,6 +39,18 @@ export const CREDIT_COSTS = {
    * Route: /api/campaigns/[id]/sentinel-review (POST)
    */
   SENTINEL_REVIEW: 1,
+
+  /**
+   * Video Brief — AI generates brand-aware video concept, storyboard, and script
+   * Route: /api/campaigns/[id]/video-brief (POST)
+   */
+  VIDEO_BRIEF: 2,
+
+  /**
+   * Video Generation — submits to Replicate for actual video rendering
+   * Route: /api/campaigns/[id]/video-generate (POST)
+   */
+  VIDEO_GENERATION: 5,
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS
