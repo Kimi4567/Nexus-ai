@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -20,6 +22,7 @@ const nextConfig = {
       'lucide-react',
       '@radix-ui/react-icons',
     ],
+    instrumentationHook: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
@@ -28,6 +31,16 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   trailingSlash: false,
-};
+}
 
-export default nextConfig;
+// Only wrap with Sentry if DSN is configured — keeps builds clean without setup
+const sentryOptions = {
+  silent: true,            // No console spam during build
+  hideSourceMaps: true,    // Don't expose source maps in client bundle
+  disableLogger: true,
+  widenClientFileUpload: true,
+}
+
+export default process.env.NEXT_PUBLIC_SENTRY_DSN
+  ? withSentryConfig(nextConfig, sentryOptions)
+  : nextConfig

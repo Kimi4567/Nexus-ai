@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
 import { stripe, STRIPE_PRICES } from '@/lib/stripe'
+import { checkoutRateLimit } from '@/lib/rateLimit'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,6 +32,10 @@ export async function POST(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // Rate limit: 5 checkout attempts per minute per user
+  const rl = checkoutRateLimit(user.id)
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
   // ── Parse body ──────────────────────────────────────────────────────────
   let plan: string

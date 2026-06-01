@@ -870,14 +870,14 @@ export default function HomePage() {
                   <p className="text-[16px] sm:text-[18px] text-text-secondary leading-relaxed mb-8">
                     {testimonials[testimonialIdx].quote}
                   </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-bg-elevated flex items-center justify-center text-[18px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-bg-elevated flex items-center justify-center text-[18px] shrink-0">
                         {testimonials[testimonialIdx].icon}
                       </div>
-                      <p className="text-[12px] font-mono text-text-muted">{testimonials[testimonialIdx].label}</p>
+                      <p className="text-[12px] font-mono text-text-muted truncate">{testimonials[testimonialIdx].label}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <button onClick={() => setTestimonialIdx((n) => (n - 1 + testimonials.length) % testimonials.length)}
                         className="p-2 rounded-lg bg-bg-elevated text-text-secondary hover:text-white transition-colors">
                         <ChevronLeft size={16} />
