@@ -1,23 +1,44 @@
 import { MetadataRoute } from 'next'
 
+const BASE_URL = 'https://nexus-grow.com'
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://nexus-grow.com'
-
-  const routes = [
-    '',
-    '/start',
-    '/demo',
-    '/auth/login',
-    '/auth/register',
-    '/auth/forgot-password',
-    '/privacy',
-    '/terms',
-  ].map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date().toISOString(),
-    changeFrequency: 'daily' as const,
-    priority: route === '' ? 1 : 0.8,
-  }))
-
-  return routes
+  return [
+    {
+      url: BASE_URL,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 1.0,
+    },
+    {
+      url: `${BASE_URL}/auth/register`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.9,
+    },
+    {
+      url: `${BASE_URL}/auth/login`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/terms`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
+      url: `${BASE_URL}/refund`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
+  ]
 }

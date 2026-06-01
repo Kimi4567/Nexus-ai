@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Create Account — Nexus AI',
-  description: 'Create your Nexus AI account. Start generating AI-powered marketing campaigns in under 60 seconds.',
+  description: 'Create your NEXUS AI account. Get 15 free AI credits and start building your AI marketing department today.',
   robots: { index: false, follow: false },
 }
 

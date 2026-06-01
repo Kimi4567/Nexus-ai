@@ -6,23 +6,33 @@ import { LanguageProvider } from '@/contexts/LanguageContext'
 export const metadata: Metadata = {
   title: 'NEXUS AI | Your AI Marketing Department',
   description:
-    'Nexus AI generates complete marketing campaigns in 60 seconds — strategy, hooks, scripts, captions, and 30-day content calendar. Your AI marketing department.',
+    'NEXUS AI is your complete AI marketing department — strategy, content, campaigns, analytics, and brand safety in one platform. Start free with 15 AI credits.',
   keywords: [
-    'AI marketing', 'marketing automation', 'campaign generator',
-    'content creation', 'social media marketing', 'AI marketing platform', 'marketing SaaS',
+    'AI marketing', 'marketing automation', 'AI marketing department',
+    'campaign generator', 'content creation', 'social media marketing',
+    'AI marketing platform', 'marketing SaaS', 'Brand Brain',
   ],
   metadataBase: new URL('https://nexus-grow.com'),
   openGraph: {
-    title: 'Nexus AI — Your AI Marketing Department',
-    description: 'Generate complete marketing campaigns in 60 seconds. Strategy, hooks, scripts, captions, and a 30-day content calendar — all powered by AI.',
+    title: 'NEXUS AI — Your AI Marketing Department',
+    description: 'Strategy, content, campaigns, and analytics — in one AI platform. Start free with 15 AI credits, no credit card required.',
     url: 'https://nexus-grow.com',
-    siteName: 'Nexus AI',
+    siteName: 'NEXUS AI',
     type: 'website',
+    images: [
+      {
+        url: '/opengraph-image',
+        width: 1200,
+        height: 630,
+        alt: 'NEXUS AI — Your AI Marketing Department',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Nexus AI — Your AI Marketing Department',
-    description: 'Generate complete marketing campaigns in 60 seconds. Powered by AI.',
+    title: 'NEXUS AI — Your AI Marketing Department',
+    description: 'Strategy, content, campaigns, and analytics — in one AI platform. Start free with 15 AI credits.',
+    images: ['/opengraph-image'],
   },
   robots: { index: true, follow: true },
 }
@@ -30,15 +40,15 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Nexus AI',
+  name: 'NEXUS AI',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   url: 'https://nexus-grow.com',
-  description: 'AI-powered marketing operating system. Generate complete campaigns — strategy, hooks, scripts, captions, and content calendar — in 60 seconds.',
+  description: 'AI-powered marketing operating system. Strategy, content, campaigns, and analytics — all in one platform with full human approval control.',
   offers: {
     '@type': 'AggregateOffer',
     priceCurrency: 'USD',
-    lowPrice: '0',
+    lowPrice: '29',
     highPrice: '199',
     offerCount: '3',
   },
@@ -50,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
