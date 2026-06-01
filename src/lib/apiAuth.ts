@@ -37,16 +37,19 @@ export async function ensureDbUser(req: Request): Promise<{ id: string; email: s
   if (!sbUser?.id || !sbUser?.email) return null
 
   const realEmail = sbUser.email
+  const realName  = (sbUser.user_metadata?.name as string | undefined) || null
 
   try {
     await prisma.user.upsert({
       where: { id: sbUser.id },
-      // Always overwrite placeholder emails; no-op if already correct
-      update: { email: realEmail },
-      create: { id: sbUser.id, email: realEmail },
+      // Always sync real email + name from Supabase Auth metadata
+      update: {
+        email: realEmail,
+        ...(realName ? { name: realName } : {}),
+      },
+      create: { id: sbUser.id, email: realEmail, name: realName },
     })
   } catch (err) {
-    // Don't block the request — DB might have a constraint issue; log and continue
     console.error('[ensureDbUser] upsert failed', err)
   }
 

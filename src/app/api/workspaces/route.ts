@@ -19,11 +19,14 @@ export async function POST(request: NextRequest) {
     // foreign-key constraint error (ownerId references non-existent User).
     await prisma.user.upsert({
       where: { id: user.id },
-      update: user.email ? { email: user.email } : {},
+      update: {
+        ...(user.email ? { email: user.email } : {}),
+        ...(user.name  ? { name:  user.name  } : {}),
+      },
       create: {
-        id: user.id,
+        id:    user.id,
         email: user.email || `${user.id}@placeholder.nexus`,
-        name: user.name || null,
+        name:  user.name  || null,
       },
     })
 
