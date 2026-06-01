@@ -71,6 +71,31 @@ const FIELD_KEY_MAP: RequiredFieldKey[] = [
   'brandName', 'industry', 'description', 'targetAudience', 'topPlatforms',
 ]
 
+// -- Cache helpers -----------------------------------------------------------
+
+const CACHE_KEY = 'nexus_run_strategy_result'
+const CACHE_TTL = 15 * 60 * 1000 // 15 minutes
+
+function saveResultCache(res: RunResult) {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ result: res, ts: Date.now() }))
+  } catch {}
+}
+
+function loadResultCache(): RunResult | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const { result: res, ts } = JSON.parse(raw) as { result: RunResult; ts: number }
+    if (Date.now() - ts > CACHE_TTL) { sessionStorage.removeItem(CACHE_KEY); return null }
+    return res
+  } catch { return null }
+}
+
+function clearResultCache() {
+  try { sessionStorage.removeItem(CACHE_KEY) } catch {}
+}
+
 // -- Component ---------------------------------------------------------------
 
 export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Props) {
@@ -91,6 +116,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // -- Core effect -----------------------------------------------------------
   useEffect(() => {
     if (!isOpen) return
+
+    // ── Check cache first — avoid re-running if user just closed and reopened ──
+    // Only restore a cached successful run; other phases always re-run.
+    const cached = loadResultCache()
+    if (cached?.campaignId) {
+      setResult(cached)
+      setPhase('success')
+      return
+    }
 
     setPhase('running')
     setCurrentStep(0)
@@ -164,6 +198,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   } else {
                     setPhase('success')
                     onSuccess?.()
+                    // Cache the result so reopening the modal shows success
+                    // immediately instead of re-running the strategy API
+                    saveResultCache(d)
                   }
                 }
               }, 600)
@@ -206,6 +243,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key
 
   const retry = () => {
+    clearResultCache()
     setPhase('running')
     setCurrentStep(0)
     setResult(null)
