@@ -39,73 +39,80 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
 
-  const clientKey    = process.env.TIKTOK_CLIENT_KEY!
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET!
-  const redirectUri  = `${baseUrl}/api/social/callback/tiktok`
-
-  // ── Exchange code for access token ────────────────────────────────────────
-  const tokenRes = await fetch('https://open.tiktok.com/v2/oauth/token/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_key:    clientKey,
-      client_secret: clientSecret,
-      code,
-      grant_type:    'authorization_code',
-      redirect_uri:  redirectUri,
-    }),
-  })
-  const tokenData = await tokenRes.json()
-
-  if (!tokenData.access_token) {
-    console.error('[TikTok OAuth] Token exchange failed:', tokenData)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange`)
-  }
-
-  const accessToken  = tokenData.access_token as string
-  const refreshToken = tokenData.refresh_token as string | null
-  const openId       = tokenData.open_id as string          // TikTok user identifier
-  const expiresAt    = tokenData.expires_in
-    ? new Date(Date.now() + tokenData.expires_in * 1000)
-    : null
-
-  // ── Fetch TikTok user info ────────────────────────────────────────────────
-  const profileRes = await fetch(
-    'https://open.tiktok.com/v2/user/info/?fields=open_id,display_name,avatar_url',
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  )
-  const profileData = await profileRes.json()
-  const profile     = profileData.data?.user || {}
-
-  const displayName = profile.display_name || 'TikTok User'
-  const avatarUrl   = profile.avatar_url   || null
-
-  console.log('[TikTok OAuth] userId:', userId, '| openId:', openId, '| name:', displayName)
-
-  // ── Ensure User + Workspace exist ────────────────────────────────────────
-  await prisma.user.upsert({
-    where: { id: userId },
-    create: { id: userId, email: `user-${userId.slice(0, 8)}@nexus.internal`, name: displayName },
-    update: {},
-  }).catch(() => {})
-
-  let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
-  if (!workspace) {
-    const slug     = `workspace-${userId.slice(0, 8)}`
-    const existing = await prisma.workspace.findUnique({ where: { slug } })
-    workspace = await prisma.workspace.create({
-      data: {
-        name:    `${displayName}'s Workspace`,
-        slug:    existing ? `workspace-${userId.slice(0, 12)}-${Date.now()}` : slug,
-        ownerId: userId,
-      },
-    })
-  }
-
-  // ── Upsert Integration ───────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const TK_TYPE = 'TIKTOK' as any
   try {
+    const clientKey    = process.env.TIKTOK_CLIENT_KEY!
+    const clientSecret = process.env.TIKTOK_CLIENT_SECRET!
+    const redirectUri  = `${baseUrl}/api/social/callback/tiktok`
+
+    // ── Exchange code for access token ──────────────────────────────────────
+    const tokenRes = await fetch('https://open.tiktok.com/v2/oauth/token/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_key:    clientKey,
+        client_secret: clientSecret,
+        code,
+        grant_type:    'authorization_code',
+        redirect_uri:  redirectUri,
+      }),
+    })
+    const tokenData = await tokenRes.json()
+    console.log('[TikTok OAuth] Token response:', JSON.stringify(tokenData))
+
+    if (!tokenData.access_token) {
+      console.error('[TikTok OAuth] Token exchange failed:', tokenData)
+      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange`)
+    }
+
+    const accessToken  = tokenData.access_token as string
+    const refreshToken = tokenData.refresh_token as string | null
+    const openId       = tokenData.open_id as string
+    const expiresAt    = tokenData.expires_in
+      ? new Date(Date.now() + tokenData.expires_in * 1000)
+      : null
+
+    // ── Fetch TikTok user info ────────────────────────────────────────────
+    let displayName = 'TikTok User'
+    let avatarUrl: string | null = null
+    try {
+      const profileRes = await fetch(
+        'https://open.tiktok.com/v2/user/info/?fields=open_id,display_name,avatar_url',
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      const profileData = await profileRes.json()
+      console.log('[TikTok OAuth] Profile response:', JSON.stringify(profileData))
+      const profile = profileData.data?.user || {}
+      displayName = profile.display_name || 'TikTok User'
+      avatarUrl   = profile.avatar_url   || null
+    } catch (profileErr) {
+      console.error('[TikTok OAuth] Profile fetch failed (non-fatal):', profileErr)
+    }
+
+    console.log('[TikTok OAuth] userId:', userId, '| openId:', openId, '| name:', displayName)
+
+    // ── Ensure User + Workspace exist ────────────────────────────────────
+    await prisma.user.upsert({
+      where: { id: userId },
+      create: { id: userId, email: `user-${userId.slice(0, 8)}@nexus.internal`, name: displayName },
+      update: {},
+    }).catch((e) => console.error('[TikTok OAuth] User upsert failed:', e))
+
+    let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
+    if (!workspace) {
+      const slug     = `workspace-${userId.slice(0, 8)}`
+      const existing = await prisma.workspace.findUnique({ where: { slug } })
+      workspace = await prisma.workspace.create({
+        data: {
+          name:    `${displayName}'s Workspace`,
+          slug:    existing ? `workspace-${userId.slice(0, 12)}-${Date.now()}` : slug,
+          ownerId: userId,
+        },
+      })
+    }
+
+    // ── Upsert Integration ─────────────────────────────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const TK_TYPE = 'TIKTOK' as any
     await prisma.integration.upsert({
       where: { workspaceId_type: { workspaceId: workspace.id, type: TK_TYPE } },
       create: {
@@ -141,10 +148,11 @@ export async function GET(req: NextRequest) {
       },
     })
     console.log('[TikTok OAuth] Integration saved!')
-  } catch (dbErr) {
-    console.error('[TikTok OAuth] DB upsert failed:', dbErr)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=db_error`)
-  }
 
-  return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=tiktok`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=tiktok`)
+
+  } catch (err) {
+    console.error('[TikTok OAuth] Unhandled error:', err)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=server_error`)
+  }
 }
