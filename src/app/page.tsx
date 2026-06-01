@@ -483,28 +483,6 @@ export default function HomePage() {
       </section>
 
       {/* ══════════════════════════════════════════
-          SOCIAL PROOF STATS BAR
-      ══════════════════════════════════════════ */}
-      <section className="py-10 border-t border-b border-[rgba(255,255,255,0.05)]"
-        style={{ background: 'rgba(108,99,255,0.04)' }}>
-        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-            {[
-              { value: '500+', label: ar ? 'شركة تستخدم المنصة' : 'Businesses using the platform' },
-              { value: '12,000+', label: ar ? 'حملة تسويقية أُنشئت' : 'Marketing campaigns created' },
-              { value: '4.9★', label: ar ? 'تقييم العملاء' : 'Customer rating' },
-              { value: ar ? '< 5 دقائق' : '< 5 min', label: ar ? 'للبدء بأول حملة' : 'To launch your first campaign' },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="font-heading text-[28px] sm:text-[32px] font-black text-white leading-none">{stat.value}</p>
-                <p className="text-[12px] text-text-muted mt-1.5">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
           PROBLEM
       ══════════════════════════════════════════ */}
       <section className="py-24 lg:py-32 border-t border-[rgba(255,255,255,0.04)]">
