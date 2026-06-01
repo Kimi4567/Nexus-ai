@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
 import VideoGenerator from '@/components/VideoGenerator'
+import SocialPublisher from '@/components/SocialPublisher'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 
@@ -145,6 +146,7 @@ export default function CampaignDetailPage() {
     { name: cdT?.agentNexName     || 'NEX',         icon: '✍️', title: cdT?.agentNexTitle,      color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: cdT?.tabContent },
     { name: cdT?.agentPulseName   || 'PULSE',       icon: '⚡', title: cdT?.agentPulseTitle,    color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: cdT?.tabCalendar },
     { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabVisuals },
+    { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
     { name: '',                                      icon: '📋', title: '',                       color: 'text-gray-400',    border: '',                     bg: '',                 label: cdT?.tabActivity },
   ]
 
@@ -2134,8 +2136,22 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* ── Tab 4: Activity ───────────────────────────────────────────── */}
+            {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
+              <div className="bg-dark-secondary border border-green-500/20 rounded-2xl p-6">
+                <SocialPublisher
+                  campaignId={campaign.id}
+                  campaignName={campaign.name}
+                  topHooks={topHooks}
+                  captionFormulas={captionFormulas}
+                  ctaVariations={ctaVariations}
+                  keyMessage={strategy.keyMessage}
+                />
+              </div>
+            )}
+
+            {/* ── Tab 5: Activity ───────────────────────────────────────────── */}
+            {activeTab === 5 && (
               <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><span>📋</span> {cdT?.activityTitle}</h3>
                 {campaign.activities.length === 0 ? (

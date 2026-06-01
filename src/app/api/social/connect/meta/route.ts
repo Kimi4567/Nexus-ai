@@ -31,6 +31,10 @@ export async function GET(req: NextRequest) {
     'email',
     'pages_show_list',
     'pages_read_engagement',
+    'pages_manage_posts',        // required to publish to Facebook pages
+    'pages_manage_engagement',   // required to reply to comments
+    'instagram_basic',           // required to access IG account
+    'instagram_content_publish', // required to publish to Instagram
   ].join(',')
 
   const metaOAuthUrl =
