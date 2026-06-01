@@ -207,8 +207,11 @@ export default function BillingPage() {
 
   const currentPlan = subscriptionStatus?.plan || 'FREE'
   const isActive = subscriptionStatus?.hasActiveSubscription || false
-  const credits = subscriptionStatus?.credits ?? 0
-  const isUnlimited = credits === -1
+  const creditsRaw = subscriptionStatus?.credits
+  const credits = typeof creditsRaw === 'object' && creditsRaw !== null
+    ? (creditsRaw as { remaining: number }).remaining
+    : (creditsRaw as number ?? 0)
+  const isUnlimited = credits === -1 || (subscriptionStatus as { credits?: { max?: number } })?.credits?.max === -1
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
 
   const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(12px)' }
