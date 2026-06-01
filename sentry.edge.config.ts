@@ -1,12 +1,12 @@
 /**
- * Sentry — edge runtime config
- * Install: npm install @sentry/nextjs
+ * Sentry — edge runtime config (stub)
+ * To activate: npm install @sentry/nextjs, then uncomment the code below.
+ *
+ * import * as Sentry from '@sentry/nextjs'
+ * Sentry.init({
+ *   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+ *   tracesSampleRate: 0.1,
+ *   enabled: process.env.NODE_ENV === 'production',
+ * })
  */
-// @ts-ignore — @sentry/nextjs is an optional peer dep; install before enabling
-import * as Sentry from '@sentry/nextjs'
-
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  tracesSampleRate: 0.1,
-  enabled: process.env.NODE_ENV === 'production',
-})
+export {}

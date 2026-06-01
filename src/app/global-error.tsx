@@ -1,11 +1,9 @@
 'use client'
 /**
  * global-error.tsx — catches unhandled errors in the App Router root layout.
- * Reports to Sentry when DSN is configured.
- * Install @sentry/nextjs to enable full Sentry integration.
+ * Logs to console in production. Sentry reporting commented out until
+ * @sentry/nextjs is installed (npm install @sentry/nextjs).
  */
-// @ts-ignore — @sentry/nextjs is an optional peer dep; install before enabling
-import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 
 export default function GlobalError({
@@ -16,9 +14,8 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
-      Sentry.captureException(error)
-    }
+    // TODO: replace with Sentry.captureException(error) after npm install @sentry/nextjs
+    console.error('[GlobalError]', error)
   }, [error])
 
   return (
