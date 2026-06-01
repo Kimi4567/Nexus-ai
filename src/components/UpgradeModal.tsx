@@ -19,7 +19,7 @@ interface Props {
   open: boolean
   onClose: () => void
   /** Why the modal was triggered — shown in headline */
-  reason?: 'no_credits' | 'low_credits' | 'upgrade_cta'
+  reason?: 'no_credits' | 'low_credits' | 'upgrade_cta' | 'first_campaign'
 }
 
 const PLANS = [
@@ -54,13 +54,15 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
   if (!open) return null
 
   const headline =
-    reason === 'no_credits'  ? "You've used all your credits" :
-    reason === 'low_credits' ? "Running low on credits" :
+    reason === 'no_credits'      ? "You've used all your credits" :
+    reason === 'low_credits'     ? "Running low on credits" :
+    reason === 'first_campaign'  ? "🎉 Your campaign is live!" :
     "Unlock the full power of Nexus AI"
 
   const subline =
-    reason === 'no_credits'  ? "Upgrade now to keep generating campaigns, content, and strategies." :
-    reason === 'low_credits' ? "Don't get interrupted mid-campaign. Upgrade for more credits." :
+    reason === 'no_credits'      ? "Upgrade now to keep generating campaigns, content, and strategies." :
+    reason === 'low_credits'     ? "Don't get interrupted mid-campaign. Upgrade for more credits." :
+    reason === 'first_campaign'  ? "You've seen what Nexus AI can do. Upgrade to run unlimited campaigns with deeper AI every month." :
     "Replace your entire marketing team with one AI platform."
 
   const handleUpgrade = async (planId: string) => {

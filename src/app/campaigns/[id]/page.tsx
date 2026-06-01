@@ -13,6 +13,7 @@ import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
+import { useBillingStatus } from '@/lib/useBillingStatus'
 
 interface Activity {
   id: string
@@ -122,9 +123,12 @@ export default function CampaignDetailPage() {
   const searchParams = useSearchParams()
   const campaignId = params?.id as string
   const isGenerating = searchParams?.get('generating') === 'true'
+  // Capture ?new=1 immediately — router.replace() will strip it later
+  const isNewCampaign = searchParams?.get('new') === '1'
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { t, locale } = useI18n()
   const cdT = t('campaignDetail') as Record<string, string>
+  const { isPaid, status: billingStatus } = useBillingStatus()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [fetching, setFetching] = useState(true)
@@ -137,6 +141,7 @@ export default function CampaignDetailPage() {
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [upgradeReason, setUpgradeReason] = useState<'no_credits' | 'first_campaign'>('no_credits')
   // Sprint H — Push to Calendar
   const [calendarPushState, setCalendarPushState] = useState<'idle' | 'pushing' | 'done' | 'already'>('idle')
   const [calendarPushCount, setCalendarPushCount] = useState(0)
@@ -229,6 +234,22 @@ export default function CampaignDetailPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [generating, isAuthenticated, campaignId, fetchCampaign, router])
 
+  // Y3 — post-campaign upgrade nudge
+  // Show after generation completes (or immediately for draft) if user is on free plan
+  useEffect(() => {
+    if (!isNewCampaign) return
+    // Wait for billing status to resolve (avoid showing while loading)
+    if (billingStatus === null) return
+    if (isPaid) return
+    // If still generating: the poll effect will set generating=false, then this runs again
+    if (generating) return
+    const t = setTimeout(() => {
+      setUpgradeReason('first_campaign')
+      setShowUpgrade(true)
+    }, 3000)
+    return () => clearTimeout(t)
+  }, [isNewCampaign, isPaid, billingStatus, generating])
+
   const updateCampaign = async (data: Partial<Campaign>) => {
     const token = authHeader()
     if (!token || !campaign) return
@@ -294,6 +315,7 @@ export default function CampaignDetailPage() {
         })
         setSentinelState('done')
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
+        setUpgradeReason('no_credits')
         setShowUpgrade(true)
         setSentinelState('idle')
       } else {
@@ -2196,7 +2218,7 @@ export default function CampaignDetailPage() {
     <UpgradeModal
       open={showUpgrade}
       onClose={() => setShowUpgrade(false)}
-      reason="no_credits"
+      reason={upgradeReason}
     />
   </>
   )

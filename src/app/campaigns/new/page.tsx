@@ -107,7 +107,7 @@ export default function NewCampaignPage() {
 
       // If Brand Brain is incomplete or caller explicitly skips AI, save as draft only
       if (skipGeneration || brandNotReady) {
-        router.push(`/campaigns/${campaignId}`)
+        router.push(`/campaigns/${campaignId}?new=1`)
         return
       }
 
@@ -129,7 +129,7 @@ export default function NewCampaignPage() {
         }
       }).catch(() => {})
 
-      router.push(`/campaigns/${campaignId}?generating=true`)
+      router.push(`/campaigns/${campaignId}?generating=true&new=1`)
     } catch (err: any) {
       setError(err.message || cnT?.errorUnexpected as string)
       setSaving(false)
