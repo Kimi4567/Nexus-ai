@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { stripe, PLAN_CREDITS, planFromPriceId } from '@/lib/stripe'
+import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 import Stripe from 'stripe'
 
 /** Credits allocated by plan name */
@@ -139,6 +140,20 @@ export async function POST(req: NextRequest) {
           priceAmt, customerId
         )
         console.log(`[Webhook] Provisioned subscription for userId=${userId} plan=${plan}`)
+
+        // Send upgrade confirmation email — non-blocking
+        if (process.env.RESEND_API_KEY) {
+          try {
+            const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } })
+            if (user?.email) {
+              const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase()
+              sendUpgradeConfirmationEmail(user.email, user.name || user.email.split('@')[0], planLabel)
+                .catch((e: unknown) => console.error('[Webhook] Upgrade email error:', e))
+            }
+          } catch (e) {
+            console.error('[Webhook] Could not send upgrade email:', e)
+          }
+        }
         break
       }
 

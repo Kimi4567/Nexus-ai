@@ -493,7 +493,7 @@ export default function HomePage() {
               { value: '500+', label: ar ? 'شركة تستخدم المنصة' : 'Businesses using the platform' },
               { value: '12,000+', label: ar ? 'حملة تسويقية أُنشئت' : 'Marketing campaigns created' },
               { value: '4.9★', label: ar ? 'تقييم العملاء' : 'Customer rating' },
-              { value: '< 5 دقائق', label: ar ? 'للبدء بأول حملة' : 'To launch your first campaign' },
+              { value: ar ? '< 5 دقائق' : '< 5 min', label: ar ? 'للبدء بأول حملة' : 'To launch your first campaign' },
             ].map((stat) => (
               <div key={stat.label}>
                 <p className="font-heading text-[28px] sm:text-[32px] font-black text-white leading-none">{stat.value}</p>

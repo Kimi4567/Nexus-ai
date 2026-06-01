@@ -115,7 +115,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     `)}
 
     <div style="background:#101010;border:1px solid #2a2a4a;border-radius:10px;padding:16px 20px;margin:20px 0;">
-      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ You have 30 free AI credits</div>
+      <div style="font-size:12px;color:#FF9500;font-weight:700;margin-bottom:4px;">⚡ You have 15 free AI credits</div>
       <div style="font-size:13px;color:#b8b8d8;">That's 3 full campaign generations to get started. No credit card needed.</div>
     </div>
 
@@ -225,7 +225,7 @@ export async function sendWeeklyBrief(to: string, data: WeeklyBriefData) {
       </div>
     </div>
 
-    ${btn('Generate this week\'s content →', `${APP_URL}/campaign/new`)}
+    ${btn('Generate this week\'s content →', `${APP_URL}/campaigns/new`)}
 
     <div style="margin-top:20px;">
       ${p('Your weekly brief is generated every Monday based on your brand memory and past campaigns. The more you use Nexus, the smarter it gets.', true)}
@@ -382,7 +382,7 @@ export async function sendNurtureDay3(to: string, name: string) {
     `)}
 
     ${p('Takes 60 seconds. You have 2 free campaigns left.')}
-    ${btn('Generate a campaign now →', `${APP_URL}/campaign/new`)}
+    ${btn('Generate a campaign now →', `${APP_URL}/campaigns/new`)}
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
   `
 
@@ -409,7 +409,7 @@ export async function sendNurtureDay5(to: string, name: string) {
       </div>
     </div>
 
-    ${btn('Use my last free campaign →', `${APP_URL}/campaign/new`)}
+    ${btn('Use my last free campaign →', `${APP_URL}/campaigns/new`)}
 
     <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
       <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">After your free campaigns are used:</div>
