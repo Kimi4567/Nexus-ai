@@ -17,6 +17,7 @@
  */
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { checkAndLog } from '@/lib/outputGuardrails'
 
 // ─── Input Types ─────────────────────────────────────────────────────────────
 
@@ -437,6 +438,10 @@ Return JSON with exactly these fields:
 Generate 6 imagePrompts and 5 storyboardScenes.`
 
   const result = await callOpenAI(systemPrompt, userPrompt, 3200)
+  checkAndLog('visual-director', JSON.stringify(result), {
+    brandName: ctx.brand?.name,
+    industry: ctx.brand?.businessType,
+  })
 
   return {
     mode: 'concept',

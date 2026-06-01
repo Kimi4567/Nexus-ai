@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { decryptToken } from '@/lib/tokenCrypto'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,10 +59,11 @@ export async function GET(req: NextRequest) {
         return { ...post, insights: null }
       }
 
-      // Find the page access token from config
+      // Find the page access token from config — decrypt if stored encrypted
       const pages: any[] = post.integration.config?.pages || []
       const page = pages.find((p: any) => p.id === post.pageId)
-      const pageToken = page?.accessToken || post.integration.accessToken
+      const rawToken = page?.accessToken || post.integration.accessToken
+      const pageToken = decryptToken(rawToken) ?? rawToken
 
       try {
         const insightsRes = await fetch(

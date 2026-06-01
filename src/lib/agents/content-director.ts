@@ -9,6 +9,7 @@
 
 import { StrategyOutput } from './strategist'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { checkAndLog } from '@/lib/outputGuardrails'
 
 async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 3000): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -121,7 +122,12 @@ Return JSON:
   "captionFormulas": string[]
 }`
 
-  return callOpenAI(systemPrompt, userPrompt) as Promise<ContentDirectorOutput>
+  const output = await callOpenAI(systemPrompt, userPrompt) as ContentDirectorOutput
+  checkAndLog('content-director', JSON.stringify(output), {
+    brandName: input.brandName,
+    targetAudience: input.strategy.targetAudienceRefined,
+  })
+  return output
 }
 
 export async function refreshContentWeek(

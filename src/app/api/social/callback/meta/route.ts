@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { encryptToken } from '@/lib/tokenCrypto'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
   const pages = (pagesData.data || []).map((p: any) => ({
     id: p.id,
     name: p.name,
-    accessToken: p.access_token,
+    accessToken: encryptToken(p.access_token),    // Encrypted at rest
     igAccountId: p.instagram_business_account?.id || null,
   }))
 
@@ -126,7 +127,7 @@ export async function GET(req: NextRequest) {
         workspaceId: workspace.id,
         type: 'META',
         status: 'CONNECTED',
-        accessToken: longToken,
+        accessToken: encryptToken(longToken),
         accountId: me.id,
         accountName: me.name,
         config: {
@@ -138,7 +139,7 @@ export async function GET(req: NextRequest) {
       },
       update: {
         status: 'CONNECTED',
-        accessToken: longToken,
+        accessToken: encryptToken(longToken),
         accountId: me.id,
         accountName: me.name,
         config: {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { decryptToken } from '@/lib/tokenCrypto'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,10 +44,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Integration not connected' }, { status: 400 })
   }
 
-  // Find the page-level access token from config
+  // Find the page-level access token from config — decrypt before use
   const pages: any[] = (integration.config as any)?.pages || []
   const page = pages.find(p => p.id === pageId)
-  const pageToken = page?.accessToken || integration.accessToken
+  const rawPageToken = page?.accessToken || integration.accessToken
+  const pageToken = decryptToken(rawPageToken) ?? rawPageToken
 
   let platformPostId: string | null = null
   let platformUrl: string | null = null
@@ -54,7 +56,9 @@ export async function POST(req: NextRequest) {
   let status: 'PUBLISHED' | 'FAILED' = 'PUBLISHED'
 
   // For LinkedIn, use the integration's access token directly (no page-level token)
-  const publishToken = platform === 'LINKEDIN' ? integration.accessToken : pageToken
+  const rawIntegrationToken = integration.accessToken
+  const linkedinToken = decryptToken(rawIntegrationToken) ?? rawIntegrationToken
+  const publishToken = platform === 'LINKEDIN' ? linkedinToken : pageToken
 
   try {
     if (platform === 'FACEBOOK') {

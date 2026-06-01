@@ -7,20 +7,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { chatRateLimitDb } from '@/lib/dbRateLimit'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
-
-// ── Rate limiting (per user — 30 msgs/min) ─────────────────────
-const rateMap = new Map<string, { count: number; windowStart: number }>()
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now()
-  const entry = rateMap.get(userId) ?? { count: 0, windowStart: now }
-  if (now - entry.windowStart > 60_000) { entry.count = 0; entry.windowStart = now }
-  entry.count++
-  rateMap.set(userId, entry)
-  return entry.count <= 30
-}
 
 // ── Build system prompt from user context ──────────────────────
 function buildSystemPrompt(ctx: {
@@ -148,8 +138,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!checkRateLimit(authUser.id)) {
-      return NextResponse.json({ error: 'Too many messages. Please wait a moment.' }, { status: 429 })
+    const rl = await chatRateLimitDb(authUser.id)
+    if (!rl.ok) {
+      return NextResponse.json({ error: rl.message }, { status: 429 })
     }
 
     const body = await req.json()

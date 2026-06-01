@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { encryptToken } from '@/lib/tokenCrypto'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -122,7 +123,7 @@ export async function GET(req: NextRequest) {
         workspaceId: workspace.id,
         type: LI_TYPE,
         status: 'CONNECTED',
-        accessToken,
+        accessToken: encryptToken(accessToken),
         accountId: personId,
         accountName: name,
         config: {
@@ -136,7 +137,7 @@ export async function GET(req: NextRequest) {
       },
       update: {
         status: 'CONNECTED',
-        accessToken,
+        accessToken: encryptToken(accessToken),
         accountId: personId,
         accountName: name,
         config: {

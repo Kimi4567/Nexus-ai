@@ -11,6 +11,7 @@
  */
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { checkAndLog } from '@/lib/outputGuardrails'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -220,6 +221,11 @@ Return JSON with exactly these fields:
 If the campaign passes all checks cleanly: riskScore should be under 25, brandConsistencyScore above 80, complianceWarnings should be an empty array, and recommendedFixes should be an empty array.`
 
   const result = await callOpenAI(systemPrompt, userPrompt, 2000)
+  checkAndLog('sentinel-reviewer', JSON.stringify(result), {
+    brandName: input.brand?.name,
+    industry: input.brand?.businessType,
+    targetAudience: input.brand?.targetAudience,
+  })
 
   const riskScore = Math.min(100, Math.max(0, parseInt(result.riskScore ?? 50) || 50))
   const brandScore = Math.min(100, Math.max(0, parseInt(result.brandConsistencyScore ?? 70) || 70))

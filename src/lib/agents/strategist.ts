@@ -16,6 +16,7 @@
  */
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { checkAndLog } from '@/lib/outputGuardrails'
 
 // ── Preserved interfaces (backwards compat) ──────────────────────────────────
 
@@ -608,5 +609,16 @@ Return JSON with ALL of these exact fields. Every field must be specific to this
   "confidence": number
 }`
 
-  return callOpenAI(systemPrompt, userPrompt, 6500) as Promise<StrategyOutput>
+  const output = await callOpenAI(systemPrompt, userPrompt, 6500) as StrategyOutput
+
+  // ── Quality guardrail: log if output is too generic ───────────────────────
+  const rawText = JSON.stringify(output)
+  checkAndLog('strategist', rawText, {
+    brandName: brief.companyName,
+    industry: brief.businessType,
+    targetAudience: brief.targetAudience,
+    primaryOffer: brief.primaryOffer,
+  })
+
+  return output
 }
