@@ -1,5 +1,3 @@
-import { withSentryConfig } from '@sentry/nextjs'
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -33,14 +31,6 @@ const nextConfig = {
   trailingSlash: false,
 }
 
-// Only wrap with Sentry if DSN is configured — keeps builds clean without setup
-const sentryOptions = {
-  silent: true,            // No console spam during build
-  hideSourceMaps: true,    // Don't expose source maps in client bundle
-  disableLogger: true,
-  widenClientFileUpload: true,
-}
-
-export default process.env.NEXT_PUBLIC_SENTRY_DSN
-  ? withSentryConfig(nextConfig, sentryOptions)
-  : nextConfig
+// NOTE: To enable Sentry, run: npm install @sentry/nextjs
+// Then replace this file with the withSentryConfig-wrapped version.
+export default nextConfig
