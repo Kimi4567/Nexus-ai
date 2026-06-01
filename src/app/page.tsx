@@ -186,6 +186,271 @@ function Navbar() {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   AGENT SVG PORTRAITS
+───────────────────────────────────────────────────────── */
+function PortraitStrategist({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 160 200" width="160" height="200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Glow */}
+      <ellipse cx="80" cy="170" rx="45" ry="12" fill={color} opacity="0.18" />
+      {/* Legs */}
+      <rect x="55" y="158" width="18" height="28" rx="5" fill="#1a1a2e" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="87" y="158" width="18" height="28" rx="5" fill="#1a1a2e" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="50" y="182" width="26" height="8" rx="3" fill={color} opacity="0.4" />
+      <rect x="84" y="182" width="26" height="8" rx="3" fill={color} opacity="0.4" />
+      {/* Body */}
+      <rect x="42" y="108" width="76" height="54" rx="8" fill="#131320" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      {/* Chest emblem: compass */}
+      <circle cx="80" cy="131" r="14" fill={color} opacity="0.1" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <line x1="80" y1="121" x2="80" y2="124" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <line x1="80" y1="138" x2="80" y2="141" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <line x1="70" y1="131" x2="73" y2="131" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <line x1="87" y1="131" x2="90" y2="131" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <polygon points="80,122 82,130 80,129 78,130" fill={color} opacity="0.9" />
+      {/* Shoulders */}
+      <rect x="18" y="112" width="26" height="20" rx="6" fill="#131320" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      <rect x="116" y="112" width="26" height="20" rx="6" fill="#131320" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      {/* Neck */}
+      <rect x="70" y="100" width="20" height="12" rx="4" fill="#1a1a2e" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      {/* Head: hexagonal tactical helmet */}
+      <polygon points="80,52 115,68 115,100 80,116 45,100 45,68" fill="#131320" stroke={color} strokeWidth="2" strokeOpacity="0.85" />
+      {/* Visor band */}
+      <rect x="52" y="76" width="56" height="20" rx="3" fill={color} opacity="0.15" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      {/* Eyes in visor */}
+      <rect x="58" y="81" width="16" height="10" rx="2" fill={color} opacity="0.7" />
+      <rect x="86" y="81" width="16" height="10" rx="2" fill={color} opacity="0.7" />
+      {/* Visor inner glow */}
+      <rect x="58" y="81" width="16" height="10" rx="2" fill="white" opacity="0.2" />
+      <rect x="86" y="81" width="16" height="10" rx="2" fill="white" opacity="0.2" />
+      {/* Antenna left */}
+      <line x1="58" y1="52" x2="48" y2="34" stroke={color} strokeWidth="2" strokeOpacity="0.8" />
+      <circle cx="48" cy="34" r="4" fill={color} opacity="0.9" />
+      <circle cx="48" cy="34" r="6" fill={color} opacity="0.2" />
+      {/* Antenna right */}
+      <line x1="102" y1="52" x2="112" y2="34" stroke={color} strokeWidth="2" strokeOpacity="0.8" />
+      <circle cx="112" cy="34" r="4" fill={color} opacity="0.9" />
+      <circle cx="112" cy="34" r="6" fill={color} opacity="0.2" />
+      {/* Chin strap detail */}
+      <rect x="63" y="104" width="34" height="4" rx="2" fill={color} opacity="0.3" />
+      {/* Status dot */}
+      <circle cx="80" cy="63" r="3" fill={color} opacity="0.85" />
+    </svg>
+  )
+}
+
+function PortraitNEX({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 160 200" width="160" height="200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="80" cy="170" rx="45" ry="12" fill={color} opacity="0.18" />
+      {/* Legs */}
+      <rect x="56" y="158" width="18" height="28" rx="5" fill="#0d1f1f" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="86" y="158" width="18" height="28" rx="5" fill="#0d1f1f" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="52" y="182" width="25" height="7" rx="3" fill={color} opacity="0.35" />
+      <rect x="83" y="182" width="25" height="7" rx="3" fill={color} opacity="0.35" />
+      {/* Body */}
+      <rect x="40" y="108" width="80" height="54" rx="10" fill="#0c1e1e" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      {/* Chest: sparkle emitter array */}
+      <circle cx="80" cy="132" r="12" fill={color} opacity="0.12" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <circle cx="80" cy="132" r="5" fill={color} opacity="0.7" />
+      <line x1="80" y1="118" x2="80" y2="122" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <line x1="80" y1="142" x2="80" y2="146" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <line x1="66" y1="132" x2="70" y2="132" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <line x1="90" y1="132" x2="94" y2="132" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      {/* Side sparkles */}
+      <circle cx="62" cy="120" r="2.5" fill={color} opacity="0.5" />
+      <circle cx="98" cy="120" r="2.5" fill={color} opacity="0.5" />
+      <circle cx="62" cy="148" r="2" fill={color} opacity="0.4" />
+      <circle cx="98" cy="148" r="2" fill={color} opacity="0.4" />
+      {/* Shoulders */}
+      <ellipse cx="30" cy="122" rx="14" ry="12" fill="#0c1e1e" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      <ellipse cx="130" cy="122" rx="14" ry="12" fill="#0c1e1e" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      {/* Neck */}
+      <rect x="69" y="100" width="22" height="12" rx="4" fill="#0d1f1f" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      {/* Head: circular friendly face */}
+      <circle cx="80" cy="74" r="38" fill="#0c1e1e" stroke={color} strokeWidth="2" strokeOpacity="0.8" />
+      {/* Outer ring */}
+      <circle cx="80" cy="74" r="36" fill="none" stroke={color} strokeWidth="0.5" strokeOpacity="0.3" strokeDasharray="4 4" />
+      {/* Eyes: large single lens camera */}
+      <circle cx="80" cy="74" r="18" fill={color} opacity="0.12" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <circle cx="80" cy="74" r="10" fill={color} opacity="0.25" stroke={color} strokeWidth="1.5" />
+      <circle cx="80" cy="74" r="5" fill={color} opacity="0.9" />
+      <circle cx="77" cy="71" r="2" fill="white" opacity="0.7" />
+      {/* Sparkle emitters on head */}
+      <circle cx="48" cy="58" r="3" fill={color} opacity="0.7" />
+      <circle cx="112" cy="58" r="3" fill={color} opacity="0.7" />
+      <circle cx="46" cy="84" r="2" fill={color} opacity="0.5" />
+      <circle cx="114" cy="84" r="2" fill={color} opacity="0.5" />
+      <circle cx="63" cy="42" r="2" fill={color} opacity="0.6" />
+      <circle cx="97" cy="42" r="2" fill={color} opacity="0.6" />
+      {/* Smile bar */}
+      <rect x="62" y="88" width="36" height="5" rx="2.5" fill={color} opacity="0.35" />
+    </svg>
+  )
+}
+
+function PortraitVEX({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 160 200" width="160" height="200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="80" cy="170" rx="45" ry="12" fill={color} opacity="0.18" />
+      {/* Legs — wide stance */}
+      <rect x="50" y="155" width="22" height="32" rx="5" fill="#1f0e06" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="88" y="155" width="22" height="32" rx="5" fill="#1f0e06" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="47" y="181" width="28" height="8" rx="3" fill={color} opacity="0.4" />
+      <rect x="85" y="181" width="28" height="8" rx="3" fill={color} opacity="0.4" />
+      {/* Body — wide, aggressive */}
+      <rect x="36" y="104" width="88" height="55" rx="8" fill="#1a0d06" stroke={color} strokeWidth="1.5" strokeOpacity="0.55" />
+      {/* Broadcast icon on chest */}
+      <path d="M68 120 Q80 112 92 120" stroke={color} strokeWidth="2" strokeOpacity="0.6" fill="none" strokeLinecap="round" />
+      <path d="M62 127 Q80 115 98 127" stroke={color} strokeWidth="1.5" strokeOpacity="0.35" fill="none" strokeLinecap="round" />
+      <circle cx="80" cy="133" r="7" fill={color} opacity="0.8" />
+      <rect x="77" y="140" width="6" height="14" rx="2" fill={color} opacity="0.5" />
+      {/* Arms — wide + megaphone attachment on right */}
+      <rect x="8" y="108" width="28" height="18" rx="6" fill="#1a0d06" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      <rect x="124" y="104" width="32" height="24" rx="6" fill="#1a0d06" stroke={color} strokeWidth="2" strokeOpacity="0.7" />
+      {/* Megaphone on right arm */}
+      <polygon points="130,108 156,100 156,128 130,120" fill={color} opacity="0.2" stroke={color} strokeWidth="1.5" strokeOpacity="0.8" />
+      <rect x="124" y="111" width="10" height="10" rx="2" fill={color} opacity="0.6" />
+      {/* Signal waves from megaphone */}
+      <path d="M158 104 Q163 114 158 124" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" fill="none" strokeLinecap="round" />
+      {/* Neck */}
+      <rect x="68" y="96" width="24" height="12" rx="4" fill="#1a0d06" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      {/* Head: angular broadcast tower */}
+      <path d="M80 36 L118 62 L118 100 L80 110 L42 100 L42 62 Z" fill="#170b05" stroke={color} strokeWidth="2" strokeOpacity="0.85" />
+      {/* Brow plate */}
+      <rect x="48" y="62" width="64" height="10" rx="2" fill={color} opacity="0.2" stroke={color} strokeWidth="1" strokeOpacity="0.5" />
+      {/* Eyes: dual narrow horizontal bars */}
+      <rect x="52" y="74" width="22" height="10" rx="2" fill={color} opacity="0.85" />
+      <rect x="86" y="74" width="22" height="10" rx="2" fill={color} opacity="0.85" />
+      {/* Eye inner bright */}
+      <rect x="52" y="74" width="22" height="5" rx="2" fill="white" opacity="0.25" />
+      <rect x="86" y="74" width="22" height="5" rx="2" fill="white" opacity="0.25" />
+      {/* Broadcast antennae array — top */}
+      <line x1="65" y1="36" x2="58" y2="14" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <line x1="80" y1="36" x2="80" y2="10" stroke={color} strokeWidth="2.5" strokeOpacity="1" />
+      <line x1="95" y1="36" x2="102" y2="14" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <circle cx="80" cy="10" r="4" fill={color} />
+      <circle cx="58" cy="14" r="3" fill={color} opacity="0.8" />
+      <circle cx="102" cy="14" r="3" fill={color} opacity="0.8" />
+      {/* Signal rings from top antenna */}
+      <circle cx="80" cy="10" r="8" fill="none" stroke={color} strokeWidth="1" strokeOpacity="0.35" />
+      <circle cx="80" cy="10" r="13" fill="none" stroke={color} strokeWidth="0.8" strokeOpacity="0.2" />
+      {/* Chin */}
+      <rect x="60" y="100" width="40" height="5" rx="2" fill={color} opacity="0.25" />
+    </svg>
+  )
+}
+
+function PortraitPULSE({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 160 200" width="160" height="200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="80" cy="170" rx="45" ry="12" fill={color} opacity="0.18" />
+      {/* Legs */}
+      <rect x="54" y="155" width="20" height="30" rx="5" fill="#051a1f" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="86" y="155" width="20" height="30" rx="5" fill="#051a1f" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="50" y="181" width="28" height="8" rx="3" fill={color} opacity="0.35" />
+      <rect x="82" y="181" width="28" height="8" rx="3" fill={color} opacity="0.35" />
+      {/* Body */}
+      <rect x="38" y="106" width="84" height="52" rx="9" fill="#041618" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      {/* Data wave on chest */}
+      <polyline points="46,130 54,130 58,120 64,140 70,125 76,135 82,128 88,132 94,128 100,135 106,122 112,130 118,130" stroke={color} strokeWidth="2" strokeOpacity="0.85" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Shoulders */}
+      <rect x="14" y="110" width="26" height="18" rx="6" fill="#041618" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      <rect x="120" y="110" width="26" height="18" rx="6" fill="#041618" stroke={color} strokeWidth="1.5" strokeOpacity="0.5" />
+      {/* Wrist data cuffs */}
+      <rect x="14" y="128" width="26" height="6" rx="3" fill={color} opacity="0.3" />
+      <rect x="120" y="128" width="26" height="6" rx="3" fill={color} opacity="0.3" />
+      {/* Neck */}
+      <rect x="68" y="98" width="24" height="12" rx="4" fill="#051a1f" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      {/* Head: wide sensor array */}
+      <rect x="30" y="50" width="100" height="52" rx="12" fill="#041618" stroke={color} strokeWidth="2" strokeOpacity="0.85" />
+      {/* Sensor top bar */}
+      <rect x="30" y="50" width="100" height="10" rx="6" fill={color} opacity="0.15" stroke={color} strokeWidth="1" strokeOpacity="0.5" />
+      {/* Three sensor eyes */}
+      <circle cx="55" cy="74" r="11" fill={color} opacity="0.1" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <circle cx="55" cy="74" r="6" fill={color} opacity="0.5" />
+      <circle cx="55" cy="74" r="3" fill={color} opacity="0.9" />
+      <circle cx="80" cy="74" r="14" fill={color} opacity="0.12" stroke={color} strokeWidth="2" strokeOpacity="0.8" />
+      <circle cx="80" cy="74" r="8" fill={color} opacity="0.55" />
+      <circle cx="80" cy="74" r="4" fill={color} />
+      <circle cx="78" cy="72" r="2" fill="white" opacity="0.7" />
+      <circle cx="105" cy="74" r="11" fill={color} opacity="0.1" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <circle cx="105" cy="74" r="6" fill={color} opacity="0.5" />
+      <circle cx="105" cy="74" r="3" fill={color} opacity="0.9" />
+      {/* Activity bar bottom of head */}
+      <rect x="40" y="90" width="80" height="5" rx="2" fill={color} opacity="0.2" />
+      <rect x="40" y="90" width="52" height="5" rx="2" fill={color} opacity="0.5" />
+      {/* Top antenna */}
+      <line x1="80" y1="50" x2="80" y2="34" stroke={color} strokeWidth="2" strokeOpacity="0.8" />
+      <rect x="70" y="28" width="20" height="8" rx="3" fill="#041618" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <rect x="70" y="28" width="12" height="8" rx="3" fill={color} opacity="0.6" />
+    </svg>
+  )
+}
+
+function PortraitSENTINEL({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 160 200" width="160" height="200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="80" cy="170" rx="50" ry="13" fill={color} opacity="0.2" />
+      {/* Legs — heavy armored */}
+      <rect x="50" y="153" width="24" height="34" rx="5" fill="#1a1500" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="86" y="153" width="24" height="34" rx="5" fill="#1a1500" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="46" y="180" width="32" height="9" rx="3" fill={color} opacity="0.4" />
+      <rect x="82" y="180" width="32" height="9" rx="3" fill={color} opacity="0.4" />
+      {/* Knee guards */}
+      <rect x="52" y="163" width="20" height="8" rx="2" fill={color} opacity="0.25" />
+      <rect x="88" y="163" width="20" height="8" rx="2" fill={color} opacity="0.25" />
+      {/* Body — wide armored */}
+      <rect x="32" y="100" width="96" height="56" rx="8" fill="#141200" stroke={color} strokeWidth="1.5" strokeOpacity="0.55" />
+      {/* Chest armor plates */}
+      <rect x="40" y="108" width="36" height="32" rx="4" fill={color} opacity="0.08" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      <rect x="84" y="108" width="36" height="32" rx="4" fill={color} opacity="0.08" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      {/* Center shield badge */}
+      <path d="M80 108 L90 113 L90 128 L80 134 L70 128 L70 113 Z" fill={color} opacity="0.2" stroke={color} strokeWidth="1.5" strokeOpacity="0.8" />
+      <path d="M80 115 L85 117.5 L85 126 L80 129 L75 126 L75 117.5 Z" fill={color} opacity="0.5" />
+      {/* Shoulder pauldrons — massive */}
+      <path d="M12 102 L36 102 L36 126 L20 130 L8 122 Z" fill="#141200" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <path d="M124 102 L148 102 L152 122 L140 130 L124 126 Z" fill="#141200" stroke={color} strokeWidth="1.5" strokeOpacity="0.6" />
+      <rect x="12" y="108" width="24" height="6" rx="2" fill={color} opacity="0.3" />
+      <rect x="124" y="108" width="24" height="6" rx="2" fill={color} opacity="0.3" />
+      {/* Neck */}
+      <rect x="66" y="92" width="28" height="12" rx="4" fill="#1a1500" stroke={color} strokeWidth="1" strokeOpacity="0.5" />
+      {/* Head: wide armored shield face */}
+      <path d="M80 34 L124 52 L126 100 L80 114 L34 100 L36 52 Z" fill="#141200" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      {/* Brow armor */}
+      <rect x="40" y="60" width="80" height="12" rx="3" fill={color} opacity="0.15" stroke={color} strokeWidth="1" strokeOpacity="0.5" />
+      {/* Cheek plates */}
+      <rect x="36" y="74" width="22" height="24" rx="3" fill={color} opacity="0.1" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      <rect x="102" y="74" width="22" height="24" rx="3" fill={color} opacity="0.1" stroke={color} strokeWidth="1" strokeOpacity="0.4" />
+      {/* Three eyes */}
+      <ellipse cx="60" cy="78" rx="9" ry="7" fill={color} opacity="0.12" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <ellipse cx="60" cy="78" rx="5" ry="4" fill={color} opacity="0.75" />
+      <ellipse cx="80" cy="76" rx="11" ry="9" fill={color} opacity="0.12" stroke={color} strokeWidth="2" strokeOpacity="0.9" />
+      <ellipse cx="80" cy="76" rx="6" ry="5" fill={color} opacity="0.9" />
+      <ellipse cx="80" cy="76" rx="3" ry="2.5" fill="white" opacity="0.6" />
+      <ellipse cx="100" cy="78" rx="9" ry="7" fill={color} opacity="0.12" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <ellipse cx="100" cy="78" rx="5" ry="4" fill={color} opacity="0.75" />
+      {/* Scan beam */}
+      <rect x="46" y="91" width="68" height="3" rx="1.5" fill={color} opacity="0.4" />
+      {/* Top crest */}
+      <polygon points="80,34 86,18 80,22 74,18" fill={color} opacity="0.7" />
+      {/* Side antennae */}
+      <line x1="40" y1="52" x2="26" y2="36" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <circle cx="26" cy="36" r="3" fill={color} opacity="0.7" />
+      <line x1="120" y1="52" x2="134" y2="36" stroke={color} strokeWidth="1.5" strokeOpacity="0.7" />
+      <circle cx="134" cy="36" r="3" fill={color} opacity="0.7" />
+    </svg>
+  )
+}
+
+const agentPortraits = {
+  STRATEGIST: PortraitStrategist,
+  NEX: PortraitNEX,
+  VEX: PortraitVEX,
+  PULSE: PortraitPULSE,
+  SENTINEL: PortraitSENTINEL,
+}
+
+/* ─────────────────────────────────────────────────────────────
    HOME PAGE
 ───────────────────────────────────────────────────────── */
 export default function HomePage() {
@@ -194,6 +459,7 @@ export default function HomePage() {
   const dir = ar ? 'rtl' : 'ltr'
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
   const [testimonialIdx, setTestimonialIdx] = useState(0)
+  const [activeAgent, setActiveAgent] = useState(0)
 
   /* ── DATA ── */
   const agents = [
@@ -565,35 +831,169 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════
           AI AGENTS
       ══════════════════════════════════════════ */}
-      <section id="agents" className="py-24 lg:py-32">
+      <section id="agents" className="py-24 lg:py-32 overflow-hidden">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
             <SectionLabel text={ar ? 'الوكلاء الذكيون' : 'AI Agents'} color="text-accent-purple" />
             <SectionHeading>{ar ? 'تعرّف على فريقك الذكي' : 'Meet your intelligent team'}</SectionHeading>
-            <p className="text-[16px] text-text-secondary leading-relaxed max-w-[580px] mt-4 mb-14">
+            <p className="text-[16px] text-text-secondary leading-relaxed max-w-[580px] mt-4">
               {ar ? 'خمسة وكلاء متخصصون، كل منهم خبير في مجاله، يعملون معاً ضمن سياق علامتك التجارية.' : 'Five specialized agents, each an expert in their domain, working together within your brand context.'}
             </p>
           </Reveal>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+          {/* ── Agent selector tabs ── */}
+          <div className="mt-10 flex gap-2 flex-wrap">
             {agents.map((agent, i) => (
-              <Reveal key={agent.name} delay={i * 0.1}>
-                <div className="group rounded-2xl border border-bg-border bg-bg-surface p-6 h-full flex flex-col transition-all duration-300 hover:-translate-y-2 cursor-default"
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${agent.color}55`; (e.currentTarget as HTMLElement).style.boxShadow = `0 20px 50px rgba(0,0,0,0.35), 0 0 30px ${agent.color}18` }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = ''; (e.currentTarget as HTMLElement).style.boxShadow = '' }}>
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ background: `${agent.color}18` }}>
-                    <agent.icon size={22} style={{ color: agent.color }} />
-                  </div>
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[2.5px] mb-1" style={{ color: agent.color }}>{agent.name}</p>
-                  <h3 className="font-heading text-[15px] font-semibold text-white mb-2">{agent.role}</h3>
-                  <p className="text-[12px] text-text-secondary leading-relaxed flex-1">{agent.desc}</p>
-                  <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
-                    <p className="text-[11px] font-mono text-text-muted">{ar ? 'المخرجات:' : 'Output:'}</p>
-                    <p className="text-[11px] text-text-secondary mt-1 leading-snug">{agent.output}</p>
-                  </div>
-                </div>
-              </Reveal>
+              <button
+                key={agent.name}
+                onClick={() => setActiveAgent(i)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-mono font-bold uppercase tracking-[1.5px] border transition-all duration-200"
+                style={activeAgent === i ? {
+                  borderColor: agent.color,
+                  background: `${agent.color}18`,
+                  color: agent.color,
+                  boxShadow: `0 0 18px ${agent.color}33`,
+                } : {
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  background: 'transparent',
+                  color: 'rgba(255,255,255,0.4)',
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: activeAgent === i ? agent.color : 'rgba(255,255,255,0.25)' }}
+                />
+                {agent.name}
+              </button>
             ))}
+          </div>
+
+          {/* ── Featured agent panel ── */}
+          <div className="mt-6">
+            {agents.map((agent, i) => {
+              if (i !== activeAgent) return null
+              const AgentSVG = agentPortraits[agent.name as keyof typeof agentPortraits]
+              return (
+                <motion.div
+                  key={agent.name}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className="rounded-3xl border overflow-hidden"
+                  style={{
+                    borderColor: `${agent.color}33`,
+                    background: `linear-gradient(135deg, ${agent.color}0a 0%, rgba(0,0,0,0) 55%)`,
+                  }}
+                >
+                  <div className="grid lg:grid-cols-[280px_1fr] gap-0">
+                    {/* Portrait */}
+                    <div
+                      className="relative flex items-center justify-center p-8 border-b lg:border-b-0 lg:border-r"
+                      style={{ borderColor: `${agent.color}22`, background: `${agent.color}07` }}
+                    >
+                      {/* Scan line effect */}
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 3px, ${agent.color}06 3px, ${agent.color}06 4px)`,
+                        }}
+                      />
+                      {/* Radial glow */}
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background: `radial-gradient(circle at 50% 60%, ${agent.color}20 0%, transparent 70%)`,
+                        }}
+                      />
+                      {/* Corner brackets */}
+                      <div className="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2" style={{ borderColor: `${agent.color}66` }} />
+                      <div className="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2" style={{ borderColor: `${agent.color}66` }} />
+                      <div className="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2" style={{ borderColor: `${agent.color}66` }} />
+                      <div className="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2" style={{ borderColor: `${agent.color}66` }} />
+                      {/* SVG Portrait */}
+                      <div className="relative z-10">
+                        <AgentSVG color={agent.color} />
+                      </div>
+                    </div>
+
+                    {/* Details panel */}
+                    <div className="p-8 lg:p-10 flex flex-col justify-center">
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${agent.color}18` }}>
+                          <agent.icon size={20} style={{ color: agent.color }} />
+                        </div>
+                        <div>
+                          <p className="font-mono text-[10px] font-bold uppercase tracking-[2.5px]" style={{ color: agent.color }}>{agent.name}</p>
+                          <p className="font-heading text-[18px] font-semibold text-white leading-tight">{agent.role}</p>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full border" style={{ borderColor: `${agent.color}33`, background: `${agent.color}0f` }}>
+                          <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: agent.color }} />
+                          <span className="font-mono text-[10px]" style={{ color: agent.color }}>{ar ? 'نشط' : 'ACTIVE'}</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[15px] text-text-secondary leading-relaxed mb-8 max-w-[540px]">
+                        {agent.desc}
+                      </p>
+
+                      {/* Output chips */}
+                      <div>
+                        <p className="font-mono text-[10px] text-text-muted uppercase tracking-[2px] mb-3">{ar ? 'المخرجات' : 'OUTPUT'}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {agent.output.split(' · ').map((item: string) => (
+                            <span
+                              key={item}
+                              className="px-3 py-1.5 rounded-lg text-[12px] font-mono border"
+                              style={{
+                                borderColor: `${agent.color}33`,
+                                background: `${agent.color}0d`,
+                                color: 'rgba(255,255,255,0.75)',
+                              }}
+                            >
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Navigation hint */}
+                      <div className="mt-8 flex items-center gap-4">
+                        <div className="flex gap-1.5">
+                          {agents.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setActiveAgent(idx)}
+                              className="rounded-full transition-all duration-200"
+                              style={{
+                                width: idx === activeAgent ? '20px' : '6px',
+                                height: '6px',
+                                background: idx === activeAgent ? agent.color : 'rgba(255,255,255,0.15)',
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div className="flex gap-2 ml-auto">
+                          <button
+                            onClick={() => setActiveAgent((activeAgent - 1 + agents.length) % agents.length)}
+                            className="w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-200 hover:bg-white/5"
+                            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+                          >
+                            <ChevronLeft size={14} className="text-text-muted" />
+                          </button>
+                          <button
+                            onClick={() => setActiveAgent((activeAgent + 1) % agents.length)}
+                            className="w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-200 hover:bg-white/5"
+                            style={{ borderColor: 'rgba(255,255,255,0.12)' }}
+                          >
+                            <ChevronRight size={14} className="text-text-muted" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
         </div>
       </section>
