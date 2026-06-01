@@ -10,6 +10,7 @@ import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
 } from 'lucide-react'
+import UpgradeModal from '@/components/UpgradeModal'
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
 
@@ -38,6 +39,7 @@ export default function NewCampaignPage() {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showUpgrade, setShowUpgrade] = useState(false)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
 
   // Fetch Brand Brain readiness once on mount
@@ -122,7 +124,7 @@ export default function NewCampaignPage() {
           const d = await res.json().catch(() => ({}))
           if (d.error === 'INSUFFICIENT_CREDITS') {
             setSaving(false)
-            setError(`Not enough credits to generate strategy (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade your plan.`)
+            setShowUpgrade(true)
           }
         }
       }).catch(() => {})
@@ -140,6 +142,7 @@ export default function NewCampaignPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
+      <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} reason="no_credits" />
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/campaigns" className="p-2 rounded-lg hover:bg-white/5 transition-colors">

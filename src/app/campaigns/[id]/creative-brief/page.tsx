@@ -15,6 +15,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import UpgradeModal from '@/components/UpgradeModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -179,6 +180,7 @@ export default function CreativeBriefPage() {
   const [fetching, setFetching] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   // ── Data loading ──
   const loadData = useCallback(async () => {
@@ -231,7 +233,7 @@ export default function CreativeBriefPage() {
       if (d.creativeBrief) {
         setCreativeBrief(d.creativeBrief)
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
-        setError(`Not enough credits (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade your plan to continue.`)
+        setShowUpgrade(true)
       } else {
         setError(d.error || 'Generation failed')
       }
@@ -281,6 +283,7 @@ export default function CreativeBriefPage() {
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: '#F9FAFB', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* ── Global print styles ── */}
       <style>{`
@@ -1106,5 +1109,12 @@ export default function CreativeBriefPage() {
 
       </div>
     </div>
+
+    <UpgradeModal
+      open={showUpgrade}
+      onClose={() => setShowUpgrade(false)}
+      reason="no_credits"
+    />
+    </>
   )
 }

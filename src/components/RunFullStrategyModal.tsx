@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
+import UpgradeModal from '@/components/UpgradeModal'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '@/lib/brandReadiness'
 import {
@@ -82,6 +83,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   const [gateData, setGateData]       = useState<BrandReadinessResult | null>(null)
   // runKey increments on retry to re-trigger the effect while modal stays open
   const [runKey, setRunKey]           = useState(0)
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
@@ -211,6 +213,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   }
 
   return (
+    <>
     <div
       dir={dir}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -498,11 +501,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
                 {rs.errorClose}
               </button>
-              <Link href="/billing" onClick={onClose}
+              <button
+                onClick={() => { onClose(); setShowUpgrade(true) }}
                 className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
                 <ArrowUpRight className="w-4 h-4" />
                 {rs.creditsUpgrade}
-              </Link>
+              </button>
             </div>
           </div>
         )}
@@ -559,5 +563,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
       </div>
     </div>
+
+    <UpgradeModal
+      open={showUpgrade}
+      onClose={() => setShowUpgrade(false)}
+      reason="no_credits"
+    />
+  </>
   )
 }

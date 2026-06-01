@@ -12,6 +12,7 @@ import SocialPublisher from '@/components/SocialPublisher'
 import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import UpgradeModal from '@/components/UpgradeModal'
 
 interface Activity {
   id: string
@@ -135,6 +136,7 @@ export default function CampaignDetailPage() {
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
+  const [showUpgrade, setShowUpgrade] = useState(false)
   // Sprint H — Push to Calendar
   const [calendarPushState, setCalendarPushState] = useState<'idle' | 'pushing' | 'done' | 'already'>('idle')
   const [calendarPushCount, setCalendarPushCount] = useState(0)
@@ -292,7 +294,7 @@ export default function CampaignDetailPage() {
         })
         setSentinelState('done')
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
-        setSentinelError(`Not enough credits (need ${d.requiredCredits}, have ${d.currentCredits}). Upgrade to continue.`)
+        setShowUpgrade(true)
         setSentinelState('idle')
       } else {
         setSentinelError(d.error || 'Review failed')
@@ -427,6 +429,7 @@ export default function CampaignDetailPage() {
   }
 
   return (
+    <>
     <AppShell>
       <AIPresenceBar authHeader={authHeader} />
       <div className="max-w-5xl mx-auto px-6 py-8 page-enter">
@@ -2189,5 +2192,12 @@ export default function CampaignDetailPage() {
         )}
       </div>
     </AppShell>
+
+    <UpgradeModal
+      open={showUpgrade}
+      onClose={() => setShowUpgrade(false)}
+      reason="no_credits"
+    />
+  </>
   )
 }

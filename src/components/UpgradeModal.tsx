@@ -1,211 +1,168 @@
 'use client'
 
 /**
- * UpgradeModal — shown when user hits credit limit or tries a gated feature.
+ * UpgradeModal — conversion-optimized upgrade prompt.
+ * Shown when:
+ *   - User hits INSUFFICIENT_CREDITS
+ *   - User clicks upgrade CTA anywhere in the app
  *
  * Usage:
- *   <UpgradeModal
- *     isOpen={showUpgrade}
- *     onClose={() => setShowUpgrade(false)}
- *     trigger="campaign"  // which action triggered it
- *     creditsRemaining={3}
- *   />
+ *   const [showUpgrade, setShowUpgrade] = useState(false)
+ *   <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} />
  */
 
-import { useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useI18n } from '@/lib/i18n-context'
-import { Zap, X, CheckCircle2, ArrowUpRight, Sparkles } from 'lucide-react'
+import { supabase } from '@/lib/supabaseClient'
 
-type UpgradeTrigger =
-  | 'campaign'
-  | 'strategy'
-  | 'creative-brief'
-  | 'sentinel'
-  | 'video'
-  | 'generic'
-
-interface UpgradeModalProps {
-  isOpen: boolean
+interface Props {
+  open: boolean
   onClose: () => void
-  trigger?: UpgradeTrigger
-  creditsRemaining?: number
+  /** Why the modal was triggered — shown in headline */
+  reason?: 'no_credits' | 'low_credits' | 'upgrade_cta'
 }
 
-const TRIGGER_COPY = {
-  campaign: {
-    ar: { title: 'لإنشاء حملة جديدة تحتاج أرصدة AI', desc: 'توليد الحملة يستهلك 5 أرصدة' },
-    en: { title: 'You need AI credits to create a campaign', desc: 'Campaign generation costs 5 credits' },
+const PLANS = [
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: '$29',
+    color: '#6C63FF',
+    features: ['50 AI credits / month', '3 campaigns / month', '1 workspace', 'PDF export'],
   },
-  strategy: {
-    ar: { title: 'لتشغيل الاستراتيجية الكاملة تحتاج أرصدة AI', desc: 'Run Full Strategy يستهلك 5 أرصدة' },
-    en: { title: 'You need AI credits to run a full strategy', desc: 'Run Full Strategy costs 5 credits' },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: '$79',
+    color: '#00BFA6',
+    popular: true,
+    features: ['200 AI credits / month', 'Unlimited campaigns', '3 workspaces', 'Auto-publish to social', 'Real performance analytics', 'Priority support'],
   },
-  'creative-brief': {
-    ar: { title: 'Creative Brief يحتاج أرصدة AI', desc: 'توليد البريف يستهلك 2 رصيد' },
-    en: { title: 'Creative Brief requires AI credits', desc: 'Brief generation costs 2 credits' },
+  {
+    id: 'agency',
+    name: 'Agency',
+    price: '$199',
+    color: '#F59E0B',
+    features: ['Unlimited AI credits', 'Unlimited campaigns', '10 workspaces', 'White-label export', 'API access', 'Dedicated account manager'],
   },
-  sentinel: {
-    ar: { title: 'Sentinel Review يحتاج رصيد AI', desc: 'مراجعة الجودة تستهلك رصيداً واحداً' },
-    en: { title: 'Sentinel Review requires AI credits', desc: 'Quality review costs 1 credit' },
-  },
-  video: {
-    ar: { title: 'توليد الفيديو يحتاج أرصدة AI', desc: 'Video Generation يستهلك 5 أرصدة' },
-    en: { title: 'Video generation requires AI credits', desc: 'Video generation costs 5 credits' },
-  },
-  generic: {
-    ar: { title: 'نفدت أرصدة AI الخاصة بك', desc: 'قم بالترقية للمتابعة' },
-    en: { title: 'You\'ve run out of AI credits', desc: 'Upgrade to continue' },
-  },
-}
+]
 
-export default function UpgradeModal({ isOpen, onClose, trigger = 'generic', creditsRemaining = 0 }: UpgradeModalProps) {
-  const { locale } = useI18n()
+export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: Props) {
   const router = useRouter()
-  const ar = locale === 'ar'
+  const [loading, setLoading] = useState<string | null>(null)
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [isOpen, onClose])
+  if (!open) return null
 
-  if (!isOpen) return null
+  const headline =
+    reason === 'no_credits'  ? "You've used all your credits" :
+    reason === 'low_credits' ? "Running low on credits" :
+    "Unlock the full power of Nexus AI"
 
-  const copy = TRIGGER_COPY[trigger][ar ? 'ar' : 'en']
+  const subline =
+    reason === 'no_credits'  ? "Upgrade now to keep generating campaigns, content, and strategies." :
+    reason === 'low_credits' ? "Don't get interrupted mid-campaign. Upgrade for more credits." :
+    "Replace your entire marketing team with one AI platform."
 
-  const plans = [
-    {
-      id: 'starter', name: ar ? 'المبتدئ' : 'Starter', price: 29,
-      credits: '50', color: '#6C63FF', featured: false,
-      ctaAr: 'ابدأ بـ Starter', ctaEn: 'Start Starter',
-    },
-    {
-      id: 'pro', name: ar ? 'الاحترافي' : 'Pro', price: 79,
-      credits: '200', color: '#6C63FF', featured: true,
-      ctaAr: 'ترقية إلى Pro', ctaEn: 'Upgrade to Pro',
-    },
-    {
-      id: 'agency', name: ar ? 'الوكالات' : 'Agency', price: 199,
-      credits: ar ? 'غير محدود' : 'Unlimited', color: '#00BFA6', featured: false,
-      ctaAr: 'ترقية إلى Agency', ctaEn: 'Upgrade to Agency',
-    },
-  ]
+  const handleUpgrade = async (planId: string) => {
+    setLoading(planId)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/auth/login'); return }
+
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ plan: planId }),
+      })
+      const { url } = await res.json()
+      if (url) window.location.href = url
+    } catch {
+      setLoading(null)
+    }
+  }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
 
-      {/* Modal */}
-      <div
-        className="relative w-full max-w-md rounded-2xl overflow-hidden"
-        style={{
-          background: 'rgba(10,14,39,0.98)',
-          border: '1px solid rgba(108,99,255,0.25)',
-          boxShadow: '0 0 60px rgba(108,99,255,0.15)',
-        }}
-      >
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden"
+        style={{ background: '#0F1430', border: '1px solid rgba(108,99,255,0.25)' }}>
+
         {/* Header */}
-        <div className="px-6 pt-6 pb-4" style={{ borderBottom: '1px solid rgba(108,99,255,0.1)' }}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(255,107,53,0.12)', border: '1px solid rgba(255,107,53,0.2)' }}>
-                <Zap className="w-5 h-5" style={{ color: '#FF6B35' }} />
-              </div>
-              <div>
-                <h3 className="font-bold text-white text-base leading-tight">{copy.title}</h3>
-                <p className="text-xs text-text-muted mt-0.5">
-                  {ar
-                    ? `رصيدك الحالي: ${creditsRemaining} وحدة — ${copy.desc}`
-                    : `Current balance: ${creditsRemaining} credit${creditsRemaining !== 1 ? 's' : ''} — ${copy.desc}`}
-                </p>
-              </div>
-            </div>
-            <button onClick={onClose}
-              className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all flex-shrink-0">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="px-6 pt-6 pb-4 text-center"
+          style={{ borderBottom: '1px solid rgba(108,99,255,0.1)' }}>
+          <div className="text-2xl mb-1">⚡</div>
+          <h2 className="text-xl font-bold text-white mb-1">{headline}</h2>
+          <p className="text-sm text-text-muted">{subline}</p>
         </div>
 
         {/* Plans */}
-        <div className="p-4 space-y-3">
-          {plans.map(plan => (
+        <div className="p-6 grid grid-cols-3 gap-3">
+          {PLANS.map((plan) => (
             <div key={plan.id}
-              className="flex items-center justify-between p-4 rounded-xl transition-all"
+              className="rounded-xl p-4 flex flex-col relative"
               style={{
-                background: plan.featured ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.03)',
-                border: plan.featured ? '1px solid rgba(108,99,255,0.3)' : '1px solid rgba(255,255,255,0.05)',
+                background: plan.popular ? 'rgba(0,191,166,0.06)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${plan.popular ? 'rgba(0,191,166,0.3)' : 'rgba(108,99,255,0.15)'}`,
               }}>
-              <div className="flex items-center gap-3">
-                {plan.featured && (
-                  <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: plan.color }} />
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-white">{plan.name}</p>
-                    {plan.featured && (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(108,99,255,0.2)', color: '#a5a0ff' }}>
-                        {ar ? 'الأشهر' : 'Popular'}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-muted">
-                    {ar ? `${plan.credits} رصيد` : `${plan.credits} credits`}
-                    {' · '}
-                    <span className="text-white font-medium">${plan.price}/{ar ? 'شهر' : 'mo'}</span>
-                  </p>
+              {plan.popular && (
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold text-white"
+                  style={{ background: '#00BFA6' }}>
+                  MOST POPULAR
+                </div>
+              )}
+
+              <div className="mb-3">
+                <div className="text-xs font-semibold mb-1" style={{ color: plan.color }}>{plan.name}</div>
+                <div className="text-2xl font-black text-white">{plan.price}
+                  <span className="text-xs font-normal text-text-muted">/mo</span>
                 </div>
               </div>
+
+              <ul className="space-y-1.5 flex-1 mb-4">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-start gap-1.5 text-[11px] text-text-secondary">
+                    <span style={{ color: plan.color }} className="mt-0.5 flex-shrink-0">✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
               <button
-                onClick={() => { onClose(); router.push(`/billing?plan=${plan.id}`) }}
-                className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-all hover:brightness-110"
+                onClick={() => handleUpgrade(plan.id)}
+                disabled={!!loading}
+                className="w-full py-2 rounded-lg text-sm font-semibold transition-all"
                 style={{
-                  background: plan.featured ? 'rgba(108,99,255,0.2)' : 'rgba(255,255,255,0.05)',
-                  color: plan.featured ? '#a5a0ff' : '#9ca3af',
-                  border: `1px solid ${plan.featured ? 'rgba(108,99,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  background: plan.popular ? '#00BFA6' : 'rgba(108,99,255,0.15)',
+                  color: plan.popular ? 'white' : plan.color,
+                  border: plan.popular ? 'none' : `1px solid ${plan.color}40`,
+                  opacity: loading && loading !== plan.id ? 0.5 : 1,
                 }}>
-                {ar ? plan.ctaAr : plan.ctaEn}
-                <ArrowUpRight className="w-3 h-3" />
+                {loading === plan.id ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Loading…
+                  </span>
+                ) : `Start ${plan.name}`}
               </button>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="px-5 pb-5">
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] text-text-muted">
-              {ar ? '✓ ضمان استرداد 7 أيام · إلغاء في أي وقت' : '✓ 7-day refund · Cancel anytime'}
-            </p>
-            <button onClick={onClose} className="text-xs text-text-muted hover:text-white transition-all">
-              {ar ? 'لاحقاً' : 'Maybe later'}
-            </button>
-          </div>
-
-          {/* Feature highlights */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            {[
-              { textAr: 'Brand Brain', textEn: 'Brand Brain' },
-              { textAr: 'نشر تلقائي', textEn: 'Auto-publish' },
-              { textAr: 'تحليلات', textEn: 'Analytics' },
-            ].map(f => (
-              <div key={f.textEn} className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                <CheckCircle2 className="w-3 h-3 text-accent-teal flex-shrink-0" />
-                {ar ? f.textAr : f.textEn}
-              </div>
-            ))}
-          </div>
+        <div className="px-6 pb-5 text-center space-y-2">
+          <p className="text-[11px] text-text-muted">
+            Secure payment via Stripe · 7-day refund guarantee · Cancel any time
+          </p>
+          <button onClick={onClose}
+            className="text-[11px] text-text-muted hover:text-text-secondary transition-colors underline underline-offset-2">
+            Continue with free plan
+          </button>
         </div>
-
       </div>
     </div>
   )

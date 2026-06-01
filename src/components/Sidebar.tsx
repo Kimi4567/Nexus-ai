@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
+import { useBillingStatus } from '@/lib/useBillingStatus'
 import React from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -172,6 +173,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const email = user?.email || ''
   const initial = displayName.charAt(0).toUpperCase()
 
+  const { creditsRemaining, creditsMax, isUnlimited, isPaid, isLow, isEmpty } = useBillingStatus()
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
@@ -229,16 +232,32 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       <div className="flex-shrink-0 px-2 pb-3 space-y-0.5"
         style={{ borderTop: '1px solid rgba(108,99,255,0.08)', paddingTop: '12px' }}>
 
-        {/* Upgrade */}
-        {!collapsed && pathname !== '/billing' && (
+        {/* Credits indicator / Upgrade CTA */}
+        {!collapsed && (
           <Link href="/billing"
-            className="flex items-center gap-2 px-3 py-2 rounded-[9px] mb-2 transition-all"
-            style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)' }}>
-            <span className="text-sm" style={{ color: '#6C63FF' }}>⚡</span>
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold leading-none mb-0.5" style={{ color: '#6C63FF' }}>{t('sidebar.upgradePro')}</div>
-              <div className="text-[10px] leading-none text-text-muted">{t('sidebar.unlockAll')}</div>
+            className="flex flex-col gap-1.5 px-3 py-2.5 rounded-[9px] mb-2 transition-all"
+            style={{
+              background: isEmpty ? 'rgba(239,68,68,0.08)' : isLow ? 'rgba(245,158,11,0.08)' : isPaid ? 'rgba(0,191,166,0.06)' : 'rgba(108,99,255,0.08)',
+              border: isEmpty ? '1px solid rgba(239,68,68,0.3)' : isLow ? '1px solid rgba(245,158,11,0.3)' : isPaid ? '1px solid rgba(0,191,166,0.2)' : '1px solid rgba(108,99,255,0.2)',
+            }}>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold" style={{ color: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : isPaid ? '#00BFA6' : '#6C63FF' }}>
+                {isEmpty ? '⚠ No credits left' : isLow ? `⚠ ${creditsRemaining} credits left` : isPaid ? `✓ ${isUnlimited ? '∞' : creditsRemaining} credits` : `⚡ ${t('sidebar.upgradePro')}`}
+              </span>
+              {!isPaid && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#6C63FF', color: 'white' }}>PRO</span>}
             </div>
+            {!isUnlimited && (
+              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, ((creditsMax - creditsRemaining) / Math.max(creditsMax, 1)) * 100)}%`,
+                    background: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : '#6C63FF',
+                  }} />
+              </div>
+            )}
+            {!isPaid && (
+              <div className="text-[10px] leading-none text-text-muted">{t('sidebar.unlockAll')}</div>
+            )}
           </Link>
         )}
 
