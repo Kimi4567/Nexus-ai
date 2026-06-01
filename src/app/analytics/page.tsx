@@ -5,17 +5,19 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import Link from 'next/link'
 import {
-  Loader2, BarChart2, Wand2, Sparkles, TrendingUp, TrendingDown,
-  Copy, Check, ChevronDown, Zap, Target, Calendar,
-  Activity, Eye, ArrowUpRight, ArrowDownRight
+  Loader2, BarChart2, Wand2, Sparkles, TrendingUp,
+  Copy, Check, ChevronDown, Zap, Target,
+  Activity, ArrowUpRight, Megaphone, Image, Send,
+  BrainCircuit, RefreshCw
 } from 'lucide-react'
 import StarField from '@/components/ui/StarField'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
    PULSE — Analytics & Market Intelligence
-   Hear the market's heartbeat.
+   Real campaign data + AI-powered analysis engine
    ═══════════════════════════════════════════════════════════════ */
 
 type AnalysisType = 'performance' | 'competitors' | 'trends' | 'content' | 'forecast'
@@ -27,6 +29,46 @@ interface InsightResult {
   query: string
   output: string
   createdAt: Date
+}
+
+interface MonthActivity {
+  label: string
+  month: number
+  year: number
+  generations: number
+  creditsUsed: number
+}
+
+interface TopCampaign {
+  id: string
+  name: string
+  status: string
+  updatedAt: string
+  _count: { generations: number }
+}
+
+interface OverviewData {
+  campaigns: number
+  activeCampaigns: number
+  draftCampaigns: number
+  generations: number
+  publishedPosts: number
+  visualsCount: number
+  creditsRemaining: number
+  creditsUsedThisMonth: number
+  monthlyTotal: number
+  isUnlimited: boolean
+  plan: string
+  monthlyActivity: MonthActivity[]
+  topCampaigns: TopCampaign[]
+}
+
+interface SystemInsight {
+  id: string
+  type: 'action' | 'info' | 'warning' | 'success'
+  icon: string
+  message: string
+  href?: string
 }
 
 function PulseOrbs() {
@@ -72,53 +114,159 @@ function PulseSelect<T extends string>({ label, value, options, onChange }: {
   )
 }
 
-// Metric card
-function MetricCard({ labelKey, value, changeKey, up, color }: {
-  labelKey: string; value: string; changeKey: string; up: boolean; color: string
+// ── Real metric card ─────────────────────────────────────────────────────────
+function MetricCard({
+  icon: Icon, label, value, sub, color, href, loading
+}: {
+  icon: React.ElementType
+  label: string
+  value: string | number
+  sub?: string
+  color: string
+  href?: string
+  loading?: boolean
 }) {
-  const { t } = useI18n()
+  const inner = (
+    <div className="rounded-xl p-4 h-full transition-all hover:brightness-110"
+      style={{ background: 'rgba(17,21,54,0.5)', border: `1px solid rgba(255,255,255,0.06)` }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+          <Icon size={16} style={{ color }} />
+        </div>
+        {href && <ArrowUpRight size={12} style={{ color: 'rgba(255,255,255,0.2)' }} />}
+      </div>
+      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      {loading
+        ? <div className="h-6 w-16 rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
+        : <p className="text-2xl font-bold text-white">{value}</p>
+      }
+      {sub && !loading && <p className="text-xs mt-1" style={{ color: `${color}aa` }}>{sub}</p>}
+    </div>
+  )
+  return href ? <Link href={href}>{inner}</Link> : inner
+}
+
+// ── Real bar chart ─────────────────────────────────────────────────────────
+function ActivityChart({ data, loading }: { data: MonthActivity[]; loading: boolean }) {
+  const { locale } = useI18n()
+  const ar = locale === 'ar'
+
+  if (loading) {
+    return (
+      <div className="flex items-end gap-2 h-24">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="flex-1 rounded-sm animate-pulse"
+            style={{ height: `${40 + Math.random() * 60}%`, background: 'rgba(255,255,255,0.04)' }} />
+        ))}
+      </div>
+    )
+  }
+
+  const maxVal = Math.max(...data.map(d => d.generations), 1)
+  const hasData = data.some(d => d.generations > 0)
+
   return (
-    <div className="rounded-xl p-4" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)' }}>
-      <p className="text-xs text-gray-500 mb-2">{t(labelKey)}</p>
-      <p className="text-xl font-bold text-white mb-1">{value}</p>
-      <div className="flex items-center gap-1">
-        {up ? <ArrowUpRight size={12} style={{ color: '#10b981' }} /> : <ArrowDownRight size={12} style={{ color: '#ef4444' }} />}
-        <span className="text-xs" style={{ color: up ? '#10b981' : '#ef4444' }}>{t(changeKey)}</span>
+    <div>
+      <div className="flex items-end gap-2 h-24">
+        {data.map((d, i) => {
+          const pct = hasData ? Math.max((d.generations / maxVal) * 100, d.generations > 0 ? 8 : 3) : 3
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full rounded-sm transition-all duration-700 group relative"
+                style={{
+                  height: `${pct}%`,
+                  background: d.generations > 0 ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.04)',
+                  border: d.generations > 0 ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.05)',
+                  minHeight: 4,
+                }}>
+                {d.generations > 0 && (
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                    {d.generations} gen
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {/* Month labels */}
+      <div className="flex gap-2 mt-2">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 text-center text-[10px] text-gray-600">{d.label}</div>
+        ))}
+      </div>
+      {!hasData && (
+        <p className="text-xs text-gray-600 mt-1 text-center">
+          {ar ? 'لا توجد نشاطات بعد — قم بإنشاء حملتك الأولى' : 'No activity yet — create your first campaign'}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── Credit bar ──────────────────────────────────────────────────────────────
+function CreditBar({ used, total, isUnlimited }: { used: number; total: number; isUnlimited: boolean }) {
+  const pct = isUnlimited ? 50 : total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
+  const low = !isUnlimited && pct > 80
+  const color = isUnlimited ? '#00BFA6' : low ? '#f59e0b' : '#6C63FF'
+  return (
+    <div className="mt-2">
+      <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+        <div className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   )
 }
 
-// Simple bar chart visual (pure CSS)
-function MiniBarChart({ data, color }: { data: number[]; color: string }) {
-  const max = Math.max(...data)
-  return (
-    <div className="flex items-end gap-1 h-16">
-      {data.map((v, i) => (
-        <div key={i} className="flex-1 rounded-sm transition-all"
-          style={{ height: `${(v / max) * 100}%`, background: `${color}40`, border: `1px solid ${color}60` }} />
-      ))}
-    </div>
-  )
+// ── Insight badge ────────────────────────────────────────────────────────────
+const INSIGHT_COLORS = {
+  action:  { bg: 'rgba(108,99,255,0.08)', border: 'rgba(108,99,255,0.2)',  text: '#a5a0ff' },
+  info:    { bg: 'rgba(6,182,212,0.06)',  border: 'rgba(6,182,212,0.15)',  text: '#22d3ee' },
+  warning: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', text: '#fbbf24' },
+  success: { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', text: '#34d399' },
 }
 
 export default function PulsePage() {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale, dir, t } = useI18n()
   const router = useRouter()
+  const ar = locale === 'ar'
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
   const { brandContext } = useBrandBrain()
+
+  // ── AI Analysis state ────────────────────────────────────────────────────
   const [analysisType, setAnalysisType] = useState<AnalysisType>('performance')
   const [period, setPeriod] = useState<Period>('30d')
   const [industry, setIndustry] = useState('ecommerce')
   const [prompt, setPrompt] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
   const [result, setResult] = useState('')
   const [history, setHistory] = useState<InsightResult[]>([])
+
+  // ── Real data state ──────────────────────────────────────────────────────
+  const [overview, setOverview] = useState<OverviewData | null>(null)
+  const [insights, setInsights] = useState<SystemInsight[]>([])
+  const [dataLoading, setDataLoading] = useState(true)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const hdr = authHeader()
+
+    Promise.all([
+      fetch('/api/analytics/overview', { headers: { Authorization: hdr } }).then(r => r.json()).catch(() => null),
+      fetch('/api/analytics/insights',  { headers: { Authorization: hdr } }).then(r => r.json()).catch(() => ({ insights: [] })),
+    ]).then(([ov, ins]) => {
+      if (ov && !ov.error) setOverview(ov)
+      if (ins?.insights) setInsights(ins.insights)
+      setDataLoading(false)
+    })
+  }, [isAuthenticated, authHeader])
 
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
@@ -136,21 +284,21 @@ export default function PulsePage() {
   ]
 
   const systemPrompts: Record<AnalysisType, string> = {
-    performance: `${brandContext}أنت PULSE، محلل بيانات تسويقية خبير. الفترة: ${period}. القطاع: ${industry}. حلل أداء حملات العلامة التجارية أعلاه وقدم: KPIs الرئيسية، نقاط القوة والضعف، والتوصيات العملية المخصصة لهذه العلامة.`,
-    competitors:  `${brandContext}أنت PULSE، خبير تحليل منافسين. القطاع: ${industry}. قدم تحليل منافسين مخصصاً للعلامة التجارية أعلاه: من هم منافسوهم الفعليون، نقاط قوتهم وضعفهم، وفرص التمايز المتاحة.`,
-    trends:       `${brandContext}أنت PULSE، محلل اتجاهات سوقية. القطاع: ${industry}. اكشف عن الاتجاهات الأكثر صلة بالعلامة التجارية أعلاه: محتوى، إعلانات، سلوك جمهور، وفرص موسمية قادمة.`,
-    content:      `${brandContext}أنت PULSE، محلل أداء محتوى. القطاع: ${industry}. الفترة: ${period}. حلل ما هو أفضل نوع محتوى للعلامة التجارية أعلاه: أوقات النشر، أنواع المحتوى، هاشتاقات فعّالة لجمهورهم المحدد.`,
-    forecast:     `${brandContext}أنت PULSE، متخصص في التوقعات التسويقية. القطاع: ${industry}. بناءً على بيانات العلامة التجارية أعلاه، توقع الأداء للأشهر الثلاثة القادمة وقدم خطة عمل استباقية مخصصة.`,
+    performance: `${brandContext}You are PULSE, an expert marketing analyst. Period: ${period}. Sector: ${industry}. Analyze the brand's campaign performance and provide: key KPIs, strengths, weaknesses, and specific actionable recommendations.`,
+    competitors:  `${brandContext}You are PULSE, a competitor intelligence expert. Sector: ${industry}. Provide a competitor analysis for the brand above: who their real competitors are, their strengths and weaknesses, and differentiation opportunities.`,
+    trends:       `${brandContext}You are PULSE, a market trends analyst. Sector: ${industry}. Reveal the most relevant trends for the brand above: content trends, ad formats, audience behavior, and upcoming seasonal opportunities.`,
+    content:      `${brandContext}You are PULSE, a content performance analyst. Sector: ${industry}. Period: ${period}. Analyze the optimal content strategy for this brand: best posting times, content types, effective hashtags, and platform-specific tactics.`,
+    forecast:     `${brandContext}You are PULSE, a marketing forecasting specialist. Sector: ${industry}. Based on the brand data above, forecast performance for the next 3 months and provide a proactive action plan.`,
   }
 
   async function generate() {
-    if (!prompt.trim() || loading) return
-    setLoading(true)
+    if (!prompt.trim() || aiLoading) return
+    setAiLoading(true)
     setResult('')
     try {
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ systemPrompt: systemPrompts[analysisType], userPrompt: prompt, maxTokens: 1400, language: locale }),
       })
       if (!res.ok) throw new Error()
@@ -161,15 +309,25 @@ export default function PulsePage() {
     } catch {
       setResult(t('analytics.errorConnect') as string)
     } finally {
-      setLoading(false)
+      setAiLoading(false)
     }
   }
 
   const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
   const purpleColor = '#8b5cf6'
 
-  // Sample chart data (representative, not fake stats)
-  const chartData = [30, 45, 38, 62, 55, 70, 58, 80, 75, 90, 85, 95, 88, 72]
+  // Derived label for plan credits display
+  const creditLabel = overview?.isUnlimited
+    ? (ar ? 'غير محدود' : 'Unlimited')
+    : overview
+      ? `${overview.creditsRemaining} ${ar ? 'متبقي' : 'left'}`
+      : '—'
+
+  const creditSub = overview?.isUnlimited
+    ? `${overview.creditsUsedThisMonth} ${ar ? 'هذا الشهر' : 'used this month'}`
+    : overview
+      ? `${overview.creditsUsedThisMonth} / ${overview.monthlyTotal} ${ar ? 'مستخدم' : 'used'}`
+      : ''
 
   return (
     <AppShell>
@@ -179,7 +337,7 @@ export default function PulsePage() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
 
-          {/* Header */}
+          {/* ── Header ────────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -208,224 +366,355 @@ export default function PulsePage() {
             </div>
           </div>
 
-          {/* Metrics overview */}
+          {/* ── Real Metric Cards ─────────────────────────────────────────── */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <MetricCard labelKey="analytics.reach"            value="—" changeKey="analytics.connectAccountsHint" up={true}  color={purpleColor} />
-            <MetricCard labelKey="analytics.engagementMetric" value="—" changeKey="analytics.toSeeDataHint"        up={true}  color="#06b6d4" />
-            <MetricCard labelKey="analytics.conversionsMetric"value="—" changeKey="analytics.viaConnectionsHint"   up={false} color="#10b981" />
-            <MetricCard labelKey="analytics.growth"           value="—" changeKey="analytics.forAnalyticsHint"     up={true}  color="#6C63FF" />
+            <MetricCard
+              icon={Megaphone}
+              label={ar ? 'إجمالي الحملات' : 'Total Campaigns'}
+              value={dataLoading ? '—' : (overview?.campaigns ?? 0)}
+              sub={overview && !dataLoading ? `${overview.activeCampaigns} ${ar ? 'نشطة' : 'active'}` : undefined}
+              color={purpleColor}
+              href="/campaigns"
+              loading={dataLoading}
+            />
+            <MetricCard
+              icon={Send}
+              label={ar ? 'منشورات منشورة' : 'Published Posts'}
+              value={dataLoading ? '—' : (overview?.publishedPosts ?? 0)}
+              sub={overview && !dataLoading && overview.publishedPosts > 0 ? (ar ? 'عبر السوشيال' : 'via social') : undefined}
+              color="#00BFA6"
+              href="/connections"
+              loading={dataLoading}
+            />
+            <MetricCard
+              icon={BrainCircuit}
+              label={ar ? 'توليدات AI' : 'AI Generations'}
+              value={dataLoading ? '—' : (overview?.generations ?? 0)}
+              sub={overview && !dataLoading ? (ar ? 'إجمالي الحملات' : 'across all campaigns') : undefined}
+              color="#06b6d4"
+              href="/campaigns"
+              loading={dataLoading}
+            />
+            <MetricCard
+              icon={Zap}
+              label={ar ? 'الأرصدة' : 'AI Credits'}
+              value={dataLoading ? '—' : creditLabel}
+              sub={creditSub || undefined}
+              color={overview && !overview.isUnlimited && overview.creditsRemaining < 5 ? '#f59e0b' : '#6C63FF'}
+              href="/billing"
+              loading={dataLoading}
+            />
           </div>
 
-          {/* Chart preview */}
-          <div className="rounded-2xl p-5" style={glassCard}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Activity size={16} style={{ color: purpleColor }} />
-                <span className="text-sm font-semibold text-gray-300">{t('analytics.campaignActivity')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                {(['7d','30d','90d'] as Period[]).map(p => (
-                  <button key={p} onClick={() => setPeriod(p)}
-                    className="text-xs px-3 py-1 rounded-lg transition-all"
-                    style={{ background: period === p ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.03)', color: period === p ? purpleColor : '#6b7280', border: `1px solid ${period === p ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.06)'}` }}>
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <MiniBarChart data={chartData} color={purpleColor} />
-            <p className="text-xs text-gray-600 mt-2 text-center">{t('analytics.connectNote')}</p>
-          </div>
-
-          {/* Analysis tabs */}
-          <div className="flex flex-wrap gap-2">
-            {analysisTabs.map(tab => (
-              <button key={tab.id} onClick={() => { setAnalysisType(tab.id); setResult('') }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-                style={{
-                  background: analysisType === tab.id ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08))' : 'rgba(255,255,255,0.04)',
-                  color: analysisType === tab.id ? purpleColor : '#9ca3af',
-                  border: `1px solid ${analysisType === tab.id ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                }}>
-                <tab.icon size={15} />
-                <span>{t(tab.labelKey)}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Main grid */}
+          {/* ── Activity Chart + System Insights ─────────────────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Config */}
-            <div className="lg:col-span-1 space-y-4">
-              <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  <Target size={14} style={{ color: purpleColor }} />
-                  {t('analytics.analysisSettings')}
-                </h3>
-                <PulseSelect
-                  label={t('analytics.industryLabel') as string}
-                  value={industry}
-                  onChange={setIndustry}
-                  options={[
-                    { value: 'ecommerce',  label: t('analytics.industryEcommerce') as string },
-                    { value: 'food',       label: t('analytics.industryFood') as string },
-                    { value: 'fashion',    label: t('analytics.industryFashion') as string },
-                    { value: 'tech',       label: t('analytics.industryTech') as string },
-                    { value: 'health',     label: t('analytics.industryHealth') as string },
-                    { value: 'realestate', label: t('analytics.industryRealEstate') as string },
-                    { value: 'education',  label: t('analytics.industryEducation') as string },
-                    { value: 'services',   label: t('analytics.industryServices') as string },
-                  ]} />
-                <PulseSelect<Period>
-                  label={t('analytics.periodLabel') as string}
-                  value={period}
-                  onChange={setPeriod}
-                  options={[
-                    { value: '7d',  label: t('analytics.period7d') as string },
-                    { value: '30d', label: t('analytics.period30d') as string },
-                    { value: '90d', label: t('analytics.period90d') as string },
-                    { value: '6m',  label: t('analytics.period6m') as string },
-                    { value: '1y',  label: t('analytics.period1y') as string },
-                  ]} />
-              </div>
 
-              {/* Quick queries */}
-              <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('analytics.quickQuestions')}</h3>
-                <div className="space-y-2">
-                  {(locale === 'ar' ? [
-                    'ما هي أفضل أوقات النشر على Instagram؟',
-                    'كيف أحسّن معدل التحويل في إعلاناتي؟',
-                    'ما الاتجاهات السائدة في قطاعي هذا الشهر؟',
-                    'كيف تقارن حملتي بالمعايير المعتادة في السوق؟',
-                  ] : [
-                    'What are the best times to post on Instagram?',
-                    'How do I improve my ad conversion rate?',
-                    'What are the top trends in my industry this month?',
-                    'How does my campaign compare to market benchmarks?',
-                  ]).map((q, i) => (
-                    <button key={i} onClick={() => setPrompt(q)}
-                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
-                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
-                      {q}
-                    </button>
+            {/* Chart */}
+            <div className="lg:col-span-2 rounded-2xl p-5" style={glassCard}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity size={16} style={{ color: purpleColor }} />
+                  <span className="text-sm font-semibold text-gray-300">
+                    {ar ? 'نشاط توليد AI الشهري' : 'Monthly AI Activity'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <RefreshCw size={11} />
+                  <span>{ar ? 'آخر 6 أشهر' : 'Last 6 months'}</span>
+                </div>
+              </div>
+              <ActivityChart
+                data={overview?.monthlyActivity ?? []}
+                loading={dataLoading}
+              />
+              {overview && !dataLoading && (
+                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                  <div className="text-xs text-gray-500">
+                    {ar
+                      ? `${overview.creditsUsedThisMonth} رصيد مستخدم هذا الشهر`
+                      : `${overview.creditsUsedThisMonth} credits used this month`}
+                  </div>
+                  {!overview.isUnlimited && (
+                    <div className="flex-1 max-w-32 mx-4">
+                      <CreditBar
+                        used={overview.creditsUsedThisMonth}
+                        total={overview.monthlyTotal}
+                        isUnlimited={false}
+                      />
+                    </div>
+                  )}
+                  <Link href="/billing"
+                    className="text-xs font-semibold transition-all hover:brightness-125"
+                    style={{ color: purpleColor }}>
+                    {ar ? 'ترقية ←' : 'Upgrade →'}
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* System Insights */}
+            <div className="rounded-2xl p-5 flex flex-col" style={glassCard}>
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles size={14} style={{ color: purpleColor }} />
+                <span className="text-sm font-semibold text-gray-300">
+                  {ar ? 'رؤى النظام' : 'System Insights'}
+                </span>
+              </div>
+              {dataLoading ? (
+                <div className="space-y-3 flex-1">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
                   ))}
                 </div>
-              </div>
-            </div>
-
-            {/* Query + Output */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  {(() => {
-                    const tab = analysisTabs.find(tab => tab.id === analysisType)!
-                    return <><tab.icon size={14} style={{ color: purpleColor }} />{t(tab.labelKey)}</>
-                  })()}
-                </h3>
-                <textarea
-                  value={prompt}
-                  onChange={e => setPrompt(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
-                  placeholder={t('analytics.promptPlaceholder') as string}
-                  rows={5}
-                  className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                  style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
-                <div className="flex justify-end">
-                  <button onClick={generate} disabled={!prompt.trim() || loading}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
-                    style={{
-                      background: prompt.trim() && !loading ? `linear-gradient(135deg, ${purpleColor}, #7c3aed)` : 'rgba(255,255,255,0.05)',
-                      color: prompt.trim() && !loading ? '#fff' : '#4b5563',
-                      boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(139,92,246,0.3)` : 'none',
-                    }}>
-                    {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
-                    {loading ? t('analytics.analyzing') : t('analytics.analyzeNow')}
-                  </button>
+              ) : insights.length > 0 ? (
+                <div className="space-y-2 flex-1">
+                  {insights.map(ins => {
+                    const c = INSIGHT_COLORS[ins.type]
+                    const inner = (
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl transition-all hover:brightness-110"
+                        style={{ background: c.bg, border: `1px solid ${c.border}` }}>
+                        <span className="text-base flex-shrink-0">{ins.icon}</span>
+                        <p className="text-xs leading-relaxed" style={{ color: c.text }}>{ins.message}</p>
+                      </div>
+                    )
+                    return ins.href ? <Link key={ins.id} href={ins.href}>{inner}</Link> : <div key={ins.id}>{inner}</div>
+                  })}
                 </div>
-              </div>
-
-              {(result || loading) && (
-                <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(139,92,246,0.2)`, boxShadow: 'rgba(139,92,246,0.05) 0 0 40px' }}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: purpleColor }}>
-                      <Sparkles size={14} />{t('analytics.insightTitle')}
-                    </h3>
-                    {result && !loading && <CopyBtn text={result} />}
-                  </div>
-                  {loading ? (
-                    <div className="flex flex-col items-center justify-center py-12 gap-4">
-                      <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: purpleColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">{t('analytics.processing')}</p>
-                    </div>
-                  ) : (
-                    <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
-                      style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
-                      {result}
-                    </pre>
-                  )}
-                </div>
-              )}
-
-              {!result && !loading && (
-                <div className="rounded-2xl p-10 flex flex-col items-center gap-4" style={glassCard}>
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
-                    <BarChart2 size={32} style={{ color: 'rgba(139,92,246,0.4)' }} />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-gray-400 text-sm">{t('analytics.emptyTitle')}</p>
-                    <p className="text-gray-600 text-xs mt-1">{t('analytics.emptySub')}</p>
-                  </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-xs text-gray-600 text-center">
+                    {ar ? 'لا توجد رؤى بعد' : 'No insights yet'}
+                  </p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* History */}
-          {history.length > 0 && (
+          {/* ── Top Campaigns ─────────────────────────────────────────────── */}
+          {!dataLoading && overview && overview.topCampaigns.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">{t('analytics.historyTitle')}</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{t('analytics.clearAll')}</button>
+                <div className="flex items-center gap-2">
+                  <Megaphone size={14} style={{ color: purpleColor }} />
+                  <span className="text-sm font-semibold text-gray-300">
+                    {ar ? 'الحملات الأخيرة' : 'Recent Campaigns'}
+                  </span>
+                </div>
+                <Link href="/campaigns"
+                  className="text-xs font-semibold transition-all hover:brightness-125"
+                  style={{ color: purpleColor }}>
+                  {ar ? 'عرض الكل ←' : 'View all →'}
+                </Link>
               </div>
               <div className="space-y-2">
-                {history.map(h => (
-                  <div key={h.id} onClick={() => { setResult(h.output); setAnalysisType(h.type) }}
-                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: 'rgba(139,92,246,0.1)', color: purpleColor, border: `1px solid rgba(139,92,246,0.2)` }}>
-                        {t(analysisTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
-                      </span>
-                      <span className="text-xs text-gray-500 truncate">{h.query}</span>
-                    </div>
-                    <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                ))}
+                {overview.topCampaigns.map(c => {
+                  const statusColor = c.status === 'ACTIVE' ? '#00BFA6' : c.status === 'DRAFT' ? '#f59e0b' : '#6b7280'
+                  const hoursAgo = Math.floor((Date.now() - new Date(c.updatedAt).getTime()) / 3600000)
+                  const timeLabel = hoursAgo < 1 ? (ar ? 'الآن' : 'now')
+                    : hoursAgo < 24 ? `${hoursAgo}h`
+                    : `${Math.floor(hoursAgo / 24)}d`
+                  return (
+                    <Link key={c.id} href={`/campaigns/${c.id}`}
+                      className="flex items-center justify-between p-3 rounded-xl transition-all hover:bg-white/[0.03]"
+                      style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+                        <span className="text-sm text-gray-300 truncate">{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-xs text-gray-600">{c._count.generations} gen</span>
+                        <span className="text-xs text-gray-700">{timeLabel}</span>
+                        <ArrowUpRight size={12} style={{ color: 'rgba(255,255,255,0.15)' }} />
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {/* Capabilities */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {([
-              { icon: BarChart2,  color: '#8b5cf6', labelKey: 'analytics.capPerformanceLabel', descKey: 'analytics.capPerformanceDesc' },
-              { icon: Target,     color: '#06b6d4', labelKey: 'analytics.capCompetitorsLabel', descKey: 'analytics.capCompetitorsDesc' },
-              { icon: TrendingUp, color: '#10b981', labelKey: 'analytics.capTrendsLabel',      descKey: 'analytics.capTrendsDesc' },
-              { icon: Activity,   color: '#6C63FF', labelKey: 'analytics.capContentLabel',     descKey: 'analytics.capContentDesc' },
-              { icon: Zap,        color: '#ec4899', labelKey: 'analytics.capForecastLabel',    descKey: 'analytics.capForecastDesc' },
-            ] as { icon: React.ElementType; color: string; labelKey: string; descKey: string }[]).map((c, i) => (
-              <div key={i} className="rounded-xl p-4" style={glassCard}>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3"
-                  style={{ background: `${c.color}18`, border: `1px solid ${c.color}30` }}>
-                  <c.icon size={16} style={{ color: c.color }} />
+          {/* ── AI Analysis Engine ─────────────────────────────────────────── */}
+          <div className="rounded-2xl p-1 overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(6,182,212,0.04))', border: '1px solid rgba(139,92,246,0.15)' }}>
+            <div className="rounded-xl p-5" style={{ background: 'rgba(10,14,39,0.95)' }}>
+
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  <BrainCircuit size={16} style={{ color: purpleColor }} />
                 </div>
-                <p className="text-white text-xs font-medium">{t(c.labelKey)}</p>
-                <p className="text-gray-600 text-xs mt-1">{t(c.descKey)}</p>
+                <div>
+                  <h2 className="text-sm font-bold text-white">{ar ? 'محرك التحليل الذكي' : 'AI Analysis Engine'}</h2>
+                  <p className="text-xs text-gray-500">{ar ? 'رؤى مخصصة لعلامتك التجارية' : 'Custom insights for your brand'}</p>
+                </div>
               </div>
-            ))}
+
+              {/* Analysis tabs */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                {analysisTabs.map(tab => (
+                  <button key={tab.id} onClick={() => { setAnalysisType(tab.id); setResult('') }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: analysisType === tab.id ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08))' : 'rgba(255,255,255,0.04)',
+                      color: analysisType === tab.id ? purpleColor : '#9ca3af',
+                      border: `1px solid ${analysisType === tab.id ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                    }}>
+                    <tab.icon size={15} />
+                    <span>{t(tab.labelKey)}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Main grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Config */}
+                <div className="lg:col-span-1 space-y-4">
+                  <div className="rounded-xl p-4 space-y-4" style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                    <PulseSelect
+                      label={t('analytics.industryLabel') as string}
+                      value={industry}
+                      onChange={setIndustry}
+                      options={[
+                        { value: 'ecommerce',  label: t('analytics.industryEcommerce') as string },
+                        { value: 'food',       label: t('analytics.industryFood') as string },
+                        { value: 'fashion',    label: t('analytics.industryFashion') as string },
+                        { value: 'tech',       label: t('analytics.industryTech') as string },
+                        { value: 'health',     label: t('analytics.industryHealth') as string },
+                        { value: 'realestate', label: t('analytics.industryRealEstate') as string },
+                        { value: 'education',  label: t('analytics.industryEducation') as string },
+                        { value: 'services',   label: t('analytics.industryServices') as string },
+                      ]} />
+                    <PulseSelect<Period>
+                      label={t('analytics.periodLabel') as string}
+                      value={period}
+                      onChange={setPeriod}
+                      options={[
+                        { value: '7d',  label: t('analytics.period7d') as string },
+                        { value: '30d', label: t('analytics.period30d') as string },
+                        { value: '90d', label: t('analytics.period90d') as string },
+                        { value: '6m',  label: t('analytics.period6m') as string },
+                        { value: '1y',  label: t('analytics.period1y') as string },
+                      ]} />
+                  </div>
+
+                  {/* Quick queries */}
+                  <div className="rounded-xl p-4" style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                    <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('analytics.quickQuestions')}</h3>
+                    <div className="space-y-2">
+                      {(ar ? [
+                        'ما هي أفضل أوقات النشر على Instagram؟',
+                        'كيف أحسّن معدل التحويل في إعلاناتي؟',
+                        'ما الاتجاهات السائدة في قطاعي هذا الشهر؟',
+                        'كيف تقارن حملتي بالمعايير المعتادة في السوق؟',
+                      ] : [
+                        'What are the best times to post on Instagram?',
+                        'How do I improve my ad conversion rate?',
+                        'What are the top trends in my industry this month?',
+                        'How does my campaign compare to market benchmarks?',
+                      ]).map((q, i) => (
+                        <button key={i} onClick={() => setPrompt(q)}
+                          className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400 ${ar ? 'text-right' : 'text-left'}`}
+                          style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Query + Output */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="rounded-xl p-5 space-y-4" style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                    <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                      {(() => {
+                        const tab = analysisTabs.find(tab => tab.id === analysisType)!
+                        return <><tab.icon size={14} style={{ color: purpleColor }} />{t(tab.labelKey)}</>
+                      })()}
+                    </h3>
+                    <textarea
+                      value={prompt}
+                      onChange={e => setPrompt(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) generate() }}
+                      placeholder={t('analytics.promptPlaceholder') as string}
+                      rows={4}
+                      className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
+                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
+                    <div className="flex justify-end">
+                      <button onClick={generate} disabled={!prompt.trim() || aiLoading}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
+                        style={{
+                          background: prompt.trim() && !aiLoading ? `linear-gradient(135deg, ${purpleColor}, #7c3aed)` : 'rgba(255,255,255,0.05)',
+                          color: prompt.trim() && !aiLoading ? '#fff' : '#4b5563',
+                          boxShadow: prompt.trim() && !aiLoading ? `0 0 30px rgba(139,92,246,0.3)` : 'none',
+                        }}>
+                        {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
+                        {aiLoading ? t('analytics.analyzing') : t('analytics.analyzeNow')}
+                      </button>
+                    </div>
+                  </div>
+
+                  {(result || aiLoading) && (
+                    <div className="rounded-xl p-5 space-y-4"
+                      style={{ background: 'rgba(17,21,54,0.5)', border: `1px solid rgba(139,92,246,0.2)`, boxShadow: 'rgba(139,92,246,0.05) 0 0 40px' }}>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: purpleColor }}>
+                          <Sparkles size={14} />{t('analytics.insightTitle')}
+                        </h3>
+                        {result && !aiLoading && <CopyBtn text={result} />}
+                      </div>
+                      {aiLoading ? (
+                        <div className="flex flex-col items-center justify-center py-10 gap-4">
+                          <div className="w-12 h-12 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: purpleColor }} />
+                          <p className="text-sm text-gray-400 animate-pulse">{t('analytics.processing')}</p>
+                        </div>
+                      ) : (
+                        <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
+                          style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
+                          {result}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+
+                  {!result && !aiLoading && (
+                    <div className="rounded-xl p-8 flex flex-col items-center gap-4"
+                      style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                      <Image size={28} style={{ color: 'rgba(139,92,246,0.3)' }} />
+                      <div className="text-center">
+                        <p className="text-gray-400 text-sm">{t('analytics.emptyTitle')}</p>
+                        <p className="text-gray-600 text-xs mt-1">{t('analytics.emptySub')}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* History */}
+              {history.length > 0 && (
+                <div className="mt-5 pt-5 border-t border-white/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-semibold text-gray-500">{t('analytics.historyTitle')}</h3>
+                    <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{t('analytics.clearAll')}</button>
+                  </div>
+                  <div className="space-y-1">
+                    {history.map(h => (
+                      <div key={h.id} onClick={() => { setResult(h.output); setAnalysisType(h.type) }}
+                        className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
+                        style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ background: 'rgba(139,92,246,0.1)', color: purpleColor, border: `1px solid rgba(139,92,246,0.2)` }}>
+                            {t(analysisTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
+                          </span>
+                          <span className="text-xs text-gray-500 truncate">{h.query}</span>
+                        </div>
+                        <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString(ar ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
