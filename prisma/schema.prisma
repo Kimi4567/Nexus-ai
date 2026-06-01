@@ -1012,12 +1012,10 @@ model GeneratedVisual {
 // RATE LIMITING (production-grade, cross-instance)
 // ============================================================================
 
-/**
- * Stores per-key sliding-window counters in Postgres.
- * One row per rate-limit key (e.g. "ai:userId", "chat:userId", "checkout:userId").
- * The API layer resets count when windowStart is older than the window duration.
- * Run `npx prisma db push` after deploying to activate.
- */
+// Stores per-key sliding-window counters in Postgres.
+// One row per rate-limit key (e.g. "ai:userId", "chat:userId", "checkout:userId").
+// The API layer resets count when windowStart is older than the window duration.
+// Run `npx prisma db push` after deploying to activate.
 model RateLimitRecord {
   id          String   @id @default(cuid())
   key         String   @unique           // composite key: "scope:identifier"
