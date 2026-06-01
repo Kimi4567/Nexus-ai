@@ -61,8 +61,10 @@ export async function GET(req: NextRequest) {
     })
 
     // Parse response safely — TikTok sometimes returns HTML on error
+    console.log('[TikTok OAuth] Token status:', tokenRes.status, '| url:', tokenRes.url)
+    console.log('[TikTok OAuth] Token content-type:', tokenRes.headers.get('content-type'))
     const tokenText = await tokenRes.text()
-    console.log('[TikTok OAuth] Token raw response:', tokenText.slice(0, 500))
+    console.log('[TikTok OAuth] Token raw response:', tokenText.slice(0, 800))
 
     let tokenData: Record<string, unknown>
     try {
