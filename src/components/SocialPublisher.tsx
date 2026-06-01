@@ -350,6 +350,26 @@ export default function SocialPublisher({
           ))}
         </div>
 
+        {/* No pages warning */}
+        {selectedAccount && selectedAccount.pages.length === 0 && (
+          <div className="px-3 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs space-y-1">
+            <p className="font-semibold">⚠️ {ar ? 'لا توجد صفحات مربوطة' : 'No Facebook Pages found'}</p>
+            <p className="text-amber-400/80 leading-relaxed">
+              {ar
+                ? 'لنشر على Facebook أو Instagram عبر API، تحتاج إلى صفحة Facebook Business مربوطة بحسابك.'
+                : 'To publish via the API, you need a Facebook Business Page linked to your account.'}
+            </p>
+            <a
+              href="https://www.facebook.com/pages/create"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 underline font-semibold mt-1"
+            >
+              {ar ? 'إنشاء صفحة Facebook' : 'Create a Facebook Page'} →
+            </a>
+          </div>
+        )}
+
         {/* Page selector */}
         {selectedAccount && selectedAccount.pages.length > 0 && (
           <div>
@@ -478,30 +498,33 @@ export default function SocialPublisher({
         )}
       </div>
 
-      {/* Mode selector */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setMode('now')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-            mode === 'now'
-              ? 'border-accent/50 bg-accent/10 text-accent'
-              : 'border-dark-tertiary bg-dark-secondary text-gray-500 hover:text-gray-300'
-          }`}
-        >
-          <Send className="w-4 h-4" />
-          {ar ? 'انشر الآن' : 'Publish Now'}
-        </button>
-        <button
-          onClick={() => setMode('schedule')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-            mode === 'schedule'
-              ? 'border-blue-500/50 bg-blue-500/10 text-blue-300'
-              : 'border-dark-tertiary bg-dark-secondary text-gray-500 hover:text-gray-300'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          {ar ? 'جدولة' : 'Schedule'}
-        </button>
+      {/* Mode selector — compact toggle */}
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-gray-500 flex-shrink-0">{ar ? 'وقت النشر:' : 'Publish:'}</p>
+        <div className="flex gap-1 bg-dark-tertiary rounded-xl p-1">
+          <button
+            onClick={() => setMode('now')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              mode === 'now'
+                ? 'bg-accent text-black'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            <Send className="w-3 h-3" />
+            {ar ? 'فوري' : 'Now'}
+          </button>
+          <button
+            onClick={() => setMode('schedule')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              mode === 'schedule'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            <Clock className="w-3 h-3" />
+            {ar ? 'جدولة' : 'Schedule'}
+          </button>
+        </div>
       </div>
 
       {/* Schedule datetime */}
