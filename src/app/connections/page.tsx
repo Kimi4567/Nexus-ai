@@ -53,6 +53,22 @@ const PLATFORMS: PlatformDef[] = [
     featuresEn: ['Auto publish', 'Post scheduling', 'Instagram + Facebook', 'Page management'],
   },
   {
+    id: 'LINKEDIN',
+    nameKey: 'connections.platformLinkedInName',
+    descKey: 'connections.platformLinkedInDesc',
+    icon: (
+      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
+        <rect width="36" height="36" rx="8" fill="#0A66C2" />
+        <path d="M10 14h3.5v12H10V14zm1.75-5.5a2 2 0 110 4 2 2 0 010-4zM16 14h3.35v1.65h.05c.47-.88 1.6-1.8 3.3-1.8 3.53 0 4.18 2.32 4.18 5.34V26H23.4v-5.96c0-1.42-.03-3.25-1.98-3.25-1.98 0-2.28 1.55-2.28 3.15V26H16V14z" fill="white" />
+      </svg>
+    ),
+    color: '#0A66C2',
+    gradient: 'from-blue-700/20 to-blue-500/10',
+    available: true,
+    featuresAr: ['نشر على LinkedIn', 'مشاركات نصية وصور', 'بناء الحضور المهني', 'LinkedIn Personal'],
+    featuresEn: ['LinkedIn publishing', 'Text & image posts', 'Professional presence', 'Personal profile'],
+  },
+  {
     id: 'TIKTOK',
     nameKey: 'connections.platformTikTokName',
     descKey: 'connections.platformTikTokDesc',
@@ -154,7 +170,11 @@ export default function ConnectionsPage() {
     const social = params.get('social')
     const platform = params.get('platform')
     if (social === 'connected') {
-      const platformName = platform === 'meta' ? 'Meta (Facebook/Instagram)' : (platform || '')
+      const PLATFORM_NAMES: Record<string, string> = {
+        meta:     'Meta (Facebook/Instagram)',
+        linkedin: 'LinkedIn',
+      }
+      const platformName = PLATFORM_NAMES[platform || ''] || (platform || '')
       setMessage({
         type: 'success',
         text: (t('connections.successConnect') as string).replace('{platform}', platformName),
@@ -181,11 +201,17 @@ export default function ConnectionsPage() {
     if (isAuthenticated) fetchAccounts()
   }, [isAuthenticated, fetchAccounts])
 
+  const CONNECT_ROUTES: Record<string, string> = {
+    META:     '/api/social/connect/meta',
+    LINKEDIN: '/api/social/connect/linkedin',
+  }
+
   const handleConnect = async (platformId: string) => {
-    if (platformId !== 'META') return // Only Meta is live
+    const route = CONNECT_ROUTES[platformId]
+    if (!route) return // platform not yet supported
     setConnecting(platformId)
     try {
-      const res = await fetch('/api/social/connect/meta', {
+      const res = await fetch(route, {
         headers: { Authorization: authHeader() },
       })
       const data = await res.json()

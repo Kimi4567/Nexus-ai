@@ -9,12 +9,12 @@ const supabaseAdmin = createClient(
 
 interface PublishRequest {
   integrationId: string   // which connected account
-  pageId: string          // Facebook page ID or IG account ID
+  pageId: string          // Facebook page ID, IG account ID, or LinkedIn person URN
   pageName?: string
   caption: string
   imageUrl?: string       // optional image
   link?: string           // optional link
-  platform: 'FACEBOOK' | 'INSTAGRAM'
+  platform: 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN'
   campaignId?: string
 }
 
@@ -53,21 +53,32 @@ export async function POST(req: NextRequest) {
   let errorMessage: string | null = null
   let status: 'PUBLISHED' | 'FAILED' = 'PUBLISHED'
 
+  // For LinkedIn, use the integration's access token directly (no page-level token)
+  const publishToken = platform === 'LINKEDIN' ? integration.accessToken : pageToken
+
   try {
     if (platform === 'FACEBOOK') {
-      platformPostId = await publishToFacebook({ pageId, pageToken, caption, imageUrl, link })
+      platformPostId = await publishToFacebook({ pageId, pageToken: publishToken, caption, imageUrl, link })
       platformUrl = `https://www.facebook.com/${platformPostId}`
     } else if (platform === 'INSTAGRAM') {
       const igAccountId = page?.igAccountId
       if (!igAccountId) throw new Error('No Instagram Business Account linked to this page')
-      platformPostId = await publishToInstagram({ igAccountId, pageToken, caption, imageUrl })
+      platformPostId = await publishToInstagram({ igAccountId, pageToken: publishToken, caption, imageUrl })
       platformUrl = `https://www.instagram.com/p/${platformPostId}`
+    } else if (platform === 'LINKEDIN') {
+      // pageId is the LinkedIn person URN for personal posts
+      const personId = (integration.config as any)?.personId || pageId
+      platformPostId = await publishToLinkedIn({ personId, accessToken: publishToken, caption, imageUrl, link })
+      platformUrl = `https://www.linkedin.com/feed/update/urn:li:share:${platformPostId}`
     }
   } catch (err: any) {
     console.error('[Social Publish] Error:', err)
     status = 'FAILED'
     errorMessage = err.message || 'Publish failed'
   }
+
+  // Determine DB platform value
+  const dbPlatform = platform === 'LINKEDIN' ? 'META' : 'META' // SocialPost.platform uses Platform enum
 
   // Record the post — requires `prisma generate` after running social_publishing.sql migration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,9 +87,9 @@ export async function POST(req: NextRequest) {
       workspaceId: workspace.id,
       campaignId: campaignId || null,
       integrationId,
-      platform: 'META',
+      platform: dbPlatform,
       pageId,
-      pageName: pageName || page?.name || null,
+      pageName: pageName || page?.name || integration.accountName || null,
       caption,
       imageUrl: imageUrl || null,
       link: link || null,
@@ -168,4 +179,80 @@ async function publishToInstagram({
   if (publishData.error) throw new Error(`IG publish: ${publishData.error.message}`)
 
   return publishData.id as string
+}
+
+// ── LinkedIn UGC Post ──────────────────────────────────────────────────────
+
+async function publishToLinkedIn({
+  personId, accessToken, caption, imageUrl, link,
+}: { personId: string; accessToken: string; caption: string; imageUrl?: string; link?: string }) {
+  // LinkedIn UGC Posts API — personal post on member's feed
+  // author uses URN format: urn:li:person:{id}
+  const authorUrn = personId.startsWith('urn:li:') ? personId : `urn:li:person:${personId}`
+
+  let specificContent: object
+
+  if (imageUrl) {
+    // Article post with image preview (no binary upload needed)
+    specificContent = {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text: caption },
+        shareMediaCategory: 'ARTICLE',
+        media: [{
+          status: 'READY',
+          originalUrl: imageUrl,
+          title: { text: caption.slice(0, 200) },
+        }],
+      },
+    }
+  } else if (link) {
+    // Article post with link
+    specificContent = {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text: caption },
+        shareMediaCategory: 'ARTICLE',
+        media: [{
+          status: 'READY',
+          originalUrl: link,
+        }],
+      },
+    }
+  } else {
+    // Text-only post
+    specificContent = {
+      'com.linkedin.ugc.ShareContent': {
+        shareCommentary: { text: caption },
+        shareMediaCategory: 'NONE',
+      },
+    }
+  }
+
+  const body = {
+    author: authorUrn,
+    lifecycleState: 'PUBLISHED',
+    specificContent,
+    visibility: {
+      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
+    },
+  }
+
+  const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'X-Restli-Protocol-Version': '2.0.0',
+    },
+    body: JSON.stringify(body),
+  })
+
+  const data = await res.json()
+
+  if (!res.ok || data.status === 422 || data.serviceErrorCode) {
+    throw new Error(`LinkedIn API: ${data.message || data.status || 'Post failed'}`)
+  }
+
+  // LinkedIn returns the post ID in the 'id' field (e.g. "urn:li:ugcPost:123456")
+  const postId = (data.id as string)?.split(':').pop() || data.id
+  return postId as string
 }

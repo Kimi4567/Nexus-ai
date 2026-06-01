@@ -734,6 +734,7 @@ enum ExportStatus {
 
 enum IntegrationType {
   META
+  LINKEDIN
   TIKTOK
   YOUTUBE
   GOOGLE
