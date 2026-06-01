@@ -26,8 +26,10 @@ function flattenCalendar(contentCalendar: any[]): any[] {
 }
 
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get('x-cron-secret') ?? req.nextUrl.searchParams.get('secret')
-  if (secret !== process.env.CRON_SECRET) {
+  // Verify cron secret — matches Vercel's Authorization: Bearer <CRON_SECRET> format
+  const authHeader = req.headers.get('authorization')
+  const cronSecret = process.env.CRON_SECRET
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

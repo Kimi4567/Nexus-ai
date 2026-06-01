@@ -40,6 +40,12 @@ export default function RegisterPage() {
     try {
       await signup(email, password, { name })
       localStorage.setItem('nexus_consent', JSON.stringify({ terms: true, privacy: true, cookies: true, timestamp: new Date().toISOString(), email }))
+      // Fire welcome email — non-blocking, never fails registration
+      fetch('/api/auth/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name }),
+      }).catch(() => {})
       setDone(true)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ''
