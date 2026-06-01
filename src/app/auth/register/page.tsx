@@ -69,7 +69,27 @@ export default function RegisterPage() {
               <h2 className="text-2xl font-bold font-heading mb-3">{authT?.verifyTitle}</h2>
               <p className="text-text-secondary text-sm mb-2">{authT?.verifySent}</p>
               <p className="text-accent-purple font-semibold mb-6">{email}</p>
-              <p className="text-text-muted text-sm mb-8">{authT?.verifyCheck}</p>
+              <p className="text-text-muted text-sm mb-6">{authT?.verifyCheck}</p>
+              {/* Next steps hint */}
+              <div className="rounded-xl px-4 py-3 mb-6 text-left"
+                style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.15)' }}>
+                <p className="text-xs font-bold text-accent-purple mb-2">
+                  {isRTL ? 'بعد التحقق من البريد ستتمكن من:' : 'After verifying your email you\'ll:'}
+                </p>
+                <div className="space-y-1">
+                  {(isRTL ? [
+                    '🧠 إعداد Brand Brain لعلامتك',
+                    '🚀 إنشاء أول حملة تسويقية',
+                    '📤 نشر المحتوى على السوشيال',
+                  ] : [
+                    '🧠 Set up your Brand Brain',
+                    '🚀 Create your first campaign',
+                    '📤 Publish content to social media',
+                  ]).map(item => (
+                    <p key={item} className="text-xs text-text-muted">{item}</p>
+                  ))}
+                </div>
+              </div>
               <Link href="/auth/login" className="btn-gradient block w-full py-3 text-white font-bold rounded-xl text-center hover:-translate-y-0.5 transition">
                 {authT?.verifyCta} →
               </Link>

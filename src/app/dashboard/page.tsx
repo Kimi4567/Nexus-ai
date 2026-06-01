@@ -3,6 +3,7 @@
 import AppShell from '@/components/AppShell'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
+import OnboardingChecklist from '@/components/OnboardingChecklist'
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -118,6 +119,19 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
+
+  // New user: if no workspace exists → redirect to onboarding
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetch('/api/workspaces', { headers: { Authorization: authHeader() } })
+      .then(r => r.json())
+      .then((data: unknown) => {
+        if (Array.isArray(data) && data.length === 0) {
+          router.push('/onboarding')
+        }
+      })
+      .catch(() => {})
+  }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -346,6 +360,13 @@ export default function DashboardPage() {
               </div>
             )
           })()}
+
+          {/* ── Onboarding Checklist ── */}
+          <OnboardingChecklist
+            stats={stats ? { campaigns: stats.campaigns, publishedPostsTotal: stats.publishedPostsTotal } : null}
+            brandReadiness={brandReadiness}
+            hasConnections={hasConnections}
+          />
 
           {/* ── Low Credits Upgrade Banner ── */}
           {stats?.lowCredits && !upgradeBannerDismissed && (
