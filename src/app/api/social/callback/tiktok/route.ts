@@ -54,7 +54,7 @@ async function attemptTokenExchange(
   console.log(`[TikTok] attemptTokenExchange method=${method} redirect_uri=${redirectUri} client_key_prefix=${clientKey.slice(0, 8)}`)
 
   // Use redirect:'manual' so fetch does NOT follow TikTok's redirect to HTML error pages
-  const res = await fetch('https://open.tiktok.com/v2/oauth/token', {
+  const res = await fetch('https://open.tiktok.com/v2/oauth/token/', {
     method: 'POST',
     headers: commonHeaders,
     body,
