@@ -1,8 +1,11 @@
-export const dynamic = 'force-dynamic'
-
+/**
+ * GET /api/billing/status
+ * Returns the current user's subscription plan, credits, and period end.
+ */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { prisma } from '@/lib/prisma'
+import { PLAN_CREDITS } from '@/lib/stripe'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,28 +13,64 @@ const supabaseAdmin = createClient(
 )
 
 export async function GET(req: NextRequest) {
-  try {
-    const authHeader = req.headers.get('authorization')
-    if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // ── Authenticate ─────────────────────────────────────────────────────────
+  const authHeader = req.headers.get('authorization') ?? ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
 
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
-    if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const [dbUser, subscription] = await Promise.all([
-      prisma.user.findUnique({ where: { id: user.id } }),
-      prisma.subscription.findUnique({ where: { userId: user.id } }),
-    ])
-
-    return NextResponse.json({
-      status: dbUser?.subscriptionStatus || 'FREE',
-      plan: subscription?.plan || 'FREE',
-      credits: dbUser?.aiCredits || 0,
-      currentPeriodEnd: subscription?.currentPeriodEnd || null,
-      hasActiveSubscription: !!(subscription?.stripeId) && subscription?.status === 'ACTIVE',
-    })
-  } catch (err: any) {
-    console.error('[Billing status] Error:', err)
-    return NextResponse.json({ error: 'Failed to get billing status' }, { status: 500 })
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // ── Fetch user + subscription ───────────────────────────────────────────
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true,
+      subscriptionStatus: true,
+      aiCredits: true,
+      stripeCustomerId: true,
+    },
+  })
+
+  if (!dbUser) {
+    return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { userId: user.id },
+    select: {
+      plan: true,
+      status: true,
+      currentPeriodEnd: true,
+      monthlyCredits: true,
+      cancelledAt: true,
+    },
+  })
+
+  // ── Derive plan name ────────────────────────────────────────────────────
+  const planRaw = subscription?.plan?.toString().toLowerCase() ?? 'free'
+  const isActive = ['ACTIVE', 'active'].includes(subscription?.status?.toString() ?? '')
+  const planName = isActive ? planRaw : 'free'
+
+  const maxCredits = PLAN_CREDITS[planName] ?? 15  // 15 = FREE default
+  const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - (dbUser.aiCredits ?? 0))
+
+  return NextResponse.json({
+    plan: planName,
+    status: dbUser.subscriptionStatus,
+    hasActiveSubscription: isActive,
+    credits: {
+      remaining: dbUser.aiCredits ?? 0,
+      used: usedCredits,
+      max: maxCredits,         // -1 = unlimited
+    },
+    currentPeriodEnd: subscription?.currentPeriodEnd ?? null,
+    cancelledAt: subscription?.cancelledAt ?? null,
+    stripeCustomerId: dbUser.stripeCustomerId ?? null,
+  })
 }

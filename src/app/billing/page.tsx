@@ -3,7 +3,7 @@
 /**
  * Billing page — conversion-optimized
  * Plans: Starter $29 · Pro $79 · Agency $199
- * Payment provider: LemonSqueezy (env: LEMONSQUEEZY_API_KEY, LS_STORE_ID, LS_VARIANT_*)
+ * Payment provider: Stripe (env: STRIPE_SECRET_KEY, STRIPE_PRICE_STARTER/PRO/AGENCY)
  *
  * Sprint T-D — Billing Intelligence
  */
@@ -563,7 +563,7 @@ export default function BillingPage() {
             <div className="text-center py-6 space-y-3">
               <p className="text-text-muted text-xs">
                 {ar ? 'الدفع آمن عبر' : 'Secure payment via'}{' '}
-                <span className="text-white font-medium">Lemon Squeezy</span>
+                <span className="text-white font-medium">Stripe</span>
                 {' · '}
                 {ar ? 'ضمان استرداد 7 أيام' : '7-day refund guarantee'}
                 {' · '}
