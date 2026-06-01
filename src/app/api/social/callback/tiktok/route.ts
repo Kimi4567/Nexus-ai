@@ -2,6 +2,12 @@
  * GET /api/social/callback/tiktok
  * TikTok OAuth 2.0 callback — exchanges code for token,
  * fetches user info, saves Integration.
+ *
+ * Strategy: tries two token-exchange methods in order:
+ *   1. Body params (standard)
+ *   2. Basic Auth (client_key:client_secret in Authorization header)
+ * Uses redirect:'manual' to prevent fetch from silently following
+ * TikTok's error redirects to HTML pages.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -12,13 +18,98 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+/** Normalize app base URL — no trailing slash */
+function getBaseUrl() {
+  return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
+}
+
+/** Attempt a single token exchange and return { tokenData } or throw */
+async function attemptTokenExchange(
+  method: 'body' | 'basic_auth',
+  params: {
+    clientKey: string
+    clientSecret: string
+    code: string
+    redirectUri: string
+  }
+): Promise<Record<string, unknown>> {
+  const { clientKey, clientSecret, code, redirectUri } = params
+
+  const commonHeaders: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (compatible; NexusAI/1.0)',
+  }
+
+  let body: URLSearchParams
+  if (method === 'body') {
+    body = new URLSearchParams({ client_key: clientKey, client_secret: clientSecret, code, grant_type: 'authorization_code', redirect_uri: redirectUri })
+  } else {
+    // Basic Auth — credentials in Authorization header, not body
+    const creds = Buffer.from(`${clientKey}:${clientSecret}`).toString('base64')
+    commonHeaders['Authorization'] = `Basic ${creds}`
+    body = new URLSearchParams({ code, grant_type: 'authorization_code', redirect_uri: redirectUri })
+  }
+
+  console.log(`[TikTok] attemptTokenExchange method=${method} redirect_uri=${redirectUri} client_key_prefix=${clientKey.slice(0, 8)}`)
+
+  // Use redirect:'manual' so fetch does NOT follow TikTok's redirect to HTML error pages
+  const res = await fetch('https://open.tiktok.com/v2/oauth/token', {
+    method: 'POST',
+    headers: commonHeaders,
+    body,
+    redirect: 'manual',
+    cache: 'no-store',
+  })
+
+  const status      = res.status
+  const resType     = res.type
+  const contentType = res.headers.get('content-type') ?? ''
+  const location    = res.headers.get('location') ?? ''
+  const allHeaders  = Object.fromEntries([...res.headers.entries()])
+
+  console.log(`[TikTok] method=${method} status=${status} type=${resType} content-type=${contentType} location=${location}`)
+  console.log(`[TikTok] all headers: ${JSON.stringify(allHeaders)}`)
+
+  // If TikTok redirected us → reject (this is always an error page)
+  if (resType === 'opaqueredirect' || (status >= 300 && status < 400)) {
+    throw new Error(`token_redirect_${status}_to_${location.slice(0, 80)}`)
+  }
+
+  const text = await res.text()
+  console.log(`[TikTok] method=${method} raw body (first 1500): ${text.slice(0, 1500)}`)
+
+  if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
+    throw new Error(`token_html_${status}`)
+  }
+
+  const data: Record<string, unknown> = JSON.parse(text)
+
+  // TikTok V2 token: flat { access_token, open_id, ... }
+  // Some versions nest under data: { data: { access_token, ... } }
+  const flat = (data.data && typeof data.data === 'object')
+    ? (data.data as Record<string, unknown>)
+    : data
+
+  if (!flat.access_token) {
+    const errCode = (flat.error as string) ?? (flat.error_code as string) ?? (data.error as string) ?? 'unknown'
+    const errMsg  = (flat.error_description as string) ?? (flat.message as string) ?? ''
+    console.error(`[TikTok] method=${method} token error: ${errCode} — ${errMsg}`, data)
+    throw new Error(`token_${errCode}`)
+  }
+
+  return flat
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code       = searchParams.get('code')
   const state      = searchParams.get('state')
   const errorParam = searchParams.get('error')
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = getBaseUrl()
+
+  console.log('[TikTok] Callback hit — baseUrl:', baseUrl, '| code present:', !!code, '| state present:', !!state, '| error:', errorParam)
 
   // User denied access
   if (errorParam) {
@@ -35,6 +126,7 @@ export async function GET(req: NextRequest) {
     const decoded = JSON.parse(Buffer.from(state, 'base64url').toString())
     userId = decoded.userId
     if (Date.now() - decoded.ts > 60 * 60 * 1000) throw new Error('stale')
+    console.log('[TikTok] State decoded — userId:', userId, '| age_ms:', Date.now() - decoded.ts)
   } catch {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
@@ -44,74 +136,70 @@ export async function GET(req: NextRequest) {
     const clientSecret = process.env.TIKTOK_CLIENT_SECRET!
     const redirectUri  = `${baseUrl}/api/social/callback/tiktok`
 
-    // ── Exchange code for access token ──────────────────────────────────────
-    const tokenRes = await fetch('https://open.tiktok.com/v2/oauth/token/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json',
-      },
-      body: new URLSearchParams({
-        client_key:    clientKey,
-        client_secret: clientSecret,
-        code,
-        grant_type:    'authorization_code',
-        redirect_uri:  redirectUri,
-      }),
-    })
-
-    // Parse response safely — TikTok sometimes returns HTML on error
-    console.log('[TikTok OAuth] Token status:', tokenRes.status, '| url:', tokenRes.url)
-    console.log('[TikTok OAuth] Token content-type:', tokenRes.headers.get('content-type'))
-    const tokenText = await tokenRes.text()
-    console.log('[TikTok OAuth] Token raw response:', tokenText.slice(0, 800))
-
-    let tokenData: Record<string, unknown>
-    try {
-      tokenData = JSON.parse(tokenText)
-    } catch {
-      console.error('[TikTok OAuth] Token response is not JSON:', tokenText.slice(0, 200))
-      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_not_json`)
+    if (!clientKey || !clientSecret) {
+      console.error('[TikTok] Missing env vars — TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET not set')
+      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=missing_env`)
     }
 
-    if (!tokenData.access_token) {
-      const errCode = (tokenData.error as string) || (tokenData.error_code as string) || 'unknown'
-      console.error('[TikTok OAuth] Token exchange failed:', tokenData)
-      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_${errCode}`)
+    // ── Exchange code for access token — try body method first, then Basic Auth ──
+    let tokenData: Record<string, unknown>
+    const exchangeParams = { clientKey, clientSecret, code, redirectUri }
+
+    try {
+      tokenData = await attemptTokenExchange('body', exchangeParams)
+      console.log('[TikTok] Token exchange succeeded via body method')
+    } catch (bodyErr) {
+      const bodyErrMsg = bodyErr instanceof Error ? bodyErr.message : String(bodyErr)
+      console.warn('[TikTok] Body method failed:', bodyErrMsg, '— trying Basic Auth...')
+      try {
+        tokenData = await attemptTokenExchange('basic_auth', exchangeParams)
+        console.log('[TikTok] Token exchange succeeded via Basic Auth method')
+      } catch (basicErr) {
+        const basicErrMsg = basicErr instanceof Error ? basicErr.message : String(basicErr)
+        console.error('[TikTok] Both token exchange methods failed. body:', bodyErrMsg, '| basic:', basicErrMsg)
+        return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(bodyErrMsg)}`)
+      }
     }
 
     const accessToken  = tokenData.access_token as string
-    const refreshToken = tokenData.refresh_token as string | null
+    const refreshToken = (tokenData.refresh_token as string | undefined) ?? null
     const openId       = tokenData.open_id as string
     const expiresAt    = tokenData.expires_in
-      ? new Date(Date.now() + tokenData.expires_in * 1000)
+      ? new Date(Date.now() + (tokenData.expires_in as number) * 1000)
       : null
 
-    // ── Fetch TikTok user info ────────────────────────────────────────────
+    // ── Fetch TikTok user info ──────────────────────────────────────────────
     let displayName = 'TikTok User'
     let avatarUrl: string | null = null
     try {
       const profileRes = await fetch(
         'https://open.tiktok.com/v2/user/info/?fields=open_id,display_name,avatar_url',
-        { headers: { Authorization: `Bearer ${accessToken}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'User-Agent': 'Mozilla/5.0 (compatible; NexusAI/1.0)',
+          },
+          cache: 'no-store',
+        }
       )
-      const profileData = await profileRes.json()
-      console.log('[TikTok OAuth] Profile response:', JSON.stringify(profileData))
+      const profileText = await profileRes.text()
+      console.log('[TikTok] Profile response:', profileText.slice(0, 500))
+      const profileData = JSON.parse(profileText)
       const profile = profileData.data?.user || {}
       displayName = profile.display_name || 'TikTok User'
       avatarUrl   = profile.avatar_url   || null
     } catch (profileErr) {
-      console.error('[TikTok OAuth] Profile fetch failed (non-fatal):', profileErr)
+      console.error('[TikTok] Profile fetch failed (non-fatal):', profileErr)
     }
 
-    console.log('[TikTok OAuth] userId:', userId, '| openId:', openId, '| name:', displayName)
+    console.log('[TikTok] userId:', userId, '| openId:', openId, '| name:', displayName)
 
-    // ── Ensure User + Workspace exist ────────────────────────────────────
+    // ── Ensure User + Workspace exist ─────────────────────────────────────
     await prisma.user.upsert({
       where: { id: userId },
       create: { id: userId, email: `user-${userId.slice(0, 8)}@nexus.internal`, name: displayName },
       update: {},
-    }).catch((e) => console.error('[TikTok OAuth] User upsert failed:', e))
+    }).catch((e) => console.error('[TikTok] User upsert failed:', e))
 
     let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
     if (!workspace) {
@@ -126,23 +214,23 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // ── Upsert Integration ─────────────────────────────────────────────────
+    // ── Upsert Integration ────────────────────────────────────────────────
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const TK_TYPE = 'TIKTOK' as any
     await prisma.integration.upsert({
-      where: { workspaceId_type: { workspaceId: workspace.id, type: TK_TYPE } },
+      where:  { workspaceId_type: { workspaceId: workspace.id, type: TK_TYPE } },
       create: {
         workspaceId:  workspace.id,
         type:         TK_TYPE,
         status:       'CONNECTED',
         accessToken,
-        refreshToken: refreshToken || null,
+        refreshToken,
         accountId:    openId,
         accountName:  displayName,
         config: {
           openId,
           avatarUrl,
-          expiresAt:   expiresAt?.toISOString() || null,
+          expiresAt:   expiresAt?.toISOString() ?? null,
           connectedAt: new Date().toISOString(),
         },
         lastSyncedAt: new Date(),
@@ -150,26 +238,21 @@ export async function GET(req: NextRequest) {
       update: {
         status:       'CONNECTED',
         accessToken,
-        refreshToken: refreshToken || null,
+        refreshToken,
         accountId:    openId,
         accountName:  displayName,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        config: {
-          openId,
-          avatarUrl,
-          expiresAt:   expiresAt?.toISOString() || null,
-          connectedAt: new Date().toISOString(),
-        } as any,
+        config: { openId, avatarUrl, expiresAt: expiresAt?.toISOString() ?? null, connectedAt: new Date().toISOString() } as any,
         lastSyncedAt: new Date(),
       },
     })
-    console.log('[TikTok OAuth] Integration saved!')
+    console.log('[TikTok] Integration saved! openId:', openId)
 
     return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=tiktok`)
 
   } catch (err) {
     const errMsg = err instanceof Error ? err.message.slice(0, 100) : String(err).slice(0, 100)
-    console.error('[TikTok OAuth] Unhandled error:', err)
+    console.error('[TikTok] Unhandled error:', err)
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg)}`)
   }
 }
