@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     where: {
       workspaceId: workspace.id,
       status: 'CONNECTED',
-      type: { in: ['META', 'TIKTOK'] },
+      type: { in: ['META', 'LINKEDIN', 'TIKTOK'] },
     },
     select: {
       id: true,
