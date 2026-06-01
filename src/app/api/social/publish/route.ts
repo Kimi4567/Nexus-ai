@@ -14,7 +14,7 @@ interface PublishRequest {
   caption: string
   imageUrl?: string       // optional image
   link?: string           // optional link
-  platform: 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN'
+  platform: 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK'
   campaignId?: string
 }
 
@@ -70,6 +70,10 @@ export async function POST(req: NextRequest) {
       const personId = (integration.config as any)?.personId || pageId
       platformPostId = await publishToLinkedIn({ personId, accessToken: publishToken, caption, imageUrl, link })
       platformUrl = `https://www.linkedin.com/feed/update/urn:li:share:${platformPostId}`
+    } else if (platform === 'TIKTOK') {
+      if (!imageUrl) throw new Error('TikTok requires a video URL')
+      platformPostId = await publishToTikTok({ accessToken: publishToken, caption, videoUrl: imageUrl })
+      platformUrl = `https://www.tiktok.com/@${integration.accountName}`
     }
   } catch (err: any) {
     console.error('[Social Publish] Error:', err)
@@ -255,4 +259,42 @@ async function publishToLinkedIn({
   // LinkedIn returns the post ID in the 'id' field (e.g. "urn:li:ugcPost:123456")
   const postId = (data.id as string)?.split(':').pop() || data.id
   return postId as string
+}
+
+// ── TikTok Video Post ──────────────────────────────────────────────────────
+
+async function publishToTikTok({
+  accessToken, caption, videoUrl,
+}: { accessToken: string; caption: string; videoUrl: string }) {
+  // TikTok Content Posting API — pull video from URL
+  const initRes = await fetch('https://open.tiktok.com/v2/post/publish/video/init/', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json; charset=UTF-8',
+      Authorization:   `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      post_info: {
+        title:                   caption.slice(0, 2200),
+        privacy_level:           'PUBLIC_TO_EVERYONE',
+        disable_duet:            false,
+        disable_comment:         false,
+        disable_stitch:          false,
+        video_cover_timestamp_ms: 1000,
+      },
+      source_info: {
+        source:    'PULL_FROM_URL',
+        video_url: videoUrl,
+      },
+    }),
+  })
+
+  const initData = await initRes.json()
+
+  if (!initRes.ok || initData.error?.code !== 'ok') {
+    throw new Error(`TikTok API: ${initData.error?.message || initData.error?.code || 'Post failed'}`)
+  }
+
+  const publishId = initData.data?.publish_id as string
+  return publishId
 }

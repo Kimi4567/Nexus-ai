@@ -82,7 +82,7 @@ const PLATFORMS: PlatformDef[] = [
     ),
     color: '#FE2C55',
     gradient: 'from-rose-600/20 to-pink-600/10',
-    available: false,
+    available: true,
     featuresAr: ['نشر الفيديوهات', 'TikTok Ads', 'تحليل المشاهدات', 'ترندات الهاشتاق'],
     featuresEn: ['Video publishing', 'TikTok Ads', 'View analytics', 'Hashtag trends'],
   },
@@ -173,6 +173,7 @@ export default function ConnectionsPage() {
       const PLATFORM_NAMES: Record<string, string> = {
         meta:     'Meta (Facebook/Instagram)',
         linkedin: 'LinkedIn',
+        tiktok:   'TikTok',
       }
       const platformName = PLATFORM_NAMES[platform || ''] || (platform || '')
       setMessage({
@@ -204,6 +205,7 @@ export default function ConnectionsPage() {
   const CONNECT_ROUTES: Record<string, string> = {
     META:     '/api/social/connect/meta',
     LINKEDIN: '/api/social/connect/linkedin',
+    TIKTOK:   '/api/social/connect/tiktok',
   }
 
   const handleConnect = async (platformId: string) => {
