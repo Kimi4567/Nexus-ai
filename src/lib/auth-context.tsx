@@ -81,6 +81,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(sess)
         setUser(sess?.user ?? null)
         if (!resolved) resolveAuth(sess)
+
+        // On every sign-in, fire a background sync to ensure the Prisma User
+        // row exists with the real email. This makes new users visible in the
+        // admin dashboard immediately, without waiting for their first API call.
+        if (event === 'SIGNED_IN' && sess?.access_token) {
+          fetch('/api/user/me', {
+            headers: { Authorization: `Bearer ${sess.access_token}` },
+          }).catch(() => {})
+        }
       }
     )
 

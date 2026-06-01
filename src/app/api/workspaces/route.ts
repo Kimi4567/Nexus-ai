@@ -13,6 +13,20 @@ export async function POST(request: NextRequest) {
       description,
     } = data
 
+    // ── Ensure Prisma User row exists BEFORE creating workspace ──────────────
+    // New email/password sign-ups only create a Supabase Auth user, NOT a
+    // Prisma User row. Without this upsert the workspace.create call throws a
+    // foreign-key constraint error (ownerId references non-existent User).
+    await prisma.user.upsert({
+      where: { id: user.id },
+      update: user.email ? { email: user.email } : {},
+      create: {
+        id: user.id,
+        email: user.email || `${user.id}@placeholder.nexus`,
+        name: user.name || null,
+      },
+    })
+
     // Check if workspace slug already exists
     const existing = await prisma.workspace.findUnique({
       where: { slug },
