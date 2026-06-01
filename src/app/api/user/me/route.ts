@@ -3,12 +3,14 @@
  * Returns current user's profile + subscription status.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerUserId } from '@/lib/apiAuth'
+import { ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
-  const userId = await getServerUserId(req)
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // ensureDbUser creates the Prisma row if missing and always syncs real email
+  const authUser = await ensureDbUser(req)
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const userId = authUser.id
 
   const [user, subscription] = await Promise.all([
     prisma.user.findUnique({

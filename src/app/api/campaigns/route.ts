@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerUserId } from '@/lib/apiAuth'
+import { ensureDbUser, getServerUserId } from '@/lib/apiAuth'
 import type { Platform } from '@prisma/client'
 
 // Map display names → Prisma Platform enum values
@@ -33,8 +33,16 @@ function normalizePlatforms(raw: string[]): Platform[] {
 }
 
 // Helper — get or create default workspace+project for a user
-async function getOrCreateDefaultProject(userId: string): Promise<{ workspaceId: string; projectId: string } | null> {
+// userId + email both required so we can ensure the User row exists first
+async function getOrCreateDefaultProject(userId: string, email: string): Promise<{ workspaceId: string; projectId: string } | null> {
   try {
+    // Ensure User row exists before creating workspace (FK constraint)
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: { email },
+      create: { id: userId, email },
+    })
+
     let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
     if (!workspace) {
       workspace = await prisma.workspace.create({
@@ -55,8 +63,9 @@ async function getOrCreateDefaultProject(userId: string): Promise<{ workspaceId:
 
 // POST /api/campaigns — save a campaign with full AI output
 export async function POST(req: NextRequest) {
-  const userId = await getServerUserId(req)
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authUser = await ensureDbUser(req)
+  if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { id: userId, email: userEmail } = authUser
 
   try {
     const body = await req.json()
@@ -64,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
 
-    const ids = await getOrCreateDefaultProject(userId)
+    const ids = await getOrCreateDefaultProject(userId, userEmail)
     if (!ids) return NextResponse.json({ error: 'Could not create workspace' }, { status: 500 })
 
     const THUMBNAILS = ['🚀', '⚡', '🎯', '🔥', '💡', '🌟', '📣', '🎪', '💎', '🎨']
