@@ -53,31 +53,31 @@ async function attemptTokenExchange(
 
   console.log(`[TikTok] attemptTokenExchange method=${method} redirect_uri=${redirectUri} client_key_prefix=${clientKey.slice(0, 8)}`)
 
-  // Use redirect:'manual' so fetch does NOT follow TikTok's redirect to HTML error pages
+  // redirect:'follow' — let fetch follow any redirects, then inspect the final URL
   const res = await fetch('https://open.tiktok.com/v2/oauth/token/', {
     method: 'POST',
     headers: commonHeaders,
     body,
-    redirect: 'manual',
+    redirect: 'follow',
     cache: 'no-store',
   })
 
   const status      = res.status
-  const resType     = res.type
+  const redirected  = res.redirected          // true if fetch followed a redirect
+  const finalUrl    = res.url                  // final URL after any redirects
   const contentType = res.headers.get('content-type') ?? ''
-  const location    = res.headers.get('location') ?? ''
   const allHeaders  = Object.fromEntries([...res.headers.entries()])
 
-  console.log(`[TikTok] method=${method} status=${status} type=${resType} content-type=${contentType} location=${location}`)
+  console.log(`[TikTok] method=${method} status=${status} redirected=${redirected} finalUrl=${finalUrl} content-type=${contentType}`)
   console.log(`[TikTok] all headers: ${JSON.stringify(allHeaders)}`)
-
-  // If TikTok redirected us → reject (this is always an error page)
-  if (resType === 'opaqueredirect' || (status >= 300 && status < 400)) {
-    throw new Error(`token_redirect_${status}_to_${location.slice(0, 80)}`)
-  }
 
   const text = await res.text()
   console.log(`[TikTok] method=${method} raw body (first 1500): ${text.slice(0, 1500)}`)
+
+  // If we were redirected to an HTML page, reject immediately
+  if (redirected) {
+    throw new Error(`token_redirected_to_${finalUrl.slice(0, 80)}`)
+  }
 
   if (!text.trim().startsWith('{') && !text.trim().startsWith('[')) {
     throw new Error(`token_html_${status}`)
