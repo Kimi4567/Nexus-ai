@@ -3,12 +3,14 @@
  * Returns real-time dashboard stats for the current user:
  * - campaign counts (total, active, this month)
  * - generation counts
- * - recent activity feed
- * - credits remaining
+ * - published posts count
+ * - recent activity feed (bilingual)
+ * - credits remaining + monthly total (for progress bar)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { FREE_STARTER_CREDITS, PLANS_CREDITS } from '@/lib/credits'
 
 export async function GET(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -33,10 +35,12 @@ export async function GET(req: NextRequest) {
       generationsThisMonth,
       recentActivities,
       recentCampaigns,
+      publishedPostsTotal,
+      publishedPostsThisMonth,
     ] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
-        select: { aiCredits: true, subscriptionStatus: true, name: true },
+        select: { aiCredits: true, subscriptionStatus: true, name: true, monthlyGenerations: true },
       }),
 
       // Total campaigns
@@ -104,6 +108,20 @@ export async function GET(req: NextRequest) {
             },
           })
         : Promise.resolve([]),
+
+      // Published social posts (total)
+      workspaceId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (prisma as any).socialPost.count({ where: { workspaceId, status: 'PUBLISHED' } })
+        : Promise.resolve(0),
+
+      // Published social posts this month
+      workspaceId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (prisma as any).socialPost.count({
+            where: { workspaceId, status: 'PUBLISHED', publishedAt: { gte: startOfMonth } },
+          })
+        : Promise.resolve(0),
     ])
 
     // Calculate % change for campaigns
@@ -114,7 +132,7 @@ export async function GET(req: NextRequest) {
         ? 100
         : 0
 
-    // Map activity types to Arabic labels and agent names
+    // Map activity types to bilingual labels and agent names
     const agentMap: Record<string, string> = {
       created: 'NEX',
       generated: 'NEX',
@@ -125,23 +143,43 @@ export async function GET(req: NextRequest) {
       monitored: 'Sentinel',
     }
 
-    const activityLabelMap: Record<string, string> = {
-      created: 'تم إنشاء حملة جديدة',
+    const activityLabelMapAr: Record<string, string> = {
+      created:   'تم إنشاء حملة جديدة',
       generated: 'تم توليد محتوى AI',
-      updated: 'تم تحديث الحملة',
+      updated:   'تم تحديث الحملة',
       published: 'تم نشر الحملة',
-      analyzed: 'تم تحليل الأداء',
+      analyzed:  'تم تحليل الأداء',
       scheduled: 'تم جدولة المحتوى',
       monitored: 'تم رصد المنافسين',
+    }
+    const activityLabelMapEn: Record<string, string> = {
+      created:   'New campaign created',
+      generated: 'AI content generated',
+      updated:   'Campaign updated',
+      published: 'Campaign published',
+      analyzed:  'Performance analyzed',
+      scheduled: 'Content scheduled',
+      monitored: 'Competitors monitored',
     }
 
     const activities = recentActivities.map((a) => ({
       id: a.id,
-      action: activityLabelMap[a.type] || a.description || 'نشاط جديد',
+      actionAr: activityLabelMapAr[a.type] || a.description || 'نشاط جديد',
+      actionEn: activityLabelMapEn[a.type] || a.description || 'New activity',
+      action: activityLabelMapAr[a.type] || a.description || 'نشاط جديد', // legacy key
       agent: agentMap[a.type] || 'NEX',
       campaign: a.campaign?.name || '',
       time: getRelativeTime(a.createdAt),
+      timeAr: getRelativeTimeAr(a.createdAt),
+      timeEn: getRelativeTimeEn(a.createdAt),
     }))
+
+    // Monthly credit total for progress bar (plan-based)
+    const plan = user?.subscriptionStatus ?? 'FREE'
+    const creditsMonthlyTotal = plan === 'FREE' ? FREE_STARTER_CREDITS
+      : (PLANS_CREDITS[plan as keyof typeof PLANS_CREDITS] ?? FREE_STARTER_CREDITS)
+    const creditsRemaining = user?.aiCredits ?? 0
+    const isUnlimited = creditsRemaining === -1
 
     return NextResponse.json({
       stats: {
@@ -155,8 +193,15 @@ export async function GET(req: NextRequest) {
           thisMonth: generationsThisMonth,
         },
         credits: {
-          remaining: user?.aiCredits ?? 0,
-          plan: user?.subscriptionStatus ?? 'FREE',
+          remaining: creditsRemaining,
+          plan,
+          monthlyTotal: creditsMonthlyTotal,
+          isUnlimited,
+          lowCredits: !isUnlimited && creditsRemaining < 5,
+        },
+        publishedPosts: {
+          total: publishedPostsTotal,
+          thisMonth: publishedPostsThisMonth,
         },
       },
       activities,
@@ -168,7 +213,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function getRelativeTime(date: Date): string {
+function getRelativeTimeAr(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
   if (seconds < 60) return 'منذ لحظات'
   const minutes = Math.floor(seconds / 60)
@@ -178,3 +223,16 @@ function getRelativeTime(date: Date): string {
   const days = Math.floor(hours / 24)
   return `منذ ${days} يوم`
 }
+
+function getRelativeTimeEn(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+function getRelativeTime(date: Date): string { return getRelativeTimeAr(date) }

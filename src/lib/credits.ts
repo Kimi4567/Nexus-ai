@@ -62,6 +62,18 @@ export type CreditAction = keyof typeof CREDIT_COSTS
 
 export const FREE_STARTER_CREDITS = 15
 
+// ── Monthly credit totals per plan ─────────────────────────────────────────────
+// Used by the dashboard credit progress bar.
+// -1 = unlimited (Agency plan and above).
+
+export const PLANS_CREDITS: Record<string, number> = {
+  FREE:      FREE_STARTER_CREDITS,
+  STARTER:   50,
+  PRO:       200,
+  AGENCY:    -1,
+  ACTIVE:    200, // legacy status value — maps to Pro behaviour
+}
+
 // ── Low-credits warning threshold ─────────────────────────────────────────────
 // Fire the "credits low" email when balance falls below this after a deduction.
 // 4 = less than 1 CAMPAIGN_GENERATION remaining.

@@ -14,6 +14,7 @@ import {
   Globe, ArrowUpRight, AlertTriangle, CheckCircle2,
   Film, Megaphone, BarChart3, Shield, Plus,
   Target, Flame, Bell, ChevronRight, Wifi, Brain,
+  TrendingUp, Send, X,
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -26,15 +27,25 @@ interface Stats {
   activeCampaigns: number
   totalGenerations: number
   creditsRemaining: number
+  creditsMonthlyTotal: number
+  isUnlimited: boolean
+  lowCredits: boolean
   plan: string
+  publishedPostsTotal: number
+  publishedPostsThisMonth: number
 }
 interface Alert {
   id: string
   type: 'critical' | 'warning' | 'info' | 'success'
   title: string
   body: string
+  bodyAr?: string
+  bodyEn?: string
   time: string
+  timeAr?: string
+  timeEn?: string
   agent: string
+  campaign?: string
 }
 interface Campaign {
   id: string
@@ -87,6 +98,7 @@ const ALERT_BG = {
 export default function DashboardPage() {
   const { authHeader, user, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
+  const ar = locale === 'ar'
   const router = useRouter()
 
   const [stats, setStats] = useState<Stats | null>(null)
@@ -101,6 +113,7 @@ export default function DashboardPage() {
   const [suggestionsKey, setSuggestionsKey] = useState(0)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandCardDismissed, setBrandCardDismissed] = useState(false)
+  const [upgradeBannerDismissed, setUpgradeBannerDismissed] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -121,13 +134,26 @@ export default function DashboardPage() {
           activeCampaigns: d.stats?.campaigns?.thisMonth ?? 0,
           totalGenerations: d.stats?.generations?.total ?? 0,
           creditsRemaining: d.stats?.credits?.remaining ?? 0,
+          creditsMonthlyTotal: d.stats?.credits?.monthlyTotal ?? 15,
+          isUnlimited: d.stats?.credits?.isUnlimited ?? false,
+          lowCredits: d.stats?.credits?.lowCredits ?? false,
           plan: d.stats?.credits?.plan ?? 'FREE',
+          publishedPostsTotal: d.stats?.publishedPosts?.total ?? 0,
+          publishedPostsThisMonth: d.stats?.publishedPosts?.thisMonth ?? 0,
         })
         if (d.activities?.length > 0) {
-          setAlerts(d.activities.slice(0, 4).map((a: Record<string,string>, i: number) => ({
-            id: String(i), type: 'info' as const,
-            title: a.agent || 'Nexus', body: a.action,
-            time: a.time || 'الآن', agent: a.agent || 'NEX',
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setAlerts(d.activities.slice(0, 4).map((a: any) => ({
+            id: a.id || String(Math.random()), type: 'info' as const,
+            title: a.agent || 'Nexus',
+            body: a.actionAr || a.action || 'نشاط جديد',
+            bodyAr: a.actionAr || a.action || 'نشاط جديد',
+            bodyEn: a.actionEn || a.action || 'New activity',
+            time: a.timeAr || a.time || 'الآن',
+            timeAr: a.timeAr || a.time || 'الآن',
+            timeEn: a.timeEn || a.time || 'now',
+            agent: a.agent || 'NEX',
+            campaign: a.campaign || '',
           })))
         }
       }
@@ -321,35 +347,153 @@ export default function DashboardPage() {
             )
           })()}
 
+          {/* ── Low Credits Upgrade Banner ── */}
+          {stats?.lowCredits && !upgradeBannerDismissed && (
+            <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3"
+              style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.25)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(255,107,53,0.12)' }}>
+                  <Zap className="w-4 h-4" style={{ color: '#FF6B35' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#FF6B35' }}>
+                    {ar
+                      ? `${stats.creditsRemaining} وحدة AI متبقية فقط`
+                      : `Only ${stats.creditsRemaining} AI credits left`}
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    {ar
+                      ? 'قرّب الانتهاء — الترقية تمنحك 200 وحدة / شهر'
+                      : 'Running low — upgrade for 200 credits/month'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link href="/billing"
+                  className="text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all hover:brightness-110"
+                  style={{ background: 'rgba(255,107,53,0.15)', color: '#FF6B35', border: '1px solid rgba(255,107,53,0.3)' }}>
+                  {ar ? 'ترقية الآن' : 'Upgrade Now'} <ArrowUpRight className="w-3 h-3" />
+                </Link>
+                <button onClick={() => setUpgradeBannerDismissed(true)}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: t('dashboard.statCampaignLabel'), value: stats?.campaigns ?? 0,       sub: `${stats?.activeCampaigns ?? 0} ${t('dashboard.thisMonth')}`,  icon: Target,   color: '#6C63FF' },
-              { label: t('dashboard.statGenerations'),   value: stats?.totalGenerations ?? 0, sub: t('dashboard.allAgentsTotal'),  icon: Sparkles, color: '#00BFA6' },
-              { label: t('dashboard.statCredits'),       value: stats?.creditsRemaining ?? 0, sub: stats?.plan === 'ACTIVE' ? t('dashboard.unlimitedCredits') : t('dashboard.remaining'), icon: Zap, color: '#00D4FF' },
-              { label: t('dashboard.statPlatforms'),     value: hasConnections ? '✓' : '0',  sub: hasConnections ? t('dashboard.connected') : t('dashboard.connectNow'), icon: Globe, color: '#FFD700' },
-            ].map(s => {
-              const Icon = s.icon
-              return (
-                <div key={s.label} className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`}
-                  style={glassCard}>
-                  <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20"
-                    style={{ background: s.color }} />
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[11px] text-text-muted font-medium leading-tight">{s.label}</p>
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: `${s.color}15` }}>
-                        <Icon className="w-3.5 h-3.5" style={{ color: s.color }} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold mb-0.5" style={{ color: s.color }}>{s.value}</p>
-                    <p className="text-[11px] text-text-muted">{s.sub}</p>
+            {/* Campaigns */}
+            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
+              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#6C63FF' }} />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] text-text-muted font-medium leading-tight">{t('dashboard.statCampaignLabel')}</p>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#6C63FF15' }}>
+                    <Target className="w-3.5 h-3.5" style={{ color: '#6C63FF' }} />
                   </div>
                 </div>
-              )
-            })}
+                <p className="text-2xl font-bold mb-0.5" style={{ color: '#6C63FF' }}>{stats?.campaigns ?? 0}</p>
+                <p className="text-[11px] text-text-muted">{stats?.activeCampaigns ?? 0} {t('dashboard.thisMonth')}</p>
+              </div>
+            </div>
+
+            {/* Published Posts */}
+            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
+              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#FF6B35' }} />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] text-text-muted font-medium leading-tight">
+                    {ar ? 'منشورات' : 'Published'}
+                  </p>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#FF6B3515' }}>
+                    <Send className="w-3.5 h-3.5" style={{ color: '#FF6B35' }} />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold mb-0.5" style={{ color: '#FF6B35' }}>{stats?.publishedPostsTotal ?? 0}</p>
+                <p className="text-[11px] text-text-muted">
+                  {stats?.publishedPostsThisMonth ?? 0} {ar ? 'هذا الشهر' : 'this month'}
+                </p>
+              </div>
+            </div>
+
+            {/* AI Generations */}
+            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
+              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#00BFA6' }} />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] text-text-muted font-medium leading-tight">{t('dashboard.statGenerations')}</p>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#00BFA615' }}>
+                    <Sparkles className="w-3.5 h-3.5" style={{ color: '#00BFA6' }} />
+                  </div>
+                </div>
+                <p className="text-2xl font-bold mb-0.5" style={{ color: '#00BFA6' }}>{stats?.totalGenerations ?? 0}</p>
+                <p className="text-[11px] text-text-muted">{t('dashboard.allAgentsTotal')}</p>
+              </div>
+            </div>
+
+            {/* Credits with progress bar */}
+            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
+              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#00D4FF' }} />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] text-text-muted font-medium leading-tight">{t('dashboard.statCredits')}</p>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#00D4FF15' }}>
+                    <Zap className="w-3.5 h-3.5" style={{ color: '#00D4FF' }} />
+                  </div>
+                </div>
+                {stats?.isUnlimited ? (
+                  <>
+                    <p className="text-2xl font-bold mb-0.5" style={{ color: '#00D4FF' }}>∞</p>
+                    <p className="text-[11px] text-text-muted">{t('dashboard.unlimitedCredits')}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold mb-1" style={{ color: stats?.lowCredits ? '#FF6B35' : '#00D4FF' }}>
+                      {stats?.creditsRemaining ?? 0}
+                    </p>
+                    {/* Credit progress bar */}
+                    <div className="w-full h-1.5 rounded-full bg-white/5 mb-1 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(100, Math.round(((stats?.creditsRemaining ?? 0) / (stats?.creditsMonthlyTotal ?? 15)) * 100))}%`,
+                          background: stats?.lowCredits
+                            ? 'linear-gradient(90deg, #FF6B35, #FFB800)'
+                            : 'linear-gradient(90deg, #00BFA6, #00D4FF)',
+                        }}
+                      />
+                    </div>
+                    <p className="text-[10px] text-text-muted">
+                      {ar
+                        ? `من ${stats?.creditsMonthlyTotal ?? 15} وحدة`
+                        : `of ${stats?.creditsMonthlyTotal ?? 15}`}
+                      {stats?.lowCredits && (
+                        <Link href="/billing" className="ml-1 font-bold" style={{ color: '#FF6B35' }}>
+                          {ar ? '· ترقية' : '· upgrade'}
+                        </Link>
+                      )}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* ── Growth Insight Bar ── */}
+          {stats && stats.campaigns > 0 && (
+            <div className="rounded-xl px-4 py-3 flex items-center gap-3"
+              style={{ background: 'rgba(108,99,255,0.04)', border: '1px solid rgba(108,99,255,0.1)' }}>
+              <TrendingUp className="w-3.5 h-3.5 text-accent-purple flex-shrink-0" />
+              <p className="text-[11px] text-text-muted">
+                {ar
+                  ? `${stats.campaigns} حملة · ${stats.totalGenerations} توليد AI · ${stats.publishedPostsTotal} منشور منشور — الرحلة من الفكرة للنشر كاملة`
+                  : `${stats.campaigns} campaign${stats.campaigns !== 1 ? 's' : ''} · ${stats.totalGenerations} AI generation${stats.totalGenerations !== 1 ? 's' : ''} · ${stats.publishedPostsTotal} post${stats.publishedPostsTotal !== 1 ? 's' : ''} published — idea to publish, end to end`}
+              </p>
+            </div>
+          )}
 
           {/* ── AI Agents Status ── */}
           <div>
@@ -496,13 +640,18 @@ export default function DashboardPage() {
                   <div className="space-y-2">
                     {alerts.slice(0, 4).map(alert => {
                       const cols = ALERT_BG[alert.type]
+                      const displayBody = ar ? (alert.bodyAr || alert.body) : (alert.bodyEn || alert.body)
+                      const displayTime = ar ? (alert.timeAr || alert.time) : (alert.timeEn || alert.time)
                       return (
                         <div key={alert.id} className="rounded-xl p-3 flex gap-2.5"
                           style={{ background: cols.bg, border: `1px solid ${cols.border}` }}>
                           <div className="flex-shrink-0 mt-0.5">{ALERT_ICONS[alert.type]}</div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[11px] text-text-secondary leading-relaxed truncate">{alert.body}</p>
-                            <p className="text-[9px] text-text-muted mt-0.5">{alert.agent} · {alert.time}</p>
+                            <p className="text-[11px] text-text-secondary leading-relaxed">{displayBody}</p>
+                            {alert.campaign && (
+                              <p className="text-[10px] text-accent-purple/60 truncate mt-0.5">{alert.campaign}</p>
+                            )}
+                            <p className="text-[9px] text-text-muted mt-0.5">{alert.agent} · {displayTime}</p>
                           </div>
                         </div>
                       )
