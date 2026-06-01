@@ -17,10 +17,20 @@ import {
   Target, Flame, Bell, ChevronRight, Wifi, Brain,
   TrendingUp, Send, X,
 } from 'lucide-react'
+import {
+  NexusMetricCard,
+  NexusAgentCard,
+  NexusSectionHeader,
+  NexusButton,
+  NexusBadge,
+  NexusStatusDot,
+  NexusGlassCard,
+} from '@/components/nexus-ui'
+import type { AgentId } from '@/components/nexus-ui/NexusAgentAvatar'
 
 /* ═══════════════════════════════════════════════════════════════
    NEXUS DASHBOARD — مركز القيادة الذكي
-   Design: bg-base #0A0E27, glass-card, accent-purple #6C63FF
+   Design: NEXUS UI system — #06071A base, violet/orange accents
    ═══════════════════════════════════════════════════════════════ */
 
 interface Stats {
@@ -65,34 +75,41 @@ interface AIInsight {
   priority: 'high' | 'medium' | 'low'
 }
 
-// Agent definitions — colors match landing page
-const AGENT_DEFS = [
-  { name: 'NEX',      role: 'dashboard.nexRole',      roleEn: 'dashboard.nexRole',      statusKey: 'dashboard.agentReady',     icon: Film,     color: '#00BFA6', glow: 'rgba(0,191,166,0.12)',  href: '/studio',    statusColor: '#00BFA6' },
-  { name: 'VEX',      role: 'dashboard.vexRole',      roleEn: 'dashboard.vexRole',      statusKey: 'dashboard.agentActive',    icon: Megaphone,color: '#FF6B35', glow: 'rgba(255,107,53,0.12)', href: '/vex',                          statusColor: '#00BFA6' },
-  { name: 'PULSE',    role: 'dashboard.pulseRole',    roleEn: 'dashboard.pulseRole',    statusKey: 'dashboard.agentAnalyzing', icon: BarChart3,color: '#00D4FF', glow: 'rgba(0,212,255,0.12)',  href: '/analytics',                    statusColor: '#FFB800' },
-  { name: 'SENTINEL', role: 'dashboard.sentinelRole', roleEn: 'dashboard.sentinelRole', statusKey: 'dashboard.agentMonitoring',icon: Shield,   color: '#FFD700', glow: 'rgba(255,215,0,0.12)',  href: '/sentinel',                     statusColor: '#00BFA6' },
+// Agent definitions mapped to new NEXUS UI AgentId system
+const AGENT_DEFS: Array<{
+  agentId: AgentId
+  name: string
+  roleKey: string
+  statusKey: string
+  href: string
+  accentColor: string
+}> = [
+  { agentId: 'nex',       name: 'NEX',      roleKey: 'dashboard.nexRole',      statusKey: 'dashboard.agentReady',      href: '/studio',    accentColor: '#06B6D4' },
+  { agentId: 'vex',       name: 'VEX',      roleKey: 'dashboard.vexRole',      statusKey: 'dashboard.agentActive',     href: '/vex',       accentColor: '#F97316' },
+  { agentId: 'pulse',     name: 'PULSE',    roleKey: 'dashboard.pulseRole',    statusKey: 'dashboard.agentAnalyzing',  href: '/analytics', accentColor: '#10B981' },
+  { agentId: 'sentinel',  name: 'SENTINEL', roleKey: 'dashboard.sentinelRole', statusKey: 'dashboard.agentMonitoring', href: '/sentinel',  accentColor: '#EAB308' },
 ]
 
 const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
   DRAFT:     { ar: 'مسودة',   en: 'Draft',     color: '#64748b' },
-  ACTIVE:    { ar: 'نشطة',    en: 'Active',    color: '#00BFA6' },
-  PAUSED:    { ar: 'متوقفة',  en: 'Paused',   color: '#FFB800' },
-  COMPLETED: { ar: 'مكتملة', en: 'Completed', color: '#00D4FF' },
-  ARCHIVED:  { ar: 'مؤرشفة', en: 'Archived',  color: '#374151' },
+  ACTIVE:    { ar: 'نشطة',    en: 'Active',    color: '#10B981' },
+  PAUSED:    { ar: 'متوقفة',  en: 'Paused',    color: '#EAB308' },
+  COMPLETED: { ar: 'مكتملة', en: 'Completed',  color: '#06B6D4' },
+  ARCHIVED:  { ar: 'مؤرشفة', en: 'Archived',   color: '#374151' },
+}
+
+const ALERT_BG = {
+  critical: { bg: 'rgba(244,63,94,0.06)',  border: 'rgba(244,63,94,0.2)' },
+  warning:  { bg: 'rgba(234,179,8,0.06)',  border: 'rgba(234,179,8,0.2)' },
+  info:     { bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.2)' },
+  success:  { bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.2)' },
 }
 
 const ALERT_ICONS = {
   critical: <AlertTriangle className="w-4 h-4 text-rose-400" />,
   warning:  <AlertTriangle className="w-4 h-4 text-amber-400" />,
-  info:     <Bell className="w-4 h-4 text-cyan-400" />,
+  info:     <Bell className="w-4 h-4" style={{ color: '#A78BFA' }} />,
   success:  <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
-}
-
-const ALERT_BG = {
-  critical: { bg: 'rgba(244,63,94,0.06)',   border: 'rgba(244,63,94,0.2)' },
-  warning:  { bg: 'rgba(255,184,0,0.06)',   border: 'rgba(255,184,0,0.2)' },
-  info:     { bg: 'rgba(108,99,255,0.06)',  border: 'rgba(108,99,255,0.2)' },
-  success:  { bg: 'rgba(0,191,166,0.06)',   border: 'rgba(0,191,166,0.2)' },
 }
 
 // ─────────────────────────────────────────────
@@ -230,16 +247,17 @@ export default function DashboardPage() {
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const timeStr = lastUpdated.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 
+  // ── Loading state ──
   if (authLoading || loading) {
     return (
       <AppShell>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="w-12 h-12 mx-auto mb-3 relative">
-              <div className="absolute inset-0 rounded-full border-2 border-accent-purple/20 border-t-accent-purple animate-spin" />
-              <Sparkles className="w-5 h-5 text-accent-purple absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <div className="absolute inset-0 rounded-full border-2 border-[rgba(139,92,246,0.2)] border-t-[#8B5CF6] animate-spin" />
+              <Sparkles className="w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: '#8B5CF6' }} />
             </div>
-            <p className="text-text-muted text-sm">{t('common.loading')}</p>
+            <p className="text-[13px]" style={{ color: 'var(--nx-text-3)' }}>{t('common.loading')}</p>
           </div>
         </div>
       </AppShell>
@@ -248,71 +266,81 @@ export default function DashboardPage() {
 
   if (!isAuthenticated) return null
 
-  // Card style helpers
-  const glassCard = { background: 'rgba(17,21,54,0.5)', backdropFilter: 'blur(8px)', border: '1px solid rgba(108,99,255,0.1)' }
-  const glassCardHover = 'hover:border-[rgba(108,99,255,0.25)] hover:shadow-[0_8px_32px_rgba(108,99,255,0.15)] transition-all duration-300'
+  const creditPct = Math.min(100, Math.round(((stats?.creditsRemaining ?? 0) / (stats?.creditsMonthlyTotal ?? 15)) * 100))
 
   return (
     <AppShell>
       <div className="min-h-screen">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Ambient background grid */}
+        <div className="nx-bg-grid pointer-events-none" />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6 relative">
 
           {/* ── Header ── */}
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" style={{ boxShadow: '0 0 6px #00BFA6' }} />
-                  <span className="text-[10px] font-mono tracking-widest text-accent-teal/70">LIVE</span>
-                </div>
-                <span className="text-[10px] text-text-muted font-mono">{t('dashboard.updatedAt')} {timeStr}</span>
+              <div className="flex items-center gap-3 mb-2">
+                <NexusStatusDot status="online" size="sm" pulse label="LIVE" />
+                <span className="text-[10px] font-mono tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
+                  {t('dashboard.updatedAt')} {timeStr}
+                </span>
               </div>
-              <h1 className="text-2xl font-bold font-heading mb-1 text-white">
+              <h1 className="text-2xl font-bold font-heading mb-1" style={{ color: 'var(--nx-text-1)' }}>
                 {displayName ? `${t('dashboard.greeting')}، ${displayName}` : t('dashboard.commandCenter')}
-                {' '}<span className="text-text-muted">👋</span>
+                {' '}<span style={{ color: 'var(--nx-text-3)' }}>👋</span>
               </h1>
-              <p className="text-text-secondary text-sm">{t('dashboard.subtitle')}</p>
+              <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>{t('dashboard.subtitle')}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => load(true)}
-                className={`p-2.5 rounded-xl border border-[rgba(108,99,255,0.15)] text-text-muted hover:text-white hover:border-[rgba(108,99,255,0.3)] transition-all ${refreshing ? 'animate-spin' : ''}`}>
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              {/* Sprint A: Run Full Strategy — re-triggers the full orchestration */}
               <button
-                onClick={() => setRunStrategyOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all hover:brightness-110"
-                style={{ background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.4)', color: '#a5a0ff' }}
+                onClick={() => load(true)}
+                className="p-2.5 rounded-xl transition-all"
+                style={{
+                  background: 'rgba(139,92,246,0.06)',
+                  border: '1px solid rgba(139,92,246,0.15)',
+                  color: 'var(--nx-text-3)',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(139,92,246,0.35)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-1)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(139,92,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-3)' }}
               >
-                <Sparkles className="w-4 h-4" />
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <NexusButton
+                variant="ghost"
+                size="sm"
+                onClick={() => setRunStrategyOpen(true)}
+                icon={<Sparkles className="w-3.5 h-3.5" />}
+              >
                 <span className="hidden sm:inline">{t('runStrategy.btnDashboard')}</span>
                 <span className="sm:hidden">{t('runStrategy.btnDashboard')}</span>
-              </button>
-              <Link href="/campaigns/new" className="btn-gradient flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white">
-                <Rocket className="w-4 h-4" />
+              </NexusButton>
+              <NexusButton
+                variant="primary"
+                size="sm"
+                href="/campaigns/new"
+                icon={<Rocket className="w-3.5 h-3.5" />}
+              >
                 {t('dashboard.createCampaign')}
-              </Link>
+              </NexusButton>
             </div>
           </div>
 
           {/* ── Connection Banner ── */}
           {hasConnections === false && (
             <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3"
-              style={{ background: 'rgba(0,191,166,0.05)', border: '1px solid rgba(0,191,166,0.2)' }}>
+              style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(0,191,166,0.1)' }}>
-                  <Wifi className="w-4 h-4 text-accent-teal" />
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.1)' }}>
+                  <Wifi className="w-4 h-4" style={{ color: '#10B981' }} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-accent-teal">{t('dashboard.connectPlatforms')}</p>
-                  <p className="text-xs text-text-muted">Meta · TikTok · Google · LinkedIn · Snapchat</p>
+                  <p className="text-sm font-bold" style={{ color: '#10B981' }}>{t('dashboard.connectPlatforms')}</p>
+                  <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>Meta · TikTok · Google · LinkedIn · Snapchat</p>
                 </div>
               </div>
-              <Link href="/connections"
-                className="text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5"
-                style={{ background: 'rgba(0,191,166,0.1)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.2)' }}>
-                {t('dashboard.connectAccounts')} <ArrowUpRight className="w-3 h-3" />
-              </Link>
+              <NexusButton variant="ghost" size="xs" href="/connections" icon={<ArrowUpRight className="w-3 h-3" />}>
+                {t('dashboard.connectAccounts')}
+              </NexusButton>
             </div>
           )}
 
@@ -322,38 +350,39 @@ export default function DashboardPage() {
             const missing = brandReadiness.missingRequired.length
             return (
               <div className="rounded-2xl p-4 flex items-start justify-between flex-wrap gap-3"
-                style={{ background: 'rgba(255,184,0,0.05)', border: '1px solid rgba(255,184,0,0.2)' }}>
+                style={{ background: 'rgba(249,115,22,0.05)', border: '1px solid rgba(249,115,22,0.2)' }}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: 'rgba(255,184,0,0.1)' }}>
-                    <Brain className="w-4 h-4" style={{ color: '#FFB800' }} />
+                    style={{ background: 'rgba(249,115,22,0.1)' }}>
+                    <Brain className="w-4 h-4" style={{ color: '#F97316' }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold mb-0.5" style={{ color: '#FFB800' }}>{bg.dashCardTitle}</p>
-                    <p className="text-xs text-text-muted mb-2">{bg.dashCardDesc}</p>
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#F97316' }}>{bg.dashCardTitle}</p>
+                    <p className="text-xs mb-2" style={{ color: 'var(--nx-text-3)' }}>{bg.dashCardDesc}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {brandReadiness.missingRequired.slice(0, 4).map(key => (
-                        <span key={key}
-                          className="text-[10px] px-1.5 py-0.5 rounded"
-                          style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.15)' }}>
-                          {bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key}
-                        </span>
+                        <NexusBadge
+                          key={key}
+                          label={bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key}
+                          variant="red"
+                          size="xs"
+                        />
                       ))}
                       {missing > 4 && (
-                        <span className="text-[10px] text-text-muted">+{missing - 4}</span>
+                        <span className="text-[10px]" style={{ color: 'var(--nx-text-4)' }}>+{missing - 4}</span>
                       )}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Link href="/brand"
-                    className="text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all hover:brightness-110"
-                    style={{ background: 'rgba(255,184,0,0.1)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.2)' }}>
-                    {bg.dashCardBtn}
-                  </Link>
+                  <NexusButton variant="orange" size="xs" href="/brand">{bg.dashCardBtn}</NexusButton>
                   <button
                     onClick={() => setBrandCardDismissed(true)}
-                    className="text-xs text-text-muted hover:text-white transition-all px-2 py-2 rounded-lg hover:bg-white/5">
+                    className="text-xs px-2 py-2 rounded-lg transition-all"
+                    style={{ color: 'var(--nx-text-4)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-1)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-4)' }}
+                  >
                     {bg.dashCardDismiss}
                   </button>
                 </div>
@@ -371,33 +400,32 @@ export default function DashboardPage() {
           {/* ── Low Credits Upgrade Banner ── */}
           {stats?.lowCredits && !upgradeBannerDismissed && (
             <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3"
-              style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.25)' }}>
+              style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.25)' }}>
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'rgba(255,107,53,0.12)' }}>
-                  <Zap className="w-4 h-4" style={{ color: '#FF6B35' }} />
+                  style={{ background: 'rgba(249,115,22,0.12)' }}>
+                  <Zap className="w-4 h-4" style={{ color: '#F97316' }} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold" style={{ color: '#FF6B35' }}>
-                    {ar
-                      ? `${stats.creditsRemaining} وحدة AI متبقية فقط`
-                      : `Only ${stats.creditsRemaining} AI credits left`}
+                  <p className="text-sm font-bold" style={{ color: '#F97316' }}>
+                    {ar ? `${stats.creditsRemaining} وحدة AI متبقية فقط` : `Only ${stats.creditsRemaining} AI credits left`}
                   </p>
-                  <p className="text-xs text-text-muted">
-                    {ar
-                      ? 'قرّب الانتهاء — الترقية تمنحك 200 وحدة / شهر'
-                      : 'Running low — upgrade for 200 credits/month'}
+                  <p className="text-xs" style={{ color: 'var(--nx-text-3)' }}>
+                    {ar ? 'قرّب الانتهاء — الترقية تمنحك 200 وحدة / شهر' : 'Running low — upgrade for 200 credits/month'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Link href="/billing"
-                  className="text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all hover:brightness-110"
-                  style={{ background: 'rgba(255,107,53,0.15)', color: '#FF6B35', border: '1px solid rgba(255,107,53,0.3)' }}>
-                  {ar ? 'ترقية الآن' : 'Upgrade Now'} <ArrowUpRight className="w-3 h-3" />
-                </Link>
-                <button onClick={() => setUpgradeBannerDismissed(true)}
-                  className="p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+                <NexusButton variant="orange" size="xs" href="/billing" icon={<ArrowUpRight className="w-3 h-3" />}>
+                  {ar ? 'ترقية الآن' : 'Upgrade Now'}
+                </NexusButton>
+                <button
+                  onClick={() => setUpgradeBannerDismissed(true)}
+                  className="p-1.5 rounded-lg transition-all"
+                  style={{ color: 'var(--nx-text-4)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-1)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-4)' }}
+                >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -406,109 +434,72 @@ export default function DashboardPage() {
 
           {/* ── Stats Row ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Campaigns */}
-            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
-              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#6C63FF' }} />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] text-text-muted font-medium leading-tight">{t('dashboard.statCampaignLabel')}</p>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#6C63FF15' }}>
-                    <Target className="w-3.5 h-3.5" style={{ color: '#6C63FF' }} />
-                  </div>
-                </div>
-                <p className="text-2xl font-bold mb-0.5" style={{ color: '#6C63FF' }}>{stats?.campaigns ?? 0}</p>
-                <p className="text-[11px] text-text-muted">{stats?.activeCampaigns ?? 0} {t('dashboard.thisMonth')}</p>
-              </div>
-            </div>
+            <NexusMetricCard
+              label={t('dashboard.statCampaignLabel')}
+              value={stats?.campaigns ?? 0}
+              sub={`${stats?.activeCampaigns ?? 0} ${t('dashboard.thisMonth')}`}
+              accentColor="#8B5CF6"
+              icon={<Target className="w-3.5 h-3.5" />}
+            />
 
-            {/* Published Posts */}
-            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
-              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#FF6B35' }} />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] text-text-muted font-medium leading-tight">
-                    {ar ? 'منشورات' : 'Published'}
-                  </p>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#FF6B3515' }}>
-                    <Send className="w-3.5 h-3.5" style={{ color: '#FF6B35' }} />
-                  </div>
-                </div>
-                <p className="text-2xl font-bold mb-0.5" style={{ color: '#FF6B35' }}>{stats?.publishedPostsTotal ?? 0}</p>
-                <p className="text-[11px] text-text-muted">
-                  {stats?.publishedPostsThisMonth ?? 0} {ar ? 'هذا الشهر' : 'this month'}
-                </p>
-              </div>
-            </div>
+            <NexusMetricCard
+              label={ar ? 'منشورات' : 'Published'}
+              value={stats?.publishedPostsTotal ?? 0}
+              sub={`${stats?.publishedPostsThisMonth ?? 0} ${ar ? 'هذا الشهر' : 'this month'}`}
+              accentColor="#F97316"
+              icon={<Send className="w-3.5 h-3.5" />}
+            />
 
-            {/* AI Generations */}
-            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
-              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#00BFA6' }} />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] text-text-muted font-medium leading-tight">{t('dashboard.statGenerations')}</p>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#00BFA615' }}>
-                    <Sparkles className="w-3.5 h-3.5" style={{ color: '#00BFA6' }} />
-                  </div>
-                </div>
-                <p className="text-2xl font-bold mb-0.5" style={{ color: '#00BFA6' }}>{stats?.totalGenerations ?? 0}</p>
-                <p className="text-[11px] text-text-muted">{t('dashboard.allAgentsTotal')}</p>
-              </div>
-            </div>
+            <NexusMetricCard
+              label={t('dashboard.statGenerations')}
+              value={stats?.totalGenerations ?? 0}
+              sub={t('dashboard.allAgentsTotal')}
+              accentColor="#10B981"
+              icon={<Sparkles className="w-3.5 h-3.5" />}
+            />
 
             {/* Credits with progress bar */}
-            <div className={`rounded-2xl p-5 relative overflow-hidden ${glassCardHover}`} style={glassCard}>
-              <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-20" style={{ background: '#00D4FF' }} />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] text-text-muted font-medium leading-tight">{t('dashboard.statCredits')}</p>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: '#00D4FF15' }}>
-                    <Zap className="w-3.5 h-3.5" style={{ color: '#00D4FF' }} />
+            <NexusMetricCard
+              label={t('dashboard.statCredits')}
+              value={stats?.isUnlimited ? '∞' : (stats?.creditsRemaining ?? 0)}
+              accentColor={stats?.lowCredits ? '#F97316' : '#06B6D4'}
+              icon={<Zap className="w-3.5 h-3.5" />}
+            >
+              {!stats?.isUnlimited && (
+                <>
+                  <div className="w-full h-1.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${creditPct}%`,
+                        background: stats?.lowCredits
+                          ? 'linear-gradient(90deg, #F97316, #EAB308)'
+                          : 'linear-gradient(90deg, #10B981, #06B6D4)',
+                      }}
+                    />
                   </div>
-                </div>
-                {stats?.isUnlimited ? (
-                  <>
-                    <p className="text-2xl font-bold mb-0.5" style={{ color: '#00D4FF' }}>∞</p>
-                    <p className="text-[11px] text-text-muted">{t('dashboard.unlimitedCredits')}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold mb-1" style={{ color: stats?.lowCredits ? '#FF6B35' : '#00D4FF' }}>
-                      {stats?.creditsRemaining ?? 0}
-                    </p>
-                    {/* Credit progress bar */}
-                    <div className="w-full h-1.5 rounded-full bg-white/5 mb-1 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(100, Math.round(((stats?.creditsRemaining ?? 0) / (stats?.creditsMonthlyTotal ?? 15)) * 100))}%`,
-                          background: stats?.lowCredits
-                            ? 'linear-gradient(90deg, #FF6B35, #FFB800)'
-                            : 'linear-gradient(90deg, #00BFA6, #00D4FF)',
-                        }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-text-muted">
-                      {ar
-                        ? `من ${stats?.creditsMonthlyTotal ?? 15} وحدة`
-                        : `of ${stats?.creditsMonthlyTotal ?? 15}`}
-                      {stats?.lowCredits && (
-                        <Link href="/billing" className="ml-1 font-bold" style={{ color: '#FF6B35' }}>
-                          {ar ? '· ترقية' : '· upgrade'}
-                        </Link>
-                      )}
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
+                  <p className="text-[10px]" style={{ color: 'var(--nx-text-4)' }}>
+                    {ar ? `من ${stats?.creditsMonthlyTotal ?? 15} وحدة` : `of ${stats?.creditsMonthlyTotal ?? 15}`}
+                    {stats?.lowCredits && (
+                      <Link href="/billing" className="ml-1 font-bold" style={{ color: '#F97316' }}>
+                        {ar ? '· ترقية' : '· upgrade'}
+                      </Link>
+                    )}
+                  </p>
+                </>
+              )}
+              {stats?.isUnlimited && (
+                <p className="text-[11px]" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.unlimitedCredits')}</p>
+              )}
+            </NexusMetricCard>
           </div>
 
           {/* ── Growth Insight Bar ── */}
           {stats && stats.campaigns > 0 && (
             <div className="rounded-xl px-4 py-3 flex items-center gap-3"
-              style={{ background: 'rgba(108,99,255,0.04)', border: '1px solid rgba(108,99,255,0.1)' }}>
-              <TrendingUp className="w-3.5 h-3.5 text-accent-purple flex-shrink-0" />
-              <p className="text-[11px] text-text-muted">
+              style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.1)' }}>
+              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#8B5CF6' }} />
+              <p className="text-[11px]" style={{ color: 'var(--nx-text-4)' }}>
                 {ar
                   ? `${stats.campaigns} حملة · ${stats.totalGenerations} توليد AI · ${stats.publishedPostsTotal} منشور منشور — الرحلة من الفكرة للنشر كاملة`
                   : `${stats.campaigns} campaign${stats.campaigns !== 1 ? 's' : ''} · ${stats.totalGenerations} AI generation${stats.totalGenerations !== 1 ? 's' : ''} · ${stats.publishedPostsTotal} post${stats.publishedPostsTotal !== 1 ? 's' : ''} published — idea to publish, end to end`}
@@ -518,36 +509,27 @@ export default function DashboardPage() {
 
           {/* ── AI Agents Status ── */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-accent-purple" />
-              <h2 className="text-xs font-bold text-text-secondary uppercase tracking-wider">{t('dashboard.aiAgents')}</h2>
-            </div>
+            <NexusSectionHeader
+              label={ar ? 'فريق الذكاء الاصطناعي' : 'AI SQUAD'}
+              title={t('dashboard.aiAgents')}
+              icon={<Sparkles className="w-4 h-4" />}
+              accentColor="#8B5CF6"
+              className="mb-4"
+            />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {AGENT_DEFS.map(agent => {
-                const Icon = agent.icon
-                return (
-                  <Link key={agent.name} href={agent.href}
-                    className={`group rounded-2xl p-4 ${glassCardHover}`}
-                    style={{ background: 'rgba(17,21,54,0.5)', border: `1px solid ${agent.color}20` }}>
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                        style={{ background: agent.glow, border: `1px solid ${agent.color}30` }}>
-                        <Icon className="w-4 h-4" style={{ color: agent.color }} />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: agent.statusColor, boxShadow: `0 0 5px ${agent.statusColor}` }} />
-                        <span className="text-[9px] font-medium" style={{ color: agent.statusColor }}>{t(agent.statusKey)}</span>
-                      </div>
-                    </div>
-                    <p className="font-bold text-sm mb-0.5" style={{ color: agent.color }}>{agent.name}</p>
-                    <p className="text-[11px] text-text-muted mb-3">{t(agent.role)}</p>
-                    <div className="flex items-center gap-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: agent.color }}>
-                      {t('dashboard.launchAgent')} <ArrowUpRight className="w-3 h-3" />
-                    </div>
-                  </Link>
-                )
-              })}
+              {AGENT_DEFS.map(agent => (
+                <NexusAgentCard
+                  key={agent.agentId}
+                  agentId={agent.agentId}
+                  name={agent.name}
+                  role={t(agent.roleKey)}
+                  statusLabel={t(agent.statusKey)}
+                  statusActive
+                  href={agent.href}
+                  accentColor={agent.accentColor}
+                  launchLabel={t('dashboard.launchAgent')}
+                />
+              ))}
             </div>
           </div>
 
@@ -558,13 +540,19 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {/* Campaigns — 2 cols */}
-            <div className={`lg:col-span-2 rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
+            <NexusGlassCard className="lg:col-span-2" padding="lg">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Rocket className="w-4 h-4 text-accent-purple" />
-                  <h3 className="font-bold text-sm text-white">{t('dashboard.campaignsTitle')}</h3>
+                  <Rocket className="w-4 h-4" style={{ color: '#8B5CF6' }} />
+                  <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{t('dashboard.campaignsTitle')}</h3>
                 </div>
-                <Link href="/vex" className="text-[11px] text-text-muted hover:text-accent-purple transition flex items-center gap-1">
+                <Link
+                  href="/vex"
+                  className="flex items-center gap-1 text-[11px] transition-colors"
+                  style={{ color: 'var(--nx-text-4)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#A78BFA' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-4)' }}
+                >
                   {t('dashboard.manageAll')} <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -572,15 +560,14 @@ export default function DashboardPage() {
               {campaigns.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-                    style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.12)' }}>
-                    <Plus className="w-6 h-6 text-accent-purple/40" />
+                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                    <Plus className="w-6 h-6" style={{ color: 'rgba(139,92,246,0.4)' }} />
                   </div>
-                  <p className="text-sm font-semibold text-text-secondary mb-1">{t('dashboard.noCampaigns')}</p>
-                  <p className="text-xs text-text-muted mb-5 max-w-[200px] mx-auto">{t('dashboard.noCampaignsDesc')}</p>
-                  <Link href="/campaigns/new" className="btn-gradient inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white">
-                    <Rocket className="w-4 h-4" />
+                  <p className="text-sm font-semibold mb-1" style={{ color: 'var(--nx-text-2)' }}>{t('dashboard.noCampaigns')}</p>
+                  <p className="text-xs mb-5 max-w-[200px] mx-auto" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.noCampaignsDesc')}</p>
+                  <NexusButton variant="primary" size="sm" href="/campaigns/new" icon={<Rocket className="w-4 h-4" />}>
                     {t('dashboard.createCampaign')}
-                  </Link>
+                  </NexusButton>
                 </div>
               ) : (
                 <div className="space-y-1.5">
@@ -588,53 +575,61 @@ export default function DashboardPage() {
                     const si = STATUS_MAP[c.status] || STATUS_MAP.DRAFT
                     return (
                       <Link key={c.id} href={`/campaigns/${c.id}`}
-                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all group">
+                        className="flex items-center gap-3 p-3 rounded-xl transition-all group"
+                        style={{ background: 'transparent' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
+                      >
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                          style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.12)' }}>
+                          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.12)' }}>
                           {c.thumbnail || '🎯'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-text-secondary truncate group-hover:text-white transition">{c.name}</p>
-                          <p className="text-[11px] text-text-muted truncate">{c.platforms?.slice(0, 3).join(' · ') || '—'}</p>
+                          <p className="text-sm font-medium truncate transition-colors" style={{ color: 'var(--nx-text-2)' }}>{c.name}</p>
+                          <p className="text-[11px] truncate" style={{ color: 'var(--nx-text-4)' }}>{c.platforms?.slice(0, 3).join(' · ') || '—'}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: si.color }} />
-                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.ar : si.en}</span>{/* STATUS_MAP keeps ar/en for brevity */}
+                          <NexusStatusDot color={si.color} size="xs" pulse={c.status === 'ACTIVE'} />
+                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.ar : si.en}</span>
                         </div>
                       </Link>
                     )
                   })}
                   <Link href="/vex"
-                    className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] text-text-muted hover:text-text-secondary hover:bg-white/3 transition-all">
+                    className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] transition-all"
+                    style={{ color: 'var(--nx-text-4)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-2)'; (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-4)'; (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
+                  >
                     <Plus className="w-3.5 h-3.5" />
                     {t('dashboard.createCampaign')}
                   </Link>
                 </div>
               )}
-            </div>
+            </NexusGlassCard>
 
             {/* Right col */}
             <div className="space-y-4">
 
               {/* AI Insights */}
-              <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
+              <NexusGlassCard padding="lg">
                 <div className="flex items-center gap-2 mb-4">
-                  <Flame className="w-4 h-4 text-accent-purple" />
-                  <h3 className="font-bold text-sm text-white">{t('dashboard.aiInsights')}</h3>
+                  <Flame className="w-4 h-4" style={{ color: '#F97316' }} />
+                  <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{t('dashboard.aiInsights')}</h3>
                 </div>
                 {insights.length === 0 ? (
                   <div className="text-center py-6">
-                    <CheckCircle2 className="w-8 h-8 text-accent-teal/40 mx-auto mb-2" />
-                    <p className="text-xs text-text-muted">{t('dashboard.allGood')}</p>
+                    <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(16,185,129,0.4)' }} />
+                    <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.allGood')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2.5">
                     {insights.map(ins => {
-                      const colors = { high: '#6C63FF', medium: '#00BFA6', low: '#00D4FF' }
+                      const colors = { high: '#8B5CF6', medium: '#10B981', low: '#06B6D4' }
                       const c = colors[ins.priority]
                       return (
                         <div key={ins.id} className="rounded-xl p-3" style={{ background: `${c}06`, border: `1px solid ${c}18` }}>
-                          <p className="text-[11px] text-text-secondary leading-relaxed mb-2">{ins.text}</p>
+                          <p className="text-[11px] leading-relaxed mb-2" style={{ color: 'var(--nx-text-3)' }}>{ins.text}</p>
                           <Link href={ins.href} className="inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: c }}>
                             {ins.action} <ArrowUpRight className="w-2.5 h-2.5" />
                           </Link>
@@ -643,19 +638,19 @@ export default function DashboardPage() {
                     })}
                   </div>
                 )}
-              </div>
+              </NexusGlassCard>
 
               {/* Alerts */}
-              <div className={`rounded-2xl p-5 ${glassCardHover}`} style={glassCard}>
+              <NexusGlassCard padding="lg">
                 <div className="flex items-center gap-2 mb-4">
-                  <Bell className="w-4 h-4 text-accent-teal" />
-                  <h3 className="font-bold text-sm text-white">{t('sentinel.alertsTitle')}</h3>
+                  <Bell className="w-4 h-4" style={{ color: '#10B981' }} />
+                  <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{t('sentinel.alertsTitle')}</h3>
                 </div>
                 {alerts.length === 0 ? (
                   <div className="text-center py-6">
-                    <Shield className="w-8 h-8 text-accent-teal/30 mx-auto mb-2" />
-                    <p className="text-xs text-text-muted">{t('sentinel.noAlerts')}</p>
-                    <p className="text-[10px] text-text-muted mt-0.5">{t('dashboard.sentinelMonitors')}</p>
+                    <Shield className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(16,185,129,0.3)' }} />
+                    <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>{t('sentinel.noAlerts')}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.sentinelMonitors')}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -668,42 +663,65 @@ export default function DashboardPage() {
                           style={{ background: cols.bg, border: `1px solid ${cols.border}` }}>
                           <div className="flex-shrink-0 mt-0.5">{ALERT_ICONS[alert.type]}</div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[11px] text-text-secondary leading-relaxed">{displayBody}</p>
+                            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>{displayBody}</p>
                             {alert.campaign && (
-                              <p className="text-[10px] text-accent-purple/60 truncate mt-0.5">{alert.campaign}</p>
+                              <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>{alert.campaign}</p>
                             )}
-                            <p className="text-[9px] text-text-muted mt-0.5">{alert.agent} · {displayTime}</p>
+                            <p className="text-[9px] mt-0.5" style={{ color: 'var(--nx-text-4)' }}>{alert.agent} · {displayTime}</p>
                           </div>
                         </div>
                       )
                     })}
-                    <Link href="/sentinel" className="flex items-center justify-center gap-1 pt-1 text-[10px] text-text-muted hover:text-accent-teal transition">
+                    <Link
+                      href="/sentinel"
+                      className="flex items-center justify-center gap-1 pt-1 text-[10px] transition-colors"
+                      style={{ color: 'var(--nx-text-4)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#34D399' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-4)' }}
+                    >
                       {t('dashboard.viewAllAlerts')} <ChevronRight className="w-3 h-3" />
                     </Link>
                   </div>
                 )}
-              </div>
+              </NexusGlassCard>
             </div>
           </div>
 
           {/* ── Quick Access ── */}
-          <div className="rounded-2xl p-4" style={{ background: 'rgba(17,21,54,0.3)', border: '1px solid rgba(108,99,255,0.08)' }}>
+          <div className="rounded-2xl p-4" style={{ background: 'rgba(12,13,36,0.5)', border: '1px solid rgba(139,92,246,0.08)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-3.5 h-3.5 text-accent-purple" />
-              <p className="text-[11px] text-text-muted font-medium uppercase tracking-wider">{t('dashboard.quickAccess')}</p>
+              <Zap className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />
+              <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
+                {t('dashboard.quickAccess')}
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
               {[
-                { key: 'dashboard.quickNewCampaign',   href: '/campaigns/new', color: '#6C63FF' },
-                { key: 'dashboard.quickVideoScript',   href: '/studio',        color: '#00BFA6' },
-                { key: 'dashboard.quickAdCopy',        href: '/vex',           color: '#FF6B35' },
-                { key: 'dashboard.quickAnalytics',     href: '/analytics',     color: '#00D4FF' },
-                { key: 'dashboard.quickMarketWatch',   href: '/sentinel',      color: '#FFD700' },
-                { key: 'dashboard.quickConnect',       href: '/connections',   color: '#00BFA6' },
+                { key: 'dashboard.quickNewCampaign',  href: '/campaigns/new', color: '#8B5CF6' },
+                { key: 'dashboard.quickVideoScript',  href: '/studio',        color: '#06B6D4' },
+                { key: 'dashboard.quickAdCopy',       href: '/vex',           color: '#F97316' },
+                { key: 'dashboard.quickAnalytics',    href: '/analytics',     color: '#10B981' },
+                { key: 'dashboard.quickMarketWatch',  href: '/sentinel',      color: '#EAB308' },
+                { key: 'dashboard.quickConnect',      href: '/connections',   color: '#10B981' },
               ].map(qa => (
-                <Link key={qa.href} href={qa.href}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all hover:scale-[1.02]"
-                  style={{ background: `${qa.color}08`, border: `1px solid ${qa.color}18`, color: qa.color }}>
+                <Link
+                  key={qa.href}
+                  href={qa.href}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                  style={{ background: `${qa.color}08`, border: `1px solid ${qa.color}18`, color: qa.color }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLAnchorElement
+                    el.style.background = `${qa.color}14`
+                    el.style.borderColor = `${qa.color}30`
+                    el.style.transform = 'scale(1.02)'
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLAnchorElement
+                    el.style.background = `${qa.color}08`
+                    el.style.borderColor = `${qa.color}18`
+                    el.style.transform = ''
+                  }}
+                >
                   {t(qa.key)}
                 </Link>
               ))}
@@ -718,7 +736,6 @@ export default function DashboardPage() {
         isOpen={runStrategyOpen}
         onClose={() => {
           setRunStrategyOpen(false)
-          // Refresh dashboard data after a successful run
           load(true)
         }}
         onSuccess={() => setSuggestionsKey(k => k + 1)}
