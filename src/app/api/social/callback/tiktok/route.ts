@@ -54,7 +54,7 @@ async function attemptTokenExchange(
   console.log(`[TikTok] attemptTokenExchange method=${method} redirect_uri=${redirectUri} client_key_prefix=${clientKey.slice(0, 8)}`)
 
   // redirect:'follow' — let fetch follow any redirects, then inspect the final URL
-  const res = await fetch('https://open.tiktok.com/v2/oauth/token/', {
+  const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
     method: 'POST',
     headers: commonHeaders,
     body,
@@ -173,7 +173,7 @@ export async function GET(req: NextRequest) {
     let avatarUrl: string | null = null
     try {
       const profileRes = await fetch(
-        'https://open.tiktok.com/v2/user/info/?fields=open_id,display_name,avatar_url',
+        'https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name,avatar_url',
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
