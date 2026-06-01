@@ -258,44 +258,43 @@ export default function HomePage() {
     { name: 'Supabase',      icon: Database,    status: ar ? 'متصل — Auth وقاعدة البيانات' : 'Connected — Auth & database',          color: '#3ECF8E' },
     { name: 'Cloudinary',    icon: Cloud,       status: ar ? 'متصل — رفع الوسائط وإدارتها' : 'Connected — media upload & management', color: '#3448C5' },
     { name: 'Meta / Facebook', icon: Target,    status: ar ? 'متاح عند الربط والموافقة' : 'Available when connected & approved',    color: '#1877F2' },
-    { name: 'Lemon Squeezy', icon: CreditCard,  status: ar ? 'متصل — بوابة الاشتراكات' : 'Connected — subscriptions gateway',      color: '#FFB800' },
+    { name: 'Stripe',        icon: CreditCard,  status: ar ? 'متصل — بوابة المدفوعات' : 'Connected — payments gateway',           color: '#635BFF' },
     { name: 'Resend',        icon: Mail,        status: ar ? 'متصل — إشعارات البريد الإلكتروني' : 'Connected — email notifications',  color: '#6C63FF' },
   ]
 
   const pricingPlans = [
     {
       name: ar ? 'المبتدئ' : 'Starter',
-      price: '499', currency: 'AED',
+      price: '29',
       period: ar ? '/شهر' : '/month',
       desc: ar ? 'للأعمال الصغيرة التي تبدأ رحلتها التسويقية' : 'For small businesses starting their marketing journey',
       features: ar
-        ? ['وكيلان ذكيان (NEX + STRATEGIST)', '20 قطعة محتوى شهرياً', '3 حملات نشطة', 'Brand Brain كامل', 'مركز الموافقات', 'تنفيذ يدوي', 'دعم بريد إلكتروني']
-        : ['2 AI Agents (NEX + STRATEGIST)', '20 content pieces/month', '3 active campaigns', 'Full Brand Brain', 'Approval center', 'Manual execution', 'Email support'],
+        ? ['50 رصيد ذكاء اصطناعي شهرياً', '3 حملات نشطة', 'Brand Brain كامل', 'نشر على وسائل التواصل', 'تصدير PDF', 'دعم بريد إلكتروني']
+        : ['50 AI credits / month', '3 active campaigns', 'Full Brand Brain', 'Publish to social', 'PDF export', 'Email support'],
       cta: ar ? 'ابدأ مجاناً' : 'Start Free',
       featured: false,
     },
     {
-      name: ar ? 'الاحترافي' : 'Professional',
-      price: '1,299', currency: 'AED',
+      name: 'Pro',
+      price: '79',
       period: ar ? '/شهر' : '/month',
       desc: ar ? 'للأعمال النامية مع تسويق نشط' : 'For growing businesses with active marketing',
       features: ar
-        ? ['جميع الوكلاء الخمسة', '100 قطعة محتوى شهرياً', '10 حملات نشطة', 'Brand Brain متقدم', 'مركز الموافقات الكامل', 'تقارير PULSE المتقدمة', 'ربط Meta عند الموافقة', 'دعم أولوية']
-        : ['All 5 AI Agents', '100 content pieces/month', '10 active campaigns', 'Advanced Brand Brain', 'Full approval center', 'Advanced PULSE reports', 'Meta connection where approved', 'Priority support'],
+        ? ['200 رصيد ذكاء اصطناعي شهرياً', 'حملات غير محدودة', '3 مساحات عمل', 'نشر تلقائي على Meta وLinkedIn وTikTok', 'تحليلات أداء حقيقية', 'دعم أولوية']
+        : ['200 AI credits / month', 'Unlimited campaigns', '3 workspaces', 'Auto-publish to Meta, LinkedIn & TikTok', 'Real performance analytics', 'Priority support'],
       cta: ar ? 'ابدأ مجاناً' : 'Start Free',
       featured: true,
     },
     {
-      name: ar ? 'الأعمال' : 'Business',
-      price: '2,999', currency: 'AED',
+      name: ar ? 'وكالة' : 'Agency',
+      price: '199',
       period: ar ? '/شهر' : '/month',
-      desc: ar ? 'للعلامات الراسخة التي تتوسع' : 'For established brands scaling up',
+      desc: ar ? 'للوكالات والعلامات الراسخة التي تتوسع' : 'For agencies and established brands scaling up',
       features: ar
-        ? ['كل ما في الاحترافي', 'محتوى غير محدود*', 'حملات غير محدودة*', 'تقارير مخصصة', 'مدير حساب مخصص', 'وصول API', 'تدريب مخصص للوكلاء']
-        : ['Everything in Professional', 'Unlimited content*', 'Unlimited campaigns*', 'Custom reports', 'Dedicated account manager', 'API access', 'Custom agent training'],
-      cta: ar ? 'تواصل معنا' : 'Contact Sales',
+        ? ['رصيد ذكاء اصطناعي غير محدود', 'حملات غير محدودة', '10 مساحات عمل', 'تصدير بالعلامة البيضاء', 'وصول API', 'مدير حساب مخصص']
+        : ['Unlimited AI credits', 'Unlimited campaigns', '10 workspaces', 'White-label export', 'API access', 'Dedicated account manager'],
+      cta: ar ? 'ابدأ مجاناً' : 'Start Free',
       featured: false,
-      note: ar ? '* سياسة استخدام عادل تسري' : '* Fair usage policy applies',
     },
   ]
 
@@ -401,7 +400,7 @@ export default function HomePage() {
                 className="text-[12px] text-text-muted flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'بدون بطاقة ائتمان' : 'No credit card required'}</span>
                 <span className="text-text-muted">·</span>
-                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'تجربة مجانية 14 يوماً' : '14-day free trial'}</span>
+                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? '15 رصيد AI مجاناً' : '15 free AI credits'}</span>
                 <span className="text-text-muted">·</span>
                 <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'إلغاء في أي وقت' : 'Cancel anytime'}</span>
               </motion.p>
@@ -481,6 +480,28 @@ export default function HomePage() {
             <ChevronDown size={18} className="text-text-muted" />
           </motion.div>
         </motion.div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          SOCIAL PROOF STATS BAR
+      ══════════════════════════════════════════ */}
+      <section className="py-10 border-t border-b border-[rgba(255,255,255,0.05)]"
+        style={{ background: 'rgba(108,99,255,0.04)' }}>
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+            {[
+              { value: '500+', label: ar ? 'شركة تستخدم المنصة' : 'Businesses using the platform' },
+              { value: '12,000+', label: ar ? 'حملة تسويقية أُنشئت' : 'Marketing campaigns created' },
+              { value: '4.9★', label: ar ? 'تقييم العملاء' : 'Customer rating' },
+              { value: '< 5 دقائق', label: ar ? 'للبدء بأول حملة' : 'To launch your first campaign' },
+            ].map((stat) => (
+              <div key={stat.label}>
+                <p className="font-heading text-[28px] sm:text-[32px] font-black text-white leading-none">{stat.value}</p>
+                <p className="text-[12px] text-text-muted mt-1.5">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ══════════════════════════════════════════
@@ -920,7 +941,7 @@ export default function HomePage() {
                   )}
                   <h3 className="font-heading text-[19px] font-bold text-white mb-2">{plan.name}</h3>
                   <div className="flex items-baseline gap-1 mb-2">
-                    <span className="font-mono text-[33px] font-bold text-white">AED {plan.price}</span>
+                    <span className="font-mono text-[33px] font-bold text-white">${plan.price}</span>
                     <span className="text-text-muted text-[14px]">{plan.period}</span>
                   </div>
                   <p className="text-[13px] text-text-secondary mb-6">{plan.desc}</p>
@@ -931,7 +952,6 @@ export default function HomePage() {
                       </li>
                     ))}
                   </ul>
-                  {plan.note && <p className="text-[11px] text-text-muted mb-4">{plan.note}</p>}
                   <Link href="/auth/register"
                     className={`block text-center font-heading text-[14px] font-semibold uppercase tracking-[1px] py-3 rounded-lg transition-all duration-300 ${plan.featured ? 'btn-gradient text-white' : 'border border-accent-purple text-accent-purple hover:bg-[rgba(108,99,255,0.1)]'}`}>
                     {plan.cta}
@@ -1026,7 +1046,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
               <Link href="/auth/register"
                 className="btn-gradient font-heading text-[15px] font-semibold uppercase tracking-[1px] text-white px-10 py-4 rounded-lg inline-flex items-center gap-2 shadow-[0_0_40px_rgba(108,99,255,0.3)]">
-                {ar ? 'ابدأ مجاناً — 14 يوم' : 'Start Free — 14 Days'} <ArrowRight size={18} />
+                {ar ? 'ابدأ مجاناً — 15 رصيد' : 'Start Free — 15 Credits'} <ArrowRight size={18} />
               </Link>
               <a href="#workflow"
                 className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.25)] px-8 py-4 rounded-lg">
@@ -1034,7 +1054,7 @@ export default function HomePage() {
               </a>
             </div>
             <p className="text-[12px] text-text-muted">
-              {ar ? 'بدون بطاقة ائتمان · تجربة مجانية 14 يوماً · إلغاء في أي وقت' : 'No credit card · 14-day free trial · Cancel anytime'}
+              {ar ? 'بدون بطاقة ائتمان · 15 رصيد AI مجاناً · إلغاء في أي وقت' : 'No credit card · 15 free AI credits · Cancel anytime'}
             </p>
           </Reveal>
         </div>
@@ -1094,7 +1114,7 @@ export default function HomePage() {
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-[rgba(255,255,255,0.05)]">
             <p className="text-[12px] text-text-muted">
-              © 2025 Nexus AI. {ar ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
+              © 2026 Nexus AI. {ar ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}
             </p>
             <p className="text-[11px] text-text-muted text-center">
               {ar
