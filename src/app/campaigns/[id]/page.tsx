@@ -9,6 +9,7 @@ import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
 import VideoGenerator from '@/components/VideoGenerator'
 import SocialPublisher from '@/components/SocialPublisher'
+import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 
@@ -2138,15 +2139,21 @@ export default function CampaignDetailPage() {
 
             {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
-              <div className="bg-dark-secondary border border-green-500/20 rounded-2xl p-6">
-                <SocialPublisher
-                  campaignId={campaign.id}
-                  campaignName={campaign.name}
-                  topHooks={topHooks}
-                  captionFormulas={captionFormulas}
-                  ctaVariations={ctaVariations}
-                  keyMessage={strategy.keyMessage}
-                />
+              <div className="space-y-4">
+                <div className="bg-dark-secondary border border-green-500/20 rounded-2xl p-6">
+                  <SocialPublisher
+                    campaignId={campaign.id}
+                    campaignName={campaign.name}
+                    topHooks={topHooks}
+                    captionFormulas={captionFormulas}
+                    ctaVariations={ctaVariations}
+                    keyMessage={strategy.keyMessage}
+                  />
+                </div>
+                {/* Analytics section */}
+                <div className="bg-dark-secondary border border-blue-500/20 rounded-2xl p-6">
+                  <SocialAnalytics campaignId={campaign.id} />
+                </div>
               </div>
             )}
 
