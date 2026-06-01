@@ -47,7 +47,10 @@ export async function GET(req: NextRequest) {
     // ── Exchange code for access token ──────────────────────────────────────
     const tokenRes = await fetch('https://open.tiktok.com/v2/oauth/token/', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
       body: new URLSearchParams({
         client_key:    clientKey,
         client_secret: clientSecret,
