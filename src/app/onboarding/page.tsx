@@ -77,7 +77,7 @@ export default function OnboardingPage() {
   const handleFinishSetup = async () => {
     setStep(3) // show generating state immediately
     const token  = authHeader()
-    const name   = brandName.trim() || 'علامتي'
+    const name   = brandName.trim() || (locale === 'ar' ? 'علامتي' : 'My Brand')
     const slug   = name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Date.now()
 
     try {
@@ -92,7 +92,7 @@ export default function OnboardingPage() {
         headers: { Authorization: token, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           brandName: name,
-          industry,
+          industry: industry || 'other',
           targetAudience: audience,
           toneKeywords: tone ? [tone] : ['professional'],
         }),
@@ -101,7 +101,7 @@ export default function OnboardingPage() {
       const res  = await fetch('/api/strategy/generate', {
         method: 'POST',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal, timeframe: '30', platform: 'multi', budget: 'bootstrap' }),
+        body: JSON.stringify({ goal: goal || 'drive_sales', timeframe: '30', platform: 'multi', budget: 'bootstrap' }),
       })
       const data = await res.json()
       if (data.strategy) setStrategy(data.strategy)
@@ -303,10 +303,17 @@ export default function OnboardingPage() {
             </div>
           </div>
 
+          {/* Hint — shown only when brand name is empty */}
+          {!brandName.trim() && (
+            <p className="text-[11px] text-amber-400/80 text-center mt-4">
+              {locale === 'ar' ? '⚠️ اكتب اسم علامتك التجارية للمتابعة' : '⚠️ Enter your brand name to continue'}
+            </p>
+          )}
+
           <button
             onClick={() => setStep(2)}
-            disabled={!brandName.trim() || !industry}
-            className="btn-gradient w-full py-3.5 mt-6 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={!brandName.trim()}
+            className="btn-gradient w-full py-3.5 mt-3 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {ob?.nextBtn}
           </button>
@@ -345,11 +352,10 @@ export default function OnboardingPage() {
             </button>
             <button
               onClick={handleFinishSetup}
-              disabled={!goal}
-              className="btn-gradient flex-1 py-3.5 text-white font-bold rounded-xl transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ boxShadow: goal ? '0 0 24px rgba(255,149,0,0.25)' : 'none' }}
+              className="btn-gradient flex-1 py-3.5 text-white font-bold rounded-xl transition-all text-sm"
+              style={{ boxShadow: '0 0 24px rgba(255,149,0,0.25)' }}
             >
-              {goal ? ob?.generateBtn : ob?.chooseGoalBtn}
+              {ob?.generateBtn}
             </button>
           </div>
         </Card>
