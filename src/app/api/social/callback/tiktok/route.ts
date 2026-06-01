@@ -56,12 +56,23 @@ export async function GET(req: NextRequest) {
         redirect_uri:  redirectUri,
       }),
     })
-    const tokenData = await tokenRes.json()
-    console.log('[TikTok OAuth] Token response:', JSON.stringify(tokenData))
+
+    // Parse response safely — TikTok sometimes returns HTML on error
+    const tokenText = await tokenRes.text()
+    console.log('[TikTok OAuth] Token raw response:', tokenText.slice(0, 500))
+
+    let tokenData: Record<string, unknown>
+    try {
+      tokenData = JSON.parse(tokenText)
+    } catch {
+      console.error('[TikTok OAuth] Token response is not JSON:', tokenText.slice(0, 200))
+      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_not_json`)
+    }
 
     if (!tokenData.access_token) {
+      const errCode = (tokenData.error as string) || (tokenData.error_code as string) || 'unknown'
       console.error('[TikTok OAuth] Token exchange failed:', tokenData)
-      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange`)
+      return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_${errCode}`)
     }
 
     const accessToken  = tokenData.access_token as string
@@ -152,7 +163,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=tiktok`)
 
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message.slice(0, 100) : String(err).slice(0, 100)
     console.error('[TikTok OAuth] Unhandled error:', err)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=server_error`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg)}`)
   }
 }
