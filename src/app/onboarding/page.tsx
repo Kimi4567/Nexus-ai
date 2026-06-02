@@ -35,6 +35,21 @@ const TONES = [
   { id: 'playful',      ar: 'مرح وإبداعي',         en: 'Playful & Creative', descAr: 'حيوي، ملهم، طازج',            descEn: 'Vibrant, inspiring, fresh' },
 ]
 
+// Card must live OUTSIDE the page component — defining it inside causes
+// React to treat it as a new component type on every render, which unmounts
+// the whole card on every keystroke and snaps focus back to autoFocus inputs.
+function Card({ children, dir }: { children: ReactNode; dir: string }) {
+  return (
+    <div
+      className="w-full max-w-md rounded-2xl glass-panel p-8"
+      style={{ boxShadow: '0 0 60px rgba(255,149,0,0.07), 0 4px 32px rgba(0,0,0,0.5)' }}
+      dir={dir}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, isAuthenticated, loading, authHeader } = useAuth()
@@ -137,17 +152,6 @@ export default function OnboardingPage() {
   }
   if (!isAuthenticated) return null
 
-  // ── Shared card wrapper ──────────────────────────────────────────────────
-  const Card = ({ children }: { children: ReactNode }) => (
-    <div
-      className="w-full max-w-md rounded-2xl glass-panel p-8"
-      style={{ boxShadow: '0 0 60px rgba(255,149,0,0.07), 0 4px 32px rgba(0,0,0,0.5)' }}
-      dir={dir}
-    >
-      {children}
-    </div>
-  )
-
   // Generation steps list
   const genSteps = [ob?.genStep1, ob?.genStep2, ob?.genStep3, ob?.genStep4] as string[]
 
@@ -200,7 +204,7 @@ export default function OnboardingPage() {
 
       {/* ── STEP 0 — WELCOME ──────────────────────────────────────────────── */}
       {step === 0 && (
-        <Card>
+        <Card dir={dir}>
           <div className="text-center">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 text-3xl" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.2)" }}>
               👋
@@ -237,7 +241,7 @@ export default function OnboardingPage() {
 
       {/* ── STEP 1 — BRAND ────────────────────────────────────────────────── */}
       {step === 1 && (
-        <Card>
+        <Card dir={dir}>
           <h2 className="text-xl font-bold text-white mb-1">{ob?.brandTitle}</h2>
           <p className="text-t2 text-sm mb-6">{ob?.brandSubtitle}</p>
 
@@ -337,7 +341,7 @@ export default function OnboardingPage() {
 
       {/* ── STEP 2 — GOAL ─────────────────────────────────────────────────── */}
       {step === 2 && (
-        <Card>
+        <Card dir={dir}>
           <h2 className="text-xl font-bold text-white mb-1">{ob?.goalTitle}</h2>
           <p className="text-t2 text-sm mb-6">{ob?.goalSubtitle}</p>
 
@@ -378,7 +382,7 @@ export default function OnboardingPage() {
 
       {/* ── STEP 3 — GENERATING ───────────────────────────────────────────── */}
       {step === 3 && (
-        <Card>
+        <Card dir={dir}>
           <div className="text-center">
             <div className="relative w-16 h-16 mx-auto mb-6">
               <div className="absolute inset-0 w-16 h-16 border-2 border-accent/20 rounded-full" />
