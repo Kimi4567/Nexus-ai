@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import Link from 'next/link'
@@ -11,6 +11,14 @@ export default function RegisterPage() {
   const { signup } = useAuth()
   const { t, isRTL } = useI18n()
   const [name, setName] = useState('')
+
+  // Capture referral code from ?ref= query param and persist it for post-signup claim
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const ref = params.get('ref')
+    if (ref) localStorage.setItem('pendingReferralCode', ref)
+  }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')

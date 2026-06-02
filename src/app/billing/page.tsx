@@ -1,11 +1,9 @@
 'use client'
 
 /**
- * Billing page — conversion-optimized
- * Plans: Starter $29 · Pro $79 · Agency $199
- * Payment provider: Stripe (env: STRIPE_SECRET_KEY, STRIPE_PRICE_STARTER/PRO/AGENCY)
- *
- * Sprint T-D — Billing Intelligence
+ * Billing page — Sprint AH
+ * Plans: Free $0 · Pro $29 · Business $79
+ * Credits: 10 · 150 · 600  (see src/lib/stripe.ts + src/lib/credits.ts)
  */
 
 import { useAuth } from '@/lib/auth-context'
@@ -15,128 +13,166 @@ import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 import {
   Sparkles, Zap, CheckCircle2, Settings2, ArrowUpRight,
-  Rocket, Brain, BarChart3, Shield, Globe, X, Star,
+  Rocket, Brain, BarChart3, Shield, Globe, X, Star, Gift,
 } from 'lucide-react'
 
 // ─── Plan data ────────────────────────────────────────────────────────────────
 
 const PLANS = [
   {
-    id: 'starter',
-    name: 'Starter',
-    nameAr: 'المبتدئ',
-    price: 29,
-    accentColor: '#8B5CF6',
+    id: 'free',
+    name: 'Free',
+    nameAr: 'مجاني',
+    price: 0,
+    credits: 10,
+    accentColor: '#6366f1',
     featured: false,
     badgeAr: null as string | null,
     badgeEn: null as string | null,
-    descAr: 'للأفراد والمبدعين المستقلين',
-    descEn: 'For solo creators and independents',
-    roiAr: 'يوفر عليك 20+ ساعة شهرياً',
-    roiEn: 'Saves 20+ hours per month',
+    descAr: 'للتجربة والبدء بدون تكلفة',
+    descEn: 'Try it out — no credit card needed',
+    roiAr: 'ابدأ مجاناً اليوم',
+    roiEn: 'Start building for free today',
     featuresAr: [
-      '50 رصيد AI / شهر',
-      '3 حملات / شهر',
-      'مساحة عمل واحدة',
-      'استراتيجية + محتوى + تقويم',
-      'تصدير PDF',
-      'دعم بالبريد الإلكتروني',
+      '10 رصيد AI / شهر',
+      'حملة واحدة نشطة',
+      'Brand Brain (الحقول الأساسية)',
+      'توليد الاستراتيجية',
+      'عرض تقويم المحتوى',
     ],
     featuresEn: [
-      '50 AI credits / month',
-      '3 campaigns / month',
-      '1 workspace',
-      'Strategy + content + calendar',
-      'PDF export',
-      'Email support',
+      '10 AI credits / month',
+      '1 active campaign',
+      'Brand Brain (core fields)',
+      'AI Strategy generation',
+      'Content calendar view',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
     nameAr: 'الاحترافي',
-    price: 79,
+    price: 29,
+    credits: 150,
     accentColor: '#8B5CF6',
     featured: true,
     badgeAr: 'الأكثر شيوعاً',
     badgeEn: 'Most Popular',
-    descAr: 'للعلامات التجارية النامية والفرق الصغيرة',
-    descEn: 'For growing brands and small teams',
-    roiAr: 'يغني عن موظف تسويق بـ $2,000',
-    roiEn: 'Replaces a $2,000/mo marketing hire',
+    descAr: 'للعلامات التجارية النامية',
+    descEn: 'For growing brands and creators',
+    roiAr: 'يوفر 20+ ساعة تسويق شهرياً',
+    roiEn: 'Saves 20+ hours of marketing work',
     featuresAr: [
-      '200 رصيد AI / شهر',
+      '150 رصيد AI / شهر',
       'حملات غير محدودة',
-      '3 مساحات عمل',
-      'نشر تلقائي على السوشيال ميديا',
-      'تحليلات أداء حقيقية',
-      'Creative Brief + Sentinel Review',
-      'دعم أولوية',
+      'Brand Brain كامل',
+      'جميع وكلاء AI (Strategist, Sentinel, Visual Director)',
+      'توليد فيديو بالذكاء الاصطناعي (مفاهيم + Replicate)',
+      'نشر على Meta · LinkedIn · TikTok',
+      'Autopilot — جدولة تلقائية لـ 4 أسابيع',
+      'تحليلات الأداء',
+      'بريد ذكاء أسبوعي',
+      'تصدير PDF + DOCX',
     ],
     featuresEn: [
-      '200 AI credits / month',
+      '150 AI credits / month',
       'Unlimited campaigns',
-      '3 workspaces',
-      'Auto-publish to social media',
-      'Real performance analytics',
-      'Creative Brief + Sentinel Review',
-      'Priority support',
+      'Full Brand Brain',
+      'All AI agents (Strategist, Sentinel, Visual Director)',
+      'AI video generation (concepts + Replicate render)',
+      'Publish to Meta · LinkedIn · TikTok',
+      'Autopilot — auto-schedule for 4 weeks',
+      'Analytics dashboard',
+      'Weekly Intelligence Brief email',
+      'Export campaigns (PDF + DOCX)',
     ],
   },
   {
-    id: 'agency',
-    name: 'Agency',
-    nameAr: 'الوكالات',
-    price: 199,
+    id: 'business',
+    name: 'Business',
+    nameAr: 'الأعمال',
+    price: 79,
+    credits: 600,
     accentColor: '#10B981',
     featured: false,
     badgeAr: null as string | null,
     badgeEn: null as string | null,
-    descAr: 'للوكالات التي تدير عدة عملاء',
-    descEn: 'For agencies managing multiple clients',
+    descAr: 'للوكالات والفرق المتعددة',
+    descEn: 'For agencies and multi-brand teams',
     roiAr: 'يغني عن وكالة تسويق بـ $3,000+',
     roiEn: 'Replaces a $3,000+/mo marketing agency',
     featuresAr: [
-      'رصيد AI غير محدود',
-      'حملات غير محدودة',
-      '10 مساحات عمل',
-      'White-label export',
-      'جميع مميزات Pro',
-      'API access (قريباً)',
-      'مدير حساب مخصص',
+      '600 رصيد AI / شهر',
+      'كل مميزات Pro',
+      '3 مساحات عمل (للوكالات / الفرق)',
+      'تصدير PDF بالعلامة التجارية الخاصة',
+      'تحليلات متقدمة',
+      'دعم أولوية بالبريد الإلكتروني',
     ],
     featuresEn: [
-      'Unlimited AI credits',
-      'Unlimited campaigns',
-      '10 workspaces',
-      'White-label export',
-      'All Pro features',
-      'API access (coming soon)',
-      'Dedicated account manager',
+      '600 AI credits / month',
+      'Everything in Pro',
+      '3 workspaces (for agencies / teams)',
+      'White-label PDF exports',
+      'Advanced analytics',
+      'Priority email support',
     ],
   },
 ]
 
-// ─── Feature comparison rows ──────────────────────────────────────────────────
+// ─── Credit cost reference ────────────────────────────────────────────────────
+
+const CREDIT_ACTIONS = {
+  ar: [
+    { action: 'حملة كاملة + استراتيجية',        cost: 5,  icon: '🚀' },
+    { action: 'تشغيل الاستراتيجية الشاملة',     cost: 5,  icon: '🧠' },
+    { action: 'توليد فيديو (Replicate)',          cost: 5,  icon: '🎬' },
+    { action: 'Creative Brief مرئي',             cost: 2,  icon: '🎨' },
+    { action: 'ملخص فيديو (Video Brief)',         cost: 2,  icon: '📋' },
+    { action: 'توليد صورة بالذكاء الاصطناعي',   cost: 2,  icon: '🖼️' },
+    { action: 'نسخة إعلانية (VEX)',               cost: 2,  icon: '✍️' },
+    { action: 'Sentinel Review للجودة',           cost: 1,  icon: '🛡️' },
+    { action: 'رسالة مساعد AI',                  cost: 1,  icon: '💬' },
+  ],
+  en: [
+    { action: 'Full campaign + strategy',         cost: 5,  icon: '🚀' },
+    { action: 'Run Full Strategy (all agents)',    cost: 5,  icon: '🧠' },
+    { action: 'Video generation (Replicate)',      cost: 5,  icon: '🎬' },
+    { action: 'Creative Brief (visuals)',          cost: 2,  icon: '🎨' },
+    { action: 'Video Brief (concept + script)',    cost: 2,  icon: '📋' },
+    { action: 'AI image generation',              cost: 2,  icon: '🖼️' },
+    { action: 'Ad copy (VEX)',                    cost: 2,  icon: '✍️' },
+    { action: 'Sentinel Review (quality gate)',   cost: 1,  icon: '🛡️' },
+    { action: 'AI assistant message',             cost: 1,  icon: '💬' },
+  ],
+}
+
+// ─── Comparison rows ──────────────────────────────────────────────────────────
 
 const COMPARISON_ROWS = {
   ar: [
-    { label: 'رصيد AI / شهر',         starter: '50',   pro: '200',     agency: '∞' },
-    { label: 'الحملات',               starter: '3',    pro: '∞',       agency: '∞' },
-    { label: 'مساحات العمل',          starter: '1',    pro: '3',       agency: '10' },
-    { label: 'نشر تلقائي على Meta',   starter: '✗',   pro: '✓',       agency: '✓' },
-    { label: 'تحليلات الأداء',        starter: '✗',   pro: '✓',       agency: '✓' },
-    { label: 'Sentinel Review',        starter: '✗',   pro: '✓',       agency: '✓' },
-    { label: 'White-label export',     starter: '✗',   pro: '✗',       agency: '✓' },
+    { label: 'رصيد AI / شهر',          free: '10',  pro: '150',   biz: '600' },
+    { label: 'الحملات',                free: '1',   pro: '∞',     biz: '∞' },
+    { label: 'مساحات العمل',           free: '1',   pro: '1',     biz: '3' },
+    { label: 'Brand Brain كامل',        free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'نشر على السوشيال',        free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'Autopilot',               free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'تحليلات الأداء',          free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'تصدير PDF + DOCX',        free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'White-label export',      free: '✗',   pro: '✗',     biz: '✓' },
+    { label: 'مساحات متعددة',          free: '✗',   pro: '✗',     biz: '✓' },
   ],
   en: [
-    { label: 'AI credits / month',     starter: '50',   pro: '200',     agency: '∞' },
-    { label: 'Campaigns',              starter: '3',    pro: '∞',       agency: '∞' },
-    { label: 'Workspaces',             starter: '1',    pro: '3',       agency: '10' },
-    { label: 'Auto-publish to Meta',   starter: '✗',   pro: '✓',       agency: '✓' },
-    { label: 'Performance analytics',  starter: '✗',   pro: '✓',       agency: '✓' },
-    { label: 'Sentinel Review',        starter: '✗',   pro: '✓',       agency: '✓' },
-    { label: 'White-label export',     starter: '✗',   pro: '✗',       agency: '✓' },
+    { label: 'AI credits / month',      free: '10',  pro: '150',   biz: '600' },
+    { label: 'Campaigns',               free: '1',   pro: '∞',     biz: '∞' },
+    { label: 'Workspaces',              free: '1',   pro: '1',     biz: '3' },
+    { label: 'Full Brand Brain',        free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'Social publishing',       free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'Autopilot scheduling',    free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'Analytics dashboard',     free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'PDF + DOCX export',       free: '✗',   pro: '✓',     biz: '✓' },
+    { label: 'White-label export',      free: '✗',   pro: '✗',     biz: '✓' },
+    { label: 'Multiple workspaces',     free: '✗',   pro: '✗',     biz: '✓' },
   ],
 }
 
@@ -153,6 +189,7 @@ export default function BillingPage() {
   const [openingPortal, setOpeningPortal] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error', msg: string } | null>(null)
   const [showComparison, setShowComparison] = useState(false)
+  const [showCredits, setShowCredits] = useState(false)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -171,6 +208,7 @@ export default function BillingPage() {
   }, [isAuthenticated, authHeader]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpgrade = async (planId: string) => {
+    if (planId === 'free') return
     setCheckingOut(planId)
     try {
       const res = await fetch('/api/billing/checkout', {
@@ -205,7 +243,7 @@ export default function BillingPage() {
   )
   if (!isAuthenticated) return null
 
-  const currentPlan = subscriptionStatus?.plan || 'FREE'
+  const currentPlan = (subscriptionStatus?.plan || 'FREE').toUpperCase()
   const isActive = subscriptionStatus?.hasActiveSubscription || false
   const creditsRaw = subscriptionStatus?.credits
   const credits = typeof creditsRaw === 'object' && creditsRaw !== null
@@ -222,7 +260,11 @@ export default function BillingPage() {
 
         {/* ── Notice banner ── */}
         {notice && (
-          <div className={`flex items-center justify-between gap-4 px-6 py-3 border-b text-sm ${notice.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' : 'bg-rose-500/10 border-rose-500/20 text-rose-300'}`}>
+          <div className={`flex items-center justify-between gap-4 px-6 py-3 border-b text-sm ${
+            notice.type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+              : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+          }`}>
             <span>{notice.msg}</span>
             <button onClick={() => setNotice(null)} className="p-1 rounded-lg hover:bg-white/5 transition-all">
               <X className="w-3.5 h-3.5" />
@@ -237,28 +279,33 @@ export default function BillingPage() {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono tracking-wider"
               style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a5a0ff' }}>
               <Sparkles className="w-3 h-3" />
-              {ar ? 'قسم الاشتراكات' : 'Subscription Plans'}
+              {ar ? 'خطط الاشتراك' : 'Subscription Plans'}
             </div>
             <h1 className="text-3xl sm:text-4xl font-black font-heading text-white leading-tight">
               {ar ? 'قسم التسويق الذكي بسعر ثابت' : 'Your AI Marketing Department'}
             </h1>
             <p className="text-text-secondary text-sm sm:text-base max-w-xl mx-auto">
               {ar
-                ? 'بدلاً من دفع آلاف الدولارات لوكالة تسويق، Nexus AI يبني لك الاستراتيجية، المحتوى، والنشر كل شهر.'
-                : 'Instead of paying thousands to a marketing agency, Nexus AI builds your strategy, content, and publishing every month.'}
+                ? 'استراتيجية · محتوى · نشر · تحليل — كل ما تحتاجه بضغطة زر.'
+                : 'Strategy · content · publishing · analytics — everything you need, on demand.'}
             </p>
             {displayName && (
               <p className="text-xs text-text-muted">
-                {ar ? `مرحباً ${displayName} —` : `Welcome ${displayName} —`}
+                {ar ? `مرحباً ${displayName} —` : `Welcome back, ${displayName} —`}
                 {' '}
                 {isActive
                   ? (ar ? `أنت على خطة ${currentPlan}` : `you're on the ${currentPlan} plan`)
-                  : (ar ? 'أنت على الخطة المجانية حالياً' : "you're currently on the free plan")}
+                  : (ar ? 'أنت على الخطة المجانية' : "you're on the Free plan")}
+                {!isUnlimited && credits >= 0 && (
+                  <span className="text-accent-purple font-semibold">
+                    {' · '}{ar ? `${credits} رصيد متبقٍ` : `${credits} credits left`}
+                  </span>
+                )}
               </p>
             )}
           </div>
 
-          {/* ── Current Plan Status (for active subscribers) ── */}
+          {/* ── Active subscription status ── */}
           {isActive && (
             <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4"
               style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
@@ -276,7 +323,7 @@ export default function BillingPage() {
                       ? isUnlimited ? 'رصيد غير محدود' : `${credits} رصيد متبقٍ هذا الشهر`
                       : isUnlimited ? 'Unlimited credits' : `${credits} credits remaining this month`}
                     {subscriptionStatus?.currentPeriodEnd && (
-                      <span className="ml-2 text-text-muted">
+                      <span className="ml-2">
                         · {ar ? 'يتجدد' : 'renews'}{' '}
                         {new Date(subscriptionStatus.currentPeriodEnd).toLocaleDateString(ar ? 'ar-SA' : 'en-US')}
                       </span>
@@ -297,18 +344,16 @@ export default function BillingPage() {
           {!isActive && (
             <div className="rounded-2xl p-5 flex items-center gap-4 flex-wrap"
               style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="text-2xl flex-shrink-0">💡</div>
-                <div>
-                  <p className="text-sm font-bold text-white">
-                    {ar ? 'وكالة تسويق متكاملة بأقل من ٨٠$' : 'A full marketing agency for under $80'}
-                  </p>
-                  <p className="text-xs text-text-muted">
-                    {ar
-                      ? 'استراتيجية · محتوى · نشر · تحليل — كل ما تدفعه لوكالة بـ $3,000+، الآن متاح بضغطة زر.'
-                      : 'Strategy · content · publishing · analytics — everything a $3,000+/mo agency does, available on demand.'}
-                  </p>
-                </div>
+              <div className="text-2xl flex-shrink-0">💡</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white">
+                  {ar ? 'فريق تسويق كامل بأقل من $30 شهرياً' : 'A full marketing team for under $30/month'}
+                </p>
+                <p className="text-xs text-text-muted">
+                  {ar
+                    ? 'استراتيجية · محتوى · نشر تلقائي · تحليل — كل ما تدفعه لوكالة تسويق بـ $3,000+، الآن بـ $29.'
+                    : 'Strategy · content · autopilot publishing · analytics — everything a $3,000+/mo agency does, now at $29.'}
+                </p>
               </div>
               <a href="#plans"
                 className="btn-gradient flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm text-white flex-shrink-0">
@@ -317,20 +362,41 @@ export default function BillingPage() {
             </div>
           )}
 
+          {/* ── Referral bonus callout ── */}
+          <div className="rounded-2xl p-4 flex items-center gap-3 flex-wrap"
+            style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)' }}>
+            <Gift className="w-4 h-4 text-accent-purple flex-shrink-0" />
+            <p className="text-xs text-text-secondary flex-1">
+              {ar
+                ? 'ادعُ أصدقاءك واحصل على +20 رصيد مجاني لكل دعوة ناجحة — وصديقك يحصل على +20 أيضاً!'
+                : 'Refer a friend and get +20 free credits for each successful signup — your friend gets +20 too!'}
+            </p>
+            <Link href="/settings#referral"
+              className="text-xs font-semibold text-accent-purple hover:text-accent-purple/80 transition flex-shrink-0">
+              {ar ? 'ابدأ الدعوة ←' : 'Start referring →'}
+            </Link>
+          </div>
+
           {/* ── Plan Cards ── */}
           <div id="plans" className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {PLANS.map(plan => {
-              const isCurrent = currentPlan === plan.id.toUpperCase() && isActive
+              const isCurrent = currentPlan === plan.id.toUpperCase() && (isActive || plan.id === 'free')
               const badge = ar ? plan.badgeAr : plan.badgeEn
               const desc = ar ? plan.descAr : plan.descEn
               const roi = ar ? plan.roiAr : plan.roiEn
               const features = ar ? plan.featuresAr : plan.featuresEn
+              const isFree = plan.id === 'free'
+
+              // What 1 credit = in each plan
+              const perCreditCost = isFree ? '—' : `$${(plan.price / plan.credits).toFixed(2)}`
 
               return (
                 <div key={plan.id} className="relative rounded-2xl p-7 flex flex-col transition-all duration-300 hover:translate-y-[-2px]"
                   style={{
                     background: plan.featured ? 'rgba(139,92,246,0.08)' : 'rgba(12,13,36,0.6)',
-                    border: plan.featured ? '2px solid rgba(139,92,246,0.4)' : `1px solid ${plan.accentColor}18`,
+                    border: plan.featured
+                      ? '2px solid rgba(139,92,246,0.4)'
+                      : `1px solid ${plan.accentColor}18`,
                     backdropFilter: 'blur(12px)',
                     boxShadow: plan.featured ? '0 0 40px rgba(139,92,246,0.12)' : 'none',
                   }}>
@@ -343,8 +409,8 @@ export default function BillingPage() {
                     </div>
                   )}
 
-                  {isCurrent && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold px-3 py-1 rounded-full"
+                  {isCurrent && !badge && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap"
                       style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981', border: '1px solid rgba(16,185,129,0.3)' }}>
                       {ar ? '✓ خطتك الحالية' : '✓ Current Plan'}
                     </div>
@@ -354,12 +420,29 @@ export default function BillingPage() {
                   <div className="mb-5">
                     <h3 className="text-lg font-bold text-white mb-0.5">{ar ? plan.nameAr : plan.name}</h3>
                     <p className="text-xs text-text-muted mb-3">{desc}</p>
-                    <div className="flex items-baseline gap-1 mb-2">
-                      <span className="text-4xl font-black text-white">${plan.price}</span>
-                      <span className="text-text-muted text-sm">{ar ? '/ شهر' : '/ mo'}</span>
+                    <div className="flex items-baseline gap-1 mb-1">
+                      {isFree ? (
+                        <span className="text-4xl font-black text-white">{ar ? 'مجاني' : 'Free'}</span>
+                      ) : (
+                        <>
+                          <span className="text-4xl font-black text-white">${plan.price}</span>
+                          <span className="text-text-muted text-sm">{ar ? '/ شهر' : '/ mo'}</span>
+                        </>
+                      )}
                     </div>
+                    {/* Credits per month */}
+                    <div className="flex items-center gap-1.5 text-[12px] font-semibold mb-1" style={{ color: plan.accentColor }}>
+                      <Zap className="w-3 h-3 flex-shrink-0" />
+                      {ar ? `${plan.credits} رصيد AI / شهر` : `${plan.credits} AI credits / month`}
+                    </div>
+                    {/* Cost per credit (value anchor) */}
+                    {!isFree && (
+                      <p className="text-[10px] text-text-muted">
+                        {ar ? `≈ ${perCreditCost} لكل رصيد` : `≈ ${perCreditCost} per credit`}
+                      </p>
+                    )}
                     {/* ROI line */}
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium"
+                    <div className="flex items-center gap-1.5 text-[11px] font-medium mt-2"
                       style={{ color: plan.accentColor }}>
                       <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
                       {roi}
@@ -382,12 +465,16 @@ export default function BillingPage() {
                       style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10B981' }}>
                       {ar ? '✓ خطتك النشطة' : '✓ Your Active Plan'}
                     </div>
+                  ) : isFree ? (
+                    <Link href="/dashboard"
+                      className="w-full py-3 rounded-xl font-bold transition-all text-sm text-center block"
+                      style={{ background: `${plan.accentColor}12`, border: `1px solid ${plan.accentColor}30`, color: plan.accentColor }}>
+                      {ar ? 'الانتقال إلى الداشبورد' : 'Go to Dashboard'}
+                    </Link>
                   ) : (
                     <button onClick={() => handleUpgrade(plan.id)} disabled={!!checkingOut}
                       className={`w-full py-3 rounded-xl font-bold transition-all text-sm disabled:opacity-50 ${
-                        plan.featured
-                          ? 'btn-gradient text-white'
-                          : 'text-white hover:brightness-110'
+                        plan.featured ? 'btn-gradient text-white' : 'text-white hover:brightness-110'
                       }`}
                       style={!plan.featured ? {
                         background: `${plan.accentColor}12`,
@@ -396,7 +483,7 @@ export default function BillingPage() {
                       } : {}}>
                       {checkingOut === plan.id
                         ? (ar ? 'جاري التحويل...' : 'Redirecting...')
-                        : (ar ? `ابدأ ${plan.nameAr}` : `Start ${plan.name}`)}
+                        : ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.name} — $${plan.price}/mo`}
                     </button>
                   )}
                 </div>
@@ -404,7 +491,47 @@ export default function BillingPage() {
             })}
           </div>
 
-          {/* ── What you replace (Value props) ── */}
+          {/* ── Credit cost reference ── */}
+          <div className="rounded-2xl overflow-hidden" style={glassCard}>
+            <button
+              onClick={() => setShowCredits(!showCredits)}
+              className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/3 transition-all">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-accent-purple" />
+                <span className="text-sm font-bold text-white">
+                  {ar ? 'كم يكلف كل إجراء AI؟' : 'What does each AI action cost?'}
+                </span>
+                <span className="text-[10px] text-text-muted">
+                  {ar ? '— فهم قيمة أرصدتك' : '— understand your credits'}
+                </span>
+              </div>
+              <span className="text-text-muted text-xs">{showCredits ? '▲' : '▼'}</span>
+            </button>
+            {showCredits && (
+              <div className="border-t px-6 py-4 space-y-2" style={{ borderColor: 'rgba(139,92,246,0.1)' }}>
+                {(ar ? CREDIT_ACTIONS.ar : CREDIT_ACTIONS.en).map(item => (
+                  <div key={item.action} className="flex items-center justify-between py-1.5"
+                    style={{ borderBottom: '1px solid rgba(139,92,246,0.05)' }}>
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <span>{item.icon}</span>
+                      {item.action}
+                    </div>
+                    <div className="flex items-center gap-1 text-xs font-bold" style={{ color: '#8B5CF6' }}>
+                      <Zap className="w-3 h-3" />
+                      {item.cost} {ar ? 'رصيد' : item.cost === 1 ? 'credit' : 'credits'}
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[10px] text-text-muted pt-2">
+                  {ar
+                    ? '💡 خطة Pro (150 رصيد) = 30 حملة كاملة · أو 30 فيديو · أو 75 صورة · أو مزيج من كل الإجراءات'
+                    : '💡 Pro (150 credits) = 30 full campaigns · or 30 videos · or 75 images · or any mix of actions'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── What you replace ── */}
           <div className="rounded-2xl p-6" style={glassCard}>
             <div className="flex items-center gap-2 mb-5">
               <Rocket className="w-4 h-4 text-accent-purple" />
@@ -414,10 +541,10 @@ export default function BillingPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { icon: Brain,    colorHex: '#8B5CF6', labelAr: 'استراتيجي تسويق',     labelEn: 'Marketing strategist',  costAr: '$3,000/شهر',   costEn: '$3,000/mo' },
-                { icon: Sparkles, colorHex: '#10B981', labelAr: 'كاتب محتوى',           labelEn: 'Content writer',         costAr: '$1,500/شهر',   costEn: '$1,500/mo' },
-                { icon: BarChart3,colorHex: '#00D4FF', labelAr: 'محلل أداء',            labelEn: 'Performance analyst',    costAr: '$2,000/شهر',   costEn: '$2,000/mo' },
-                { icon: Globe,    colorHex: '#FF6B35', labelAr: 'مدير سوشيال ميديا',    labelEn: 'Social media manager',   costAr: '$1,200/شهر',   costEn: '$1,200/mo' },
+                { icon: Brain,     colorHex: '#8B5CF6', labelAr: 'استراتيجي تسويق',   labelEn: 'Marketing strategist',  costAr: '$3,000/شهر',  costEn: '$3,000/mo' },
+                { icon: Sparkles,  colorHex: '#10B981', labelAr: 'كاتب محتوى',         labelEn: 'Content writer',         costAr: '$1,500/شهر',  costEn: '$1,500/mo' },
+                { icon: BarChart3, colorHex: '#00D4FF', labelAr: 'محلل أداء',          labelEn: 'Performance analyst',    costAr: '$2,000/شهر',  costEn: '$2,000/mo' },
+                { icon: Globe,     colorHex: '#FF6B35', labelAr: 'مدير سوشيال ميديا', labelEn: 'Social media manager',   costAr: '$1,200/شهر',  costEn: '$1,200/mo' },
               ].map(item => {
                 const Icon = item.icon
                 return (
@@ -444,13 +571,13 @@ export default function BillingPage() {
                   <span className="text-white font-bold mx-1">{ar ? '$7,700+/شهر' : '$7,700+/mo'}</span>
                 </p>
                 <p className="text-sm font-bold" style={{ color: '#10B981' }}>
-                  {ar ? 'Nexus AI Pro: $79/شهر ← وفر $7,621' : 'Nexus AI Pro: $79/mo ← save $7,621'}
+                  {ar ? 'Nexus AI Pro: $29/شهر ← وفر $7,671' : 'Nexus AI Pro: $29/mo ← save $7,671'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* ── Feature Comparison Table ── */}
+          {/* ── Feature comparison table ── */}
           <div className="rounded-2xl overflow-hidden" style={glassCard}>
             <button
               onClick={() => setShowComparison(!showComparison)}
@@ -472,8 +599,9 @@ export default function BillingPage() {
                       <th className="text-left px-6 py-3 text-[11px] text-text-muted font-medium">
                         {ar ? 'الميزة' : 'Feature'}
                       </th>
-                      {['Starter', 'Pro', 'Agency'].map(p => (
-                        <th key={p} className="px-4 py-3 text-[11px] font-bold text-center" style={{ color: p === 'Pro' ? '#8B5CF6' : '#a5a0ff' }}>
+                      {(ar ? ['مجاني', 'Pro', 'Business'] : ['Free', 'Pro', 'Business']).map((p, i) => (
+                        <th key={p} className="px-4 py-3 text-[11px] font-bold text-center"
+                          style={{ color: i === 1 ? '#8B5CF6' : '#a5a0ff' }}>
                           {p}
                         </th>
                       ))}
@@ -484,7 +612,7 @@ export default function BillingPage() {
                       <tr key={i} style={{ borderBottom: '1px solid rgba(139,92,246,0.05)' }}
                         className="hover:bg-white/2 transition-all">
                         <td className="px-6 py-2.5 text-text-muted text-xs">{row.label}</td>
-                        {[row.starter, row.pro, row.agency].map((val, j) => (
+                        {[row.free, row.pro, row.biz].map((val, j) => (
                           <td key={j} className={`px-4 py-2.5 text-center text-xs font-medium ${
                             val === '✓' ? 'text-accent-teal' :
                             val === '✗' ? 'text-text-muted opacity-30' :
@@ -516,19 +644,23 @@ export default function BillingPage() {
                 },
                 {
                   q: 'ما هي أرصدة AI؟',
-                  a: 'كل إجراء AI (توليد حملة، Sentinel Review، Creative Brief...) يستهلك رصيداً محدداً. الأرصدة تتجدد كل شهر.',
+                  a: 'كل إجراء AI يستهلك عدداً محدداً من الأرصدة (مثلاً: حملة كاملة = 5 أرصدة، Sentinel Review = 1 رصيد). الأرصدة تتجدد تلقائياً كل شهر.',
                 },
                 {
                   q: 'ماذا يحدث إذا استهلكت كل أرصدتي؟',
                   a: 'لن تتمكن من تشغيل إجراءات AI جديدة حتى تجديد الأرصدة الشهري أو الترقية. لن يُحذف أي محتوى موجود.',
                 },
                 {
+                  q: 'كيف يعمل نظام الإحالة؟',
+                  a: 'شارك رابط دعوتك الخاص من إعدادات الحساب. عند تسجيل صديقك وإكمال الإعداد، تحصل أنت وهو على +20 رصيد إضافي مجاناً.',
+                },
+                {
                   q: 'هل تقدمون استرداداً للمبالغ؟',
                   a: 'نقدم ضمان استرداد الأموال خلال 7 أيام من الاشتراك الأول. تواصل مع فريق الدعم.',
                 },
                 {
-                  q: 'هل بيانات عملائي آمنة؟',
-                  a: 'نعم. كل مساحة عمل معزولة تماماً. بيانات Brand Brain وحملاتك مخزنة بشكل مشفر ولا يشاركها Nexus AI مع أطراف ثالثة.',
+                  q: 'هل بيانات علامتي التجارية آمنة؟',
+                  a: 'نعم. كل مساحة عمل معزولة تماماً. بيانات Brand Brain وحملاتك مخزنة بشكل آمن ولا يشاركها Nexus AI مع أطراف ثالثة.',
                 },
               ] : [
                 {
@@ -537,19 +669,23 @@ export default function BillingPage() {
                 },
                 {
                   q: 'What are AI credits?',
-                  a: 'Each AI action (campaign generation, Sentinel Review, Creative Brief...) uses a specific credit amount. Credits renew monthly.',
+                  a: 'Each AI action uses a specific number of credits (e.g. full campaign = 5 credits, Sentinel Review = 1 credit). Credits reset automatically every month.',
                 },
                 {
                   q: 'What happens when I run out of credits?',
-                  a: "You won't be able to run new AI actions until your monthly reset or upgrade. No existing content is deleted.",
+                  a: "You won't be able to run new AI actions until your monthly reset or you upgrade. No existing content is deleted.",
+                },
+                {
+                  q: 'How does the referral program work?',
+                  a: 'Share your unique referral link from Account Settings. When your friend signs up and completes setup, you both get +20 bonus credits — free.',
                 },
                 {
                   q: 'Do you offer refunds?',
                   a: 'We offer a 7-day money-back guarantee on first-time subscriptions. Contact support.',
                 },
                 {
-                  q: 'Is my client data safe?',
-                  a: 'Yes. Each workspace is fully isolated. Your Brand Brain and campaign data is encrypted and never shared with third parties.',
+                  q: 'Is my brand data safe?',
+                  a: 'Yes. Each workspace is fully isolated. Your Brand Brain and campaign data is stored securely and never shared with third parties.',
                 },
               ]).map(faq => (
                 <div key={faq.q} className="pb-5 last:pb-0"
@@ -572,10 +708,10 @@ export default function BillingPage() {
                 {' · '}
                 {ar ? 'إلغاء في أي وقت' : 'Cancel any time'}
               </p>
-              <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-3 flex-wrap">
                 <a href="#plans" className="btn-gradient inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white">
                   <Zap className="w-4 h-4" />
-                  {ar ? 'ابدأ الآن' : 'Get Started'}
+                  {ar ? 'ابدأ Pro بـ $29' : 'Start Pro — $29/mo'}
                 </a>
                 <Link href="/dashboard"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-text-muted hover:text-white transition-all"

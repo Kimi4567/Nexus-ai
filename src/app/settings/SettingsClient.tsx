@@ -7,11 +7,12 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 import AppShell from '@/components/AppShell'
+import ReferralWidget from '@/components/ReferralWidget'
 import {
   Settings, Shield, Bell, Globe, Palette, KeyRound,
   LogOut, ChevronLeft, Check, AlertTriangle, User,
   CreditCard, Lock, ExternalLink, Eye, EyeOff, Save,
-  Sparkles, Monitor, Moon, Sun, Trash2, ChevronRight
+  Sparkles, Monitor, Moon, Sun, Trash2, ChevronRight, Gift
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -36,6 +37,7 @@ const SECTION_DEFS: { id: string; labelKey: string; icon: React.ElementType; col
   { id: 'security',  labelKey: 'settings.security',         icon: Shield,        color: '#f59e0b' },
   { id: 'accounts',  labelKey: 'settings.sectionAccounts',  icon: Globe,         color: '#10b981' },
   { id: 'billing',   labelKey: 'settings.sectionBillingNav',icon: CreditCard,    color: '#8b5cf6' },
+  { id: 'referral',  labelKey: 'settings.sectionReferral',  icon: Gift,          color: '#8b5cf6' },
   { id: 'danger',    labelKey: 'settings.sectionDanger',    icon: AlertTriangle, color: '#ef4444' },
 ]
 
@@ -757,6 +759,21 @@ export default function SettingsPage() {
               )}
 
               {/* ═══ DANGER ZONE ═══════════════════════════════ */}
+              {activeSection === 'referral' && (
+                <GlassCard className="p-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                      <Gift className="w-5 h-5 text-violet-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Refer & Earn</h3>
+                      <p className="text-text-muted text-sm">Invite friends — you both get 20 free credits</p>
+                    </div>
+                  </div>
+                  <ReferralWidget />
+                </GlassCard>
+              )}
+
               {activeSection === 'danger' && (
                 <GlassCard className="p-6" accent>
                   <div className="flex items-center gap-3 mb-1">

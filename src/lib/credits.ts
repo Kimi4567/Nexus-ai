@@ -51,6 +51,23 @@ export const CREDIT_COSTS = {
    * Route: /api/campaigns/[id]/video-generate (POST)
    */
   VIDEO_GENERATION: 5,
+
+  /**
+   * Image generation — DALL-E 3 via /api/images/generate
+   */
+  IMAGE_GENERATION: 2,
+
+  /**
+   * Ad copy generation (VEX) — GPT-4o-mini ad concepts
+   * Route: /api/vex/generate
+   */
+  AD_COPY: 2,
+
+  /**
+   * Chat message — GPT-4o-mini assistant response
+   * Route: /api/chat
+   */
+  CHAT_MESSAGE: 1,
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS
@@ -60,18 +77,20 @@ export type CreditAction = keyof typeof CREDIT_COSTS
 // 15 credits = 3× CAMPAIGN_GENERATION or 3× RUN_FULL_STRATEGY, or a mix of actions.
 // Adjust here to change the free tier without touching any route.
 
-export const FREE_STARTER_CREDITS = 15
+export const FREE_STARTER_CREDITS = 10
 
 // ── Monthly credit totals per plan ─────────────────────────────────────────────
 // Used by the dashboard credit progress bar.
 // -1 = unlimited (Agency plan and above).
 
 export const PLANS_CREDITS: Record<string, number> = {
-  FREE:      FREE_STARTER_CREDITS,
-  STARTER:   50,
-  PRO:       200,
-  AGENCY:    -1,
-  ACTIVE:    200, // legacy status value — maps to Pro behaviour
+  FREE:      FREE_STARTER_CREDITS, // 10
+  PRO:       150,
+  BUSINESS:  600,
+  // Legacy aliases
+  STARTER:   150,
+  AGENCY:    600,
+  ACTIVE:    150,
 }
 
 // ── Low-credits warning threshold ─────────────────────────────────────────────

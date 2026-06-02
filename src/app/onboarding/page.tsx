@@ -109,6 +109,21 @@ export default function OnboardingPage() {
       // fail silently — still proceed to done step
     }
 
+    // Claim pending referral code (stored by register page from ?ref= param)
+    const pendingRef = typeof window !== 'undefined'
+      ? localStorage.getItem('pendingReferralCode')
+      : null
+    if (pendingRef) {
+      try {
+        await fetch('/api/referral/claim', {
+          method: 'POST',
+          headers: { Authorization: token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ referralCode: pendingRef }),
+        })
+      } catch { /* ignore — referral claim is non-blocking */ }
+      localStorage.removeItem('pendingReferralCode')
+    }
+
     setStep(4)
   }
 
