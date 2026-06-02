@@ -75,7 +75,7 @@ function PulseOrbs() {
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
       <div className="absolute rounded-full blur-[160px] opacity-15"
-        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(139,92,246,0.18), transparent 70%)', top: '-15%', left: '-10%', animation: 'float 18s ease-in-out infinite' }} />
+        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(16,185,129,0.18), transparent 70%)', top: '-15%', left: '-10%', animation: 'float 18s ease-in-out infinite' }} />
       <div className="absolute rounded-full blur-[100px] opacity-12"
         style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(6,182,212,0.1), transparent 70%)', bottom: '5%', right: '-10%', animation: 'float 13s ease-in-out infinite reverse' }} />
     </div>
@@ -105,7 +105,7 @@ function PulseSelect<T extends string>({ label, value, options, onChange }: {
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }}>
+          style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.12)', color: '#f8fafc', outline: 'none' }}>
           {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
         </select>
         <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -128,7 +128,7 @@ function MetricCard({
 }) {
   const inner = (
     <div className="rounded-xl p-4 h-full transition-all hover:brightness-110"
-      style={{ background: 'rgba(17,21,54,0.5)', border: `1px solid rgba(255,255,255,0.06)` }}>
+      style={{ background: 'rgba(12,13,36,0.6)', border: `1px solid rgba(255,255,255,0.06)` }}>
       <div className="flex items-center justify-between mb-3">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center"
           style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
@@ -209,7 +209,7 @@ function ActivityChart({ data, loading }: { data: MonthActivity[]; loading: bool
 function CreditBar({ used, total, isUnlimited }: { used: number; total: number; isUnlimited: boolean }) {
   const pct = isUnlimited ? 50 : total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
   const low = !isUnlimited && pct > 80
-  const color = isUnlimited ? '#00BFA6' : low ? '#f59e0b' : '#6C63FF'
+  const color = isUnlimited ? '#10B981' : low ? '#f59e0b' : '#10B981'
   return (
     <div className="mt-2">
       <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
@@ -222,7 +222,7 @@ function CreditBar({ used, total, isUnlimited }: { used: number; total: number; 
 
 // ── Insight badge ────────────────────────────────────────────────────────────
 const INSIGHT_COLORS = {
-  action:  { bg: 'rgba(108,99,255,0.08)', border: 'rgba(108,99,255,0.2)',  text: '#a5a0ff' },
+  action:  { bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.2)',  text: '#A78BFA' },
   info:    { bg: 'rgba(6,182,212,0.06)',  border: 'rgba(6,182,212,0.15)',  text: '#22d3ee' },
   warning: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', text: '#fbbf24' },
   success: { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', text: '#34d399' },
@@ -270,7 +270,7 @@ export default function PulsePage() {
 
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
-      <Loader2 className="animate-spin" size={32} style={{ color: '#8b5cf6' }} />
+      <Loader2 className="animate-spin" size={32} style={{ color: '#10B981' }} />
     </div>
   )
   if (!isAuthenticated) return null
@@ -313,8 +313,8 @@ export default function PulsePage() {
     }
   }
 
-  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
-  const purpleColor = '#8b5cf6'
+  const glassCard = { background: 'rgba(12,13,36,0.6)', border: '1px solid var(--nx-border)', backdropFilter: 'blur(16px)' }
+  const pulseColor = '#10B981'
 
   // Derived label for plan credits display
   const creditLabel = overview?.isUnlimited
@@ -342,17 +342,17 @@ export default function PulsePage() {
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(139,92,246,0.08))', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 30px rgba(139,92,246,0.15)' }}>
-                  <BarChart2 size={26} style={{ color: purpleColor }} />
+                  style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(16,185,129,0.08))', border: '1px solid rgba(16,185,129,0.3)', boxShadow: '0 0 30px rgba(16,185,129,0.15)' }}>
+                  <BarChart2 size={26} style={{ color: pulseColor }} />
                 </div>
                 <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
-                  style={{ background: purpleColor, boxShadow: `0 0 8px ${purpleColor}` }} />
+                  style={{ background: pulseColor, boxShadow: `0 0 8px ${pulseColor}` }} />
               </div>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-white">PULSE</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: 'rgba(139,92,246,0.15)', color: purpleColor, border: `1px solid rgba(139,92,246,0.3)` }}>
+                    style={{ background: 'rgba(16,185,129,0.15)', color: pulseColor, border: `1px solid rgba(16,185,129,0.3)` }}>
                     {t('analytics.badge')}
                   </span>
                 </div>
@@ -360,7 +360,7 @@ export default function PulsePage() {
               </div>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-              style={{ background: 'rgba(139,92,246,0.1)', border: `1px solid rgba(139,92,246,0.2)`, color: purpleColor }}>
+              style={{ background: 'rgba(16,185,129,0.1)', border: `1px solid rgba(16,185,129,0.2)`, color: pulseColor }}>
               <Sparkles size={12} />
               <span>{t('analytics.gptActive')}</span>
             </div>
@@ -373,7 +373,7 @@ export default function PulsePage() {
               label={ar ? 'إجمالي الحملات' : 'Total Campaigns'}
               value={dataLoading ? '—' : (overview?.campaigns ?? 0)}
               sub={overview && !dataLoading ? `${overview.activeCampaigns} ${ar ? 'نشطة' : 'active'}` : undefined}
-              color={purpleColor}
+              color={pulseColor}
               href="/campaigns"
               loading={dataLoading}
             />
@@ -382,7 +382,7 @@ export default function PulsePage() {
               label={ar ? 'منشورات منشورة' : 'Published Posts'}
               value={dataLoading ? '—' : (overview?.publishedPosts ?? 0)}
               sub={overview && !dataLoading && overview.publishedPosts > 0 ? (ar ? 'عبر السوشيال' : 'via social') : undefined}
-              color="#00BFA6"
+              color="#10B981"
               href="/connections"
               loading={dataLoading}
             />
@@ -400,7 +400,7 @@ export default function PulsePage() {
               label={ar ? 'الأرصدة' : 'AI Credits'}
               value={dataLoading ? '—' : creditLabel}
               sub={creditSub || undefined}
-              color={overview && !overview.isUnlimited && overview.creditsRemaining < 5 ? '#f59e0b' : '#6C63FF'}
+              color={overview && !overview.isUnlimited && overview.creditsRemaining < 5 ? '#f59e0b' : '#10B981'}
               href="/billing"
               loading={dataLoading}
             />
@@ -413,7 +413,7 @@ export default function PulsePage() {
             <div className="lg:col-span-2 rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Activity size={16} style={{ color: purpleColor }} />
+                  <Activity size={16} style={{ color: pulseColor }} />
                   <span className="text-sm font-semibold text-gray-300">
                     {ar ? 'نشاط توليد AI الشهري' : 'Monthly AI Activity'}
                   </span>
@@ -445,7 +445,7 @@ export default function PulsePage() {
                   )}
                   <Link href="/billing"
                     className="text-xs font-semibold transition-all hover:brightness-125"
-                    style={{ color: purpleColor }}>
+                    style={{ color: pulseColor }}>
                     {ar ? 'ترقية ←' : 'Upgrade →'}
                   </Link>
                 </div>
@@ -455,7 +455,7 @@ export default function PulsePage() {
             {/* System Insights */}
             <div className="rounded-2xl p-5 flex flex-col" style={glassCard}>
               <div className="flex items-center gap-2 mb-4">
-                <Sparkles size={14} style={{ color: purpleColor }} />
+                <Sparkles size={14} style={{ color: pulseColor }} />
                 <span className="text-sm font-semibold text-gray-300">
                   {ar ? 'رؤى النظام' : 'System Insights'}
                 </span>
@@ -495,20 +495,20 @@ export default function PulsePage() {
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Megaphone size={14} style={{ color: purpleColor }} />
+                  <Megaphone size={14} style={{ color: pulseColor }} />
                   <span className="text-sm font-semibold text-gray-300">
                     {ar ? 'الحملات الأخيرة' : 'Recent Campaigns'}
                   </span>
                 </div>
                 <Link href="/campaigns"
                   className="text-xs font-semibold transition-all hover:brightness-125"
-                  style={{ color: purpleColor }}>
+                  style={{ color: pulseColor }}>
                   {ar ? 'عرض الكل ←' : 'View all →'}
                 </Link>
               </div>
               <div className="space-y-2">
                 {overview.topCampaigns.map(c => {
-                  const statusColor = c.status === 'ACTIVE' ? '#00BFA6' : c.status === 'DRAFT' ? '#f59e0b' : '#6b7280'
+                  const statusColor = c.status === 'ACTIVE' ? '#10B981' : c.status === 'DRAFT' ? '#f59e0b' : '#6b7280'
                   const hoursAgo = Math.floor((Date.now() - new Date(c.updatedAt).getTime()) / 3600000)
                   const timeLabel = hoursAgo < 1 ? (ar ? 'الآن' : 'now')
                     : hoursAgo < 24 ? `${hoursAgo}h`
@@ -535,13 +535,13 @@ export default function PulsePage() {
 
           {/* ── AI Analysis Engine ─────────────────────────────────────────── */}
           <div className="rounded-2xl p-1 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(6,182,212,0.04))', border: '1px solid rgba(139,92,246,0.15)' }}>
-            <div className="rounded-xl p-5" style={{ background: 'rgba(10,14,39,0.95)' }}>
+            style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.04))', border: '1px solid rgba(16,185,129,0.15)' }}>
+            <div className="rounded-xl p-5" style={{ background: 'rgba(6,7,26,0.97)' }}>
 
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                  <BrainCircuit size={16} style={{ color: purpleColor }} />
+                  style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  <BrainCircuit size={16} style={{ color: pulseColor }} />
                 </div>
                 <div>
                   <h2 className="text-sm font-bold text-white">{ar ? 'محرك التحليل الذكي' : 'AI Analysis Engine'}</h2>
@@ -555,9 +555,9 @@ export default function PulsePage() {
                   <button key={tab.id} onClick={() => { setAnalysisType(tab.id); setResult('') }}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                     style={{
-                      background: analysisType === tab.id ? 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.08))' : 'rgba(255,255,255,0.04)',
-                      color: analysisType === tab.id ? purpleColor : '#9ca3af',
-                      border: `1px solid ${analysisType === tab.id ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                      background: analysisType === tab.id ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.08))' : 'rgba(255,255,255,0.04)',
+                      color: analysisType === tab.id ? pulseColor : '#9ca3af',
+                      border: `1px solid ${analysisType === tab.id ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
                     }}>
                     <tab.icon size={15} />
                     <span>{t(tab.labelKey)}</span>
@@ -569,7 +569,7 @@ export default function PulsePage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Config */}
                 <div className="lg:col-span-1 space-y-4">
-                  <div className="rounded-xl p-4 space-y-4" style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                  <div className="rounded-xl p-4 space-y-4" style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
                     <PulseSelect
                       label={t('analytics.industryLabel') as string}
                       value={industry}
@@ -598,7 +598,7 @@ export default function PulsePage() {
                   </div>
 
                   {/* Quick queries */}
-                  <div className="rounded-xl p-4" style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                  <div className="rounded-xl p-4" style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
                     <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('analytics.quickQuestions')}</h3>
                     <div className="space-y-2">
                       {(ar ? [
@@ -614,7 +614,7 @@ export default function PulsePage() {
                       ]).map((q, i) => (
                         <button key={i} onClick={() => setPrompt(q)}
                           className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400 ${ar ? 'text-right' : 'text-left'}`}
-                          style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
+                          style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(16,185,129,0.08)', color: '#94a3b8' }}>
                           {q}
                         </button>
                       ))}
@@ -624,11 +624,11 @@ export default function PulsePage() {
 
                 {/* Query + Output */}
                 <div className="lg:col-span-2 space-y-4">
-                  <div className="rounded-xl p-5 space-y-4" style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
+                  <div className="rounded-xl p-5 space-y-4" style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
                     <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                       {(() => {
                         const tab = analysisTabs.find(tab => tab.id === analysisType)!
-                        return <><tab.icon size={14} style={{ color: purpleColor }} />{t(tab.labelKey)}</>
+                        return <><tab.icon size={14} style={{ color: pulseColor }} />{t(tab.labelKey)}</>
                       })()}
                     </h3>
                     <textarea
@@ -638,14 +638,14 @@ export default function PulsePage() {
                       placeholder={t('analytics.promptPlaceholder') as string}
                       rows={4}
                       className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
+                      style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(16,185,129,0.12)', color: '#f8fafc' }} />
                     <div className="flex justify-end">
                       <button onClick={generate} disabled={!prompt.trim() || aiLoading}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                         style={{
-                          background: prompt.trim() && !aiLoading ? `linear-gradient(135deg, ${purpleColor}, #7c3aed)` : 'rgba(255,255,255,0.05)',
+                          background: prompt.trim() && !aiLoading ? `linear-gradient(135deg, ${pulseColor}, #059669)` : 'rgba(255,255,255,0.05)',
                           color: prompt.trim() && !aiLoading ? '#fff' : '#4b5563',
-                          boxShadow: prompt.trim() && !aiLoading ? `0 0 30px rgba(139,92,246,0.3)` : 'none',
+                          boxShadow: prompt.trim() && !aiLoading ? `0 0 30px rgba(16,185,129,0.3)` : 'none',
                         }}>
                         {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
                         {aiLoading ? t('analytics.analyzing') : t('analytics.analyzeNow')}
@@ -655,16 +655,16 @@ export default function PulsePage() {
 
                   {(result || aiLoading) && (
                     <div className="rounded-xl p-5 space-y-4"
-                      style={{ background: 'rgba(17,21,54,0.5)', border: `1px solid rgba(139,92,246,0.2)`, boxShadow: 'rgba(139,92,246,0.05) 0 0 40px' }}>
+                      style={{ background: 'rgba(12,13,36,0.6)', border: `1px solid rgba(16,185,129,0.2)`, boxShadow: 'rgba(16,185,129,0.05) 0 0 40px' }}>
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: purpleColor }}>
+                        <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: pulseColor }}>
                           <Sparkles size={14} />{t('analytics.insightTitle')}
                         </h3>
                         {result && !aiLoading && <CopyBtn text={result} />}
                       </div>
                       {aiLoading ? (
                         <div className="flex flex-col items-center justify-center py-10 gap-4">
-                          <div className="w-12 h-12 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: purpleColor }} />
+                          <div className="w-12 h-12 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(16,185,129,0.3)', borderTopColor: pulseColor }} />
                           <p className="text-sm text-gray-400 animate-pulse">{t('analytics.processing')}</p>
                         </div>
                       ) : (
@@ -678,8 +678,8 @@ export default function PulsePage() {
 
                   {!result && !aiLoading && (
                     <div className="rounded-xl p-8 flex flex-col items-center gap-4"
-                      style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.08)' }}>
-                      <Image size={28} style={{ color: 'rgba(139,92,246,0.3)' }} />
+                      style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
+                      <Image size={28} style={{ color: 'rgba(16,185,129,0.3)' }} />
                       <div className="text-center">
                         <p className="text-gray-400 text-sm">{t('analytics.emptyTitle')}</p>
                         <p className="text-gray-600 text-xs mt-1">{t('analytics.emptySub')}</p>
@@ -700,10 +700,10 @@ export default function PulsePage() {
                     {history.map(h => (
                       <div key={h.id} onClick={() => { setResult(h.output); setAnalysisType(h.type) }}
                         className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                        style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
+                        style={{ border: '1px solid rgba(16,185,129,0.08)' }}>
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                            style={{ background: 'rgba(139,92,246,0.1)', color: purpleColor, border: `1px solid rgba(139,92,246,0.2)` }}>
+                            style={{ background: 'rgba(16,185,129,0.1)', color: pulseColor, border: `1px solid rgba(16,185,129,0.2)` }}>
                             {t(analysisTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
                           </span>
                           <span className="text-xs text-gray-500 truncate">{h.query}</span>

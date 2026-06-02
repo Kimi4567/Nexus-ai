@@ -54,15 +54,15 @@ interface Props {
 
 const STEP_DURATIONS = [1500, 3000, 4000, 3500, 3000]
 const STEP_ICONS     = [Cpu, BarChart3, Film, Megaphone, Shield, Zap]
-const STEP_COLORS    = ['#6C63FF', '#6C63FF', '#00BFA6', '#FF6B35', '#FFD700', '#00D4FF']
+const STEP_COLORS    = ['#8B5CF6', '#8B5CF6', '#10B981', '#FF6B35', '#FFD700', '#00D4FF']
 const STEP_KEYS      = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const
 
 // -- Shared card style -------------------------------------------------------
 
 const CARD_STYLE: React.CSSProperties = {
-  background: 'rgba(17,21,54,0.97)',
-  border: '1px solid rgba(108,99,255,0.25)',
-  boxShadow: '0 24px 80px rgba(108,99,255,0.2)',
+  background: 'rgba(6,7,26,0.97)',
+  border: '1px solid rgba(139,92,246,0.25)',
+  boxShadow: '0 24px 80px rgba(139,92,246,0.2)',
 }
 
 // -- i18n key -> field label helper ------------------------------------------
@@ -269,9 +269,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 <p className="text-xs text-text-muted mt-0.5">{rs.modalSubtitle}</p>
               </div>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)' }}>
+                style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
                 <div className="w-4 h-4 border-2 rounded-full animate-spin"
-                  style={{ borderColor: 'rgba(108,99,255,0.3)', borderTopColor: '#6C63FF' }} />
+                  style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: '#8B5CF6' }} />
               </div>
             </div>
 
@@ -285,15 +285,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <div key={key}
                     className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300"
                     style={{
-                      background: isActive ? `${color}12` : isDone ? 'rgba(0,191,166,0.05)' : 'transparent',
-                      border: `1px solid ${isActive ? `${color}35` : isDone ? 'rgba(0,191,166,0.18)' : 'rgba(108,99,255,0.08)'}`,
+                      background: isActive ? `${color}12` : isDone ? 'rgba(16,185,129,0.05)' : 'transparent',
+                      border: `1px solid ${isActive ? `${color}35` : isDone ? 'rgba(16,185,129,0.18)' : 'rgba(139,92,246,0.08)'}`,
                     }}
                   >
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
-                        background: isDone   ? 'rgba(0,191,166,0.15)'
+                        background: isDone   ? 'rgba(16,185,129,0.15)'
                                   : isActive ? `${color}18`
-                                  : 'rgba(108,99,255,0.06)',
+                                  : 'rgba(139,92,246,0.06)',
                       }}>
                       {isDone ? (
                         <CheckCircle2 className="w-3.5 h-3.5 text-accent-teal" />
@@ -305,7 +305,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       )}
                     </div>
                     <span className="text-sm font-medium transition-colors"
-                      style={{ color: isDone ? '#00BFA6' : isActive ? 'white' : 'rgba(255,255,255,0.22)' }}>
+                      style={{ color: isDone ? '#10B981' : isActive ? 'white' : 'rgba(255,255,255,0.22)' }}>
                       {rs[key]}
                     </span>
                   </div>
@@ -358,7 +358,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             {/* Missing recommended fields (lighter treatment) */}
             {gateData.missingRecommended.length > 0 && (
               <div className="rounded-xl p-3 mb-4"
-                style={{ background: 'rgba(108,99,255,0.04)', border: '1px solid rgba(108,99,255,0.1)' }}>
+                style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.1)' }}>
                 <p className="text-[10px] font-medium text-text-muted mb-2">
                   {bg.recommendedLabel}
                 </p>
@@ -366,7 +366,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   {gateData.missingRecommended.slice(0, 4).map(key => (
                     <span key={key}
                       className="text-[10px] px-2 py-0.5 rounded-lg"
-                      style={{ background: 'rgba(108,99,255,0.08)', color: '#a5a0ff', border: '1px solid rgba(108,99,255,0.15)' }}>
+                      style={{ background: 'rgba(139,92,246,0.08)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.15)' }}>
                       {bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key}
                     </span>
                   ))}
@@ -376,7 +376,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             {/* Why it matters */}
             <div className="rounded-xl p-3 mb-5"
-              style={{ background: 'rgba(0,191,166,0.04)', border: '1px solid rgba(0,191,166,0.1)' }}>
+              style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.1)' }}>
               <p className="text-[10px] font-bold text-accent-teal mb-0.5">{bg.whyMatters}</p>
               <p className="text-[10px] text-text-muted leading-relaxed">{bg.whyMattersDesc}</p>
             </div>
@@ -390,7 +390,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             <button onClick={onClose}
               className="w-full px-4 py-2 rounded-xl text-xs text-text-muted hover:text-white transition-all"
-              style={{ border: '1px solid rgba(108,99,255,0.15)' }}>
+              style={{ border: '1px solid rgba(139,92,246,0.15)' }}>
               {rs.errorClose}
             </button>
           </div>
@@ -406,7 +406,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             <div className="text-center mb-5">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(0,191,166,0.12)', border: '1px solid rgba(0,191,166,0.25)' }}>
+                style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}>
                 <CheckCircle2 className="w-7 h-7 text-accent-teal" />
               </div>
               <h2 className="text-xl font-bold text-white mb-1">{rs.successTitle}</h2>
@@ -415,7 +415,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             {result.campaignName && (
               <div className="rounded-xl p-3 mb-4"
-                style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.18)' }}>
+                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)' }}>
                 <p className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">{rs.campaignCreated}</p>
                 <p className="text-sm font-bold text-white truncate">{result.campaignName}</p>
               </div>
@@ -423,8 +423,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             <div className="grid grid-cols-4 gap-2 mb-4">
               {[
-                { value: '1',                            label: rs.statCampaign,     color: '#6C63FF', bg: 'rgba(108,99,255,0.08)',  border: 'rgba(108,99,255,0.18)' },
-                { value: String(result.suggestions ?? 0),label: rs.statSuggestions,  color: '#00BFA6', bg: 'rgba(0,191,166,0.08)',   border: 'rgba(0,191,166,0.18)' },
+                { value: '1',                            label: rs.statCampaign,     color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.18)' },
+                { value: String(result.suggestions ?? 0),label: rs.statSuggestions,  color: '#10B981', bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.18)' },
                 { value: String(result.creditsUsed ?? 5), label: rs.statCreditsUsed,  color: '#FF6B35', bg: 'rgba(255,107,53,0.08)',  border: 'rgba(255,107,53,0.18)' },
                 { value: String(creditsLeftDisplay),      label: rs.statCreditsLeft,  color: '#00D4FF', bg: 'rgba(0,212,255,0.08)',   border: 'rgba(0,212,255,0.18)' },
               ].map(({ value, label, color, bg: cellBg, border }) => (
@@ -438,7 +438,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             <div className="flex gap-2 mb-5">
               <span className="flex items-center gap-1.5 text-[10px] font-medium px-2.5 py-1.5 rounded-lg"
-                style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.2)', color: '#a5a0ff' }}>
+                style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#a5a0ff' }}>
                 <Brain className="w-3 h-3" />
                 {rs.chipBrandBrain}
               </span>
@@ -472,7 +472,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               </button>
               <Link href="/brand" onClick={onClose}
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
-                style={{ background: 'rgba(0,191,166,0.08)', border: '1px solid rgba(0,191,166,0.18)', color: '#00BFA6' }}>
+                style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)', color: '#10B981' }}>
                 <Cpu className="w-3.5 h-3.5" />
                 {rs.successBrand}
               </Link>
@@ -496,7 +496,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             <div className="flex gap-3">
               <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
+                style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <button onClick={retry}
@@ -526,7 +526,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <p className="text-[10px] text-text-muted">{rs.creditsNeed}</p>
                 </div>
                 <div className="rounded-xl p-3 text-center"
-                  style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)' }}>
+                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
                   <p className="text-lg font-bold text-accent-purple">{result.currentCredits ?? 0}</p>
                   <p className="text-[10px] text-text-muted">{rs.creditsHave}</p>
                 </div>
@@ -536,7 +536,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             <div className="flex gap-3">
               <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
+                style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <button
@@ -553,7 +553,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         {phase === 'no_brand' && (
           <div className="p-6 text-center">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.25)' }}>
+              style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
               <Cpu className="w-7 h-7 text-accent-purple" />
             </div>
             <h2 className="text-xl font-bold text-white mb-1">{rs.noBrandTitle}</h2>
@@ -561,7 +561,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             <div className="flex gap-3">
               <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
+                style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <Link href="/brand" onClick={onClose}
@@ -587,7 +587,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             <div className="flex gap-3">
               <button onClick={onClose}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
-                style={{ borderColor: 'rgba(108,99,255,0.2)' }}>
+                style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <button onClick={retry}

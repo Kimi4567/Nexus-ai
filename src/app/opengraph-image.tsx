@@ -32,7 +32,7 @@ export default function OGImage() {
             width: '800px',
             height: '800px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(108,99,255,0.18) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)',
           }}
         />
         <div
@@ -54,7 +54,7 @@ export default function OGImage() {
           </span>
           <span
             style={{
-              background: '#6C63FF',
+              background: '#8B5CF6',
               color: '#ffffff',
               fontSize: '14px',
               fontWeight: 700,
@@ -79,7 +79,7 @@ export default function OGImage() {
           }}
         >
           Your AI{' '}
-          <span style={{ color: '#6C63FF' }}>Marketing</span>
+          <span style={{ color: '#8B5CF6' }}>Marketing</span>
           <br />Department
         </div>
 
@@ -99,8 +99,8 @@ export default function OGImage() {
         {/* Agent pills */}
         <div style={{ display: 'flex', gap: '12px' }}>
           {[
-            { name: 'STRATEGIST', color: '#6C63FF' },
-            { name: 'NEX', color: '#00BFA6' },
+            { name: 'STRATEGIST', color: '#8B5CF6' },
+            { name: 'NEX', color: '#10B981' },
             { name: 'VEX', color: '#FF6B35' },
             { name: 'PULSE', color: '#00D4FF' },
             { name: 'SENTINEL', color: '#FFD700' },

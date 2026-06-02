@@ -45,9 +45,9 @@ interface Suggestion {
 
 const STATUS_STYLE: Record<SuggestionStatus, { bg: string; border: string; color: string }> = {
   PENDING:  { bg: 'rgba(255,184,0,0.08)',   border: 'rgba(255,184,0,0.25)',   color: '#FFB800' },
-  APPROVED: { bg: 'rgba(0,191,166,0.08)',   border: 'rgba(0,191,166,0.25)',   color: '#00BFA6' },
+  APPROVED: { bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.25)',   color: '#10B981' },
   REJECTED: { bg: 'rgba(239,68,68,0.08)',   border: 'rgba(239,68,68,0.2)',    color: '#EF4444' },
-  EXECUTED: { bg: 'rgba(108,99,255,0.08)',  border: 'rgba(108,99,255,0.25)',  color: '#6C63FF' },
+  EXECUTED: { bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.25)',  color: '#8B5CF6' },
 }
 
 const PRIORITY_COLOR: Record<number, string> = {
@@ -151,9 +151,9 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
 
   // Glass card shared style
   const glassCard = {
-    background: 'rgba(17,21,54,0.5)',
+    background: 'rgba(12,13,36,0.6)',
     backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(108,99,255,0.1)',
+    border: '1px solid rgba(139,92,246,0.1)',
   }
 
   return (
@@ -187,7 +187,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
             <div
               key={i}
               className="h-16 rounded-xl animate-pulse"
-              style={{ background: 'rgba(108,99,255,0.04)', border: '1px solid rgba(108,99,255,0.08)' }}
+              style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.08)' }}
             />
           ))}
         </div>
@@ -207,7 +207,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
         <div className="text-center py-8">
           <div
             className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.12)' }}
+            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}
           >
             <Sparkles className="w-5 h-5 text-accent-purple/40" />
           </div>
@@ -254,7 +254,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                 {s.status === 'APPROVED' && feedback[s.id] !== undefined && (
                   <p
                     className="text-[10px] font-semibold mb-2"
-                    style={{ color: '#00BFA6' }}
+                    style={{ color: '#10B981' }}
                   >
                     ✓ {feedback[s.id].brandBrainUpdated ? sg.approvedBrandUpdated : sg.approvedOnly}
                   </p>
@@ -270,13 +270,13 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   {s.campaignName && (
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(108,99,255,0.1)', color: '#a5a0ff' }}
+                      style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff' }}
                     >
                       {s.campaignName}
                     </span>
                   )}
                   {s.impact && (
-                    <span className="text-[10px]" style={{ color: '#00BFA6' }}>
+                    <span className="text-[10px]" style={{ color: '#10B981' }}>
                       {s.impact}
                     </span>
                   )}
@@ -292,7 +292,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                       disabled={isActing}
                       onClick={() => act(s.id, 'APPROVED')}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
-                      style={{ background: 'rgba(0,191,166,0.12)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.25)' }}
+                      style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}
                     >
                       {acting[s.id] === 'approving'
                         ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
@@ -316,7 +316,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                       <Link
                         href={`/campaigns/${s.campaignId}`}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ms-auto"
-                        style={{ background: 'rgba(108,99,255,0.1)', color: '#a5a0ff', border: '1px solid rgba(108,99,255,0.2)' }}
+                        style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.2)' }}
                       >
                         <ExternalLink className="w-3 h-3" />
                         {sg.btnViewCampaign}

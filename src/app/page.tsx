@@ -37,7 +37,7 @@ function ParticleBackground() {
         x: Math.random() * w, y: Math.random() * h,
         vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4,
         r: Math.random() * 1.5 + 1,
-        color: Math.random() > 0.5 ? 'rgba(108,99,255,0.35)' : 'rgba(0,191,166,0.25)',
+        color: Math.random() > 0.5 ? 'rgba(139,92,246,0.35)' : 'rgba(16,185,129,0.25)',
       })
     }
     const draw = () => {
@@ -54,7 +54,7 @@ function ParticleBackground() {
         ctx.fillStyle = p.color; ctx.fill()
         for (let j = i + 1; j < particles.length; j++) {
           const q = particles[j], dd = Math.sqrt((p.x - q.x) ** 2 + (p.y - q.y) ** 2)
-          if (dd < 120) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = `rgba(108,99,255,${0.07 * (1 - dd / 120)})`; ctx.lineWidth = 0.5; ctx.stroke() }
+          if (dd < 120) { ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.strokeStyle = `rgba(139,92,246,${0.07 * (1 - dd / 120)})`; ctx.lineWidth = 0.5; ctx.stroke() }
         }
       }
       animId = requestAnimationFrame(draw)
@@ -118,7 +118,7 @@ function Navbar() {
   ]
 
   return (
-    <header className={`fixed top-0 inset-x-0 z-50 h-[68px] flex items-center transition-all duration-300 ${scrolled ? 'bg-[rgba(10,14,39,0.92)] backdrop-blur-[14px] border-b border-[rgba(108,99,255,0.12)]' : 'bg-transparent'}`}>
+    <header className={`fixed top-0 inset-x-0 z-50 h-[68px] flex items-center transition-all duration-300 ${scrolled ? 'bg-[rgba(6,7,26,0.93)] backdrop-blur-[14px] border-b border-[rgba(139,92,246,0.12)]' : 'bg-transparent'}`}>
       <div className="w-full max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
@@ -464,13 +464,13 @@ export default function HomePage() {
   /* ── DATA ── */
   const agents = [
     {
-      name: 'STRATEGIST', color: '#6C63FF', icon: Compass,
+      name: 'STRATEGIST', color: '#8B5CF6', icon: Compass,
       role: ar ? 'المخطط الاستراتيجي' : 'Strategic Planner',
       desc: ar ? 'يحلل السوق والمنافسين ويبني خطة تسويق 90 يوماً مخصصة لعملك.' : 'Analyzes your market, competitors, and builds a 90-day marketing plan tailored to your business.',
       output: ar ? 'خطة تسويق كاملة · تحليل منافسين · تقويم محتوى' : 'Full marketing plan · Competitor analysis · Content calendar',
     },
     {
-      name: 'NEX', color: '#00BFA6', icon: Sparkles,
+      name: 'NEX', color: '#10B981', icon: Sparkles,
       role: ar ? 'منشئ المحتوى' : 'Content Creator',
       desc: ar ? 'يكتب الكابشن والسكريبت والنصوص الإعلانية باللغتين العربية والإنجليزية بصوت علامتك التجارية.' : 'Writes captions, scripts, and ad copy in Arabic and English — in your brand voice.',
       output: ar ? 'كابشن · سكريبت · محتوى بريد إلكتروني · نصوص SEO' : 'Captions · Scripts · Email copy · SEO content',
@@ -509,23 +509,23 @@ export default function HomePage() {
   ]
 
   const industries = [
-    { name: ar ? 'العقارات'          : 'Real Estate',      color: '#6C63FF', icon: Building2,       desc: ar ? 'حملات للمشاريع والعقارات' : 'Project launches & property campaigns' },
+    { name: ar ? 'العقارات'          : 'Real Estate',      color: '#8B5CF6', icon: Building2,       desc: ar ? 'حملات للمشاريع والعقارات' : 'Project launches & property campaigns' },
     { name: ar ? 'المطاعم والكافيهات' : 'Restaurants',     color: '#FF6B35', icon: UtensilsCrossed, desc: ar ? 'محتوى يومي وعروض موسمية' : 'Daily content & seasonal offers' },
     { name: ar ? 'العيادات الطبية'    : 'Medical Clinics', color: '#00D4FF', icon: Heart,           desc: ar ? 'تسويق موثوق وحذر للقطاع الصحي' : 'Trusted, compliant healthcare marketing' },
     { name: ar ? 'صالونات التجميل'    : 'Beauty & Salons', color: '#FF69B4', icon: Scissors,        desc: ar ? 'محتوى بصري وترويج للخدمات' : 'Visual content & service promotions' },
-    { name: ar ? 'الصالات الرياضية'   : 'Gyms & Fitness',  color: '#00BFA6', icon: Dumbbell,        desc: ar ? 'تحديات وعروض العضوية' : 'Challenges & membership campaigns' },
+    { name: ar ? 'الصالات الرياضية'   : 'Gyms & Fitness',  color: '#10B981', icon: Dumbbell,        desc: ar ? 'تحديات وعروض العضوية' : 'Challenges & membership campaigns' },
     { name: ar ? 'التجارة الإلكترونية': 'E-Commerce',      color: '#FFB800', icon: ShoppingBag,     desc: ar ? 'منتجات وتحويلات وبيع' : 'Product launches, conversions & sales' },
     { name: ar ? 'الخدمات المحلية'    : 'Local Services',  color: '#4CAF50', icon: MapPin,          desc: ar ? 'استهداف جغرافي وحملات محلية' : 'Geo-targeting & local campaigns' },
     { name: ar ? 'الفاخرة والريتيل'   : 'Luxury Retail',   color: '#C9A84C', icon: Diamond,         desc: ar ? 'تسويق راقٍ يعكس هوية العلامة' : 'Premium marketing matching brand prestige' },
   ]
 
   const integrations = [
-    { name: 'OpenAI',        icon: Cpu,         status: ar ? 'متصل — يشغّل جميع الوكلاء' : 'Connected — powers all agents',          color: '#00BFA6' },
+    { name: 'OpenAI',        icon: Cpu,         status: ar ? 'متصل — يشغّل جميع الوكلاء' : 'Connected — powers all agents',          color: '#10B981' },
     { name: 'Supabase',      icon: Database,    status: ar ? 'متصل — Auth وقاعدة البيانات' : 'Connected — Auth & database',          color: '#3ECF8E' },
     { name: 'Cloudinary',    icon: Cloud,       status: ar ? 'متصل — رفع الوسائط وإدارتها' : 'Connected — media upload & management', color: '#3448C5' },
     { name: 'Meta / Facebook', icon: Target,    status: ar ? 'متاح عند الربط والموافقة' : 'Available when connected & approved',    color: '#1877F2' },
     { name: 'Stripe',        icon: CreditCard,  status: ar ? 'متصل — بوابة المدفوعات' : 'Connected — payments gateway',           color: '#635BFF' },
-    { name: 'Resend',        icon: Mail,        status: ar ? 'متصل — إشعارات البريد الإلكتروني' : 'Connected — email notifications',  color: '#6C63FF' },
+    { name: 'Resend',        icon: Mail,        status: ar ? 'متصل — إشعارات البريد الإلكتروني' : 'Connected — email notifications',  color: '#8B5CF6' },
   ]
 
   const pricingPlans = [
@@ -623,7 +623,7 @@ export default function HomePage() {
           HERO
       ══════════════════════════════════════════ */}
       <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden pt-[68px]">
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(108,99,255,0.18) 0%, transparent 65%), radial-gradient(ellipse 40% 30% at 80% 80%, rgba(0,191,166,0.1) 0%, transparent 50%)' }} />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.18) 0%, transparent 65%), radial-gradient(ellipse 40% 30% at 80% 80%, rgba(16,185,129,0.1) 0%, transparent 50%)' }} />
         <ParticleBackground />
 
         <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-20 lg:py-28">
@@ -631,7 +631,7 @@ export default function HomePage() {
             {/* Text */}
             <div>
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.55 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(108,99,255,0.25)] bg-[rgba(108,99,255,0.08)] mb-6">
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(139,92,246,0.25)] bg-[rgba(139,92,246,0.08)] mb-6">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" />
                 <span className="font-mono text-[11px] font-semibold uppercase tracking-[2px] text-accent-teal">
                   {ar ? 'قسم التسويق الذكي الخاص بك' : 'Your AI Marketing Department'}
@@ -653,7 +653,7 @@ export default function HomePage() {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}
                 className="flex flex-wrap items-center gap-4 mb-7">
                 <Link href="/auth/register"
-                  className="btn-gradient font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2 shadow-[0_0_30px_rgba(108,99,255,0.25)]">
+                  className="btn-gradient font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2 shadow-[0_0_30px_rgba(139,92,246,0.25)]">
                   {ar ? 'ابدأ مجاناً' : 'Start Free'} <ArrowRight size={17} />
                 </Link>
                 <a href="#workflow"
@@ -679,7 +679,7 @@ export default function HomePage() {
                 {/* Fake command center preview */}
                 <div className="rounded-xl overflow-hidden" style={{ background: '#0d1035' }}>
                   {/* Top bar */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgba(108,99,255,0.15)]">
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgba(139,92,246,0.15)]">
                     <div className="flex items-center gap-2">
                       <span className="font-heading font-bold text-[13px] text-white">NEXUS</span>
                       <span className="bg-accent-purple text-white text-[9px] font-bold px-1 py-0.5 rounded">AI</span>
@@ -698,7 +698,7 @@ export default function HomePage() {
                       { l: ar ? 'محتوى مجدول' : 'Scheduled Content', v: '12', c: 'text-white' },
                       { l: ar ? 'حملات نشطة' : 'Active Campaigns', v: '2', c: 'text-accent-purple' },
                     ].map(m => (
-                      <div key={m.l} className="bg-[rgba(108,99,255,0.06)] border border-[rgba(108,99,255,0.1)] rounded-lg p-2.5 text-center">
+                      <div key={m.l} className="bg-[rgba(139,92,246,0.06)] border border-[rgba(139,92,246,0.1)] rounded-lg p-2.5 text-center">
                         <p className={`font-mono text-[16px] font-bold ${m.c}`}>{m.v}</p>
                         <p className="text-[8px] text-text-muted mt-0.5 leading-tight">{m.l}</p>
                       </div>
@@ -709,7 +709,7 @@ export default function HomePage() {
                     <p className="font-mono text-[9px] text-text-muted uppercase tracking-wider mb-2">{ar ? 'حالة الوكلاء' : 'Agent Status'}</p>
                     <div className="grid grid-cols-5 gap-1.5">
                       {[
-                        { n: 'STRATEGIST', c: '#6C63FF' }, { n: 'NEX', c: '#00BFA6' }, { n: 'VEX', c: '#FF6B35' },
+                        { n: 'STRATEGIST', c: '#8B5CF6' }, { n: 'NEX', c: '#10B981' }, { n: 'VEX', c: '#FF6B35' },
                         { n: 'PULSE', c: '#00D4FF' }, { n: 'SENTINEL', c: '#FFD700' },
                       ].map(a => (
                         <div key={a.n} className="rounded-lg p-2 border border-[rgba(255,255,255,0.05)]" style={{ background: `${a.c}12` }}>
@@ -805,8 +805,8 @@ export default function HomePage() {
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-14">
             {[
-              { icon: Brain, color: '#6C63FF', title: ar ? 'ذاكرة علامتك التجارية' : 'Your Brand Memory', desc: ar ? 'Brand Brain يحفظ نبرتك وجمهورك ومنافسيك وأهدافك — كل الوكلاء يعملون بهذا السياق' : 'Brand Brain stores your tone, audience, competitors, and goals — all agents work with this context' },
-              { icon: Users, color: '#00BFA6', title: ar ? 'فريق وكلاء متخصصين' : 'Specialized Agent Team', desc: ar ? 'خمسة وكلاء ذكيين لكل منهم دور محدد: الاستراتيجية، المحتوى، الإعلانات، التحليلات، وسلامة العلامة' : 'Five AI agents each with a defined role: strategy, content, ads, analytics, and brand safety' },
+              { icon: Brain, color: '#8B5CF6', title: ar ? 'ذاكرة علامتك التجارية' : 'Your Brand Memory', desc: ar ? 'Brand Brain يحفظ نبرتك وجمهورك ومنافسيك وأهدافك — كل الوكلاء يعملون بهذا السياق' : 'Brand Brain stores your tone, audience, competitors, and goals — all agents work with this context' },
+              { icon: Users, color: '#10B981', title: ar ? 'فريق وكلاء متخصصين' : 'Specialized Agent Team', desc: ar ? 'خمسة وكلاء ذكيين لكل منهم دور محدد: الاستراتيجية، المحتوى، الإعلانات، التحليلات، وسلامة العلامة' : 'Five AI agents each with a defined role: strategy, content, ads, analytics, and brand safety' },
               { icon: CheckCircle, color: '#00D4FF', title: ar ? 'موافقتك قبل كل شيء' : 'Your Approval Before Everything', desc: ar ? 'مركز الموافقات يضمن أن لا شيء يُنشر أو يُطلق أو يُنفق دون مراجعتك وموافقتك' : 'The approval center ensures nothing is published, launched, or spent without your review and approval' },
               { icon: Zap, color: '#FFB800', title: ar ? 'تنفيذ فوري أو متصل' : 'Instant or Connected Execution', desc: ar ? 'نسخ يدوي فوري من اليوم الأول. ربط المنصات الإعلانية متاح عند جاهزيتك' : 'Manual copy-ready output from day one. Platform connections available when you are ready' },
               { icon: BarChart3, color: '#FF6B35', title: ar ? 'تقارير وأداء مستمر' : 'Continuous Reports & Performance', desc: ar ? 'PULSE يراقب الأداء ويولد التقارير ويقترح تحسينات مبنية على البيانات الفعلية' : 'PULSE monitors performance, generates reports, and suggests data-driven improvements' },
@@ -1032,7 +1032,7 @@ export default function HomePage() {
             <Reveal delay={0.15}>
               <div className="glass-panel rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 rounded-xl bg-[rgba(108,99,255,0.15)] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-xl bg-[rgba(139,92,246,0.15)] flex items-center justify-center">
                     <Brain size={20} className="text-accent-purple" />
                   </div>
                   <div>
@@ -1042,8 +1042,8 @@ export default function HomePage() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { label: ar ? 'العلامة التجارية' : 'Brand', value: ar ? 'نبرة محترفة ودافئة · عربي وإنجليزي' : 'Professional warm tone · Arabic & English', color: '#6C63FF' },
-                    { label: ar ? 'الجمهور' : 'Audience', value: ar ? 'أصحاب الأعمال 30-55 · الإمارات والخليج' : 'Business owners 30-55 · UAE & Gulf', color: '#00BFA6' },
+                    { label: ar ? 'العلامة التجارية' : 'Brand', value: ar ? 'نبرة محترفة ودافئة · عربي وإنجليزي' : 'Professional warm tone · Arabic & English', color: '#8B5CF6' },
+                    { label: ar ? 'الجمهور' : 'Audience', value: ar ? 'أصحاب الأعمال 30-55 · الإمارات والخليج' : 'Business owners 30-55 · UAE & Gulf', color: '#10B981' },
                     { label: ar ? 'الهدف الرئيسي' : 'Primary Goal', value: ar ? 'زيادة المبيعات المباشرة والوعي الرقمي' : 'Drive direct sales & digital awareness', color: '#00D4FF' },
                     { label: ar ? 'المنافسون' : 'Competitors', value: ar ? '3 منافسين محددين · استراتيجية مراقبة نشطة' : '3 identified competitors · Active monitoring', color: '#FFB800' },
                   ].map(row => (
@@ -1083,14 +1083,14 @@ export default function HomePage() {
             {workflowSteps.map((step, i) => (
               <Reveal key={step.n} delay={i * 0.06}>
                 <div className="relative">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${step.n === '06' || step.n === '07' ? 'bg-[rgba(108,99,255,0.2)] ring-2 ring-[rgba(108,99,255,0.4)]' : 'bg-[rgba(108,99,255,0.1)]'}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${step.n === '06' || step.n === '07' ? 'bg-[rgba(139,92,246,0.2)] ring-2 ring-[rgba(139,92,246,0.4)]' : 'bg-[rgba(139,92,246,0.1)]'}`}>
                     <step.icon size={20} className={step.n === '06' || step.n === '07' ? 'text-accent-purple' : 'text-text-secondary'} />
                   </div>
                   <p className="font-mono text-[11px] text-accent-purple mb-1.5">{step.n}</p>
                   <h3 className="font-heading text-[15px] font-semibold text-white mb-1.5">{step.title}</h3>
                   <p className="text-[12px] text-text-secondary leading-relaxed">{step.desc}</p>
                   {(step.n === '06' || step.n === '07') && (
-                    <span className="mt-2 inline-block font-mono text-[9px] uppercase tracking-wider text-accent-purple bg-[rgba(108,99,255,0.1)] border border-[rgba(108,99,255,0.2)] px-2 py-0.5 rounded-full">
+                    <span className="mt-2 inline-block font-mono text-[9px] uppercase tracking-wider text-accent-purple bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.2)] px-2 py-0.5 rounded-full">
                       {ar ? 'أنت هنا' : 'You here'}
                     </span>
                   )}
@@ -1122,8 +1122,8 @@ export default function HomePage() {
             <Reveal delay={0.1}>
               <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
                 {[
-                  { icon: Lock,         color: '#6C63FF', title: ar ? 'موافقة قبل النشر'        : 'Approve Before Publishing',  desc: ar ? 'كل محتوى يمر بك أولاً'              : 'Every piece of content goes through you first' },
-                  { icon: Target,       color: '#00BFA6', title: ar ? 'موافقة قبل إطلاق الحملات' : 'Approve Before Campaign Launch', desc: ar ? 'لا حملة تُطلق دون موافقتك'      : 'No campaign launches without your approval' },
+                  { icon: Lock,         color: '#8B5CF6', title: ar ? 'موافقة قبل النشر'        : 'Approve Before Publishing',  desc: ar ? 'كل محتوى يمر بك أولاً'              : 'Every piece of content goes through you first' },
+                  { icon: Target,       color: '#10B981', title: ar ? 'موافقة قبل إطلاق الحملات' : 'Approve Before Campaign Launch', desc: ar ? 'لا حملة تُطلق دون موافقتك'      : 'No campaign launches without your approval' },
                   { icon: CreditCard,   color: '#FFB800', title: ar ? 'لا إنفاق تلقائي'          : 'No Automatic Spending',      desc: ar ? 'أنت من يقرر الميزانية والإنفاق'  : 'You decide the budget and spending' },
                   { icon: Eye,          color: '#00D4FF', title: ar ? 'رؤية كاملة قبل التنفيذ'   : 'Full Visibility Before Execution', desc: ar ? 'راجع كل شيء قبل أن يخرج'   : 'Review everything before it goes out' },
                 ].map((c, i) => (
@@ -1311,7 +1311,7 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1000px] mx-auto">
             {pricingPlans.map((plan, i) => (
               <Reveal key={plan.name} delay={i * 0.1}>
-                <div className={`relative rounded-2xl p-7 h-full flex flex-col ${plan.featured ? 'bg-bg-surface border-2 border-accent-purple shadow-[0_0_50px_rgba(108,99,255,0.12)]' : 'bg-bg-surface border border-bg-border'}`}>
+                <div className={`relative rounded-2xl p-7 h-full flex flex-col ${plan.featured ? 'bg-bg-surface border-2 border-accent-purple shadow-[0_0_50px_rgba(139,92,246,0.12)]' : 'bg-bg-surface border border-bg-border'}`}>
                   {plan.featured && (
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-primary text-white text-[11px] font-mono font-bold uppercase tracking-[1px] px-3 py-1 rounded-full whitespace-nowrap">
                       {ar ? 'الأكثر طلباً' : 'Most Popular'}
@@ -1331,7 +1331,7 @@ export default function HomePage() {
                     ))}
                   </ul>
                   <Link href="/auth/register"
-                    className={`block text-center font-heading text-[14px] font-semibold uppercase tracking-[1px] py-3 rounded-lg transition-all duration-300 ${plan.featured ? 'btn-gradient text-white' : 'border border-accent-purple text-accent-purple hover:bg-[rgba(108,99,255,0.1)]'}`}>
+                    className={`block text-center font-heading text-[14px] font-semibold uppercase tracking-[1px] py-3 rounded-lg transition-all duration-300 ${plan.featured ? 'btn-gradient text-white' : 'border border-accent-purple text-accent-purple hover:bg-[rgba(139,92,246,0.1)]'}`}>
                     {plan.cta}
                   </Link>
                 </div>
@@ -1352,8 +1352,8 @@ export default function HomePage() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-5">
               {[
-                { icon: Lock,        title: ar ? 'تسجيل دخول آمن'          : 'Secure Auth',           color: '#6C63FF' },
-                { icon: Eye,         title: ar ? 'مراجعة الموافقات'         : 'Approval Review',       color: '#00BFA6' },
+                { icon: Lock,        title: ar ? 'تسجيل دخول آمن'          : 'Secure Auth',           color: '#8B5CF6' },
+                { icon: Eye,         title: ar ? 'مراجعة الموافقات'         : 'Approval Review',       color: '#10B981' },
                 { icon: AlertCircle, title: ar ? 'لا إنفاق تلقائي'           : 'No Auto-Spend',         color: '#FFB800' },
                 { icon: Database,    title: ar ? 'خصوصية البيانات'           : 'Data Privacy',          color: '#00D4FF' },
                 { icon: Users,       title: ar ? 'قرارات بشرية'              : 'Human Decisions',       color: '#FF6B35' },
@@ -1409,7 +1409,7 @@ export default function HomePage() {
           FINAL CTA
       ══════════════════════════════════════════ */}
       <section className="relative py-32 lg:py-44 overflow-hidden bg-bg-surface">
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(108,99,255,0.12) 0%, transparent 70%)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.12) 0%, transparent 70%)' }} />
         <div className="relative z-10 max-w-[820px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <Reveal>
             <p className="font-mono text-[11px] uppercase tracking-[3px] text-accent-teal mb-5">{ar ? 'ابدأ اليوم' : 'Start Today'}</p>
@@ -1423,7 +1423,7 @@ export default function HomePage() {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
               <Link href="/auth/register"
-                className="btn-gradient font-heading text-[15px] font-semibold uppercase tracking-[1px] text-white px-10 py-4 rounded-lg inline-flex items-center gap-2 shadow-[0_0_40px_rgba(108,99,255,0.3)]">
+                className="btn-gradient font-heading text-[15px] font-semibold uppercase tracking-[1px] text-white px-10 py-4 rounded-lg inline-flex items-center gap-2 shadow-[0_0_40px_rgba(139,92,246,0.3)]">
                 {ar ? 'ابدأ مجاناً — 15 رصيد' : 'Start Free — 15 Credits'} <ArrowRight size={18} />
               </Link>
               <a href="#workflow"

@@ -92,7 +92,7 @@ function CreditsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#0F1332] border border-[rgba(108,99,255,0.2)] rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+      <div className="bg-[#0F1332] border border-[rgba(139,92,246,0.2)] rounded-2xl w-full max-w-sm p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-heading text-[16px] font-bold text-white">Adjust Credits</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
@@ -111,7 +111,7 @@ function CreditsModal({
           placeholder="Amount (e.g. 50)"
           value={delta}
           onChange={e => setDelta(e.target.value)}
-          className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white text-[14px] placeholder:text-slate-500 focus:outline-none focus:border-[rgba(108,99,255,0.5)] mb-3"
+          className="w-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-xl px-4 py-3 text-white text-[14px] placeholder:text-slate-500 focus:outline-none focus:border-[rgba(139,92,246,0.5)] mb-3"
         />
 
         {error && <p className="text-red-400 text-[12px] mb-3">{error}</p>}
@@ -203,10 +203,10 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-[#0A0E27] text-white">
       {/* Header */}
-      <div className="border-b border-[rgba(255,255,255,0.06)] bg-[rgba(10,14,39,0.95)] backdrop-blur sticky top-0 z-20">
+      <div className="border-b border-[rgba(255,255,255,0.06)] bg-[rgba(6,7,26,0.97)] backdrop-blur sticky top-0 z-20">
         <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[rgba(108,99,255,0.2)] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[rgba(139,92,246,0.2)] flex items-center justify-center">
               <ShieldAlert size={16} className="text-accent-purple" />
             </div>
             <div>
@@ -229,8 +229,8 @@ export default function AdminPage() {
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: Users,      label: 'Total Users',    value: totalUsers,   color: '#6C63FF' },
-            { icon: Crown,      label: 'Paid Users',     value: paidUsers,    color: '#00BFA6' },
+            { icon: Users,      label: 'Total Users',    value: totalUsers,   color: '#8B5CF6' },
+            { icon: Crown,      label: 'Paid Users',     value: paidUsers,    color: '#10B981' },
             { icon: Zap,        label: 'Free Users',     value: freeUsers,    color: '#FFB800' },
             { icon: CreditCard, label: 'Total Credits',  value: totalCredits, color: '#00D4FF' },
           ].map(card => (
@@ -273,7 +273,7 @@ export default function AdminPage() {
                 placeholder="Search users…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:border-[rgba(108,99,255,0.4)]"
+                className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-white placeholder:text-slate-500 focus:outline-none focus:border-[rgba(139,92,246,0.4)]"
               />
             </div>
             <p className="text-[12px] text-slate-500 ml-auto">{filtered.length} users</p>
@@ -291,7 +291,7 @@ export default function AdminPage() {
               <tbody>
                 {filtered.map((u, i) => (
                   <tr key={u.id}
-                    className={`border-b border-[rgba(255,255,255,0.03)] hover:bg-[rgba(108,99,255,0.04)] transition-colors ${i % 2 === 0 ? '' : 'bg-[rgba(255,255,255,0.01)]'}`}>
+                    className={`border-b border-[rgba(255,255,255,0.03)] hover:bg-[rgba(139,92,246,0.04)] transition-colors ${i % 2 === 0 ? '' : 'bg-[rgba(255,255,255,0.01)]'}`}>
                     <td className="px-5 py-4">
                       <p className="text-white font-medium">{u.name || '—'}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">{u.email}</p>
@@ -317,7 +317,7 @@ export default function AdminPage() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => setSelectedUser(u)}
-                        className="flex items-center gap-1.5 text-[11px] font-semibold text-accent-purple hover:text-white transition-colors border border-[rgba(108,99,255,0.2)] hover:border-[rgba(108,99,255,0.5)] px-2.5 py-1.5 rounded-lg">
+                        className="flex items-center gap-1.5 text-[11px] font-semibold text-accent-purple hover:text-white transition-colors border border-[rgba(139,92,246,0.2)] hover:border-[rgba(139,92,246,0.5)] px-2.5 py-1.5 rounded-lg">
                         <CreditCard size={11} /> Credits
                       </button>
                     </td>

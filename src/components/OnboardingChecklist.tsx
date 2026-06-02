@@ -114,13 +114,13 @@ export default function OnboardingChecklist({ stats, brandReadiness, hasConnecti
 
   return (
     <div className="rounded-2xl overflow-hidden"
-      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.15)', backdropFilter: 'blur(8px)' }}>
+      style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(8px)' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(108,99,255,0.12)', border: '1px solid rgba(108,99,255,0.2)' }}>
+            style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>
             <Rocket className="w-4 h-4 text-accent-purple" />
           </div>
           <div>
@@ -148,8 +148,8 @@ export default function OnboardingChecklist({ stats, brandReadiness, hasConnecti
             style={{
               width: `${progressPct}%`,
               background: progressPct === 100
-                ? 'linear-gradient(90deg, #00BFA6, #00D4FF)'
-                : 'linear-gradient(90deg, #6C63FF, #9333EA)',
+                ? 'linear-gradient(90deg, #10B981, #00D4FF)'
+                : 'linear-gradient(90deg, #8B5CF6, #9333EA)',
             }}
           />
         </div>
@@ -181,7 +181,7 @@ export default function OnboardingChecklist({ stats, brandReadiness, hasConnecti
               {!step.done && href && cta && (
                 <Link href={href}
                   className="flex items-center gap-1 text-[10px] font-bold flex-shrink-0 transition-all hover:brightness-110"
-                  style={{ color: '#6C63FF' }}>
+                  style={{ color: '#8B5CF6' }}>
                   {cta}
                   <ChevronRight className="w-3 h-3" />
                 </Link>
@@ -197,7 +197,7 @@ export default function OnboardingChecklist({ stats, brandReadiness, hasConnecti
           <Link
             href={(ar ? nextStep.hrefAr : nextStep.hrefEn) || '#'}
             className="flex items-center justify-between w-full px-4 py-3 rounded-xl font-bold text-sm text-white transition-all hover:brightness-110"
-            style={{ background: 'rgba(108,99,255,0.15)', border: '1px solid rgba(108,99,255,0.25)' }}>
+            style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.25)' }}>
             <span>
               {ar
                 ? `التالي: ${nextStep.labelAr}`

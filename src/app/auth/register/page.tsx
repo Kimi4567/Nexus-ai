@@ -55,18 +55,18 @@ export default function RegisterPage() {
     }
   }
 
-  const inputStyle = { background: 'rgba(17,21,54,0.6)', border: '1px solid rgba(108,99,255,0.15)' }
+  const inputStyle = { background: 'rgba(12,13,36,0.65)', border: '1px solid rgba(139,92,246,0.15)' }
   const inputClass = "w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition text-right"
 
   const pageWrap = (
     <div className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4 py-12"
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(108,99,255,0.12), transparent)' }}>
+      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}>
       <div className="w-full max-w-md">
         <div className="flex justify-end mb-4"><LanguageSwitcher /></div>
         <div className="glass-panel p-8 rounded-2xl shadow-2xl">
           <Link href="/" className="flex items-center gap-2.5 mb-8">
             <div className="w-9 h-9 rounded-lg grid place-items-center font-black text-lg text-white"
-              style={{ background: 'linear-gradient(135deg,#6C63FF,#00BFA6)' }}>N</div>
+              style={{ background: 'linear-gradient(135deg,#8B5CF6,#10B981)' }}>N</div>
             <span className="text-2xl font-extrabold tracking-wider font-heading text-gradient">NEXUS AI</span>
           </Link>
           {done ? (
@@ -78,7 +78,7 @@ export default function RegisterPage() {
               <p className="text-text-muted text-sm mb-6">{authT?.verifyCheck}</p>
               {/* Next steps hint */}
               <div className="rounded-xl px-4 py-3 mb-6 text-left"
-                style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.15)' }}>
+                style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
                 <p className="text-xs font-bold text-accent-purple mb-2">
                   {isRTL ? 'بعد التحقق من البريد ستتمكن من:' : 'After verifying your email you\'ll:'}
                 </p>
@@ -116,8 +116,8 @@ export default function RegisterPage() {
                     <label className="block text-sm font-semibold mb-2 text-text-secondary">{f.label}</label>
                     <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
                       autoComplete={f.auto} className={inputClass} style={inputStyle}
-                      onFocus={e => (e.currentTarget.style.border = '1px solid rgba(108,99,255,0.5)')}
-                      onBlur={e => (e.currentTarget.style.border = '1px solid rgba(108,99,255,0.15)')} />
+                      onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
+                      onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
                   </div>
                 ))}
                 <div className="space-y-3 pt-2">

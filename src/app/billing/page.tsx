@@ -26,7 +26,7 @@ const PLANS = [
     name: 'Starter',
     nameAr: 'المبتدئ',
     price: 29,
-    accentColor: '#6C63FF',
+    accentColor: '#8B5CF6',
     featured: false,
     badgeAr: null as string | null,
     badgeEn: null as string | null,
@@ -56,7 +56,7 @@ const PLANS = [
     name: 'Pro',
     nameAr: 'الاحترافي',
     price: 79,
-    accentColor: '#6C63FF',
+    accentColor: '#8B5CF6',
     featured: true,
     badgeAr: 'الأكثر شيوعاً',
     badgeEn: 'Most Popular',
@@ -88,7 +88,7 @@ const PLANS = [
     name: 'Agency',
     nameAr: 'الوكالات',
     price: 199,
-    accentColor: '#00BFA6',
+    accentColor: '#10B981',
     featured: false,
     badgeAr: null as string | null,
     badgeEn: null as string | null,
@@ -214,7 +214,7 @@ export default function BillingPage() {
   const isUnlimited = credits === -1 || (subscriptionStatus as { credits?: { max?: number } })?.credits?.max === -1
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
 
-  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(12px)' }
+  const glassCard = { background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }
 
   return (
     <AppShell>
@@ -235,7 +235,7 @@ export default function BillingPage() {
           {/* ── Hero Header ── */}
           <div className="text-center space-y-3 pt-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono tracking-wider"
-              style={{ background: 'rgba(108,99,255,0.08)', border: '1px solid rgba(108,99,255,0.2)', color: '#a5a0ff' }}>
+              style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a5a0ff' }}>
               <Sparkles className="w-3 h-3" />
               {ar ? 'قسم الاشتراكات' : 'Subscription Plans'}
             </div>
@@ -261,10 +261,10 @@ export default function BillingPage() {
           {/* ── Current Plan Status (for active subscribers) ── */}
           {isActive && (
             <div className="rounded-2xl p-5 flex items-center justify-between flex-wrap gap-4"
-              style={{ background: 'rgba(0,191,166,0.05)', border: '1px solid rgba(0,191,166,0.2)' }}>
+              style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(0,191,166,0.12)' }}>
+                  style={{ background: 'rgba(16,185,129,0.12)' }}>
                   <CheckCircle2 className="w-5 h-5 text-accent-teal" />
                 </div>
                 <div>
@@ -286,7 +286,7 @@ export default function BillingPage() {
               </div>
               <button onClick={handleManageSubscription} disabled={openingPortal}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all hover:brightness-110 disabled:opacity-60"
-                style={{ background: 'rgba(0,191,166,0.1)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.25)' }}>
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}>
                 <Settings2 className="w-3.5 h-3.5" />
                 {openingPortal ? (ar ? 'جاري الفتح...' : 'Opening...') : (ar ? 'إدارة الاشتراك' : 'Manage Subscription')}
               </button>
@@ -296,7 +296,7 @@ export default function BillingPage() {
           {/* ── ROI banner for free users ── */}
           {!isActive && (
             <div className="rounded-2xl p-5 flex items-center gap-4 flex-wrap"
-              style={{ background: 'rgba(108,99,255,0.06)', border: '1px solid rgba(108,99,255,0.2)' }}>
+              style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="text-2xl flex-shrink-0">💡</div>
                 <div>
@@ -329,15 +329,15 @@ export default function BillingPage() {
               return (
                 <div key={plan.id} className="relative rounded-2xl p-7 flex flex-col transition-all duration-300 hover:translate-y-[-2px]"
                   style={{
-                    background: plan.featured ? 'rgba(108,99,255,0.08)' : 'rgba(17,21,54,0.5)',
-                    border: plan.featured ? '2px solid rgba(108,99,255,0.4)' : `1px solid ${plan.accentColor}18`,
+                    background: plan.featured ? 'rgba(139,92,246,0.08)' : 'rgba(12,13,36,0.6)',
+                    border: plan.featured ? '2px solid rgba(139,92,246,0.4)' : `1px solid ${plan.accentColor}18`,
                     backdropFilter: 'blur(12px)',
-                    boxShadow: plan.featured ? '0 0 40px rgba(108,99,255,0.12)' : 'none',
+                    boxShadow: plan.featured ? '0 0 40px rgba(139,92,246,0.12)' : 'none',
                   }}>
 
                   {badge && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-white text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap"
-                      style={{ background: 'linear-gradient(135deg, #6C63FF, #9333EA)' }}>
+                      style={{ background: 'linear-gradient(135deg, #8B5CF6, #9333EA)' }}>
                       <Star className="w-2.5 h-2.5 inline mr-1" />
                       {badge}
                     </div>
@@ -345,7 +345,7 @@ export default function BillingPage() {
 
                   {isCurrent && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold px-3 py-1 rounded-full"
-                      style={{ background: 'rgba(0,191,166,0.2)', color: '#00BFA6', border: '1px solid rgba(0,191,166,0.3)' }}>
+                      style={{ background: 'rgba(16,185,129,0.2)', color: '#10B981', border: '1px solid rgba(16,185,129,0.3)' }}>
                       {ar ? '✓ خطتك الحالية' : '✓ Current Plan'}
                     </div>
                   )}
@@ -379,7 +379,7 @@ export default function BillingPage() {
                   {/* CTA */}
                   {isCurrent ? (
                     <div className="w-full py-3 text-center rounded-xl text-sm font-semibold"
-                      style={{ background: 'rgba(0,191,166,0.08)', border: '1px solid rgba(0,191,166,0.2)', color: '#00BFA6' }}>
+                      style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10B981' }}>
                       {ar ? '✓ خطتك النشطة' : '✓ Your Active Plan'}
                     </div>
                   ) : (
@@ -414,8 +414,8 @@ export default function BillingPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { icon: Brain,    colorHex: '#6C63FF', labelAr: 'استراتيجي تسويق',     labelEn: 'Marketing strategist',  costAr: '$3,000/شهر',   costEn: '$3,000/mo' },
-                { icon: Sparkles, colorHex: '#00BFA6', labelAr: 'كاتب محتوى',           labelEn: 'Content writer',         costAr: '$1,500/شهر',   costEn: '$1,500/mo' },
+                { icon: Brain,    colorHex: '#8B5CF6', labelAr: 'استراتيجي تسويق',     labelEn: 'Marketing strategist',  costAr: '$3,000/شهر',   costEn: '$3,000/mo' },
+                { icon: Sparkles, colorHex: '#10B981', labelAr: 'كاتب محتوى',           labelEn: 'Content writer',         costAr: '$1,500/شهر',   costEn: '$1,500/mo' },
                 { icon: BarChart3,colorHex: '#00D4FF', labelAr: 'محلل أداء',            labelEn: 'Performance analyst',    costAr: '$2,000/شهر',   costEn: '$2,000/mo' },
                 { icon: Globe,    colorHex: '#FF6B35', labelAr: 'مدير سوشيال ميديا',    labelEn: 'Social media manager',   costAr: '$1,200/شهر',   costEn: '$1,200/mo' },
               ].map(item => {
@@ -437,13 +437,13 @@ export default function BillingPage() {
                 )
               })}
             </div>
-            <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(108,99,255,0.08)' }}>
+            <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(139,92,246,0.08)' }}>
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <p className="text-text-muted text-sm">
                   {ar ? 'التكلفة الفعلية لفريق التسويق:' : 'Actual cost of a marketing team:'}
                   <span className="text-white font-bold mx-1">{ar ? '$7,700+/شهر' : '$7,700+/mo'}</span>
                 </p>
-                <p className="text-sm font-bold" style={{ color: '#00BFA6' }}>
+                <p className="text-sm font-bold" style={{ color: '#10B981' }}>
                   {ar ? 'Nexus AI Pro: $79/شهر ← وفر $7,621' : 'Nexus AI Pro: $79/mo ← save $7,621'}
                 </p>
               </div>
@@ -465,15 +465,15 @@ export default function BillingPage() {
             </button>
 
             {showComparison && (
-              <div className="border-t" style={{ borderColor: 'rgba(108,99,255,0.1)' }}>
+              <div className="border-t" style={{ borderColor: 'rgba(139,92,246,0.1)' }}>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(108,99,255,0.08)' }}>
+                    <tr style={{ borderBottom: '1px solid rgba(139,92,246,0.08)' }}>
                       <th className="text-left px-6 py-3 text-[11px] text-text-muted font-medium">
                         {ar ? 'الميزة' : 'Feature'}
                       </th>
                       {['Starter', 'Pro', 'Agency'].map(p => (
-                        <th key={p} className="px-4 py-3 text-[11px] font-bold text-center" style={{ color: p === 'Pro' ? '#6C63FF' : '#a5a0ff' }}>
+                        <th key={p} className="px-4 py-3 text-[11px] font-bold text-center" style={{ color: p === 'Pro' ? '#8B5CF6' : '#a5a0ff' }}>
                           {p}
                         </th>
                       ))}
@@ -481,7 +481,7 @@ export default function BillingPage() {
                   </thead>
                   <tbody>
                     {(ar ? COMPARISON_ROWS.ar : COMPARISON_ROWS.en).map((row, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid rgba(108,99,255,0.05)' }}
+                      <tr key={i} style={{ borderBottom: '1px solid rgba(139,92,246,0.05)' }}
                         className="hover:bg-white/2 transition-all">
                         <td className="px-6 py-2.5 text-text-muted text-xs">{row.label}</td>
                         {[row.starter, row.pro, row.agency].map((val, j) => (
@@ -553,7 +553,7 @@ export default function BillingPage() {
                 },
               ]).map(faq => (
                 <div key={faq.q} className="pb-5 last:pb-0"
-                  style={{ borderBottom: '1px solid rgba(108,99,255,0.06)' }}>
+                  style={{ borderBottom: '1px solid rgba(139,92,246,0.06)' }}>
                   <h3 className="font-semibold text-sm mb-1.5 text-white">{faq.q}</h3>
                   <p className="text-text-secondary text-xs leading-relaxed">{faq.a}</p>
                 </div>
@@ -579,7 +579,7 @@ export default function BillingPage() {
                 </a>
                 <Link href="/dashboard"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium text-text-muted hover:text-white transition-all"
-                  style={{ border: '1px solid rgba(108,99,255,0.15)' }}>
+                  style={{ border: '1px solid rgba(139,92,246,0.15)' }}>
                   {ar ? 'الداشبورد' : 'Dashboard'}
                 </Link>
               </div>

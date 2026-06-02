@@ -32,14 +32,14 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  const inputStyle = { background: 'rgba(17,21,54,0.6)', border: '1px solid rgba(108,99,255,0.15)' }
+  const inputStyle = { background: 'rgba(12,13,36,0.65)', border: '1px solid rgba(139,92,246,0.15)' }
 
   if (done) {
     return (
       <div
         className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
         dir={dir}
-        style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(108,99,255,0.12), transparent)' }}
+        style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
       >
         <div className="w-full max-w-md text-center glass-panel p-10 rounded-2xl shadow-2xl">
           <div className="text-5xl mb-4">📬</div>
@@ -63,14 +63,14 @@ export default function ForgotPasswordPage() {
     <div
       className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
       dir={dir}
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(108,99,255,0.12), transparent)' }}
+      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
     >
       <div className="w-full max-w-md">
         <div className="glass-panel p-8 rounded-2xl shadow-2xl">
           <Link href="/" className="flex items-center gap-2.5 mb-8">
             <div
               className="w-9 h-9 rounded-lg grid place-items-center font-black text-lg text-white"
-              style={{ background: 'linear-gradient(135deg,#6C63FF,#00BFA6)' }}
+              style={{ background: 'linear-gradient(135deg,#8B5CF6,#10B981)' }}
             >
               N
             </div>
@@ -99,8 +99,8 @@ export default function ForgotPasswordPage() {
                 autoComplete="email"
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition"
                 style={inputStyle}
-                onFocus={e => (e.currentTarget.style.border = '1px solid rgba(108,99,255,0.5)')}
-                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(108,99,255,0.15)')}
+                onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
+                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
               />
             </div>
             <button

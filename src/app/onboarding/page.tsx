@@ -154,11 +154,11 @@ export default function OnboardingPage() {
   return (
     <div
       className="min-h-screen bg-bg-base flex flex-col items-center justify-center px-4 py-12"
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(108,99,255,0.12), transparent)' }}
+      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
     >
       {/* Logo */}
       <div className="flex items-center gap-2.5 mb-10">
-        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: "linear-gradient(135deg,#6C63FF,#00BFA6)" }}>
+        <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ background: "linear-gradient(135deg,#8B5CF6,#10B981)" }}>
           <svg width="18" height="18" viewBox="0 0 28 28" fill="none">
             <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M7 7H21"          stroke="white" strokeWidth="2.5" strokeLinecap="round" />
@@ -174,10 +174,10 @@ export default function OnboardingPage() {
             <span>{(ob?.stepOf as string)?.replace('{step}', String(step))}</span>
             <span>{step === 1 ? ob?.brandStepLabel : ob?.goalStepLabel}</span>
           </div>
-          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(108,99,255,0.15)" }}>
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(139,92,246,0.15)" }}>
             <div
               className="h-full rounded-full transition-all duration-500"
-              style={{ background: "linear-gradient(90deg,#6C63FF,#00BFA6)", width: `${(step / 2) * 100}%` }}
+              style={{ background: "linear-gradient(90deg,#8B5CF6,#10B981)", width: `${(step / 2) * 100}%` }}
             />
           </div>
         </div>
@@ -187,7 +187,7 @@ export default function OnboardingPage() {
       {step === 0 && (
         <Card>
           <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 text-3xl" style={{ background: "rgba(108,99,255,0.1)", border: "1px solid rgba(108,99,255,0.2)" }}>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 text-3xl" style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.2)" }}>
               👋
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">
@@ -201,7 +201,7 @@ export default function OnboardingPage() {
               {features.map(f => (
                 <div
                   key={f.label}
-                  className="p-3 rounded-xl text-center" style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)' }}
+                  className="p-3 rounded-xl text-center" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)' }}
                 >
                   <div className="text-xl mb-1">{f.icon}</div>
                   <div className="text-[11px] font-semibold text-t2">{f.label}</div>
@@ -237,7 +237,7 @@ export default function OnboardingPage() {
                 value={brandName}
                 onChange={e => setBrandName(e.target.value)}
                 placeholder={ob?.brandNamePlaceholder2 as string}
-                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
+                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(12,13,36,0.65)", border: "1px solid rgba(139,92,246,0.15)" }}
                 autoFocus
               />
             </div>
@@ -254,7 +254,7 @@ export default function OnboardingPage() {
                     onClick={() => setIndustry(ind.value)}
                     className={`p-2.5 rounded-xl border text-center transition-all ${
                       industry === ind.value
-                        ? 'border-[rgba(108,99,255,0.5)] text-white' : 'border-[rgba(108,99,255,0.12)]'
+                        ? 'border-[rgba(139,92,246,0.5)] text-white' : 'border-[rgba(139,92,246,0.12)]'
                     }`}
                   >
                     <div className="text-lg mb-0.5">{ind.icon}</div>
@@ -275,7 +275,7 @@ export default function OnboardingPage() {
                 value={audience}
                 onChange={e => setAudience(e.target.value)}
                 placeholder={ob?.audiencePlaceholder as string}
-                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(17,21,54,0.6)", border: "1px solid rgba(108,99,255,0.15)" }}
+                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted text-sm focus:outline-none transition-all" style={{ background: "rgba(12,13,36,0.65)", border: "1px solid rgba(139,92,246,0.15)" }}
               />
             </div>
 
@@ -291,8 +291,8 @@ export default function OnboardingPage() {
                     onClick={() => setTone(tn.id)}
                     className={`p-3 rounded-xl border text-right transition-all ${
                       tone === tn.id
-                        ? 'border-[rgba(108,99,255,0.4)] bg-[rgba(108,99,255,0.1)]'
-                         : 'border-[rgba(108,99,255,0.12)] bg-[rgba(17,21,54,0.5)] hover:border-[rgba(108,99,255,0.25)]'
+                        ? 'border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.1)]'
+                         : 'border-[rgba(139,92,246,0.12)] bg-[rgba(12,13,36,0.6)] hover:border-[rgba(139,92,246,0.25)]'
                     }`}
                   >
                     <div className="text-xs font-bold text-white">{locale === 'ar' ? tn.ar : tn.en}</div>
@@ -333,8 +333,8 @@ export default function OnboardingPage() {
                 onClick={() => setGoal(g.id)}
                 className={`p-4 rounded-xl border text-right transition-all ${
                   goal === g.id
-                    ? 'border-[rgba(108,99,255,0.4)] bg-[rgba(108,99,255,0.1)]'
-                     : 'border-[rgba(108,99,255,0.12)] bg-[rgba(17,21,54,0.5)] hover:border-[rgba(108,99,255,0.25)]'
+                    ? 'border-[rgba(139,92,246,0.4)] bg-[rgba(139,92,246,0.1)]'
+                     : 'border-[rgba(139,92,246,0.12)] bg-[rgba(12,13,36,0.6)] hover:border-[rgba(139,92,246,0.25)]'
                 }`}
               >
                 <div className="text-xl mb-1.5">{g.icon}</div>
@@ -346,7 +346,7 @@ export default function OnboardingPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setStep(1)}
-              className="flex-none px-4 py-3.5 rounded-xl border text-text-muted hover:text-white text-sm transition-all" style={{ borderColor: "rgba(108,99,255,0.2)" }}
+              className="flex-none px-4 py-3.5 rounded-xl border text-text-muted hover:text-white text-sm transition-all" style={{ borderColor: "rgba(139,92,246,0.2)" }}
             >
               {ob?.backBtn}
             </button>
@@ -379,7 +379,7 @@ export default function OnboardingPage() {
                   className="flex items-center gap-3 text-sm text-t2 animate-pulse"
                   style={{ animationDelay: `${i * 0.4}s` }}
                 >
-                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#6C63FF" }} />
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#8B5CF6" }} />
                   {s}
                 </div>
               ))}
@@ -398,7 +398,7 @@ export default function OnboardingPage() {
           {/* Header */}
           <div
             className="p-6 border-b"
-            style={{ borderColor: "rgba(108,99,255,0.12)", background: 'linear-gradient(135deg, rgba(108,99,255,0.10), transparent)' }}
+            style={{ borderColor: "rgba(139,92,246,0.12)", background: 'linear-gradient(135deg, rgba(139,92,246,0.10), transparent)' }}
           >
             <div className="text-2xl mb-2">🎉</div>
             <h2 className="text-xl font-bold text-white mb-1">{ob?.doneTitle}</h2>
@@ -409,7 +409,7 @@ export default function OnboardingPage() {
 
           {/* Quick wins */}
           {strategy?.quickWins?.length > 0 && (
-            <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
+            <div className="p-5 border-b" style={{ borderColor: "rgba(139,92,246,0.12)" }}>
               <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
                 {ob?.startTodayLabel}
               </div>
@@ -425,7 +425,7 @@ export default function OnboardingPage() {
           )}
 
           {/* What awaits */}
-          <div className="p-5 border-b" style={{ borderColor: "rgba(108,99,255,0.12)" }}>
+          <div className="p-5 border-b" style={{ borderColor: "rgba(139,92,246,0.12)" }}>
             <div className="text-[10px] font-bold uppercase tracking-wider text-t3 mb-3">
               {ob?.awaitingLabel}
             </div>
@@ -451,7 +451,7 @@ export default function OnboardingPage() {
             </button>
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full py-2.5 border text-text-muted hover:text-white rounded-xl transition-all text-sm" style={{ borderColor: "rgba(108,99,255,0.2)" }}
+              className="w-full py-2.5 border text-text-muted hover:text-white rounded-xl transition-all text-sm" style={{ borderColor: "rgba(139,92,246,0.2)" }}
             >
               {ob?.goDashboardBtn}
             </button>

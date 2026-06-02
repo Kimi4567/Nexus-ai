@@ -63,7 +63,7 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-      style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
+      style={{ background: copied ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#EAB308' : '#9ca3af', border: `1px solid ${copied ? '#EAB30830' : 'rgba(255,255,255,0.08)'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? t('common.copied') : t('common.copy')}
     </button>
@@ -79,7 +79,7 @@ function SentinelSelect<T extends string>({ label, value, options, onChange }: {
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(17,21,54,0.4)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc', outline: 'none' }}>
+          style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(139,92,246,0.12)', color: '#f8fafc', outline: 'none' }}>
           {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
         </select>
         <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -92,7 +92,7 @@ function SentinelSelect<T extends string>({ label, value, options, onChange }: {
 function AlertCard({ alert }: { alert: Alert }) {
   const colors: Record<Alert['type'], { bg: string; border: string; text: string; icon: React.ElementType }> = {
     warning:     { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.25)',  text: '#f59e0b', icon: AlertTriangle },
-    opportunity: { bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.25)',  text: '#10b981', icon: TrendingUp },
+    opportunity: { bg: 'rgba(234,179,8,0.08)',  border: 'rgba(234,179,8,0.25)',  text: '#EAB308', icon: TrendingUp },
     info:        { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.25)',   text: '#06b6d4', icon: Bell },
   }
   const c = colors[alert.type]
@@ -173,7 +173,7 @@ export default function SentinelPage() {
 
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
-      <Loader2 className="animate-spin" size={32} style={{ color: '#10b981' }} />
+      <Loader2 className="animate-spin" size={32} style={{ color: '#EAB308' }} />
     </div>
   )
   if (!isAuthenticated) return null
@@ -214,8 +214,8 @@ export default function SentinelPage() {
     }
   }
 
-  const glassCard = { background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.1)', backdropFilter: 'blur(20px)' }
-  const greenColor = '#10b981'
+  const glassCard = { background: 'rgba(12,13,36,0.6)', border: '1px solid var(--nx-border)', backdropFilter: 'blur(16px)' }
+  const sentinelColor = '#EAB308'
 
   const industryOptions = [
     { value: 'ecommerce',  label: t('sentinel.industryEcommerce') as string },
@@ -238,7 +238,7 @@ export default function SentinelPage() {
   ]
 
   const capabilities = [
-    { icon: Eye,           color: '#10b981', labelKey: 'sentinel.capCompetitorsLabel', descKey: 'sentinel.capCompetitorsDesc' },
+    { icon: Eye,           color: '#EAB308', labelKey: 'sentinel.capCompetitorsLabel', descKey: 'sentinel.capCompetitorsDesc' },
     { icon: Activity,      color: '#06b6d4', labelKey: 'sentinel.capMarketLabel',      descKey: 'sentinel.capMarketDesc' },
     { icon: Shield,        color: '#8b5cf6', labelKey: 'sentinel.capReputationLabel',  descKey: 'sentinel.capReputationDesc' },
     { icon: TrendingUp,    color: '#f59e0b', labelKey: 'sentinel.capOpportunitiesLabel', descKey: 'sentinel.capOpportunitiesDesc' },
@@ -308,17 +308,17 @@ export default function SentinelPage() {
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(16,185,129,0.08))', border: '1px solid rgba(16,185,129,0.3)', boxShadow: '0 0 30px rgba(16,185,129,0.15)' }}>
-                  <Shield size={26} style={{ color: greenColor }} />
+                  style={{ background: 'linear-gradient(135deg, rgba(234,179,8,0.25), rgba(234,179,8,0.08))', border: '1px solid rgba(234,179,8,0.3)', boxShadow: '0 0 30px rgba(234,179,8,0.15)' }}>
+                  <Shield size={26} style={{ color: sentinelColor }} />
                 </div>
                 <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
-                  style={{ background: pulse ? greenColor : 'rgba(16,185,129,0.3)', boxShadow: pulse ? `0 0 12px ${greenColor}` : 'none', transition: 'all 0.5s ease' }} />
+                  style={{ background: pulse ? sentinelColor : 'rgba(234,179,8,0.3)', boxShadow: pulse ? `0 0 12px ${sentinelColor}` : 'none', transition: 'all 0.5s ease' }} />
               </div>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-white">Sentinel</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: 'rgba(16,185,129,0.15)', color: greenColor, border: `1px solid rgba(16,185,129,0.3)` }}>
+                    style={{ background: 'rgba(234,179,8,0.15)', color: sentinelColor, border: `1px solid rgba(234,179,8,0.3)` }}>
                     {t('sentinel.badge')}
                   </span>
                 </div>
@@ -328,7 +328,7 @@ export default function SentinelPage() {
             <div className="flex items-center gap-3">
               {brand?.brandName ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                  style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981' }}>
+                  style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', color: '#EAB308' }}>
                   <span>🧠</span>
                   <span>Brain: {brand.brandName}</span>
                 </div>
@@ -340,7 +340,7 @@ export default function SentinelPage() {
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                style={{ background: 'rgba(16,185,129,0.08)', border: `1px solid rgba(16,185,129,0.2)`, color: greenColor }}>
+                style={{ background: 'rgba(234,179,8,0.08)', border: `1px solid rgba(234,179,8,0.2)`, color: sentinelColor }}>
                 <Radio size={12} className={pulse ? 'opacity-100' : 'opacity-30'} style={{ transition: 'opacity 0.5s' }} />
                 <span>{t('sentinel.watching')}</span>
               </div>
@@ -356,11 +356,11 @@ export default function SentinelPage() {
           <div className="rounded-2xl p-5" style={glassCard}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                <Bell size={14} style={{ color: greenColor }} />
+                <Bell size={14} style={{ color: sentinelColor }} />
                 {t('sentinel.liveAlerts')}
               </h3>
-              <div className="flex items-center gap-2 text-xs" style={{ color: greenColor }}>
-                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: greenColor }} />
+              <div className="flex items-center gap-2 text-xs" style={{ color: sentinelColor }}>
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: sentinelColor }} />
                 {t('sentinel.activeStatus')}
               </div>
             </div>
@@ -375,9 +375,9 @@ export default function SentinelPage() {
               <button key={mon.id} onClick={() => { setMonitorType(mon.id); setResult('') }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: monitorType === mon.id ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.08))' : 'rgba(255,255,255,0.04)',
-                  color: monitorType === mon.id ? greenColor : '#9ca3af',
-                  border: `1px solid ${monitorType === mon.id ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                  background: monitorType === mon.id ? 'linear-gradient(135deg, rgba(234,179,8,0.2), rgba(234,179,8,0.08))' : 'rgba(255,255,255,0.04)',
+                  color: monitorType === mon.id ? sentinelColor : '#9ca3af',
+                  border: `1px solid ${monitorType === mon.id ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.07)'}`,
                 }}>
                 <mon.icon size={15} />
                 <span>{mon.label}</span>
@@ -391,7 +391,7 @@ export default function SentinelPage() {
             <div className="lg:col-span-1 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  <Target size={14} style={{ color: greenColor }} />
+                  <Target size={14} style={{ color: sentinelColor }} />
                   {t('sentinel.monitorSettings')}
                 </h3>
                 <SentinelSelect
@@ -425,7 +425,7 @@ export default function SentinelPage() {
                   ]).map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
                       className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-green-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
-                      style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.08)', color: '#94a3b8' }}>
+                      style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.08)', color: '#94a3b8' }}>
                       {q}
                     </button>
                   ))}
@@ -439,7 +439,7 @@ export default function SentinelPage() {
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   {(() => {
                     const mon = monitorTabs.find(m => m.id === monitorType)!
-                    return <><mon.icon size={14} style={{ color: greenColor }} />{mon.label}</>
+                    return <><mon.icon size={14} style={{ color: sentinelColor }} />{mon.label}</>
                   })()}
                 </h3>
                 <textarea
@@ -449,14 +449,14 @@ export default function SentinelPage() {
                   placeholder={t('sentinel.promptPlaceholder') as string}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                  style={{ background: 'rgba(17,21,54,0.5)', border: '1px solid rgba(108,99,255,0.12)', color: '#f8fafc' }} />
+                  style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)', color: '#f8fafc' }} />
                 <div className="flex justify-end">
                   <button onClick={generate} disabled={!prompt.trim() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                     style={{
-                      background: prompt.trim() && !loading ? `linear-gradient(135deg, ${greenColor}, #059669)` : 'rgba(255,255,255,0.05)',
+                      background: prompt.trim() && !loading ? `linear-gradient(135deg, ${sentinelColor}, #CA8A04)` : 'rgba(255,255,255,0.05)',
                       color: prompt.trim() && !loading ? '#0a0a0a' : '#4b5563',
-                      boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(16,185,129,0.3)` : 'none',
+                      boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(234,179,8,0.3)` : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                     {loading ? t('sentinel.monitoringVerb') : t('sentinel.monitorNow')}
@@ -465,16 +465,16 @@ export default function SentinelPage() {
               </div>
 
               {(result || loading) && (
-                <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(16,185,129,0.2)`, boxShadow: 'rgba(16,185,129,0.05) 0 0 40px' }}>
+                <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(234,179,8,0.2)`, boxShadow: 'rgba(234,179,8,0.05) 0 0 40px' }}>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: greenColor }}>
+                    <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: sentinelColor }}>
                       <Sparkles size={14} />{t('sentinel.reportTitle')}
                     </h3>
                     {result && !loading && <CopyBtn text={result} />}
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
-                      <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(16,185,129,0.3)', borderTopColor: greenColor }} />
+                      <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(234,179,8,0.3)', borderTopColor: sentinelColor }} />
                       <p className="text-sm text-gray-400 animate-pulse">{t('sentinel.processing')}</p>
                     </div>
                   ) : (
@@ -489,8 +489,8 @@ export default function SentinelPage() {
               {!result && !loading && (
                 <div className="rounded-2xl p-10 flex flex-col items-center gap-4" style={glassCard}>
                   <div className="w-20 h-20 rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                    <Shield size={32} style={{ color: 'rgba(16,185,129,0.4)' }} />
+                    style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.15)' }}>
+                    <Shield size={32} style={{ color: 'rgba(234,179,8,0.4)' }} />
                   </div>
                   <div className="text-center">
                     <p className="text-gray-400 text-sm">{t('sentinel.emptyTitle')}</p>
@@ -514,10 +514,10 @@ export default function SentinelPage() {
                 {history.map(h => (
                   <div key={h.id} onClick={() => { setResult(h.output); setMonitorType(h.type) }}
                     className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(108,99,255,0.08)' }}>
+                    style={{ border: '1px solid rgba(139,92,246,0.08)' }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ background: 'rgba(16,185,129,0.1)', color: greenColor, border: `1px solid rgba(16,185,129,0.2)` }}>
+                        style={{ background: 'rgba(234,179,8,0.1)', color: sentinelColor, border: `1px solid rgba(234,179,8,0.2)` }}>
                         {t(monitorTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
                       </span>
                       <span className="text-xs text-gray-500 truncate">{h.query}</span>

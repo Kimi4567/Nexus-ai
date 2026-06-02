@@ -42,12 +42,18 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Mobile top bar */}
       <div
         dir="ltr"
-        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-[rgba(108,99,255,0.15)]"
-        style={{ background: 'rgba(10,14,39,0.95)', backdropFilter: 'blur(20px)' }}
+        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-[rgba(139,92,246,0.15)]"
+        style={{ background: 'rgba(6,7,26,0.97)', backdropFilter: 'blur(20px)' }}
       >
         <div className="flex items-center gap-2">
           <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
-            <rect width="28" height="28" rx="7" fill="#FF9500" />
+            <defs>
+              <linearGradient id="mobileLogoGrad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#8B5CF6" />
+                <stop offset="1" stopColor="#F97316" />
+              </linearGradient>
+            </defs>
+            <rect width="28" height="28" rx="7" fill="url(#mobileLogoGrad)" />
             <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
           </svg>

@@ -27,14 +27,14 @@ const PLANS = [
     id: 'starter',
     name: 'Starter',
     price: '$29',
-    color: '#6C63FF',
+    color: '#8B5CF6',
     features: ['50 AI credits / month', '3 campaigns / month', '1 workspace', 'PDF export'],
   },
   {
     id: 'pro',
     name: 'Pro',
     price: '$79',
-    color: '#00BFA6',
+    color: '#10B981',
     popular: true,
     features: ['200 AI credits / month', 'Unlimited campaigns', '3 workspaces', 'Auto-publish to social', 'Real performance analytics', 'Priority support'],
   },
@@ -92,11 +92,11 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
 
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden"
-        style={{ background: '#0F1430', border: '1px solid rgba(108,99,255,0.25)' }}>
+        style={{ background: '#0F1430', border: '1px solid rgba(139,92,246,0.25)' }}>
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 text-center"
-          style={{ borderBottom: '1px solid rgba(108,99,255,0.1)' }}>
+          style={{ borderBottom: '1px solid rgba(139,92,246,0.1)' }}>
           <div className="text-2xl mb-1">⚡</div>
           <h2 className="text-xl font-bold text-white mb-1">{headline}</h2>
           <p className="text-sm text-text-muted">{subline}</p>
@@ -108,12 +108,12 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
             <div key={plan.id}
               className="rounded-xl p-4 flex flex-col relative"
               style={{
-                background: plan.popular ? 'rgba(0,191,166,0.06)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${plan.popular ? 'rgba(0,191,166,0.3)' : 'rgba(108,99,255,0.15)'}`,
+                background: plan.popular ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${plan.popular ? 'rgba(16,185,129,0.3)' : 'rgba(139,92,246,0.15)'}`,
               }}>
               {plan.popular && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold text-white"
-                  style={{ background: '#00BFA6' }}>
+                  style={{ background: '#10B981' }}>
                   MOST POPULAR
                 </div>
               )}
@@ -139,7 +139,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
                 disabled={!!loading}
                 className="w-full py-2 rounded-lg text-sm font-semibold transition-all"
                 style={{
-                  background: plan.popular ? '#00BFA6' : 'rgba(108,99,255,0.15)',
+                  background: plan.popular ? '#10B981' : 'rgba(139,92,246,0.15)',
                   color: plan.popular ? 'white' : plan.color,
                   border: plan.popular ? 'none' : `1px solid ${plan.color}40`,
                   opacity: loading && loading !== plan.id ? 0.5 : 1,
