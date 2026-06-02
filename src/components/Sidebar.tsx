@@ -183,6 +183,12 @@ const Icons = {
       <path d="M5 5.5l1.5 2L8 5M9.5 5.5h2M9.5 7.5h1.5" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
+  schedule: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="6.5"/>
+      <path d="M8 4.5V8l2.5 2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
 }
 
 // ── Main Sidebar ───────────────────────────────────────────────
@@ -242,6 +248,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           icon={Icons.campaigns} {...sharedProps} />
         <NavItem href="/calendar" label={t('sidebar.calendar')}
           icon={Icons.calendar} {...sharedProps} />
+        <NavItem href="/schedule" label={locale === 'ar' ? 'الجدولة' : 'Schedule'}
+          icon={Icons.schedule} {...sharedProps} />
         <NavItem href="/media" label={t('sidebar.media')}
           icon={Icons.media} {...sharedProps} />
 

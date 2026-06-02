@@ -6,11 +6,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { PLAN_CREDITS as STRIPE_PLAN_CREDITS } from '@/lib/stripe'
 
+// Map uppercase DB enum values to the lowercase keys used in PLAN_CREDITS
 const PLAN_CREDITS: Record<string, number> = {
-  STARTER: 50,
-  PRO: 200,
-  AGENCY: -1, // -1 = unlimited
+  STARTER: STRIPE_PLAN_CREDITS['starter'] ?? 50,
+  PRO:     STRIPE_PLAN_CREDITS['pro']     ?? 200,
+  AGENCY:  STRIPE_PLAN_CREDITS['agency']  ?? -1,
 }
 
 export async function GET(req: NextRequest) {
