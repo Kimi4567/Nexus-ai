@@ -293,7 +293,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.7,
+      temperature: 0.45,  // Lower = more analytical, consistent, grounded
       max_tokens: maxTokens,
       response_format: { type: 'json_object' },
     }),
@@ -376,6 +376,20 @@ Return ONLY valid JSON. No markdown. No explanation outside the JSON.`
 
   const userPrompt = `
 ${extendedBrief}
+
+━━━ MANDATORY PRE-ANALYSIS (complete before generating JSON) ━━━
+
+Before writing a single JSON field, answer these 5 questions in your mind:
+1. STAGE: Is this brand pre-launch, early-stage, active, or scaling? What specific evidence in the brief tells you this?
+2. ICP: Who is the ONE buyer most likely to convert in the next 30 days? Not "business owners" — give a specific title, situation, and budget range.
+3. BOTTLENECK: What is the single constraint blocking this brand's growth right now? Not "needs more content" — what specific mechanism is broken?
+4. DIFFERENTIATION: What does this brand do that the closest competitor does NOT? If you cannot name a specific differentiator, flag this in diagnosisDetails.
+5. FAILURE MODE: What is the most likely reason this campaign will underperform if left unaddressed?
+
+Only after completing this internal analysis should you populate the JSON below.
+Your answers to the above must show up in: diagnosisDetails, businessObjective, audienceSegmentsDetailed, differentiation, and doNotDoYet.
+
+━━━ JSON OUTPUT ━━━
 
 Return JSON with ALL of these exact fields. Every field must be specific to this brand — never generic.
 
