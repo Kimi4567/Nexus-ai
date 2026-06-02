@@ -43,76 +43,112 @@ export async function GET(req: NextRequest) {
         const page = pages.find((p: any) => p.id === post.pageId)
         const pageToken = page?.accessToken || integration.accessToken
 
-        // Publish to Meta (Facebook/Instagram)
+        // Determine platform: SocialPost.platform uses IntegrationType (META/LINKEDIN/TIKTOK)
+        // For META posts, check if the page has an igAccountId → Instagram, else → Facebook
         const platformStr = String(post.platform)
-        if (platformStr === 'FACEBOOK') {
-          const body: any = { message: post.caption, access_token: pageToken }
-          if (post.imageUrl) {
-            body.url = post.imageUrl
-          }
-          const endpoint = post.imageUrl
-            ? `https://graph.facebook.com/v19.0/${post.pageId}/photos`
-            : `https://graph.facebook.com/v19.0/${post.pageId}/feed`
+        const igAccountId = page?.igAccountId || null
+        const isInstagram = !!(igAccountId && post.pageId === igAccountId)
 
-          const res = await fetch(endpoint, {
+        if (platformStr === 'META' || platformStr === 'FACEBOOK' || platformStr === 'INSTAGRAM') {
+          if (isInstagram) {
+            // ── Instagram publish ────────────────────────────────────────────
+            const containerBody: any = {
+              caption: post.caption,
+              access_token: pageToken,
+              media_type: 'IMAGE',
+              image_url: post.imageUrl || 'https://placehold.co/1080x1080/111/FF9500?text=Nexus',
+            }
+
+            const containerRes = await fetch(
+              `https://graph.facebook.com/v19.0/${post.pageId}/media`,
+              { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(containerBody) }
+            )
+            const container = await containerRes.json()
+            if (container.error) throw new Error(container.error.message)
+
+            const publishRes = await fetch(
+              `https://graph.facebook.com/v19.0/${post.pageId}/media_publish`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ creation_id: container.id, access_token: pageToken }),
+              }
+            )
+            const published = await publishRes.json()
+            if (published.error) throw new Error(published.error.message)
+
+            await prisma.socialPost.update({
+              where: { id: post.id },
+              data: { status: 'PUBLISHED', publishedAt: now, platformPostId: published.id },
+            })
+          } else {
+            // ── Facebook publish ─────────────────────────────────────────────
+            const body: any = { message: post.caption, access_token: pageToken }
+            if (post.imageUrl) body.url = post.imageUrl
+            const endpoint = post.imageUrl
+              ? `https://graph.facebook.com/v19.0/${post.pageId}/photos`
+              : `https://graph.facebook.com/v19.0/${post.pageId}/feed`
+
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            })
+            const data = await res.json()
+            if (data.error) throw new Error(data.error.message)
+
+            await prisma.socialPost.update({
+              where: { id: post.id },
+              data: {
+                status: 'PUBLISHED',
+                publishedAt: now,
+                platformPostId: data.id,
+                platformUrl: `https://facebook.com/${data.id}`,
+              },
+            })
+          }
+        } else if (platformStr === 'LINKEDIN') {
+          // ── LinkedIn publish ─────────────────────────────────────────────
+          const linkedinToken = integration.accessToken
+          const personId = integration.accountId || ''
+          const body: any = {
+            author: `urn:li:person:${personId}`,
+            lifecycleState: 'PUBLISHED',
+            specificContent: {
+              'com.linkedin.ugc.ShareContent': {
+                shareCommentary: { text: post.caption },
+                shareMediaCategory: post.imageUrl ? 'IMAGE' : 'NONE',
+              },
+            },
+            visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+          }
+          const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { Authorization: `Bearer ${linkedinToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
           })
           const data = await res.json()
-          if (data.error) throw new Error(data.error.message)
-
+          if (data.status >= 400) throw new Error(data.message || 'LinkedIn publish failed')
           await prisma.socialPost.update({
             where: { id: post.id },
-            data: {
-              status: 'PUBLISHED',
-              publishedAt: now,
-              platformPostId: data.id,
-              platformUrl: `https://facebook.com/${data.id}`,
-            },
+            data: { status: 'PUBLISHED', publishedAt: now, platformPostId: data.id },
           })
-        } else if (platformStr === 'INSTAGRAM') {
-          // Step 1: Create media container
-          const igAccountId = post.pageId
-          const containerBody: any = {
-            caption: post.caption,
-            access_token: pageToken,
-          }
-          if (post.imageUrl) {
-            containerBody.image_url = post.imageUrl
-            containerBody.media_type = 'IMAGE'
-          } else {
-            containerBody.media_type = 'IMAGE'
-            containerBody.image_url = 'https://placehold.co/1080x1080/111/FF9500?text=Nexus'
-          }
-
-          const containerRes = await fetch(
-            `https://graph.facebook.com/v19.0/${igAccountId}/media`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(containerBody) }
-          )
-          const container = await containerRes.json()
-          if (container.error) throw new Error(container.error.message)
-
-          // Step 2: Publish container
-          const publishRes = await fetch(
-            `https://graph.facebook.com/v19.0/${igAccountId}/media_publish`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ creation_id: container.id, access_token: pageToken }),
-            }
-          )
-          const published = await publishRes.json()
-          if (published.error) throw new Error(published.error.message)
-
+        } else if (platformStr === 'TIKTOK') {
+          // TikTok requires a video URL — skip image-only posts
+          if (!post.imageUrl) throw new Error('TikTok requires a video URL')
+          const res = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_info: { title: post.caption, privacy_level: 'PUBLIC_TO_EVERYONE' }, source_info: { source: 'PULL_FROM_URL', video_url: post.imageUrl } }),
+          })
+          const data = await res.json()
+          if (data.error?.code !== 'ok') throw new Error(data.error?.message || 'TikTok publish failed')
           await prisma.socialPost.update({
             where: { id: post.id },
-            data: {
-              status: 'PUBLISHED',
-              publishedAt: now,
-              platformPostId: published.id,
-            },
+            data: { status: 'PUBLISHED', publishedAt: now, platformPostId: data.data?.publish_id },
           })
+        } else {
+          throw new Error(`Unsupported platform: ${platformStr}`)
         }
 
         return { id: post.id, success: true }

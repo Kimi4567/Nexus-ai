@@ -18,7 +18,7 @@ import { prisma } from '@/lib/prisma'
    - For each post: call DALL-E 3 → upload to Cloudinary → update imageUrl
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const CLOUDINARY_CLOUD  = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 

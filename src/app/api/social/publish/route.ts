@@ -85,8 +85,11 @@ export async function POST(req: NextRequest) {
     errorMessage = err.message || 'Publish failed'
   }
 
-  // Determine DB platform value
-  const dbPlatform = platform === 'LINKEDIN' ? 'META' : 'META' // SocialPost.platform uses Platform enum
+  // Determine DB platform value — maps to IntegrationType enum
+  const dbPlatform =
+    platform === 'LINKEDIN' ? 'LINKEDIN' :
+    platform === 'TIKTOK'   ? 'TIKTOK'   :
+    'META' // FACEBOOK or INSTAGRAM both belong to META integration
 
   // Record the post — requires `prisma generate` after running social_publishing.sql migration
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
