@@ -184,12 +184,52 @@ export default function SentinelPage() {
     label: t(tab.labelKey) as string,
   }))
 
+  // Build brand-specific context block from Brand Brain fields
+  const bn = brand?.brandName || (locale === 'ar' ? 'علامتك التجارية' : 'your brand')
+  const brandSpecificLines = [
+    brand?.uniqueAdvantages?.length
+      ? (locale === 'ar' ? `المزايا التنافسية لـ${bn}: ${brand.uniqueAdvantages.join('، ')}` : `${bn}'s competitive advantages: ${brand.uniqueAdvantages.join(', ')}`)
+      : '',
+    brand?.audiencePainPoints?.length
+      ? (locale === 'ar' ? `نقاط ألم الجمهور: ${brand.audiencePainPoints.join('، ')}` : `Audience pain points: ${brand.audiencePainPoints.join(', ')}`)
+      : '',
+    brand?.competitorNotes
+      ? (locale === 'ar' ? `المنافسون المعروفون: ${brand.competitorNotes}` : `Known competitors: ${brand.competitorNotes}`)
+      : '',
+    brand?.pricePoint
+      ? (locale === 'ar' ? `موضع السعر: ${brand.pricePoint}` : `Price positioning: ${brand.pricePoint}`)
+      : '',
+    brand?.winningAngles?.length
+      ? (locale === 'ar' ? `الزوايا التسويقية الرابحة: ${(brand.winningAngles as string[]).join('، ')}` : `Winning angles: ${(brand.winningAngles as string[]).join(', ')}`)
+      : '',
+  ].filter(Boolean).join('\n')
+
+  const brandMemoryBlock = brandSpecificLines
+    ? (locale === 'ar'
+        ? `\n\nمعطيات ذاكرة العلامة:\n${brandSpecificLines}\n`
+        : `\n\nBrand memory data:\n${brandSpecificLines}\n`)
+    : ''
+
   const systemPrompts: Record<MonitorType, string> = {
-    competitors: `${brandContext}أنت Sentinel، محلل استراتيجي متخصص في رصد المنافسين. القطاع: ${industry}. المنطقة: ${region}. حلل المنافسين: استراتيجياتهم التسويقية الحالية، نقاط قوتهم وضعفهم، تحركاتهم الأخيرة، وكيف يمكنك التفوق عليهم. قدم توصيات عملية فورية.`,
-    market: `${brandContext}أنت Sentinel، محلل نبض السوق الرقمي. القطاع: ${industry}. المنطقة: ${region}. رصد حالة السوق: الاتجاهات السائدة، حجم الطلب، تغيرات سلوك المستهلك، أفضل المنصات أداءً، والكلمات المفتاحية الصاعدة. قدم صورة واضحة ومحدثة.`,
-    reputation: `${brandContext}أنت Sentinel، خبير في إدارة سمعة العلامات التجارية. القطاع: ${industry}. حلل: كيفية مراقبة السمعة الرقمية، المؤشرات المهمة، كيفية الاستجابة للتعليقات، استراتيجيات بناء الصورة الإيجابية، وإدارة الأزمات.`,
-    opportunities: `${brandContext}أنت Sentinel، خبير في رصد فرص النمو التسويقية. القطاع: ${industry}. المنطقة: ${region}. حدد: الفرص غير المستغلة في السوق، الشرائح المهملة، الاتجاهات الناشئة التي يمكن ركوبها، والميزات التنافسية القابلة للبناء.`,
-    threats: `${brandContext}أنت Sentinel، محلل مخاطر تسويقية. القطاع: ${industry}. المنطقة: ${region}. حدد: التهديدات الرئيسية في السوق، المنافسون الصاعدون، التغييرات التنظيمية، التحولات في سلوك المستهلك، وكيفية الاستعداد والتكيف.`,
+    competitors: locale === 'ar'
+      ? `${brandContext}${brandMemoryBlock}\nأنت Sentinel، محلل استراتيجي يعمل حصرياً لصالح ${bn}. القطاع: ${industry}. المنطقة: ${region}.\n\nمهمتك: رصد المنافسين وتحليلهم من زاوية ${bn} تحديداً. لكل منافس تذكره:\n1. استراتيجيته التسويقية الحالية\n2. كيف يؤثر على مكانة ${bn} في السوق\n3. نقطة الضعف التي يمكن لـ${bn} استغلالها\n4. الخطوة العملية الفورية التي يجب أن تتخذها ${bn} للتفوق عليه\n\nقدم توصيات مخصصة لـ${bn}، ليس نصائح عامة.`
+      : `${brandContext}${brandMemoryBlock}\nYou are Sentinel, a strategic analyst working exclusively for ${bn}. Sector: ${industry}. Region: ${region}.\n\nYour mission: monitor and analyze competitors specifically through the lens of ${bn}. For each competitor:\n1. Their current marketing strategy\n2. How they threaten ${bn}'s market position\n3. The weakness ${bn} can exploit\n4. The immediate practical step ${bn} should take to outperform them\n\nDeliver ${bn}-specific recommendations, not generic advice.`,
+
+    market: locale === 'ar'
+      ? `${brandContext}${brandMemoryBlock}\nأنت Sentinel، محلل نبض السوق يعمل لصالح ${bn}. القطاع: ${industry}. المنطقة: ${region}.\n\nرصد حالة السوق من منظور ${bn}: الاتجاهات السائدة وكيف تؤثر على ${bn}، التغيرات في سلوك الجمهور المستهدف لـ${bn}، أفضل المنصات أداءً لقطاع ${industry}، والكلمات المفتاحية والمحتوى الصاعد الذي يجب أن ينتبه له ${bn}.`
+      : `${brandContext}${brandMemoryBlock}\nYou are Sentinel, a market pulse analyst working for ${bn}. Sector: ${industry}. Region: ${region}.\n\nMonitor market conditions through ${bn}'s lens: trends that directly impact ${bn}, behavioral shifts in ${bn}'s target audience, top-performing platforms for ${industry}, and rising keywords/content formats ${bn} should capitalize on.`,
+
+    reputation: locale === 'ar'
+      ? `${brandContext}${brandMemoryBlock}\nأنت Sentinel، خبير سمعة يعمل لصالح ${bn}. القطاع: ${industry}.\n\nحلل إدارة سمعة ${bn} تحديداً: المؤشرات الأهم لمتابعتها، كيف يجب أن يستجيب ${bn} للتعليقات والمراجعات، استراتيجية بناء الصورة الذهنية لـ${bn}، وكيفية التعامل مع أي أزمة سمعة محتملة بما يتناسب مع هوية ${bn} ونبرته.`
+      : `${brandContext}${brandMemoryBlock}\nYou are Sentinel, a reputation expert working for ${bn}. Sector: ${industry}.\n\nAnalyze reputation management specifically for ${bn}: the most critical indicators to monitor, how ${bn} should respond to reviews and comments, strategies to build ${bn}'s brand image, and how to handle any reputation crisis in a way that aligns with ${bn}'s identity and tone.`,
+
+    opportunities: locale === 'ar'
+      ? `${brandContext}${brandMemoryBlock}\nأنت Sentinel، محلل فرص النمو لـ${bn}. القطاع: ${industry}. المنطقة: ${region}.\n\nحدد الفرص التي تناسب ${bn} تحديداً: الشرائح المهملة في السوق التي يمكن لـ${bn} خدمتها، الاتجاهات الناشئة التي تتوافق مع مزايا ${bn}، الميزات التنافسية الجديدة التي يمكن لـ${bn} بناؤها، وخطوات عملية محددة ليبدأ بها ${bn} اليوم.`
+      : `${brandContext}${brandMemoryBlock}\nYou are Sentinel, a growth opportunity analyst for ${bn}. Sector: ${industry}. Region: ${region}.\n\nIdentify opportunities that fit ${bn} specifically: underserved market segments ${bn} can capture, emerging trends that align with ${bn}'s strengths, new competitive advantages ${bn} can build, and concrete next steps ${bn} can start today.`,
+
+    threats: locale === 'ar'
+      ? `${brandContext}${brandMemoryBlock}\nأنت Sentinel، محلل مخاطر لـ${bn}. القطاع: ${industry}. المنطقة: ${region}.\n\nحدد التهديدات التي تواجه ${bn} تحديداً: المنافسون الصاعدون الذين يستهدفون نفس جمهور ${bn}، التغييرات في السوق التي تهدد مكانة ${bn}، نقاط الضعف التي يجب أن يعالجها ${bn} الآن، وخطة استعداد مخصصة لـ${bn}.`
+      : `${brandContext}${brandMemoryBlock}\nYou are Sentinel, a risk analyst for ${bn}. Sector: ${industry}. Region: ${region}.\n\nIdentify threats specifically facing ${bn}: rising competitors targeting ${bn}'s audience, market shifts that threaten ${bn}'s positioning, vulnerabilities ${bn} must address now, and a tailored readiness plan for ${bn}.`,
   }
 
   async function generate() {
@@ -385,6 +425,50 @@ export default function SentinelPage() {
             ))}
           </div>
 
+          {/* Brand context bar — shown when Brand Brain has data */}
+          {brand?.brandName && (
+            <div
+              className="flex items-center gap-3 px-4 py-3 rounded-xl flex-wrap"
+              style={{
+                background: 'rgba(234,179,8,0.04)',
+                border: '1px solid rgba(234,179,8,0.18)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div
+                  className="w-6 h-6 rounded-md flex items-center justify-center"
+                  style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.25)' }}
+                >
+                  <Target size={12} style={{ color: '#EAB308' }} />
+                </div>
+                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#EAB308' }}>
+                  {locale === 'ar' ? `يرصد لصالح: ${brand.brandName}` : `Monitoring for: ${brand.brandName}`}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 flex-1">
+                {brand.industry && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-md font-medium"
+                    style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)', color: '#06b6d4' }}>
+                    {brand.industry}
+                  </span>
+                )}
+                {brand.uniqueAdvantages?.slice(0, 2).map((a, i) => (
+                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-md font-medium"
+                    style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#8b5cf6' }}>
+                    {a}
+                  </span>
+                ))}
+                {brand.competitorNotes && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-md font-medium"
+                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                    {locale === 'ar' ? '⚔ منافسون محددون' : '⚔ Known competitors'}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Main grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Config */}
@@ -413,15 +497,31 @@ export default function SentinelPage() {
                 <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('sentinel.quickQueries')}</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
-                    'من هم أقوى منافسيّ الحاليين وما استراتيجيتهم؟',
-                    'ما الفرص غير المستغلة في سوقي الآن؟',
-                    'كيف أتحقق من سمعة علامتي التجارية؟',
-                    'ما التهديدات القادمة في قطاعي لهذا الربع؟',
+                    brand?.brandName
+                      ? `من هم أقوى منافسي ${brand.brandName} وكيف يؤثرون على مكانتنا؟`
+                      : 'من هم أقوى منافسيّ الحاليين وما استراتيجيتهم؟',
+                    brand?.brandName
+                      ? `ما الفرص غير المستغلة التي يمكن لـ${brand.brandName} استغلالها الآن؟`
+                      : 'ما الفرص غير المستغلة في سوقي الآن؟',
+                    brand?.brandName
+                      ? `كيف أحمي سمعة ${brand.brandName} وأرصد ما يقال عنها؟`
+                      : 'كيف أتحقق من سمعة علامتي التجارية؟',
+                    brand?.brandName
+                      ? `ما التهديدات التي تواجه ${brand.brandName} في هذا الربع وكيف نستعد؟`
+                      : 'ما التهديدات القادمة في قطاعي لهذا الربع؟',
                   ] : [
-                    'Who are my strongest competitors and what is their strategy?',
-                    'What untapped opportunities exist in my market right now?',
-                    'How do I monitor my brand reputation?',
-                    'What threats are coming in my industry this quarter?',
+                    brand?.brandName
+                      ? `Who are ${brand.brandName}'s strongest competitors and how do they affect our positioning?`
+                      : 'Who are my strongest competitors and what is their strategy?',
+                    brand?.brandName
+                      ? `What untapped opportunities can ${brand.brandName} capitalize on right now?`
+                      : 'What untapped opportunities exist in my market right now?',
+                    brand?.brandName
+                      ? `How should ${brand.brandName} monitor and protect its online reputation?`
+                      : 'How do I monitor my brand reputation?',
+                    brand?.brandName
+                      ? `What threats does ${brand.brandName} face this quarter and how should we prepare?`
+                      : 'What threats are coming in my industry this quarter?',
                   ]).map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
                       className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-green-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}

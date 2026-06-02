@@ -11,6 +11,7 @@ import VideoGenerator from '@/components/VideoGenerator'
 import SocialPublisher from '@/components/SocialPublisher'
 import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
+import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
@@ -134,6 +135,7 @@ export default function CampaignDetailPage() {
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(0)
   const [brandScore, setBrandScore] = useState<number | null>(null)
+  const [brandDNA, setBrandDNA] = useState<BrandDNAData | null>(null)
   const [brandNoticeDismissed, setBrandNoticeDismissed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(isGenerating)
@@ -209,7 +211,10 @@ export default function CampaignDetailPage() {
       fetch('/api/brand', { headers: { Authorization: token } })
         .then(r => r.ok ? r.json() : null)
         .then(data => {
-          if (data) setBrandScore(getBrandBrainReadiness(data.brandProfile).score)
+          if (data) {
+            setBrandScore(getBrandBrainReadiness(data.brandProfile).score)
+            if (data.brandProfile) setBrandDNA(data.brandProfile as BrandDNAData)
+          }
         })
         .catch(() => {})
     }
@@ -996,6 +1001,7 @@ export default function CampaignDetailPage() {
             {activeTab === 0 && (
               <div className="space-y-4">
                 <AgentBanner idx={0} />
+                <BrandDNABadge brand={brandDNA} locale={locale} />
 
                 {/* ── Next Best Action — pinned at top for instant scannability ── */}
                 {strategy.nextBestAction && (
@@ -1724,6 +1730,7 @@ export default function CampaignDetailPage() {
             {activeTab === 1 && (
               <div className="space-y-4">
                 <AgentBanner idx={1} />
+                <BrandDNABadge brand={brandDNA} locale={locale} />
 
                 {/* Top Hooks */}
                 <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
@@ -2175,6 +2182,46 @@ export default function CampaignDetailPage() {
                     keyMessage={strategy.keyMessage}
                   />
                 </div>
+
+                {/* ── Learning Loop card — save winning hook back to Brand Brain ── */}
+                {topHooks.length > 0 && (
+                  <div className="rounded-2xl p-5 flex items-start gap-4"
+                    style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                      <span className="text-lg">🧠</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white mb-1">
+                        {locale === 'ar' ? 'علّم عقلك من هذه الحملة' : 'Teach your Brain from this campaign'}
+                      </p>
+                      <p className="text-xs mb-3" style={{ color: '#64748b' }}>
+                        {locale === 'ar'
+                          ? 'إذا نجح هذا الـ hook، احفظه في ذاكرة علامتك — سيستخدمه الـ AI في كل الحملات القادمة'
+                          : 'If this hook worked, save it to your brand memory — the AI will use it in all future campaigns'}
+                      </p>
+                      <div className="space-y-2">
+                        {topHooks.slice(0, 3).map((hook, i) => (
+                          <div key={i} className="flex items-start gap-2 p-3 rounded-xl"
+                            style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                            <p className="text-xs flex-1 leading-relaxed" style={{ color: '#94a3b8' }}>
+                              "{hook.length > 100 ? hook.slice(0, 100) + '…' : hook}"
+                            </p>
+                            <SaveToMemoryBtn
+                              text={hook}
+                              field="winningHooks"
+                              authHeader={authHeader}
+                              saveLabel={locale === 'ar' ? '+ حفظ' : '+ Save'}
+                              savedLabel={locale === 'ar' ? '✓ محفوظ' : '✓ Saved'}
+                              title={locale === 'ar' ? 'حفظ في ذاكرة العلامة التجارية' : 'Save to Brand Brain memory'}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Analytics section */}
                 <div className="bg-dark-secondary border border-blue-500/20 rounded-2xl p-6">
                   <SocialAnalytics campaignId={campaign.id} />
