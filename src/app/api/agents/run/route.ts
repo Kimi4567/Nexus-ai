@@ -11,7 +11,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency, BusinessBrief } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
-import { aiRateLimit } from '@/lib/rateLimit'
+import { aiRateLimit } from '@/lib/dbRateLimit'
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,8 +19,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     // Rate limit: 15 AI requests per minute per user
-    const rl = aiRateLimit(user.id)
-    if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
+    if (!aiRateLimit(user.id)) return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
 
     const body = await req.json()
     const { companyName, businessType, targetAudience, monthlyBudget, primaryGoal } = body

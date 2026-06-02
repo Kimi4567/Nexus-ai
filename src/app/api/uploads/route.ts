@@ -12,7 +12,7 @@ import {
   isValidUploadMime,
   validateUploadSize,
 } from '@/lib/uploadValidation'
-import { createRateLimiter } from '@/lib/rateLimiter'
+import { createRateLimiter } from '@/lib/dbRateLimit'
 
 // Use /tmp on Vercel (read-only FS outside /tmp), local .storage otherwise.
 // Lazy-initialised inside each request to avoid module-level crash on cold start.

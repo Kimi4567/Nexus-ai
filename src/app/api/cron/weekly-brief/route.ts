@@ -11,9 +11,10 @@ import { sendWeeklyBrief } from '@/lib/email/resend'
 
 // Cron auth
 function isAuthorized(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET
+  if (!secret) return true // dev — no secret configured
   const authHeader = req.headers.get('authorization')
-  if (process.env.NODE_ENV !== 'production') return true
-  return authHeader === `Bearer ${process.env.CRON_SECRET}`
+  return authHeader === `Bearer ${secret}`
 }
 
 // Generate content ideas using OpenAI — fast, cheap, high-value

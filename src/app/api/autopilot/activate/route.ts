@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -18,11 +18,6 @@ import { prisma } from '@/lib/prisma'
      Week 4 → +24 days from now
      Time   → 10:00 UTC (adjustable by user in future)
    ═══════════════════════════════════════════════════════════════════════════ */
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 // Map platform strings from strategy to Integration type enum
 const PLATFORM_MAP: Record<string, 'META' | 'LINKEDIN' | 'TIKTOK'> = {
@@ -95,7 +90,7 @@ export async function POST(req: NextRequest) {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user } } = await adminClient.auth.getUser(token)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { campaignId } = await req.json()

@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { stripe, STRIPE_PRICES } from '@/lib/stripe'
-import { checkoutRateLimit } from '@/lib/rateLimit'
+import { checkoutRateLimit } from '@/lib/dbRateLimit'
 
 function getBaseUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Rate limit: 5 checkout attempts per minute per user
-    const rl = checkoutRateLimit(user.id)
-    if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
+    if (!checkoutRateLimit(user.id)) return NextResponse.json({ error: 'Too many requests. Try again in a minute.' }, { status: 429 })
 
     // ── Parse body ──────────────────────────────────────────────────────────
     let plan: string

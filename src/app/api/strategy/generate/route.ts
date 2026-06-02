@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -33,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user }, error } = await adminClient.auth.getUser(token)
     if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { goal, timeframe, platform, budget, language } = await req.json()

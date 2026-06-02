@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -9,17 +9,12 @@ import { prisma } from '@/lib/prisma'
    ordered by scheduledAt asc. Used by the Autopilot tab in campaign detail.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function GET(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user } } = await adminClient.auth.getUser(token)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)
@@ -48,7 +43,7 @@ export async function DELETE(req: NextRequest) {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: { user } } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user } } = await adminClient.auth.getUser(token)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(req.url)

@@ -144,3 +144,47 @@ export async function imageRateLimitDb(userId: string) {
 export async function publishRateLimitDb(userId: string) {
   return dbRateLimit(`publish:${userId}`, { limit: 50, windowMs: 60 * 60_000 })
 }
+
+// ── Sync in-memory presets (backward-compat aliases) ─────────────────────────
+// Used by routes that need synchronous rate limiting without DB overhead.
+
+interface MemEntry { timestamps: number[] }
+const _syncStore = new Map<string, MemEntry>()
+
+function _syncLimit(key: string, limit: number, windowMs: number) {
+  const now = Date.now()
+  const entry = _syncStore.get(key) ?? { timestamps: [] }
+  entry.timestamps = entry.timestamps.filter(t => t > now - windowMs)
+  if (entry.timestamps.length >= limit) return false
+  entry.timestamps.push(now)
+  _syncStore.set(key, entry)
+  return true
+}
+
+/** In-memory sync — AI generation routes (15/min per user) */
+export function aiRateLimit(userId: string): boolean {
+  return _syncLimit(`sync_ai:${userId}`, 15, 60_000)
+}
+
+/** In-memory sync — Checkout (5/min per user) */
+export function checkoutRateLimit(userId: string): boolean {
+  return _syncLimit(`sync_checkout:${userId}`, 5, 60_000)
+}
+
+/** In-memory sync — Auth routes (10/min per IP) */
+export function authRateLimit(ip: string): boolean {
+  return _syncLimit(`sync_auth:${ip}`, 10, 60_000)
+}
+
+/** Factory — creates a reusable in-memory limiter (for upload routes) */
+export function createInMemoryRateLimiter(windowMs: number, maxHits: number) {
+  return function limit(key: string) {
+    const ok = _syncLimit(`factory:${key}`, maxHits, windowMs)
+    return { ok, message: ok ? '' : 'Rate limit exceeded', status: ok ? 200 : 429 }
+  }
+}
+
+/** Factory — uses in-memory (Redis stub kept for future upgrade) */
+export function createRateLimiter(windowMs: number, maxHits: number) {
+  return createInMemoryRateLimiter(windowMs, maxHits)
+}

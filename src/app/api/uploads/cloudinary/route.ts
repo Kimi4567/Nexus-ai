@@ -3,7 +3,7 @@ import { v2 as cloudinary } from 'cloudinary'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { createUploadError, getMediaTypeFromMime, getSafeFileName, isValidUploadMime, validateUploadSize } from '@/lib/uploadValidation'
-import { createRateLimiter } from '@/lib/rateLimiter'
+import { createRateLimiter } from '@/lib/dbRateLimit'
 
 const perUserRateLimit = createRateLimiter(60 * 1000, 20)
 const perIpRateLimit = createRateLimiter(60 * 1000, 50)
