@@ -90,22 +90,23 @@ export function buildBrandContext(brand: BrandProfile | null): string {
 }
 
 /**
- * Returns completeness score 0-100 and missing fields list
+ * Returns completeness score 0-100 and missing fields list (bilingual)
  */
-export function getBrandCompleteness(brand: BrandProfile | null): { score: number; missing: string[] } {
+export function getBrandCompleteness(brand: BrandProfile | null, locale?: string): { score: number; missing: string[] } {
   if (!brand) return { score: 0, missing: [] }
+  const isAr = !locale || locale === 'ar'
 
   const checks = [
-    { key: 'brandName',        label: 'اسم العلامة' },
-    { key: 'industry',         label: 'القطاع' },
-    { key: 'description',      label: 'وصف النشاط' },
-    { key: 'primaryOffer',     label: 'المنتج الرئيسي' },
-    { key: 'targetAudience',   label: 'الجمهور المستهدف' },
-    { key: 'audienceAge',      label: 'الفئة العمرية' },
-    { key: 'audienceLocation', label: 'الموقع الجغرافي' },
-    { key: 'toneKeywords',     label: 'نبرة الصوت' },
-    { key: 'topPlatforms',     label: 'المنصات' },
-    { key: 'uniqueAdvantages', label: 'المميزات الفريدة' },
+    { key: 'brandName',        ar: 'اسم العلامة',      en: 'Brand Name'       },
+    { key: 'industry',         ar: 'القطاع',             en: 'Industry'         },
+    { key: 'description',      ar: 'وصف النشاط',        en: 'Description'      },
+    { key: 'primaryOffer',     ar: 'المنتج الرئيسي',    en: 'Primary Offer'    },
+    { key: 'targetAudience',   ar: 'الجمهور المستهدف',  en: 'Target Audience'  },
+    { key: 'audienceAge',      ar: 'الفئة العمرية',     en: 'Age Group'        },
+    { key: 'audienceLocation', ar: 'الموقع الجغرافي',   en: 'Location'         },
+    { key: 'toneKeywords',     ar: 'نبرة الصوت',        en: 'Brand Tone'       },
+    { key: 'topPlatforms',     ar: 'المنصات',            en: 'Platforms'        },
+    { key: 'uniqueAdvantages', ar: 'المميزات الفريدة',  en: 'Advantages'       },
   ]
 
   const missing: string[] = []
@@ -115,7 +116,7 @@ export function getBrandCompleteness(brand: BrandProfile | null): { score: numbe
     const val = (brand as Record<string, unknown>)[c.key]
     const ok = Array.isArray(val) ? val.length > 0 : !!val
     if (ok) filled++
-    else missing.push(c.label)
+    else missing.push(isAr ? c.ar : c.en)
   }
 
   return { score: Math.round((filled / checks.length) * 100), missing }

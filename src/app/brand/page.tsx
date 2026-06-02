@@ -216,7 +216,7 @@ export default function BrandBrainPage() {
     if (ok) { setSaved(true); setTimeout(() => setSaved(false), 3000) }
   }
 
-  const { score, missing } = getBrandCompleteness(form)
+  const { score, missing } = getBrandCompleteness(form, locale)
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
   const currentStep    = STEPS[currentStepIdx]
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
@@ -301,9 +301,9 @@ export default function BrandBrainPage() {
                   <div className="flex flex-col items-center gap-1.5">
                     <ScoreRing score={score} />
                     <span className="text-xs font-bold" style={{ color: scoreColor }}>
-                      {score >= 80 ? (locale==='ar'?'عقل نشط':'Active Brain') :
-                       score >= 50 ? (locale==='ar'?'قيد البناء':'Building...') :
-                       (locale==='ar'?'يحتاج بيانات':'Needs Data')}
+                      {score >= 80 ? t('brand.scoreActiveBrain') :
+                       score >= 50 ? t('brand.scoreBuilding') :
+                       t('brand.scoreNeedsData')}
                     </span>
                   </div>
                   <button onClick={handleSave} disabled={saving}
