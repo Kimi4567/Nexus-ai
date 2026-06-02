@@ -39,6 +39,20 @@ interface Campaign {
   createdAt: string
   updatedAt: string
   activities: Activity[]
+  autopilotEnabled?: boolean
+  autopilotActivatedAt?: string
+}
+
+interface AutopilotPost {
+  id: string
+  platform: string
+  caption: string
+  imageUrl?: string | null
+  imagePrompt?: string | null
+  weekNumber?: number | null
+  scheduledAt?: string | null
+  status: string
+  pageName?: string | null
 }
 
 const ACTIVITY_ICONS: Record<string, string> = {
@@ -144,6 +158,12 @@ export default function CampaignDetailPage() {
   const [sentinelError, setSentinelError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<'no_credits' | 'first_campaign'>('no_credits')
+  // Autopilot
+  const [autopilotQueue, setAutopilotQueue] = useState<AutopilotPost[]>([])
+  const [autopilotActivating, setAutopilotActivating] = useState(false)
+  const [autopilotError, setAutopilotError] = useState('')
+  const [autopilotPausing, setAutopilotPausing] = useState(false)
+
   // Sprint H — Push to Calendar
   const [calendarPushState, setCalendarPushState] = useState<'idle' | 'pushing' | 'done' | 'already'>('idle')
   const [calendarPushCount, setCalendarPushCount] = useState(0)
@@ -157,6 +177,7 @@ export default function CampaignDetailPage() {
     { name: cdT?.agentPulseName   || 'PULSE',       icon: '⚡', title: cdT?.agentPulseTitle,    color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: cdT?.tabCalendar },
     { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabVisuals },
     { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
+    { name: '',                                      icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
     { name: '',                                      icon: '📋', title: '',                       color: 'text-gray-400',    border: '',                     bg: '',                 label: cdT?.tabActivity },
   ]
 
@@ -219,6 +240,17 @@ export default function CampaignDetailPage() {
         .catch(() => {})
     }
   }, [loading, isAuthenticated, fetchCampaign, router, authHeader])
+
+  // Load autopilot queue when tab 5 is active
+  useEffect(() => {
+    if (activeTab !== 5 || !isAuthenticated) return
+    const token = authHeader()
+    if (!token) return
+    fetch(`/api/autopilot/queue?campaignId=${campaignId}`, { headers: { Authorization: token } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.posts) setAutopilotQueue(d.posts) })
+      .catch(() => {})
+  }, [activeTab, isAuthenticated, campaignId, authHeader])
 
   // Poll for AI output when generating=true
   useEffect(() => {
@@ -2229,8 +2261,292 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* ── Tab 5: Activity ───────────────────────────────────────────── */}
+            {/* ── Tab 5: Autopilot ──────────────────────────────────────────── */}
             {activeTab === 5 && (
+              <div className="space-y-4">
+
+                {/* Header card */}
+                <div className="rounded-2xl p-6 border"
+                  style={{ background: 'rgba(109,40,217,0.05)', borderColor: 'rgba(139,92,246,0.25)' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                      <span className="text-lg">🤖</span>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-base">
+                        {locale === 'ar' ? 'وضع الأوتوبايلوت' : 'Autopilot Mode'}
+                      </h3>
+                      <p className="text-xs text-gray-400">
+                        {locale === 'ar'
+                          ? 'بعد الموافقة على الاستراتيجية، NEXUS يولد المحتوى والصور وينشر على جدولك تلقائياً'
+                          : 'After strategy approval, NEXUS generates content & images and publishes on your schedule automatically'}
+                      </p>
+                    </div>
+                    {campaign.autopilotEnabled && (
+                      <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
+                        style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.35)', color: '#a78bfa' }}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                        {locale === 'ar' ? 'نشط' : 'Active'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Requirements checklist */}
+                  {!campaign.autopilotEnabled && (
+                    <div className="mt-4 space-y-1.5">
+                      {[
+                        { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
+                        { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
+                        { label: locale === 'ar' ? 'الحملة معتمدة' : 'Campaign approved', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                        { label: locale === 'ar' ? 'منصات اجتماعية متصلة' : 'Social platforms connected', done: true /* checked server-side */ },
+                      ].map((req, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className={req.done ? 'text-green-400' : 'text-gray-600'}>
+                            {req.done ? '✓' : '○'}
+                          </span>
+                          <span className={req.done ? 'text-gray-300' : 'text-gray-600'}>{req.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action row */}
+                  <div className="mt-5 flex gap-2 flex-wrap">
+                    {campaign.autopilotEnabled ? (
+                      <>
+                        <button
+                          onClick={async () => {
+                            const token = authHeader()
+                            if (!token || autopilotPausing) return
+                            setAutopilotPausing(true)
+                            try {
+                              const res = await fetch(`/api/autopilot/queue?campaignId=${campaignId}`, {
+                                method: 'DELETE',
+                                headers: { Authorization: token },
+                              })
+                              if (res.ok) {
+                                setCampaign(prev => prev ? { ...prev, autopilotEnabled: false } : prev)
+                                setAutopilotQueue([])
+                              }
+                            } finally {
+                              setAutopilotPausing(false)
+                            }
+                          }}
+                          disabled={autopilotPausing}
+                          className="px-4 py-2 rounded-xl border text-xs font-semibold transition"
+                          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+                          {autopilotPausing ? '...' : (locale === 'ar' ? '⏸ إيقاف الأوتوبايلوت' : '⏸ Pause Autopilot')}
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const token = authHeader()
+                            if (!token) return
+                            const res = await fetch(`/api/autopilot/queue?campaignId=${campaignId}`, {
+                              headers: { Authorization: token },
+                            })
+                            const d = await res.json()
+                            if (d.posts) setAutopilotQueue(d.posts)
+                          }}
+                          className="px-4 py-2 rounded-xl border text-xs font-semibold transition"
+                          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                          {locale === 'ar' ? '↻ تحديث القائمة' : '↻ Refresh Queue'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          const token = authHeader()
+                          if (!token || autopilotActivating) return
+                          setAutopilotActivating(true)
+                          setAutopilotError('')
+                          try {
+                            const res = await fetch('/api/autopilot/activate', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: token },
+                              body: JSON.stringify({ campaignId }),
+                            })
+                            const d = await res.json()
+                            if (d.ok) {
+                              setCampaign(prev => prev ? { ...prev, autopilotEnabled: true } : prev)
+                              setAutopilotQueue(d.posts || [])
+                            } else {
+                              setAutopilotError(d.error || 'Activation failed')
+                            }
+                          } catch {
+                            setAutopilotError('Network error — please try again')
+                          } finally {
+                            setAutopilotActivating(false)
+                          }
+                        }}
+                        disabled={autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0}
+                        className="px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-40"
+                        style={{
+                          background: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
+                            ? 'rgba(255,255,255,0.05)'
+                            : 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                          color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
+                            ? '#6b7280' : '#fff',
+                          boxShadow: !autopilotActivating && aiOutput && weeklyExecutionPlan.length > 0
+                            ? '0 0 24px rgba(139,92,246,0.3)' : 'none',
+                        }}>
+                        {autopilotActivating
+                          ? (locale === 'ar' ? '⏳ جاري التفعيل...' : '⏳ Activating...')
+                          : (locale === 'ar' ? '🚀 تفعيل الأوتوبايلوت' : '🚀 Activate Autopilot')}
+                      </button>
+                    )}
+                  </div>
+
+                  {autopilotError && (
+                    <p className="text-red-400 text-xs mt-3">⚠ {autopilotError}</p>
+                  )}
+                  {!aiOutput && (
+                    <p className="text-amber-500/70 text-xs mt-3">
+                      {locale === 'ar'
+                        ? '⚠ يجب تشغيل "الاستراتيجية الكاملة" أولاً لتفعيل الأوتوبايلوت'
+                        : '⚠ Run Full Strategy first to enable Autopilot'}
+                    </p>
+                  )}
+                  {aiOutput && weeklyExecutionPlan.length === 0 && (
+                    <p className="text-amber-500/70 text-xs mt-3">
+                      {locale === 'ar'
+                        ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — أعد توليد الاستراتيجية'
+                        : '⚠ No weekly execution plan found — regenerate the strategy'}
+                    </p>
+                  )}
+                </div>
+
+                {/* Queue table */}
+                {autopilotQueue.length > 0 && (
+                  <div className="rounded-2xl border overflow-hidden"
+                    style={{ background: 'rgba(12,13,36,0.6)', borderColor: 'rgba(139,92,246,0.15)' }}>
+                    <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(139,92,246,0.1)' }}>
+                      <h4 className="font-semibold text-white text-sm flex items-center gap-2">
+                        <span>📅</span>
+                        {locale === 'ar'
+                          ? `قائمة الجدولة — ${autopilotQueue.length} منشور`
+                          : `Scheduled Queue — ${autopilotQueue.length} posts`}
+                      </h4>
+                    </div>
+                    <div className="divide-y" style={{ borderColor: 'rgba(139,92,246,0.08)' }}>
+                      {autopilotQueue.map((post) => {
+                        const statusColors: Record<string, { bg: string; text: string; label: string }> = {
+                          SCHEDULED:  { bg: 'rgba(139,92,246,0.12)', text: '#a78bfa', label: locale === 'ar' ? 'مجدول' : 'Scheduled' },
+                          PUBLISHED:  { bg: 'rgba(16,185,129,0.12)', text: '#34d399', label: locale === 'ar' ? 'منشور' : 'Published' },
+                          FAILED:     { bg: 'rgba(239,68,68,0.12)',   text: '#f87171', label: locale === 'ar' ? 'فشل' : 'Failed' },
+                          DRAFT:      { bg: 'rgba(107,114,128,0.12)', text: '#9ca3af', label: locale === 'ar' ? 'موقف' : 'Paused' },
+                        }
+                        const sc = statusColors[post.status] || statusColors.DRAFT
+                        const platformIcons: Record<string, string> = { META: '👥', LINKEDIN: '💼', TIKTOK: '🎵' }
+
+                        return (
+                          <div key={post.id} className="flex items-start gap-4 px-5 py-4">
+                            {/* Image preview */}
+                            <div className="w-14 h-14 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center"
+                              style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                              {post.imageUrl ? (
+                                <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-gray-600 text-lg">🖼</span>
+                              )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                {post.weekNumber && (
+                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                                    style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                    {locale === 'ar' ? `الأسبوع ${post.weekNumber}` : `Week ${post.weekNumber}`}
+                                  </span>
+                                )}
+                                <span className="text-xs font-medium" style={{ color: '#9ca3af' }}>
+                                  {platformIcons[post.platform] || '🌐'} {post.pageName || post.platform}
+                                </span>
+                                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                                  style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.text}30` }}>
+                                  {sc.label}
+                                </span>
+                                {!post.imageUrl && post.status === 'SCHEDULED' && (
+                                  <span className="text-xs text-amber-500/60">
+                                    {locale === 'ar' ? '⏳ الصورة تُولَّد تلقائياً' : '⏳ Image auto-generating'}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400 line-clamp-2">{post.caption}</p>
+                              {post.scheduledAt && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  📅 {new Date(post.scheduledAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+                                    weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                                  })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state when autopilot is active but queue was just loaded */}
+                {campaign.autopilotEnabled && autopilotQueue.length === 0 && (
+                  <div className="rounded-2xl p-8 text-center border"
+                    style={{ background: 'rgba(12,13,36,0.4)', borderColor: 'rgba(139,92,246,0.1)' }}>
+                    <div className="text-3xl mb-3">🤖</div>
+                    <p className="text-gray-500 text-sm">
+                      {locale === 'ar'
+                        ? 'جاري تحميل قائمة المنشورات...'
+                        : 'Loading scheduled queue...'}
+                    </p>
+                    <button
+                      onClick={async () => {
+                        const token = authHeader()
+                        if (!token) return
+                        const res = await fetch(`/api/autopilot/queue?campaignId=${campaignId}`, {
+                          headers: { Authorization: token },
+                        })
+                        const d = await res.json()
+                        if (d.posts) setAutopilotQueue(d.posts)
+                      }}
+                      className="mt-3 text-xs text-violet-400 hover:text-violet-300 transition">
+                      {locale === 'ar' ? '↻ تحميل' : '↻ Load queue'}
+                    </button>
+                  </div>
+                )}
+
+                {/* How it works */}
+                {!campaign.autopilotEnabled && (
+                  <div className="rounded-2xl p-5 border"
+                    style={{ background: 'rgba(12,13,36,0.4)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                    <h4 className="text-sm font-semibold text-gray-400 mb-3">
+                      {locale === 'ar' ? '⚡ كيف يعمل الأوتوبايلوت' : '⚡ How Autopilot works'}
+                    </h4>
+                    <div className="space-y-2.5">
+                      {(locale === 'ar' ? [
+                        { icon: '🧠', label: 'يقرأ خطة التنفيذ الأسبوعية من الاستراتيجية' },
+                        { icon: '✍️', label: 'يولد كابشن احترافي لكل منشور بناءً على الرسالة والـ CTA' },
+                        { icon: '🎨', label: 'قبل 48 ساعة من الموعد، يولد صورة تلقائياً بـ DALL-E 3' },
+                        { icon: '📤', label: 'في الموعد المحدد، ينشر على جميع المنصات المتصلة تلقائياً' },
+                      ] : [
+                        { icon: '🧠', label: 'Reads the weekly execution plan from your strategy' },
+                        { icon: '✍️', label: 'Generates a professional caption for each post based on the key message + CTA' },
+                        { icon: '🎨', label: '48h before each post, auto-generates an image with DALL-E 3' },
+                        { icon: '📤', label: 'At the scheduled time, publishes to all connected platforms automatically' },
+                      ]).map((step, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                          <span className="text-sm flex-shrink-0 mt-0.5">{step.icon}</span>
+                          <p className="text-xs text-gray-500">{step.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Tab 6: Activity ───────────────────────────────────────────── */}
+            {activeTab === 6 && (
               <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
                 <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><span>📋</span> {cdT?.activityTitle}</h3>
                 {campaign.activities.length === 0 ? (

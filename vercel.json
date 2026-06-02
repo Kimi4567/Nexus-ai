@@ -7,7 +7,11 @@
   "crons": [
     {
       "path": "/api/cron/publish",
-      "schedule": "0 8 * * *"
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/generate-images",
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/weekly-brief",
@@ -41,6 +45,12 @@
       "maxDuration": 60
     },
     "src/app/api/agents/run/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/autopilot/activate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/generate-images/route.ts": {
       "maxDuration": 60
     }
   }
