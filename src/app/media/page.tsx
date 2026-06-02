@@ -137,11 +137,11 @@ function PreviewModal({
       onClick={onClose}
     >
       <div
-        className="bg-dark-secondary border border-dark-tertiary rounded-xl shadow-2xl max-w-4xl w-full mx-4 overflow-hidden"
+        className="rounded-2xl shadow-2xl max-w-4xl w-full mx-4 overflow-hidden" style={{ background: 'rgba(6,7,26,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(20px)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dark-tertiary">
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
           <div className="flex items-center gap-3">
             <span className="font-semibold text-sm truncate max-w-xs">{media.fileName}</span>
             <TypeBadge type={media.type} mT={mT} />
@@ -156,7 +156,7 @@ function PreviewModal({
         </div>
 
         {/* Media area */}
-        <div className="bg-dark flex items-center justify-center min-h-[300px] max-h-[70vh]">
+        <div className="flex items-center justify-center min-h-[300px] max-h-[70vh]" style={{ background: 'rgba(6,7,26,0.6)' }}>
           {isImage && (
             <img
               src={media.url}
@@ -188,10 +188,10 @@ function PreviewModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-5 py-4 border-t border-dark-tertiary">
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderTop: '1px solid rgba(139,92,246,0.12)' }}>
           <button
             onClick={() => navigator.clipboard.writeText(media.url).catch(() => {})}
-            className="rounded border border-dark-tertiary px-3 py-1.5 text-sm text-accent hover:bg-dark-tertiary transition"
+            className="rounded-lg px-3 py-1.5 text-sm transition-all" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#8B5CF6' }}
           >
             {mT.btnCopyUrl}
           </button>
@@ -199,7 +199,7 @@ function PreviewModal({
             href={media.url}
             target="_blank"
             rel="noreferrer"
-            className="rounded border border-dark-tertiary px-3 py-1.5 text-sm text-gray-300 hover:bg-dark-tertiary transition"
+            className="rounded-lg px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
             {mT.btnOpen}
           </a>
@@ -219,9 +219,9 @@ function TypeBadge({ type, mT }: { type: string; mT: Record<string, string> }) {
     type === 'AUDIO' ? mT.typeAudio : type
 
   const color =
-    type === 'VIDEO' ? '#7C3AED' :
-    type === 'LOGO'  ? '#059669' :
-    type === 'AUDIO' ? '#D97706' : '#2563EB'
+    type === 'VIDEO' ? '#8B5CF6' :
+    type === 'LOGO'  ? '#10B981' :
+    type === 'AUDIO' ? '#F97316' : '#06B6D4'
 
   return (
     <span
@@ -280,10 +280,10 @@ function MediaCard({
   }
 
   return (
-    <div className="bg-dark rounded-xl overflow-hidden border border-dark-tertiary flex flex-col">
+    <div className="rounded-xl overflow-hidden flex flex-col transition-all hover:shadow-nx-card" style={{ background: 'rgba(12,13,36,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
       {/* Thumbnail */}
       <div
-        className="relative w-full h-40 bg-dark-tertiary cursor-pointer overflow-hidden group"
+        className="relative w-full h-40 cursor-pointer overflow-hidden group" style={{ background: 'rgba(17,20,45,0.8)' }}
         onClick={() => onPreview(media)}
       >
         {isVideo ? (
@@ -335,7 +335,7 @@ function MediaCard({
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="flex-1 rounded border border-dark-tertiary text-gray-300 text-xs py-1.5 hover:bg-dark-tertiary transition"
+                className="flex-1 rounded-lg text-xs py-1.5 text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 {mT.confirmNo}
               </button>
@@ -345,13 +345,13 @@ function MediaCard({
           <div className="flex gap-1.5 mt-auto pt-1">
             <button
               onClick={() => onPreview(media)}
-              className="flex-1 rounded border border-dark-tertiary text-accent text-xs py-1.5 hover:bg-dark-tertiary transition"
+              className="flex-1 rounded-lg text-xs py-1.5 transition-all" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#8B5CF6' }}
             >
               {mT.btnPreview}
             </button>
             <button
               onClick={handleCopyUrl}
-              className="flex-1 rounded border border-dark-tertiary text-gray-300 text-xs py-1.5 hover:bg-dark-tertiary transition"
+              className="flex-1 rounded-lg text-xs py-1.5 text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
               {copyFlash ? '✓' : mT.btnCopyUrl}
             </button>
@@ -639,7 +639,7 @@ export default function MediaLibraryPage() {
   }, [canUseCloudinary, uploadInProgress])
 
   if (loading) return (
-    <div className="min-h-screen bg-dark flex items-center justify-center">
+    <div className="min-h-screen bg-bg-base flex items-center justify-center">
       <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
     </div>
   )
@@ -655,14 +655,20 @@ export default function MediaLibraryPage() {
         />
       )}
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-        <div className="bg-dark-secondary border border-dark-tertiary rounded-lg p-8">
+      <div className="relative min-h-screen">
+          {/* Background grid */}
+          <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-40" />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+            <div>
 
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-2xl font-bold">{mT?.pageTitle}</h1>
-              <p className="text-gray-400 mt-1">{mT?.pageSubtitle}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-mono tracking-wider" style={{ color: 'rgba(139,92,246,0.7)' }}>NEXUS MEDIA</span>
+              </div>
+              <h1 className="text-3xl font-bold text-white">{mT?.pageTitle}</h1>
+              <p className="text-gray-400 mt-1 text-sm">{mT?.pageSubtitle}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -670,12 +676,12 @@ export default function MediaLibraryPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={mT?.searchPlaceholder}
-                className="rounded border border-dark-tertiary bg-dark px-3 py-2 text-sm text-white"
+                className="rounded-xl px-3 py-2 text-sm text-white outline-none transition-all" style={{ background: 'rgba(12,13,36,0.8)', border: '1px solid rgba(139,92,246,0.2)' }}
               />
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="rounded border border-dark-tertiary bg-dark px-3 py-2 text-sm text-white"
+                className="rounded-xl px-3 py-2 text-sm text-white outline-none transition-all" style={{ background: 'rgba(12,13,36,0.8)', border: '1px solid rgba(139,92,246,0.2)' }}
               >
                 <option value="ALL">{mT?.filterAll}</option>
                 <option value="IMAGE">{mT?.filterImages}</option>
@@ -689,11 +695,14 @@ export default function MediaLibraryPage() {
             <label className="block text-sm font-medium mb-2">{mT?.uploadLabel}</label>
             <div
               ref={dropRef}
-              className={`border-2 border-dashed rounded-md p-6 text-center transition ${
-                uploadInProgress
-                  ? 'border-dark-tertiary opacity-60 cursor-not-allowed'
-                  : 'border-dark-tertiary hover:border-accent cursor-pointer'
-              }`}
+              className="rounded-xl p-8 text-center transition-all"
+              style={{
+                background: 'rgba(12,13,36,0.6)',
+                border: uploadInProgress ? '2px dashed rgba(139,92,246,0.15)' : '2px dashed rgba(139,92,246,0.3)',
+                opacity: uploadInProgress ? 0.6 : 1,
+                cursor: uploadInProgress ? 'not-allowed' : 'pointer',
+                backdropFilter: 'blur(12px)',
+              }}
             >
               <input
                 id="file-input"
@@ -710,7 +719,7 @@ export default function MediaLibraryPage() {
               />
               <label
                 htmlFor="file-input"
-                className={`text-sm ${uploadInProgress ? 'text-gray-500 cursor-not-allowed' : 'text-accent cursor-pointer'}`}
+                className={`text-base font-semibold ${uploadInProgress ? 'text-gray-500 cursor-not-allowed' : 'cursor-pointer'}`} style={{ color: uploadInProgress ? undefined : '#8B5CF6' }}
               >
                 {uploadInProgress ? (mT?.uploadingInProgress || 'Upload in progress…') : mT?.uploadClick}
               </label>
@@ -733,7 +742,7 @@ export default function MediaLibraryPage() {
           {uploadTasks.length > 0 && (
             <div className="mb-6 space-y-3">
               {uploadTasks.map((task) => (
-                <div key={task.id} className="rounded-lg border border-dark-tertiary bg-dark p-4">
+                <div key={task.id} className="rounded-xl p-4" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.15)' }}>
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-sm truncate">{task.fileName}</div>
@@ -779,13 +788,13 @@ export default function MediaLibraryPage() {
           {isLoadingMedia ? (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="bg-dark rounded-xl border border-dark-tertiary animate-pulse h-52" />
+                <div key={i} className="rounded-xl animate-pulse h-52" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.08)' }} />
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {media.length === 0 ? (
-                <div className="col-span-full rounded-lg bg-dark p-8 text-center text-gray-400">
+                <div className="col-span-full rounded-2xl p-12 text-center text-gray-400" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.1)' }}>
                   {mT?.noMedia}
                 </div>
               ) : (
@@ -813,22 +822,23 @@ export default function MediaLibraryPage() {
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                className="rounded border border-dark-tertiary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl px-4 py-2 text-sm text-gray-300 hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-30" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 {mT?.btnPrevious}
               </button>
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                className="rounded border border-dark-tertiary px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl px-4 py-2 text-sm text-gray-300 hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-30" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
               >
                 {mT?.btnNext}
               </button>
             </div>
           </div>
 
+            </div>
+          </div>
         </div>
-      </div>
     </AppShell>
   )
 }

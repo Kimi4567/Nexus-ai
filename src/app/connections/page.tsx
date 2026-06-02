@@ -249,8 +249,8 @@ export default function ConnectionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020204] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-nx-base flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -260,7 +260,9 @@ export default function ConnectionsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-4 py-10 page-enter" dir={dir}>
+      <div className="relative min-h-screen">
+        <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-30" />
+        <div className="relative max-w-5xl mx-auto px-4 py-10 page-enter" dir={dir}>
 
         {/* ── Header ─────────────────────────────────────────── */}
         <div className="mb-10">
@@ -275,7 +277,7 @@ export default function ConnectionsPage() {
             </div>
             <button
               onClick={fetchAccounts}
-              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+              className="p-2.5 rounded-xl border transition-all" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)' }}
             >
               <RefreshCw className={`w-4 h-4 text-gray-400 ${loadingAccounts ? 'animate-spin' : ''}`} />
             </button>
@@ -360,8 +362,9 @@ export default function ConnectionsPage() {
                 key={platform.id}
                 className="rounded-2xl overflow-hidden transition-all"
                 style={{
-                  background: isConnected ? 'rgba(16,185,129,0.03)' : 'rgba(255,255,255,0.02)',
-                  border: isConnected ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(255,255,255,0.06)',
+                  background: isConnected ? 'rgba(16,185,129,0.04)' : 'rgba(12,13,36,0.6)',
+                  border: isConnected ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(139,92,246,0.15)',
+                  backdropFilter: 'blur(12px)',
                 }}
               >
                 <div className="p-6 flex items-start gap-5">
@@ -496,9 +499,9 @@ export default function ConnectionsPage() {
         {/* ── Security Note ──────────────────────────────────── */}
         <div
           className="flex items-start gap-3 mt-8 p-5 rounded-2xl"
-          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+          style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(12px)' }}
         >
-          <Shield className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <Shield className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold mb-1">{t('connections.securityTitle')}</p>
             <p className="text-xs text-gray-500 leading-relaxed">{t('connections.securityDesc')}</p>
@@ -509,12 +512,13 @@ export default function ConnectionsPage() {
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-600">
             {t('connections.helpText')}{' '}
-            <a href="mailto:support@nexus-grow.com" className="text-amber-500 hover:text-amber-400 transition">
+            <a href="mailto:support@nexus-grow.com" className="text-violet-400 hover:text-violet-300 transition">
               {t('connections.contactUs')}
             </a>
           </p>
         </div>
 
+        </div>
       </div>
     </AppShell>
   )

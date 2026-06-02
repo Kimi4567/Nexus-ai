@@ -168,8 +168,8 @@ function RadioGroup({ options, value, onChange }: {
         <button key={o.v} onClick={() => onChange(o.v)}
           className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
           style={{
-            background: value === o.v ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.03)',
-            border: `1px solid ${value === o.v ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`,
+            background: value === o.v ? 'rgba(245,158,11,0.15)' : 'rgba(12,13,36,0.55)',
+            border: `1px solid ${value === o.v ? 'rgba(245,158,11,0.4)' : 'rgba(139,92,246,0.1)'}`,
             color: value === o.v ? '#f59e0b' : '#9ca3af',
           }}>
           {value === o.v && '● '}{o.l}
@@ -219,7 +219,7 @@ export default function BrandBrainPage() {
   const currentStep = STEPS[currentStepIdx]
 
   if (authLoading || loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#06071A' }}>
       <Loader2 className="animate-spin text-amber-500" size={32} />
     </div>
   )
@@ -229,7 +229,7 @@ export default function BrandBrainPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
+      <div className="min-h-screen relative" style={{ background: '#06071A' }} dir={dir}>
         <StarField />
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 0 }}>
           <div className="absolute rounded-full blur-[160px] opacity-15"
@@ -287,7 +287,7 @@ export default function BrandBrainPage() {
                 {score}%
               </span>
             </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.08)' }}>
               <div className="h-full rounded-full transition-all duration-500"
                 style={{ width: `${score}%`, background: score >= 80 ? 'linear-gradient(90deg,#10b981,#059669)' : score >= 50 ? 'linear-gradient(90deg,#f59e0b,#d97706)' : 'linear-gradient(90deg,#ef4444,#dc2626)' }} />
             </div>
@@ -314,8 +314,8 @@ export default function BrandBrainPage() {
                 <button key={s.id} onClick={() => setStep(s.id)}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex-shrink-0"
                   style={{
-                    background: active ? `${s.color}18` : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${active ? s.color + '40' : 'rgba(255,255,255,0.07)'}`,
+                    background: active ? `${s.color}18` : 'rgba(12,13,36,0.55)',
+                    border: `1px solid ${active ? s.color + '40' : 'rgba(139,92,246,0.12)'}`,
                     color: active ? s.color : '#9ca3af',
                   }}>
                   <s.icon size={14} />
@@ -327,7 +327,7 @@ export default function BrandBrainPage() {
 
           {/* ── Step content ────────────────────────────────────── */}
           <div className="rounded-2xl p-6 space-y-5" style={{ ...glassCard, borderColor: `${currentStep.color}25` }}>
-            <div className="flex items-center gap-3 pb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center gap-3 pb-4" style={{ borderBottom: '1px solid rgba(139,92,246,0.1)' }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ background: `${currentStep.color}18`, border: `1px solid ${currentStep.color}30` }}>
                 <currentStep.icon size={18} style={{ color: currentStep.color }} />
@@ -406,8 +406,8 @@ export default function BrandBrainPage() {
                         <button key={a} onClick={() => set('audienceAge', a)}
                           className="px-3 py-1.5 rounded-lg text-xs transition-all"
                           style={{
-                            background: form.audienceAge === a ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
-                            border: `1px solid ${form.audienceAge === a ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                            background: form.audienceAge === a ? 'rgba(139,92,246,0.18)' : 'rgba(12,13,36,0.55)',
+                            border: `1px solid ${form.audienceAge === a ? 'rgba(139,92,246,0.4)' : 'rgba(139,92,246,0.1)'}`,
                             color: form.audienceAge === a ? '#8b5cf6' : '#9ca3af',
                           }}>
                           {form.audienceAge === a && '● '}{a}
@@ -466,8 +466,8 @@ export default function BrandBrainPage() {
                       <button key={style} onClick={() => set('visualStyle', style)}
                         className="px-3 py-1.5 rounded-lg text-xs transition-all"
                         style={{
-                          background: form.visualStyle === style ? 'rgba(236,72,153,0.15)' : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${form.visualStyle === style ? 'rgba(236,72,153,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                          background: form.visualStyle === style ? 'rgba(236,72,153,0.15)' : 'rgba(12,13,36,0.55)',
+                          border: `1px solid ${form.visualStyle === style ? 'rgba(236,72,153,0.4)' : 'rgba(139,92,246,0.1)'}`,
                           color: form.visualStyle === style ? '#ec4899' : '#9ca3af',
                         }}>
                         {form.visualStyle === style && '● '}{style}
@@ -497,7 +497,7 @@ export default function BrandBrainPage() {
             )}
 
             {/* Navigation */}
-            <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(139,92,246,0.1)' }}>
               <button
                 onClick={() => currentStepIdx > 0 && setStep(STEPS[currentStepIdx - 1].id)}
                 disabled={currentStepIdx === 0}
@@ -511,7 +511,7 @@ export default function BrandBrainPage() {
                 {STEPS.map(s => (
                   <button key={s.id} onClick={() => setStep(s.id)}
                     className="w-2 h-2 rounded-full transition-all"
-                    style={{ background: step === s.id ? '#f59e0b' : 'rgba(255,255,255,0.15)', transform: step === s.id ? 'scale(1.4)' : 'scale(1)' }} />
+                    style={{ background: step === s.id ? '#f59e0b' : 'rgba(139,92,246,0.2)', transform: step === s.id ? 'scale(1.4)' : 'scale(1)' }} />
                 ))}
               </div>
 
@@ -542,7 +542,7 @@ export default function BrandBrainPage() {
               { color: '#8b5cf6', icon: BarChart2, label: 'PULSE',      descKey: 'brand.pulseCardDesc' },
               { color: '#10b981', icon: Target,   label: 'Sentinel',    descKey: 'brand.sentinelCardDesc' },
             ].map((c, i) => (
-              <div key={i} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(139,92,246,0.08)' }}>
+              <div key={i} className="rounded-xl p-3" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(12px)' }}>
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-2"
                   style={{ background: `${c.color}18`, border: `1px solid ${c.color}25` }}>
                   <c.icon size={14} style={{ color: c.color }} />

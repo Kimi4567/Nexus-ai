@@ -65,6 +65,13 @@ const config: Config = {
         'status-error':     '#EF4444',
         'agent-nex-legacy': '#06B6D4',
         'agent-vex-legacy': '#F97316',
+
+        // ── dark-* aliases (used by legacy page components) ───────────
+        // These map to the nx-* palette so all pages render correctly
+        'dark':           '#06071A',   // bg-dark  → nx-base
+        'dark-secondary': '#0C0D24',   // bg-dark-secondary → nx-surface
+        'dark-tertiary':  '#111330',   // bg-dark-tertiary, border-dark-tertiary → nx-elevated
+        'accent':         '#8B5CF6',   // text-accent, bg-accent, border-accent → nx-violet
       },
 
       fontFamily: {
