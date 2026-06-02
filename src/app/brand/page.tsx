@@ -131,11 +131,54 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, onSuggest, suggesting, accentColor }: {
+  label: string; children: React.ReactNode;
+  onSuggest?: () => void; suggesting?: boolean; accentColor?: string
+}) {
+  const accent = accentColor || '#8b5cf6'
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>{label}</label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>{label}</label>
+        {onSuggest && (
+          <button onClick={onSuggest} disabled={suggesting}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+            style={{
+              background: suggesting ? `${accent}10` : `${accent}15`,
+              border: `1px solid ${accent}35`,
+              color: accent,
+              boxShadow: suggesting ? 'none' : `0 0 8px ${accent}15`,
+            }}>
+            {suggesting
+              ? <Loader2 size={11} className="animate-spin"/>
+              : <Wand2 size={11}/>}
+            {suggesting ? '...' : 'AI'}
+          </button>
+        )}
+      </div>
       {children}
+    </div>
+  )
+}
+
+function SuggestionCard({ suggestion, onAccept, onDismiss, accent, locale }: {
+  suggestion: string; onAccept: () => void; onDismiss: () => void; accent: string; locale: string
+}) {
+  return (
+    <div className="p-3 rounded-xl text-sm" style={{ background: `${accent}08`, border: `1px solid ${accent}28` }}>
+      <p className="mb-2 leading-relaxed" style={{ color: '#c4b5fd' }}>✨ {suggestion}</p>
+      <div className="flex gap-2">
+        <button onClick={onAccept}
+          className="text-xs px-3 py-1 rounded-lg font-semibold transition-all"
+          style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}35` }}>
+          {locale === 'ar' ? 'استخدم هذا' : 'Use this'}
+        </button>
+        <button onClick={onDismiss}
+          className="text-xs px-3 py-1 rounded-lg transition-all"
+          style={{ color: '#64748b' }}>
+          {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -341,6 +384,7 @@ export default function BrandBrainPage() {
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const [suggesting, setSuggesting]   = useState<string | null>(null)
+  const [textSuggestion, setTextSuggestion] = useState<{ field: string; text: string } | null>(null)
   const [form, setForm]   = useState<BrandProfile>({
     brandName: '', industry: '', description: '',
     primaryOffer: '', secondaryOffers: [], pricePoint: 'mid-range', uniqueAdvantages: [],
@@ -364,6 +408,33 @@ export default function BrandBrainPage() {
   }
 
   const { authHeader } = useAuth()
+
+  // ── handleSuggestText: for plain text fields ──────────────────
+  const handleSuggestText = async (field: keyof BrandProfile) => {
+    setSuggesting(field)
+    setTextSuggestion(null)
+    try {
+      const res = await fetch('/api/brand/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({
+          field,
+          brandName:      form.brandName,
+          industry:       form.industry,
+          description:    form.description,
+          primaryOffer:   form.primaryOffer,
+          targetAudience: form.targetAudience,
+          locale,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.suggestion) setTextSuggestion({ field, text: data.suggestion })
+      }
+    } catch {/* silent */}
+    finally { setSuggesting(null) }
+  }
+
   const handleSuggest = async (field: keyof BrandProfile) => {
     if (!form.brandName && !form.industry) return
     setSuggesting(field)
@@ -628,10 +699,17 @@ export default function BrandBrainPage() {
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{color:'#4b5563'}}/>
                     </div>
                   </Field>
-                  <Field label={t('brand.identityDescLabel')}>
+                  <Field label={t('brand.identityDescLabel')}
+                    onSuggest={() => handleSuggestText('description')}
+                    suggesting={suggesting === 'description'} accentColor={currentStep.color}>
                     <NxInput textarea value={form.description||''} onChange={v=>set('description',v)}
                       placeholder={t('brand.identityDescPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
+                  {textSuggestion?.field === 'description' && (
+                    <SuggestionCard suggestion={textSuggestion.text}
+                      onAccept={() => { set('description', textSuggestion.text); setTextSuggestion(null) }}
+                      onDismiss={() => setTextSuggestion(null)} accent={currentStep.color} locale={locale}/>
+                  )}
                   <Field label={t('brand.identityNotesLabel')}>
                     <NxInput textarea value={form.strategicNotes||''} onChange={v=>set('strategicNotes',v)}
                       placeholder={t('brand.identityNotesPlaceholder')} accentColor={currentStep.color}/>
@@ -641,12 +719,20 @@ export default function BrandBrainPage() {
 
               {step === 'product' && (
                 <div className="space-y-5">
-                  <Field label={t('brand.productPrimaryLabel')}>
+                  <Field label={t('brand.productPrimaryLabel')}
+                    onSuggest={() => handleSuggestText('primaryOffer')}
+                    suggesting={suggesting === 'primaryOffer'} accentColor={currentStep.color}>
                     <NxInput textarea value={form.primaryOffer||''} onChange={v=>set('primaryOffer',v)}
                       placeholder={t('brand.productPrimaryPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
+                  {textSuggestion?.field === 'primaryOffer' && (
+                    <SuggestionCard suggestion={textSuggestion.text}
+                      onAccept={() => { set('primaryOffer', textSuggestion.text); setTextSuggestion(null) }}
+                      onDismiss={() => setTextSuggestion(null)} accent={currentStep.color} locale={locale}/>
+                  )}
                   <TagInput label={t('brand.productSecondaryLabel')} placeholder={t('brand.productSecondaryPlaceholder')}
-                    values={form.secondaryOffers||[]} onChange={v=>set('secondaryOffers',v)} accentColor={currentStep.color}/>
+                    values={form.secondaryOffers||[]} onChange={v=>set('secondaryOffers',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('secondaryOffers')} suggesting={suggesting==='secondaryOffers'}/>
                   <Field label={t('brand.productPriceLabel')}>
                     <RadioGroup options={PRICE_OPTIONS.map(o=>({v:o.v,l:locale==='ar'?o.l:o.lEn}))}
                       value={form.pricePoint||''} onChange={v=>set('pricePoint',v)} color={currentStep.color}/>
@@ -659,10 +745,17 @@ export default function BrandBrainPage() {
 
               {step === 'audience' && (
                 <div className="space-y-5">
-                  <Field label={t('brand.audienceDescLabel')}>
+                  <Field label={t('brand.audienceDescLabel')}
+                    onSuggest={() => handleSuggestText('targetAudience')}
+                    suggesting={suggesting === 'targetAudience'} accentColor={currentStep.color}>
                     <NxInput textarea value={form.targetAudience||''} onChange={v=>set('targetAudience',v)}
                       placeholder={t('brand.audienceDescPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
+                  {textSuggestion?.field === 'targetAudience' && (
+                    <SuggestionCard suggestion={textSuggestion.text}
+                      onAccept={() => { set('targetAudience', textSuggestion.text); setTextSuggestion(null) }}
+                      onDismiss={() => setTextSuggestion(null)} accent={currentStep.color} locale={locale}/>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <Field label={t('brand.audienceAgeLabel')}>
                       <div className="flex flex-wrap gap-2">
@@ -700,12 +793,20 @@ export default function BrandBrainPage() {
                     <ToggleGrid options={locale==='ar'?TONE_OPTIONS_AR:TONE_OPTIONS_EN}
                       selected={form.toneKeywords||[]} onChange={v=>set('toneKeywords',v)} color={currentStep.color}/>
                   </Field>
-                  <Field label={t('brand.voiceStyleLabel')}>
+                  <Field label={t('brand.voiceStyleLabel')}
+                    onSuggest={() => handleSuggestText('writingStyle')}
+                    suggesting={suggesting === 'writingStyle'} accentColor={currentStep.color}>
                     <NxInput value={form.writingStyle||''} onChange={v=>set('writingStyle',v)}
                       placeholder={t('brand.voiceStylePlaceholder')} accentColor={currentStep.color}/>
                   </Field>
+                  {textSuggestion?.field === 'writingStyle' && (
+                    <SuggestionCard suggestion={textSuggestion.text}
+                      onAccept={() => { set('writingStyle', textSuggestion.text); setTextSuggestion(null) }}
+                      onDismiss={() => setTextSuggestion(null)} accent={currentStep.color} locale={locale}/>
+                  )}
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
-                    values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}/>
+                    values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('avoidKeywords')} suggesting={suggesting==='avoidKeywords'}/>
                   <TagInput label={t('brand.voiceHooksLabel')} placeholder={t('brand.voiceHooksPlaceholder')}
                     values={form.winningHooks||[]} onChange={v=>set('winningHooks',v)} accentColor={currentStep.color}
                     onSuggest={() => handleSuggest('winningHooks')} suggesting={suggesting==='winningHooks'}/>
@@ -735,7 +836,8 @@ export default function BrandBrainPage() {
                     </div>
                   </Field>
                   <TagInput label={t('brand.platformsAnglesLabel')} placeholder={t('brand.platformsAnglesPlaceholder')}
-                    values={form.winningAngles||[]} onChange={v=>set('winningAngles',v)} accentColor={currentStep.color}/>
+                    values={form.winningAngles||[]} onChange={v=>set('winningAngles',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('winningAngles')} suggesting={suggesting==='winningAngles'}/>
                   <TagInput label={t('brand.platformsFailedLabel')} placeholder={t('brand.platformsFailedPlaceholder')}
                     values={form.failedAngles||[]} onChange={v=>set('failedAngles',v)} accentColor={currentStep.color}/>
                 </div>
@@ -743,10 +845,17 @@ export default function BrandBrainPage() {
 
               {step === 'competitors' && (
                 <div className="space-y-5">
-                  <Field label={t('brand.competitorsNotesLabel')}>
+                  <Field label={t('brand.competitorsNotesLabel')}
+                    onSuggest={() => handleSuggestText('competitorNotes')}
+                    suggesting={suggesting === 'competitorNotes'} accentColor={currentStep.color}>
                     <NxInput textarea value={form.competitorNotes||''} onChange={v=>set('competitorNotes',v)}
                       placeholder={t('brand.competitorsNotesPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
+                  {textSuggestion?.field === 'competitorNotes' && (
+                    <SuggestionCard suggestion={textSuggestion.text}
+                      onAccept={() => { set('competitorNotes', textSuggestion.text); setTextSuggestion(null) }}
+                      onDismiss={() => setTextSuggestion(null)} accent={currentStep.color} locale={locale}/>
+                  )}
                 </div>
               )}
 

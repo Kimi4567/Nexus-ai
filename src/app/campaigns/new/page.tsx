@@ -43,6 +43,10 @@ export default function NewCampaignPage() {
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
 
+  // AI suggest state
+  const [suggesting, setSuggesting] = useState<string | null>(null)
+  const [suggestion, setSuggestion] = useState<{ field: string; text: string } | null>(null)
+
   // Fetch Brand Brain readiness once on mount
   useEffect(() => {
     fetch('/api/brand', { headers: { Authorization: authHeader() } })
@@ -137,6 +141,29 @@ export default function NewCampaignPage() {
     }
   }
 
+  const handleSuggest = async (field: 'name' | 'description' | 'audience') => {
+    setSuggesting(field)
+    setSuggestion(null)
+    try {
+      const res = await fetch('/api/campaigns/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({ field, name, description, goal, locale }),
+      })
+      const data = await res.json()
+      if (data.suggestion) setSuggestion({ field, text: data.suggestion })
+    } catch { /* silent */ }
+    finally { setSuggesting(null) }
+  }
+
+  const acceptSuggestion = () => {
+    if (!suggestion) return
+    if (suggestion.field === 'name') setName(suggestion.text)
+    if (suggestion.field === 'description') setDescription(suggestion.text)
+    if (suggestion.field === 'audience') setAudience(suggestion.text)
+    setSuggestion(null)
+  }
+
   const stepIndicatorText = (cnT?.stepIndicator as string)
     ?.replace('{step}', String(step))
     ?.replace('{total}', String(totalSteps))
@@ -222,8 +249,28 @@ export default function NewCampaignPage() {
         {step === 1 && (
           <div className="space-y-4">
             <h3 className="font-bold text-lg">{cnT?.step1Heading as string}</h3>
+
+            {/* Campaign Name */}
             <div>
-              <label className="block text-sm font-medium mb-1.5">{cnT?.campaignNameLabel as string} <span className="text-red-400">*</span></label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium">{cnT?.campaignNameLabel as string} <span className="text-red-400">*</span></label>
+                <button
+                  type="button"
+                  onClick={() => handleSuggest('name')}
+                  disabled={suggesting === 'name'}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all hover:scale-105"
+                  style={{
+                    background: 'rgba(139,92,246,0.12)',
+                    border: '1px solid rgba(139,92,246,0.25)',
+                    color: '#a78bfa',
+                  }}
+                >
+                  {suggesting === 'name'
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Wand2 className="w-3 h-3" />}
+                  {locale === 'ar' ? 'اقتراح AI' : 'AI Suggest'}
+                </button>
+              </div>
               <input
                 type="text"
                 value={name}
@@ -232,9 +279,46 @@ export default function NewCampaignPage() {
                 className="input-nexus"
                 autoFocus
               />
+              {suggestion?.field === 'name' && (
+                <div className="mt-2 p-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  <p className="text-violet-300 font-medium mb-2">✨ {suggestion.text}</p>
+                  <div className="flex gap-2">
+                    <button onClick={acceptSuggestion}
+                      className="text-xs px-3 py-1 rounded-lg font-semibold"
+                      style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                      {locale === 'ar' ? 'استخدم هذا' : 'Use this'}
+                    </button>
+                    <button onClick={() => setSuggestion(null)}
+                      className="text-xs px-3 py-1 rounded-lg text-gray-500 hover:text-gray-400">
+                      {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-1.5">{cnT?.descriptionLabel as string}</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium">{cnT?.descriptionLabel as string}</label>
+                <button
+                  type="button"
+                  onClick={() => handleSuggest('description')}
+                  disabled={suggesting === 'description'}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all hover:scale-105"
+                  style={{
+                    background: 'rgba(139,92,246,0.12)',
+                    border: '1px solid rgba(139,92,246,0.25)',
+                    color: '#a78bfa',
+                  }}
+                >
+                  {suggesting === 'description'
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Wand2 className="w-3 h-3" />}
+                  {locale === 'ar' ? 'اقتراح AI' : 'AI Suggest'}
+                </button>
+              </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -242,6 +326,23 @@ export default function NewCampaignPage() {
                 rows={3}
                 className="input-nexus resize-none"
               />
+              {suggestion?.field === 'description' && (
+                <div className="mt-2 p-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  <p className="text-violet-300 mb-2">{suggestion.text}</p>
+                  <div className="flex gap-2">
+                    <button onClick={acceptSuggestion}
+                      className="text-xs px-3 py-1 rounded-lg font-semibold"
+                      style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                      {locale === 'ar' ? 'استخدم هذا' : 'Use this'}
+                    </button>
+                    <button onClick={() => setSuggestion(null)}
+                      className="text-xs px-3 py-1 rounded-lg text-gray-500 hover:text-gray-400">
+                      {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -295,7 +396,25 @@ export default function NewCampaignPage() {
           <div className="space-y-4">
             <h3 className="font-bold text-lg">{cnT?.step3Heading as string}</h3>
             <div>
-              <label className="block text-sm font-medium mb-1.5">{cnT?.audienceLabel as string}</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium">{cnT?.audienceLabel as string}</label>
+                <button
+                  type="button"
+                  onClick={() => handleSuggest('audience')}
+                  disabled={suggesting === 'audience'}
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all hover:scale-105"
+                  style={{
+                    background: 'rgba(139,92,246,0.12)',
+                    border: '1px solid rgba(139,92,246,0.25)',
+                    color: '#a78bfa',
+                  }}
+                >
+                  {suggesting === 'audience'
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Wand2 className="w-3 h-3" />}
+                  {locale === 'ar' ? 'اقتراح AI' : 'AI Suggest'}
+                </button>
+              </div>
               <textarea
                 value={audience}
                 onChange={(e) => setAudience(e.target.value)}
@@ -304,6 +423,23 @@ export default function NewCampaignPage() {
                 className="input-nexus resize-none"
                 autoFocus
               />
+              {suggestion?.field === 'audience' && (
+                <div className="mt-2 p-3 rounded-xl text-sm"
+                  style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                  <p className="text-violet-300 mb-2">{suggestion.text}</p>
+                  <div className="flex gap-2">
+                    <button onClick={acceptSuggestion}
+                      className="text-xs px-3 py-1 rounded-lg font-semibold"
+                      style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                      {locale === 'ar' ? 'استخدم هذا' : 'Use this'}
+                    </button>
+                    <button onClick={() => setSuggestion(null)}
+                      className="text-xs px-3 py-1 rounded-lg text-gray-500 hover:text-gray-400">
+                      {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <p className="text-text-muted text-xs mt-1.5">
                 {cnT?.audienceHint as string}
               </p>
