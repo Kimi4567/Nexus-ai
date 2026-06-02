@@ -28,9 +28,25 @@ type Integration = {
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
-  FACEBOOK: '👥',
+  FACEBOOK:  '👥',
   INSTAGRAM: '📸',
-  META: '🌐',
+  META:      '🌐',
+  LINKEDIN:  '💼',
+  TIKTOK:    '🎵',
+  SNAPCHAT:  '👻',
+  YOUTUBE:   '▶️',
+  TWITTER:   '𝕏',
+}
+
+const PLATFORM_COLORS: Record<string, string> = {
+  FACEBOOK:  '#1877F2',
+  INSTAGRAM: '#E1306C',
+  META:      '#0668E1',
+  LINKEDIN:  '#0A66C2',
+  TIKTOK:    '#69C9D0',
+  SNAPCHAT:  '#FFFC00',
+  YOUTUBE:   '#FF0000',
+  TWITTER:   '#1DA1F2',
 }
 
 const STATUS_STYLES: Record<string, string> = {
