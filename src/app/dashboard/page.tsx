@@ -130,6 +130,7 @@ export default function DashboardPage() {
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
   const [suggestionsKey, setSuggestionsKey] = useState(0)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
+  const [brandName, setBrandName] = useState<string | null>(null)
   const [brandCardDismissed, setBrandCardDismissed] = useState(false)
   const [upgradeBannerDismissed, setUpgradeBannerDismissed] = useState(false)
 
@@ -212,7 +213,10 @@ export default function DashboardPage() {
     fetch('/api/brand', { headers: { Authorization: authHeader() } })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+        if (data) {
+          setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+          setBrandName(data.brandProfile?.brandName || null)
+        }
       })
       .catch(() => {})
   }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -289,7 +293,11 @@ export default function DashboardPage() {
                 {displayName ? `${t('dashboard.greeting')}، ${displayName}` : t('dashboard.commandCenter')}
                 {' '}<span style={{ color: 'var(--nx-text-3)' }}>👋</span>
               </h1>
-              <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>{t('dashboard.subtitle')}</p>
+              <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>
+                {brandReadiness?.ready && brandName
+                  ? (ar ? `عقل ${brandName} جاهز — الوكلاء يعرفون علامتك التجارية` : `${brandName}'s brain is ready — all agents know your brand`)
+                  : t('dashboard.subtitle')}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -389,6 +397,41 @@ export default function DashboardPage() {
               </div>
             )
           })()}
+
+          {/* ── Brand Ready — First Campaign CTA (only when brand complete + no campaigns yet) ── */}
+          {brandReadiness?.ready && stats?.campaigns === 0 && brandName && (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(20px)', boxShadow: '0 0 40px rgba(139,92,246,0.06)' }}>
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #10b981 100%)' }}/>
+              <div className="p-5 flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 0 24px rgba(139,92,246,0.12)' }}>
+                    <Brain className="w-6 h-6" style={{ color: '#8B5CF6' }} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm font-bold text-white">
+                        {ar ? `عقل ${brandName} جاهز ✓` : `${brandName}'s brain is ready ✓`}
+                      </p>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.25)' }}>
+                        {ar ? 'مفعّل' : 'Active'}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>
+                      {ar
+                        ? 'كل الوكلاء يعرفون علامتك — أطلق أول حملة وشاهد الفرق'
+                        : 'All agents know your brand — launch your first campaign and see the difference'}
+                    </p>
+                  </div>
+                </div>
+                <NexusButton variant="primary" size="sm" href="/campaigns/new" icon={<Rocket className="w-3.5 h-3.5" />}>
+                  {ar ? 'إطلاق أول حملة' : 'Launch First Campaign'}
+                </NexusButton>
+              </div>
+            </div>
+          )}
 
           {/* ── Onboarding Checklist ── */}
           <OnboardingChecklist

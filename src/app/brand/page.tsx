@@ -9,7 +9,7 @@ import { useBrandBrain, getBrandCompleteness, type BrandProfile } from '@/hooks/
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
-  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles
+  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X, Rocket
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -76,8 +76,9 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 /* ── Sub-components ───────────────────────────────────────────── */
-function TagInput({ label, placeholder, values, onChange, accentColor }: {
-  label: string; placeholder: string; values: string[]; onChange: (v: string[]) => void; accentColor?: string
+function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest, suggesting }: {
+  label: string; placeholder: string; values: string[]; onChange: (v: string[]) => void;
+  accentColor?: string; onSuggest?: () => void; suggesting?: boolean
 }) {
   const [input, setInput] = useState('')
   const accent = accentColor || '#f59e0b'
@@ -85,21 +86,46 @@ function TagInput({ label, placeholder, values, onChange, accentColor }: {
   const remove = (i: number) => onChange(values.filter((_, idx) => idx !== i))
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>{label}</label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>{label}</label>
+        {onSuggest && (
+          <button onClick={onSuggest} disabled={suggesting}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+            style={{
+              background: suggesting ? `${accent}10` : `${accent}15`,
+              border: `1px solid ${accent}35`,
+              color: accent,
+              boxShadow: suggesting ? 'none' : `0 0 8px ${accent}15`,
+            }}>
+            {suggesting
+              ? <Loader2 size={11} className="animate-spin"/>
+              : <Wand2 size={11}/>}
+            {suggesting ? '...' : 'AI'}
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap gap-1.5 p-3 rounded-xl min-h-[52px]"
-        style={{ background: 'rgba(8,9,28,0.7)', border: '1px solid rgba(139,92,246,0.2)' }}>
-        {values.map((v, i) => (
+        style={{ background: 'rgba(8,9,28,0.7)', border: `1px solid ${suggesting ? accent+'40' : 'rgba(139,92,246,0.2)'}`, transition: 'border-color 0.3s' }}>
+        {suggesting && (
+          <div className="flex items-center gap-2 px-2 py-1">
+            <Wand2 size={12} style={{ color: accent }} className="animate-pulse"/>
+            <span className="text-xs" style={{ color: accent }}>جاري التفكير...</span>
+          </div>
+        )}
+        {!suggesting && values.map((v, i) => (
           <span key={i} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
             style={{ background: `${accent}15`, border: `1px solid ${accent}35`, color: accent }}>
             {v}
             <button onClick={() => remove(i)} className="opacity-40 hover:opacity-100 hover:text-red-400 transition-all ml-0.5 text-sm leading-none">×</button>
           </span>
         ))}
-        <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key==='Enter'||e.key===','){e.preventDefault();add(input)} }}
-          placeholder={values.length ? '' : placeholder}
-          className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder-gray-600"
-          style={{ color: '#e2e8f0' }} />
+        {!suggesting && (
+          <input value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key==='Enter'||e.key===','){e.preventDefault();add(input)} }}
+            placeholder={values.length ? '' : placeholder}
+            className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder-gray-600"
+            style={{ color: '#e2e8f0' }} />
+        )}
       </div>
     </div>
   )
@@ -186,6 +212,120 @@ function RadioGroup({ options, value, onChange, color }: {
   )
 }
 
+/* ── Brand Summary Card (post-save moment of delight) ────────── */
+function BrandSummaryCard({
+  form, score, locale, t, onClose
+}: {
+  form: BrandProfile; score: number; locale: string; t: (k: string) => string; onClose: () => void
+}) {
+  const chips = [
+    form.toneKeywords?.slice(0, 3),
+    form.topPlatforms?.slice(0, 3),
+  ].flat().filter(Boolean) as string[]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: 'rgba(6,7,26,0.85)', backdropFilter: 'blur(16px)' }}>
+      <div className="w-full max-w-lg rounded-3xl overflow-hidden"
+        style={{
+          background: 'rgba(10,11,28,0.95)',
+          border: '1px solid rgba(139,92,246,0.35)',
+          boxShadow: '0 0 80px rgba(139,92,246,0.15), 0 8px 60px rgba(0,0,0,0.6)',
+        }}>
+
+        {/* Top gradient bar */}
+        <div className="h-1" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #10b981 100%)' }}/>
+
+        {/* Header */}
+        <div className="p-6 pb-4">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', boxShadow: '0 0 30px rgba(16,185,129,0.15)' }}>
+                <CheckCircle2 size={24} style={{ color: '#10b981' }}/>
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-white">{t('brand.summaryTitle')}</h2>
+                <p className="text-xs mt-0.5" style={{ color: '#475569' }}>{t('brand.summarySubtitle')}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg transition-all" style={{ color: '#475569' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#475569' }}>
+              <X size={16}/>
+            </button>
+          </div>
+
+          {/* Score banner */}
+          <div className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
+            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+            <div className="flex items-center gap-2 flex-1">
+              <Brain size={16} style={{ color: '#8b5cf6' }}/>
+              <span className="text-sm font-semibold text-white">Brand Brain</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-32 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.12)' }}>
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${score}%`, background: score >= 80 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#f59e0b,#d97706)' }}/>
+              </div>
+              <span className="text-sm font-black tabular-nums"
+                style={{ color: score >= 80 ? '#10b981' : '#f59e0b' }}>{score}%</span>
+            </div>
+          </div>
+
+          {/* Brand details grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {form.brandName && (
+              <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(245,158,11,0.5)' }}>{t('brand.summaryBrand')}</p>
+                <p className="text-sm font-bold text-white truncate">{form.brandName}</p>
+              </div>
+            )}
+            {form.industry && (
+              <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>{t('brand.summaryIndustry')}</p>
+                <p className="text-sm font-bold text-white truncate">{form.industry}</p>
+              </div>
+            )}
+            {form.targetAudience && (
+              <div className="px-4 py-3 rounded-xl col-span-2" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(139,92,246,0.5)' }}>{t('brand.summaryAudience')}</p>
+                <p className="text-sm font-bold text-white line-clamp-1">{form.targetAudience}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Tone + platforms chips */}
+          {chips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {chips.map((c, i) => (
+                <span key={i} className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* CTA footer */}
+        <div className="px-6 pb-6 flex items-center gap-3">
+          <a href="/campaigns/new"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
+            style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#0a0a0a', boxShadow: '0 0 30px rgba(245,158,11,0.25)' }}>
+            <Rocket size={15}/> {t('brand.summaryCtaLabel')}
+          </a>
+          <button onClick={onClose}
+            className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)', color: '#64748b' }}>
+            {t('brand.summaryDismiss')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main Page ────────────────────────────────────────────────── */
 export default function BrandBrainPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -197,8 +337,10 @@ export default function BrandBrainPage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
-  const [step, setStep]   = useState<StepId>('identity')
-  const [saved, setSaved] = useState(false)
+  const [step, setStep]     = useState<StepId>('identity')
+  const [saved, setSaved]   = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
+  const [suggesting, setSuggesting]   = useState<string | null>(null)
   const [form, setForm]   = useState<BrandProfile>({
     brandName: '', industry: '', description: '',
     primaryOffer: '', secondaryOffers: [], pricePoint: 'mid-range', uniqueAdvantages: [],
@@ -213,7 +355,42 @@ export default function BrandBrainPage() {
 
   const handleSave = async () => {
     const ok = await saveBrand(form)
-    if (ok) { setSaved(true); setTimeout(() => setSaved(false), 3000) }
+    if (ok) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+      // Show summary card if brand has meaningful data
+      if (form.brandName && form.industry) setShowSummary(true)
+    }
+  }
+
+  const { authHeader } = useAuth()
+  const handleSuggest = async (field: keyof BrandProfile) => {
+    if (!form.brandName && !form.industry) return
+    setSuggesting(field)
+    try {
+      const res = await fetch('/api/brand/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({
+          field,
+          brandName:      form.brandName,
+          industry:       form.industry,
+          description:    form.description,
+          primaryOffer:   form.primaryOffer,
+          targetAudience: form.targetAudience,
+          locale,
+        }),
+      })
+      if (res.ok) {
+        const { suggestions } = await res.json()
+        if (Array.isArray(suggestions) && suggestions.length) {
+          const existing = (form[field] as string[]) || []
+          const merged = [...new Set([...existing, ...suggestions])]
+          set(field, merged)
+        }
+      }
+    } catch {/* silent */}
+    finally { setSuggesting(null) }
   }
 
   const { score, missing } = getBrandCompleteness(form, locale)
@@ -236,6 +413,13 @@ export default function BrandBrainPage() {
 
   return (
     <AppShell>
+      {showSummary && (
+        <BrandSummaryCard
+          form={form} score={score} locale={locale}
+          t={t as (k: string) => string}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
       <div className="relative min-h-screen" dir={dir}>
 
         {/* ── Ambient background ─────────────────────────────── */}
@@ -468,7 +652,8 @@ export default function BrandBrainPage() {
                       value={form.pricePoint||''} onChange={v=>set('pricePoint',v)} color={currentStep.color}/>
                   </Field>
                   <TagInput label={t('brand.productAdvantagesLabel')} placeholder={t('brand.productAdvantagesPlaceholder')}
-                    values={form.uniqueAdvantages||[]} onChange={v=>set('uniqueAdvantages',v)} accentColor={currentStep.color}/>
+                    values={form.uniqueAdvantages||[]} onChange={v=>set('uniqueAdvantages',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('uniqueAdvantages')} suggesting={suggesting==='uniqueAdvantages'}/>
                 </div>
               )}
 
@@ -501,9 +686,11 @@ export default function BrandBrainPage() {
                     </Field>
                   </div>
                   <TagInput label={t('brand.audiencePainLabel')} placeholder={t('brand.audiencePainPlaceholder')}
-                    values={form.audiencePainPoints||[]} onChange={v=>set('audiencePainPoints',v)} accentColor={currentStep.color}/>
+                    values={form.audiencePainPoints||[]} onChange={v=>set('audiencePainPoints',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('audiencePainPoints')} suggesting={suggesting==='audiencePainPoints'}/>
                   <TagInput label={t('brand.audienceDesireLabel')} placeholder={t('brand.audienceDesirePlaceholder')}
-                    values={form.audienceDesires||[]} onChange={v=>set('audienceDesires',v)} accentColor={currentStep.color}/>
+                    values={form.audienceDesires||[]} onChange={v=>set('audienceDesires',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('audienceDesires')} suggesting={suggesting==='audienceDesires'}/>
                 </div>
               )}
 
@@ -520,7 +707,8 @@ export default function BrandBrainPage() {
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
                     values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}/>
                   <TagInput label={t('brand.voiceHooksLabel')} placeholder={t('brand.voiceHooksPlaceholder')}
-                    values={form.winningHooks||[]} onChange={v=>set('winningHooks',v)} accentColor={currentStep.color}/>
+                    values={form.winningHooks||[]} onChange={v=>set('winningHooks',v)} accentColor={currentStep.color}
+                    onSuggest={() => handleSuggest('winningHooks')} suggesting={suggesting==='winningHooks'}/>
                 </div>
               )}
 
