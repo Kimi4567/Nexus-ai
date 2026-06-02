@@ -10,6 +10,7 @@ import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
 } from 'lucide-react'
+import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
@@ -140,41 +141,82 @@ export default function NewCampaignPage() {
     ?.replace('{step}', String(step))
     ?.replace('{total}', String(totalSteps))
 
+  const isRTL = locale === 'ar'
+  const PrevIcon = isRTL ? ChevronRight : ChevronLeft
+  const NextIcon = isRTL ? ChevronLeft : ChevronRight
+
   return (
-    <div className="space-y-6 max-w-3xl">
+    <AppShell>
+    <div className="relative min-h-screen">
+      <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-30" />
+      <div className="relative max-w-3xl mx-auto px-4 py-10 page-enter">
       <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} reason="no_credits" />
+
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link href="/campaigns" className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-          <ArrowLeft className="w-5 h-5" />
+      <div className="flex items-center gap-3 mb-8">
+        <Link href="/campaigns"
+          className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105"
+          style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)' }}>
+          <ArrowLeft className="w-4 h-4 text-gray-400" />
         </Link>
         <div>
+          <div className="flex items-center gap-2 mb-0.5">
+            <Wand2 className="w-4 h-4 text-violet-400" />
+            <span className="text-xs text-violet-400/70 font-mono tracking-wider">NEW CAMPAIGN</span>
+          </div>
           <h1 className="text-2xl font-bold">{cnT?.pageTitle as string}</h1>
           <p className="text-text-muted text-sm">{stepIndicatorText}</p>
         </div>
       </div>
 
       {/* Stepper */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mb-8">
         {steps.map((s) => {
           const Icon = s.icon
+          const done = step > s.num
+          const active = step === s.num
           return (
             <div key={s.num} className="flex items-center gap-2 flex-1">
               <div className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
-                step >= s.num ? 'bg-amber text-black' : 'bg-white/5 text-text-muted'
-              }`}>
-                {step > s.num ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                done ? 'text-white' : active ? 'text-black' : 'text-text-muted'
+              }`} style={{
+                background: done
+                  ? 'rgba(16,185,129,0.15)'
+                  : active
+                  ? 'linear-gradient(135deg,#8B5CF6,#6366f1)'
+                  : 'rgba(255,255,255,0.04)',
+                border: done
+                  ? '1px solid rgba(16,185,129,0.3)'
+                  : active
+                  ? 'none'
+                  : '1px solid rgba(255,255,255,0.08)',
+              }}>
+                {done
+                  ? <Check className="w-5 h-5 text-emerald-400" />
+                  : <Icon className="w-5 h-5" />}
               </div>
-              <span className={`text-xs hidden sm:block ${step >= s.num ? 'text-text-primary' : 'text-text-muted'}`}>
+              <span className={`text-xs hidden sm:block font-medium ${
+                active ? 'text-white' : done ? 'text-emerald-400' : 'text-text-muted'
+              }`}>
                 {s.label}
               </span>
-              {s.num < totalSteps && <div className="flex-1 h-px bg-white/10 mx-2" />}
+              {s.num < totalSteps && (
+                <div className="flex-1 h-px mx-2" style={{
+                  background: done ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)'
+                }} />
+              )}
             </div>
           )
         })}
       </div>
 
-      <div className="glass p-6" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+      {/* Card */}
+      <div className="rounded-2xl p-6" style={{
+        background: 'rgba(12,13,36,0.6)',
+        border: '1px solid rgba(139,92,246,0.15)',
+        backdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+      }}>
 
         {/* Step 1: Basic Info */}
         {step === 1 && (
@@ -360,7 +402,7 @@ export default function NewCampaignPage() {
             disabled={step === 1}
             className="btn-secondary disabled:opacity-40"
           >
-            <ChevronRight className="w-4 h-4" />
+            <PrevIcon className="w-4 h-4" />
             {cnT?.btnPrev as string}
           </button>
 
@@ -371,7 +413,7 @@ export default function NewCampaignPage() {
               className="btn-primary disabled:opacity-40"
             >
               {cnT?.btnNext as string}
-              <ChevronLeft className="w-4 h-4" />
+              <NextIcon className="w-4 h-4" />
             </button>
           ) : brandNotReady ? (
             /* Brand not ready: split into two actions */
@@ -406,6 +448,8 @@ export default function NewCampaignPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+      </div>
+    </AppShell>
   )
 }
