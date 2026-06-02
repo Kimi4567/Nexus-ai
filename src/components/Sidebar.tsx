@@ -158,6 +158,31 @@ const Icons = {
       <path d="M1.5 12.5l3-3 2.5 2 2-2 4 3.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  studio: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 3.5h12M2 3.5v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M6 6.5l4 2-4 2V6.5z" fill="currentColor" stroke="none"/>
+    </svg>
+  ),
+  sentinel: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 1.5L2 4v4c0 3.3 2.5 5.8 6 6.5 3.5-.7 6-3.2 6-6.5V4L8 1.5z" strokeLinejoin="round"/>
+      <path d="M5.5 8l1.5 1.5L10.5 6" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  analytics: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 12.5l3.5-4 3 2.5 3-5 2.5 2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 14.5h12" strokeLinecap="round"/>
+    </svg>
+  ),
+  vex: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1.5" y="2" width="13" height="9" rx="1.5"/>
+      <path d="M5 13.5h6M8 11v2.5" strokeLinecap="round"/>
+      <path d="M5 5.5l1.5 2L8 5M9.5 5.5h2M9.5 7.5h1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
 }
 
 // ── Main Sidebar ───────────────────────────────────────────────
@@ -219,6 +244,18 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           icon={Icons.calendar} {...sharedProps} />
         <NavItem href="/media" label={t('sidebar.media')}
           icon={Icons.media} {...sharedProps} />
+
+        {/* Agents */}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'الوكلاء' : 'Agents'}</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
+        <NavItem href="/studio" label={locale === 'ar' ? 'استوديو' : 'Studio'}
+          icon={Icons.studio} {...sharedProps} />
+        <NavItem href="/sentinel" label="Sentinel"
+          icon={Icons.sentinel} badge="AI" badgeColor="#8B5CF6" {...sharedProps} />
+        <NavItem href="/analytics" label={locale === 'ar' ? 'تحليلات' : 'Analytics'}
+          icon={Icons.analytics} {...sharedProps} />
+        <NavItem href="/vex" label="Vex"
+          icon={Icons.vex} badge="AI" badgeColor="#F97316" {...sharedProps} />
 
         {/* Platform */}
         {!collapsed && <SectionLabel>{t('sidebar.sectionPlatforms')}</SectionLabel>}

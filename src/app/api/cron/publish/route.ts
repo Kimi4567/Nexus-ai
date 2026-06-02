@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { decryptToken } from '@/lib/tokenCrypto'
 
 // Vercel cron — runs every hour
 // Configure in vercel.json: { "crons": [{ "path": "/api/cron/publish", "schedule": "0 * * * *" }] }
@@ -38,10 +39,11 @@ export async function GET(req: NextRequest) {
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')
 
-        // Get page token from integration config
+        // Get page token from integration config — decrypt before use
         const pages: any[] = (integration.config as any)?.pages || []
         const page = pages.find((p: any) => p.id === post.pageId)
-        const pageToken = page?.accessToken || integration.accessToken
+        const rawPageToken = page?.accessToken || integration.accessToken
+        const pageToken = decryptToken(rawPageToken) ?? rawPageToken
 
         // Determine platform: SocialPost.platform uses IntegrationType (META/LINKEDIN/TIKTOK)
         // For META posts, check if the page has an igAccountId → Instagram, else → Facebook
@@ -109,7 +111,7 @@ export async function GET(req: NextRequest) {
           }
         } else if (platformStr === 'LINKEDIN') {
           // ── LinkedIn publish ─────────────────────────────────────────────
-          const linkedinToken = integration.accessToken
+          const linkedinToken = decryptToken(integration.accessToken) ?? integration.accessToken
           const personId = integration.accountId || ''
           const body: any = {
             author: `urn:li:person:${personId}`,
@@ -138,7 +140,7 @@ export async function GET(req: NextRequest) {
           if (!post.imageUrl) throw new Error('TikTok requires a video URL')
           const res = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
+            headers: { Authorization: `Bearer ${decryptToken(integration.accessToken) ?? integration.accessToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({ post_info: { title: post.caption, privacy_level: 'PUBLIC_TO_EVERYONE' }, source_info: { source: 'PULL_FROM_URL', video_url: post.imageUrl } }),
           })
           const data = await res.json()
