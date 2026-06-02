@@ -83,20 +83,28 @@ export async function GET(req: NextRequest) {
 
   console.log('[Meta OAuth] me:', me?.id, me?.name, '| pages:', pages.length)
 
+  // FLOW-01 fix: get real email from Supabase Auth — Meta /me doesn't return email
+  // by default. Never store a placeholder email that conflicts with the real account.
+  let realEmail: string | undefined
+  try {
+    const { data: supaUser } = await adminClient.auth.admin.getUserById(userId)
+    realEmail = supaUser?.user?.email
+  } catch { /* non-fatal */ }
+
   // Ensure User record exists in Prisma (Supabase Auth doesn't auto-create these)
-  const meEmail = me.email || `${userId}@placeholder.nexus`
   await prisma.user.upsert({
     where: { id: userId },
-    create: { id: userId, email: meEmail, name: me.name || 'User' },
-    update: { name: me.name || undefined },
-  }).catch(async () => {
-    // email might conflict — try with unique fallback
-    await prisma.user.upsert({
-      where: { id: userId },
-      create: { id: userId, email: `user-${userId.slice(0,8)}@nexus.internal`, name: me.name || 'User' },
-      update: {},
-    }).catch(() => {}) // if user already exists, that's fine
-  })
+    create: {
+      id: userId,
+      email: realEmail || `user-${userId.slice(0,8)}@nexus.internal`,
+      name: me.name || 'User',
+    },
+    update: {
+      // Only update name — never overwrite email with Meta data
+      name: me.name || undefined,
+      ...(realEmail ? { email: realEmail } : {}),
+    },
+  }).catch(() => {}) // user row may already exist — that's fine
 
   // Find or create the user's workspace
   let workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })

@@ -4,25 +4,15 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
 import { checkAndDeductCredits } from '@/lib/credits'
-
-// Simple in-memory rate limiter per user (MVP)
-const RATE_WINDOW_MS = 60_000
-const MAX_PER_WINDOW = 10
-const rateMap = new Map<string, { count: number; windowStart: number }>()
+import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Rate limit
-  const entry = rateMap.get(userId) || { count: 0, windowStart: Date.now() }
-  const now = Date.now()
-  if (now - entry.windowStart > RATE_WINDOW_MS) { entry.count = 0; entry.windowStart = now }
-  entry.count++
-  rateMap.set(userId, entry)
-  if (entry.count > MAX_PER_WINDOW) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-  }
+  // BUG-03 fix: DB-backed rate limit (cross-instance, survives cold starts)
+  const rl = await aiRateLimitDb(userId)
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
   // ── Unified credit check + deduction ────────────────────────────────────────
   const credit = await checkAndDeductCredits(userId, 'CAMPAIGN_GENERATION')
@@ -35,7 +25,13 @@ export async function POST(req: NextRequest) {
   const { campaignId, language } = body
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
-  const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
+  // BUG-04 fix: verify ownership — only the campaign owner can trigger generation
+  const workspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
+  if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, workspaceId: workspace.id },
+  })
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
   const project = await prisma.project.findUnique({ where: { id: campaign.projectId }, include: { media: true } })

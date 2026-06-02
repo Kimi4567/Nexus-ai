@@ -96,10 +96,9 @@ export const PLANS_CREDITS: Record<string, number> = {
   FREE:      FREE_STARTER_CREDITS, // 20 (one-time, never refreshes)
   PRO:       300,
   BUSINESS:  1000,
-  // Legacy aliases
-  STARTER:   300,
-  AGENCY:    1000,
-  ACTIVE:    300,
+  // Stripe subscription status aliases (subscriptionStatus field values)
+  ACTIVE:    300,  // Stripe active = PRO tier
+  AGENCY:    1000, // Legacy — maps to BUSINESS
 }
 
 // ── Low-credits warning threshold ─────────────────────────────────────────────

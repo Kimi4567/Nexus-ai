@@ -7,6 +7,7 @@ import {
   buildBrandContextBlock,
   type BrandContextData,
 } from '@/lib/ai/promptRules'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/campaigns/suggest
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
     const { field, name, description, goal, locale } = body
 
     if (!field) return NextResponse.json({ error: 'field required' }, { status: 400 })
+
+    // FLOW-03 fix: deduct 1 credit per AI suggest call
+    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     const isAr = locale === 'ar'
     const lang = isAr ? 'Arabic' : 'English'

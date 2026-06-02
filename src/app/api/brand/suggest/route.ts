@@ -6,6 +6,7 @@ import {
   buildBrandContextBlock,
   type BrandContextData,
 } from '@/lib/ai/promptRules'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -61,6 +62,10 @@ export async function POST(req: NextRequest) {
     } = body
 
     if (!field) return NextResponse.json({ error: 'field required' }, { status: 400 })
+
+    // FLOW-03 fix: deduct 1 credit per AI suggest call (AD_COPY tier — same as VEX)
+    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     const isAr = locale === 'ar'
     const lang = isAr ? 'Arabic' : 'English'

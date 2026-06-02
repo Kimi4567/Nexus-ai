@@ -102,11 +102,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Auth actions ─────────────────────────────────────────────────────────
 
   const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    // Login page handles redirect via window.location.href — we don't push here
-    // to avoid double-navigation. If called programmatically, push to onboarding.
-    router.push('/onboarding')
+    // BUG-02 fix: route returning users to dashboard, new users to onboarding
+    // Login page also handles redirect — this fires when login() is called programmatically
+    if (data.session?.access_token) {
+      try {
+        const res = await fetch('/api/user/me', {
+          headers: { Authorization: `Bearer ${data.session.access_token}` },
+        })
+        const me = await res.json()
+        router.push(me?.workspaceId ? '/dashboard' : '/onboarding')
+      } catch {
+        router.push('/dashboard')
+      }
+    }
   }, [router])
 
   const signup = useCallback(async (

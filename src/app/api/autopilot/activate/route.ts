@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
+import { checkAndDeductCredits } from '@/lib/credits'
+import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
 /* ═══════════════════════════════════════════════════════════════════════════
    POST /api/autopilot/activate
@@ -123,6 +125,13 @@ export async function POST(req: NextRequest) {
     if (weeklyPlan.length === 0) {
       return NextResponse.json({ error: 'No weekly execution plan in strategy' }, { status: 400 })
     }
+
+    // BUG-05 fix: rate limit + credit gate before generating AI captions
+    const rl = await aiRateLimitDb(user.id)
+    if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
+
+    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     const connectedIntegrations = workspace.integrations
     if (connectedIntegrations.length === 0) {

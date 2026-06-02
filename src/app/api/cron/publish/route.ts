@@ -18,7 +18,8 @@ import { decryptToken } from '@/lib/tokenCrypto'
 // ── Auth helper ────────────────────────────────────────────────
 async function isAuthorized(req: NextRequest): Promise<boolean> {
   const secret = process.env.CRON_SECRET
-  if (!secret) return true // dev — no secret configured
+  // SEC-05 fix: require auth — open only in dev when secret is explicitly not set
+  if (!secret) return process.env.NODE_ENV === 'development'
 
   const authHeader = req.headers.get('authorization')
   if (authHeader === `Bearer ${secret}`) return true
@@ -54,12 +55,7 @@ async function runPublishJob() {
   const results = await Promise.allSettled(
     duePosts.map(async (post) => {
       try {
-        // Optimistic update — mark processing
-        await prisma.socialPost.update({
-          where: { id: post.id },
-          data: { status: 'PUBLISHED' },
-        })
-
+        // BUG-01 fix: no optimistic write — only write PUBLISHED after platform confirms
         const integration = post.integration
         if (!integration?.accessToken) throw new Error('No access token')
 
@@ -132,15 +128,18 @@ async function runPublishJob() {
         } else if (platformStr === 'LINKEDIN') {
           const linkedinToken = decryptToken(integration.accessToken) ?? integration.accessToken
           const personId = integration.accountId || ''
+          // FLOW-05 fix: use ARTICLE with originalUrl for image posts (not IMAGE + empty media[])
+          const liShareContent: any = {
+            shareCommentary:    { text: post.caption },
+            shareMediaCategory: post.imageUrl ? 'ARTICLE' : 'NONE',
+          }
+          if (post.imageUrl) {
+            liShareContent.media = [{ status: 'READY', originalUrl: post.imageUrl }]
+          }
           const liBody: any = {
             author:  `urn:li:person:${personId}`,
             lifecycleState: 'PUBLISHED',
-            specificContent: {
-              'com.linkedin.ugc.ShareContent': {
-                shareCommentary:   { text: post.caption },
-                shareMediaCategory: post.imageUrl ? 'IMAGE' : 'NONE',
-              },
-            },
+            specificContent: { 'com.linkedin.ugc.ShareContent': liShareContent },
             visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
           }
 
