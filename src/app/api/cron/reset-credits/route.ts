@@ -10,9 +10,10 @@ import { PLAN_CREDITS as STRIPE_PLAN_CREDITS } from '@/lib/stripe'
 
 // Map uppercase DB enum values to the lowercase keys used in PLAN_CREDITS
 const PLAN_CREDITS: Record<string, number> = {
-  STARTER: STRIPE_PLAN_CREDITS['starter'] ?? 50,
-  PRO:     STRIPE_PLAN_CREDITS['pro']     ?? 200,
-  AGENCY:  STRIPE_PLAN_CREDITS['agency']  ?? -1,
+  STARTER:  STRIPE_PLAN_CREDITS['starter']  ?? 300,
+  PRO:      STRIPE_PLAN_CREDITS['pro']      ?? 300,
+  BUSINESS: STRIPE_PLAN_CREDITS['business'] ?? 1000,
+  AGENCY:   STRIPE_PLAN_CREDITS['agency']   ?? 1000,
 }
 
 export async function GET(req: NextRequest) {

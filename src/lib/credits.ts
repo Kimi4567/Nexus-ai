@@ -19,55 +19,64 @@ export const CREDIT_COSTS = {
   /**
    * Campaign generation — full strategy + ad concepts
    * Routes: /api/generate, /api/generate/preview
+   * API cost: ~$0.028 (GPT-4o, ~3,500 tokens). Margin @ Pro: 94%
    */
   CAMPAIGN_GENERATION: 5,
 
   /**
    * Run Full Strategy — triggers full agency orchestration (all agents)
    * Routes: /api/agents/run, /api/strategy/run-full
+   * API cost: ~$0.053 (GPT-4o, ~6,500 tokens). Margin @ Pro: 93%
    */
-  RUN_FULL_STRATEGY: 5,
+  RUN_FULL_STRATEGY: 8,
 
   /**
    * Creative Brief — visual direction via asset analysis or concept generation
    * Route: /api/campaigns/[id]/creative-brief (POST)
+   * API cost: ~$0.017 (GPT-4o, ~2,000 tokens). Margin @ Pro: 94%
    */
-  CREATIVE_BRIEF: 2,
+  CREATIVE_BRIEF: 3,
 
   /**
    * Sentinel Review — AI quality + risk gate for a campaign
    * Route: /api/campaigns/[id]/sentinel-review (POST)
+   * API cost: ~$0.001 (GPT-4o-mini). Margin @ Pro: 99%
    */
-  SENTINEL_REVIEW: 1,
+  SENTINEL_REVIEW: 2,
 
   /**
    * Video Brief — AI generates brand-aware video concept, storyboard, and script
    * Route: /api/campaigns/[id]/video-brief (POST)
+   * API cost: ~$0.017 (GPT-4o, ~2,000 tokens). Margin @ Pro: 94%
    */
-  VIDEO_BRIEF: 2,
-
-  /**
-   * Video Generation — submits to Replicate for actual video rendering
-   * Route: /api/campaigns/[id]/video-generate (POST)
-   */
-  VIDEO_GENERATION: 5,
+  VIDEO_BRIEF: 3,
 
   /**
    * Image generation — DALL-E 3 via /api/images/generate
+   * API cost: $0.040 per image (DALL-E 3 standard). Margin @ Pro: 87%
    */
-  IMAGE_GENERATION: 2,
+  IMAGE_GENERATION: 3,
 
   /**
    * Ad copy generation (VEX) — GPT-4o-mini ad concepts
    * Route: /api/vex/generate
+   * API cost: ~$0.001 (GPT-4o-mini). Margin @ Pro: 99%
    */
   AD_COPY: 2,
 
   /**
    * Chat message — GPT-4o-mini assistant response
    * Route: /api/chat
+   * API cost: ~$0.0003. Margin @ Pro: 99%
    */
   CHAT_MESSAGE: 1,
+
+  /**
+   * NOTE: VIDEO_GENERATION is NOT a credit action.
+   * Video generation ($0.30–$1.00/video via Replicate) uses a separate monthly
+   * quota per plan (FREE: 0, PRO: 5, BUSINESS: 20). This prevents margin collapse
+   * when users spam video generation. See PLAN_VIDEO_QUOTA in lib/stripe.ts.
+   */
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS
@@ -77,20 +86,20 @@ export type CreditAction = keyof typeof CREDIT_COSTS
 // 15 credits = 3× CAMPAIGN_GENERATION or 3× RUN_FULL_STRATEGY, or a mix of actions.
 // Adjust here to change the free tier without touching any route.
 
-export const FREE_STARTER_CREDITS = 10
+export const FREE_STARTER_CREDITS = 20
 
 // ── Monthly credit totals per plan ─────────────────────────────────────────────
 // Used by the dashboard credit progress bar.
 // -1 = unlimited (Agency plan and above).
 
 export const PLANS_CREDITS: Record<string, number> = {
-  FREE:      FREE_STARTER_CREDITS, // 10
-  PRO:       150,
-  BUSINESS:  600,
+  FREE:      FREE_STARTER_CREDITS, // 20 (one-time, never refreshes)
+  PRO:       300,
+  BUSINESS:  1000,
   // Legacy aliases
-  STARTER:   150,
-  AGENCY:    600,
-  ACTIVE:    150,
+  STARTER:   300,
+  AGENCY:    1000,
+  ACTIVE:    300,
 }
 
 // ── Low-credits warning threshold ─────────────────────────────────────────────

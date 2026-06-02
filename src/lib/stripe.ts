@@ -1,13 +1,18 @@
 /**
  * Nexus AI — Stripe client + Plan definitions
  *
- * Pricing (as of Sprint AH):
- *   Free     — $0      — 10 credits/month   — brand brain + strategy only
- *   Pro      — $29/mo  — 150 credits/month  — everything: autopilot, publishing, analytics
- *   Business — $79/mo  — 600 credits/month  — everything Pro + 3 workspaces + priority
+ * Pricing (as of Sprint AI — professional cost-based repricing):
+ *   Free     — $0      — 20 credits (one-time)  — 1 workspace, 2 campaigns, 0 videos
+ *   Pro      — $49/mo  — 300 credits/month       — 3 workspaces, 20 campaigns, 5 videos/mo
+ *   Business — $99/mo  — 1,000 credits/month     — 10 workspaces, 60 campaigns, 20 videos/mo
  *
  * Credit costs per action: see src/lib/credits.ts → CREDIT_COSTS
+ * Video generation: separate monthly quota (NOT credits) — see PLAN_VIDEO_QUOTA
  * Referral bonus: +20 credits for both referrer and new user on signup
+ *
+ * Margin model (Pro, $49):
+ *   Average user (5 videos + mixed text): ~$5.50 API cost → 88.8% gross margin
+ *   Worst case (5 videos + 100 images):   ~$6.50 API cost → 86.7% gross margin
  */
 
 import Stripe from 'stripe'
@@ -39,54 +44,91 @@ export const PLANS: PlanDefinition[] = [
     id: 'free',
     name: 'Free',
     price: 0,
-    credits: 10,
+    credits: 20,
     stripePriceEnvKey: '',
     cta: 'Get Started Free',
     features: [
-      '10 AI credits / month',
-      '1 active campaign',
-      'Brand Brain (core fields)',
-      'AI Strategy generation',
-      'Content calendar view',
+      '20 AI credits — one-time (never refreshes)',
+      '1 workspace',
+      '2 campaigns maximum',
+      '2 social platforms',
+      'No video generation',
+      'Watermarked exports',
+      'Community support',
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: 29,
-    credits: 150,
+    price: 49,
+    credits: 300,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
     highlight: 'Most Popular',
-    cta: 'Start Pro — $29/mo',
+    cta: 'Start Pro — $49/mo',
     features: [
-      '150 AI credits / month',
-      'Unlimited campaigns',
-      'Full Brand Brain',
-      'All AI agents (Strategist, Sentinel, Visual Director)',
-      'Social publishing — Facebook, Instagram, LinkedIn, TikTok',
-      'Autopilot — set & forget for 4 weeks',
+      '300 AI credits / month (refreshes monthly)',
+      '3 workspaces',
+      '20 campaigns / month',
+      '100 posts / month',
+      'All 5 social platforms',
+      '5 AI videos / month (Replicate)',
+      'Full Brand Brain + all AI agents',
       'Analytics dashboard',
-      'Weekly Intelligence Brief email',
       'Export campaigns (PDF + DOCX)',
+      'Email support',
     ],
   },
   {
     id: 'business',
     name: 'Business',
-    price: 79,
-    credits: 600,
+    price: 99,
+    credits: 1000,
     stripePriceEnvKey: 'STRIPE_PRICE_BUSINESS',
-    cta: 'Start Business — $79/mo',
+    cta: 'Start Business — $99/mo',
     features: [
-      '600 AI credits / month',
-      'Everything in Pro',
-      '3 workspaces (for agencies / teams)',
-      'Priority email support',
-      'Advanced analytics',
+      '1,000 AI credits / month (refreshes monthly)',
+      '10 workspaces',
+      '60 campaigns / month',
+      'Unlimited posts',
+      'All 5 social platforms',
+      '20 AI videos / month',
+      'Team collaboration (3 seats)',
       'White-label PDF exports',
+      'Advanced analytics',
+      'Priority support',
     ],
   },
 ]
+
+// ── Monthly video generation quota per plan ────────────────────────────────────
+// Video generation costs $0.30–$1.00/video via Replicate — too expensive to gate
+// behind credits alone. These hard monthly limits protect margins regardless of
+// how many credits a user has.
+
+export const PLAN_VIDEO_QUOTA: Record<string, number> = {
+  FREE:     0,
+  PRO:      5,
+  BUSINESS: 20,
+  free:     0,
+  pro:      5,
+  business: 20,
+  starter:  5,
+  agency:   20,
+  ACTIVE:   5,
+}
+
+// ── Campaign count limit per plan (per month) ──────────────────────────────────
+export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
+  FREE:     2,
+  PRO:      20,
+  BUSINESS: 60,
+  free:     2,
+  pro:      20,
+  business: 60,
+  starter:  20,
+  agency:   60,
+  ACTIVE:   20,
+}
 
 // ── Stripe Price ID mapping ────────────────────────────────────────────────────
 
@@ -101,15 +143,15 @@ export const STRIPE_PRICES: Record<string, string> = {
 // ── Plan → monthly credit allocation ──────────────────────────────────────────
 
 export const PLAN_CREDITS: Record<string, number> = {
-  FREE:     10,
-  PRO:      150,
-  BUSINESS: 600,
-  free:     10,
-  pro:      150,
-  business: 600,
-  starter:  150,
-  agency:   600,
-  ACTIVE:   150,
+  FREE:     20,
+  PRO:      300,
+  BUSINESS: 1000,
+  free:     20,
+  pro:      300,
+  business: 1000,
+  starter:  300,
+  agency:   1000,
+  ACTIVE:   300,
 }
 
 // ── Referral bonus credits ─────────────────────────────────────────────────────

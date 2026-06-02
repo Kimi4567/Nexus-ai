@@ -535,31 +535,31 @@ export default function HomePage() {
       period: '',
       desc: ar ? 'ابدأ بدون تكلفة — لا بطاقة ائتمان' : 'Start for free — no credit card needed',
       features: ar
-        ? ['10 أرصدة AI / شهر', 'حملة واحدة نشطة', 'Brand Brain (الحقول الأساسية)', 'توليد الاستراتيجية', 'عرض تقويم المحتوى']
-        : ['10 AI credits / month', '1 active campaign', 'Brand Brain (core fields)', 'AI Strategy generation', 'Content calendar view'],
+        ? ['20 رصيد AI (مرة واحدة فقط)', '1 مساحة عمل', 'حملتان كحد أقصى', '2 منصة اجتماعية', 'لا توليد فيديو']
+        : ['20 AI credits (one-time only)', '1 workspace', '2 campaigns max', '2 social platforms', 'No video generation'],
       cta: ar ? 'ابدأ مجاناً' : 'Start Free',
       featured: false,
     },
     {
       name: 'Pro',
-      price: '29',
+      price: '49',
       period: ar ? '/شهر' : '/month',
-      desc: ar ? 'للعلامات التجارية النامية والمبدعين' : 'For growing brands and creators',
+      desc: ar ? 'لأصحاب الأعمال والفرق الصغيرة' : 'For growing businesses & small teams',
       features: ar
-        ? ['150 رصيد AI / شهر', 'حملات غير محدودة', 'Brand Brain كامل', 'نشر على Meta · LinkedIn · TikTok', 'Autopilot — جدولة تلقائية', 'تحليلات الأداء', 'تصدير PDF + DOCX']
-        : ['150 AI credits / month', 'Unlimited campaigns', 'Full Brand Brain', 'Publish to Meta · LinkedIn · TikTok', 'Autopilot scheduling', 'Analytics dashboard', 'PDF + DOCX export'],
-      cta: ar ? 'ابدأ Pro — $29/شهر' : 'Start Pro — $29/mo',
+        ? ['300 رصيد AI / شهر (يتجدد)', '20 حملة / شهر · 100 بوست / شهر', 'Brand Brain كامل + جميع الوكلاء', 'نشر على جميع المنصات الـ 5', '5 فيديوهات مولّدة / شهر', 'تصدير PDF + DOCX بدون علامة مائية']
+        : ['300 AI credits / month (renews)', '20 campaigns / mo · 100 posts / mo', 'Full Brand Brain + all AI agents', 'Publish to all 5 platforms', '5 AI-generated videos / month', 'No-watermark PDF + DOCX export'],
+      cta: ar ? 'ابدأ Pro — $49/شهر' : 'Start Pro — $49/mo',
       featured: true,
     },
     {
-      name: ar ? 'الأعمال' : 'Business',
-      price: '79',
+      name: ar ? 'بيزنس' : 'Business',
+      price: '99',
       period: ar ? '/شهر' : '/month',
-      desc: ar ? 'للوكالات والفرق المتعددة' : 'For agencies and multi-brand teams',
+      desc: ar ? 'للوكالات والفرق الكبيرة' : 'For agencies and larger teams',
       features: ar
-        ? ['600 رصيد AI / شهر', 'كل مميزات Pro', '3 مساحات عمل', 'تصدير PDF بالعلامة الخاصة', 'تحليلات متقدمة', 'دعم أولوية']
-        : ['600 AI credits / month', 'Everything in Pro', '3 workspaces', 'White-label PDF exports', 'Advanced analytics', 'Priority support'],
-      cta: ar ? 'ابدأ Business — $79/شهر' : 'Start Business — $79/mo',
+        ? ['1,000 رصيد AI / شهر (يتجدد)', '60 حملة / شهر · بوستات غير محدودة', '20 فيديو مولّد / شهر', '3 مقاعد فريق + 10 مساحات عمل', 'تصدير White-label + API', 'دعم أولوية']
+        : ['1,000 AI credits / month (renews)', '60 campaigns / mo · unlimited posts', '20 AI-generated videos / month', '3 team seats + 10 workspaces', 'White-label export + API access', 'Priority support'],
+      cta: ar ? 'ابدأ Business — $99/شهر' : 'Start Business — $99/mo',
       featured: false,
     },
   ]
@@ -666,7 +666,7 @@ export default function HomePage() {
                 className="text-[12px] text-text-muted flex items-center gap-2 flex-wrap">
                 <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'بدون بطاقة ائتمان' : 'No credit card required'}</span>
                 <span className="text-text-muted">·</span>
-                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? '10 رصيد AI مجاناً' : '10 free AI credits'}</span>
+                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? '20 رصيد AI مجاناً' : '20 free AI credits'}</span>
                 <span className="text-text-muted">·</span>
                 <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'إلغاء في أي وقت' : 'Cancel anytime'}</span>
               </motion.p>
@@ -1430,7 +1430,7 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center justify-center gap-4 mb-6">
               <Link href="/auth/register"
                 className="btn-gradient font-heading text-[15px] font-semibold uppercase tracking-[1px] text-white px-10 py-4 rounded-lg inline-flex items-center gap-2 shadow-[0_0_40px_rgba(139,92,246,0.3)]">
-                {ar ? 'ابدأ مجاناً — 10 أرصدة' : 'Start Free — 10 Credits'} <ArrowRight size={18} />
+                {ar ? 'ابدأ مجاناً — 20 رصيداً' : 'Start Free — 20 Credits'} <ArrowRight size={18} />
               </Link>
               <a href="#workflow"
                 className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.25)] px-8 py-4 rounded-lg">
@@ -1438,7 +1438,7 @@ export default function HomePage() {
               </a>
             </div>
             <p className="text-[12px] text-text-muted">
-              {ar ? 'بدون بطاقة ائتمان · 10 أرصدة AI مجاناً · إلغاء في أي وقت' : 'No credit card · 10 free AI credits · Cancel anytime'}
+              {ar ? 'بدون بطاقة ائتمان · 20 رصيداً AI مجاناً · إلغاء في أي وقت' : 'No credit card · 20 free AI credits · Cancel anytime'}
             </p>
           </Reveal>
         </div>

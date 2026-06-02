@@ -5,16 +5,17 @@
  * Returns immediately with a generationId — the client polls
  * /api/campaigns/[id]/video-status/[generationId] for completion.
  *
- * If REPLICATE_API_TOKEN or REPLICATE_VIDEO_MODEL_VERSION are missing,
- * returns { providerAvailable: false } — the client shows a clean message.
+ * Video generation is gated by a monthly quota (NOT credits) per plan:
+ *   FREE: 0 videos/month, PRO: 5/month, BUSINESS: 20/month
+ * This protects margins since video costs $0.30–$1.00/video via Replicate.
  *
- * Sprint Q — Video Intelligence
+ * Sprint Q — Video Intelligence | Sprint AI — Quota-based billing
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { PLAN_VIDEO_QUOTA } from '@/lib/stripe'
 import {
   isVideoProviderAvailable,
   submitReplicatePrediction,
@@ -39,9 +40,49 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
   }
 
-  // Credit check
-  const credit = await checkAndDeductCredits(userId, 'VIDEO_GENERATION')
-  if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+  // ── Video quota check (replaces credit deduction) ──────────────────────────
+  // Fetch user plan + count their video generations this calendar month
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionStatus: true },
+  })
+  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 401 })
+
+  const planKey = (user.subscriptionStatus || 'FREE').toUpperCase()
+  const monthlyLimit = PLAN_VIDEO_QUOTA[planKey] ?? 0
+
+  if (monthlyLimit === 0) {
+    return NextResponse.json({
+      ok: false,
+      error: 'VIDEO_QUOTA_EXCEEDED',
+      message: 'Video generation is not available on the Free plan. Upgrade to Pro to generate up to 5 videos per month.',
+      upgradeUrl: '/billing',
+    }, { status: 402 })
+  }
+
+  // Count this user's video generations in the current calendar month
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  const monthlyVideoCount = await db.generation.count({
+    where: {
+      type: 'VIDEO',
+      createdAt: { gte: startOfMonth },
+      campaign: { workspace: { ownerId: userId } },
+    },
+  }).catch(() => 0) // Non-fatal — if table doesn't exist yet, allow the request
+
+  if (monthlyVideoCount >= monthlyLimit) {
+    return NextResponse.json({
+      ok: false,
+      error: 'VIDEO_QUOTA_EXCEEDED',
+      message: `You've used all ${monthlyLimit} video${monthlyLimit === 1 ? '' : 's'} for this month. Your quota resets on the 1st of next month.`,
+      used: monthlyVideoCount,
+      limit: monthlyLimit,
+      upgradeUrl: '/billing',
+    }, { status: 402 })
+  }
 
   const body = await req.json()
   const { prompt, durationSeconds = 5 } = body
@@ -109,7 +150,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       generationId: generation.id,
       externalId: prediction.id,
       status: 'QUEUED',
-      creditsRemaining: credit.creditsRemaining,
+      videoQuotaUsed: monthlyVideoCount + 1,
+      videoQuotaLimit: monthlyLimit,
     })
   } catch (err: any) {
     console.error('[video-generate] Replicate error:', err)
@@ -120,8 +162,6 @@ export async function POST(req: NextRequest, { params }: Params) {
       data: { status: 'FAILED', error: err.message },
     }).catch(() => {})
 
-    // Refund credit on provider failure (best-effort)
-    // Note: we don't refund — the brief was consumed regardless
     return NextResponse.json({
       error: err.message || 'Video generation failed to start',
       generationId: generation.id,
