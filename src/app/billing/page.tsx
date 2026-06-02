@@ -261,9 +261,15 @@ export default function BillingPage() {
 
   const [billingStatus, setBillingStatus] = useState<{
     plan: string
-    credits: number
     status: string
-    monthlyCredits: number
+    hasActiveSubscription: boolean
+    credits: {
+      remaining: number
+      used: number
+      max: number
+    }
+    currentPeriodEnd: string | null
+    cancelledAt: string | null
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState<string | null>(null)
@@ -311,12 +317,12 @@ export default function BillingPage() {
   }
 
   const currentPlan = billingStatus?.plan?.toLowerCase() || 'free'
-  const currentCredits = billingStatus?.credits ?? 0
-  const monthlyCredits = billingStatus?.monthlyCredits ?? 20
+  const currentCredits = billingStatus?.credits?.remaining ?? 0
+  const monthlyCredits = billingStatus?.credits?.max ?? 20
 
-  const creditsPercent = monthlyCredits > 0
+  const creditsPercent = monthlyCredits > 0 && monthlyCredits !== -1
     ? Math.min(100, Math.round((currentCredits / monthlyCredits) * 100))
-    : 0
+    : monthlyCredits === -1 ? 100 : 0
 
   return (
     <AppShell>
@@ -348,7 +354,7 @@ export default function BillingPage() {
               <div className="flex-1 max-w-xs">
                 <div className="flex items-center justify-between text-xs text-white/50 mb-1.5">
                   <span>{ar ? 'الأرصدة المتبقية' : 'Credits remaining'}</span>
-                  <span className="font-mono text-white/70">{currentCredits} / {monthlyCredits === 20 ? `20 ${ar ? '(مرة واحدة)' : '(one-time)'}` : `${monthlyCredits}${ar ? '/شهر' : '/mo'}`}</span>
+                  <span className="font-mono text-white/70">{currentCredits} / {!billingStatus?.hasActiveSubscription ? `20 ${ar ? '(مرة واحدة)' : '(one-time)'}` : monthlyCredits === -1 ? (ar ? 'غير محدود' : 'unlimited') : `${monthlyCredits}${ar ? '/شهر' : '/mo'}`}</span>
                 </div>
                 <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                   <div

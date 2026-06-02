@@ -68,6 +68,12 @@ export default function SettingsPage() {
 
   const [signingOut, setSigningOut] = useState(false)
 
+  const [billingStatus, setBillingStatus] = useState<{
+    plan: string
+    hasActiveSubscription: boolean
+    credits: { remaining: number; used: number; max: number }
+  } | null>(null)
+
   useEffect(() => {
     if (!loading && !isAuthenticated) router.push('/auth/login')
   }, [loading, isAuthenticated, router])
@@ -120,6 +126,17 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) setDisplayName(user?.user_metadata?.name || user?.email?.split('@')[0] || '')
   }, [user])
+
+  // Fetch real billing status when billing section is opened
+  useEffect(() => {
+    if (activeSection !== 'billing') return
+    const token = authHeader()
+    if (!token) return
+    fetch('/api/billing/status', { headers: { Authorization: token } })
+      .then(r => r.json())
+      .then(d => { if (d.plan) setBillingStatus(d) })
+      .catch(() => {})
+  }, [activeSection, authHeader])
 
   const handleConnectMeta = async () => {
     const token = authHeader()
@@ -693,6 +710,7 @@ export default function SettingsPage() {
                   <h3 className="text-lg font-bold mb-1">{t('settings.billingCurrentPlan')}</h3>
                   <p className="text-text-muted text-sm mb-6">{t('settings.billingCurrentPlanDesc')}</p>
 
+                  {/* Plan badge */}
                   <div
                     className="flex items-center justify-between p-5 mb-4"
                     style={{
@@ -709,44 +727,62 @@ export default function SettingsPage() {
                         <Sparkles className="w-5 h-5 text-violet-400" />
                       </div>
                       <div>
-                        <div className="font-bold text-text-primary">Starter</div>
-                        <div className="text-sm text-text-muted">{t('settings.starterFreeDesc')}</div>
+                        <div className="font-bold text-text-primary capitalize">
+                          {billingStatus
+                            ? (billingStatus.hasActiveSubscription
+                                ? (billingStatus.plan === 'pro' ? (locale === 'ar' ? 'برو' : 'Pro') : locale === 'ar' ? 'بيزنس' : 'Business')
+                                : (locale === 'ar' ? 'مجاني' : 'Free'))
+                            : (locale === 'ar' ? 'مجاني' : 'Free')}
+                        </div>
+                        <div className="text-sm text-text-muted">
+                          {billingStatus?.hasActiveSubscription
+                            ? (locale === 'ar' ? 'اشتراك نشط — أرصدة تتجدد شهرياً' : 'Active subscription — credits renew monthly')
+                            : (locale === 'ar' ? 'مجاني — 20 رصيد مرة واحدة' : 'Free — 20 one-time credits')}
+                        </div>
                       </div>
                     </div>
                     <span
                       className="text-xs px-3 py-1 rounded-full font-semibold"
                       style={{
-                        background: 'rgba(16,185,129,0.08)',
-                        color: '#10b981',
-                        border: '1px solid rgba(16,185,129,0.15)',
+                        background: billingStatus?.hasActiveSubscription ? 'rgba(16,185,129,0.08)' : 'rgba(139,92,246,0.08)',
+                        color: billingStatus?.hasActiveSubscription ? '#10b981' : '#8b5cf6',
+                        border: billingStatus?.hasActiveSubscription ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(139,92,246,0.15)',
                       }}
                     >
-                      {t('settings.activeStatus')}
+                      {billingStatus?.hasActiveSubscription ? t('settings.activeStatus') : (locale === 'ar' ? 'مجاني' : 'Free')}
                     </span>
                   </div>
 
+                  {/* Credits bar */}
                   <div className="space-y-3 mb-6">
-                    {[
-                      { labelKey: 'settings.videosPerMonthLabel', value: locale === 'ar' ? '٥ من ٥' : '5 of 5', pct: 100 },
-                      { labelKey: 'settings.adCampaignsLabel',    value: locale === 'ar' ? '٣ من ٣' : '3 of 3', pct: 100 },
-                      { labelKey: 'settings.connectedPlatformsLabel', value: locale === 'ar' ? '١ من ١' : '1 of 1', pct: 100 },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="text-sm text-text-muted w-28 text-right">{t(item.labelKey)}</span>
-                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(12,13,36,0.6)' }}>
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${item.pct}%`,
-                              background: item.pct >= 80
-                                ? 'linear-gradient(90deg, #f59e0b, #d97706)'
-                                : 'linear-gradient(90deg, #06b6d4, #0891b2)',
-                            }}
-                          />
-                        </div>
-                        <span className="text-xs text-text-secondary w-16 text-left">{item.value}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-text-muted w-28 text-right">
+                        {locale === 'ar' ? 'الأرصدة المتبقية' : 'Credits left'}
+                      </span>
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(12,13,36,0.6)' }}>
+                        {(() => {
+                          const rem = billingStatus?.credits?.remaining ?? 0
+                          const max = billingStatus?.credits?.max ?? 20
+                          const pct = max > 0 ? Math.min(100, Math.round((rem / max) * 100)) : 0
+                          return (
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${pct}%`,
+                                background: pct <= 20
+                                  ? 'linear-gradient(90deg, #ef4444, #f97316)'
+                                  : 'linear-gradient(90deg, #06b6d4, #0891b2)',
+                              }}
+                            />
+                          )
+                        })()}
                       </div>
-                    ))}
+                      <span className="text-xs text-text-secondary w-16 text-left">
+                        {billingStatus
+                          ? `${billingStatus.credits.remaining} / ${billingStatus.credits.max === -1 ? '∞' : billingStatus.credits.max}`
+                          : '— / 20'}
+                      </span>
+                    </div>
                   </div>
 
                   <Link
