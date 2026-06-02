@@ -140,7 +140,7 @@ const PLATFORMS: PlatformDef[] = [
 ]
 
 export default function ConnectionsPage() {
-  const { isAuthenticated, loading, authHeader } = useAuth()
+  const { isAuthenticated, loading, authHeader, session } = useAuth()
   const { locale, dir, t } = useI18n()
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
@@ -149,10 +149,12 @@ export default function ConnectionsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const fetchAccounts = useCallback(async () => {
+    const token = authHeader()
+    if (!token) return
     setLoadingAccounts(true)
     try {
       const res = await fetch('/api/social/accounts', {
-        headers: { Authorization: authHeader() },
+        headers: { Authorization: token },
       })
       const data = await res.json()
       setAccounts(data.accounts || [])
@@ -199,8 +201,9 @@ export default function ConnectionsPage() {
   }, [])
 
   useEffect(() => {
-    if (isAuthenticated) fetchAccounts()
-  }, [isAuthenticated, fetchAccounts])
+    // Wait for both auth check to complete AND session to be available
+    if (!loading && isAuthenticated && session?.access_token) fetchAccounts()
+  }, [loading, isAuthenticated, session, fetchAccounts])
 
   const CONNECT_ROUTES: Record<string, string> = {
     META:     '/api/social/connect/meta',
@@ -211,11 +214,37 @@ export default function ConnectionsPage() {
   const handleConnect = async (platformId: string) => {
     const route = CONNECT_ROUTES[platformId]
     if (!route) return // platform not yet supported
+
+    // Guard: session must be present before calling OAuth routes
+    const token = authHeader()
+    if (!token) {
+      setMessage({
+        type: 'error',
+        text: locale === 'ar'
+          ? 'انتهت صلاحية الجلسة. يرجى تسجيل الخروج وإعادة الدخول ثم المحاولة مجدداً.'
+          : 'Session expired. Please sign out and sign in again, then try connecting.',
+      })
+      return
+    }
+
     setConnecting(platformId)
     try {
       const res = await fetch(route, {
-        headers: { Authorization: authHeader() },
+        headers: { Authorization: token },
       })
+
+      // 401 means token is invalid on the server side
+      if (res.status === 401) {
+        setMessage({
+          type: 'error',
+          text: locale === 'ar'
+            ? 'انتهت صلاحية الجلسة. يرجى تسجيل الخروج وإعادة الدخول ثم المحاولة مجدداً.'
+            : 'Session expired. Please sign out and sign in again, then try connecting.',
+        })
+        setConnecting(null)
+        return
+      }
+
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
