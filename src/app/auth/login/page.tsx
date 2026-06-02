@@ -11,9 +11,14 @@ function LoginForm() {
   const { t, isRTL } = useI18n()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [email, setEmail] = useState('')
+
+  // Restore saved email if user previously checked "Remember Me"
+  const savedEmail = typeof window !== 'undefined'
+    ? (localStorage.getItem('nexus-remember-email') ?? '')
+    : ''
+  const [email, setEmail] = useState(savedEmail)
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(true)
+  const [rememberMe, setRememberMe] = useState(savedEmail !== '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -38,6 +43,12 @@ function LoginForm() {
         }
         setLoading(false)
         return
+      }
+      // Persist email for next visit if "Remember Me" is checked
+      if (rememberMe) {
+        localStorage.setItem('nexus-remember-email', email)
+      } else {
+        localStorage.removeItem('nexus-remember-email')
       }
       window.location.href = redirectTo
     } catch {

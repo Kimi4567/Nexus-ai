@@ -116,7 +116,7 @@ export default function OnboardingPage() {
       const res  = await fetch('/api/strategy/generate', {
         method: 'POST',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal: goal || 'drive_sales', timeframe: '30', platform: 'multi', budget: 'bootstrap' }),
+        body: JSON.stringify({ goal: goal || 'drive_sales', timeframe: '30', platform: 'multi', budget: 'bootstrap', language: locale }),
       })
       const data = await res.json()
       if (data.strategy) setStrategy(data.strategy)
