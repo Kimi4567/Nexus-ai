@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 
 /* ═══════════════════════════════════════════════════════════════════════════
    GET /api/cron/generate-images
@@ -94,6 +95,11 @@ export async function GET(req: NextRequest) {
       imagePrompt: { not: null },
       imageUrl: null,
     },
+    include: {
+      workspace: {
+        include: { brandProfile: true },
+      },
+    },
     take: 10, // process up to 10 per run to stay within cron timeout
   })
 
@@ -117,7 +123,15 @@ export async function GET(req: NextRequest) {
           finalUrl = dalleUrl
         }
 
-        // 3. Update the post
+        // 3. Apply brand overlay (Cloudinary URL transformation — zero extra cost)
+        const brand = post.workspace?.brandProfile
+        if (brand?.brandName && finalUrl.includes('res.cloudinary.com')) {
+          const overlayPlatform = platformToOverlay(post.platform || 'META')
+          finalUrl = applyBrandOverlayFromProfile(finalUrl, brand, overlayPlatform)
+          console.log(`[Cron generate-images] Brand overlay applied for ${brand.brandName} (${post.id})`)
+        }
+
+        // 4. Update the post
         await prisma.socialPost.update({
           where: { id: post.id },
           data: { imageUrl: finalUrl },

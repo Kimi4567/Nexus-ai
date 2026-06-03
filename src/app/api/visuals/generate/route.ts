@@ -19,6 +19,7 @@ import {
   VisualStyle,
   VisualType,
 } from '@/lib/ai/imageGen'
+import { applyBrandOverlayFromProfile } from '@/lib/cloudinaryOverlay'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -164,8 +165,14 @@ export async function POST(req: NextRequest) {
     const dalleUrl = await generateWithDallE(prompt)
 
     // Persist to Cloudinary
-    const publicId    = `visual_${visual.id}`
-    const permanentUrl = await uploadToCloudinary(dalleUrl, publicId)
+    const publicId     = `visual_${visual.id}`
+    const cloudinaryUrl = await uploadToCloudinary(dalleUrl, publicId)
+
+    // Apply brand overlay (Cloudinary URL transformation — no extra API call)
+    const permanentUrl = applyBrandOverlayFromProfile(cloudinaryUrl, brand, 'square')
+    if (permanentUrl !== cloudinaryUrl) {
+      console.log(`[visuals/generate] Brand overlay applied for ${ctx.brandName}`)
+    }
 
     // Update DB to COMPLETED
     const updated = await db.generatedVisual.update({
