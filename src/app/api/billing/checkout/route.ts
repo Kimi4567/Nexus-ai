@@ -2,7 +2,7 @@
  * POST /api/billing/checkout
  * Creates a Stripe Checkout Session and returns the URL.
  *
- * Body: { plan: 'starter' | 'pro' | 'agency' }
+ * Body: { plan: 'starter' | 'pro' | 'business' }
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const priceId = STRIPE_PRICES[plan]
     if (!priceId) {
       return NextResponse.json(
-        { error: `Unknown plan "${plan}". Valid: starter, pro, agency` },
+        { error: `Unknown plan "${plan}". Valid: starter, pro, business` },
         { status: 400 }
       )
     }
