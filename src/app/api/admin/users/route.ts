@@ -23,30 +23,35 @@ export async function GET(req: NextRequest) {
   const admin = await requireAdmin(req)
   if (!admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      subscriptionStatus: true,
-      aiCredits: true,
-      stripeCustomerId: true,
-      createdAt: true,
-      lastLoginAt: true,
-      company: true,
-      _count: {
-        select: { workspaces: true },
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        subscriptionStatus: true,
+        aiCredits: true,
+        stripeCustomerId: true,
+        createdAt: true,
+        lastLoginAt: true,
+        company: true,
+        _count: {
+          select: { workspaces: true },
+        },
       },
-    },
-  })
+    })
 
-  // Revenue summary
-  const planCounts = await prisma.user.groupBy({
-    by: ['subscriptionStatus'],
-    _count: { _all: true },
-  })
+    // Revenue summary
+    const planCounts = await prisma.user.groupBy({
+      by: ['subscriptionStatus'],
+      _count: { _all: true },
+    })
 
-  return NextResponse.json({ users, planCounts })
+    return NextResponse.json({ users, planCounts })
+  } catch (err: unknown) {
+    console.error('[admin/users GET]', err)
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+  }
 }

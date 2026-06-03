@@ -12,44 +12,49 @@ export async function GET(req: NextRequest) {
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = authUser.id
 
-  const [user, subscription, workspace] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatar: true,
-        aiCredits: true,
-        subscriptionStatus: true,
-        createdAt: true,
-      },
-    }),
-    prisma.subscription.findUnique({
-      where: { userId },
-      select: { plan: true, status: true, currentPeriodEnd: true, monthlyCredits: true },
-    }).catch(() => null),
-    // Needed by auth-context to decide /dashboard vs /onboarding after login
-    prisma.workspace.findFirst({
-      where: { ownerId: userId },
-      select: { id: true },
-    }).catch(() => null),
-  ])
+  try {
+    const [user, subscription, workspace] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar: true,
+          aiCredits: true,
+          subscriptionStatus: true,
+          createdAt: true,
+        },
+      }),
+      prisma.subscription.findUnique({
+        where: { userId },
+        select: { plan: true, status: true, currentPeriodEnd: true, monthlyCredits: true },
+      }).catch(() => null),
+      // Needed by auth-context to decide /dashboard vs /onboarding after login
+      prisma.workspace.findFirst({
+        where: { ownerId: userId },
+        select: { id: true },
+      }).catch(() => null),
+    ])
 
-  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-  return NextResponse.json({
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    avatarUrl: user.avatar,
-    aiCredits: user.aiCredits,
-    subscriptionStatus: user.subscriptionStatus,
-    plan: subscription?.plan || 'FREE',
-    planStatus: subscription?.status || 'FREE',
-    currentPeriodEnd: subscription?.currentPeriodEnd || null,
-    monthlyCredits: subscription?.monthlyCredits || 30,
-    createdAt: user.createdAt,
-    workspaceId: workspace?.id || null,
-  })
+    return NextResponse.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatar,
+      aiCredits: user.aiCredits,
+      subscriptionStatus: user.subscriptionStatus,
+      plan: subscription?.plan || 'FREE',
+      planStatus: subscription?.status || 'FREE',
+      currentPeriodEnd: subscription?.currentPeriodEnd || null,
+      monthlyCredits: subscription?.monthlyCredits || 30,
+      createdAt: user.createdAt,
+      workspaceId: workspace?.id || null,
+    })
+  } catch (err: unknown) {
+    console.error('[user/me GET]', err)
+    return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 })
+  }
 }

@@ -27,46 +27,45 @@ async function getCampaign(id: string, userId: string) {
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const campaign = await getCampaign(params.id, userId)
-  if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  return NextResponse.json({
-    isPublic: campaign.isPublic,
-    shareToken: campaign.shareToken,
-    shareViews: campaign.shareViews,
-  })
+  try {
+    const campaign = await getCampaign(params.id, userId)
+    if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    return NextResponse.json({ isPublic: campaign.isPublic, shareToken: campaign.shareToken, shareViews: campaign.shareViews })
+  } catch (err: unknown) {
+    console.error('[campaigns/share GET]', err)
+    return NextResponse.json({ error: 'Failed to get share status' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const campaign = await getCampaign(params.id, userId)
-  if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  const token = campaign.shareToken || generateToken()
-
-  const updated = await prisma.campaign.update({
-    where: { id: params.id },
-    data: { shareToken: token, isPublic: true },
-    select: { shareToken: true, isPublic: true, shareViews: true },
-  })
-
-  return NextResponse.json(updated)
+  try {
+    const campaign = await getCampaign(params.id, userId)
+    if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const token = campaign.shareToken || generateToken()
+    const updated = await prisma.campaign.update({
+      where: { id: params.id },
+      data: { shareToken: token, isPublic: true },
+      select: { shareToken: true, isPublic: true, shareViews: true },
+    })
+    return NextResponse.json(updated)
+  } catch (err: unknown) {
+    console.error('[campaigns/share POST]', err)
+    return NextResponse.json({ error: 'Failed to create share link' }, { status: 500 })
+  }
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const campaign = await getCampaign(params.id, userId)
-  if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  await prisma.campaign.update({
-    where: { id: params.id },
-    data: { isPublic: false },
-  })
-
-  return NextResponse.json({ ok: true })
+  try {
+    const campaign = await getCampaign(params.id, userId)
+    if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    await prisma.campaign.update({ where: { id: params.id }, data: { isPublic: false } })
+    return NextResponse.json({ ok: true })
+  } catch (err: unknown) {
+    console.error('[campaigns/share DELETE]', err)
+    return NextResponse.json({ error: 'Failed to revoke share link' }, { status: 500 })
+  }
 }

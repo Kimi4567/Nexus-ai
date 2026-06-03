@@ -11,63 +11,68 @@ export async function POST(req: Request) {
     return NextResponse.json(createUploadError(401, 'Unauthorized', 'UNAUTHORIZED'), { status: 401 })
   }
 
-  const body = await req.json()
-  let { workspaceId, projectId, campaignId, resourceType, fileName } = body
+  try {
+    const body = await req.json().catch(() => ({}))
+    let { workspaceId, projectId, campaignId, resourceType, fileName } = body
 
-  if (!workspaceId) {
+    if (!workspaceId) {
+      if (projectId) {
+        const project = await prisma.project.findUnique({ where: { id: projectId } })
+        if (project) workspaceId = project.workspaceId
+      }
+
+      if (!workspaceId && campaignId) {
+        const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
+        if (campaign) workspaceId = campaign.workspaceId
+      }
+    }
+
+    if (!workspaceId) {
+      const defaultWorkspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
+      if (!defaultWorkspace) {
+        return NextResponse.json(createUploadError(400, 'Workspace required for upload session', 'WORKSPACE_REQUIRED'), { status: 400 })
+      }
+      workspaceId = defaultWorkspace.id
+    }
+
+    const workspace = await assertWorkspaceAccess(workspaceId, userId)
+
     if (projectId) {
-      const project = await prisma.project.findUnique({ where: { id: projectId } })
-      if (project) workspaceId = project.workspaceId
+      await assertProjectInWorkspace(projectId, workspaceId, userId)
     }
 
-    if (!workspaceId && campaignId) {
-      const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } })
-      if (campaign) workspaceId = campaign.workspaceId
+    if (campaignId) {
+      await assertCampaignInWorkspace(campaignId, workspaceId, userId)
     }
-  }
 
-  if (!workspaceId) {
-    const defaultWorkspace = await prisma.workspace.findFirst({ where: { ownerId: userId } })
-    if (!defaultWorkspace) {
-      return NextResponse.json(createUploadError(400, 'Workspace required for upload session', 'WORKSPACE_REQUIRED'), { status: 400 })
-    }
-    workspaceId = defaultWorkspace.id
-  }
+    const token = crypto.randomUUID()
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000) // 2 minutes
 
-  const workspace = await assertWorkspaceAccess(workspaceId, userId)
+    const session = await prisma.uploadSession.create({
+      data: {
+        token,
+        userId,
+        workspaceId,
+        projectId: projectId || null,
+        campaignId: campaignId || null,
+        resourceType: resourceType || 'auto',
+        fileName: fileName || null,
+        expiresAt,
+      },
+    })
 
-  if (projectId) {
-    await assertProjectInWorkspace(projectId, workspaceId, userId)
-  }
-
-  if (campaignId) {
-    await assertCampaignInWorkspace(campaignId, workspaceId, userId)
-  }
-
-  const token = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + 2 * 60 * 1000) // 2 minutes
-
-  const session = await prisma.uploadSession.create({
-    data: {
-      token,
+    await logUploadEvent({
       userId,
       workspaceId,
-      projectId: projectId || null,
-      campaignId: campaignId || null,
-      resourceType: resourceType || 'auto',
-      fileName: fileName || null,
-      expiresAt,
-    },
-  })
+      projectId,
+      sessionId: session.id,
+      eventType: 'UPLOAD_SESSION_CREATED',
+      metadata: { expiresAt: expiresAt.toISOString() },
+    })
 
-  await logUploadEvent({
-    userId,
-    workspaceId,
-    projectId,
-    sessionId: session.id,
-    eventType: 'UPLOAD_SESSION_CREATED',
-    metadata: { expiresAt: expiresAt.toISOString() },
-  })
-
-  return NextResponse.json({ sessionToken: token, expiresAt: expiresAt.toISOString() })
+    return NextResponse.json({ sessionToken: token, expiresAt: expiresAt.toISOString() })
+  } catch (err: unknown) {
+    console.error('[uploads/session POST]', err)
+    return NextResponse.json(createUploadError(500, 'Failed to create upload session', 'SERVER_ERROR'), { status: 500 })
+  }
 }
