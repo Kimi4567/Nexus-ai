@@ -120,6 +120,7 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
   const [genProgress, setGenProgress] = useState(0)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [genError, setGenError] = useState('')
+  const [upgradeNeeded, setUpgradeNeeded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [providerAvailable, setProviderAvailable] = useState<boolean | null>(null)
 
@@ -240,6 +241,7 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
 
     setSubmitting(true)
     setGenError('')
+    setUpgradeNeeded(false)
     setVideoUrl(null)
     setGenStatus(null)
 
@@ -255,7 +257,14 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
       })
       const data = await res.json()
 
-      if (!res.ok) throw new Error(data.error || 'Failed to start video generation')
+      // Quota exceeded → show upgrade prompt, not a generic error
+      if (res.status === 402 || data.error === 'VIDEO_QUOTA_EXCEEDED') {
+        setUpgradeNeeded(true)
+        setSubmitting(false)
+        return
+      }
+
+      if (!res.ok) throw new Error(data.message || data.error || 'Failed to start video generation')
 
       // Provider not configured
       if (data.providerAvailable === false) {
@@ -453,6 +462,27 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
                 <div className="text-xs font-semibold text-amber-300 mb-0.5">Image-to-video not configured</div>
                 <div className="text-[11px] text-amber-500">
                   Add <code className="font-mono bg-amber-500/10 px-1 rounded">REPLICATE_API_TOKEN</code> to your environment to enable image animation. Optionally set <code className="font-mono bg-amber-500/10 px-1 rounded">REPLICATE_IMG2VIDEO_MODEL_VERSION</code>.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Upgrade prompt — video quota exceeded */}
+          {upgradeNeeded && (
+            <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-500/10 to-purple-500/5 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🎬</span>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-violet-300 mb-1">Video Generation — Pro Feature</div>
+                  <div className="text-xs text-gray-400 mb-3">
+                    Video generation is available on the Pro plan (5 videos/month) and Business plan (20 videos/month). Upgrade to start animating your content.
+                  </div>
+                  <a
+                    href="/billing"
+                    className="inline-block text-xs font-semibold px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+                  >
+                    Upgrade to Pro →
+                  </a>
                 </div>
               </div>
             </div>
@@ -661,6 +691,27 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
               </div>
               {genStatus && <StatusPill status={genStatus} progress={genProgress} />}
             </div>
+
+            {/* Upgrade prompt — video quota exceeded */}
+            {upgradeNeeded && (
+              <div className="rounded-xl border border-violet-500/40 bg-gradient-to-br from-violet-500/10 to-purple-500/5 px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🎬</span>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-violet-300 mb-1">Video Generation — Pro Feature</div>
+                    <div className="text-xs text-gray-400 mb-3">
+                      Video generation is available on the Pro plan (5 videos/month) and Business plan (20 videos/month). Upgrade to start animating your content.
+                    </div>
+                    <a
+                      href="/billing"
+                      className="inline-block text-xs font-semibold px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+                    >
+                      Upgrade to Pro →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Generation error */}
             {genError && (

@@ -115,6 +115,9 @@ export const PLAN_VIDEO_QUOTA: Record<string, number> = {
   starter:  5,
   agency:   20,
   ACTIVE:   5,
+  // Admin / founder accounts — unlimited video
+  ADMIN:    999,
+  admin:    999,
 }
 
 // ── Campaign count limit per plan (per month) ──────────────────────────────────

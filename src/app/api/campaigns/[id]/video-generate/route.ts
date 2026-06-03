@@ -57,12 +57,15 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Fetch user plan + count their video generations this calendar month
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { subscriptionStatus: true },
+    select: { subscriptionStatus: true, role: true },
   })
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 401 })
 
+  // Admins bypass quota entirely (founders / internal testing)
+  const isAdmin = user.role === 'ADMIN'
+
   const planKey = (user.subscriptionStatus || 'FREE').toUpperCase()
-  const monthlyLimit = PLAN_VIDEO_QUOTA[planKey] ?? 0
+  const monthlyLimit = isAdmin ? 999 : (PLAN_VIDEO_QUOTA[planKey] ?? 0)
 
   if (monthlyLimit === 0) {
     return NextResponse.json({
