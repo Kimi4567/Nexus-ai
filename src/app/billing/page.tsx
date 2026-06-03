@@ -1,13 +1,10 @@
 'use client'
 
 /**
- * Billing page — Sprint AI (professional repricing)
- * Plans: Free $0 · Pro $49 · Business $99
- * Credits: 20 (one-time) · 300/mo · 1,000/mo
- * Video quota: 0 · 5/mo · 20/mo  (separate from credits)
- *
- * Cost model: Pro margins 87–94% per action. Video quota decoupled
- * from credits to protect margins ($0.30–$1.00/video via Replicate).
+ * Billing page
+ * Plans: Free $0 · Starter $29 · Pro $79 · Business $199
+ * Credits: 20 (one-time) · 150/mo · 300/mo · 1,000/mo
+ * Video quota: 0 · 2/mo · 5/mo · 20/mo  (separate from credits)
  */
 
 import { useAuth } from '@/lib/auth-context'
@@ -57,10 +54,46 @@ const PLANS = [
     ],
   },
   {
+    id: 'starter',
+    nameAr: 'ستارتر',
+    nameEn: 'Starter',
+    price: 29,
+    creditsAr: '150 رصيد / شهر — يتجدد تلقائياً',
+    creditsEn: '150 credits / month — renews monthly',
+    accentColor: '#3b82f6',
+    featured: false,
+    badgeAr: null as string | null,
+    badgeEn: null as string | null,
+    descAr: 'للبداية بسعر مناسب',
+    descEn: 'Perfect entry point for solo creators',
+    limitsAr: [
+      '150 رصيد AI / شهر (يتجدد شهرياً)',
+      'مساحتا عمل',
+      '8 حملات / شهر',
+      '50 بوست / شهر',
+      '3 منصات اجتماعية',
+      'فيديوهان مولّدان / شهر',
+      'Brand Brain الكامل + جميع الوكلاء',
+      'تصدير بدون علامة مائية',
+      'دعم بريد إلكتروني',
+    ],
+    limitsEn: [
+      '150 AI credits / month (renews monthly)',
+      '2 workspaces',
+      '8 campaigns / month',
+      '50 posts / month',
+      '3 social platforms',
+      '2 AI-generated videos / month',
+      'Full Brand Brain + all AI agents',
+      'No-watermark exports',
+      'Email support',
+    ],
+  },
+  {
     id: 'pro',
     nameAr: 'برو',
     nameEn: 'Pro',
-    price: 49,
+    price: 79,
     creditsAr: '300 رصيد / شهر — يتجدد تلقائياً',
     creditsEn: '300 credits / month — renews monthly',
     accentColor: '#8b5cf6',
@@ -98,7 +131,7 @@ const PLANS = [
     id: 'business',
     nameAr: 'بيزنس',
     nameEn: 'Business',
-    price: 99,
+    price: 199,
     creditsAr: '1,000 رصيد / شهر — يتجدد تلقائياً',
     creditsEn: '1,000 credits / month — renews monthly',
     accentColor: '#10b981',

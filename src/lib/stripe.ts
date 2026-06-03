@@ -1,18 +1,15 @@
 /**
  * Nexus AI — Stripe client + Plan definitions
  *
- * Pricing (as of Sprint AI — professional cost-based repricing):
- *   Free     — $0      — 20 credits (one-time)  — 1 workspace, 2 campaigns, 0 videos
- *   Pro      — $49/mo  — 300 credits/month       — 3 workspaces, 20 campaigns, 5 videos/mo
- *   Business — $99/mo  — 1,000 credits/month     — 10 workspaces, 60 campaigns, 20 videos/mo
+ * Pricing:
+ *   Free     — $0       — 20 credits (one-time)  — 1 workspace, 2 campaigns, 0 videos
+ *   Starter  — $29/mo   — 150 credits/month       — 2 workspaces, 8 campaigns, 2 videos/mo
+ *   Pro      — $79/mo   — 300 credits/month       — 3 workspaces, 20 campaigns, 5 videos/mo
+ *   Business — $199/mo  — 1,000 credits/month     — 10 workspaces, 60 campaigns, 20 videos/mo
  *
  * Credit costs per action: see src/lib/credits.ts → CREDIT_COSTS
  * Video generation: separate monthly quota (NOT credits) — see PLAN_VIDEO_QUOTA
  * Referral bonus: +20 credits for both referrer and new user on signup
- *
- * Margin model (Pro, $49):
- *   Average user (5 videos + mixed text): ~$5.50 API cost → 88.8% gross margin
- *   Worst case (5 videos + 100 images):   ~$6.50 API cost → 86.7% gross margin
  */
 
 import Stripe from 'stripe'
@@ -58,13 +55,32 @@ export const PLANS: PlanDefinition[] = [
     ],
   },
   {
+    id: 'starter',
+    name: 'Starter',
+    price: 29,
+    credits: 150,
+    stripePriceEnvKey: 'STRIPE_PRICE_STARTER',
+    cta: 'Start Starter — $29/mo',
+    features: [
+      '150 AI credits / month (refreshes monthly)',
+      '2 workspaces',
+      '8 campaigns / month',
+      '50 posts / month',
+      '3 social platforms',
+      '2 AI videos / month',
+      'Full Brand Brain + all AI agents',
+      'No-watermark exports',
+      'Email support',
+    ],
+  },
+  {
     id: 'pro',
     name: 'Pro',
-    price: 49,
+    price: 79,
     credits: 300,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
     highlight: 'Most Popular',
-    cta: 'Start Pro — $49/mo',
+    cta: 'Start Pro — $79/mo',
     features: [
       '300 AI credits / month (refreshes monthly)',
       '3 workspaces',
@@ -81,10 +97,10 @@ export const PLANS: PlanDefinition[] = [
   {
     id: 'business',
     name: 'Business',
-    price: 99,
+    price: 199,
     credits: 1000,
     stripePriceEnvKey: 'STRIPE_PRICE_BUSINESS',
-    cta: 'Start Business — $99/mo',
+    cta: 'Start Business — $199/mo',
     features: [
       '1,000 AI credits / month (refreshes monthly)',
       '10 workspaces',
@@ -107,12 +123,13 @@ export const PLANS: PlanDefinition[] = [
 
 export const PLAN_VIDEO_QUOTA: Record<string, number> = {
   FREE:     0,
+  STARTER:  2,
   PRO:      5,
   BUSINESS: 20,
   free:     0,
+  starter:  2,
   pro:      5,
   business: 20,
-  starter:  5,
   agency:   20,
   ACTIVE:   5,
   // Admin / founder accounts — unlimited video
@@ -123,12 +140,13 @@ export const PLAN_VIDEO_QUOTA: Record<string, number> = {
 // ── Campaign count limit per plan (per month) ──────────────────────────────────
 export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
   FREE:     2,
+  STARTER:  8,
   PRO:      20,
   BUSINESS: 60,
   free:     2,
+  starter:  8,
   pro:      20,
   business: 60,
-  starter:  20,
   agency:   60,
   ACTIVE:   20,
 }
@@ -136,10 +154,10 @@ export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
 // ── Stripe Price ID mapping ────────────────────────────────────────────────────
 
 export const STRIPE_PRICES: Record<string, string> = {
+  starter:  process.env.STRIPE_PRICE_STARTER  || '',
   pro:      process.env.STRIPE_PRICE_PRO      || '',
   business: process.env.STRIPE_PRICE_BUSINESS || '',
-  // Legacy aliases
-  starter:  process.env.STRIPE_PRICE_PRO      || '',
+  // Aliases
   agency:   process.env.STRIPE_PRICE_BUSINESS || '',
 }
 
@@ -147,12 +165,13 @@ export const STRIPE_PRICES: Record<string, string> = {
 
 export const PLAN_CREDITS: Record<string, number> = {
   FREE:     20,
+  STARTER:  150,
   PRO:      300,
   BUSINESS: 1000,
   free:     20,
+  starter:  150,
   pro:      300,
   business: 1000,
-  starter:  300,
   agency:   1000,
   ACTIVE:   300,
 }
@@ -174,7 +193,8 @@ export function planFromPriceId(priceId: string): string {
 
 export function planFromStatus(status: string): PlanDefinition {
   const normalized = status?.toUpperCase()
-  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PLANS[2]
-  if (normalized === 'PRO' || normalized === 'STARTER' || normalized === 'ACTIVE') return PLANS[1]
+  if (normalized === 'BUSINESS' || normalized === 'AGENCY') return PLANS[3]
+  if (normalized === 'PRO' || normalized === 'ACTIVE') return PLANS[2]
+  if (normalized === 'STARTER') return PLANS[1]
   return PLANS[0]
 }
