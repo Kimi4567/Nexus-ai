@@ -721,8 +721,8 @@ export default function HomePage() {
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.18) 0%, transparent 65%), radial-gradient(ellipse 40% 30% at 80% 80%, rgba(16,185,129,0.1) 0%, transparent 50%)' }} />
         <ParticleBackground />
 
-        <div className="relative z-10 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-20 lg:py-28">
-          <div className="grid lg:grid-cols-2 gap-14 items-center">
+        <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-16 lg:py-24">
+          <div className="grid lg:grid-cols-[1fr_1.35fr] gap-10 items-center">
             {/* Text */}
             <div>
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.55 }}
@@ -767,59 +767,67 @@ export default function HomePage() {
               </motion.p>
             </div>
 
-            {/* Hero visual — real product screenshot */}
-            <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9, duration: 0.8 }}
-              className="hidden lg:block">
-              {/* Outer glow ring */}
+            {/* Hero visual — cinematic floating asset */}
+            <motion.div initial={{ opacity: 0, scale: 0.94, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ delay: 0.8, duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="hidden lg:block" style={{ position: 'relative' }}>
+
+              {/* Violet radial glow — back layer */}
               <div style={{
-                position: 'relative',
-                borderRadius: '20px',
-                padding: '2px',
-                background: 'linear-gradient(135deg, rgba(139,92,246,0.5) 0%, rgba(16,185,129,0.2) 50%, rgba(139,92,246,0.3) 100%)',
-                boxShadow: '0 0 80px rgba(139,92,246,0.25), 0 32px 80px rgba(0,0,0,0.5)',
-              }}>
-                {/* Inner container */}
-                <div style={{
-                  borderRadius: '18px',
-                  overflow: 'hidden',
+                position: 'absolute',
+                top: '10%', left: '5%', right: '-5%', bottom: '-10%',
+                background: 'radial-gradient(ellipse 85% 70% at 55% 50%, rgba(139,92,246,0.28) 0%, rgba(60,16,185,0.12) 45%, transparent 75%)',
+                filter: 'blur(32px)',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }} />
+
+              {/* Orange/amber floor glow */}
+              <div style={{
+                position: 'absolute',
+                bottom: '-15%', left: '10%', right: '10%', height: '40%',
+                background: 'radial-gradient(ellipse 70% 60% at 50% 100%, rgba(255,107,53,0.14) 0%, transparent 70%)',
+                filter: 'blur(24px)',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }} />
+
+              {/* The image — no container, no card, transparent WebP floats on dark bg */}
+              <Image
+                src="/hero-dashboard.webp"
+                alt="NEXUS AI Dashboard"
+                width={1400}
+                height={787}
+                priority
+                style={{
+                  display: 'block',
+                  width: '110%',
+                  height: 'auto',
                   position: 'relative',
-                  background: '#f8f9fc',
-                }}>
-                  <Image
-                    src="/hero-dashboard.webp"
-                    alt="NEXUS AI Dashboard"
-                    width={1200}
-                    height={675}
-                    priority
-                    style={{ display: 'block', width: '100%', height: 'auto' }}
-                  />
-                  {/* Bottom fade — blends screenshot into the dark page */}
-                  <div style={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: 'linear-gradient(to bottom, transparent 55%, rgba(5,5,16,0.85) 100%)',
-                    pointerEvents: 'none',
-                  }} />
-                  {/* Live badge */}
-                  <div style={{
-                    position: 'absolute',
-                    top: '14px',
-                    right: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(5,5,16,0.75)',
-                    backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(16,185,129,0.3)',
-                    borderRadius: '20px',
-                    padding: '4px 10px',
-                  }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', animation: 'pulse 2s infinite' }} />
-                    <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#10B981', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>
-                      {ar ? 'مباشر' : 'Live'}
-                    </span>
-                  </div>
-                </div>
+                  zIndex: 1,
+                  marginLeft: '-5%',
+                  filter: 'drop-shadow(0 8px 40px rgba(139,92,246,0.35)) drop-shadow(0 24px 80px rgba(0,0,0,0.55))',
+                }}
+              />
+
+              {/* Live status pill — floats above image */}
+              <div style={{
+                position: 'absolute',
+                top: '8%',
+                right: '2%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(4,4,20,0.82)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(16,185,129,0.4)',
+                borderRadius: '20px',
+                padding: '5px 12px',
+                zIndex: 3,
+              }}>
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
+                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#10B981', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                  {ar ? 'مباشر' : 'Live'}
+                </span>
               </div>
             </motion.div>
           </div>
