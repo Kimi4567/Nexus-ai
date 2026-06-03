@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import Link from 'next/link'
-import { Shield, Cookie } from 'lucide-react'
+import { Shield, Cookie, Eye, EyeOff } from 'lucide-react'
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
 
 export default function RegisterPage() {
@@ -22,6 +22,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [agreeTerms, setAgreeTerms] = useState(false)
   const [agreeCookies, setAgreeCookies] = useState(false)
   const [error, setError] = useState('')
@@ -114,20 +116,52 @@ export default function RegisterPage() {
               <p className="text-text-secondary text-sm mb-8">{authT?.subtitle}</p>
               {error && <div className="bg-rose-500/10 border border-rose-500/40 rounded-xl px-4 py-3 mb-6 text-sm text-rose-300">{error}</div>}
               <form onSubmit={handleSubmit} className="space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>
-                {[
-                  { label: authT?.nameLabel, value: name, set: setName, type: 'text', placeholder: authT?.namePlaceholder, auto: 'name' },
-                  { label: authT?.emailLabel, value: email, set: setEmail, type: 'email', placeholder: 'you@example.com', auto: 'email' },
-                  { label: authT?.passwordLabel, value: password, set: setPassword, type: 'password', placeholder: authT?.passwordPlaceholder, auto: 'new-password' },
-                  { label: authT?.confirmLabel, value: confirmPassword, set: setConfirmPassword, type: 'password', placeholder: authT?.confirmPlaceholder, auto: 'new-password' },
-                ].map(f => (
-                  <div key={String(f.label)}>
-                    <label className="block text-sm font-semibold mb-2 text-text-secondary">{f.label}</label>
-                    <input type={f.type} value={f.value} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
-                      autoComplete={f.auto} className={inputClass} style={inputStyle}
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-text-secondary">{authT?.nameLabel}</label>
+                  <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={authT?.namePlaceholder}
+                    autoComplete="name" className={inputClass} style={inputStyle}
+                    onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
+                    onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                </div>
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-text-secondary">{authT?.emailLabel}</label>
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
+                    autoComplete="email" className={inputClass} style={inputStyle}
+                    onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
+                    onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                </div>
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-text-secondary">{authT?.passwordLabel}</label>
+                  <div className="relative">
+                    <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                      placeholder={authT?.passwordPlaceholder} autoComplete="new-password"
+                      className={`${inputClass} pr-11`} style={inputStyle}
                       onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
                       onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                    <button type="button" onClick={() => setShowPassword(v => !v)}
+                      className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition" tabIndex={-1}>
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
-                ))}
+                </div>
+                {/* Confirm Password */}
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-text-secondary">{authT?.confirmLabel}</label>
+                  <div className="relative">
+                    <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder={authT?.confirmPlaceholder} autoComplete="new-password"
+                      className={`${inputClass} pr-11`} style={inputStyle}
+                      onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
+                      onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                    <button type="button" onClick={() => setShowConfirm(v => !v)}
+                      className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition" tabIndex={-1}>
+                      {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
                 <div className="space-y-3 pt-2">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input type="checkbox" checked={agreeTerms} onChange={e => setAgreeTerms(e.target.checked)}

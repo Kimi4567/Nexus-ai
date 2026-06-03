@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { useI18n } from '@/lib/i18n-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -18,6 +19,7 @@ function LoginForm() {
     : ''
   const [email, setEmail] = useState(savedEmail)
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(savedEmail !== '')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -96,11 +98,17 @@ function LoginForm() {
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2 text-text-secondary">{loginT?.passwordLabel}</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
-                autoComplete="current-password" className={inputClass}
-                style={inputStyle}
-                onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+              <div className="relative">
+                <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
+                  autoComplete="current-password" className={`${inputClass} pr-11`}
+                  style={inputStyle}
+                  onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
+                  onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                <button type="button" onClick={() => setShowPassword(v => !v)}
+                  className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition" tabIndex={-1}>
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <div className="flex justify-between items-center">
               <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
