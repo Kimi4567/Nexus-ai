@@ -735,7 +735,7 @@ export default function HomePage() {
 
               <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.65 }}
                 className="font-heading text-[38px] sm:text-[52px] lg:text-[62px] font-bold text-white leading-[1.08] tracking-[-2px] mb-6">
-                {ar ? <>وظّف قسم تسويق<br /><span className="text-gradient">ذكي اصطناعي</span><br />في دقائق</> : <>Hire your<br /><span className="text-gradient">AI Marketing</span><br />Department</>}
+                {ar ? <>حوّل التسويق عندك<br />إلى <span className="text-gradient">فريق AI كامل</span><br />في دقائق</> : <>Hire your<br /><span className="text-gradient">AI Marketing</span><br />Department</>}
               </motion.h1>
 
               <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
@@ -771,27 +771,37 @@ export default function HomePage() {
             <motion.div initial={{ opacity: 0, scale: 0.94, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ delay: 0.8, duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="hidden lg:block" style={{ position: 'relative' }}>
 
-              {/* Violet radial glow — back layer */}
+              {/* ── GLOW LAYER 1: Violet radial bloom (main, behind image) ── */}
               <div style={{
                 position: 'absolute',
-                top: '10%', left: '5%', right: '-5%', bottom: '-10%',
-                background: 'radial-gradient(ellipse 85% 70% at 55% 50%, rgba(139,92,246,0.28) 0%, rgba(60,16,185,0.12) 45%, transparent 75%)',
-                filter: 'blur(32px)',
+                top: '-5%', left: '-5%', right: '-8%', bottom: '-8%',
+                background: 'radial-gradient(ellipse 75% 65% at 55% 48%, rgba(139,92,246,0.32) 0%, rgba(99,40,200,0.15) 40%, transparent 70%)',
+                filter: 'blur(40px)',
                 zIndex: 0,
                 pointerEvents: 'none',
               }} />
 
-              {/* Orange/amber floor glow */}
+              {/* ── GLOW LAYER 2: Blue bloom (upper-left, depth) ── */}
               <div style={{
                 position: 'absolute',
-                bottom: '-15%', left: '10%', right: '10%', height: '40%',
-                background: 'radial-gradient(ellipse 70% 60% at 50% 100%, rgba(255,107,53,0.14) 0%, transparent 70%)',
-                filter: 'blur(24px)',
+                top: '-10%', left: '-10%', width: '60%', height: '60%',
+                background: 'radial-gradient(ellipse 80% 70% at 30% 30%, rgba(59,130,246,0.2) 0%, transparent 65%)',
+                filter: 'blur(36px)',
                 zIndex: 0,
                 pointerEvents: 'none',
               }} />
 
-              {/* The image — no container, no card, transparent WebP floats on dark bg */}
+              {/* ── GLOW LAYER 3: Orange under-glow (floor) ── */}
+              <div style={{
+                position: 'absolute',
+                bottom: '-12%', left: '15%', right: '15%', height: '35%',
+                background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255,107,53,0.18) 0%, rgba(255,160,50,0.08) 50%, transparent 75%)',
+                filter: 'blur(28px)',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }} />
+
+              {/* ── THE ASSET — sharp, no blur, no filter, transparent WebP ── */}
               <Image
                 src="/hero-dashboard.webp"
                 alt="NEXUS AI Dashboard"
@@ -805,11 +815,12 @@ export default function HomePage() {
                   position: 'relative',
                   zIndex: 1,
                   marginLeft: '-9%',
-                  filter: 'drop-shadow(0 8px 50px rgba(139,92,246,0.4)) drop-shadow(0 28px 90px rgba(0,0,0,0.6))',
+                  /* Only a subtle drop-shadow for depth — no blur on the asset */
+                  filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.55))',
                 }}
               />
 
-              {/* Live status pill — floats above image */}
+              {/* ── Live status pill ── */}
               <div style={{
                 position: 'absolute',
                 top: '8%',
