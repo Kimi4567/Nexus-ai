@@ -376,14 +376,82 @@ export function extractVideoUrl(prediction: ReplicatePrediction): string | null 
  * Sprint AF — Image-to-Video
  *
  * Converts a user's uploaded image into a short video using Replicate.
- * Uses REPLICATE_IMG2VIDEO_MODEL_VERSION env var (defaults to stability-ai/stable-video-diffusion).
  *
- * If REPLICATE_IMG2VIDEO_MODEL_VERSION is not set, falls back to a motion-guided
- * text prompt that references the image conceptually.
+ * Default model: wan-video/wan-2.5-i2v-fast (56K+ runs, purpose-built img2video, fast)
+ * Override:      set REPLICATE_IMG2VIDEO_MODEL_VERSION in env
+ *
+ * Supported model families and their input schemas:
+ *   wan-video/*          → { image, prompt, resolution, fast_mode }
+ *   alibaba/happyhorse*  → { image, prompt, resolution, duration }
+ *   bytedance/seedance*  → { image, prompt, duration, resolution }
+ *   legacy SVD           → { input_image, num_frames, fps_id, motion_bucket_id, ... }
  *
  * @param imageUrl   Public URL of the source image (Cloudinary or similar)
  * @param motionHint Brief description of desired motion ("gentle zoom", "slow pan", etc.)
  */
+
+/**
+ * Build the correct input payload for the given img2video model.
+ * Different model families use different parameter names.
+ */
+function buildImg2VideoInput(
+  imageUrl: string,
+  motionHint: string,
+  modelId: string,
+): Record<string, unknown> {
+  const m = modelId.toLowerCase()
+
+  // WAN 2.x family (wan-video/wan-2.x-i2v-*)
+  if (m.includes('wan')) {
+    return {
+      image: imageUrl,
+      prompt: motionHint || 'smooth cinematic motion, professional quality',
+      resolution: '480p',
+      fast_mode: true,
+    }
+  }
+
+  // Alibaba HappyHorse
+  if (m.includes('happyhorse')) {
+    return {
+      image: imageUrl,
+      prompt: motionHint || 'smooth cinematic motion',
+      resolution: '720p',
+      duration: 5,
+    }
+  }
+
+  // ByteDance Seedance
+  if (m.includes('seedance')) {
+    return {
+      image: imageUrl,
+      prompt: motionHint || 'smooth cinematic motion',
+      duration: 5,
+      resolution: '720p',
+    }
+  }
+
+  // PixVerse
+  if (m.includes('pixverse')) {
+    return {
+      image: imageUrl,
+      prompt: motionHint || 'smooth cinematic motion',
+      duration: 5,
+    }
+  }
+
+  // Legacy SVD variants (lucataco/svd-xt, stability-ai/stable-video-diffusion)
+  return {
+    input_image: imageUrl,
+    num_frames: 14,
+    fps_id: 6,
+    motion_bucket_id: 127,
+    cond_aug: 0.02,
+    decoding_t: 14,
+    output_format: 'mp4',
+  }
+}
+
 export async function submitImageToVideoGeneration(
   imageUrl: string,
   motionHint: string = 'smooth cinematic motion',
@@ -391,11 +459,11 @@ export async function submitImageToVideoGeneration(
   const token = process.env.REPLICATE_API_TOKEN?.trim()
   if (!token) throw new Error('REPLICATE_API_TOKEN not configured')
 
-  // Default: lucataco/svd-xt — a reliable community SVD deployment on Replicate
+  // Default: wan-video/wan-2.5-i2v-fast — purpose-built img2video, 56K+ runs
   // Override with REPLICATE_IMG2VIDEO_MODEL_VERSION (model name or version hash)
   const modelVersion = (
     process.env.REPLICATE_IMG2VIDEO_MODEL_VERSION?.trim() ||
-    'lucataco/svd-xt'
+    'wan-video/wan-2.5-i2v-fast'
   )
 
   // Determine URL and body format based on model identifier:
@@ -407,41 +475,30 @@ export async function submitImageToVideoGeneration(
   const isVersionHashOnly = /^[a-f0-9]{64}$/.test(modelVersion)
   const isNamedModel = modelVersion.includes('/') && !isVersionedName
 
-  // Build input — lucataco/svd-xt schema (compatible with most SVD variants)
-  const input: Record<string, unknown> = {
-    input_image: imageUrl,
-    num_frames: 14,
-    fps_id: 6,
-    motion_bucket_id: 127,   // 1–255: higher = more motion
-    cond_aug: 0.02,
-    decoding_t: 14,
-    output_format: 'mp4',
-  }
+  // Build model-aware input payload
+  const input = buildImg2VideoInput(imageUrl, motionHint, modelVersion)
 
   let url: string
   let body: object
 
   if (isVersionedName) {
-    // "owner/name:hash" — extract hash and use version endpoint
     const versionHash = modelVersion.slice(colonIdx + 1)
     url = 'https://api.replicate.com/v1/predictions'
     body = { version: versionHash, input }
   } else if (isVersionHashOnly) {
-    // Bare 64-char hash
     url = 'https://api.replicate.com/v1/predictions'
     body = { version: modelVersion, input }
   } else if (isNamedModel) {
-    // "owner/name" — named deployment endpoint
     url = `https://api.replicate.com/v1/models/${modelVersion}/predictions`
     body = { input }
   } else {
-    // Fallback: treat as version hash
     url = 'https://api.replicate.com/v1/predictions'
     body = { version: modelVersion, input }
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[videoGen] img2video submit →', url, 'image:', imageUrl.slice(0, 80))
+    console.log('[videoGen] img2video submit →', url)
+    console.log('[videoGen] img2video input →', JSON.stringify(input).slice(0, 300))
   }
 
   const response = await fetch(url, {
