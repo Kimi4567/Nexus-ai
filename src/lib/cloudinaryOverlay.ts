@@ -71,14 +71,24 @@ export function extractCloudinaryPublicId(url: string): string | undefined {
 // ─── Text sanitizer ───────────────────────────────────────────────────────────
 
 /**
- * Encode brand name for safe use in Cloudinary text overlay URL parameter.
- * Cloudinary requires specific URL encoding in text layers.
+ * Sanitize brand name for Cloudinary text overlay.
+ *
+ * Rules (Cloudinary text layer in URL format):
+ *  - Spaces         → underscore (Cloudinary renders _ as space)
+ *  - Commas         → remove (break the transformation parameter list)
+ *  - Slashes        → remove (break the URL path)
+ *  - Percent signs  → remove (cause double-encoding issues)
+ *  - Keep Arabic/Unicode as-is — browsers will percent-encode the full URL correctly
  */
 function encodeOverlayText(text: string): string {
-  return encodeURIComponent(text.trim().slice(0, 35))
-    // Cloudinary-specific: encode commas and slashes that would break the URL
-    .replace(/%2C/g, '%252C')
-    .replace(/%2F/g, '%252F')
+  return text
+    .trim()
+    .slice(0, 35)
+    .replace(/\s+/g, '_')       // spaces → underscores
+    .replace(/[,/%\\]/g, '')     // strip chars that break Cloudinary URL parsing
+    .replace(/[^a-zA-Z0-9_\-.ءاأإآبتثجحخدذرزسشصضطظعغفقكلمنهوي]/g, '_') // safe chars only
+    .replace(/_+/g, '_')        // collapse consecutive underscores
+    .replace(/^_|_$/g, '')      // trim leading/trailing underscores
 }
 
 // ─── Core overlay function ────────────────────────────────────────────────────
@@ -119,10 +129,11 @@ export function applyBrandOverlay(
   transforms.push(PLATFORM_CROP[platform])
 
   // ── 2. Brand name text — white bold, bottom-left, drop shadow ────────────
+  // Cloudinary font format: FontFamily_Size_style (e.g. Arial_34_bold)
   const safeText = encodeOverlayText(brandName)
   if (safeText) {
     transforms.push(
-      `l_text:Arial_Bold_34:${safeText},co_white,g_south_west,x_28,y_28,e_shadow:50`
+      `l_text:Arial_34_bold:${safeText},co_white,g_south_west,x_28,y_28,e_shadow:40`
     )
   }
 

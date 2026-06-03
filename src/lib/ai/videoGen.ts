@@ -391,30 +391,51 @@ export async function submitImageToVideoGeneration(
   const token = process.env.REPLICATE_API_TOKEN?.trim()
   if (!token) throw new Error('REPLICATE_API_TOKEN not configured')
 
+  // Default: lucataco/svd-xt — a reliable community SVD deployment on Replicate
+  // Override with REPLICATE_IMG2VIDEO_MODEL_VERSION (model name or version hash)
   const modelVersion = (
     process.env.REPLICATE_IMG2VIDEO_MODEL_VERSION?.trim() ||
-    'stability-ai/stable-video-diffusion'
+    'lucataco/svd-xt'
   )
 
-  const isModelName = modelVersion.includes('/')
+  // Determine URL and body format based on model identifier:
+  // - "owner/name"            → /v1/models/owner/name/predictions (named deployment)
+  // - "owner/name:hash"       → /v1/predictions { version: hash }
+  // - "64-char hex hash only" → /v1/predictions { version: hash }
+  const colonIdx = modelVersion.indexOf(':')
+  const isVersionedName = modelVersion.includes('/') && colonIdx > modelVersion.indexOf('/')
+  const isVersionHashOnly = /^[a-f0-9]{64}$/.test(modelVersion)
+  const isNamedModel = modelVersion.includes('/') && !isVersionedName
 
-  // stable-video-diffusion input schema
+  // Build input — lucataco/svd-xt schema (compatible with most SVD variants)
   const input: Record<string, unknown> = {
     input_image: imageUrl,
-    video_length: 'short_4_frames_HQ',   // supported by SVD
-    sizing_strategy: 'maintain_aspect_ratio',
-    frames_per_second: 8,
-    motion_bucket_id: 127,                // 1–255: higher = more motion
+    num_frames: 14,
+    fps_id: 6,
+    motion_bucket_id: 127,   // 1–255: higher = more motion
     cond_aug: 0.02,
+    decoding_t: 14,
+    output_format: 'mp4',
   }
 
   let url: string
   let body: object
 
-  if (isModelName) {
+  if (isVersionedName) {
+    // "owner/name:hash" — extract hash and use version endpoint
+    const versionHash = modelVersion.slice(colonIdx + 1)
+    url = 'https://api.replicate.com/v1/predictions'
+    body = { version: versionHash, input }
+  } else if (isVersionHashOnly) {
+    // Bare 64-char hash
+    url = 'https://api.replicate.com/v1/predictions'
+    body = { version: modelVersion, input }
+  } else if (isNamedModel) {
+    // "owner/name" — named deployment endpoint
     url = `https://api.replicate.com/v1/models/${modelVersion}/predictions`
     body = { input }
   } else {
+    // Fallback: treat as version hash
     url = 'https://api.replicate.com/v1/predictions'
     body = { version: modelVersion, input }
   }
@@ -428,7 +449,6 @@ export async function submitImageToVideoGeneration(
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
-      Prefer: 'wait',
     },
     body: JSON.stringify(body),
   })
