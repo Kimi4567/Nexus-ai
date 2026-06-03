@@ -98,11 +98,23 @@ function SceneCard({ scene }: { scene: VideoScene }) {
 
 export default function VideoGenerator({ campaignId, campaignName }: VideoGeneratorProps) {
   const { authHeader } = useAuth()
+
+  // ── Mode toggle: strategy-based vs image-to-video ─────────────────────────
+  const [videoMode, setVideoMode] = useState<'strategy' | 'img2video'>('strategy')
+
+  // ── Strategy mode state ───────────────────────────────────────────────────
   const [brief, setBrief] = useState<VideoBrief | null>(null)
   const [loadingBrief, setLoadingBrief] = useState(true)
   const [generatingBrief, setGeneratingBrief] = useState(false)
   const [briefError, setBriefError] = useState('')
 
+  // ── Image-to-video mode state ─────────────────────────────────────────────
+  const [selectedImage, setSelectedImage] = useState<{ id: string; url: string; fileName: string } | null>(null)
+  const [motionHint, setMotionHint] = useState('smooth cinematic motion')
+  const [mediaList, setMediaList] = useState<Array<{ id: string; url: string; fileName: string; type: string }>>([])
+  const [loadingMedia, setLoadingMedia] = useState(false)
+
+  // ── Shared generation state ───────────────────────────────────────────────
   const [generationId, setGenerationId] = useState<string | null>(null)
   const [genStatus, setGenStatus] = useState<GenerationStatus>(null)
   const [genProgress, setGenProgress] = useState(0)
@@ -138,6 +150,23 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
+
+  // ── Load workspace images when img2video mode is selected ─────────────────
+  useEffect(() => {
+    if (videoMode !== 'img2video' || mediaList.length > 0) return
+    const token = authHeader()
+    if (!token) return
+    setLoadingMedia(true)
+    fetch('/api/media?type=IMAGE&limit=24', { headers: { Authorization: token } })
+      .then(r => r.json())
+      .then(data => {
+        setMediaList(
+          (data.media || []).filter((m: any) => m.type === 'IMAGE' || m.type === 'LOGO')
+        )
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMedia(false))
+  }, [videoMode, mediaList.length, authHeader])
 
   // ── Generate video brief ──────────────────────────────────────────────────
   const handleGenerateBrief = async () => {
@@ -199,9 +228,15 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
 
   // ── Start video generation ────────────────────────────────────────────────
   const handleGenerate = async () => {
-    if (!brief?.generationPrompt) return
     const token = authHeader()
     if (!token) return
+
+    // Validate based on mode
+    if (videoMode === 'strategy' && !brief?.generationPrompt) return
+    if (videoMode === 'img2video' && !selectedImage) {
+      setGenError('Please select an image to animate.')
+      return
+    }
 
     setSubmitting(true)
     setGenError('')
@@ -209,13 +244,14 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
     setGenStatus(null)
 
     try {
+      const body = videoMode === 'img2video'
+        ? { mode: 'img2video', sourceImageUrl: selectedImage!.url, motionHint }
+        : { mode: 'text2video', prompt: brief!.generationPrompt, durationSeconds: brief!.durationSeconds }
+
       const res = await fetch(`/api/campaigns/${campaignId}/video-generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({
-          prompt: brief.generationPrompt,
-          durationSeconds: brief.durationSeconds,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
 
@@ -279,6 +315,216 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
         </div>
       </div>
 
+      {/* Mode toggle */}
+      <div className="flex gap-1 p-1 rounded-xl bg-[#0f0f0f] border border-[#1f1f1f]">
+        <button
+          onClick={() => setVideoMode('strategy')}
+          className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all ${
+            videoMode === 'strategy'
+              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/20'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          📝 From Strategy
+        </button>
+        <button
+          onClick={() => setVideoMode('img2video')}
+          className={`flex-1 py-2 px-3 text-xs font-semibold rounded-lg transition-all ${
+            videoMode === 'img2video'
+              ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/20'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          🖼️ Animate My Image
+        </button>
+      </div>
+
+      {/* ── IMAGE-TO-VIDEO PANEL ─────────────────────────────────────────────── */}
+      {videoMode === 'img2video' && (
+        <div className="space-y-4">
+          {/* Explainer */}
+          <div className="bg-[#111111] border border-violet-500/20 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-violet-400 mt-0.5 text-base">🎥</span>
+            <div>
+              <div className="text-xs font-semibold text-violet-300 mb-0.5">Animate your image</div>
+              <div className="text-[11px] text-gray-500 leading-relaxed">
+                Pick one of your uploaded photos and transform it into a short video clip using Stable Video Diffusion. The result is saved to your Media Library.
+              </div>
+            </div>
+          </div>
+
+          {/* Media picker */}
+          <div>
+            <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">
+              Choose an image from your library
+            </div>
+
+            {loadingMedia && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="aspect-square rounded-lg bg-[#1a1a1a] animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {!loadingMedia && mediaList.length === 0 && (
+              <div className="bg-[#111111] border border-dashed border-[#2a2a2a] rounded-xl py-10 text-center">
+                <div className="text-2xl mb-2">📁</div>
+                <div className="text-xs text-gray-500 mb-1">No images in your library yet</div>
+                <div className="text-[11px] text-gray-600">
+                  Upload photos in the Media Library tab to animate them here.
+                </div>
+              </div>
+            )}
+
+            {!loadingMedia && mediaList.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {mediaList.map(media => (
+                  <button
+                    key={media.id}
+                    onClick={() => setSelectedImage({ id: media.id, url: media.url, fileName: media.fileName })}
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all group ${
+                      selectedImage?.id === media.id
+                        ? 'border-violet-500 ring-2 ring-violet-500/30'
+                        : 'border-transparent hover:border-violet-500/40'
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={media.url}
+                      alt={media.fileName}
+                      className="w-full h-full object-cover"
+                    />
+                    {selectedImage?.id === media.id && (
+                      <div className="absolute inset-0 bg-violet-500/20 flex items-center justify-center">
+                        <span className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center text-white text-[10px] font-bold">✓</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Selected image preview + motion hint */}
+          {selectedImage && (
+            <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedImage.url}
+                  alt={selectedImage.fileName}
+                  className="w-14 h-14 rounded-lg object-cover border border-[#2a2a2a] flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-white truncate">{selectedImage.fileName}</div>
+                  <div className="text-[11px] text-gray-500 mt-0.5">Selected for animation</div>
+                </div>
+                <button
+                  onClick={() => setSelectedImage(null)}
+                  className="text-gray-600 hover:text-gray-400 text-xs transition"
+                >✕</button>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest block mb-1.5">
+                  Motion hint
+                </label>
+                <input
+                  type="text"
+                  value={motionHint}
+                  onChange={e => setMotionHint(e.target.value)}
+                  placeholder="e.g. smooth cinematic motion, slow zoom in, gentle parallax"
+                  className="w-full bg-[#0f0f0f] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition"
+                />
+                <div className="text-[10px] text-gray-600 mt-1">
+                  Hint for camera and motion style. Subtle motion works best with SVD.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Provider notice for img2video */}
+          {providerAvailable === false && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+              <span className="text-amber-400 mt-0.5">⚡</span>
+              <div>
+                <div className="text-xs font-semibold text-amber-300 mb-0.5">Image-to-video not configured</div>
+                <div className="text-[11px] text-amber-500">
+                  Add <code className="font-mono bg-amber-500/10 px-1 rounded">REPLICATE_API_TOKEN</code> to your environment to enable image animation. Optionally set <code className="font-mono bg-amber-500/10 px-1 rounded">REPLICATE_IMG2VIDEO_MODEL_VERSION</code>.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Gen error */}
+          {genError && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-xs text-red-400">
+              {genError}
+            </div>
+          )}
+
+          {/* Progress bar */}
+          {(genStatus === 'QUEUED' || genStatus === 'PROCESSING') && (
+            <div className="space-y-2">
+              <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-violet-500 rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.max(5, genProgress)}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-gray-600">
+                {genStatus === 'QUEUED' ? 'Queued — waiting for render slot…' : `Animating your image · ${genProgress}% complete`}
+              </p>
+            </div>
+          )}
+
+          {/* Video output */}
+          {videoUrl && genStatus === 'COMPLETED' && (
+            <div className="space-y-3">
+              <div className="rounded-xl overflow-hidden bg-black aspect-video">
+                {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                <video src={videoUrl} controls autoPlay={false} className="w-full h-full" playsInline />
+              </div>
+              <div className="flex items-center gap-2">
+                <a href={videoUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition">
+                  ↗ Open video
+                </a>
+                <a href={videoUrl} download={`nexus-img2video-${campaignId.slice(0, 8)}.mp4`}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:bg-[#222] text-gray-300 text-xs font-semibold rounded-lg transition">
+                  ⬇ Download
+                </a>
+                <span className="text-[10px] text-gray-600">Saved to Media Library</span>
+              </div>
+            </div>
+          )}
+
+          {/* Animate button */}
+          {genStatus !== 'COMPLETED' && (
+            <button
+              onClick={handleGenerate}
+              disabled={submitting || !selectedImage || genStatus === 'QUEUED' || genStatus === 'PROCESSING'}
+              className="w-full py-2.5 rounded-xl font-bold text-sm transition-all bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2"
+            >
+              {submitting ? (
+                <><span className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin" /> Starting…</>
+              ) : genStatus === 'QUEUED' || genStatus === 'PROCESSING' ? (
+                <><span className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin" /> Animating…</>
+              ) : genStatus === 'FAILED' ? (
+                '↺ Retry animation'
+              ) : (
+                '🎥 Animate image'
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── STRATEGY-BASED PANEL ────────────────────────────────────────────── */}
+      {videoMode === 'strategy' && (
+        <>
       {/* Brief error */}
       {briefError && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-xs text-red-400">
@@ -498,6 +744,8 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
             )}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

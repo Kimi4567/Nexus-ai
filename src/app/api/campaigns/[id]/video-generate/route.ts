@@ -18,7 +18,9 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { PLAN_VIDEO_QUOTA } from '@/lib/stripe'
 import {
   isVideoProviderAvailable,
+  isImg2VideoAvailable,
   submitReplicatePrediction,
+  submitImageToVideoGeneration,
 } from '@/lib/ai/videoGen'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,8 +34,19 @@ export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Return clean message if no provider configured
-  if (!isVideoProviderAvailable()) {
+  // Sprint AF — check mode before provider check
+  const rawBody = await req.json().catch(() => ({}))
+  const mode: 'text2video' | 'img2video' = rawBody.mode === 'img2video' ? 'img2video' : 'text2video'
+
+  // For img2video mode we only need REPLICATE_API_TOKEN (no model version needed for SVD)
+  if (mode === 'img2video') {
+    if (!isImg2VideoAvailable()) {
+      return NextResponse.json({
+        providerAvailable: false,
+        message: 'Image-to-video provider not configured. Add REPLICATE_API_TOKEN to enable this feature.',
+      })
+    }
+  } else if (!isVideoProviderAvailable()) {
     return NextResponse.json({
       providerAvailable: false,
       message: 'Video generation provider not configured. Generate a Video Brief to plan your video content.',
@@ -84,11 +97,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     }, { status: 402 })
   }
 
-  const body = await req.json()
-  const { prompt, durationSeconds = 5 } = body
+  const { prompt, durationSeconds = 5, sourceImageUrl, motionHint } = rawBody
 
-  if (!prompt || typeof prompt !== 'string') {
-    return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
+  // For text-to-video, prompt is required. For img2video, sourceImageUrl is required.
+  if (mode === 'img2video') {
+    if (!sourceImageUrl || typeof sourceImageUrl !== 'string') {
+      return NextResponse.json({ error: 'sourceImageUrl is required for img2video mode' }, { status: 400 })
+    }
+  } else {
+    if (!prompt || typeof prompt !== 'string') {
+      return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
+    }
   }
 
   // Get workspace
@@ -111,8 +130,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       data: {
         campaignId: params.id,
         type: 'VIDEO',
-        prompt,
-        params: { durationSeconds, model: process.env.REPLICATE_VIDEO_MODEL_VERSION },
+        prompt: mode === 'img2video' ? `[img2video] ${sourceImageUrl}` : prompt,
+        params: {
+          mode,
+          durationSeconds,
+          ...(mode === 'img2video' ? { sourceImageUrl, motionHint } : { model: process.env.REPLICATE_VIDEO_MODEL_VERSION }),
+        },
         status: 'QUEUED',
         provider: 'replicate',
       },
@@ -124,7 +147,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   // Submit to Replicate (non-blocking result — client will poll)
   try {
-    const prediction = await submitReplicatePrediction(prompt, durationSeconds)
+    const prediction = mode === 'img2video'
+      ? await submitImageToVideoGeneration(sourceImageUrl, motionHint)
+      : await submitReplicatePrediction(prompt, durationSeconds)
 
     // Update with Replicate's prediction ID
     await db.generation.update({
@@ -141,12 +166,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       data: {
         campaignId: params.id,
         type: 'updated',
-        description: 'Video generation started — awaiting Replicate render',
+        description: mode === 'img2video'
+          ? 'Image-to-video generation started — awaiting Replicate render'
+          : 'Video generation started — awaiting Replicate render',
       },
     }).catch(() => {})
 
     return NextResponse.json({
       providerAvailable: true,
+      mode,
       generationId: generation.id,
       externalId: prediction.id,
       status: 'QUEUED',

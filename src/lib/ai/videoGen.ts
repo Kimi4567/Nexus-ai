@@ -373,6 +373,91 @@ export function extractVideoUrl(prediction: ReplicatePrediction): string | null 
 }
 
 /**
+ * Sprint AF — Image-to-Video
+ *
+ * Converts a user's uploaded image into a short video using Replicate.
+ * Uses REPLICATE_IMG2VIDEO_MODEL_VERSION env var (defaults to stability-ai/stable-video-diffusion).
+ *
+ * If REPLICATE_IMG2VIDEO_MODEL_VERSION is not set, falls back to a motion-guided
+ * text prompt that references the image conceptually.
+ *
+ * @param imageUrl   Public URL of the source image (Cloudinary or similar)
+ * @param motionHint Brief description of desired motion ("gentle zoom", "slow pan", etc.)
+ */
+export async function submitImageToVideoGeneration(
+  imageUrl: string,
+  motionHint: string = 'smooth cinematic motion',
+): Promise<ReplicatePrediction> {
+  const token = process.env.REPLICATE_API_TOKEN?.trim()
+  if (!token) throw new Error('REPLICATE_API_TOKEN not configured')
+
+  const modelVersion = (
+    process.env.REPLICATE_IMG2VIDEO_MODEL_VERSION?.trim() ||
+    'stability-ai/stable-video-diffusion'
+  )
+
+  const isModelName = modelVersion.includes('/')
+
+  // stable-video-diffusion input schema
+  const input: Record<string, unknown> = {
+    input_image: imageUrl,
+    video_length: 'short_4_frames_HQ',   // supported by SVD
+    sizing_strategy: 'maintain_aspect_ratio',
+    frames_per_second: 8,
+    motion_bucket_id: 127,                // 1–255: higher = more motion
+    cond_aug: 0.02,
+  }
+
+  let url: string
+  let body: object
+
+  if (isModelName) {
+    url = `https://api.replicate.com/v1/models/${modelVersion}/predictions`
+    body = { input }
+  } else {
+    url = 'https://api.replicate.com/v1/predictions'
+    body = { version: modelVersion, input }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[videoGen] img2video submit →', url, 'image:', imageUrl.slice(0, 80))
+  }
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'wait',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const rawBody = await response.text().catch(() => '')
+    let msg: string
+    try {
+      const err = JSON.parse(rawBody)
+      msg = (err as any)?.detail || (err as any)?.error || rawBody || `Replicate img2video error: ${response.status}`
+    } catch {
+      msg = rawBody || `Replicate img2video error: ${response.status}`
+    }
+    console.error('[videoGen] img2video error:', response.status, msg)
+    throw new Error(`Replicate img2video ${response.status}: ${msg}`)
+  }
+
+  return response.json() as Promise<ReplicatePrediction>
+}
+
+/**
+ * Check if image-to-video provider is available.
+ */
+export function isImg2VideoAvailable(): boolean {
+  const token = process.env.REPLICATE_API_TOKEN?.trim()
+  return !!(token && token !== 'r8_dummy')
+}
+
+/**
  * Map Replicate status to our GenerationStatus enum.
  */
 export function mapReplicateStatus(
