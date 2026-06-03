@@ -150,12 +150,13 @@ export async function generateVideoBrief(ctx: VideoContext): Promise<VideoBrief>
   const brandTone = (ctx.brandToneWords || []).slice(0, 3).join(', ')
   const goal = ctx.campaignGoal || 'AWARENESS'
 
-  const systemPrompt = `You are a senior video director and brand strategist.
-Generate a detailed, brand-aware video brief for a ${category.replace('_', ' ')} brand.
+  const systemPrompt = `You are an award-winning video director, cinematographer, and brand strategist with credits on high-budget commercial campaigns.
+Your job: generate a world-class, brand-specific video brief that would be approved by a creative director at a top agency.
+Every element must be hyper-specific to this brand — zero generic descriptions.
 Output ONLY valid JSON — no markdown, no prose outside the JSON.
 Language for all text content: ${lang}.`
 
-  const userPrompt = `Create a video brief for this campaign:
+  const userPrompt = `Create a premium video brief for this campaign:
 
 Brand: ${ctx.brandName || 'Unknown brand'}
 Industry: ${ctx.industry || category.replace('_', ' ')}
@@ -178,34 +179,40 @@ Avoid: ${treatment.avoid}
 
 Return this exact JSON structure:
 {
-  "concept": "2-3 sentence core video concept",
-  "narrative": "Full narrative arc — beginning, middle, end",
+  "concept": "2-3 sentence core video concept — specific, evocative, not generic",
+  "narrative": "Full narrative arc — emotional hook → brand value reveal → transformation → CTA",
   "durationSeconds": 10,
   "primaryPlatform": "Instagram Reels",
   "scenes": [
     {
       "sceneNumber": 1,
       "timeRange": "0:00 – 0:02",
-      "visual": "What the viewer sees — specific and visual",
-      "cameraMotion": "camera movement description",
-      "voiceover": "Spoken text or on-screen text (optional)",
-      "purpose": "Strategic/emotional purpose of this scene"
+      "visual": "Hyper-specific visual description — lighting, framing, colors, textures, movement",
+      "cameraMotion": "Precise camera movement: e.g. 'slow push-in from f/1.8 bokeh background', 'aerial pull-back at 30m altitude'",
+      "voiceover": "Exact spoken line or on-screen text for this scene (optional)",
+      "purpose": "Specific emotional/strategic purpose this scene achieves"
     }
   ],
-  "script": "Full voiceover or text script for the entire video",
-  "visualTreatment": "Cinematography, color grading, and motion style description",
-  "musicMood": "Tempo and genre direction for background music",
-  "callToAction": "Final call to action",
-  "generationPrompt": "A single optimized Replicate text-to-video prompt for this video"
+  "script": "Full, polished voiceover script — real sentences the narrator says, not descriptions",
+  "visualTreatment": "Specific cinematography: lens choices, color grade (e.g. 'desaturated teal-orange LUT'), lighting setup, aspect ratio, motion style",
+  "musicMood": "Specific tempo (BPM range), genre, instruments, emotional arc — e.g. '80–90 BPM, ambient electronic, builds to orchestral swell at :08'",
+  "callToAction": "Exact final call-to-action line",
+  "generationPrompt": "CINEMATIC TEXT-TO-VIDEO PROMPT — see rules below"
 }
 
 Rules:
 - 5–7 scenes for 10 seconds, 3–4 scenes for 5 seconds
-- generationPrompt must be under 500 characters, highly specific, cinematic quality
-- No generic content — every field must be specific to this brand
-- No fake testimonials, no unrealistic claims
-- No text overlays visible in the video (keep it visual)
-- ${treatment.avoid}`
+- Every scene.visual must describe specific colors, lighting, depth of field, textures — not 'a product shot'
+- script must be real voiceover lines, not a description of what will be said
+- generationPrompt RULES (CRITICAL):
+  • Must be a single paragraph under 480 characters
+  • Must include: specific subject, precise camera movement, lighting quality, color palette, mood, film stock or render style
+  • Format: "[Subject doing X], [camera movement], [lighting: e.g. golden-hour backlighting / blue studio rim lights], [color grade: e.g. cinematic teal-orange LUT / warm film grain], [style: e.g. 35mm film, 4K hyperrealistic, cinematic slow-motion], [mood: e.g. aspirational, tense, serene]"
+  • Example for SaaS: "Dashboard UI panels floating in dark space, slow push-in with violet bokeh glow, dark studio with electric blue rim lights, cinematic teal-orange grade, premium product reveal, 4K hyperrealistic, aspirational tech brand mood"
+  • Must be SPECIFIC to this brand — never generic
+  • No text, no people (unless lifestyle brand), no logos
+- ${treatment.avoid}
+- Zero generic content — a creative director must not be able to reuse this for another brand`
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -214,12 +221,12 @@ Rules:
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',   // upgraded from gpt-4o-mini — brief quality directly drives Replicate output quality
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.7,
+      temperature: 0.65,
       response_format: { type: 'json_object' },
     }),
   })

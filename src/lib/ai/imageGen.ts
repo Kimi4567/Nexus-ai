@@ -397,7 +397,7 @@ export function buildImagePrompt(ctx: VisualContext): string {
     differentiator,
     peopleRule,
     NO_TEXT_RULE,
-    'Ultra high quality, photorealistic or premium 3D render. No watermarks, no logos.',
+    'Shot on Phase One XF IQ4, 100MP medium format. Ultra-sharp, studio-grade lighting, 8K resolution, deep color depth, zero compression artifacts. Photorealistic or premium 3D render — indistinguishable from a professional commercial shoot. No watermarks, no logos, no artifacts.',
   ].filter(Boolean)
 
   return parts.join(' ')
@@ -427,7 +427,7 @@ export async function generateWithDallE(prompt: string): Promise<string> {
       prompt,
       n: 1,
       size: '1536x1024',  // gpt-image-1 supported: 1024x1024 | 1024x1536 | 1536x1024
-      quality: 'medium',  // low | medium | high | auto
+      quality: 'high',    // low | medium | high | auto — always use high for production
     }),
   })
 
