@@ -717,136 +717,131 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════
           HERO
       ══════════════════════════════════════════ */}
-      <section className="relative min-h-[100dvh] flex items-center justify-center overflow-hidden pt-[68px]">
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.18) 0%, transparent 65%), radial-gradient(ellipse 40% 30% at 80% 80%, rgba(16,185,129,0.1) 0%, transparent 50%)' }} />
+      <section className="relative overflow-hidden pt-[68px]">
+        {/* Background */}
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 90% 55% at 50% -5%, rgba(139,92,246,0.22) 0%, transparent 60%), radial-gradient(ellipse 50% 35% at 15% 60%, rgba(6,182,212,0.09) 0%, transparent 55%), radial-gradient(ellipse 50% 35% at 85% 60%, rgba(16,185,129,0.08) 0%, transparent 55%)' }} />
         <ParticleBackground />
 
-        <div className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-16 lg:py-24">
-          <div className="grid lg:grid-cols-[1fr_1.35fr] gap-10 items-center">
-            {/* Text */}
-            <div>
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.55 }}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(139,92,246,0.25)] bg-[rgba(139,92,246,0.08)] mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" />
-                <span className="font-mono text-[11px] font-semibold uppercase tracking-[2px] text-accent-teal">
-                  {ar ? 'قسم التسويق الذكي الخاص بك' : 'Your AI Marketing Department'}
-                </span>
-              </motion.div>
+        {/* ── Centered text block ── */}
+        <div className="relative z-10 max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8 w-full pt-20 lg:pt-28 pb-10 lg:pb-14 text-center">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.55 }}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[rgba(139,92,246,0.25)] bg-[rgba(139,92,246,0.08)] mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent-teal animate-pulse" />
+            <span className="font-mono text-[11px] font-semibold uppercase tracking-[2px] text-accent-teal">
+              {ar ? 'قسم التسويق الذكي الخاص بك' : 'Your AI Marketing Department'}
+            </span>
+          </motion.div>
 
-              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.65 }}
-                className="font-heading text-[38px] sm:text-[52px] lg:text-[62px] font-bold text-white leading-[1.08] tracking-[-2px] mb-6">
-                {ar
-                  ? <><span className="text-gradient">حوّل تسويقك</span><br />إلى فريق AI كامل<br />في دقائق</>
-                  : <>Hire your<br /><span className="text-gradient">AI Marketing</span><br />Department</>}
-              </motion.h1>
+          <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.65 }}
+            className="font-heading text-[40px] sm:text-[58px] lg:text-[72px] xl:text-[80px] font-bold text-white leading-[1.04] tracking-[-3px] mb-6">
+            {ar
+              ? <><span className="text-gradient">حوّل تسويقك</span><br />إلى فريق AI كامل في دقائق</>
+              : <>Hire your <span className="text-gradient">AI Marketing</span><br />Department</>}
+          </motion.h1>
 
-              <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
-                className="text-[17px] sm:text-[19px] text-text-secondary leading-relaxed max-w-[560px] mb-9">
-                {ar
-                  ? 'NEXUS AI يفهم علامتك التجارية، يبني الاستراتيجية، ينشئ المحتوى، يجهز الحملات، ويتابع الأداء — وأنت دائمًا في التحكم.'
-                  : 'NEXUS AI understands your brand, creates strategies, generates content, prepares campaigns, tracks performance, and helps your business grow — with you always in control.'}
-              </motion.p>
+          <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
+            className="text-[17px] sm:text-[20px] text-text-secondary leading-relaxed max-w-[640px] mx-auto mb-9">
+            {ar
+              ? 'NEXUS AI يفهم علامتك التجارية، يبني الاستراتيجية، ينشئ المحتوى، يجهز الحملات، ويتابع الأداء — وأنت دائمًا في التحكم.'
+              : 'NEXUS AI understands your brand, builds strategies, generates content, prepares campaigns, and tracks performance — with you always in control.'}
+          </motion.p>
 
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}
-                className="flex flex-wrap items-center gap-4 mb-7">
-                <Link href="/auth/register"
-                  className="font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 50%, #F97316 100%)',
-                    boxShadow: '0 0 32px rgba(139,92,246,0.35), 0 4px 16px rgba(249,115,22,0.15)',
-                  }}>
-                  {ar ? 'ابدأ مجانًا' : 'Start Free'} <ArrowRight size={17} />
-                </Link>
-                <a href="#workflow"
-                  className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors inline-flex items-center gap-2 border border-[rgba(255,255,255,0.1)] px-6 py-3.5 rounded-lg hover:border-[rgba(255,255,255,0.2)]">
-                  <Play size={15} /> {ar ? 'شاهد كيف يعمل' : 'See How It Works'}
-                </a>
-              </motion.div>
-
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9, duration: 0.5 }}
-                className="text-[12px] text-text-muted flex items-center gap-2 flex-wrap">
-                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'بدون بطاقة ائتمان' : 'No credit card required'}</span>
-                <span className="text-text-muted">·</span>
-                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? '20 رصيد AI مجاناً' : '20 free AI credits'}</span>
-                <span className="text-text-muted">·</span>
-                <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'إلغاء في أي وقت' : 'Cancel anytime'}</span>
-              </motion.p>
-            </div>
-
-            {/* Hero visual — cinematic floating asset */}
-            <motion.div initial={{ opacity: 0, scale: 0.94, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ delay: 0.8, duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="hidden lg:block" style={{ position: 'relative' }}>
-
-              {/* ── GLOW LAYER 1: Violet radial bloom ── */}
-              <div style={{
-                position: 'absolute',
-                top: '-10%', left: '-8%', right: '-12%', bottom: '-12%',
-                background: 'radial-gradient(ellipse 80% 70% at 55% 48%, rgba(139,92,246,0.38) 0%, rgba(99,40,200,0.18) 38%, transparent 68%)',
-                filter: 'blur(48px)',
-                zIndex: 0, pointerEvents: 'none',
-              }} />
-
-              {/* ── GLOW LAYER 2: Blue bloom (upper depth) ── */}
-              <div style={{
-                position: 'absolute',
-                top: '-15%', left: '-12%', width: '65%', height: '65%',
-                background: 'radial-gradient(ellipse 80% 70% at 28% 28%, rgba(59,130,246,0.24) 0%, transparent 62%)',
-                filter: 'blur(44px)',
-                zIndex: 0, pointerEvents: 'none',
-              }} />
-
-              {/* ── GLOW LAYER 3: Orange under-glow ── */}
-              <div style={{
-                position: 'absolute',
-                bottom: '-16%', left: '10%', right: '10%', height: '40%',
-                background: 'radial-gradient(ellipse 85% 65% at 50% 100%, rgba(255,107,53,0.22) 0%, rgba(255,160,50,0.10) 48%, transparent 72%)',
-                filter: 'blur(32px)',
-                zIndex: 0, pointerEvents: 'none',
-              }} />
-
-              {/* ── THE ASSET — sharp, no blur on the image itself ── */}
-              <Image
-                src="/hero-dashboard.webp"
-                alt="NEXUS AI Dashboard"
-                width={1672}
-                height={941}
-                priority
-                style={{
-                  display: 'block',
-                  width: '138%',
-                  height: 'auto',
-                  position: 'relative',
-                  zIndex: 1,
-                  marginLeft: '-6%',
-                  marginTop: '-32px',
-                  filter: 'drop-shadow(0 16px 40px rgba(0,0,0,0.6))',
-                }}
-              />
-
-              {/* ── Live status pill ── */}
-              <div style={{
-                position: 'absolute', top: '6%', right: '1%', zIndex: 4,
-                display: 'flex', alignItems: 'center', gap: '6px',
-                background: 'rgba(4,4,20,0.82)', backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(16,185,129,0.4)', borderRadius: '20px',
-                padding: '5px 12px',
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}
+            className="flex flex-wrap items-center justify-center gap-4 mb-7">
+            <Link href="/auth/register"
+              className="font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2"
+              style={{
+                background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 50%, #F97316 100%)',
+                boxShadow: '0 0 32px rgba(139,92,246,0.35), 0 4px 16px rgba(249,115,22,0.15)',
               }}>
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
-                <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#10B981', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
-                  {ar ? 'مباشر' : 'Live'}
-                </span>
-              </div>
-            </motion.div>
-          </div>
+              {ar ? 'ابدأ مجانًا' : 'Start Free'} <ArrowRight size={17} />
+            </Link>
+            <a href="#workflow"
+              className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors inline-flex items-center gap-2 border border-[rgba(255,255,255,0.1)] px-6 py-3.5 rounded-lg hover:border-[rgba(255,255,255,0.2)]">
+              <Play size={15} /> {ar ? 'شاهد كيف يعمل' : 'See How It Works'}
+            </a>
+          </motion.div>
+
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9, duration: 0.5 }}
+            className="text-[12px] text-text-muted flex items-center justify-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'بدون بطاقة ائتمان' : 'No credit card required'}</span>
+            <span className="text-text-muted">·</span>
+            <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? '20 رصيد AI مجاناً' : '20 free AI credits'}</span>
+            <span className="text-text-muted">·</span>
+            <span className="flex items-center gap-1"><CheckCircle size={12} className="text-accent-teal" /> {ar ? 'إلغاء في أي وقت' : 'Cancel anytime'}</span>
+          </motion.p>
         </div>
 
-        {/* Scroll cue */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2, duration: 0.5 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1.5">
-          <span className="text-[11px] text-text-muted font-mono">{ar ? 'اكتشف المزيد' : 'Discover more'}</span>
-          <motion.div animate={{ y: [0, 6, 0] }} transition={{ duration: 1.8, repeat: Infinity }}>
-            <ChevronDown size={18} className="text-text-muted" />
-          </motion.div>
+        {/* ── Full-width panoramic product showcase ── */}
+        <motion.div initial={{ opacity: 0, y: 48 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85, duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div style={{ position: 'relative' }}>
+
+            {/* Glow: violet center */}
+            <div style={{
+              position: 'absolute',
+              top: '-25%', left: '-5%', right: '-5%', bottom: '-8%',
+              background: 'radial-gradient(ellipse 75% 65% at 50% 42%, rgba(139,92,246,0.42) 0%, rgba(99,40,200,0.18) 48%, transparent 72%)',
+              filter: 'blur(64px)',
+              zIndex: 0, pointerEvents: 'none',
+            }} />
+            {/* Glow: cyan left (agent cards area) */}
+            <div style={{
+              position: 'absolute',
+              top: '-10%', left: '-6%', width: '32%', height: '90%',
+              background: 'radial-gradient(ellipse 85% 70% at 18% 50%, rgba(6,182,212,0.28) 0%, transparent 68%)',
+              filter: 'blur(52px)',
+              zIndex: 0, pointerEvents: 'none',
+            }} />
+            {/* Glow: teal right (output cards area) */}
+            <div style={{
+              position: 'absolute',
+              top: '-10%', right: '-6%', width: '32%', height: '90%',
+              background: 'radial-gradient(ellipse 85% 70% at 82% 50%, rgba(16,185,129,0.24) 0%, transparent 68%)',
+              filter: 'blur(52px)',
+              zIndex: 0, pointerEvents: 'none',
+            }} />
+
+            {/* The image */}
+            <Image
+              src="/hero-dashboard.webp"
+              alt="NEXUS AI — AI Marketing Command Center"
+              width={2172}
+              height={724}
+              priority
+              style={{
+                display: 'block',
+                width: '100%',
+                height: 'auto',
+                position: 'relative',
+                zIndex: 1,
+                borderRadius: '20px 20px 0 0',
+              }}
+            />
+
+            {/* Live status pill */}
+            <div style={{
+              position: 'absolute', top: '7%', right: '2.5%', zIndex: 4,
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: 'rgba(4,4,20,0.82)', backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(16,185,129,0.4)', borderRadius: '20px',
+              padding: '5px 12px',
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
+              <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#10B981', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+                {ar ? 'مباشر' : 'Live'}
+              </span>
+            </div>
+
+            {/* Bottom fade into page */}
+            <div style={{
+              position: 'absolute',
+              bottom: 0, left: 0, right: 0, height: '140px',
+              background: 'linear-gradient(to bottom, transparent 0%, #0D0D1A 100%)',
+              zIndex: 2, pointerEvents: 'none',
+              borderRadius: '0 0 20px 20px',
+            }} />
+          </div>
         </motion.div>
       </section>
 
