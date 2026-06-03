@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, type ElementType } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, useInView, useMotionValue, useTransform, AnimatePresence } from 'framer-motion'
 import {
   Compass, Sparkles, Megaphone, Activity, ShieldCheck, Brain,
   Users, CheckCircle, Rocket, ArrowRight, Play, Globe, Menu, X,
-  ChevronDown, Lock, Eye, Zap, Target, TrendingUp, BarChart3,
+  ChevronDown, Lock, Eye, Zap, Target, Calendar, TrendingUp, BarChart3,
   MessageCircle, CreditCard, Cpu, Database, Mail, Cloud,
   ChevronLeft, ChevronRight, Star, AlertCircle, HelpCircle,
   Building2, UtensilsCrossed, Heart, Dumbbell, ShoppingBag,
@@ -772,49 +772,122 @@ export default function HomePage() {
           </motion.p>
         </div>
 
-        {/* ── Full-width panoramic product showcase ── */}
-        <motion.div initial={{ opacity: 0, y: 48 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.85, duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
-          className="relative z-10 max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ── Hybrid hero visual: workflow cards + connector lines + dashboard ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 48 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.85, duration: 1.15, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-10 max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8"
+        >
+          {/* ── Workflow status cards ── */}
+          <div className="flex justify-center gap-2 sm:gap-3 mb-0 flex-nowrap overflow-x-auto pb-1 px-1">
+            {([
+              { Icon: Brain,    label: ar ? 'ذاكرة العلامة' : 'Brand Brain',  status: ar ? 'نشط'    : 'Active',     color: '#8B5CF6' },
+              { Icon: Target,   label: ar ? 'الاستراتيجية'  : 'Strategy',     status: ar ? 'جاهزة'  : 'Generated',  color: '#818CF8' },
+              { Icon: Calendar, label: ar ? 'تقويم المحتوى' : 'Content Cal.', status: ar ? 'مجدول'  : 'Scheduled',  color: '#22D3EE' },
+              { Icon: Rocket,   label: ar ? 'الحملات'       : 'Campaigns',    status: ar ? 'مُطلق'  : 'Launched',   color: '#34D399' },
+              { Icon: Zap,      label: ar ? 'التنفيذ'       : 'Execution',    status: ar ? 'جارٍ'   : 'Running',    color: '#FBBF24' },
+            ] as { Icon: ElementType; label: string; status: string; color: string }[]).map(({ Icon, label, status, color }, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55 + i * 0.08, duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                  minWidth: '148px',
+                  flex: '1 1 148px',
+                  maxWidth: '192px',
+                  background: 'rgba(13,13,26,0.9)',
+                  border: `1px solid ${color}35`,
+                  borderRadius: '12px',
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '9px',
+                  backdropFilter: 'blur(14px)',
+                  WebkitBackdropFilter: 'blur(14px)',
+                  boxShadow: `0 0 20px ${color}18, inset 0 1px 0 ${color}18`,
+                }}
+              >
+                <div style={{
+                  width: '30px', height: '30px', borderRadius: '8px',
+                  background: `${color}18`, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <Icon size={15} style={{ color }} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 500, marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {label}
+                  </p>
+                  <p style={{ fontSize: '10.5px', color, fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: color, boxShadow: `0 0 6px ${color}`, flexShrink: 0, display: 'inline-block' }} />
+                    {status}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* ── SVG connector lines (cards → dashboard) ── */}
+          <div style={{ position: 'relative', height: '52px', pointerEvents: 'none', overflow: 'visible' }}>
+            <svg
+              viewBox="0 0 1000 52"
+              preserveAspectRatio="none"
+              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                {(['#8B5CF6','#818CF8','#22D3EE','#34D399','#FBBF24'] as const).map((c, i) => (
+                  <linearGradient key={i} id={`cg${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor={c} stopOpacity="0.65" />
+                    <stop offset="100%" stopColor={c} stopOpacity="0.05" />
+                  </linearGradient>
+                ))}
+                <filter id="lnglow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur stdDeviation="2.5" result="b" />
+                  <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                </filter>
+              </defs>
+              {/* 5 bezier lines from card centres (x≈100,300,500,700,900) to dashboard centre-top (x=500,y=52) */}
+              <path d="M 100 0 C 100 28, 500 28, 500 52" stroke="url(#cg0)" strokeWidth="1.5" fill="none" filter="url(#lnglow)" />
+              <path d="M 300 0 C 300 28, 500 28, 500 52" stroke="url(#cg1)" strokeWidth="1.5" fill="none" filter="url(#lnglow)" />
+              <path d="M 500 0 L 500 52"                 stroke="url(#cg2)" strokeWidth="1.5" fill="none" filter="url(#lnglow)" />
+              <path d="M 700 0 C 700 28, 500 28, 500 52" stroke="url(#cg3)" strokeWidth="1.5" fill="none" filter="url(#lnglow)" />
+              <path d="M 900 0 C 900 28, 500 28, 500 52" stroke="url(#cg4)" strokeWidth="1.5" fill="none" filter="url(#lnglow)" />
+            </svg>
+          </div>
+
+          {/* ── Dashboard image with glow layers ── */}
           <div style={{ position: 'relative' }}>
-
-            {/* Glow: violet center */}
+            {/* Glow: violet centre bloom */}
             <div style={{
-              position: 'absolute',
-              top: '-25%', left: '-5%', right: '-5%', bottom: '-8%',
-              background: 'radial-gradient(ellipse 75% 65% at 50% 42%, rgba(139,92,246,0.42) 0%, rgba(99,40,200,0.18) 48%, transparent 72%)',
-              filter: 'blur(64px)',
-              zIndex: 0, pointerEvents: 'none',
+              position: 'absolute', top: '-20%', left: '-5%', right: '-5%', bottom: '-8%',
+              background: 'radial-gradient(ellipse 75% 60% at 50% 38%, rgba(139,92,246,0.38) 0%, rgba(99,40,200,0.14) 46%, transparent 70%)',
+              filter: 'blur(64px)', zIndex: 0, pointerEvents: 'none',
             }} />
-            {/* Glow: cyan left (agent cards area) */}
+            {/* Glow: cyan left */}
             <div style={{
-              position: 'absolute',
-              top: '-10%', left: '-6%', width: '32%', height: '90%',
-              background: 'radial-gradient(ellipse 85% 70% at 18% 50%, rgba(6,182,212,0.28) 0%, transparent 68%)',
-              filter: 'blur(52px)',
-              zIndex: 0, pointerEvents: 'none',
+              position: 'absolute', top: '-10%', left: '-5%', width: '28%', height: '90%',
+              background: 'radial-gradient(ellipse 80% 70% at 15% 50%, rgba(6,182,212,0.24) 0%, transparent 65%)',
+              filter: 'blur(52px)', zIndex: 0, pointerEvents: 'none',
             }} />
-            {/* Glow: teal right (output cards area) */}
+            {/* Glow: teal right */}
             <div style={{
-              position: 'absolute',
-              top: '-10%', right: '-6%', width: '32%', height: '90%',
-              background: 'radial-gradient(ellipse 85% 70% at 82% 50%, rgba(16,185,129,0.24) 0%, transparent 68%)',
-              filter: 'blur(52px)',
-              zIndex: 0, pointerEvents: 'none',
+              position: 'absolute', top: '-10%', right: '-5%', width: '28%', height: '90%',
+              background: 'radial-gradient(ellipse 80% 70% at 85% 50%, rgba(16,185,129,0.2) 0%, transparent 65%)',
+              filter: 'blur(52px)', zIndex: 0, pointerEvents: 'none',
             }} />
 
-            {/* The image */}
             <Image
-              src="/hero-dashboard.webp"
+              src="/dashboard-hero.webp"
               alt="NEXUS AI — AI Marketing Command Center"
               width={2172}
               height={724}
               priority
               style={{
-                display: 'block',
-                width: '100%',
-                height: 'auto',
-                position: 'relative',
-                zIndex: 1,
+                display: 'block', width: '100%', height: 'auto',
+                position: 'relative', zIndex: 1,
                 borderRadius: '20px 20px 0 0',
               }}
             />
@@ -835,11 +908,9 @@ export default function HomePage() {
 
             {/* Bottom fade into page */}
             <div style={{
-              position: 'absolute',
-              bottom: 0, left: 0, right: 0, height: '140px',
+              position: 'absolute', bottom: 0, left: 0, right: 0, height: '140px',
               background: 'linear-gradient(to bottom, transparent 0%, #0D0D1A 100%)',
-              zIndex: 2, pointerEvents: 'none',
-              borderRadius: '0 0 20px 20px',
+              zIndex: 2, pointerEvents: 'none', borderRadius: '0 0 20px 20px',
             }} />
           </div>
         </motion.div>
