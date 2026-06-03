@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
+import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -45,6 +46,13 @@ export async function POST(req: NextRequest) {
     const strategy = await ai.generateMarketingStrategy(campaignWithLang, project as any)
     const concepts = await ai.generateAdConcepts(campaignWithLang, project as any)
 
+    // AD3: Post-generation quality validation (non-blocking — logs only)
+    const qualityReport = validateOutputObject(strategy, {
+      brandName: campaign.name,
+      minScore: 40,
+    })
+    logQualityReport('/api/generate', qualityReport, `campaign=${campaign.id}`)
+
     const genStrategy = await prisma.generation.create({
       data: {
         campaignId: campaign.id,
@@ -75,6 +83,7 @@ export async function POST(req: NextRequest) {
       genStrategy,
       genConcepts,
       creditsRemaining: credit.creditsRemaining,
+      qualityScore: qualityReport.score,
     })
   } catch (error) {
     console.error('Generate failed:', error)

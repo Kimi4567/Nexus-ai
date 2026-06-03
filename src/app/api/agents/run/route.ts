@@ -12,6 +12,7 @@ import { prisma } from '@/lib/prisma'
 import { runFullAgency, BusinessBrief } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { aiRateLimit } from '@/lib/dbRateLimit'
+import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,10 +90,18 @@ export async function POST(req: NextRequest) {
     // Run agents (10-20s -- consider background queue for prod)
     const result = await runFullAgency(workspace.id, brief)
 
+    // AD3: Post-generation quality validation (non-blocking — logs only)
+    const qualityReport = validateOutputObject(result, {
+      brandName: companyName,
+      minScore: 40,
+    })
+    logQualityReport('/api/agents/run', qualityReport, `workspace=${workspace.id}`)
+
     return NextResponse.json({
       ok: true,
       workspaceId: workspace.id,
       creditsRemaining: credit.creditsRemaining,
+      qualityScore: qualityReport.score,
       ...result,
     })
   } catch (err: any) {
