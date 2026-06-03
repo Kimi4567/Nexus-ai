@@ -123,7 +123,7 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
 
 // ── Main ───────────────────────────────────────────────────────
 export default function NexStudioPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale, dir, t } = useI18n()
   const router = useRouter()
 
@@ -179,9 +179,10 @@ export default function NexStudioPage() {
     }
 
     try {
+      const token = authHeader()
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: token } : {}) },
         body: JSON.stringify({
           systemPrompt: systemPrompts[activeTab],
           userPrompt: prompt,

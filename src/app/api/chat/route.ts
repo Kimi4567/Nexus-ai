@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { chatRateLimitDb } from '@/lib/dbRateLimit'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -157,6 +158,10 @@ export async function POST(req: NextRequest) {
     if (!apiKey) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
     }
+
+    // ── Deduct credits before AI call ────────────────────────────
+    const credit = await checkAndDeductCredits(authUser.id, 'CHAT_MESSAGE')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     // ── Load user context in parallel ───────────────────────────
     const [user, workspace, subscription] = await Promise.all([

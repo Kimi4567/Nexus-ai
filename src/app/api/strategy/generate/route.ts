@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -132,6 +133,10 @@ Return a JSON object with this EXACT structure:
 }
 
 Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts per week. Make everything specific and actionable for the MENA market. Return only valid JSON.`
+
+    // ── Deduct credits before AI call ────────────────────────────
+    const credit = await checkAndDeductCredits(user.id, 'CAMPAIGN_GENERATION')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     const strategy = await callOpenAI(prompt)
 

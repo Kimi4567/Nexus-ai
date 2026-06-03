@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -57,13 +58,12 @@ const DEMO_LEGACY: Record<LegacyAction, string> = {
 
 // ── Main handler ───────────────────────────────────────────────
 export async function POST(req: NextRequest) {
-  // Rate limit
-  let userId: string | null = null
-  try { userId = await getServerUserId(req) } catch {}
-  const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const rateKey = userId || clientIp
+  // ── Auth (required) ────────────────────────────────────────────
+  const userId = await getServerUserId(req)
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  if (!checkRateLimit(rateKey)) {
+  // ── Rate limit ─────────────────────────────────────────────────
+  if (!checkRateLimit(userId)) {
     return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 })
   }
 
@@ -99,6 +99,12 @@ export async function POST(req: NextRequest) {
     systemMessage = LEGACY_SYSTEM[action] + langSuffix
     userMessage   = buildLegacyUserMessage(body)
     maxTokens     = 1500
+  }
+
+  // ── Credit deduction (before OpenAI call) ─────────────────────
+  if (apiKey) {
+    const credit = await checkAndDeductCredits(userId, 'AD_COPY')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
   }
 
   // No API key → demo/mock mode

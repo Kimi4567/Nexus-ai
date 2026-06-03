@@ -112,7 +112,7 @@ function AlertCard({ alert }: { alert: Alert }) {
 }
 
 export default function SentinelPage() {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, authHeader } = useAuth()
   const { locale, dir, t } = useI18n()
   const router = useRouter()
 
@@ -237,9 +237,10 @@ export default function SentinelPage() {
     setLoading(true)
     setResult('')
     try {
+      const token = authHeader()
       const res = await fetch('/api/ai/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: token } : {}) },
         body: JSON.stringify({ systemPrompt: systemPrompts[monitorType], userPrompt: prompt, maxTokens: 1400, language: locale }),
       })
       if (!res.ok) throw new Error()

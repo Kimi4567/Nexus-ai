@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { checkAndDeductCredits } from '@/lib/credits'
 import {
   buildImagePrompt,
   generateWithDallE,
@@ -117,6 +118,10 @@ export async function POST(req: NextRequest) {
 
   // ── Build the strategy-driven prompt ─────────────────────────────────────
   const prompt = buildImagePrompt(ctx)
+
+  // ── Deduct credits before expensive DALL-E call ───────────────────────────
+  const credit = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
+  if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
   // ── Create the DB record in GENERATING state ──────────────────────────────
   let visual: any
