@@ -256,11 +256,58 @@ export function isVideoProviderAvailable(): boolean {
 }
 
 /**
+ * Build the correct input payload for the given text-to-video model.
+ * Different model families use different parameter names.
+ *
+ * ⚠  minimax/video-01-live REQUIRES first_frame_image — it is NOT a pure text-to-video model.
+ *    Use minimax/video-01 (without -live) for text-only generation.
+ */
+function buildText2VideoInput(
+  prompt: string,
+  durationSeconds: number,
+  modelId: string,
+): Record<string, unknown> {
+  const m = modelId.toLowerCase()
+  const duration = durationSeconds >= 10 ? 10 : 5
+
+  // MiniMax video-01 family — accepts just { prompt }
+  // video-01-live requires first_frame_image, so we still pass only prompt;
+  // if the user has -live configured they'll get a helpful 422 telling them to use video-01.
+  if (m.includes('minimax')) {
+    return { prompt }
+  }
+
+  // Luma Dream Machine / Ray family
+  if (m.includes('luma') || m.includes('ray')) {
+    return { prompt, aspect_ratio: '16:9' }
+  }
+
+  // WAN text-to-video (t2v variants)
+  if (m.includes('wan') && m.includes('t2v')) {
+    return { prompt, resolution: '720p' }
+  }
+
+  // Kling / Kuaishou
+  if (m.includes('kling')) {
+    return { prompt, aspect_ratio: '16:9', duration }
+  }
+
+  // Default: generic text2video — most models accept prompt + aspect_ratio + duration
+  return { prompt, aspect_ratio: '16:9', duration }
+}
+
+/**
  * Submit a video generation prediction to Replicate.
  *
  * REPLICATE_VIDEO_MODEL_VERSION can be either:
  *   - A version hash (64-char hex) → POST /v1/predictions with { version, input }
- *   - A model name (e.g. "minimax/video-01-live") → POST /v1/models/{owner}/{name}/predictions
+ *   - A model name (e.g. "minimax/video-01") → POST /v1/models/{owner}/{name}/predictions
+ *
+ * Recommended models (text-to-video, no image required):
+ *   minimax/video-01        — high quality, accepts { prompt }
+ *   wan-video/wan-2.5-t2v-turbo — fast, accepts { prompt, resolution }
+ *
+ * ⚠  Do NOT use minimax/video-01-live — it requires first_frame_image.
  *
  * Replicate API requires Bearer auth (not Token).
  */
@@ -275,11 +322,8 @@ export async function submitReplicatePrediction(
     throw new Error('REPLICATE_API_TOKEN or REPLICATE_VIDEO_MODEL_VERSION not configured')
   }
 
-  // Clamp duration to values most models support
-  const duration = durationSeconds >= 10 ? 10 : 5
-
-  // Keep input minimal — extra params cause 422 on models that don't support them
-  const input = { prompt, aspect_ratio: '16:9', duration }
+  // Build model-aware input — avoids 422 caused by unsupported params
+  const input = buildText2VideoInput(prompt, durationSeconds, modelVersion)
 
   // Determine whether modelVersion is a named model ("owner/name") or a version hash
   const isModelName = modelVersion.includes('/')

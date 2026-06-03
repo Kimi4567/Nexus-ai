@@ -114,25 +114,39 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
   const [mediaList, setMediaList] = useState<Array<{ id: string; url: string; fileName: string; type: string }>>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
 
-  // ── Shared generation state ───────────────────────────────────────────────
+  // ── Duration ──────────────────────────────────────────────────────────────
+  const [durationSeconds, setDurationSeconds] = useState<5 | 10>(5)
+
+  // ── Shared generation state — per mode ───────────────────────────────────
+  // Each mode keeps its own video URL so switching tabs doesn't erase the video
+  const [strategyVideoUrl, setStrategyVideoUrl] = useState<string | null>(null)
+  const [img2videoUrl, setImg2VideoUrl] = useState<string | null>(null)
+
   const [generationId, setGenerationId] = useState<string | null>(null)
   const [genStatus, setGenStatus] = useState<GenerationStatus>(null)
   const [genProgress, setGenProgress] = useState(0)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [genError, setGenError] = useState('')
   const [upgradeNeeded, setUpgradeNeeded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [providerAvailable, setProviderAvailable] = useState<boolean | null>(null)
 
+  // Active video URL derived from current mode
+  const videoUrl = videoMode === 'strategy' ? strategyVideoUrl : img2videoUrl
+  const setVideoUrl = videoMode === 'strategy' ? setStrategyVideoUrl : setImg2VideoUrl
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollCountRef = useRef(0)
   const MAX_POLLS = 120 // 10 minutes at 5s interval
+  // Captures the mode at generation start so polling saves to the correct URL slot
+  const generationModeRef = useRef<'strategy' | 'img2video'>('strategy')
 
-  // ── Fetch existing brief on mount ─────────────────────────────────────────
+  // ── Fetch existing brief + restore last generated videos on mount ─────────
   useEffect(() => {
     const load = async () => {
       const token = authHeader()
       if (!token) { setLoadingBrief(false); return }
+
+      // Load brief
       try {
         const res = await fetch(`/api/campaigns/${campaignId}/video-brief`, {
           headers: { Authorization: token },
@@ -142,33 +156,67 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
           if (data.videoBrief) setBrief(data.videoBrief)
         }
       } catch { /* ignore */ }
+
+      // Restore last completed videos from DB (so switching tabs / navigating away doesn't lose the video)
+      try {
+        const res = await fetch(`/api/campaigns/${campaignId}/video-status`, {
+          headers: { Authorization: token },
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.strategy?.videoUrl) {
+            setStrategyVideoUrl(data.strategy.videoUrl)
+            // Default mode is strategy — set status so the video renders
+            setGenStatus('COMPLETED')
+          }
+          if (data.img2video?.videoUrl) {
+            setImg2VideoUrl(data.img2video.videoUrl)
+          }
+        }
+      } catch { /* ignore — table may not exist yet */ }
+
       setLoadingBrief(false)
     }
     load()
-  }, [authHeader, campaignId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaignId])
 
   // ── Stop polling on unmount ───────────────────────────────────────────────
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [])
 
-  // ── Reset generation state (clear video + status) ─────────────────────────
+  // ── Reset generation state for current mode (clears this mode's video) ───
   const resetGeneration = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
-    setVideoUrl(null)
+    // Clear only current mode's video
+    if (videoMode === 'strategy') setStrategyVideoUrl(null)
+    else setImg2VideoUrl(null)
     setGenStatus(null)
     setGenProgress(0)
     setGenerationId(null)
     setGenError('')
     setUpgradeNeeded(false)
     setSubmitting(false)
-  }, [])
+  }, [videoMode])
 
-  // ── Switch mode — reset generation state so each mode starts fresh ────────
+  // ── Switch mode — preserve each mode's video, restore correct status ────
   const handleModeSwitch = useCallback((mode: 'strategy' | 'img2video') => {
+    // Stop any active poll first
+    if (pollRef.current) clearInterval(pollRef.current)
+    setGenError('')
+    setUpgradeNeeded(false)
+    setGenProgress(0)
+    setGenerationId(null)
+    setSubmitting(false)
     setVideoMode(mode)
-    resetGeneration()
-  }, [resetGeneration])
+    // Restore status for the target mode
+    if (mode === 'strategy') {
+      setGenStatus(strategyVideoUrl ? 'COMPLETED' : null)
+    } else {
+      setGenStatus(img2videoUrl ? 'COMPLETED' : null)
+    }
+  }, [strategyVideoUrl, img2videoUrl])
 
   // ── Load workspace images when img2video mode is selected ─────────────────
   useEffect(() => {
@@ -234,7 +282,9 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
         setGenProgress(data.progress || 0)
 
         if (data.status === 'COMPLETED' && data.output) {
-          setVideoUrl(data.output)
+          // Use ref (not state) to avoid stale closure when mode switches during polling
+          if (generationModeRef.current === 'strategy') setStrategyVideoUrl(data.output)
+          else setImg2VideoUrl(data.output)
           clearInterval(pollRef.current!)
         }
         if (data.status === 'FAILED' || data.status === 'CANCELLED') {
@@ -260,13 +310,17 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
     setSubmitting(true)
     setGenError('')
     setUpgradeNeeded(false)
-    setVideoUrl(null)
+    // Capture mode so polling saves to the correct URL slot even if user switches tabs
+    generationModeRef.current = videoMode
+    // Clear current mode's video for fresh generation
+    if (videoMode === 'strategy') setStrategyVideoUrl(null)
+    else setImg2VideoUrl(null)
     setGenStatus(null)
 
     try {
       const body = videoMode === 'img2video'
-        ? { mode: 'img2video', sourceImageUrl: selectedImage!.url, motionHint }
-        : { mode: 'text2video', prompt: brief!.generationPrompt, durationSeconds: brief!.durationSeconds }
+        ? { mode: 'img2video', sourceImageUrl: selectedImage!.url, motionHint, durationSeconds }
+        : { mode: 'text2video', prompt: brief!.generationPrompt, durationSeconds }
 
       const res = await fetch(`/api/campaigns/${campaignId}/video-generate`, {
         method: 'POST',
@@ -469,6 +523,28 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
                   Describe the camera movement or motion style you want (e.g. "slow zoom in", "gentle pan left").
                 </div>
               </div>
+
+              {/* Duration selector */}
+              <div>
+                <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest block mb-1.5">
+                  Duration
+                </label>
+                <div className="flex gap-2">
+                  {([5, 10] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDurationSeconds(d)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
+                        durationSeconds === d
+                          ? 'bg-violet-600 text-white border-violet-500'
+                          : 'bg-[#0f0f0f] text-gray-400 border-[#2a2a2a] hover:border-violet-500/40'
+                      }`}
+                    >
+                      {d}s
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -529,39 +605,45 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
           )}
 
           {/* Video output */}
-          {videoUrl && genStatus === 'COMPLETED' && (
+          {img2videoUrl && genStatus === 'COMPLETED' && (
             <div className="space-y-3">
               <div className="rounded-xl overflow-hidden bg-black aspect-video">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video src={videoUrl} controls autoPlay={false} className="w-full h-full" playsInline />
+                <video src={img2videoUrl} controls autoPlay={false} className="w-full h-full" playsInline />
               </div>
-              <div className="flex items-center gap-2">
-                <a href={videoUrl} target="_blank" rel="noopener noreferrer"
+              <div className="flex items-center gap-2 flex-wrap">
+                <a href={img2videoUrl} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition">
                   ↗ Open video
                 </a>
-                <a href={videoUrl} download={`nexus-img2video-${campaignId.slice(0, 8)}.mp4`}
+                <a href={img2videoUrl} download={`nexus-img2video-${campaignId.slice(0, 8)}.mp4`}
                   className="flex items-center gap-1.5 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] hover:bg-[#222] text-gray-300 text-xs font-semibold rounded-lg transition">
                   ⬇ Download
                 </a>
+                <button
+                  onClick={resetGeneration}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-[#1a1a1a] border border-red-500/30 hover:bg-red-500/10 text-red-400 text-xs font-semibold rounded-lg transition"
+                >
+                  ✕ Clear
+                </button>
                 <span className="text-[10px] text-gray-600">Saved to Media Library</span>
               </div>
             </div>
           )}
 
-          {/* Animate button */}
-          {genStatus !== 'COMPLETED' && (
+          {/* Animate button — always visible except while in-flight */}
+          {genStatus !== 'QUEUED' && genStatus !== 'PROCESSING' && (
             <button
               onClick={handleGenerate}
-              disabled={submitting || !selectedImage || genStatus === 'QUEUED' || genStatus === 'PROCESSING'}
+              disabled={submitting || !selectedImage}
               className="w-full py-2.5 rounded-xl font-bold text-sm transition-all bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2"
             >
               {submitting ? (
                 <><span className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin" /> Starting…</>
-              ) : genStatus === 'QUEUED' || genStatus === 'PROCESSING' ? (
-                <><span className="w-4 h-4 border border-white/30 border-t-white rounded-full animate-spin" /> Animating…</>
               ) : genStatus === 'FAILED' ? (
                 '↺ Retry animation'
+              ) : genStatus === 'COMPLETED' ? (
+                '↺ Animate again'
               ) : (
                 '🎥 Animate image'
               )}
@@ -708,6 +790,28 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
                 </div>
               </div>
               {genStatus && <StatusPill status={genStatus} progress={genProgress} />}
+            </div>
+
+            {/* Duration selector */}
+            <div>
+              <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest block mb-1.5">
+                Duration
+              </label>
+              <div className="flex gap-2">
+                {([5, 10] as const).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setDurationSeconds(d)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold transition border ${
+                      durationSeconds === d
+                        ? 'bg-violet-600 text-white border-violet-500'
+                        : 'bg-[#0f0f0f] text-gray-400 border-[#2a2a2a] hover:border-violet-500/40'
+                    }`}
+                  >
+                    {d}s
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Upgrade prompt — video quota exceeded */}
