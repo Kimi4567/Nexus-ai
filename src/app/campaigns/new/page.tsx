@@ -117,21 +117,14 @@ export default function NewCampaignPage() {
       }
 
       // Kick off AI generation (async — user proceeds to campaign detail)
+      // Pass locale so AI generates in the user's language (not always Arabic)
       fetch('/api/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: authHeader(),
         },
-        body: JSON.stringify({ campaignId }),
-      }).then(async res => {
-        if (res.status === 402) {
-          const d = await res.json().catch(() => ({}))
-          if (d.error === 'INSUFFICIENT_CREDITS') {
-            setSaving(false)
-            setShowUpgrade(true)
-          }
-        }
+        body: JSON.stringify({ campaignId, language: locale }),
       }).catch(() => {})
 
       router.push(`/campaigns/${campaignId}?generating=true&new=1`)

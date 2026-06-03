@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     const isActive = ['ACTIVE', 'active'].includes(subscription?.status?.toString() ?? '')
     const planName = isActive ? planRaw : 'free'
 
-    const maxCredits = PLAN_CREDITS[planName] ?? 15  // 15 = FREE default
+    const maxCredits = PLAN_CREDITS[planName] ?? 20  // 20 = FREE_STARTER_CREDITS default
     const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - (dbUser.aiCredits ?? 0))
 
     return NextResponse.json({
