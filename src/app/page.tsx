@@ -882,8 +882,8 @@ export default function HomePage() {
             <Image
               src="/dashboard-hero.webp"
               alt="NEXUS AI — AI Marketing Command Center"
-              width={2172}
-              height={724}
+              width={1916}
+              height={821}
               priority
               style={{
                 display: 'block', width: '100%', height: 'auto',
