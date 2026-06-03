@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion, useInView, useMotionValue, useTransform, AnimatePresence } from 'framer-motion'
 import {
   Compass, Sparkles, Megaphone, Activity, ShieldCheck, Brain,
@@ -188,6 +189,19 @@ function Navbar() {
 /* ─────────────────────────────────────────────────────────────
    AGENT SVG PORTRAITS
 ───────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   AGENT IMAGE MAP  (real WebP portraits, ~50 KB each)
+───────────────────────────────────────────────────────────── */
+const agentImages: Record<string, string> = {
+  STRATEGIST: '/agents/nexus-core.webp',
+  NEX:        '/agents/nex.webp',
+  VEX:        '/agents/vex.webp',
+  PULSE:      '/agents/pulse.webp',
+  SENTINEL:   '/agents/sentinel.webp',
+  CORTEX:     '/agents/brand-brain.webp',
+}
+
+// DEAD CODE BELOW — kept only as safety fallback, never reached
 function PortraitStrategist({ color }: { color: string }) {
   return (
     <svg viewBox="0 0 160 200" width="160" height="200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -442,13 +456,7 @@ function PortraitSENTINEL({ color }: { color: string }) {
   )
 }
 
-const agentPortraits = {
-  STRATEGIST: PortraitStrategist,
-  NEX: PortraitNEX,
-  VEX: PortraitVEX,
-  PULSE: PortraitPULSE,
-  SENTINEL: PortraitSENTINEL,
-}
+// (legacy agentPortraits removed — replaced by agentImages above)
 
 /* ─────────────────────────────────────────────────────────────
    HOME PAGE
@@ -492,6 +500,12 @@ export default function HomePage() {
       role: ar ? 'حارس العلامة التجارية' : 'Brand Safety Monitor',
       desc: ar ? 'يراقب المنافسين وسمعة العلامة التجارية ويرصد الفرص والمخاطر في السوق.' : 'Monitors competitors, brand reputation, and identifies market opportunities and risks.',
       output: ar ? 'تقارير المنافسين · تنبيهات السمعة · رصد السوق' : 'Competitor reports · Reputation alerts · Market monitoring',
+    },
+    {
+      name: 'CORTEX', color: '#A78BFA', icon: Brain,
+      role: ar ? 'ذاكرة العلامة التجارية' : 'Brand Memory Core',
+      desc: ar ? 'يحفظ هوية علامتك التجارية ونبرتك وجمهورك وأهدافك — كل الوكلاء يعملون بهذا السياق الغني في كل مهمة.' : 'Stores your brand identity, voice, audience, and goals — all agents operate with this rich context on every task.',
+      output: ar ? 'هوية العلامة · نبرة الصوت · سياق الجمهور · ذاكرة المنافسين' : 'Brand identity · Voice tone · Audience context · Competitor memory',
     },
   ]
 
@@ -953,7 +967,7 @@ export default function HomePage() {
           <div className="mt-6">
             {agents.map((agent, i) => {
               if (i !== activeAgent) return null
-              const AgentSVG = agentPortraits[agent.name as keyof typeof agentPortraits]
+              const agentImg = agentImages[agent.name]
               return (
                 <motion.div
                   key={agent.name}
@@ -966,35 +980,53 @@ export default function HomePage() {
                     background: `linear-gradient(135deg, ${agent.color}0a 0%, rgba(0,0,0,0) 55%)`,
                   }}
                 >
-                  <div className="grid lg:grid-cols-[280px_1fr] gap-0">
-                    {/* Portrait */}
+                  <div className="grid lg:grid-cols-[300px_1fr] gap-0">
+                    {/* Portrait — real robot image */}
                     <div
-                      className="relative flex items-center justify-center p-8 border-b lg:border-b-0 lg:border-r"
-                      style={{ borderColor: `${agent.color}22`, background: `${agent.color}07` }}
+                      className="relative flex items-end justify-center overflow-hidden border-b lg:border-b-0 lg:border-r"
+                      style={{
+                        borderColor: `${agent.color}22`,
+                        background: `radial-gradient(ellipse at 50% 80%, ${agent.color}18 0%, #050510 65%)`,
+                        minHeight: '300px',
+                      }}
                     >
-                      {/* Scan line effect */}
+                      {/* Scan line overlay */}
                       <div
-                        className="absolute inset-0 pointer-events-none"
+                        className="absolute inset-0 pointer-events-none z-10"
                         style={{
-                          backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 3px, ${agent.color}06 3px, ${agent.color}06 4px)`,
-                        }}
-                      />
-                      {/* Radial glow */}
-                      <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{
-                          background: `radial-gradient(circle at 50% 60%, ${agent.color}20 0%, transparent 70%)`,
+                          backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 3px, ${agent.color}04 3px, ${agent.color}04 4px)`,
                         }}
                       />
                       {/* Corner brackets */}
-                      <div className="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2" style={{ borderColor: `${agent.color}66` }} />
-                      <div className="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2" style={{ borderColor: `${agent.color}66` }} />
-                      <div className="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2" style={{ borderColor: `${agent.color}66` }} />
-                      <div className="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2" style={{ borderColor: `${agent.color}66` }} />
-                      {/* SVG Portrait */}
-                      <div className="relative z-10">
-                        <AgentSVG color={agent.color} />
-                      </div>
+                      <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 z-20" style={{ borderColor: `${agent.color}88` }} />
+                      <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 z-20" style={{ borderColor: `${agent.color}88` }} />
+                      <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 z-20" style={{ borderColor: `${agent.color}88` }} />
+                      <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 z-20" style={{ borderColor: `${agent.color}88` }} />
+                      {/* Agent image */}
+                      {agentImg && (
+                        <div className="relative w-full h-full flex items-end justify-center">
+                          <Image
+                            src={agentImg}
+                            alt={agent.name}
+                            width={280}
+                            height={280}
+                            className="object-contain object-bottom select-none"
+                            priority={i === 0}
+                            style={{
+                              filter: `drop-shadow(0 0 32px ${agent.color}66) drop-shadow(0 0 8px ${agent.color}44)`,
+                              maxHeight: '280px',
+                              width: 'auto',
+                            }}
+                          />
+                          {/* Bottom blend — hides image edge naturally */}
+                          <div
+                            className="absolute inset-x-0 bottom-0 h-24 pointer-events-none z-10"
+                            style={{
+                              background: `linear-gradient(to top, #050510 0%, transparent 100%)`,
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* Details panel */}
