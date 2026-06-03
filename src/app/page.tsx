@@ -735,21 +735,27 @@ export default function HomePage() {
 
               <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.65 }}
                 className="font-heading text-[38px] sm:text-[52px] lg:text-[62px] font-bold text-white leading-[1.08] tracking-[-2px] mb-6">
-                {ar ? <>حوّل التسويق عندك<br />إلى <span className="text-gradient">فريق AI كامل</span><br />في دقائق</> : <>Hire your<br /><span className="text-gradient">AI Marketing</span><br />Department</>}
+                {ar
+                  ? <><span className="text-gradient">حوّل تسويقك</span><br />إلى فريق AI كامل<br />في دقائق</>
+                  : <>Hire your<br /><span className="text-gradient">AI Marketing</span><br />Department</>}
               </motion.h1>
 
               <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
                 className="text-[17px] sm:text-[19px] text-text-secondary leading-relaxed max-w-[560px] mb-9">
                 {ar
-                  ? 'NEXUS AI يفهم علامتك التجارية، يبني الاستراتيجية، ينشئ المحتوى، يجهز الحملات، ويتابع الأداء — وأنت تبقى في التحكم الكامل دائماً.'
+                  ? 'NEXUS AI يفهم علامتك التجارية، يبني الاستراتيجية، ينشئ المحتوى، يجهز الحملات، ويتابع الأداء — وأنت دائمًا في التحكم.'
                   : 'NEXUS AI understands your brand, creates strategies, generates content, prepares campaigns, tracks performance, and helps your business grow — with you always in control.'}
               </motion.p>
 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }}
                 className="flex flex-wrap items-center gap-4 mb-7">
                 <Link href="/auth/register"
-                  className="btn-gradient font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2 shadow-[0_0_30px_rgba(139,92,246,0.25)]">
-                  {ar ? 'ابدأ مجاناً' : 'Start Free'} <ArrowRight size={17} />
+                  className="font-heading text-[14px] font-semibold uppercase tracking-[1px] text-white px-8 py-3.5 rounded-lg inline-flex items-center gap-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 50%, #F97316 100%)',
+                    boxShadow: '0 0 32px rgba(139,92,246,0.35), 0 4px 16px rgba(249,115,22,0.15)',
+                  }}>
+                  {ar ? 'ابدأ مجانًا' : 'Start Free'} <ArrowRight size={17} />
                 </Link>
                 <a href="#workflow"
                   className="font-heading text-[14px] font-medium uppercase tracking-[1px] text-text-secondary hover:text-white transition-colors inline-flex items-center gap-2 border border-[rgba(255,255,255,0.1)] px-6 py-3.5 rounded-lg hover:border-[rgba(255,255,255,0.2)]">
@@ -771,37 +777,34 @@ export default function HomePage() {
             <motion.div initial={{ opacity: 0, scale: 0.94, x: 20 }} animate={{ opacity: 1, scale: 1, x: 0 }} transition={{ delay: 0.8, duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="hidden lg:block" style={{ position: 'relative' }}>
 
-              {/* ── GLOW LAYER 1: Violet radial bloom (main, behind image) ── */}
+              {/* ── GLOW LAYER 1: Violet radial bloom ── */}
               <div style={{
                 position: 'absolute',
-                top: '-5%', left: '-5%', right: '-8%', bottom: '-8%',
-                background: 'radial-gradient(ellipse 75% 65% at 55% 48%, rgba(139,92,246,0.32) 0%, rgba(99,40,200,0.15) 40%, transparent 70%)',
-                filter: 'blur(40px)',
-                zIndex: 0,
-                pointerEvents: 'none',
+                top: '-10%', left: '-8%', right: '-12%', bottom: '-12%',
+                background: 'radial-gradient(ellipse 80% 70% at 55% 48%, rgba(139,92,246,0.38) 0%, rgba(99,40,200,0.18) 38%, transparent 68%)',
+                filter: 'blur(48px)',
+                zIndex: 0, pointerEvents: 'none',
               }} />
 
-              {/* ── GLOW LAYER 2: Blue bloom (upper-left, depth) ── */}
+              {/* ── GLOW LAYER 2: Blue bloom (upper depth) ── */}
               <div style={{
                 position: 'absolute',
-                top: '-10%', left: '-10%', width: '60%', height: '60%',
-                background: 'radial-gradient(ellipse 80% 70% at 30% 30%, rgba(59,130,246,0.2) 0%, transparent 65%)',
-                filter: 'blur(36px)',
-                zIndex: 0,
-                pointerEvents: 'none',
+                top: '-15%', left: '-12%', width: '65%', height: '65%',
+                background: 'radial-gradient(ellipse 80% 70% at 28% 28%, rgba(59,130,246,0.24) 0%, transparent 62%)',
+                filter: 'blur(44px)',
+                zIndex: 0, pointerEvents: 'none',
               }} />
 
-              {/* ── GLOW LAYER 3: Orange under-glow (floor) ── */}
+              {/* ── GLOW LAYER 3: Orange under-glow ── */}
               <div style={{
                 position: 'absolute',
-                bottom: '-12%', left: '15%', right: '15%', height: '35%',
-                background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255,107,53,0.18) 0%, rgba(255,160,50,0.08) 50%, transparent 75%)',
-                filter: 'blur(28px)',
-                zIndex: 0,
-                pointerEvents: 'none',
+                bottom: '-16%', left: '10%', right: '10%', height: '40%',
+                background: 'radial-gradient(ellipse 85% 65% at 50% 100%, rgba(255,107,53,0.22) 0%, rgba(255,160,50,0.10) 48%, transparent 72%)',
+                filter: 'blur(32px)',
+                zIndex: 0, pointerEvents: 'none',
               }} />
 
-              {/* ── THE ASSET — sharp, no blur, no filter, transparent WebP ── */}
+              {/* ── THE ASSET — sharp, no blur on the image itself ── */}
               <Image
                 src="/hero-dashboard.webp"
                 alt="NEXUS AI Dashboard"
@@ -810,30 +813,62 @@ export default function HomePage() {
                 priority
                 style={{
                   display: 'block',
-                  width: '118%',
+                  width: '132%',
                   height: 'auto',
                   position: 'relative',
                   zIndex: 1,
-                  marginLeft: '-9%',
-                  /* Only a subtle drop-shadow for depth — no blur on the asset */
-                  filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.55))',
+                  marginLeft: '-16%',
+                  filter: 'drop-shadow(0 16px 40px rgba(0,0,0,0.6))',
                 }}
               />
 
+              {/* ── Stat pill 1: Active Campaigns ── */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.4, duration: 0.6 }}
+                style={{
+                  position: 'absolute', top: '18%', left: '-2%', zIndex: 4,
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'rgba(4,4,24,0.85)', backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(139,92,246,0.3)', borderRadius: '12px',
+                  padding: '8px 14px',
+                }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '14px' }}>🚀</span>
+                </div>
+                <div>
+                  <p style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>24</p>
+                  <p style={{ fontFamily: 'monospace', fontSize: '9px', color: 'rgba(255,255,255,0.45)', marginTop: '2px', letterSpacing: '0.5px' }}>{ar ? 'حملة نشطة' : 'Active Campaigns'}</p>
+                </div>
+              </motion.div>
+
+              {/* ── Stat pill 2: AI Credits Used ── */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.7, duration: 0.6 }}
+                style={{
+                  position: 'absolute', bottom: '22%', right: '0%', zIndex: 4,
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'rgba(4,4,24,0.85)', backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px',
+                  padding: '8px 14px',
+                }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '14px' }}>⚡</span>
+                </div>
+                <div>
+                  <p style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 700, color: '#10B981', lineHeight: 1 }}>+3.2x</p>
+                  <p style={{ fontFamily: 'monospace', fontSize: '9px', color: 'rgba(255,255,255,0.45)', marginTop: '2px', letterSpacing: '0.5px' }}>{ar ? 'نمو الأداء' : 'Performance Growth'}</p>
+                </div>
+              </motion.div>
+
               {/* ── Live status pill ── */}
               <div style={{
-                position: 'absolute',
-                top: '8%',
-                right: '2%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(4,4,20,0.82)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(16,185,129,0.4)',
-                borderRadius: '20px',
+                position: 'absolute', top: '6%', right: '1%', zIndex: 4,
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: 'rgba(4,4,20,0.82)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(16,185,129,0.4)', borderRadius: '20px',
                 padding: '5px 12px',
-                zIndex: 3,
               }}>
                 <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', boxShadow: '0 0 8px #10B981' }} />
                 <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#10B981', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase' }}>
