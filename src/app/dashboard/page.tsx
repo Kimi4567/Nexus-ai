@@ -166,7 +166,7 @@ export default function DashboardPage() {
           activeCampaigns: d.stats?.campaigns?.thisMonth ?? 0,
           totalGenerations: d.stats?.generations?.total ?? 0,
           creditsRemaining: d.stats?.credits?.remaining ?? 0,
-          creditsMonthlyTotal: d.stats?.credits?.monthlyTotal ?? 15,
+          creditsMonthlyTotal: d.stats?.credits?.monthlyTotal ?? 20,
           isUnlimited: d.stats?.credits?.isUnlimited ?? false,
           lowCredits: d.stats?.credits?.lowCredits ?? false,
           plan: d.stats?.credits?.plan ?? 'FREE',

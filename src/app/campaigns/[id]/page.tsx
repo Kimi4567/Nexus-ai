@@ -480,9 +480,9 @@ export default function CampaignDetailPage() {
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
     return (
-      <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-8 text-center">
+      <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.1)' }}>
         <div className="text-3xl mb-3">{icon}</div>
-        <p className="text-gray-500 text-sm">{message}</p>
+        <p className="text-sm" style={{ color: 'var(--nx-text-4)' }}>{message}</p>
       </div>
     )
   }
@@ -525,77 +525,114 @@ export default function CampaignDetailPage() {
           )
         })()}
 
-        {/* Header card */}
-        <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6 mb-4">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-dark-tertiary flex items-center justify-center text-3xl flex-shrink-0">
-                {campaign.thumbnail || '🎯'}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold mb-1">{campaign.name}</h1>
-                <div className="flex flex-wrap items-center gap-2 text-sm text-gray-400">
-                  <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
-                  <span>·</span>
-                  <span>{campaign.tone}</span>
-                  <span>·</span>
-                  <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
+        {/* Header card — NEXUS UI */}
+        <div className="rounded-2xl mb-4 overflow-hidden"
+          style={{
+            background: 'rgba(10,11,28,0.9)',
+            border: '1px solid rgba(139,92,246,0.2)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 0 40px rgba(139,92,246,0.05)',
+          }}>
+          {/* Gradient accent bar */}
+          <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #06b6d4 50%, #10b981 100%)' }} />
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
+                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 20px rgba(139,92,246,0.1)' }}>
+                  {campaign.thumbnail || '🎯'}
                 </div>
-                <div className="flex gap-2 mt-2">
-                  {campaign.platforms.map(p => (
-                    <span key={p} className="text-base" title={p}>{PLATFORM_ICONS[p] || '🌐'}</span>
-                  ))}
+                <div>
+                  <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--nx-text-1)' }}>{campaign.name}</h1>
+                  <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--nx-text-3)' }}>
+                    <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
+                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span>{campaign.tone}</span>
+                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {campaign.platforms.map(p => (
+                      <span key={p} className="text-base" title={p}>{PLATFORM_ICONS[p] || '🌐'}</span>
+                    ))}
+                  </div>
+                  {campaign.audience && (
+                    <p className="text-xs mt-2 max-w-md" style={{ color: 'var(--nx-text-4)' }}>{cdT?.audienceLabel}: {campaign.audience}</p>
+                  )}
+                  {/* Campaign status badge */}
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+                      style={{
+                        background: campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
+                        border: `1px solid ${campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
+                        color: campaign.status === 'ACTIVE' ? '#10b981' : '#a78bfa',
+                      }}>
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: campaign.status === 'ACTIVE' ? '#10b981' : '#8b5cf6' }} />
+                      {campaign.status}
+                    </span>
+                  </div>
                 </div>
-                {campaign.audience && (
-                  <p className="text-xs text-gray-500 mt-2 max-w-md">{cdT?.audienceLabel}: {campaign.audience}</p>
-                )}
               </div>
-            </div>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => updateCampaign({ favorite: !campaign.favorite })}
-                disabled={saving}
-                className={`px-3 py-2 rounded-xl border text-sm font-semibold transition ${campaign.favorite ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-400' : 'border-dark-tertiary text-gray-400 hover:text-yellow-400'}`}
-              >
-                {campaign.favorite ? cdT?.btnSaved : cdT?.btnSave}
-              </button>
-              <button
-                onClick={duplicate}
-                className="px-3 py-2 rounded-xl border border-dark-tertiary text-sm font-semibold text-gray-400 hover:text-white transition"
-              >
-                {cdT?.btnDuplicate}
-              </button>
-              <button
-                onClick={() => updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' })}
-                disabled={saving}
-                className="px-3 py-2 rounded-xl border border-dark-tertiary text-sm font-semibold text-gray-400 hover:text-yellow-400 transition"
-              >
-                {campaign.status === 'ARCHIVED' ? cdT?.btnRestore : cdT?.btnArchive}
-              </button>
-              <button
-                onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
-                className="px-3 py-2 rounded-xl border border-white/10 text-sm font-semibold text-gray-400 hover:text-white hover:border-white/20 transition"
-              >
-                {cdT?.btnExportPdf}
-              </button>
-              <Link
-                href="/campaigns/new"
-                className="px-3 py-2 rounded-xl bg-accent text-dark text-sm font-bold hover:bg-accent-light transition"
-              >
-                {cdT?.btnNewCampaign}
-              </Link>
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => updateCampaign({ favorite: !campaign.favorite })}
+                  disabled={saving}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
+                  style={{
+                    background: campaign.favorite ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.04)',
+                    border: `1px solid ${campaign.favorite ? 'rgba(234,179,8,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                    color: campaign.favorite ? '#eab308' : 'var(--nx-text-3)',
+                  }}
+                >
+                  {campaign.favorite ? cdT?.btnSaved : cdT?.btnSave}
+                </button>
+                <button
+                  onClick={duplicate}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
+                >
+                  {cdT?.btnDuplicate}
+                </button>
+                <button
+                  onClick={() => updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' })}
+                  disabled={saving}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
+                >
+                  {campaign.status === 'ARCHIVED' ? cdT?.btnRestore : cdT?.btnArchive}
+                </button>
+                <button
+                  onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
+                >
+                  {cdT?.btnExportPdf}
+                </button>
+                <Link
+                  href="/campaigns/new"
+                  className="px-3 py-2 rounded-xl text-sm font-bold transition"
+                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 16px rgba(139,92,246,0.3)' }}
+                >
+                  {cdT?.btnNewCampaign}
+                </Link>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ── Execution Pipeline Panel — only when aiOutput exists ──────── */}
+        {/* ── Execution Pipeline Panel — NEXUS UI ──────────────────────── */}
         {aiOutput && (
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl px-5 py-5 mb-6">
+          <div className="rounded-2xl px-5 py-5 mb-6 overflow-hidden"
+            style={{
+              background: 'rgba(10,11,28,0.85)',
+              border: '1px solid rgba(139,92,246,0.15)',
+              backdropFilter: 'blur(16px)',
+            }}>
 
             {/* Pipeline stage tracker */}
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">{cdT?.pipelineLabel || 'Campaign Pipeline'}</p>
+            <p className="text-xs uppercase tracking-wider mb-3 font-medium" style={{ color: 'var(--nx-text-4)' }}>{cdT?.pipelineLabel || 'Campaign Pipeline'}</p>
             <div className="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1 flex-nowrap">
               {[
                 { key: 'strategy',  label: cdT?.pipelineStrategy  || 'Strategy',  done: true },
@@ -825,15 +862,14 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        {/* ── Sentinel Review Card — Sprint G ──────────────────────────── */}
+        {/* ── Sentinel Review Card — NEXUS UI ──────────────────────────── */}
         {aiOutput && (
-          <div className={`bg-dark-secondary rounded-2xl px-5 py-5 mb-6 border ${
-            sentinelStatus === 'passed'
-              ? 'border-green-500/30'
-              : sentinelStatus === 'needs_attention'
-                ? 'border-amber-500/30'
-                : 'border-dark-tertiary'
-          }`}>
+          <div className="rounded-2xl px-5 py-5 mb-6"
+            style={{
+              background: 'rgba(10,11,28,0.85)',
+              border: `1px solid ${sentinelStatus === 'passed' ? 'rgba(16,185,129,0.25)' : sentinelStatus === 'needs_attention' ? 'rgba(234,179,8,0.25)' : 'rgba(139,92,246,0.12)'}`,
+              backdropFilter: 'blur(16px)',
+            }}>
 
             {/* Header row */}
             <div className="flex items-center justify-between mb-4">
@@ -978,8 +1014,8 @@ export default function CampaignDetailPage() {
 
         {/* Generating state */}
         {!aiOutput && generating && (
-          <div className="bg-dark-secondary border border-amber-500/20 rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(245,158,11,0.03)' }}>
+          <div className="rounded-2xl p-12 text-center mb-6"
+            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(234,179,8,0.2)', backdropFilter: 'blur(16px)' }}>
             <div className="text-5xl mb-4 animate-bounce">🤖</div>
             <h3 className="text-xl font-bold mb-2 text-amber-400">{cdT?.generatingTitle}</h3>
             <p className="text-gray-400 mb-6 text-sm">{cdT?.generatingSubtitle}</p>
@@ -997,13 +1033,19 @@ export default function CampaignDetailPage() {
           </div>
         )}
 
-        {/* No AI output state (not generating) */}
+        {/* No AI output state (not generating) — NEXUS UI */}
         {!aiOutput && !generating && (
-          <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-12 text-center mb-6">
-            <div className="text-5xl mb-4">🤖</div>
-            <h3 className="text-xl font-bold mb-2">{cdT?.noOutputTitle}</h3>
-            <p className="text-gray-400 mb-6 text-sm">{cdT?.noOutputDesc}</p>
-            <Link href="/campaigns/new" className="px-6 py-3 bg-accent text-dark font-bold rounded-xl hover:bg-accent-light transition">
+          <div className="rounded-2xl p-12 text-center mb-6"
+            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(16px)' }}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              <span className="text-3xl">🤖</span>
+            </div>
+            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>{cdT?.noOutputTitle}</h3>
+            <p className="mb-6 text-sm" style={{ color: 'var(--nx-text-3)' }}>{cdT?.noOutputDesc}</p>
+            <Link href="/campaigns/new"
+              className="px-6 py-3 rounded-xl font-bold transition"
+              style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
               {cdT?.noOutputBtn}
             </Link>
           </div>
@@ -1012,16 +1054,30 @@ export default function CampaignDetailPage() {
         {/* Tabs + content */}
         {aiOutput && (
           <>
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+            {/* NEXUS tab navigation */}
+            <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 p-1 rounded-2xl"
+              style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.08)' }}>
               {AGENT_TABS.map((tab, i) => (
                 <button
                   key={i}
                   onClick={() => setActiveTab(i)}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition ${
-                    activeTab === i
-                      ? 'bg-accent text-dark'
-                      : 'bg-dark-secondary border border-dark-tertiary text-gray-400 hover:text-white'
-                  }`}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
+                  style={activeTab === i ? {
+                    background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.1))',
+                    border: '1px solid rgba(139,92,246,0.3)',
+                    color: '#e2d9f3',
+                    boxShadow: '0 0 12px rgba(139,92,246,0.15)',
+                  } : {
+                    background: 'transparent',
+                    border: '1px solid transparent',
+                    color: 'var(--nx-text-4)',
+                  }}
+                  onMouseEnter={e => {
+                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-2)'
+                  }}
+                  onMouseLeave={e => {
+                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-4)'
+                  }}
                 >
                   <span className="text-xs">{tab.icon}</span>
                   {tab.label}
@@ -1077,7 +1133,7 @@ export default function CampaignDetailPage() {
 
                 {/* Business Objective (Sprint M) */}
                 {businessObjective && (
-                  <div className="bg-dark-secondary border border-indigo-500/25 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(99,102,241,0.25)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-sm text-indigo-400 uppercase tracking-wide mb-4 flex items-center gap-2">
                       <span>🎯</span> {cdT?.sectionBusinessObjective || 'Business Objective'}
                     </h3>
@@ -1114,7 +1170,7 @@ export default function CampaignDetailPage() {
 
                 {/* Positioning */}
                 {strategy.positioning && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>🎯</span> {cdT?.sectionPositioning}</h3>
                     <p className="text-gray-300 leading-relaxed text-sm">{strategy.positioning}</p>
                   </div>
@@ -1122,7 +1178,7 @@ export default function CampaignDetailPage() {
 
                 {/* Differentiation */}
                 {strategy.differentiation && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</h3>
                     <p className="text-gray-300 leading-relaxed text-sm">{strategy.differentiation}</p>
                   </div>
@@ -1130,7 +1186,7 @@ export default function CampaignDetailPage() {
 
                 {/* Audience Segments — Sprint M detailed view (fallback to simple strings) */}
                 {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>👥</span> {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}</h3>
                     {audienceSegmentsDetailed.length > 0 ? (
                       <div className="space-y-4">
@@ -1197,7 +1253,7 @@ export default function CampaignDetailPage() {
 
                 {/* Funnel Stages — Sprint M detailed (fallback to funnelStrategy) */}
                 {(funnelStages.length > 0 || strategy.funnelStrategy) && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🔻</span> {cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Funnel'}</h3>
                     {funnelStages.length > 0 ? (
                       <div className="space-y-3">
@@ -1292,7 +1348,7 @@ export default function CampaignDetailPage() {
 
                 {/* Value Propositions */}
                 {(strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>💎</span> {cdT?.sectionValueProps}</h3>
                     {strategy.valueProps?.length > 0 ? (
                       <ul className="space-y-2">
@@ -1310,7 +1366,7 @@ export default function CampaignDetailPage() {
 
                 {/* Offer & CTA Strategy */}
                 {strategy.offerCTAStrategy && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📣</span> {cdT?.sectionOfferCTA || 'Offer & CTA Strategy'}</h3>
                     <div className="space-y-3">
                       {strategy.offerCTAStrategy.primaryCTA && (
@@ -1351,7 +1407,7 @@ export default function CampaignDetailPage() {
 
                 {/* Content Pillars */}
                 {strategy.contentPillars?.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📐</span> {cdT?.sectionContentPillars}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {strategy.contentPillars.map((p: string, i: number) => (
@@ -1363,7 +1419,7 @@ export default function CampaignDetailPage() {
 
                 {/* Channel Mix (budget allocation) */}
                 {strategy.channelMix?.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📡</span> {cdT?.sectionChannelMix}</h3>
                     <div className="space-y-3">
                       {strategy.channelMix.map((ch: any, i: number) => (
@@ -1384,7 +1440,7 @@ export default function CampaignDetailPage() {
 
                 {/* Channel Strategy — per-platform detail */}
                 {channelStrategy.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🗺️</span> {cdT?.sectionChannelStrategy || 'Channel Strategy'}</h3>
                     <div className="space-y-3">
                       {channelStrategy.map((ch: any, i: number) => (
@@ -1427,7 +1483,7 @@ export default function CampaignDetailPage() {
 
                 {/* KPIs */}
                 {strategy.kpis?.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📊</span> {cdT?.sectionKpis}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {strategy.kpis.map((kpi: any, i: number) => (
@@ -1443,7 +1499,7 @@ export default function CampaignDetailPage() {
 
                 {/* Success Metrics — Sprint M detailed view (fallback to strings) */}
                 {(successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📈</span> {cdT?.sectionSuccessMetrics || 'Success Metrics'}</h3>
                     {successMetricsDetailed.length > 0 ? (
                       <div className="space-y-2">
@@ -1494,7 +1550,7 @@ export default function CampaignDetailPage() {
 
                 {/* Visual Direction */}
                 {strategy.visualDirection && (
-                  <div className="bg-dark-secondary border border-purple-500/20 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-purple-400"><span>🎨</span> {cdT?.sectionVisualDirection}</h3>
                     <p className="text-gray-300 leading-relaxed text-sm">{strategy.visualDirection}</p>
                   </div>
@@ -1502,7 +1558,7 @@ export default function CampaignDetailPage() {
 
                 {/* Execution Checklist */}
                 {strategy.executionChecklist?.length > 0 && (
-                  <div className="bg-dark-secondary border border-green-500/20 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(34,197,94,0.2)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-green-400"><span>✅</span> {cdT?.sectionExecutionChecklist}</h3>
                     <ul className="space-y-2">
                       {strategy.executionChecklist.map((item: string, i: number) => (
@@ -1525,7 +1581,7 @@ export default function CampaignDetailPage() {
 
                 {/* Asset Requirements (Sprint M) */}
                 {assetRequirements && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📦</span> {cdT?.sectionAssetRequirements || 'Asset Requirements'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {assetRequirements.mustHave?.length > 0 && (
@@ -1599,7 +1655,7 @@ export default function CampaignDetailPage() {
 
                 {/* VEX Ad Setup Plan (Sprint M) */}
                 {adSetupPlan && (
-                  <div className="bg-dark-secondary border border-blue-500/20 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(59,130,246,0.2)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2 text-blue-400"><span>📡</span> {cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                       {[
@@ -1659,7 +1715,7 @@ export default function CampaignDetailPage() {
 
                 {/* Readiness Checklist (Sprint M) — actionable */}
                 {readinessChecklist.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✅</span> {cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {readinessChecklist.map((item: any, i: number) => {
@@ -1720,7 +1776,7 @@ export default function CampaignDetailPage() {
 
                 {/* Risk & Compliance Notes */}
                 {riskNotes.length > 0 && (
-                  <div className="bg-dark-secondary border border-red-500/15 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(239,68,68,0.15)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-red-400"><span>⚠️</span> {cdT?.sectionRiskNotes || 'Risk & Compliance Notes'}</h3>
                     <ul className="space-y-2">
                       {riskNotes.map((note: string, i: number) => (
@@ -1734,7 +1790,7 @@ export default function CampaignDetailPage() {
 
                 {/* Execution Assumptions (Sprint M) */}
                 {executionAssumptions.length > 0 && (
-                  <div className="bg-dark-secondary border border-gray-500/15 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(107,114,128,0.15)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-gray-400"><span>📋</span> {cdT?.sectionExecutionAssumptions || 'Execution Assumptions'}</h3>
                     <ul className="space-y-2">
                       {executionAssumptions.map((item: string, i: number) => (
@@ -1765,7 +1821,7 @@ export default function CampaignDetailPage() {
                 <BrandDNABadge brand={brandDNA} locale={locale} />
 
                 {/* Top Hooks */}
-                <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                   <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🪝</span> {cdT?.sectionTopHooks}</h3>
                   {topHooks.length > 0 ? (
                     <div className="space-y-3">
@@ -1795,7 +1851,7 @@ export default function CampaignDetailPage() {
 
                 {/* CTA Variations */}
                 {ctaVariations.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📣</span> {cdT?.sectionCtaVariations}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {ctaVariations.map((cta: string, i: number) => (
@@ -1810,7 +1866,7 @@ export default function CampaignDetailPage() {
 
                 {/* Caption Formulas */}
                 {captionFormulas.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✍️</span> {cdT?.sectionCaptionFormulas}</h3>
                     <div className="space-y-3">
                       {captionFormulas.map((caption: string, i: number) => (
@@ -1827,7 +1883,7 @@ export default function CampaignDetailPage() {
 
                 {/* Script Template */}
                 {scriptTemplate && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📝</span> {cdT?.sectionScriptTemplate}</h3>
                     <div className="bg-dark rounded-xl p-4 border border-dark-tertiary">
                       <div className="flex items-start justify-between gap-3 mb-2">
@@ -1841,7 +1897,7 @@ export default function CampaignDetailPage() {
 
                 {/* Content Angles — Sprint M detailed view (show both) */}
                 {contentAnglesDetailed.length > 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-3">
                       {contentAnglesDetailed.map((angle: any, i: number) => (
@@ -1910,7 +1966,7 @@ export default function CampaignDetailPage() {
 
                 {/* Content Angles — legacy string list */}
                 {contentAngles.length > 0 && contentAnglesDetailed.length === 0 && (
-                  <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-2">
                       {contentAngles.map((angle: string, i: number) => (
@@ -1953,7 +2009,7 @@ export default function CampaignDetailPage() {
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyExecutionPlan || '4-Week Execution Plan'}</p>
                     {weeklyExecutionPlan.map((wk: any, wi: number) => (
-                      <div key={wi} className="bg-dark-secondary border border-amber-500/20 rounded-2xl p-6">
+                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
@@ -2033,7 +2089,7 @@ export default function CampaignDetailPage() {
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}</p>
                     {weeklyPlan.map((wk: any, wi: number) => (
-                      <div key={wi} className="bg-dark-secondary border border-amber-500/20 rounded-2xl p-6">
+                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
@@ -2101,7 +2157,7 @@ export default function CampaignDetailPage() {
                       <p className="text-xs text-gray-500 uppercase tracking-wide px-1 pt-2">Content Calendar</p>
                     )}
                     {contentCalendar.map((week: any, wi: number) => (
-                      <div key={wi} className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                         <h3 className="font-bold mb-2 text-amber-400">{week.week || `Week ${wi + 1}`}</h3>
                         {week.theme && <p className="text-xs text-gray-500 mb-4 italic">{week.theme}</p>}
                         <div className="space-y-2">
@@ -2132,7 +2188,7 @@ export default function CampaignDetailPage() {
             {activeTab === 3 && (
               <div className="space-y-4">
                 {/* ── Creative Brief Entry Card — Sprint F ── */}
-                <div className="bg-dark-secondary border border-purple-500/30 rounded-2xl p-6">
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.3)', backdropFilter: 'blur(12px)' }}>
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🎨</span>
@@ -2181,18 +2237,18 @@ export default function CampaignDetailPage() {
 
                 {/* Visual Direction from strategy */}
                 {strategy.visualDirection && (
-                  <div className="bg-dark-secondary border border-purple-500/20 rounded-2xl p-6">
+                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-purple-400"><span>🎯</span> {cdT?.sectionVisualDirection}</h3>
                     <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
                   </div>
                 )}
 
-                <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                   <VisualGenerator context={visualContext} />
                 </div>
 
                 {/* Video Intelligence — Sprint Q */}
-                <div className="bg-dark-secondary border border-[#1f1f1f] rounded-2xl p-6">
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
                   <VideoGenerator
                     campaignId={campaign.id}
                     campaignName={campaign.name}
@@ -2204,7 +2260,7 @@ export default function CampaignDetailPage() {
             {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
               <div className="space-y-4">
-                <div className="bg-dark-secondary border border-green-500/20 rounded-2xl p-6">
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(34,197,94,0.2)', backdropFilter: 'blur(12px)' }}>
                   <SocialPublisher
                     campaignId={campaign.id}
                     campaignName={campaign.name}
@@ -2255,7 +2311,7 @@ export default function CampaignDetailPage() {
                 )}
 
                 {/* Analytics section */}
-                <div className="bg-dark-secondary border border-blue-500/20 rounded-2xl p-6">
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(59,130,246,0.2)', backdropFilter: 'blur(12px)' }}>
                   <SocialAnalytics campaignId={campaign.id} />
                 </div>
               </div>
@@ -2545,27 +2601,37 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* ── Tab 6: Activity ───────────────────────────────────────────── */}
+            {/* ── Tab 6: Activity — NEXUS UI ────────────────────────────────── */}
             {activeTab === 6 && (
-              <div className="bg-dark-secondary border border-dark-tertiary rounded-2xl p-6">
-                <h3 className="font-bold text-lg mb-6 flex items-center gap-2"><span>📋</span> {cdT?.activityTitle}</h3>
+              <div className="rounded-2xl p-6"
+                style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(16px)' }}>
+                <h3 className="font-bold text-base mb-5 flex items-center gap-2" style={{ color: 'var(--nx-text-1)' }}>
+                  <span>📋</span> {cdT?.activityTitle}
+                </h3>
                 {campaign.activities.length === 0 ? (
-                  <p className="text-gray-500 text-sm">{cdT?.noActivity}</p>
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                      style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                      <span className="text-xl">📋</span>
+                    </div>
+                    <p className="text-sm" style={{ color: 'var(--nx-text-4)' }}>{cdT?.noActivity}</p>
+                  </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {campaign.activities.map((activity, i) => (
-                      <div key={activity.id} className="flex gap-4">
+                      <div key={activity.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-full bg-dark-tertiary flex items-center justify-center text-sm flex-shrink-0">
-                            {ACTIVITY_ICONS[activity.type] || '•'}
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0"
+                            style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                            {ACTIVITY_ICONS[activity.type] || '·'}
                           </div>
                           {i < campaign.activities.length - 1 && (
-                            <div className="w-px flex-1 bg-dark-tertiary mt-2" />
+                            <div className="w-px flex-1 mt-2" style={{ background: 'rgba(139,92,246,0.1)' }} />
                           )}
                         </div>
-                        <div className="pb-4">
-                          <p className="text-sm text-gray-300">{activity.description}</p>
-                          <p className="text-xs text-gray-500 mt-1">{timeAgo(activity.createdAt)}</p>
+                        <div className="pb-3 flex-1">
+                          <p className="text-sm" style={{ color: 'var(--nx-text-2)' }}>{activity.description}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--nx-text-4)' }}>{timeAgo(activity.createdAt)}</p>
                         </div>
                       </div>
                     ))}
