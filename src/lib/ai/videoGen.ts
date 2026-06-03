@@ -406,8 +406,7 @@ function buildImg2VideoInput(
     return {
       image: imageUrl,
       prompt: motionHint || 'smooth cinematic motion, professional quality',
-      resolution: '480p',
-      fast_mode: true,
+      resolution: '720p',
     }
   }
 
