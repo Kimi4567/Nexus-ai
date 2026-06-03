@@ -767,65 +767,57 @@ export default function HomePage() {
               </motion.p>
             </div>
 
-            {/* Dashboard preview card */}
+            {/* Hero visual — real product screenshot */}
             <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.9, duration: 0.8 }}
               className="hidden lg:block">
-              <div className="glass-panel rounded-2xl p-5 shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
-                {/* Fake command center preview */}
-                <div className="rounded-xl overflow-hidden" style={{ background: '#0d1035' }}>
-                  {/* Top bar */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-[rgba(139,92,246,0.15)]">
-                    <div className="flex items-center gap-2">
-                      <span className="font-heading font-bold text-[13px] text-white">NEXUS</span>
-                      <span className="bg-accent-purple text-white text-[9px] font-bold px-1 py-0.5 rounded">AI</span>
-                      <span className="font-mono text-[10px] text-text-muted">{ar ? 'مركز القيادة' : 'Command Center'}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-status-approved animate-pulse" />
-                      <span className="font-mono text-[10px] text-accent-teal">{ar ? 'مباشر' : 'Live'}</span>
-                    </div>
-                  </div>
-                  {/* Metric row */}
-                  <div className="grid grid-cols-4 gap-2 p-3">
-                    {[
-                      { l: ar ? 'حالة النظام' : 'System Status', v: ar ? 'نشط' : 'Active', c: 'text-accent-teal' },
-                      { l: ar ? 'موافقات معلقة' : 'Pending Approvals', v: '3', c: 'text-accent-amber' },
-                      { l: ar ? 'محتوى مجدول' : 'Scheduled Content', v: '12', c: 'text-white' },
-                      { l: ar ? 'حملات نشطة' : 'Active Campaigns', v: '2', c: 'text-accent-purple' },
-                    ].map(m => (
-                      <div key={m.l} className="bg-[rgba(139,92,246,0.06)] border border-[rgba(139,92,246,0.1)] rounded-lg p-2.5 text-center">
-                        <p className={`font-mono text-[16px] font-bold ${m.c}`}>{m.v}</p>
-                        <p className="text-[8px] text-text-muted mt-0.5 leading-tight">{m.l}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Agent status row */}
-                  <div className="px-3 pb-3">
-                    <p className="font-mono text-[9px] text-text-muted uppercase tracking-wider mb-2">{ar ? 'حالة الوكلاء' : 'Agent Status'}</p>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {[
-                        { n: 'STRATEGIST', c: '#8B5CF6' }, { n: 'NEX', c: '#10B981' }, { n: 'VEX', c: '#FF6B35' },
-                        { n: 'PULSE', c: '#00D4FF' }, { n: 'SENTINEL', c: '#FFD700' },
-                      ].map(a => (
-                        <div key={a.n} className="rounded-lg p-2 border border-[rgba(255,255,255,0.05)]" style={{ background: `${a.c}12` }}>
-                          <div className="w-2.5 h-2.5 rounded-full mb-1.5" style={{ background: a.c }} />
-                          <p className="font-mono text-[7px] font-semibold" style={{ color: a.c }}>{a.n}</p>
-                          <p className="font-mono text-[7px] text-text-muted mt-0.5">{ar ? 'نشط' : 'Active'}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Pending approval preview */}
-                  <div className="mx-3 mb-3 rounded-lg border border-[rgba(255,184,0,0.2)] bg-[rgba(255,184,0,0.05)] p-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-mono text-[9px] text-accent-amber uppercase tracking-wider">{ar ? 'بانتظار موافقتك' : 'Awaiting Your Approval'}</span>
-                      <span className="font-mono text-[9px] text-text-muted">NEX</span>
-                    </div>
-                    <p className="text-[11px] text-white/80 leading-snug">{ar ? 'كابشن Instagram — إطلاق مجموعة رمضان' : 'Instagram caption — Ramadan collection launch'}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[rgba(76,175,80,0.15)] text-status-approved border border-[rgba(76,175,80,0.2)]">{ar ? 'وافق' : 'Approve'}</span>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-[rgba(244,67,54,0.1)] text-status-rejected border border-[rgba(244,67,54,0.2)]">{ar ? 'تعديل' : 'Edit'}</span>
-                    </div>
+              {/* Outer glow ring */}
+              <div style={{
+                position: 'relative',
+                borderRadius: '20px',
+                padding: '2px',
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.5) 0%, rgba(16,185,129,0.2) 50%, rgba(139,92,246,0.3) 100%)',
+                boxShadow: '0 0 80px rgba(139,92,246,0.25), 0 32px 80px rgba(0,0,0,0.5)',
+              }}>
+                {/* Inner container */}
+                <div style={{
+                  borderRadius: '18px',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  background: '#f8f9fc',
+                }}>
+                  <Image
+                    src="/hero-dashboard.webp"
+                    alt="NEXUS AI Dashboard"
+                    width={1200}
+                    height={675}
+                    priority
+                    style={{ display: 'block', width: '100%', height: 'auto' }}
+                  />
+                  {/* Bottom fade — blends screenshot into the dark page */}
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'linear-gradient(to bottom, transparent 55%, rgba(5,5,16,0.85) 100%)',
+                    pointerEvents: 'none',
+                  }} />
+                  {/* Live badge */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '14px',
+                    right: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(5,5,16,0.75)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(16,185,129,0.3)',
+                    borderRadius: '20px',
+                    padding: '4px 10px',
+                  }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', animation: 'pulse 2s infinite' }} />
+                    <span style={{ fontFamily: 'monospace', fontSize: '10px', color: '#10B981', fontWeight: 600, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                      {ar ? 'مباشر' : 'Live'}
+                    </span>
                   </div>
                 </div>
               </div>
