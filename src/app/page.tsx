@@ -822,46 +822,6 @@ export default function HomePage() {
                 }}
               />
 
-              {/* ── Stat pill 1: Active Campaigns ── */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.4, duration: 0.6 }}
-                style={{
-                  position: 'absolute', top: '18%', left: '-2%', zIndex: 4,
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'rgba(4,4,24,0.85)', backdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(139,92,246,0.3)', borderRadius: '12px',
-                  padding: '8px 14px',
-                }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '14px' }}>🚀</span>
-                </div>
-                <div>
-                  <p style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>24</p>
-                  <p style={{ fontFamily: 'monospace', fontSize: '9px', color: 'rgba(255,255,255,0.45)', marginTop: '2px', letterSpacing: '0.5px' }}>{ar ? 'حملة نشطة' : 'Active Campaigns'}</p>
-                </div>
-              </motion.div>
-
-              {/* ── Stat pill 2: AI Credits Used ── */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.7, duration: 0.6 }}
-                style={{
-                  position: 'absolute', bottom: '22%', right: '0%', zIndex: 4,
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'rgba(4,4,24,0.85)', backdropFilter: 'blur(16px)',
-                  border: '1px solid rgba(16,185,129,0.3)', borderRadius: '12px',
-                  padding: '8px 14px',
-                }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '14px' }}>⚡</span>
-                </div>
-                <div>
-                  <p style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 700, color: '#10B981', lineHeight: 1 }}>+3.2x</p>
-                  <p style={{ fontFamily: 'monospace', fontSize: '9px', color: 'rgba(255,255,255,0.45)', marginTop: '2px', letterSpacing: '0.5px' }}>{ar ? 'نمو الأداء' : 'Performance Growth'}</p>
-                </div>
-              </motion.div>
-
               {/* ── Live status pill ── */}
               <div style={{
                 position: 'absolute', top: '6%', right: '1%', zIndex: 4,
