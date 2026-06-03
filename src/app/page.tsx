@@ -795,17 +795,17 @@ export default function HomePage() {
               <Image
                 src="/hero-dashboard.webp"
                 alt="NEXUS AI Dashboard"
-                width={1400}
-                height={787}
+                width={1672}
+                height={941}
                 priority
                 style={{
                   display: 'block',
-                  width: '110%',
+                  width: '118%',
                   height: 'auto',
                   position: 'relative',
                   zIndex: 1,
-                  marginLeft: '-5%',
-                  filter: 'drop-shadow(0 8px 40px rgba(139,92,246,0.35)) drop-shadow(0 24px 80px rgba(0,0,0,0.55))',
+                  marginLeft: '-9%',
+                  filter: 'drop-shadow(0 8px 50px rgba(139,92,246,0.4)) drop-shadow(0 28px 90px rgba(0,0,0,0.6))',
                 }}
               />
 
