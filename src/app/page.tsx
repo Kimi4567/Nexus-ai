@@ -1217,7 +1217,7 @@ export default function HomePage() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)] flex items-center justify-between">
                   <span className="text-[12px] text-text-muted">{ar ? 'آخر تحديث: منذ 2 دقيقة' : 'Last updated: 2 minutes ago'}</span>
-                  <span className="text-[11px] font-mono text-accent-purple">{ar ? 'متصل بـ 5 وكلاء' : 'Connected to 5 agents'}</span>
+                  <span className="text-[11px] font-mono text-accent-purple">{ar ? 'متصل بـ 6 وكلاء' : 'Connected to 6 agents'}</span>
                 </div>
               </div>
             </Reveal>
@@ -1274,7 +1274,7 @@ export default function HomePage() {
               <p className="text-[17px] sm:text-[19px] text-text-secondary leading-relaxed mt-6 mb-12">
                 {ar
                   ? 'لا شيء يُنشر، لا شيء يُطلق، لا قرش يُنفق — دون موافقتك الصريحة.'
-                  : 'Nothing is published. Nothing is launched. Not a single dirham is spent — without your explicit approval.'}
+                  : 'Nothing is published. Nothing is launched. Not a single cent is spent — without your explicit approval.'}
               </p>
             </Reveal>
 
@@ -1357,11 +1357,26 @@ export default function HomePage() {
               <SectionHeading>
                 {ar ? 'NEXUS AI يسوّق نفسه بنفسه' : 'NEXUS AI markets itself with itself'}
               </SectionHeading>
-              <p className="text-[16px] text-text-secondary leading-relaxed mt-5 mb-10">
+              <p className="text-[16px] text-text-secondary leading-relaxed mt-5 mb-8">
                 {ar
                   ? 'فريق NEXUS AI يستخدم المنصة لتسويق NEXUS AI — من الاستراتيجية إلى المحتوى إلى الحملات. هذه الصفحة التي تقرأها الآن جزء من المخرجات التي أنتجها النظام ثم وافق عليها الفريق.'
                   : 'The NEXUS AI team uses the platform to market NEXUS AI itself — from strategy to content to campaigns. The page you are reading now is part of the output produced by the system and approved by the team.'}
               </p>
+
+              {/* Impact metrics */}
+              <div className="grid grid-cols-3 gap-4 mb-10 p-5 rounded-2xl border border-[rgba(139,92,246,0.15)] bg-[rgba(139,92,246,0.04)]">
+                {[
+                  { value: ar ? '3 ساعات' : '3 hours', label: ar ? 'من فكرة إلى خطة كاملة' : 'from idea to full plan' },
+                  { value: ar ? '×4' : '4×', label: ar ? 'أسرع في إنتاج المحتوى' : 'faster content production' },
+                  { value: ar ? '100٪' : '100%', label: ar ? 'المحتوى راجعه الفريق قبل النشر' : 'of content team-reviewed before publish' },
+                ].map(m => (
+                  <div key={m.value} className="text-center">
+                    <p className="font-mono text-[26px] sm:text-[32px] font-bold text-gradient leading-none mb-1">{m.value}</p>
+                    <p className="text-[11px] text-text-muted leading-tight">{m.label}</p>
+                  </div>
+                ))}
+              </div>
+
               <div className="grid sm:grid-cols-3 gap-5">
                 {[
                   { step: ar ? 'الاستراتيجية' : 'Strategy', detail: ar ? 'STRATEGIST بنى خطة الإطلاق والمحاور التسويقية' : 'STRATEGIST built the launch plan and marketing pillars' },
@@ -1467,10 +1482,10 @@ export default function HomePage() {
             </p>
           </Reveal>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-[1000px] mx-auto">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-[1280px] mx-auto">
             {pricingPlans.map((plan, i) => (
               <Reveal key={plan.name} delay={i * 0.1}>
-                <div className={`relative rounded-2xl p-7 h-full flex flex-col ${plan.featured ? 'bg-bg-surface border-2 border-accent-purple shadow-[0_0_50px_rgba(139,92,246,0.12)]' : 'bg-bg-surface border border-bg-border'}`}>
+                <div className={`relative rounded-2xl p-5 h-full flex flex-col ${plan.featured ? 'bg-bg-surface border-2 border-accent-purple shadow-[0_0_50px_rgba(139,92,246,0.12)]' : 'bg-bg-surface border border-bg-border'}`}>
                   {plan.featured && (
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-primary text-white text-[11px] font-mono font-bold uppercase tracking-[1px] px-3 py-1 rounded-full whitespace-nowrap">
                       {ar ? 'الأكثر طلباً' : 'Most Popular'}
@@ -1539,7 +1554,7 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════
           FAQ
       ══════════════════════════════════════════ */}
-      <section className="py-24 lg:py-32">
+      <section id="faq" className="py-24 lg:py-32">
         <div className="max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-14">
             <SectionLabel text={ar ? 'الأسئلة الشائعة' : 'FAQ'} color="text-accent-purple" />
@@ -1637,7 +1652,7 @@ export default function HomePage() {
               <div className="space-y-2.5">
                 {[
                   { label: ar ? 'القطاعات' : 'Industries', href: '#industries' },
-                  { label: ar ? 'الأسئلة الشائعة' : 'FAQ', href: '#' },
+                  { label: ar ? 'الأسئلة الشائعة' : 'FAQ', href: '#faq' },
                   { label: ar ? 'اتصل بنا' : 'Contact', href: '/contact' },
                 ].map(l => <a key={l.label} href={l.href} className="block text-[13px] text-text-secondary hover:text-white transition-colors">{l.label}</a>)}
               </div>
