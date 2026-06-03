@@ -18,9 +18,14 @@ import {
   extractVideoUrl,
   mapReplicateStatus,
 } from '@/lib/ai/videoGen'
+import { generateVoiceover } from '@/lib/ai/ttsGen'
+import { mergeVideoAudio, isCloudinaryVideoAvailable } from '@/lib/cloudinaryVideo'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
+
+// Allow up to 60s — TTS + Cloudinary upload can take 20–40s
+export const maxDuration = 60
 
 type Params = { params: { id: string; generationId: string } }
 
@@ -80,11 +85,67 @@ export async function GET(req: NextRequest, { params }: Params) {
 
       if (prediction.error) updateData.error = prediction.error
 
-      // On success: save URL and create Media record
+      // On success: auto-generate TTS voiceover + merge with video, then save to Media
       if (nexusStatus === 'COMPLETED' && videoUrl) {
-        updateData.output = videoUrl
+        // ── Guard against duplicate TTS processing (concurrent polls) ──────────
+        // If audioReady is already 'done' or 'pending', skip TTS
+        const meta = generation.metadata as Record<string, unknown> | null
+        const audioReady = meta?.audioReady as string | undefined
 
-        // Save to Media Library (non-blocking on error)
+        let finalVideoUrl = videoUrl
+
+        if (!audioReady) {
+          // Mark TTS as in-progress BEFORE starting (prevents duplicate runs)
+          await db.generation.update({
+            where: { id: generation.id },
+            data: {
+              status: 'COMPLETED',
+              progress: 100,
+              output: videoUrl, // silent video as fallback
+              metadata: { ...(meta || {}), audioReady: 'pending', replicatePredictionId: (meta as any)?.replicatePredictionId },
+            },
+          })
+
+          // ── Auto TTS + audio merge (strategy mode only — img2video has no script) ─
+          const script = (generation.params as any)?.script as string | null
+          const durationSeconds = (generation.params as any)?.durationSeconds as number || 5
+          const mode = (generation.params as any)?.mode as string
+
+          if (script && mode !== 'img2video' && isCloudinaryVideoAvailable()) {
+            try {
+              console.log('[video-status] Generating TTS voiceover…')
+              const audioBuffer = await generateVoiceover(script)
+
+              if (audioBuffer) {
+                console.log('[video-status] Merging audio with video on Cloudinary…')
+                finalVideoUrl = await mergeVideoAudio(videoUrl, audioBuffer, generation.id, durationSeconds)
+                console.log('[video-status] Merged video URL ready:', finalVideoUrl.slice(0, 80))
+              }
+            } catch (ttsErr) {
+              console.error('[video-status] TTS/merge failed — falling back to silent video:', ttsErr)
+              // Non-fatal: user still gets the silent video
+            }
+          }
+
+          // Update generation record with final URL (merged or silent)
+          updateData.output = finalVideoUrl
+          updateData.metadata = { ...(meta || {}), audioReady: 'done', replicatePredictionId: (meta as any)?.replicatePredictionId }
+        } else if (audioReady === 'pending') {
+          // Another request is already processing TTS — return current state
+          return NextResponse.json({
+            status: 'COMPLETED',
+            progress: 100,
+            output: generation.output || videoUrl,
+            error: null,
+            audioProcessing: true,
+          })
+        } else {
+          // audioReady === 'done' — already processed, use cached output
+          finalVideoUrl = generation.output || videoUrl
+          updateData.output = finalVideoUrl
+        }
+
+        // ── Save to Media Library ─────────────────────────────────────────────
         try {
           const workspace = await prisma.workspace.findFirst({
             where: { ownerId: userId },
@@ -98,10 +159,10 @@ export async function GET(req: NextRequest, { params }: Params) {
                 fileName: `video_${generation.id.slice(0, 8)}.mp4`,
                 mimeType: 'video/mp4',
                 type: 'VIDEO',
-                url: videoUrl,
+                url: finalVideoUrl,
                 size: 0,
                 category: 'generated',
-                tags: ['ai-generated', 'replicate'],
+                tags: ['ai-generated', 'replicate', ...(finalVideoUrl !== videoUrl ? ['voiceover'] : [])],
               },
             })
           }
@@ -114,7 +175,9 @@ export async function GET(req: NextRequest, { params }: Params) {
           data: {
             campaignId: params.id,
             type: 'updated',
-            description: 'Video generation completed — saved to Media Library',
+            description: finalVideoUrl !== videoUrl
+              ? 'Video + AI voiceover generated — saved to Media Library'
+              : 'Video generation completed — saved to Media Library',
           },
         }).catch(() => {})
       }
@@ -128,7 +191,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({
         status: nexusStatus,
         progress,
-        output: videoUrl,
+        output: updateData.output ?? videoUrl,
         error: prediction.error || null,
       })
     } catch (pollErr: any) {

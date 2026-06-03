@@ -100,7 +100,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     }, { status: 402 })
   }
 
-  const { prompt, durationSeconds = 5, sourceImageUrl, motionHint } = rawBody
+  const { prompt, durationSeconds = 5, sourceImageUrl, motionHint, script } = rawBody
 
   // For text-to-video, prompt is required. For img2video, sourceImageUrl is required.
   if (mode === 'img2video') {
@@ -137,7 +137,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         params: {
           mode,
           durationSeconds,
-          ...(mode === 'img2video' ? { sourceImageUrl, motionHint } : { model: process.env.REPLICATE_VIDEO_MODEL_VERSION }),
+          ...(mode === 'img2video'
+            ? { sourceImageUrl, motionHint }
+            : { model: process.env.REPLICATE_VIDEO_MODEL_VERSION, script: script || null }),
         },
         status: 'QUEUED',
         provider: 'replicate',

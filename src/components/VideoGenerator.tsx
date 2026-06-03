@@ -320,7 +320,7 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
     try {
       const body = videoMode === 'img2video'
         ? { mode: 'img2video', sourceImageUrl: selectedImage!.url, motionHint, durationSeconds }
-        : { mode: 'text2video', prompt: brief!.generationPrompt, durationSeconds }
+        : { mode: 'text2video', prompt: brief!.generationPrompt, durationSeconds, script: brief!.script || '' }
 
       const res = await fetch(`/api/campaigns/${campaignId}/video-generate`, {
         method: 'POST',
@@ -547,6 +547,14 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
               </div>
             </div>
           )}
+
+          {/* Silent video notice */}
+          <div className="flex items-start gap-2 bg-[#0f0f0f] border border-[#1f1f1f] rounded-lg px-3 py-2.5">
+            <span className="text-amber-400 text-sm mt-0.5">🔇</span>
+            <div className="text-[11px] text-gray-500 leading-relaxed">
+              AI-generated videos are <span className="text-gray-400 font-semibold">silent</span>. To add music or voiceover, download and edit in CapCut, iMovie, or any video editor.
+            </div>
+          </div>
 
           {/* Provider notice for img2video */}
           {providerAvailable === false && (
@@ -790,6 +798,14 @@ export default function VideoGenerator({ campaignId, campaignName }: VideoGenera
                 </div>
               </div>
               {genStatus && <StatusPill status={genStatus} progress={genProgress} />}
+            </div>
+
+            {/* Auto-TTS notice */}
+            <div className="flex items-start gap-2 bg-[#0f0f0f] border border-violet-500/20 rounded-lg px-3 py-2.5">
+              <span className="text-violet-400 text-sm mt-0.5">🎙</span>
+              <div className="text-[11px] text-gray-500 leading-relaxed">
+                <span className="text-gray-300 font-semibold">AI voiceover is added automatically.</span> The script above is converted to speech and merged with your video — no manual steps needed.
+              </div>
             </div>
 
             {/* Duration selector */}
