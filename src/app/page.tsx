@@ -813,11 +813,11 @@ export default function HomePage() {
                 priority
                 style={{
                   display: 'block',
-                  width: '142%',
+                  width: '138%',
                   height: 'auto',
                   position: 'relative',
                   zIndex: 1,
-                  marginLeft: '-18%',
+                  marginLeft: '-6%',
                   marginTop: '-32px',
                   filter: 'drop-shadow(0 16px 40px rgba(0,0,0,0.6))',
                 }}
