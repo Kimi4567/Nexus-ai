@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const userId = authUser.id
 
-  const [user, subscription] = await Promise.all([
+  const [user, subscription, workspace] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -28,6 +28,11 @@ export async function GET(req: NextRequest) {
     prisma.subscription.findUnique({
       where: { userId },
       select: { plan: true, status: true, currentPeriodEnd: true, monthlyCredits: true },
+    }).catch(() => null),
+    // Needed by auth-context to decide /dashboard vs /onboarding after login
+    prisma.workspace.findFirst({
+      where: { ownerId: userId },
+      select: { id: true },
     }).catch(() => null),
   ])
 
@@ -45,5 +50,6 @@ export async function GET(req: NextRequest) {
     currentPeriodEnd: subscription?.currentPeriodEnd || null,
     monthlyCredits: subscription?.monthlyCredits || 30,
     createdAt: user.createdAt,
+    workspaceId: workspace?.id || null,
   })
 }

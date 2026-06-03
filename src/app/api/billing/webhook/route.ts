@@ -32,14 +32,23 @@ async function provisionSubscription(
   customerId: string
 ) {
   const credits = creditsForPlan(plan)
-  const planEnum = plan.toUpperCase() as 'STARTER' | 'PRO' | 'AGENCY'
+
+  // Map plan name → PricingPlan enum (only STARTER | PRO | AGENCY exist in DB)
+  // 'business' is our product name but maps to AGENCY tier in the enum
+  const p = plan.toLowerCase()
+  const planEnum: 'STARTER' | 'PRO' | 'AGENCY' =
+    p === 'pro'      ? 'PRO'     :
+    p === 'business' ? 'AGENCY'  :
+    p === 'agency'   ? 'AGENCY'  :
+    'STARTER'
+
   const statusEnum = status === 'active' ? 'ACTIVE'
     : status === 'past_due' ? 'PAST_DUE'
     : status === 'canceled'  ? 'CANCELLED'
     : 'ACTIVE'
 
-  const monthlyExports  = plan === 'agency' ? 999999 : plan === 'pro' ? 100 : 20
-  const maxTeamMembers  = plan === 'agency' ? 20     : plan === 'pro' ? 5   : 1
+  const monthlyExports  = (p === 'agency' || p === 'business') ? 999999 : p === 'pro' ? 100 : 20
+  const maxTeamMembers  = (p === 'agency' || p === 'business') ? 20     : p === 'pro' ? 5   : 1
 
   await prisma.$transaction([
     prisma.subscription.upsert({
