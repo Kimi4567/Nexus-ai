@@ -173,16 +173,18 @@ export default function CampaignDetailPage() {
   const [calendarPushCount, setCalendarPushCount] = useState(0)
   const [calendarPushError, setCalendarPushError] = useState('')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
+  // UX: header overflow menu
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false)
 
-  // Unified product agent tabs
+  // Unified product agent tabs — indices 0-4 are visible; 5-6 are accessible via Publish tab
   const AGENT_TABS = [
     { name: cdT?.agentStrategyName || 'Strategist', icon: '🧠', title: cdT?.agentStrategyTitle, color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: cdT?.tabStrategy },
     { name: cdT?.agentNexName     || 'NEX',         icon: '✍️', title: cdT?.agentNexTitle,      color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: cdT?.tabContent },
     { name: cdT?.agentPulseName   || 'PULSE',       icon: '⚡', title: cdT?.agentPulseTitle,    color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: cdT?.tabCalendar },
     { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabVisuals },
     { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
-    { name: '',                                      icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
-    { name: '',                                      icon: '📋', title: '',                       color: 'text-gray-400',    border: '',                     bg: '',                 label: cdT?.tabActivity },
+    { name: '', hidden: true,                        icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
+    { name: '', hidden: true,                        icon: '📋', title: '',                       color: 'text-gray-400',    border: '',                     bg: '',                 label: cdT?.tabActivity },
   ]
 
   // Locale-aware timeAgo
@@ -264,10 +266,12 @@ export default function CampaignDetailPage() {
     if (campaign.aiOutput) return           // already has content — nothing to do
     if (generating) return                  // already in progress
     if (autoTriggeredRef.current) return    // already triggered once this mount
+    if (loading) return                     // wait for auth to settle before checking token
+    if (!authHeader()) return               // no token yet — will re-run when auth resolves
     autoTriggeredRef.current = true
     handleRunEngine()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign, isNewCampaign, generating, engineRunning])
+  }, [campaign, isNewCampaign, generating, engineRunning, loading])
 
   // Poll for AI output when generating=true
   useEffect(() => {
@@ -790,506 +794,309 @@ export default function CampaignDetailPage() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => updateCampaign({ favorite: !campaign.favorite })}
-                  disabled={saving}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
-                  style={{
-                    background: campaign.favorite ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${campaign.favorite ? 'rgba(234,179,8,0.35)' : 'rgba(255,255,255,0.08)'}`,
-                    color: campaign.favorite ? '#eab308' : 'var(--nx-text-3)',
-                  }}
-                >
-                  {campaign.favorite ? cdT?.btnSaved : cdT?.btnSave}
-                </button>
-                <button
-                  onClick={duplicate}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
-                >
-                  {cdT?.btnDuplicate}
-                </button>
-                <button
-                  onClick={() => updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' })}
-                  disabled={saving}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
-                >
-                  {campaign.status === 'ARCHIVED' ? cdT?.btnRestore : cdT?.btnArchive}
-                </button>
-                <button
-                  onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold transition"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
-                >
-                  {cdT?.btnExportPdf}
-                </button>
+              {/* Actions — primary CTA + overflow menu */}
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <Link
                   href="/campaigns/new"
-                  className="px-3 py-2 rounded-xl text-sm font-bold transition"
+                  className="px-3 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap"
                   style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 16px rgba(139,92,246,0.3)' }}
                 >
-                  {cdT?.btnNewCampaign}
+                  {cdT?.btnNewCampaign || '+ New Campaign'}
                 </Link>
+                {/* Overflow menu */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowHeaderMenu(v => !v)}
+                    className="px-3 py-2 rounded-xl text-sm font-bold transition"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
+                    title={locale === 'ar' ? 'المزيد' : 'More options'}
+                  >
+                    ···
+                  </button>
+                  {showHeaderMenu && (
+                    <>
+                      {/* Click-away backdrop */}
+                      <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 z-20 min-w-44 rounded-xl shadow-2xl overflow-hidden"
+                        style={{ background: 'rgba(18,19,40,0.98)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(20px)' }}>
+                        <button
+                          onClick={() => { updateCampaign({ favorite: !campaign.favorite }); setShowHeaderMenu(false) }}
+                          disabled={saving}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
+                          style={{ color: campaign.favorite ? '#eab308' : 'var(--nx-text-2)' }}
+                        >
+                          {campaign.favorite ? `★ ${cdT?.btnSaved || 'Saved'}` : `☆ ${cdT?.btnSave || 'Save'}`}
+                        </button>
+                        <button
+                          onClick={() => { duplicate(); setShowHeaderMenu(false) }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
+                          style={{ color: 'var(--nx-text-2)' }}
+                        >
+                          {`⧉ ${cdT?.btnDuplicate || 'Duplicate'}`}
+                        </button>
+                        <button
+                          onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
+                          style={{ color: 'var(--nx-text-2)' }}
+                        >
+                          {`⬇ ${cdT?.btnExportPdf || 'Export PDF'}`}
+                        </button>
+                        <div className="h-px mx-3" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                        <button
+                          onClick={() => { updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' }); setShowHeaderMenu(false) }}
+                          disabled={saving}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
+                          style={{ color: campaign.status === 'ARCHIVED' ? '#a78bfa' : '#6b7280' }}
+                        >
+                          {campaign.status === 'ARCHIVED' ? `↩ ${cdT?.btnRestore || 'Restore'}` : `📦 ${cdT?.btnArchive || 'Archive'}`}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── Execution Pipeline Panel — NEXUS UI ──────────────────────── */}
+        {/* ── Campaign Progress Panel ───────────────────────────────────── */}
         {aiOutput && (
-          <div className="rounded-2xl px-5 py-5 mb-6 overflow-hidden"
+          <div className="rounded-2xl px-5 py-5 mb-6"
             style={{
               background: 'rgba(10,11,28,0.85)',
               border: '1px solid rgba(139,92,246,0.15)',
               backdropFilter: 'blur(16px)',
             }}>
 
-            {/* Pipeline stage tracker */}
-            <div className="mb-5 rounded-2xl p-4 border"
-              style={{
-                background: engineBlocked
-                  ? 'rgba(234,179,8,0.06)'
-                  : 'linear-gradient(135deg, rgba(139,92,246,0.14), rgba(34,211,238,0.06))',
-                borderColor: engineBlocked ? 'rgba(234,179,8,0.24)' : 'rgba(139,92,246,0.28)',
-              }}>
-              <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`w-2 h-2 rounded-full ${engineRunning ? 'bg-cyan-400 animate-pulse' : engineReadyForApproval ? 'bg-green-400' : engineBlocked ? 'bg-amber-400' : 'bg-violet-400'}`} />
-                    <p className="text-xs uppercase tracking-wider font-bold" style={{ color: engineBlocked ? '#facc15' : '#a78bfa' }}>
-                      {locale === 'ar' ? 'NEXUS Engine' : 'NEXUS Engine'}
-                    </p>
-                    <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/10 text-gray-400">
-                      {engineScore}% {locale === 'ar' ? 'جاهز' : 'ready'}
-                    </span>
-                  </div>
-                  <h3 className="text-white font-bold text-sm">
-                    {engineRunning
-                      ? (locale === 'ar' ? 'المكينة شغالة دلوقتي...' : 'The machine is running...')
-                      : engineReadyForApproval
-                        ? (locale === 'ar' ? 'الحملة جاهزة للموافقة والتشغيل' : 'Campaign is ready for approval and launch')
-                        : engineBlocked
-                          ? (locale === 'ar' ? 'Sentinel وقف التشغيل لحين تعديل المخاطر' : 'Sentinel blocked launch until risks are fixed')
-                          : (locale === 'ar' ? 'شغّل الماكينة لتحويل الحملة لخطة تنفيذ كاملة' : 'Run the engine to turn this campaign into a complete execution package')}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    {locale === 'ar'
-                      ? 'مفتاح واحد يجهز الاستراتيجية، المحتوى، الكرييتف، مراجعة الأمان، والتقويم. النشر يحتاج موافقتك الصريحة.'
-                      : 'One key prepares strategy, content, creative direction, safety review, and calendar. Publishing still requires explicit approval.'}
-                  </p>
-                  {(engineError || generateError) && (
-                    <p className="text-xs text-red-400 mt-2">{engineError || generateError}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => handleRunEngine(false)}
-                    disabled={engineRunning}
-                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-50 transition"
-                    style={{
-                      background: engineRunning ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg, #7c3aed, #06b6d4)',
-                      boxShadow: engineRunning ? 'none' : '0 0 24px rgba(124,58,237,0.28)',
-                    }}
-                  >
-                    {engineRunning
-                      ? (locale === 'ar' ? 'جاري التشغيل...' : 'Running...')
-                      : (locale === 'ar' ? 'تشغيل الماكينة' : 'Run Engine')}
-                  </button>
-                  <button
-                    onClick={() => handleRunEngine(true)}
-                    disabled={engineRunning}
-                    className="px-3 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-gray-400 hover:text-white hover:border-white/20 disabled:opacity-40 transition"
-                    title={locale === 'ar' ? 'إعادة بناء كل المخرجات من جديد' : 'Rebuild every output from scratch'}
-                  >
-                    {locale === 'ar' ? 'إعادة' : 'Re-run'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-xs uppercase tracking-wider mb-3 font-medium" style={{ color: 'var(--nx-text-4)' }}>{cdT?.pipelineLabel || 'Campaign Pipeline'}</p>
-            <div className="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1 flex-nowrap">
-              {[
-                { key: 'strategy',  label: cdT?.pipelineStrategy  || 'Strategy',  done: true },
-                { key: 'content',   label: cdT?.pipelineContent   || 'Content',   done: !!(topHooks.length > 0 || contentCalendar.length > 0) },
-                { key: 'creative',  label: cdT?.pipelineCreative  || 'Creative',  done: !!creativeBrief },
-                { key: 'sentinel',  label: cdT?.pipelineSentinel  || 'Sentinel',  done: sentinelStatus === 'passed', warn: sentinelStatus === 'needs_attention' },
-                { key: 'approved',  label: cdT?.pipelineApproved  || 'Approved',  done: campaign.status === 'ACTIVE' || approvalState === 'done' },
-                { key: 'executing', label: cdT?.pipelineExecuting || 'Executing', done: !!campaign.autopilotEnabled, dim: !campaign.autopilotEnabled },
-              ].map((stage, i, arr) => (
-                <div key={stage.key} className="flex items-center gap-1.5 flex-shrink-0">
-                  <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${
-                    stage.done
-                      ? 'bg-green-500/15 text-green-400 border-green-500/30'
-                      : (stage as any).warn
-                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                        : stage.dim
-                          ? 'bg-transparent text-gray-700 border-dark-tertiary'
-                          : 'bg-accent/10 text-accent border-accent/25'
+            {/* ── 4-step progress stepper ── */}
+            <div className="flex items-center gap-0 mb-5 overflow-x-auto pb-1 flex-nowrap">
+              {([
+                {
+                  key: 'generate',
+                  label: locale === 'ar' ? 'التوليد' : 'Generate',
+                  done: true,
+                  active: false,
+                },
+                {
+                  key: 'review',
+                  label: locale === 'ar' ? 'المراجعة' : 'Review',
+                  done: sentinelStatus === 'passed',
+                  warn: sentinelStatus === 'needs_attention',
+                  active: sentinelStatus === 'not_reviewed',
+                },
+                {
+                  key: 'approve',
+                  label: locale === 'ar' ? 'الاعتماد' : 'Approve',
+                  done: campaign.status === 'ACTIVE' || approvalState === 'done',
+                  active: sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done',
+                },
+                {
+                  key: 'live',
+                  label: locale === 'ar' ? 'مباشر' : 'Live',
+                  done: !!campaign.autopilotEnabled,
+                  active: (campaign.status === 'ACTIVE' || approvalState === 'done') && !campaign.autopilotEnabled,
+                },
+              ] as Array<{key:string; label:string; done:boolean; active?:boolean; warn?:boolean}>).map((step, i, arr) => (
+                <div key={step.key} className="flex items-center flex-shrink-0">
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                    step.done ? 'text-green-400' : step.warn ? 'text-amber-400' : step.active ? 'text-accent' : 'text-gray-600'
                   }`}>
-                    {stage.done ? '✓ ' : (stage as any).warn ? '⚠ ' : ''}{stage.label}
-                  </span>
-                  {i < arr.length - 1 && <span className="text-gray-700 text-xs flex-shrink-0">→</span>}
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 border ${
+                      step.done
+                        ? 'bg-green-500/15 border-green-500/30 text-green-400'
+                        : step.warn
+                          ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                          : step.active
+                            ? 'bg-accent/15 border-accent/30 text-accent'
+                            : 'bg-dark-tertiary border-dark-tertiary text-gray-600'
+                    }`}>
+                      {step.done ? '✓' : step.warn ? '!' : i + 1}
+                    </span>
+                    {step.label}
+                  </div>
+                  {i < arr.length - 1 && (
+                    <span className="text-gray-800 text-xs mx-1 flex-shrink-0">—</span>
+                  )}
                 </div>
               ))}
             </div>
 
-            {/* Action groups */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-              {/* Group 1: Prepare */}
-              <div>
-                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupPrepare || 'Prepare'}</p>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => window.open(`/campaigns/${campaign.id}/content-pack`, '_blank')}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-accent/30 bg-accent/8 text-accent text-xs font-semibold hover:bg-accent/15 transition text-left"
-                  >
-                    {cdT?.stepContentPack || '📦 Content Pack'}
-                    <span className="ml-auto text-accent/50 text-xs">↗</span>
-                  </button>
-                  <button
-                    onClick={() => window.open(`/campaigns/${campaign.id}/execution-package`, '_blank')}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-500/30 bg-purple-500/8 text-purple-400 text-xs font-semibold hover:bg-purple-500/15 transition text-left"
-                  >
-                    {cdT?.stepExecutionPkg || '📋 Execution Package'}
-                    <span className="ml-auto text-purple-400/50 text-xs">↗</span>
-                  </button>
-                  <button
-                    onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-400 text-xs font-semibold hover:text-white hover:border-white/20 transition text-left"
-                  >
-                    {cdT?.stepExportPdf || '⬇ Export PDF'}
-                  </button>
-                </div>
+            {/* ── Status message + context-aware primary CTA ── */}
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: engineRunning ? '#fbbf24' : 'var(--nx-text-1)' }}>
+                  {engineRunning
+                    ? (locale === 'ar' ? '⏳ الماكينة شغالة...' : '⏳ Engine running...')
+                    : campaign.status === 'ACTIVE' || approvalState === 'done'
+                      ? (locale === 'ar' ? '✅ الحملة نشطة وجاهزة للتنفيذ' : '✅ Campaign is active and ready to execute')
+                      : engineReadyForApproval
+                        ? (locale === 'ar' ? '🟢 الحملة جاهزة للاعتماد' : '🟢 Campaign ready for approval')
+                        : sentinelStatus === 'needs_attention'
+                          ? (locale === 'ar' ? '⚠️ Sentinel وجد مشاكل — راجع التفاصيل أدناه' : '⚠️ Sentinel found issues — review details below')
+                          : sentinelStatus === 'passed'
+                            ? (locale === 'ar' ? '✅ مراجعة Sentinel ناجحة' : '✅ Sentinel review passed')
+                            : (locale === 'ar' ? 'الاستراتيجية جاهزة — شغّل Sentinel للمتابعة' : 'Strategy ready — run Sentinel review to continue')}
+                </p>
+                {(engineError || generateError) && (
+                  <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
+                )}
               </div>
 
-              {/* Group 2: Launch */}
-              <div>
-                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupLaunch || 'Launch'}</p>
-                <div className="space-y-2">
-                  {campaign.status === 'ACTIVE' || approvalState === 'done' ? (
-                    <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold">
-                      {cdT?.stepApprovedBadge || '✅ Campaign Approved'}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setApprovalState('confirming')}
-                      disabled={approvalState === 'approving' || !engineReadyForApproval}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold hover:bg-green-500/15 transition text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {approvalState === 'approving' ? '...' : (cdT?.stepApproveCampaign || '✅ Approve for Execution')}
-                    </button>
-                  )}
-                  {/* Push to Calendar — Sprint H */}
-                  {calendarPushState === 'done' || (calendarPushState === 'idle' && storedCalendarPushedAt) ? (
-                    <div className="space-y-1">
-                      <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/8 text-cyan-400 text-xs font-semibold">
-                        {cdT?.pushCalendarSuccess?.replace('{count}', String(calendarPushState === 'done' ? calendarPushCount : storedCalendarCount)) || `✅ ${calendarPushState === 'done' ? calendarPushCount : storedCalendarCount} items pushed`}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Link href="/calendar" className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-cyan-500/20 text-cyan-500 text-xs font-semibold hover:bg-cyan-500/10 transition">
-                          {cdT?.pushCalendarOpenLink || '→ Open Calendar'}
-                        </Link>
-                        <button
-                          onClick={() => handlePushToCalendar(true)}
-                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-dark-tertiary text-gray-500 text-xs hover:text-gray-300 transition"
-                        >
-                          {cdT?.pushCalendarRepush || 'Re-push'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : calendarPushState === 'already' ? (
-                    <div className="space-y-1">
-                      <div className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-500/30 bg-cyan-500/8 text-cyan-400 text-xs font-semibold">
-                        {cdT?.pushCalendarAlready || '✅ Already on calendar'}
-                        <span className="ml-auto text-cyan-600 font-normal">{calendarPushCount} items</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Link href="/calendar" className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-cyan-500/20 text-cyan-500 text-xs font-semibold hover:bg-cyan-500/10 transition">
-                          {cdT?.pushCalendarOpenLink || '→ Open Calendar'}
-                        </Link>
-                        <button
-                          onClick={() => handlePushToCalendar(true)}
-                          className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg border border-dark-tertiary text-gray-500 text-xs hover:text-gray-300 transition"
-                        >
-                          {cdT?.pushCalendarRepush || 'Re-push'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {/* Sentinel warning */}
-                      {sentinelStatus === 'not_reviewed' && (
-                        <p className="text-amber-500/70 text-xs px-1">{cdT?.pushCalendarSentinelWarn || '⚠ Sentinel review not complete.'}</p>
-                      )}
-                      {/* Approval warning */}
-                      {campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
-                        <p className="text-gray-600 text-xs px-1">{cdT?.pushCalendarApprovalWarn || '⚠ Campaign not yet approved.'}</p>
-                      )}
-                      <button
-                        onClick={() => handlePushToCalendar(false)}
-                        disabled={calendarPushState === 'pushing' || !hasContentCalendar || sentinelStatus !== 'passed'}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition text-left disabled:opacity-50 ${
-                          hasContentCalendar && sentinelStatus === 'passed'
-                            ? 'border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/15'
-                            : 'border-dark-tertiary text-gray-600 cursor-not-allowed'
-                        }`}
-                      >
-                        {calendarPushState === 'pushing'
-                          ? (cdT?.pushCalendarPushing || '⏳ Pushing...')
-                          : (cdT?.stepPushCalendar || '📅 Push to Calendar')
-                        }
-                        {hasContentCalendar && calendarPushState !== 'pushing' && (
-                          <span className="ml-auto text-cyan-600 text-xs">→</span>
-                        )}
-                      </button>
-                      {calendarPushError && (
-                        <p className="text-red-400 text-xs px-1">{calendarPushError}</p>
-                      )}
-                      {!hasContentCalendar && (
-                        <p className="text-gray-600 text-xs px-1">{cdT?.pushCalendarNoContent || 'Run Full Strategy first to enable.'}</p>
-                      )}
-                      {hasContentCalendar && sentinelStatus !== 'passed' && (
-                        <p className="text-amber-500/70 text-xs px-1">
-                          {locale === 'ar' ? 'شغّل NEXUS Engine واجعل Sentinel يمر قبل التقويم.' : 'Run NEXUS Engine and pass Sentinel before calendar execution.'}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  <button disabled className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-700 text-xs font-semibold cursor-not-allowed opacity-40 text-left">
-                    {cdT?.stepAdsSoon || '🎯 Ad Campaign — Coming Soon'}
-                  </button>
-                </div>
-              </div>
+              {/* Buttons */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Re-run (small secondary) */}
+                <button
+                  onClick={() => handleRunEngine(true)}
+                  disabled={engineRunning}
+                  title={locale === 'ar' ? 'إعادة توليد كل المخرجات من الصفر' : 'Regenerate all outputs from scratch'}
+                  className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-sm text-gray-500 hover:text-gray-300 hover:border-white/20 disabled:opacity-40 transition"
+                >
+                  ↻
+                </button>
 
-              {/* Group 3: Review */}
-              <div>
-                <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">{cdT?.stepGroupReview || 'Review'}</p>
-                <div className="space-y-2">
+                {/* Primary CTA — context aware, one at a time */}
+                {!engineRunning && sentinelStatus !== 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
                   <button
                     onClick={handleSentinelReview}
                     disabled={sentinelState === 'reviewing'}
-                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition text-left disabled:opacity-60 ${
-                      sentinelStatus === 'passed'
-                        ? 'border-green-500/30 bg-green-500/8 text-green-400 hover:bg-green-500/15'
-                        : sentinelStatus === 'needs_attention'
-                          ? 'border-amber-500/30 bg-amber-500/8 text-amber-400 hover:bg-amber-500/15'
-                          : 'border-blue-500/30 bg-blue-500/8 text-blue-400 hover:bg-blue-500/15'
-                    }`}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 0 16px rgba(79,70,229,0.25)' }}
                   >
                     {sentinelState === 'reviewing'
-                      ? (cdT?.sentinelReviewing || '⏳ Reviewing...')
-                      : sentinelStatus === 'passed'
-                        ? (cdT?.sentinelPassedBtn || '✅ Review Passed — Re-run')
-                        : sentinelStatus === 'needs_attention'
-                          ? (cdT?.sentinelReRunBtn || '⚠️ Needs Attention — Re-run')
-                          : (cdT?.stepSentinelRun || '🔍 Run Sentinel Review')
-                    }
+                      ? '⏳...'
+                      : sentinelStatus === 'needs_attention'
+                        ? (locale === 'ar' ? '🔄 أعد المراجعة' : '🔄 Re-review')
+                        : (locale === 'ar' ? '🔍 مراجعة Sentinel' : '🔍 Sentinel Review')}
                   </button>
-                  <Link
-                    href="/sentinel"
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-dark-tertiary text-gray-500 text-xs font-semibold hover:text-gray-300 transition"
+                )}
+
+                {!engineRunning && sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
+                  <button
+                    onClick={() => setApprovalState('confirming')}
+                    disabled={approvalState === 'approving'}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: '0 0 16px rgba(16,185,129,0.2)' }}
                   >
-                    {cdT?.stepSentinelPage || '↗ Open Sentinel'}
-                    <span className="ml-auto text-gray-700 text-xs">↗</span>
+                    {approvalState === 'approving' ? '...' : (locale === 'ar' ? '✅ اعتماد الحملة' : '✅ Approve Campaign')}
+                  </button>
+                )}
+
+                {(campaign.status === 'ACTIVE' || approvalState === 'done') && (
+                  <Link
+                    href="/calendar"
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition"
+                    style={{ background: 'linear-gradient(135deg, #0891b2, #06b6d4)', boxShadow: '0 0 16px rgba(6,182,212,0.18)' }}
+                  >
+                    {locale === 'ar' ? '📅 التقويم' : '📅 View Calendar'}
                   </Link>
-                </div>
+                )}
+
+                {engineRunning && (
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white/50"
+                    style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <span className="w-3 h-3 border-2 border-white/30 border-t-white/70 rounded-full animate-spin flex-shrink-0" />
+                    {locale === 'ar' ? 'جاري التشغيل...' : 'Running...'}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Inline Sentinel review error */}
-            {sentinelError && sentinelState === 'idle' && (
-              <div className="mt-4 p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
-                <p className="text-xs text-red-400">⚠️ {sentinelError}</p>
-              </div>
+            {/* ── Sentinel review detail — collapsible ── */}
+            {sentinelReview && (
+              <details className="mt-4">
+                <summary className={`cursor-pointer text-xs font-semibold select-none ${
+                  sentinelStatus === 'passed' ? 'text-green-400' : 'text-amber-400'
+                }`}>
+                  {sentinelStatus === 'passed'
+                    ? (locale === 'ar' ? '✓ Sentinel اجتاز المراجعة — عرض التفاصيل ▾' : '✓ Sentinel passed — see details ▾')
+                    : (locale === 'ar' ? '⚠ Sentinel: يحتاج انتباه — عرض التفاصيل ▾' : '⚠ Sentinel needs attention — see details ▾')}
+                </summary>
+                <div className="mt-3 pt-3 border-t border-dark-tertiary space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-gray-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
+                        <span className={`text-sm font-bold ${sentinelReview.riskScore < 30 ? 'text-green-400' : sentinelReview.riskScore < 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                          {sentinelReview.riskScore}/100
+                        </span>
+                      </div>
+                      <div className="h-1 bg-dark-tertiary rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${sentinelReview.riskScore < 30 ? 'bg-green-500' : sentinelReview.riskScore < 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                          style={{ width: `${sentinelReview.riskScore}%` }} />
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
+                    </div>
+                    <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-gray-500">{cdT?.sentinelBrandScore || 'Brand Match'}</span>
+                        <span className={`text-sm font-bold ${sentinelReview.brandConsistencyScore >= 75 ? 'text-green-400' : sentinelReview.brandConsistencyScore >= 55 ? 'text-amber-400' : 'text-red-400'}`}>
+                          {sentinelReview.brandConsistencyScore}/100
+                        </span>
+                      </div>
+                      <div className="h-1 bg-dark-tertiary rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${sentinelReview.brandConsistencyScore >= 75 ? 'bg-green-500' : sentinelReview.brandConsistencyScore >= 55 ? 'bg-amber-500' : 'bg-red-500'}`}
+                          style={{ width: `${sentinelReview.brandConsistencyScore}%` }} />
+                      </div>
+                      <p className="text-[10px] text-gray-600 mt-1">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
+                    </div>
+                  </div>
+                  {sentinelReview.summary && (
+                    <p className="text-sm text-gray-300 leading-relaxed">{sentinelReview.summary}</p>
+                  )}
+                  {sentinelReview.complianceWarnings?.length > 0 && (
+                    <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                      <p className="text-xs font-bold text-amber-400 mb-2">{cdT?.sentinelComplianceWarnings || 'Compliance Warnings'}</p>
+                      {sentinelReview.complianceWarnings.map((w: string, i: number) => (
+                        <p key={i} className="text-xs text-amber-300 flex items-start gap-2 mb-1"><span className="flex-shrink-0">⚠</span>{w}</p>
+                      ))}
+                    </div>
+                  )}
+                  {sentinelReview.recommendedFixes?.length > 0 && (
+                    <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5">
+                      <p className="text-xs font-bold text-blue-400 mb-2">{cdT?.sentinelRecommendedFixes || 'Recommended Fixes'}</p>
+                      {sentinelReview.recommendedFixes.map((fix: string, i: number) => (
+                        <p key={i} className="text-xs text-blue-300 flex items-start gap-2 mb-1"><span className="flex-shrink-0 text-blue-500">→</span>{fix}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </details>
             )}
 
-            {/* Inline approval confirmation */}
+            {/* Not yet reviewed hint */}
+            {!sentinelReview && sentinelState !== 'reviewing' && (
+              <p className="mt-3 text-xs text-gray-600">
+                {locale === 'ar'
+                  ? '🔍 شغّل Sentinel Review للتحقق من جودة الحملة قبل الاعتماد.'
+                  : '🔍 Run Sentinel Review to check campaign quality before approving.'}
+              </p>
+            )}
+            {sentinelState === 'reviewing' && (
+              <div className="mt-3 flex items-center gap-2">
+                <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <p className="text-xs text-blue-400">{cdT?.sentinelReviewingMsg || 'Sentinel is reviewing your campaign...'}</p>
+              </div>
+            )}
+            {sentinelError && sentinelState === 'idle' && (
+              <p className="mt-2 text-xs text-red-400">⚠️ {sentinelError}</p>
+            )}
+
+            {/* Approval confirmation dialog */}
             {approvalState === 'confirming' && (
               <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
-                {/* Sentinel warning — shown if not reviewed or needs attention */}
-                {sentinelStatus === 'not_reviewed' && (
-                  <div className="mb-3 p-3 bg-amber-500/8 border border-amber-500/25 rounded-lg">
-                    <p className="text-xs font-semibold text-amber-400 mb-0.5">⚠️ {cdT?.sentinelNoReviewWarning || 'Sentinel review has not been completed yet.'}</p>
-                    <p className="text-xs text-gray-500">{locale === 'ar' ? 'شغّل NEXUS Engine أو Sentinel قبل الاعتماد. الاعتماد مقفول لحد ما المراجعة تعدي.' : 'Run NEXUS Engine or Sentinel before approval. Approval stays locked until review passes.'}</p>
-                  </div>
-                )}
-                {sentinelStatus === 'needs_attention' && (
-                  <div className="mb-3 p-3 bg-amber-500/8 border border-amber-500/25 rounded-lg">
-                    <p className="text-xs font-semibold text-amber-400 mb-0.5">⚠️ {cdT?.sentinelNeedsAttentionWarning || 'Sentinel review flagged issues that need attention.'}</p>
-                    <p className="text-xs text-gray-500">{locale === 'ar' ? 'راجع التعديلات المقترحة وأعد تشغيل الماكينة. الاعتماد مقفول لحد ما Sentinel يعدي.' : 'Review the recommended fixes and re-run the engine. Approval stays locked until Sentinel passes.'}</p>
-                  </div>
+                {sentinelStatus !== 'passed' && (
+                  <p className="text-xs text-amber-400 mb-3">⚠️ {locale === 'ar' ? 'مراجعة Sentinel لم تكتمل بعد.' : 'Sentinel review not complete yet.'}</p>
                 )}
                 <p className="text-sm font-semibold text-green-400 mb-1">{cdT?.approveConfirmTitle || 'Approve campaign for execution?'}</p>
                 <p className="text-xs text-gray-400 mb-3">{cdT?.approveConfirmBody || 'This marks the campaign as Active. Your team can start executing all deliverables.'}</p>
                 <div className="flex gap-2">
-                  <button
-                    onClick={handleApprove}
-                    className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition"
-                  >
+                  <button onClick={handleApprove} className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition">
                     {cdT?.approveConfirmBtn || 'Yes, Approve'}
                   </button>
-                  <button
-                    onClick={() => setApprovalState('idle')}
-                    className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition"
-                  >
+                  <button onClick={() => setApprovalState('idle')} className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition">
                     {cdT?.approveCancelBtn || 'Cancel'}
                   </button>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Sentinel Review Card — NEXUS UI ──────────────────────────── */}
-        {aiOutput && (
-          <div className="rounded-2xl px-5 py-5 mb-6"
-            style={{
-              background: 'rgba(10,11,28,0.85)',
-              border: `1px solid ${sentinelStatus === 'passed' ? 'rgba(16,185,129,0.25)' : sentinelStatus === 'needs_attention' ? 'rgba(234,179,8,0.25)' : 'rgba(139,92,246,0.12)'}`,
-              backdropFilter: 'blur(16px)',
-            }}>
-
-            {/* Header row */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-base">🔍</span>
-                <h3 className="font-bold text-sm text-white">{cdT?.sentinelReviewTitle || 'Sentinel Review'}</h3>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
-                  sentinelStatus === 'passed'
-                    ? 'bg-green-500/15 text-green-400 border-green-500/30'
-                    : sentinelStatus === 'needs_attention'
-                      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-                      : 'bg-dark-tertiary text-gray-600 border-dark-tertiary'
-                }`}>
-                  {sentinelStatus === 'passed'
-                    ? (cdT?.sentinelStatusPassed || '✓ Passed')
-                    : sentinelStatus === 'needs_attention'
-                      ? (cdT?.sentinelStatusNeeds || '⚠ Needs Attention')
-                      : (cdT?.sentinelStatusNotReviewed || 'Not Reviewed')
-                  }
-                </span>
-              </div>
-              {sentinelReview && (
-                <span className="text-xs text-gray-600">
-                  {new Date(sentinelReview.reviewedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
-                </span>
-              )}
-            </div>
-
-            {/* Scores row — shown when review exists */}
-            {sentinelReview && (
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                {/* Risk Score */}
-                <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs text-gray-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
-                    <span className={`text-sm font-bold ${
-                      sentinelReview.riskScore < 30 ? 'text-green-400'
-                      : sentinelReview.riskScore < 50 ? 'text-amber-400'
-                      : 'text-red-400'
-                    }`}>{sentinelReview.riskScore}/100</span>
-                  </div>
-                  <div className="h-1.5 bg-dark-tertiary rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${
-                      sentinelReview.riskScore < 30 ? 'bg-green-500'
-                      : sentinelReview.riskScore < 50 ? 'bg-amber-500'
-                      : 'bg-red-500'
-                    }`} style={{ width: `${sentinelReview.riskScore}%` }} />
-                  </div>
-                  <p className="text-xs text-gray-600 mt-1">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
-                </div>
-                {/* Brand Consistency */}
-                <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs text-gray-500">{cdT?.sentinelBrandScore || 'Brand Consistency'}</span>
-                    <span className={`text-sm font-bold ${
-                      sentinelReview.brandConsistencyScore >= 75 ? 'text-green-400'
-                      : sentinelReview.brandConsistencyScore >= 55 ? 'text-amber-400'
-                      : 'text-red-400'
-                    }`}>{sentinelReview.brandConsistencyScore}/100</span>
-                  </div>
-                  <div className="h-1.5 bg-dark-tertiary rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${
-                      sentinelReview.brandConsistencyScore >= 75 ? 'bg-green-500'
-                      : sentinelReview.brandConsistencyScore >= 55 ? 'bg-amber-500'
-                      : 'bg-red-500'
-                    }`} style={{ width: `${sentinelReview.brandConsistencyScore}%` }} />
-                  </div>
-                  <p className="text-xs text-gray-600 mt-1">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Summary */}
-            {sentinelReview?.summary && (
-              <p className="text-sm text-gray-300 leading-relaxed mb-4">{sentinelReview.summary}</p>
-            )}
-
-            {/* Detail notes — collapsible sections */}
-            {sentinelReview && (
-              <div className="space-y-3">
-                {/* Claim Safety */}
-                {sentinelReview.claimSafetyNotes && (
-                  <div className="border border-dark-tertiary rounded-xl p-3">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">{cdT?.sentinelClaimSafety || 'Claim Safety'}</p>
-                    <p className="text-xs text-gray-400 leading-relaxed">{sentinelReview.claimSafetyNotes}</p>
-                  </div>
-                )}
-                {/* Tone Consistency */}
-                {sentinelReview.toneConsistencyNotes && (
-                  <div className="border border-dark-tertiary rounded-xl p-3">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-1.5">{cdT?.sentinelToneConsistency || 'Tone Consistency'}</p>
-                    <p className="text-xs text-gray-400 leading-relaxed">{sentinelReview.toneConsistencyNotes}</p>
-                  </div>
-                )}
-                {/* Compliance Warnings */}
-                {sentinelReview.complianceWarnings?.length > 0 && (
-                  <div className="border border-amber-500/20 bg-amber-500/5 rounded-xl p-3">
-                    <p className="text-xs font-bold text-amber-400 uppercase tracking-wide mb-2">{cdT?.sentinelComplianceWarnings || 'Compliance Warnings'}</p>
-                    <ul className="space-y-1.5">
-                      {sentinelReview.complianceWarnings.map((w: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-amber-300">
-                          <span className="flex-shrink-0 mt-0.5">⚠</span>
-                          <span>{w}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {/* Recommended Fixes */}
-                {sentinelReview.recommendedFixes?.length > 0 && (
-                  <div className="border border-blue-500/20 bg-blue-500/5 rounded-xl p-3">
-                    <p className="text-xs font-bold text-blue-400 uppercase tracking-wide mb-2">{cdT?.sentinelRecommendedFixes || 'Recommended Fixes'}</p>
-                    <ul className="space-y-1.5">
-                      {sentinelReview.recommendedFixes.map((fix: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-blue-300">
-                          <span className="flex-shrink-0 mt-0.5 text-blue-500">→</span>
-                          <span>{fix}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Empty state — not reviewed yet */}
-            {!sentinelReview && sentinelState !== 'reviewing' && (
-              <p className="text-xs text-gray-600 text-center py-2">
-                {cdT?.sentinelNotReviewedDesc || 'Run a Sentinel review to check brand consistency, claim safety, and execution readiness before approving.'}
-              </p>
-            )}
-
-            {/* Reviewing state */}
-            {sentinelState === 'reviewing' && (
-              <div className="flex items-center gap-3 py-3">
-                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                <p className="text-xs text-blue-400">{cdT?.sentinelReviewingMsg || 'Sentinel is reviewing your campaign content...'}</p>
               </div>
             )}
           </div>
@@ -1327,10 +1134,13 @@ export default function CampaignDetailPage() {
             <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>{cdT?.noOutputTitle}</h3>
             <p className="mb-6 text-sm" style={{ color: 'var(--nx-text-3)' }}>{cdT?.noOutputDesc}</p>
             <button
-              onClick={handleGenerateStrategy}
-              className="px-6 py-3 rounded-xl font-bold transition"
+              onClick={() => handleRunEngine()}
+              disabled={engineRunning}
+              className="px-6 py-3 rounded-xl font-bold transition disabled:opacity-60"
               style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
-              {cdT?.noOutputBtn || (locale === 'ar' ? 'توليد الاستراتيجية' : 'Generate Strategy')}
+              {engineRunning
+                ? (locale === 'ar' ? '⏳ جاري التوليد...' : '⏳ Generating...')
+                : (cdT?.noOutputBtn || (locale === 'ar' ? '🚀 توليد الاستراتيجية الكاملة' : '🚀 Generate Full Strategy'))}
             </button>
             {generateError && (
               <p className="mt-3 text-sm text-red-400">{generateError}</p>
@@ -1344,7 +1154,7 @@ export default function CampaignDetailPage() {
             {/* NEXUS tab navigation */}
             <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 p-1 rounded-2xl"
               style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.08)' }}>
-              {AGENT_TABS.map((tab, i) => (
+              {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
                 <button
                   key={i}
                   onClick={() => setActiveTab(i)}
