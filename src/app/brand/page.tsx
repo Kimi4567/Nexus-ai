@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { useBrandBrain, getBrandCompleteness, type BrandProfile } from '@/hooks/useBrandBrain'
+import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
@@ -83,8 +83,9 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
   const [input, setInput] = useState('')
   const accent = accentColor || '#f59e0b'
   const isAr = locale === 'ar'
-  const add = (val: string) => { const v = val.trim(); if (v && !values.includes(v)) onChange([...values, v]); setInput('') }
-  const remove = (i: number) => onChange(values.filter((_, idx) => idx !== i))
+  const safeValues = Array.isArray(values) ? values : []
+  const add = (val: string) => { const v = val.trim(); if (v && !safeValues.includes(v)) onChange([...safeValues, v]); setInput('') }
+  const remove = (i: number) => onChange(safeValues.filter((_, idx) => idx !== i))
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -115,7 +116,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
             </span>
           </div>
         )}
-        {!suggesting && values.map((v, i) => (
+        {!suggesting && safeValues.map((v, i) => (
           <span key={i} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
             style={{ background: `${accent}15`, border: `1px solid ${accent}35`, color: accent }}>
             {v}
@@ -125,7 +126,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
         {!suggesting && (
           <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key==='Enter'||e.key===','){e.preventDefault();add(input)} }}
-            placeholder={values.length ? '' : placeholder}
+            placeholder={safeValues.length ? '' : placeholder}
             className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder-gray-600"
             style={{ color: '#e2e8f0' }} />
         )}
@@ -214,11 +215,12 @@ function ToggleGrid({ options, selected, onChange, color }: {
   options: string[]; selected: string[]; onChange: (v: string[]) => void; color?: string
 }) {
   const c = color || '#8b5cf6'
-  const toggle = (v: string) => selected.includes(v) ? onChange(selected.filter(x => x !== v)) : onChange([...selected, v])
+  const safeSelected = Array.isArray(selected) ? selected : []
+  const toggle = (v: string) => safeSelected.includes(v) ? onChange(safeSelected.filter(x => x !== v)) : onChange([...safeSelected, v])
   return (
     <div className="flex flex-wrap gap-2">
       {options.map(o => {
-        const active = selected.includes(o)
+        const active = safeSelected.includes(o)
         return (
           <button key={o} onClick={() => toggle(o)}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150"
@@ -398,7 +400,14 @@ export default function BrandBrainPage() {
     winningHooks: [], winningAngles: [], failedAngles: [], competitorNotes: '', strategicNotes: '',
   })
 
-  useEffect(() => { if (brand) setForm(b => ({ ...b, ...brand })) }, [brand])
+  useEffect(() => {
+    try {
+      const normalized = normalizeBrandProfile(brand)
+      if (normalized) setForm(b => ({ ...b, ...normalized }))
+    } catch (err) {
+      console.error('[BrandBrain] normalizeBrandProfile failed:', err)
+    }
+  }, [brand])
   const set = (k: keyof BrandProfile, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = async () => {
@@ -511,7 +520,7 @@ export default function BrandBrainPage() {
 
   const { score, missing } = getBrandCompleteness(form, locale)
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
-  const currentStep    = STEPS[currentStepIdx]
+  const currentStep    = STEPS[currentStepIdx] ?? STEPS[0]
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
 
   if (authLoading || loading) return (
