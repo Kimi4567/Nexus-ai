@@ -268,8 +268,8 @@ async function publishToLinkedIn({
 async function publishToTikTok({
   accessToken, caption, videoUrl,
 }: { accessToken: string; caption: string; videoUrl: string }) {
-  // TikTok Content Posting API — pull video from URL
-  const initRes = await fetch('https://open.tiktok.com/v2/post/publish/video/init/', {
+  // TikTok Content Posting API — pull video from URL (updated to v2 endpoint)
+  const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json; charset=UTF-8',

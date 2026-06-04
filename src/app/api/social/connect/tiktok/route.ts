@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -30,7 +32,8 @@ export async function GET(req: NextRequest) {
     const params = new URLSearchParams({
       client_key:    clientKey,
       response_type: 'code',
-      scope:         'user.info.basic,video.publish,video.upload',
+      // video.upload is for chunk uploads — we use PULL_FROM_URL, so only video.publish needed
+      scope:         'user.info.basic,video.publish',
       redirect_uri:  redirectUri,
       state,
     })
