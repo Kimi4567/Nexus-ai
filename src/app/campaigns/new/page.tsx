@@ -40,6 +40,7 @@ export default function NewCampaignPage() {
 
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [generatingStrategy, setGeneratingStrategy] = useState(false)
   const [error, setError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
@@ -113,13 +114,37 @@ export default function NewCampaignPage() {
 
       // If Brand Brain is incomplete or caller explicitly skips AI, save as draft only
       if (skipGeneration || brandNotReady) {
-        router.push(`/campaigns/${campaignId}?new=1`)
+        router.push(`/campaigns/${campaignId}`)
         return
       }
 
-      // Navigate to campaign detail — generation is triggered from there
-      // so the user sees a visible spinner and can retry on failure
-      router.push(`/campaigns/${campaignId}?new=1`)
+      // Auto-run strategy immediately — show loading screen while it generates
+      setSaving(false)
+      setGeneratingStrategy(true)
+
+      try {
+        const engineRes = await fetch(`/api/campaigns/${campaignId}/engine`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify({ language: locale }),
+        })
+
+        if (!engineRes.ok) {
+          const engineErr = await engineRes.json().catch(() => ({}))
+          // Insufficient credits → show upgrade modal
+          if (engineRes.status === 402) {
+            setGeneratingStrategy(false)
+            setShowUpgrade(true)
+            router.push(`/campaigns/${campaignId}`)
+            return
+          }
+          throw new Error(engineErr.error || 'Strategy generation failed')
+        }
+      } catch {
+        // Non-fatal: campaign is saved, strategy can be retried from campaign page
+      }
+
+      router.push(`/campaigns/${campaignId}`)
     } catch (err: any) {
       setError(err.message || cnT?.errorUnexpected as string)
       setSaving(false)
@@ -156,6 +181,55 @@ export default function NewCampaignPage() {
   const isRTL = locale === 'ar'
   const PrevIcon = isRTL ? ChevronRight : ChevronLeft
   const NextIcon = isRTL ? ChevronLeft : ChevronRight
+
+  // ── Strategy generation loading screen ───────────────────────────────────
+  if (generatingStrategy) {
+    const steps = [
+      locale === 'ar' ? 'تحليل البراند الخاص بك...' : 'Analysing your brand...',
+      locale === 'ar' ? 'بناء الاستراتيجية التسويقية...' : 'Building marketing strategy...',
+      locale === 'ar' ? 'تحديد الـ Content Angles...' : 'Identifying content angles...',
+      locale === 'ar' ? 'الانتهاء من خطة الكامبين...' : 'Finalising campaign plan...',
+    ]
+    return (
+      <AppShell>
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="text-center max-w-md">
+            {/* Pulsing logo ring */}
+            <div className="relative w-24 h-24 mx-auto mb-8">
+              <div className="absolute inset-0 rounded-full animate-ping"
+                style={{ background: 'rgba(139,92,246,0.15)' }} />
+              <div className="absolute inset-2 rounded-full animate-pulse"
+                style={{ background: 'rgba(139,92,246,0.2)' }} />
+              <div className="relative w-full h-full rounded-full flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg,#8B5CF6,#6366f1)', boxShadow: '0 0 40px rgba(139,92,246,0.4)' }}>
+                <Wand2 className="w-10 h-10 text-white" />
+              </div>
+            </div>
+
+            <h2 className="text-2xl font-bold mb-2">
+              {locale === 'ar' ? 'NEXUS بيبني استراتيجيتك...' : 'NEXUS is building your strategy...'}
+            </h2>
+            <p className="text-text-muted text-sm mb-8">
+              {locale === 'ar'
+                ? 'الـ AI بيحلل البراند بتاعك ويبني استراتيجية تسويق كاملة. هيخلص في ثوانٍ.'
+                : 'AI is analysing your brand and building a full marketing strategy. Takes just seconds.'}
+            </p>
+
+            {/* Animated steps */}
+            <div className="space-y-3 text-left">
+              {steps.map((s, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm"
+                  style={{ opacity: 0.4 + i * 0.2, animation: `fadeIn 0.5s ease ${i * 0.4}s both` }}>
+                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-violet-400" />
+                  <span className="text-text-secondary">{s}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
     <AppShell>

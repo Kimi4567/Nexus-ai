@@ -45,13 +45,6 @@ export const CREDIT_COSTS = {
   SENTINEL_REVIEW: 2,
 
   /**
-   * Video Brief — AI generates brand-aware video concept, storyboard, and script
-   * Route: /api/campaigns/[id]/video-brief (POST)
-   * API cost: ~$0.017 (GPT-4o, ~2,000 tokens). Margin @ Pro: 94%
-   */
-  VIDEO_BRIEF: 3,
-
-  /**
    * Image generation — DALL-E 3 via /api/images/generate
    * API cost: $0.040 per image (DALL-E 3 standard). Margin @ Pro: 87%
    */
@@ -79,12 +72,6 @@ export const CREDIT_COSTS = {
    */
   CONTENT_PLAN_GENERATION: 2,
 
-  /**
-   * NOTE: VIDEO_GENERATION is NOT a credit action.
-   * Video generation ($0.30–$1.00/video via Replicate) uses a separate monthly
-   * quota per plan (FREE: 0, PRO: 5, BUSINESS: 20). This prevents margin collapse
-   * when users spam video generation. See PLAN_VIDEO_QUOTA in lib/stripe.ts.
-   */
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS

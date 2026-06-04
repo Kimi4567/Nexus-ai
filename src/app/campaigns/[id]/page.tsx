@@ -7,7 +7,6 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
-import VideoGenerator from '@/components/VideoGenerator'
 import SocialPublisher from '@/components/SocialPublisher'
 import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
@@ -2374,13 +2373,6 @@ export default function CampaignDetailPage() {
                   <VisualGenerator context={visualContext} />
                 </div>
 
-                {/* Video Intelligence — Sprint Q */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                  <VideoGenerator
-                    campaignId={campaign.id}
-                    campaignName={campaign.name}
-                  />
-                </div>
               </div>
             )}
 

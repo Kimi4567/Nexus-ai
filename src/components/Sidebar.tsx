@@ -246,6 +246,9 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
         <NavItem href="/campaigns" label="Campaigns"
           icon={Icons.campaigns} {...sharedProps} />
+        <NavItem href="/content-hub" label={locale === 'ar' ? 'مركز المحتوى' : 'Content Hub'}
+          icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>}
+          {...sharedProps} />
         <NavItem href="/calendar" label={t('sidebar.calendar')}
           icon={Icons.calendar} {...sharedProps} />
         <NavItem href="/schedule" label={locale === 'ar' ? 'الجدولة' : 'Schedule'}
