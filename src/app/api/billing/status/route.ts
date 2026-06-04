@@ -5,7 +5,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { PLAN_CREDITS } from '@/lib/stripe'
+import { isBillingConfigured, PLAN_CREDITS } from '@/lib/stripe'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   try {
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
       plan: planName,
       status: dbUser.subscriptionStatus,
       hasActiveSubscription: isActive,
+      billingEnabled: isBillingConfigured(),
       credits: {
         remaining: dbUser.aiCredits ?? 0,
         used: usedCredits,

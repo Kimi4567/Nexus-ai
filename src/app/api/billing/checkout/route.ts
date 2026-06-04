@@ -7,7 +7,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { stripe, STRIPE_PRICES } from '@/lib/stripe'
+import {
+  billingNotConfiguredResponse,
+  getStripeClient,
+  isBillingConfigured,
+  STRIPE_PRICES,
+} from '@/lib/stripe'
 import { checkoutRateLimit } from '@/lib/dbRateLimit'
 
 function getBaseUrl() {
@@ -16,6 +21,10 @@ function getBaseUrl() {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isBillingConfigured()) {
+      return NextResponse.json(billingNotConfiguredResponse(), { status: 503 })
+    }
+
     // ── Authenticate ─────────────────────────────────────────────────────────
     const authHeader = req.headers.get('authorization') ?? ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
@@ -44,7 +53,7 @@ export async function POST(req: NextRequest) {
     const priceId = STRIPE_PRICES[plan]
     if (!priceId) {
       return NextResponse.json(
-        { error: `Unknown plan "${plan}". Valid: starter, pro, business` },
+        { error: `Unknown or unconfigured plan "${plan}". Valid configured plans: starter, pro, business` },
         { status: 400 }
       )
     }
@@ -60,6 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     let customerId = dbUser.stripeCustomerId
+    const stripe = getStripeClient()
 
     if (!customerId) {
       const customer = await stripe.customers.create({

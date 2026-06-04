@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendDailyDigest } from '@/lib/email/resend'
 
+export const dynamic = 'force-dynamic'
+
 const DAY_ORDER = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 
 function getDayName(): string {

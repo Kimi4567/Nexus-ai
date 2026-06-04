@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET  /api/cron/publish  — triggered by Vercel cron (daily at 10:00 UTC — Hobby plan backup)
  * POST /api/cron/publish  — triggered by external cron service every hour for precise scheduling

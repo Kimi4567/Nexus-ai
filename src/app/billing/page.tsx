@@ -296,6 +296,7 @@ export default function BillingPage() {
     plan: string
     status: string
     hasActiveSubscription: boolean
+    billingEnabled?: boolean
     credits: {
       remaining: number
       used: number
@@ -307,6 +308,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState<string | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [billingMessage, setBillingMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!session?.access_token) { setLoading(false); return }
@@ -321,6 +323,13 @@ export default function BillingPage() {
 
   const handleUpgrade = async (planId: string) => {
     if (!session?.access_token) return
+    if (billingStatus?.billingEnabled === false) {
+      setBillingMessage(ar
+        ? 'الاشتراكات المدفوعة غير مفعلة مؤقتا أثناء مرحلة البيتا. يمكنك استخدام الأرصدة المجانية الآن.'
+        : 'Paid subscriptions are temporarily disabled during beta. You can keep using the free credits for now.'
+      )
+      return
+    }
     setUpgrading(planId)
     try {
       const r = await fetch('/api/billing/checkout', {
@@ -333,6 +342,7 @@ export default function BillingPage() {
       })
       const data = await r.json()
       if (data.url) window.location.href = data.url
+      else if (data.error) setBillingMessage(data.error)
     } catch (e) { console.error(e) }
     finally { setUpgrading(null) }
   }
@@ -350,6 +360,7 @@ export default function BillingPage() {
   }
 
   const currentPlan = billingStatus?.plan?.toLowerCase() || 'free'
+  const billingEnabled = billingStatus?.billingEnabled !== false
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
 
@@ -362,6 +373,31 @@ export default function BillingPage() {
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-12">
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
+        {!loading && !billingEnabled && (
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] p-4">
+            <div className="flex items-start gap-3">
+              <Shield className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-amber-100">
+                  {ar ? 'وضع البيتا مفعّل' : 'Beta billing mode'}
+                </p>
+                <p className="text-sm text-amber-100/70 mt-1">
+                  {ar
+                    ? 'الدفع الحقيقي غير مفعّل حتى اكتمال الإعدادات القانونية وStripe. الحسابات المجانية والأرصدة التجريبية تعمل بشكل طبيعي.'
+                    : 'Live payments are disabled until legal and Stripe setup is complete. Free accounts and trial credits continue to work normally.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {billingMessage && (
+          <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.07] p-4 text-sm text-violet-100">
+            {billingMessage}
+          </div>
+        )}
+
         {!loading && billingStatus && (
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -500,7 +536,7 @@ export default function BillingPage() {
                   ) : (
                     <button
                       onClick={() => handleUpgrade(plan.id)}
-                      disabled={upgrading === plan.id}
+                      disabled={upgrading === plan.id || !billingEnabled}
                       className={`w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 ${
                         isPopular
                           ? 'bg-violet-500 hover:bg-violet-600 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
@@ -509,6 +545,8 @@ export default function BillingPage() {
                     >
                       {upgrading === plan.id
                         ? (ar ? 'جاري التحويل...' : 'Redirecting...')
+                        : !billingEnabled
+                        ? (ar ? 'قريبا' : 'Coming soon')
                         : (ar ? `ابدأ ${plan.nameAr} — $${plan.price}/شهر` : `Start ${plan.nameEn} — $${plan.price}/mo`)
                       }
                     </button>

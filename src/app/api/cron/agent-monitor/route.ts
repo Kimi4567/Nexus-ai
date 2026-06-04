@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { runCampaignMonitor, runReport } from '@/lib/agents/orchestrator'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(req: NextRequest) {
   // Verify cron secret — matches Vercel's Authorization: Bearer <CRON_SECRET> format
   const authHeader = req.headers.get('authorization')

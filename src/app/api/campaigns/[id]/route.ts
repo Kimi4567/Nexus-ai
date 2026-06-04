@@ -10,6 +10,14 @@ async function ownsCampaign(campaignId: string, userId: string) {
   })
 }
 
+function mergeUnique(existing: string[] | null | undefined, incoming: unknown[], limit = 20): string[] {
+  const current = Array.isArray(existing) ? existing : []
+  const next = incoming
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map(item => item.trim())
+  return Array.from(new Set([...current, ...next])).slice(-limit)
+}
+
 // GET /api/campaigns/[id] — full campaign detail + activities
 export async function GET(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
@@ -54,7 +62,51 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       if (key in body) data[key] = body[key]
     }
 
+    if (body.status === 'ACTIVE') {
+      const aiOutput = (existing.aiOutput as any) || {}
+      const sentinelPassed = aiOutput.sentinelReview?.status === 'passed'
+      const calendarReady = Array.isArray(aiOutput.calendarItems) && aiOutput.calendarItems.length > 0
+      if (!sentinelPassed || !calendarReady) {
+        return NextResponse.json({
+          error: 'ENGINE_NOT_READY',
+          message: 'Run NEXUS Engine, pass Sentinel, and build the calendar before approval.',
+        }, { status: 409 })
+      }
+    }
+
     const updated = await prisma.campaign.update({ where: { id: params.id }, data })
+
+    if (body.status === 'ACTIVE') {
+      const aiOutput = (existing.aiOutput as any) || {}
+      const strategy = aiOutput.strategy || {}
+      const hooks = [
+        ...(Array.isArray(aiOutput.topHooks) ? aiOutput.topHooks.slice(0, 5) : []),
+        ...(Array.isArray(strategy.topHooks) ? strategy.topHooks.slice(0, 5) : []),
+      ]
+      const angles = [
+        ...(Array.isArray(strategy.contentAngles) ? strategy.contentAngles.slice(0, 5) : []),
+        ...(Array.isArray(strategy.contentPillars) ? strategy.contentPillars.slice(0, 5).map((p: any) => typeof p === 'string' ? p : p?.pillar || p?.title || p?.topic) : []),
+      ]
+      const platforms = Array.isArray(existing.platforms) ? existing.platforms.map(String) : []
+
+      const brand = await prisma.brandProfile.findUnique({ where: { workspaceId: existing.workspaceId } })
+      if (brand) {
+        await prisma.brandProfile.update({
+          where: { workspaceId: existing.workspaceId },
+          data: {
+            winningHooks: mergeUnique(brand.winningHooks, hooks),
+            winningAngles: mergeUnique(brand.winningAngles, angles),
+            topPlatforms: mergeUnique(brand.topPlatforms, platforms, 12),
+            aiInsights: {
+              ...((brand.aiInsights as any) || {}),
+              lastApprovedCampaignId: existing.id,
+              lastApprovedAt: new Date().toISOString(),
+              lastApprovedPositioning: strategy.positioning || existing.description || undefined,
+            },
+          },
+        }).catch(() => null)
+      }
+    }
 
     // Auto-log activity
     let activityType = 'updated'

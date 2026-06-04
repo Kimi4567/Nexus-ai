@@ -14,14 +14,37 @@
 
 import Stripe from 'stripe'
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY env var is not set')
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+const billingFlag = process.env.NEXT_PUBLIC_BILLING_ENABLED
+
+let stripeClient: Stripe | null = null
+
+export function isBillingConfigured(): boolean {
+  return billingFlag !== 'false' && Boolean(stripeSecretKey)
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
-  typescript: true,
-})
+export function getStripeClient(): Stripe {
+  if (!stripeSecretKey) {
+    throw new Error('Stripe billing is not configured. Missing STRIPE_SECRET_KEY.')
+  }
+
+  if (!stripeClient) {
+    stripeClient = new Stripe(stripeSecretKey, {
+      apiVersion: '2023-10-16',
+      typescript: true,
+    })
+  }
+
+  return stripeClient
+}
+
+export function billingNotConfiguredResponse() {
+  return {
+    error: 'Billing is not configured yet.',
+    code: 'BILLING_NOT_CONFIGURED',
+    billingEnabled: false,
+  }
+}
 
 // ── Plan definitions ───────────────────────────────────────────────────────────
 

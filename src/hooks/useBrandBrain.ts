@@ -36,6 +36,39 @@ export interface BrandProfile {
   strategicNotes?: string | null
 }
 
+const ARRAY_FIELDS: (keyof BrandProfile)[] = [
+  'toneKeywords',
+  'avoidKeywords',
+  'audiencePainPoints',
+  'audienceDesires',
+  'secondaryOffers',
+  'uniqueAdvantages',
+  'colorPalette',
+  'topPlatforms',
+  'winningHooks',
+  'winningAngles',
+  'failedAngles',
+]
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.split(',').map(item => item.trim()).filter(Boolean)
+  }
+  return []
+}
+
+export function normalizeBrandProfile(profile: BrandProfile | null | undefined): BrandProfile | null {
+  if (!profile) return null
+  const normalized: BrandProfile = { ...profile }
+  for (const field of ARRAY_FIELDS) {
+    ;(normalized as Record<string, unknown>)[field] = toStringArray((profile as Record<string, unknown>)[field])
+  }
+  return normalized
+}
+
 /**
  * Converts a BrandProfile into an Arabic context string
  * injected at the top of every AI system prompt.
@@ -137,7 +170,7 @@ export function useBrandBrain() {
       })
       if (!res.ok) throw new Error('Failed to load brand')
       const data = await res.json()
-      setBrand(data.brandProfile || null)
+      setBrand(normalizeBrandProfile(data.brandProfile))
     } catch {
       setError('تعذّر تحميل بيانات العلامة التجارية')
     } finally {
@@ -161,7 +194,7 @@ export function useBrandBrain() {
       })
       if (!res.ok) throw new Error('Failed to save')
       const result = await res.json()
-      setBrand(result.brandProfile)
+      setBrand(normalizeBrandProfile(result.brandProfile))
       return true
     } catch {
       setError('تعذّر حفظ البيانات. حاول مجدداً.')

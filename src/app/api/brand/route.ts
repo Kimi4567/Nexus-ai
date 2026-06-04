@@ -6,6 +6,16 @@ import { getAuthUser } from '@/lib/apiAuth'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
 
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.split(',').map(item => item.trim()).filter(Boolean)
+  }
+  return []
+}
+
 // GET /api/brand — fetch brand profile for user's primary workspace
 export async function GET(req: NextRequest) {
   try {
@@ -71,25 +81,25 @@ export async function POST(req: NextRequest) {
       brandName: brandName || null,
       industry: industry || null,
       description: description || null,
-      toneKeywords: toneKeywords || [],
-      avoidKeywords: avoidKeywords || [],
+      toneKeywords: toStringArray(toneKeywords),
+      avoidKeywords: toStringArray(avoidKeywords),
       writingStyle: writingStyle || null,
       targetAudience: targetAudience || null,
       audienceAge: audienceAge || null,
       audienceLocation: audienceLocation || null,
-      audiencePainPoints: audiencePainPoints || [],
-      audienceDesires: audienceDesires || [],
+      audiencePainPoints: toStringArray(audiencePainPoints),
+      audienceDesires: toStringArray(audienceDesires),
       primaryOffer: primaryOffer || null,
-      secondaryOffers: secondaryOffers || [],
+      secondaryOffers: toStringArray(secondaryOffers),
       pricePoint: pricePoint || null,
-      uniqueAdvantages: uniqueAdvantages || [],
+      uniqueAdvantages: toStringArray(uniqueAdvantages),
       visualStyle: visualStyle || null,
-      colorPalette: colorPalette || [],
+      colorPalette: toStringArray(colorPalette),
       logoUrl: logoUrl || null,
-      winningHooks: winningHooks || [],
-      winningAngles: winningAngles || [],
-      failedAngles: failedAngles || [],
-      topPlatforms: topPlatforms || [],
+      winningHooks: toStringArray(winningHooks),
+      winningAngles: toStringArray(winningAngles),
+      failedAngles: toStringArray(failedAngles),
+      topPlatforms: toStringArray(topPlatforms),
       strategicNotes: strategicNotes || null,
       competitorNotes: competitorNotes || null,
     }

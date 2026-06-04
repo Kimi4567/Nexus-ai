@@ -15,6 +15,8 @@ import {
   sendNurtureDay7,
 } from '@/lib/email/resend'
 
+export const dynamic = 'force-dynamic'
+
 // Windows (in hours) for each nurture stage
 // Wide windows so we never miss a user due to cron timing
 const STAGES = [

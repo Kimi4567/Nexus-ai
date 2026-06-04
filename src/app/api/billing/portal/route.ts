@@ -6,7 +6,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
-import { stripe } from '@/lib/stripe'
+import {
+  billingNotConfiguredResponse,
+  getStripeClient,
+  isBillingConfigured,
+} from '@/lib/stripe'
 
 function getBaseUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -14,6 +18,10 @@ function getBaseUrl() {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!isBillingConfigured()) {
+      return NextResponse.json(billingNotConfiguredResponse(), { status: 503 })
+    }
+
     // ── Authenticate ─────────────────────────────────────────────────────────
     const authHeader = req.headers.get('authorization') ?? ''
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null
@@ -41,6 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const baseUrl = getBaseUrl()
+    const stripe = getStripeClient()
 
     // ── Create portal session ───────────────────────────────────────────────
     const portalSession = await stripe.billingPortal.sessions.create({

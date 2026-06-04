@@ -50,6 +50,7 @@ const PLANS = [
 export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: Props) {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
   if (!open) return null
 
@@ -79,9 +80,14 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
         },
         body: JSON.stringify({ plan: planId }),
       })
-      const { url } = await res.json()
+      const { url, code } = await res.json()
       if (url) window.location.href = url
+      else if (code === 'BILLING_NOT_CONFIGURED') {
+        setMessage('Paid plans are temporarily disabled during beta. Your free credits still work while Stripe setup is completed.')
+      }
     } catch {
+      setMessage('Could not start checkout. Please try again later.')
+    } finally {
       setLoading(null)
     }
   }
@@ -104,6 +110,12 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
 
         {/* Plans */}
         <div className="p-6 grid grid-cols-3 gap-3">
+          {message && (
+            <div className="col-span-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+              {message}
+            </div>
+          )}
+
           {PLANS.map((plan) => (
             <div key={plan.id}
               className="rounded-xl p-4 flex flex-col relative"

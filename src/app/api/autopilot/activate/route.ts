@@ -141,8 +141,8 @@ export async function POST(req: NextRequest) {
       }
       // Secondary: analyzed assets from Creative Brief (asset mode)
       const creativeBrief = aiOutput.creativeBrief
-      if (creativeBrief?.mode === 'asset' && Array.isArray(creativeBrief.assetAnalysis)) {
-        for (const a of creativeBrief.assetAnalysis) {
+      if (creativeBrief?.mode === 'asset' && Array.isArray(creativeBrief.assetAnalyses)) {
+        for (const a of creativeBrief.assetAnalyses) {
           if (a.url && !userMediaItems.find(m => m.url === a.url)) {
             userMediaItems.push({ id: a.mediaId || '', url: a.url })
           }

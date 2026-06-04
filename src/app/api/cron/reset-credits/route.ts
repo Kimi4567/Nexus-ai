@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PLAN_CREDITS as STRIPE_PLAN_CREDITS } from '@/lib/stripe'
 
+export const dynamic = 'force-dynamic'
+
 // Map uppercase DB enum values to the lowercase keys used in PLAN_CREDITS
 const PLAN_CREDITS: Record<string, number> = {
   STARTER:  STRIPE_PLAN_CREDITS['starter']  ?? 300,

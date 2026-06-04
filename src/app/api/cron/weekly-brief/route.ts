@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendWeeklyBrief } from '@/lib/email/resend'
 
+export const dynamic = 'force-dynamic'
+
 // Cron auth
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET

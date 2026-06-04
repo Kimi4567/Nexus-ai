@@ -233,8 +233,8 @@ export async function GET(req: NextRequest) {
       },
       update: {
         status:       'CONNECTED',
-        accessToken,
-        refreshToken,
+        accessToken:  encryptToken(accessToken),
+        refreshToken: refreshToken ? encryptToken(refreshToken) : null,
         accountId:    openId,
         accountName:  displayName,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

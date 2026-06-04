@@ -11,7 +11,13 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { stripe, PLAN_CREDITS, planFromPriceId } from '@/lib/stripe'
+import {
+  billingNotConfiguredResponse,
+  getStripeClient,
+  isBillingConfigured,
+  PLAN_CREDITS,
+  planFromPriceId,
+} from '@/lib/stripe'
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 import Stripe from 'stripe'
 
@@ -99,10 +105,17 @@ export async function POST(req: NextRequest) {
   const sig    = req.headers.get('stripe-signature')
   const secret = process.env.STRIPE_WEBHOOK_SECRET
 
+  if (!isBillingConfigured()) {
+    console.error('[Webhook] Stripe billing is not configured')
+    return NextResponse.json(billingNotConfiguredResponse(), { status: 503 })
+  }
+
   if (!sig || !secret) {
     console.error('[Webhook] Missing stripe-signature or STRIPE_WEBHOOK_SECRET')
     return NextResponse.json({ error: 'Webhook misconfigured' }, { status: 400 })
   }
+
+  const stripe = getStripeClient()
 
   // ── Verify signature ────────────────────────────────────────────────────
   let event: Stripe.Event
