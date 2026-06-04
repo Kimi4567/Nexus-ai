@@ -56,49 +56,40 @@ export async function POST(req: NextRequest) {
     })
     logQualityReport('/api/generate', qualityReport, `campaign=${campaign.id}`)
 
-    const genStrategy = await prisma.generation.create({
-      data: {
-        campaignId: campaign.id,
-        type: 'SOCIAL_POST',
-        prompt: 'marketing strategy',
-        params: {},
-        status: 'COMPLETED',
-        output: JSON.stringify(strategy),
-        provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
-      },
-    })
-
-    const genConcepts = await prisma.generation.create({
-      data: {
-        campaignId: campaign.id,
-        type: 'SOCIAL_POST',
-        prompt: 'ad concepts',
-        params: {},
-        status: 'COMPLETED',
-        output: JSON.stringify(concepts),
-        provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
-      },
-    })
-
-    // ── CRITICAL: Persist aiOutput on the Campaign row so the frontend polling finds it ──
-    await prisma.campaign.update({
-      where: { id: campaign.id },
-      data: {
-        aiOutput: { strategy, concepts },
-        activities: {
-          create: {
-            type: 'generated',
-            description: 'AI strategy and ad concepts generated',
+    // ── CRITICAL: Save aiOutput — run in parallel with non-critical audit records ──
+    await Promise.all([
+      prisma.campaign.update({
+        where: { id: campaign.id },
+        data: {
+          aiOutput: { strategy, concepts },
+          activities: {
+            create: {
+              type: 'generated',
+              description: 'AI strategy and ad concepts generated',
+            },
           },
         },
-      },
-    })
+      }),
+      // Audit records — non-critical, failures are silenced
+      prisma.generation.create({
+        data: {
+          campaignId: campaign.id, type: 'SOCIAL_POST', prompt: 'marketing strategy',
+          params: {}, status: 'COMPLETED', output: JSON.stringify(strategy),
+          provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
+        },
+      }).catch(() => null),
+      prisma.generation.create({
+        data: {
+          campaignId: campaign.id, type: 'SOCIAL_POST', prompt: 'ad concepts',
+          params: {}, status: 'COMPLETED', output: JSON.stringify(concepts),
+          provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
+        },
+      }).catch(() => null),
+    ])
 
     return NextResponse.json({
       strategy,
       concepts,
-      genStrategy,
-      genConcepts,
       creditsRemaining: credit.creditsRemaining,
       qualityScore: qualityReport.score,
     })

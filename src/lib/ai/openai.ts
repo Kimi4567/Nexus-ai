@@ -79,33 +79,28 @@ export async function generateMarketingStrategy(campaign: any, project: any): Pr
 ${langInstruction}
 Always respond with valid JSON only.`
 
-  const user = `Create a focused marketing strategy. Return a JSON object with EXACTLY these keys (no extras):
+  const user = `Create a focused marketing strategy. Return ONLY this JSON (no extra keys, keep values SHORT):
 
 {
-  "overview": "2-3 sentence executive summary",
-  "positioning": "market positioning statement",
-  "audience": "single string: target audience demographics and psychographics",
-  "valueProps": ["value prop 1", "value prop 2", "value prop 3"],
-  "contentPillars": ["pillar 1", "pillar 2", "pillar 3"],
-  "angles": ["angle 1", "angle 2", "angle 3", "angle 4"],
-  "platformRecommendations": { "PLATFORM": "strategy for this platform" },
-  "metrics": { "impressions": "target", "engagement": "target %", "conversions": "target" },
-  "ctaStrategies": ["CTA 1", "CTA 2", "CTA 3"],
-  "risks": ["risk 1", "risk 2"]
+  "overview": "2 sentences max",
+  "audience": "1 sentence",
+  "valueProps": ["3 items, 8 words each max"],
+  "angles": ["4 angles, 10 words each max"],
+  "platformRecommendations": { "PLATFORM": "1 sentence per platform" },
+  "ctaStrategies": ["2 CTAs, 8 words each max"]
 }
 
 CAMPAIGN: ${campaign.name} | Goal: ${campaign.goal} | Tone: ${campaign.tone}
-Audience: ${campaign.audience || 'Not specified'}
+Audience: ${campaign.audience || 'General'}
 Platforms: ${(campaign.platforms || []).join(', ')}
 ${campaign.description ? `Description: ${campaign.description}` : ''}
-${campaign.brandProfile?.brandName ? `Brand: ${campaign.brandProfile.brandName} | Industry: ${campaign.brandProfile.industry || ''}` : ''}
-${campaign.brandProfile?.toneKeywords?.length ? `Tone: ${campaign.brandProfile.toneKeywords.join(', ')}` : ''}
-${platformGuides ? `Platform guides:\n${platformGuides}` : ''}
+${campaign.brandProfile?.brandName ? `Brand: ${campaign.brandProfile.brandName}` : ''}
+${platformGuides ? `Platform context:\n${platformGuides}` : ''}
 
-Be specific to this campaign — real copy examples, not placeholders.
+Be specific and concise. Real copy, not generic placeholders.
 ${getLanguageInstruction(campaign.language)}`
 
-  return callOpenAI(system, user, true, 900)
+  return callOpenAI(system, user, true, 400)
 }
 
 // ─────────────────────────────────────────────
@@ -151,7 +146,7 @@ ${platformGuides ? `Platform guides:\n${platformGuides}` : ''}
 3 concepts, 3 different angles. Write real copy, not descriptions.
 CRITICAL: ${getLanguageInstruction(campaign.language)}`
 
-  const result = await callOpenAI(system, user, true, 900)
+  const result = await callOpenAI(system, user, true, 400)
   // Handle both { concepts: [] } and direct array
   if (Array.isArray(result)) return result
   if (result?.concepts) return result.concepts
