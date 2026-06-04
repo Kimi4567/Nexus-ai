@@ -253,6 +253,19 @@ export default function CampaignDetailPage() {
       .catch(() => {})
   }, [activeTab, isAuthenticated, campaignId, authHeader])
 
+  // Auto-trigger generation for new campaigns that have no aiOutput yet
+  const autoTriggeredRef = useRef(false)
+  useEffect(() => {
+    if (!isNewCampaign) return
+    if (!campaign) return                   // wait for campaign to load
+    if (campaign.aiOutput) return           // already has content — nothing to do
+    if (generating) return                  // already in progress
+    if (autoTriggeredRef.current) return    // already triggered once this mount
+    autoTriggeredRef.current = true
+    handleGenerateStrategy()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign, isNewCampaign, generating])
+
   // Poll for AI output when generating=true
   useEffect(() => {
     if (!generating || !isAuthenticated) return

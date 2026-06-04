@@ -79,69 +79,33 @@ export async function generateMarketingStrategy(campaign: any, project: any): Pr
 ${langInstruction}
 Always respond with valid JSON only.`
 
-  const user = `Create a complete marketing strategy for this campaign. Return a JSON object with EXACTLY these keys:
+  const user = `Create a focused marketing strategy. Return a JSON object with EXACTLY these keys (no extras):
 
 {
-  "overview": "2-3 sentence executive summary of the campaign strategy",
-  "positioning": "how to position the product/service in the market",
-  "audience": "a single plain string describing the target audience including demographics and psychographics (NOT a nested object)",
-  "valueProps": ["value prop 1", "value prop 2", "value prop 3", "value prop 4"],
-  "contentPillars": ["pillar 1", "pillar 2", "pillar 3", "pillar 4"],
-  "angles": ["content angle 1", "content angle 2", "content angle 3", "content angle 4", "content angle 5"],
-  "platformRecommendations": {
-    "PLATFORM_NAME": "specific strategy and content type for this platform"
-  },
-  "contentCalendar": [
-    {
-      "week": "Week 1",
-      "posts": [
-        { "day": "Monday", "platform": "PLATFORM", "type": "Content Type", "topic": "Post topic", "format": "Video/Image/Carousel", "caption": "Ready-to-post caption draft with hashtags" }
-      ]
-    }
-  ],
-  "metrics": {
-    "impressions": "target number",
-    "engagement": "target %",
-    "clicks": "target number",
-    "conversions": "target number",
-    "roi": "target %"
-  },
-  "ctaStrategies": ["CTA 1", "CTA 2", "CTA 3", "CTA 4"],
+  "overview": "2-3 sentence executive summary",
+  "positioning": "market positioning statement",
+  "audience": "single string: target audience demographics and psychographics",
+  "valueProps": ["value prop 1", "value prop 2", "value prop 3"],
+  "contentPillars": ["pillar 1", "pillar 2", "pillar 3"],
+  "angles": ["angle 1", "angle 2", "angle 3", "angle 4"],
+  "platformRecommendations": { "PLATFORM": "strategy for this platform" },
+  "metrics": { "impressions": "target", "engagement": "target %", "conversions": "target" },
+  "ctaStrategies": ["CTA 1", "CTA 2", "CTA 3"],
   "risks": ["risk 1", "risk 2"]
 }
 
-CAMPAIGN DATA:
-- Name: ${campaign.name}
-- Goal: ${campaign.goal}
-- Audience: ${campaign.audience || 'Not specified'}
-- Tone: ${campaign.tone}
-- Platforms: ${(campaign.platforms || []).join(', ')}
-- Description: ${campaign.description || 'Not provided'}
-${campaign.brandProfile ? `
-BRAND MEMORY (use this to stay on-brand):
-- Brand: ${campaign.brandProfile.brandName || 'Unknown'}
-- Industry: ${campaign.brandProfile.industry || 'Unknown'}
-- Brand Description: ${campaign.brandProfile.description || ''}
-- Tone Keywords: ${(campaign.brandProfile.toneKeywords || []).join(', ')}
-- Avoid: ${(campaign.brandProfile.avoidKeywords || []).join(', ')}
-- Writing Style: ${campaign.brandProfile.writingStyle || ''}
-- Target Audience: ${campaign.brandProfile.targetAudience || ''}
-- Primary Offer: ${campaign.brandProfile.primaryOffer || ''}
-- Unique Advantages: ${(campaign.brandProfile.uniqueAdvantages || []).join(', ')}
-- Winning Hooks: ${(campaign.brandProfile.winningHooks || []).join(', ')}
-- Winning Angles: ${(campaign.brandProfile.winningAngles || []).join(', ')}
-- Strategic Notes: ${campaign.brandProfile.strategicNotes || ''}
-` : ''}
-PLATFORM-SPECIFIC GUIDES (apply these):
-${platformGuides || 'Create platform-native content appropriate to each platform.'}
+CAMPAIGN: ${campaign.name} | Goal: ${campaign.goal} | Tone: ${campaign.tone}
+Audience: ${campaign.audience || 'Not specified'}
+Platforms: ${(campaign.platforms || []).join(', ')}
+${campaign.description ? `Description: ${campaign.description}` : ''}
+${campaign.brandProfile?.brandName ? `Brand: ${campaign.brandProfile.brandName} | Industry: ${campaign.brandProfile.industry || ''}` : ''}
+${campaign.brandProfile?.toneKeywords?.length ? `Tone: ${campaign.brandProfile.toneKeywords.join(', ')}` : ''}
+${platformGuides ? `Platform guides:\n${platformGuides}` : ''}
 
-Generate the contentCalendar for 2 weeks with 4-5 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
-For each calendar post, include a "caption" field with a ready-to-post caption draft (including relevant hashtags for social platforms).
-Make ALL recommendations hyper-specific to this campaign — use real copy examples, not placeholders.
-Every value prop, CTA, and hook should name the actual product/service and audience.
-REMINDER: ${getLanguageInstruction(campaign.language)}`
+Be specific to this campaign — real copy examples, not placeholders.
+${getLanguageInstruction(campaign.language)}`
 
-  return callOpenAI(system, user, true, 2500)
+  return callOpenAI(system, user, true, 900)
 }
 
 // ─────────────────────────────────────────────
@@ -163,54 +127,31 @@ Your hooks are tested, specific, and platform-native — not generic.
 ${langInstruction}
 Always respond with valid JSON only.`
 
-  const user = `Generate exactly 5 unique ad concepts for this campaign. Return a JSON object with a "concepts" array containing exactly 5 items.
+  const user = `Generate exactly 3 unique ad concepts. Return JSON: { "concepts": [ ...3 items... ] }
 
-RULES:
-- Each of the 5 concepts must use a DIFFERENT creative angle from this list: Pattern Interrupt, Social Proof, Problem/Agitation/Solution, Curiosity Gap, FOMO/Urgency, Authority/Credibility, Transformation Story, Objection Killer
-- Scripts must be platform-native — a TikTok script has a completely different voice/structure than LinkedIn
-- Hooks must be ultra-specific to this product/audience — never generic
-- Write actual copy, not descriptions of what copy would say
-
-Each concept must have EXACTLY this structure:
+Each concept:
 {
-  "name": "catchy concept name",
-  "description": "1-2 sentence description of the concept approach",
-  "angle": "the creative angle used (e.g. 'Social Proof', 'Pattern Interrupt', 'Curiosity Gap')",
-  "hook": "the opening line that stops the scroll — specific, provocative, platform-native. First 0-3 seconds.",
-  "script": "complete platform-native script: [HOOK - 0-3s] ... [PROBLEM] ... [SOLUTION] ... [PROOF/CREDIBILITY] ... [CTA]. For TikTok: casual, fast, punchy. For LinkedIn: insight-led, professional. For Instagram: visual storytelling. 80-120 words total.",
-  "cta": "specific, action-driven call-to-action (not 'click the link')",
-  "headlines": ["attention headline", "benefit-focused headline", "curiosity/FOMO headline"],
-  "captions": ["full platform-native caption with relevant hashtags — ready to post"],
+  "name": "short catchy name",
+  "angle": "Pattern Interrupt | Social Proof | Problem/Solution | Curiosity Gap | FOMO | Transformation",
+  "hook": "scroll-stopping opening line, platform-native, ultra-specific (not generic)",
+  "script": "40-60 word platform-native ad script covering hook, problem, solution, CTA",
+  "cta": "specific action CTA",
+  "headlines": ["headline 1", "headline 2"],
+  "captions": ["ready-to-post caption with hashtags"],
   "platform": "ONE of: ${platforms.join(' | ')}",
-  "format": "Video/Carousel/Static/Story/Reel",
-  "estimatedReach": "estimated reach range (e.g. '10K-50K')"
+  "format": "Video/Carousel/Static/Reel"
 }
 
-CAMPAIGN:
-- Name: ${campaign.name}
-- Goal: ${campaign.goal}
-- Audience: ${campaign.audience || 'General audience'}
-- Tone: ${campaign.tone}
-- Platforms: ${platforms.join(', ')}
-- Description: ${campaign.description || 'Not provided'}
-${campaign.brandProfile ? `
-BRAND VOICE (strictly follow this):
-- Brand: ${campaign.brandProfile.brandName || ''}
-- Tone: ${(campaign.brandProfile.toneKeywords || []).join(', ')}
-- Avoid: ${(campaign.brandProfile.avoidKeywords || []).join(', ')}
-- Writing Style: ${campaign.brandProfile.writingStyle || ''}
-- Winning Hooks to build on: ${(campaign.brandProfile.winningHooks || []).join(' | ')}
-- Winning Angles to use: ${(campaign.brandProfile.winningAngles || []).join(' | ')}
-` : ''}
-PLATFORM GUIDES:
-${platformGuides || 'Adapt tone and format to each platform naturally.'}
+CAMPAIGN: ${campaign.name} | Goal: ${campaign.goal} | Audience: ${campaign.audience || 'General'} | Tone: ${campaign.tone}
+Platforms: ${platforms.join(', ')}
+${campaign.description ? `Description: ${campaign.description}` : ''}
+${campaign.brandProfile ? `Brand: ${campaign.brandProfile.brandName || ''} | Avoid: ${(campaign.brandProfile.avoidKeywords || []).join(', ')}` : ''}
+${platformGuides ? `Platform guides:\n${platformGuides}` : ''}
 
-The overall campaign tone is ${campaign.tone.toLowerCase()}. All 5 concepts must feel distinctly different — different angle, different emotional trigger, different platform if possible.
-CRITICAL: ${getLanguageInstruction(campaign.language)}
+3 concepts, 3 different angles. Write real copy, not descriptions.
+CRITICAL: ${getLanguageInstruction(campaign.language)}`
 
-Return: { "concepts": [ ...exactly 5 concepts... ] }`
-
-  const result = await callOpenAI(system, user, true, 2000)
+  const result = await callOpenAI(system, user, true, 900)
   // Handle both { concepts: [] } and direct array
   if (Array.isArray(result)) return result
   if (result?.concepts) return result.concepts

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
+import { useBillingStatus } from '@/lib/useBillingStatus'
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
 
@@ -116,18 +117,9 @@ export default function NewCampaignPage() {
         return
       }
 
-      // Kick off AI generation (async — user proceeds to campaign detail)
-      // Pass locale so AI generates in the user's language (not always Arabic)
-      fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: authHeader(),
-        },
-        body: JSON.stringify({ campaignId, language: locale }),
-      }).catch(() => {})
-
-      router.push(`/campaigns/${campaignId}?generating=true&new=1`)
+      // Navigate to campaign detail — generation is triggered from there
+      // so the user sees a visible spinner and can retry on failure
+      router.push(`/campaigns/${campaignId}?new=1`)
     } catch (err: any) {
       setError(err.message || cnT?.errorUnexpected as string)
       setSaving(false)
