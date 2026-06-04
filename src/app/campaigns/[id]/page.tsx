@@ -1184,64 +1184,76 @@ export default function CampaignDetailPage() {
 
             {/* ── Tab 0: Strategy (Strategist) ─────────────────────────────── */}
             {activeTab === 0 && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <AgentBanner idx={0} />
                 <BrandDNABadge brand={brandDNA} locale={locale} />
 
-                {/* ── Next Best Action — pinned at top for instant scannability ── */}
+                {/* 🚀 Next Best Action — pinned banner, shown once */}
                 {strategy.nextBestAction && (
-                  <div className="bg-accent/10 border-2 border-accent/40 rounded-2xl p-4 flex items-start gap-3">
+                  <div className="rounded-2xl p-4 flex items-center gap-3"
+                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.08))', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 20px rgba(139,92,246,0.08)' }}>
                     <span className="text-2xl flex-shrink-0">🚀</span>
                     <div className="min-w-0">
-                      <p className="text-[10px] text-accent uppercase tracking-widest font-bold mb-1">{cdT?.nextActionBannerLabel || 'Next Action'}</p>
+                      <p className="text-[10px] text-accent uppercase tracking-widest font-bold mb-0.5">{cdT?.nextActionBannerLabel || 'Your Next Action'}</p>
                       <p className="text-white text-sm font-semibold leading-relaxed">{strategy.nextBestAction}</p>
                     </div>
                   </div>
                 )}
 
-                {/* Diagnosis — first section, sets the stage */}
+                {/* ══ CHAPTER 01 — THE BRIEF ═══════════════════════════════════ */}
+                {(strategy.diagnosis || businessObjective) && (
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>01</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterBrief || 'The Brief'}</span>
+                  </div>
+                )}
+
+                {/* Diagnosis + inline diagnosis details */}
                 {strategy.diagnosis && (
-                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-6">
-                    <h3 className="font-bold text-sm text-amber-400 uppercase tracking-wide mb-2 flex items-center gap-2">
-                      <span>🔎</span> {cdT?.sectionDiagnosis || 'Marketing Diagnosis'}
-                    </h3>
-                    <p className="text-gray-200 text-sm leading-relaxed">{strategy.diagnosis}</p>
-                  </div>
-                )}
-
-                {/* Diagnosis Details — compact structured breakdown (Sprint M) */}
-                {diagnosisDetails && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {[
-                      { label: cdT?.diagStage || 'Stage', value: diagnosisDetails.stage, color: 'text-amber-400' },
-                      { label: cdT?.diagBottleneck || 'Bottleneck', value: diagnosisDetails.bottleneck, color: 'text-orange-400' },
-                      { label: cdT?.diagTrustGap || 'Trust Gap', value: diagnosisDetails.trustGap, color: 'text-red-400' },
-                      { label: cdT?.diagRisk || 'Main Risk', value: diagnosisDetails.mainRisk, color: 'text-red-400' },
-                      { label: cdT?.diagPaidAdsReady || 'Paid Ads Ready', value: diagnosisDetails.readyForPaidAds ? '✓ Yes' : '✗ Not yet', color: diagnosisDetails.readyForPaidAds ? 'text-green-400' : 'text-amber-400' },
-                      diagnosisDetails.readyForPaidAdsReason ? { label: 'Reason', value: diagnosisDetails.readyForPaidAdsReason, color: 'text-gray-400' } : null,
-                    ].filter(Boolean).map((item: any, i: number) => (
-                      <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                        <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.label}</p>
-                        <p className={`text-xs font-medium leading-snug ${item.color}`}>{item.value}</p>
+                  <div className="rounded-2xl p-5 space-y-3"
+                    style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                    <div className="flex items-start gap-3">
+                      <span className="text-lg flex-shrink-0">🔎</span>
+                      <div>
+                        <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1">{cdT?.sectionDiagnosis || 'Marketing Diagnosis'}</p>
+                        <p className="text-gray-200 text-sm leading-relaxed">{strategy.diagnosis}</p>
                       </div>
-                    ))}
+                    </div>
+                    {diagnosisDetails && (
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-amber-500/10">
+                        {[
+                          { label: cdT?.diagStage || 'Stage', value: diagnosisDetails.stage, color: 'text-amber-400' },
+                          { label: cdT?.diagBottleneck || 'Bottleneck', value: diagnosisDetails.bottleneck, color: 'text-orange-400' },
+                          { label: cdT?.diagTrustGap || 'Trust Gap', value: diagnosisDetails.trustGap, color: 'text-red-400' },
+                          { label: cdT?.diagRisk || 'Main Risk', value: diagnosisDetails.mainRisk, color: 'text-red-400' },
+                          { label: cdT?.diagPaidAdsReady || 'Paid Ads Ready', value: diagnosisDetails.readyForPaidAds ? '✓ Yes' : '✗ Not yet', color: diagnosisDetails.readyForPaidAds ? 'text-green-400' : 'text-amber-400' },
+                          diagnosisDetails.readyForPaidAdsReason ? { label: 'Why', value: diagnosisDetails.readyForPaidAdsReason, color: 'text-gray-400' } : null,
+                        ].filter(Boolean).map((item: any, i: number) => (
+                          <div key={i} className="bg-dark/60 rounded-lg p-2.5 border border-dark-tertiary">
+                            <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
+                            <p className={`text-xs font-semibold leading-snug ${item.color}`}>{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Business Objective (Sprint M) */}
+                {/* Business Objective */}
                 {businessObjective && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(99,102,241,0.25)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-sm text-indigo-400 uppercase tracking-wide mb-4 flex items-center gap-2">
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-3 flex items-center gap-2">
                       <span>🎯</span> {cdT?.sectionBusinessObjective || 'Business Objective'}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {[
-                        { label: cdT?.businessObjPrimary || 'Business Objective', value: businessObjective.primary, icon: '🏆' },
-                        { label: cdT?.businessObjMarketing || 'Marketing Objective', value: businessObjective.marketing, icon: '📣' },
+                        { label: cdT?.businessObjPrimary || 'Business Goal', value: businessObjective.primary, icon: '🏆' },
+                        { label: cdT?.businessObjMarketing || 'Marketing Goal', value: businessObjective.marketing, icon: '📣' },
                         { label: cdT?.businessObjConversion || 'Conversion Action', value: businessObjective.conversionAction, icon: '⚡' },
-                        { label: cdT?.businessObjAction || 'Expected User Action', value: businessObjective.expectedUserAction, icon: '👆' },
+                        { label: cdT?.businessObjAction || 'Expected Action', value: businessObjective.expectedUserAction, icon: '👆' },
                         { label: cdT?.businessObjWhyNow || 'Why Now', value: businessObjective.whyNow, icon: '⏰' },
-                        { label: cdT?.businessObjSuccess30 || 'Success in 30 Days', value: businessObjective.successIn30Days, icon: '📅' },
+                        { label: cdT?.businessObjSuccess30 || 'Win in 30 Days', value: businessObjective.successIn30Days, icon: '📅' },
                       ].filter(item => item.value).map((item, i) => (
                         <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.icon} {item.label}</p>
@@ -1252,81 +1264,76 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Key Message — flagship section */}
+                {/* ══ CHAPTER 02 — THE STRATEGY ════════════════════════════════ */}
+                {(strategy.keyMessage || strategy.positioning || strategy.differentiation || audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0 || strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>02</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterStrategy || 'The Strategy'}</span>
+                  </div>
+                )}
+
+                {/* Key Message — flagship */}
                 {strategy.keyMessage && (
-                  <div className="bg-indigo-500/8 border border-indigo-500/20 rounded-2xl p-6">
-                    <h3 className="font-bold text-sm text-indigo-400 uppercase tracking-wide mb-2 flex items-center gap-2">
-                      <span>💬</span> {cdT?.sectionKeyMessage}
-                    </h3>
-                    <p className="text-white text-lg font-semibold leading-relaxed">"{strategy.keyMessage}"</p>
-                    <div className="mt-3">
-                      <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
-                    </div>
+                  <div className="rounded-2xl p-5"
+                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05))', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 0 24px rgba(99,102,241,0.06)' }}>
+                    <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mb-2">{cdT?.sectionKeyMessage || 'Core Message'}</p>
+                    <p className="text-white text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
+                    <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
                   </div>
                 )}
 
-                {/* Positioning */}
-                {strategy.positioning && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>🎯</span> {cdT?.sectionPositioning}</h3>
-                    <p className="text-gray-300 leading-relaxed text-sm">{strategy.positioning}</p>
+                {/* Positioning + Differentiation — side by side */}
+                {(strategy.positioning || strategy.differentiation) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {strategy.positioning && (
+                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>🎯</span> {cdT?.sectionPositioning || 'Positioning'}</p>
+                        <p className="text-gray-300 text-sm leading-relaxed">{strategy.positioning}</p>
+                      </div>
+                    )}
+                    {strategy.differentiation && (
+                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</p>
+                        <p className="text-gray-300 text-sm leading-relaxed">{strategy.differentiation}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Differentiation */}
-                {strategy.differentiation && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</h3>
-                    <p className="text-gray-300 leading-relaxed text-sm">{strategy.differentiation}</p>
-                  </div>
-                )}
-
-                {/* Audience Segments — Sprint M detailed view (fallback to simple strings) */}
+                {/* Audience Segments */}
                 {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>👥</span> {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}</h3>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <span>👥</span> {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}
+                    </h3>
                     {audienceSegmentsDetailed.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {audienceSegmentsDetailed.map((seg: any, i: number) => (
                           <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
-                            <div className="flex items-center gap-2 mb-3">
+                            <div className="flex items-center gap-2 mb-2">
                               <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">#{i + 1}</span>
                               <p className="text-sm font-bold text-white">{seg.segment}</p>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                               {seg.situation && (
                                 <div className="col-span-2">
-                                  <span className="text-gray-600 uppercase tracking-wide">Situation: </span>
+                                  <span className="text-gray-600 text-[9px] uppercase tracking-wide">Situation: </span>
                                   <span className="text-gray-300">{seg.situation}</span>
                                 </div>
                               )}
-                              {seg.pain && (
-                                <div>
-                                  <span className="text-red-400 uppercase tracking-wide">Pain: </span>
-                                  <span className="text-gray-400">{seg.pain}</span>
-                                </div>
-                              )}
-                              {seg.desiredOutcome && (
-                                <div>
-                                  <span className="text-green-400 uppercase tracking-wide">Wants: </span>
-                                  <span className="text-gray-400">{seg.desiredOutcome}</span>
-                                </div>
-                              )}
-                              {seg.objection && (
-                                <div>
-                                  <span className="text-amber-400 uppercase tracking-wide">Objection: </span>
-                                  <span className="text-gray-400">{seg.objection}</span>
-                                </div>
-                              )}
+                              {seg.pain && <div><span className="text-red-400 text-[9px] uppercase">Pain: </span><span className="text-gray-400">{seg.pain}</span></div>}
+                              {seg.desiredOutcome && <div><span className="text-green-400 text-[9px] uppercase">Wants: </span><span className="text-gray-400">{seg.desiredOutcome}</span></div>}
+                              {seg.objection && <div><span className="text-amber-400 text-[9px] uppercase">Objection: </span><span className="text-gray-400">{seg.objection}</span></div>}
                               {seg.message && (
-                                <div>
-                                  <span className="text-indigo-400 uppercase tracking-wide">Message: </span>
-                                  <span className="text-gray-300 font-medium">{seg.message}</span>
+                                <div className="col-span-2">
+                                  <span className="text-indigo-400 text-[9px] uppercase">Message: </span>
+                                  <span className="text-gray-200 font-medium">{seg.message}</span>
                                 </div>
                               )}
                             </div>
                             {(seg.platform || seg.format || seg.cta) && (
-                              <div className="flex items-center gap-3 mt-3 pt-2 border-t border-dark-tertiary text-xs">
+                              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-dark-tertiary text-xs">
                                 {seg.platform && <span className="text-gray-500">📱 {seg.platform}</span>}
                                 {seg.format && <span className="text-gray-500">📄 {seg.format}</span>}
                                 {seg.cta && <span className="text-accent font-semibold ml-auto">{seg.cta}</span>}
@@ -1348,110 +1355,15 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Funnel Stages — Sprint M detailed (fallback to funnelStrategy) */}
-                {(funnelStages.length > 0 || strategy.funnelStrategy) && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🔻</span> {cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Funnel'}</h3>
-                    {funnelStages.length > 0 ? (
-                      <div className="space-y-3">
-                        {funnelStages.map((stage: any, i: number) => {
-                          const stageColors: Record<string, string> = {
-                            awareness: 'border-blue-500/30 bg-blue-500/5',
-                            consideration: 'border-purple-500/30 bg-purple-500/5',
-                            conversion: 'border-green-500/30 bg-green-500/5',
-                            followUp: 'border-amber-500/30 bg-amber-500/5',
-                          }
-                          const stageIcons: Record<string, string> = {
-                            awareness: '📢', consideration: '🤔', conversion: '✅', followUp: '🔄',
-                          }
-                          const stageColor = stageColors[stage.stage] || 'border-dark-tertiary bg-dark'
-                          const stageIcon = stageIcons[stage.stage] || '📌'
-                          return (
-                            <div key={i} className={`rounded-xl p-4 border ${stageColor}`}>
-                              <div className="flex items-center justify-between mb-3">
-                                <p className="font-bold text-xs uppercase tracking-wide text-white">{stageIcon} {stage.stage}</p>
-                                {stage.productArea && (
-                                  <span className="text-[10px] text-gray-600 bg-dark px-2 py-0.5 rounded border border-dark-tertiary">
-                                    {cdT?.funnelProductArea || 'Powers'}: {stage.productArea}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                {stage.userMindset && (
-                                  <div>
-                                    <span className="text-gray-600 uppercase tracking-wide">{cdT?.funnelMindset || 'Mindset'}: </span>
-                                    <span className="text-gray-400 italic">{stage.userMindset}</span>
-                                  </div>
-                                )}
-                                {stage.message && (
-                                  <div>
-                                    <span className="text-gray-600 uppercase tracking-wide">Message: </span>
-                                    <span className="text-gray-200 font-medium">{stage.message}</span>
-                                  </div>
-                                )}
-                                {stage.contentType && (
-                                  <div>
-                                    <span className="text-gray-600 uppercase tracking-wide">Format: </span>
-                                    <span className="text-gray-400">{stage.contentType}</span>
-                                  </div>
-                                )}
-                                {stage.platform && (
-                                  <div>
-                                    <span className="text-gray-600 uppercase tracking-wide">Platform: </span>
-                                    <span className="text-gray-400">{stage.platform}</span>
-                                  </div>
-                                )}
-                                {stage.cta && (
-                                  <div>
-                                    <span className="text-gray-600 uppercase tracking-wide">CTA: </span>
-                                    <span className="text-accent font-semibold">{stage.cta}</span>
-                                  </div>
-                                )}
-                                {stage.successMetric && (
-                                  <div>
-                                    <span className="text-gray-600 uppercase tracking-wide">{cdT?.weekSuccessMetric || 'Metric'}: </span>
-                                    <span className="text-gray-400">{stage.successMetric}</span>
-                                  </div>
-                                )}
-                              </div>
-                              {stage.nextStep && (
-                                <p className="text-[11px] text-gray-500 mt-2 pt-2 border-t border-dark-tertiary">
-                                  → {cdT?.funnelNextStep || 'Next'}: {stage.nextStep}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : strategy.funnelStrategy && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {([
-                          { key: 'awareness',     icon: '📢', label: cdT?.funnelAwareness     || 'Awareness',     color: 'border-blue-500/30 bg-blue-500/5 text-blue-400' },
-                          { key: 'consideration', icon: '🤔', label: cdT?.funnelConsideration || 'Consideration', color: 'border-purple-500/30 bg-purple-500/5 text-purple-400' },
-                          { key: 'conversion',    icon: '✅', label: cdT?.funnelConversion    || 'Conversion',    color: 'border-green-500/30 bg-green-500/5 text-green-400' },
-                          { key: 'retention',     icon: '🔄', label: cdT?.funnelRetention     || 'Retention',     color: 'border-amber-500/30 bg-amber-500/5 text-amber-400' },
-                        ] as const).map(({ key, icon, label, color }) => (
-                          strategy.funnelStrategy[key] && (
-                            <div key={key} className={`rounded-xl p-4 border ${color}`}>
-                              <p className="font-semibold text-xs uppercase tracking-wide mb-2">{icon} {label}</p>
-                              <p className="text-gray-300 text-sm leading-relaxed">{strategy.funnelStrategy[key]}</p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Value Propositions */}
                 {(strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>💎</span> {cdT?.sectionValueProps}</h3>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>💎</span> {cdT?.sectionValueProps || 'Value Propositions'}</h3>
                     {strategy.valueProps?.length > 0 ? (
-                      <ul className="space-y-2">
+                      <ul className="space-y-1.5">
                         {strategy.valueProps.map((vp: string, i: number) => (
                           <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                            <span className="text-accent mt-0.5">→</span> {vp}
+                            <span className="text-accent mt-0.5 flex-shrink-0">→</span> {vp}
                           </li>
                         ))}
                       </ul>
@@ -1461,42 +1373,128 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Offer & CTA Strategy */}
-                {strategy.offerCTAStrategy && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📣</span> {cdT?.sectionOfferCTA || 'Offer & CTA Strategy'}</h3>
-                    <div className="space-y-3">
-                      {strategy.offerCTAStrategy.primaryCTA && (
-                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-accent/20">
-                          <span className="text-xs text-accent font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaPrimary || 'Primary CTA'}</span>
-                          <p className="text-white text-sm font-semibold flex-1">{strategy.offerCTAStrategy.primaryCTA}</p>
-                          <CopyBtn text={strategy.offerCTAStrategy.primaryCTA} label={cdT?.copyBtn || 'Copy'} />
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.secondaryCTA && (
-                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-xs text-gray-500 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaSecondary || 'Secondary CTA'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.secondaryCTA}</p>
-                          <CopyBtn text={strategy.offerCTAStrategy.secondaryCTA} label={cdT?.copyBtn || 'Copy'} />
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.leadMagnet && (
-                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-xs text-blue-400 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaLeadMagnet || 'Lead Magnet'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.leadMagnet}</p>
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.betaOffer && (
-                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-xs text-purple-400 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaBetaOffer || 'Beta Offer'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.betaOffer}</p>
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.contactFlow && (
-                        <div className="flex items-start gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-xs text-green-400 font-bold uppercase tracking-wide w-24 flex-shrink-0 pt-0.5">{cdT?.ctaContactFlow || 'Contact Flow'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.contactFlow}</p>
-                        </div>
+                {/* ══ CHAPTER 03 — EXECUTION PLAN ══════════════════════════════ */}
+                {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.contentPillars?.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection) && (
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>03</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterExecution || 'Execution Plan'}</span>
+                  </div>
+                )}
+
+                {/* Funnel */}
+                {(funnelStages.length > 0 || strategy.funnelStrategy) && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <span>🔻</span> {cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Marketing Funnel'}
+                    </h3>
+                    {funnelStages.length > 0 ? (
+                      <div className="space-y-2">
+                        {funnelStages.map((stage: any, i: number) => {
+                          const stageColors: Record<string, string> = {
+                            awareness: 'border-blue-500/25 bg-blue-500/5',
+                            consideration: 'border-purple-500/25 bg-purple-500/5',
+                            conversion: 'border-green-500/25 bg-green-500/5',
+                            followUp: 'border-amber-500/25 bg-amber-500/5',
+                          }
+                          const stageIcons: Record<string, string> = {
+                            awareness: '📢', consideration: '🤔', conversion: '✅', followUp: '🔄',
+                          }
+                          return (
+                            <div key={i} className={`rounded-xl p-3.5 border ${stageColors[stage.stage] || 'border-dark-tertiary bg-dark'}`}>
+                              <p className="font-bold text-xs uppercase tracking-wide text-white mb-2">
+                                {stageIcons[stage.stage] || '📌'} {stage.stage}
+                                {stage.productArea && <span className="ml-2 text-[10px] text-gray-600 normal-case font-normal">({stage.productArea})</span>}
+                              </p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-xs">
+                                {stage.userMindset && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.funnelMindset || 'Mindset'}: </span><span className="text-gray-400 italic">{stage.userMindset}</span></div>}
+                                {stage.message && <div><span className="text-gray-600 text-[9px] uppercase">Message: </span><span className="text-gray-200 font-medium">{stage.message}</span></div>}
+                                {stage.contentType && <div><span className="text-gray-600 text-[9px] uppercase">Format: </span><span className="text-gray-400">{stage.contentType}</span></div>}
+                                {stage.platform && <div><span className="text-gray-600 text-[9px] uppercase">Platform: </span><span className="text-gray-400">{stage.platform}</span></div>}
+                                {stage.cta && <div><span className="text-gray-600 text-[9px] uppercase">CTA: </span><span className="text-accent font-semibold">{stage.cta}</span></div>}
+                                {stage.successMetric && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.weekSuccessMetric || 'Metric'}: </span><span className="text-gray-400">{stage.successMetric}</span></div>}
+                              </div>
+                              {stage.nextStep && (
+                                <p className="text-[10px] text-gray-500 mt-2 pt-2 border-t border-dark-tertiary/50">
+                                  → {cdT?.funnelNextStep || 'Next'}: {stage.nextStep}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : strategy.funnelStrategy && (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {([
+                          { key: 'awareness',     icon: '📢', label: cdT?.funnelAwareness     || 'Awareness',     color: 'border-blue-500/25 bg-blue-500/5 text-blue-400' },
+                          { key: 'consideration', icon: '🤔', label: cdT?.funnelConsideration || 'Consideration', color: 'border-purple-500/25 bg-purple-500/5 text-purple-400' },
+                          { key: 'conversion',    icon: '✅', label: cdT?.funnelConversion    || 'Conversion',    color: 'border-green-500/25 bg-green-500/5 text-green-400' },
+                          { key: 'retention',     icon: '🔄', label: cdT?.funnelRetention     || 'Retention',     color: 'border-amber-500/25 bg-amber-500/5 text-amber-400' },
+                        ] as const).map(({ key, icon, label, color }) => (
+                          strategy.funnelStrategy[key] && (
+                            <div key={key} className={`rounded-xl p-3.5 border ${color}`}>
+                              <p className="font-semibold text-xs uppercase tracking-wide mb-1.5">{icon} {label}</p>
+                              <p className="text-gray-300 text-xs leading-relaxed">{strategy.funnelStrategy[key]}</p>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Channel Strategy — unified mix + detail */}
+                {(strategy.channelMix?.length > 0 || channelStrategy.length > 0) && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <span>📡</span> {cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'}
+                    </h3>
+                    <div className="space-y-2.5">
+                      {channelStrategy.length > 0 ? (
+                        channelStrategy.map((ch: any, i: number) => {
+                          const mixData = strategy.channelMix?.find((m: any) =>
+                            m.platform?.toLowerCase() === ch.platform?.toLowerCase()
+                          )
+                          const pct = mixData?.budgetPercent || ch.budgetPercent
+                          return (
+                            <div key={i} className="bg-dark rounded-xl p-3.5 border border-dark-tertiary">
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className="text-sm font-bold text-accent capitalize flex-1">{ch.platform}</span>
+                                {pct && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-20 bg-dark-tertiary rounded-full h-1">
+                                      <div className="h-1 rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: 'var(--accent)' }} />
+                                    </div>
+                                    <span className="text-xs text-accent font-bold w-8 text-right">{pct}%</span>
+                                  </div>
+                                )}
+                              </div>
+                              {(ch.role || ch.rationale || mixData?.rationale) && (
+                                <p className="text-xs text-gray-500 italic mb-1.5">{ch.role || ch.rationale || mixData?.rationale}</p>
+                              )}
+                              {(ch.contentType || ch.postingApproach || ch.cta) && (
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                                  {ch.contentType && <span className="text-gray-400">📄 {ch.contentType}</span>}
+                                  {ch.postingApproach && <span className="text-gray-500">{ch.postingApproach}</span>}
+                                  {ch.cta && <span className="text-accent font-semibold">{ch.cta}</span>}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      ) : (
+                        strategy.channelMix?.map((ch: any, i: number) => (
+                          <div key={i} className="flex items-center gap-4 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                            <span className="text-gray-300 font-semibold w-28 flex-shrink-0 capitalize text-sm">{ch.platform}</span>
+                            <div className="flex-1">
+                              <div className="w-full bg-dark-tertiary rounded-full h-1.5 mb-1">
+                                <div className="h-1.5 rounded-full" style={{ width: `${Math.min(ch.budgetPercent, 100)}%`, background: 'var(--accent)' }} />
+                              </div>
+                              <p className="text-xs text-gray-500">{ch.rationale}</p>
+                            </div>
+                            <span className="text-accent font-bold text-xs w-10 text-right">{ch.budgetPercent}%</span>
+                          </div>
+                        ))
                       )}
                     </div>
                   </div>
@@ -1504,101 +1502,94 @@ export default function CampaignDetailPage() {
 
                 {/* Content Pillars */}
                 {strategy.contentPillars?.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📐</span> {cdT?.sectionContentPillars}</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>📐</span> {cdT?.sectionContentPillars || 'Content Pillars'}</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {strategy.contentPillars.map((p: string, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-3 text-sm text-center text-gray-300 border border-dark-tertiary">{p}</div>
+                        <div key={i} className="bg-dark rounded-xl p-3 text-xs text-center text-gray-300 border border-dark-tertiary">{p}</div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Channel Mix (budget allocation) */}
-                {strategy.channelMix?.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📡</span> {cdT?.sectionChannelMix}</h3>
-                    <div className="space-y-3">
-                      {strategy.channelMix.map((ch: any, i: number) => (
-                        <div key={i} className="flex items-center gap-4 bg-dark rounded-xl p-3 text-sm">
-                          <span className="text-gray-300 font-semibold w-28 flex-shrink-0 capitalize">{ch.platform}</span>
-                          <div className="flex-1">
-                            <div className="w-full bg-dark-tertiary rounded-full h-1.5 mb-1">
-                              <div className="h-1.5 bg-accent rounded-full" style={{ width: `${Math.min(ch.budgetPercent, 100)}%` }} />
-                            </div>
-                            <p className="text-xs text-gray-500">{ch.rationale}</p>
+                {/* Offer & CTA Strategy */}
+                {strategy.offerCTAStrategy && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>📣</span> {cdT?.sectionOfferCTA || 'Offer & CTA'}</h3>
+                    <div className="space-y-2">
+                      {strategy.offerCTAStrategy.primaryCTA && (
+                        <div className="flex items-center gap-3 rounded-xl p-3 border border-accent/20" style={{ background: 'rgba(139,92,246,0.06)' }}>
+                          <span className="text-[10px] text-accent font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaPrimary || 'Primary CTA'}</span>
+                          <p className="text-white text-sm font-semibold flex-1">{strategy.offerCTAStrategy.primaryCTA}</p>
+                          <CopyBtn text={strategy.offerCTAStrategy.primaryCTA} label={cdT?.copyBtn || 'Copy'} />
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.secondaryCTA && (
+                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaSecondary || 'Secondary'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.secondaryCTA}</p>
+                          <CopyBtn text={strategy.offerCTAStrategy.secondaryCTA} label={cdT?.copyBtn || 'Copy'} />
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.leadMagnet && (
+                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaLeadMagnet || 'Lead Magnet'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.leadMagnet}</p>
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.betaOffer && (
+                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaBetaOffer || 'Beta Offer'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.betaOffer}</p>
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy.contactFlow && (
+                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                          <span className="text-[10px] text-green-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaContactFlow || 'Contact Flow'}</span>
+                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.contactFlow}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Visual Direction */}
+                {strategy.visualDirection && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(168,85,247,0.04)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                    <h3 className="font-bold text-sm mb-2 flex items-center gap-2 text-purple-400">
+                      <span>🎨</span> {cdT?.sectionVisualDirection || 'Visual Direction'}
+                    </h3>
+                    <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
+                  </div>
+                )}
+
+                {/* ══ CHAPTER 04 — METRICS & READINESS ════════════════════════ */}
+                {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0 || readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0 || adSetupPlan) && (
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>04</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterMetrics || 'Metrics & Readiness'}</span>
+                  </div>
+                )}
+
+                {/* KPIs + Success Metrics — unified */}
+                {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <span>📊</span> {cdT?.sectionKpis || 'KPIs & Metrics'}
+                    </h3>
+                    {strategy.kpis?.length > 0 && (
+                      <div className={`grid gap-2 mb-4 ${strategy.kpis.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+                        {strategy.kpis.map((kpi: any, i: number) => (
+                          <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary text-center">
+                            <p className="text-accent font-bold text-lg">{kpi.target}</p>
+                            <p className="text-gray-400 text-[10px] mt-0.5">{kpi.metric}</p>
+                            <p className="text-gray-600 text-[10px]">{kpi.timeframe}</p>
                           </div>
-                          <span className="text-accent font-bold text-xs w-10 text-right">{ch.budgetPercent}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Channel Strategy — per-platform detail */}
-                {channelStrategy.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🗺️</span> {cdT?.sectionChannelStrategy || 'Channel Strategy'}</h3>
-                    <div className="space-y-3">
-                      {channelStrategy.map((ch: any, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
-                          <p className="font-bold text-sm text-accent capitalize mb-3">{ch.platform}</p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                            {ch.role && (
-                              <div>
-                                <span className="text-gray-500 uppercase tracking-wide">{cdT?.channelRole || 'Role'}: </span>
-                                <span className="text-gray-300">{ch.role}</span>
-                              </div>
-                            )}
-                            {ch.contentType && (
-                              <div>
-                                <span className="text-gray-500 uppercase tracking-wide">{cdT?.channelContentType || 'Content Type'}: </span>
-                                <span className="text-gray-300">{ch.contentType}</span>
-                              </div>
-                            )}
-                            {ch.postingApproach && (
-                              <div>
-                                <span className="text-gray-500 uppercase tracking-wide">{cdT?.channelApproach || 'Approach'}: </span>
-                                <span className="text-gray-300">{ch.postingApproach}</span>
-                              </div>
-                            )}
-                            {ch.cta && (
-                              <div>
-                                <span className="text-gray-500 uppercase tracking-wide">CTA: </span>
-                                <span className="text-accent">{ch.cta}</span>
-                              </div>
-                            )}
-                          </div>
-                          {ch.rationale && (
-                            <p className="text-gray-500 text-xs mt-2 italic">{ch.rationale}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* KPIs */}
-                {strategy.kpis?.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📊</span> {cdT?.sectionKpis}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {strategy.kpis.map((kpi: any, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary text-center">
-                          <p className="text-accent font-bold text-lg">{kpi.target}</p>
-                          <p className="text-gray-400 text-xs mt-1">{kpi.metric}</p>
-                          <p className="text-gray-600 text-xs">{kpi.timeframe}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Success Metrics — Sprint M detailed view (fallback to strings) */}
-                {(successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2"><span>📈</span> {cdT?.sectionSuccessMetrics || 'Success Metrics'}</h3>
-                    {successMetricsDetailed.length > 0 ? (
+                        ))}
+                      </div>
+                    )}
+                    {successMetricsDetailed.length > 0 && (
                       <div className="space-y-2">
                         {(['lead', 'engagement', 'conversion', 'operational'] as const).map((cat) => {
                           const catMetrics = successMetricsDetailed.filter((m: any) => m.category === cat)
@@ -1610,17 +1601,15 @@ export default function CampaignDetailPage() {
                             operational: cdT?.metricOperational || 'Operational',
                           }
                           const catColors: Record<string, string> = {
-                            lead: 'text-blue-400',
-                            engagement: 'text-pink-400',
-                            conversion: 'text-green-400',
-                            operational: 'text-amber-400',
+                            lead: 'text-blue-400', engagement: 'text-pink-400',
+                            conversion: 'text-green-400', operational: 'text-amber-400',
                           }
                           return (
                             <div key={cat}>
                               <p className={`text-[10px] font-bold uppercase tracking-wide mb-1.5 ${catColors[cat]}`}>{catLabels[cat]}</p>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                {catMetrics.map((m: any, i: number) => (
-                                  <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                {catMetrics.map((m: any, idx: number) => (
+                                  <div key={idx} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
                                     <div>
                                       <p className="text-xs text-gray-300">{m.metric}</p>
                                       <p className="text-[10px] text-gray-600">{m.timeframe}</p>
@@ -1633,8 +1622,9 @@ export default function CampaignDetailPage() {
                           )
                         })}
                       </div>
-                    ) : (
-                      <ul className="space-y-2">
+                    )}
+                    {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
+                      <ul className="space-y-1.5">
                         {successMetrics.map((metric: string, i: number) => (
                           <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
                             <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span> {metric}
@@ -1645,45 +1635,63 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Visual Direction */}
-                {strategy.visualDirection && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-purple-400"><span>🎨</span> {cdT?.sectionVisualDirection}</h3>
-                    <p className="text-gray-300 leading-relaxed text-sm">{strategy.visualDirection}</p>
+                {/* Launch Readiness */}
+                {readinessChecklist.length > 0 && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                      <span>✅</span> {cdT?.sectionReadinessChecklist || 'Launch Readiness'}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {readinessChecklist.map((item: any, i: number) => {
+                        const lc = (item.label || item.item || '').toLowerCase()
+                        const atype = (item.actionType || '').toUpperCase()
+                        const isBrandBrain = atype === 'BRAND_BRAIN' || lc.includes('brand brain') || lc.includes('brand profile')
+                        const isAssets = atype === 'ASSETS' || (lc.includes('asset') && !lc.includes('sentinel')) || lc.includes('upload') || lc.includes('photo')
+                        const isSentinel = atype === 'SENTINEL' || lc.includes('sentinel') || (lc.includes('review') && !lc.includes('brand'))
+                        const isCalendar = atype === 'CALENDAR' || lc.includes('calendar') || lc.includes('schedule') || lc.includes('push')
+                        const isApproval = atype === 'APPROVAL' || lc.includes('approv')
+                        return (
+                          <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
+                            item.done ? 'border-green-500/30 bg-green-500/5 text-green-400' : 'border-dark-tertiary text-gray-400'
+                          }`}>
+                            <span className="flex-shrink-0">{item.done ? '✓' : '○'}</span>
+                            <span className="flex-1">{item.label || item.item}</span>
+                            {item.done ? (
+                              <span className="text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
+                            ) : isBrandBrain ? (
+                              <Link href="/brand" className="text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition whitespace-nowrap">{cdT?.readinessActionBrand || '→ Brand'}</Link>
+                            ) : isAssets ? (
+                              <Link href="/media" className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition whitespace-nowrap">{cdT?.readinessActionMedia || '→ Media'}</Link>
+                            ) : isSentinel ? (
+                              <button onClick={handleSentinelReview} disabled={sentinelState === 'reviewing'} className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 whitespace-nowrap">
+                                {sentinelState === 'reviewing' ? (cdT?.readinessActionReviewing || '⏳') : (cdT?.readinessActionReview || '→ Review')}
+                              </button>
+                            ) : isCalendar ? (
+                              <button onClick={() => handlePushToCalendar(false)} disabled={calendarPushState === 'pushing'} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition disabled:opacity-50 whitespace-nowrap">
+                                {calendarPushState === 'pushing' ? (cdT?.readinessActionPushing || '⏳') : (cdT?.readinessActionPush || '→ Push')}
+                              </button>
+                            ) : isApproval ? (
+                              <button onClick={handleApprove} disabled={approvalState === 'approving' || approvalState === 'done'} className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30 transition disabled:opacity-50 whitespace-nowrap">
+                                {approvalState === 'done' ? '✓' : (cdT?.readinessActionApprove || '→ Approve')}
+                              </button>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )}
 
-                {/* Execution Checklist */}
-                {strategy.executionChecklist?.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(34,197,94,0.2)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-green-400"><span>✅</span> {cdT?.sectionExecutionChecklist}</h3>
-                    <ul className="space-y-2">
-                      {strategy.executionChecklist.map((item: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                          <span className="text-green-500 mt-0.5 flex-shrink-0">□</span> {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* ── Section group: Execution Prep ── */}
-                {(assetRequirements || adSetupPlan || strategy.executionChecklist?.length > 0) && (
-                  <div className="flex items-center gap-3 pt-2">
-                    <div className="flex-1 h-px bg-dark-tertiary" />
-                    <span className="text-[10px] text-gray-600 uppercase tracking-widest font-semibold whitespace-nowrap">{cdT?.sectionGroupExecution || 'Execution Prep'}</span>
-                    <div className="flex-1 h-px bg-dark-tertiary" />
-                  </div>
-                )}
-
-                {/* Asset Requirements (Sprint M) */}
+                {/* Asset Requirements */}
                 {assetRequirements && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📦</span> {cdT?.sectionAssetRequirements || 'Asset Requirements'}</h3>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <span>📦</span> {cdT?.sectionAssetRequirements || 'Asset Requirements'}
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {assetRequirements.mustHave?.length > 0 && (
                         <div>
-                          <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetMustHave || 'Must Have'}</p>
+                          <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetMustHave || 'Must Have'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.mustHave.map((a: string, i: number) => (
                               <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
@@ -1695,7 +1703,7 @@ export default function CampaignDetailPage() {
                       )}
                       {assetRequirements.niceToHave?.length > 0 && (
                         <div>
-                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
+                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.niceToHave.map((a: string, i: number) => (
                               <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
@@ -1707,7 +1715,7 @@ export default function CampaignDetailPage() {
                       )}
                       {assetRequirements.forAds?.length > 0 && (
                         <div>
-                          <p className="text-xs text-blue-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetForAds || 'For Paid Ads'}</p>
+                          <p className="text-xs text-blue-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForAds || 'For Paid Ads'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.forAds.map((a: string, i: number) => (
                               <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
@@ -1719,7 +1727,7 @@ export default function CampaignDetailPage() {
                       )}
                       {assetRequirements.forProof?.length > 0 && (
                         <div>
-                          <p className="text-xs text-green-400 font-bold uppercase tracking-wide mb-2">{cdT?.assetForProof || 'For Proof / Trust'}</p>
+                          <p className="text-xs text-green-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForProof || 'Social Proof'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.forProof.map((a: string, i: number) => (
                               <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
@@ -1731,7 +1739,7 @@ export default function CampaignDetailPage() {
                       )}
                     </div>
                     {assetRequirements.nextToCreate?.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-dark-tertiary">
+                      <div className="mt-4 pt-3 border-t border-dark-tertiary">
                         <p className="text-xs text-accent font-bold uppercase tracking-wide mb-2">{cdT?.assetNextToCreate || 'Create These First'}</p>
                         <ol className="space-y-1">
                           {assetRequirements.nextToCreate.map((a: string, i: number) => (
@@ -1744,169 +1752,132 @@ export default function CampaignDetailPage() {
                     )}
                     {assetRequirements.canStartWithoutNote && (
                       <p className="text-xs text-gray-500 mt-3 italic">
-                        {assetRequirements.canStartWithout ? `✓ ${cdT?.assetCanStart || 'Can start without these'}` : `⚠ ${cdT?.assetCannotStart || 'Required before starting'}`}: {assetRequirements.canStartWithoutNote}
+                        {assetRequirements.canStartWithout
+                          ? `✓ ${cdT?.assetCanStart || 'Can start without these'}`
+                          : `⚠ ${cdT?.assetCannotStart || 'Required before starting'}`}: {assetRequirements.canStartWithoutNote}
                       </p>
                     )}
                   </div>
                 )}
 
-                {/* VEX Ad Setup Plan (Sprint M) */}
-                {adSetupPlan && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(59,130,246,0.2)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2 text-blue-400"><span>📡</span> {cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                      {[
-                        { label: cdT?.adTestBudget || 'Test Budget', value: adSetupPlan.testBudget },
-                        { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
-                        { label: cdT?.adAbTest || 'A/B Test Plan', value: adSetupPlan.abTestPlan },
-                        { label: cdT?.adLandingPath || 'Landing Path', value: adSetupPlan.landingPath },
-                        { label: cdT?.adTracking || 'Tracking Required', value: adSetupPlan.trackingRequired },
-                      ].filter(item => item.value).map((item, i) => (
-                        <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.label}</p>
-                          <p className="text-xs text-gray-200 leading-snug">{item.value}</p>
+                {/* Execution Checklist */}
+                {strategy.executionChecklist?.length > 0 && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(34,197,94,0.03)', border: '1px solid rgba(34,197,94,0.12)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-green-400">
+                      <span>✅</span> {cdT?.sectionExecutionChecklist || 'Execution Checklist'}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                      {strategy.executionChecklist.map((item: string, i: number) => (
+                        <div key={i} className="flex items-start gap-2 text-gray-300 text-xs">
+                          <span className="text-green-500 mt-0.5 flex-shrink-0">□</span> {item}
                         </div>
                       ))}
                     </div>
-                    {adSetupPlan.targeting && (
-                      <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-3">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
-                        <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
-                      </div>
-                    )}
-                    {adSetupPlan.adCopyAngles?.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Ad Copy Angles</p>
-                        <div className="space-y-1">
-                          {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
-                            <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
-                              <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
-                            </div>
-                          ))}
+                  </div>
+                )}
+
+                {/* Risks & Constraints — collapsible */}
+                {(doNotDoYet.length > 0 || riskNotes.length > 0 || executionAssumptions.length > 0) && (
+                  <details className="group">
+                    <summary className="flex items-center gap-2 cursor-pointer select-none list-none rounded-xl p-3 transition-colors hover:bg-red-500/5"
+                      style={{ border: '1px solid rgba(239,68,68,0.15)' }}>
+                      <span>⚠️</span>
+                      <span className="text-sm font-semibold text-red-400">{cdT?.sectionRiskNotes || 'Risks & Constraints'}</span>
+                      <span className="text-xs text-gray-600 ml-1">({doNotDoYet.length + riskNotes.length + executionAssumptions.length})</span>
+                      <span className="ml-auto text-gray-600 text-xs group-open:rotate-180 transition-transform duration-200">▾</span>
+                    </summary>
+                    <div className="mt-2 space-y-3">
+                      {doNotDoYet.length > 0 && (
+                        <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                          <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-2">{cdT?.sectionDoNotDoYet || 'Do Not Do Yet'}</p>
+                          <ul className="space-y-1">
+                            {doNotDoYet.map((item: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2 text-xs text-red-300/80">
+                                <span className="text-red-500 mt-0.5 flex-shrink-0">✗</span>{item}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                      </div>
-                    )}
-                    {adSetupPlan.notReadyIf?.length > 0 && (
-                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-                        <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-2">{cdT?.adNotReadyIf || 'Do not launch ads if'}</p>
-                        <ul className="space-y-1">
-                          {adSetupPlan.notReadyIf.map((item: string, i: number) => (
-                            <li key={i} className="text-xs text-amber-300/70 flex items-start gap-1.5">
-                              <span className="flex-shrink-0 mt-0.5">⚠</span>{item}
+                      )}
+                      {riskNotes.length > 0 && (
+                        <ul className="space-y-1.5 px-1">
+                          {riskNotes.map((note: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-gray-400 text-xs">
+                              <span className="text-red-400 mt-0.5 flex-shrink-0">!</span>{note}
                             </li>
                           ))}
                         </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Section group: Readiness & Compliance ── */}
-                {(readinessChecklist.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0) && (
-                  <div className="flex items-center gap-3 pt-2">
-                    <div className="flex-1 h-px bg-dark-tertiary" />
-                    <span className="text-[10px] text-gray-600 uppercase tracking-widest font-semibold whitespace-nowrap">{cdT?.sectionGroupReadiness || 'Readiness & Compliance'}</span>
-                    <div className="flex-1 h-px bg-dark-tertiary" />
-                  </div>
-                )}
-
-                {/* Readiness Checklist (Sprint M) — actionable */}
-                {readinessChecklist.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✅</span> {cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {readinessChecklist.map((item: any, i: number) => {
-                        const lc = (item.label || item.item || '').toLowerCase()
-                        const atype = (item.actionType || '').toUpperCase()
-                        const isBrandBrain = atype === 'BRAND_BRAIN' || lc.includes('brand brain') || lc.includes('brand profile')
-                        const isAssets = atype === 'ASSETS' || (lc.includes('asset') && !lc.includes('sentinel')) || lc.includes('upload') || lc.includes('photo')
-                        const isSentinel = atype === 'SENTINEL' || lc.includes('sentinel') || (lc.includes('review') && !lc.includes('brand'))
-                        const isCalendar = atype === 'CALENDAR' || lc.includes('calendar') || lc.includes('schedule') || lc.includes('push')
-                        const isApproval = atype === 'APPROVAL' || lc.includes('approv')
-                        return (
-                          <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
-                            item.done
-                              ? 'border-green-500/30 bg-green-500/5 text-green-400'
-                              : 'border-dark-tertiary text-gray-400'
-                          }`}>
-                            <span className="flex-shrink-0 text-sm">{item.done ? '✓' : '○'}</span>
-                            <span className="flex-1">{item.label || item.item}</span>
-                            {item.done ? (
-                              <span className="ml-auto text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
-                            ) : isBrandBrain ? (
-                              <Link href="/brand" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition whitespace-nowrap">{cdT?.readinessActionBrand || '→ Brand'}</Link>
-                            ) : isAssets ? (
-                              <Link href="/media" className="ml-auto text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition whitespace-nowrap">{cdT?.readinessActionMedia || '→ Media'}</Link>
-                            ) : isSentinel ? (
-                              <button onClick={handleSentinelReview} disabled={sentinelState === 'reviewing'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {sentinelState === 'reviewing' ? (cdT?.readinessActionReviewing || '⏳') : (cdT?.readinessActionReview || '→ Review')}
-                              </button>
-                            ) : isCalendar ? (
-                              <button onClick={() => handlePushToCalendar(false)} disabled={calendarPushState === 'pushing'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {calendarPushState === 'pushing' ? (cdT?.readinessActionPushing || '⏳') : (cdT?.readinessActionPush || '→ Push')}
-                              </button>
-                            ) : isApproval ? (
-                              <button onClick={handleApprove} disabled={approvalState === 'approving' || approvalState === 'done'} className="ml-auto text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {approvalState === 'done' ? '✓' : (cdT?.readinessActionApprove || '→ Approve')}
-                              </button>
-                            ) : null}
-                          </div>
-                        )
-                      })}
+                      )}
+                      {executionAssumptions.length > 0 && (
+                        <ul className="space-y-1 px-1">
+                          {executionAssumptions.map((item: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-gray-500 text-xs">
+                              <span className="text-gray-600 mt-0.5 flex-shrink-0">·</span>{item}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                  </div>
+                  </details>
                 )}
 
-                {/* Do Not Do Yet (Sprint M) */}
-                {doNotDoYet.length > 0 && (
-                  <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-6">
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-red-400"><span>🚫</span> {cdT?.sectionDoNotDoYet || 'Do Not Do Yet'}</h3>
-                    <ul className="space-y-2">
-                      {doNotDoYet.map((item: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-red-300/80">
-                          <span className="text-red-500 mt-0.5 flex-shrink-0 font-bold">✗</span>{item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Risk & Compliance Notes */}
-                {riskNotes.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(239,68,68,0.15)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-red-400"><span>⚠️</span> {cdT?.sectionRiskNotes || 'Risk & Compliance Notes'}</h3>
-                    <ul className="space-y-2">
-                      {riskNotes.map((note: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-gray-400 text-sm">
-                          <span className="text-red-400 mt-0.5 flex-shrink-0">!</span> {note}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Execution Assumptions (Sprint M) */}
-                {executionAssumptions.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(107,114,128,0.15)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-gray-400"><span>📋</span> {cdT?.sectionExecutionAssumptions || 'Execution Assumptions'}</h3>
-                    <ul className="space-y-2">
-                      {executionAssumptions.map((item: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-gray-500 text-sm">
-                          <span className="text-gray-600 mt-0.5 flex-shrink-0">·</span>{item}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Next Best Action — prominent closing callout */}
-                {strategy.nextBestAction && (
-                  <div className="bg-accent/8 border border-accent/30 rounded-2xl p-6">
-                    <h3 className="font-bold text-sm text-accent uppercase tracking-wide mb-2 flex items-center gap-2">
-                      <span>🚀</span> {cdT?.sectionNextBestAction || 'Next Best Action'}
-                    </h3>
-                    <p className="text-white text-base font-semibold leading-relaxed">{strategy.nextBestAction}</p>
-                  </div>
+                {/* VEX Ad Setup Plan — collapsible advanced */}
+                {adSetupPlan && (
+                  <details className="group">
+                    <summary className="flex items-center gap-2 cursor-pointer select-none list-none rounded-xl p-3 transition-colors hover:bg-blue-500/5"
+                      style={{ border: '1px solid rgba(59,130,246,0.2)' }}>
+                      <span>📡</span>
+                      <span className="text-sm font-semibold text-blue-400">{cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</span>
+                      <span className="text-xs text-gray-600 ml-1">{cdT?.advanced || 'Advanced'}</span>
+                      <span className="ml-auto text-gray-600 text-xs group-open:rotate-180 transition-transform duration-200">▾</span>
+                    </summary>
+                    <div className="mt-2 rounded-xl p-4" style={{ background: 'rgba(59,130,246,0.03)', border: '1px solid rgba(59,130,246,0.12)' }}>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                        {[
+                          { label: cdT?.adTestBudget || 'Test Budget', value: adSetupPlan.testBudget },
+                          { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
+                          { label: cdT?.adAbTest || 'A/B Test Plan', value: adSetupPlan.abTestPlan },
+                          { label: cdT?.adLandingPath || 'Landing Path', value: adSetupPlan.landingPath },
+                          { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
+                        ].filter(item => item.value).map((item, i) => (
+                          <div key={i} className="bg-dark rounded-lg p-2.5 border border-dark-tertiary">
+                            <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
+                            <p className="text-xs text-gray-200 leading-snug">{item.value}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {adSetupPlan.targeting && (
+                        <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
+                          <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
+                        </div>
+                      )}
+                      {adSetupPlan.adCopyAngles?.length > 0 && (
+                        <div className="mb-2">
+                          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">Ad Copy Angles</p>
+                          <div className="space-y-1">
+                            {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
+                              <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
+                                <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {adSetupPlan.notReadyIf?.length > 0 && (
+                        <div className="rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.adNotReadyIf || 'Do not launch ads if'}</p>
+                          <ul className="space-y-0.5">
+                            {adSetupPlan.notReadyIf.map((item: string, i: number) => (
+                              <li key={i} className="text-xs text-amber-300/70 flex items-start gap-1.5">
+                                <span className="flex-shrink-0">⚠</span>{item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 )}
               </div>
             )}
