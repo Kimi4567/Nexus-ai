@@ -15,6 +15,7 @@ import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import PlatformNativeCard from '@/components/PlatformNativeCard'
 
 interface Activity {
   id: string
@@ -58,7 +59,7 @@ interface AutopilotPost {
 const ACTIVITY_ICONS: Record<string, string> = {
   created: '✨', generated: '🤖', viewed: '👁', regenerated: '♻️',
   exported: '📤', duplicated: '📋', archived: '📦', favorited: '⭐',
-  updated: '✏️',
+  updated: '✏️', engine_run: '⚙️',
 }
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -154,6 +155,8 @@ export default function CampaignDetailPage() {
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(isGenerating)
   const [generateError, setGenerateError] = useState('')
+  const [engineRunning, setEngineRunning] = useState(false)
+  const [engineError, setEngineError] = useState('')
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
@@ -262,9 +265,9 @@ export default function CampaignDetailPage() {
     if (generating) return                  // already in progress
     if (autoTriggeredRef.current) return    // already triggered once this mount
     autoTriggeredRef.current = true
-    handleGenerateStrategy()
+    handleRunEngine()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign, isNewCampaign, generating])
+  }, [campaign, isNewCampaign, generating, engineRunning])
 
   // Poll for AI output when generating=true
   useEffect(() => {
@@ -315,6 +318,49 @@ export default function CampaignDetailPage() {
     setSaving(false)
   }
 
+  const handleRunEngine = async (force = false) => {
+    const token = authHeader()
+    if (!token || !campaignId || engineRunning) return
+    setEngineRunning(true)
+    setGenerating(true)
+    setEngineError('')
+    setGenerateError('')
+    setSentinelError('')
+    setCalendarPushError('')
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/engine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ language: locale, force }),
+      })
+      const d = await res.json()
+      if (!res.ok) {
+        if (res.status === 402 || d.error === 'INSUFFICIENT_CREDITS') {
+          setUpgradeReason('no_credits')
+          setShowUpgrade(true)
+        }
+        setEngineError(d.message || d.error || (locale === 'ar' ? 'فشل تشغيل NEXUS Engine' : 'NEXUS Engine failed'))
+        return
+      }
+      if (d.campaign) {
+        setCampaign(d.campaign)
+        const count = d.engine?.calendarCount || d.campaign.aiOutput?.calendarItems?.length || 0
+        if (count > 0) {
+          setCalendarPushCount(count)
+          setCalendarPushState('done')
+        }
+        if (d.engine?.sentinelStatus === 'passed') setSentinelState('done')
+      } else {
+        await fetchCampaign()
+      }
+    } catch {
+      setEngineError(locale === 'ar' ? 'خطأ في الشبكة أثناء تشغيل الماكينة' : 'Network error while running the engine')
+    } finally {
+      setEngineRunning(false)
+      setGenerating(false)
+    }
+  }
+
   const duplicate = async () => {
     const token = authHeader()
     if (!token) return
@@ -326,6 +372,15 @@ export default function CampaignDetailPage() {
   const handleApprove = async () => {
     const token = authHeader()
     if (!token || !campaign) return
+    const review = (campaign.aiOutput as any)?.sentinelReview
+    const calendarItems = (campaign.aiOutput as any)?.calendarItems || []
+    if (review?.status !== 'passed' || calendarItems.length === 0) {
+      setApprovalState('idle')
+      setEngineError(locale === 'ar'
+        ? 'لا يمكن اعتماد الحملة قبل تشغيل الماكينة واجتياز Sentinel وبناء التقويم.'
+        : 'Run the engine, pass Sentinel, and build the calendar before approval.')
+      return
+    }
     setApprovalState('approving')
     try {
       const res = await fetch(`/api/campaigns/${campaignId}`, {
@@ -521,6 +576,18 @@ export default function CampaignDetailPage() {
     (aiOutput?.strategy?.contentCalendar?.length > 0) ||
     (aiOutput?.strategy?.weeklyPlan?.length > 0) ||
     (aiOutput?.strategy?.contentPillars?.length > 0)
+  const engineState = aiOutput?.nexusEngine || null
+  const engineScore: number = engineState?.score ?? Math.round(([
+    !!strategy && Object.keys(strategy).length > 0,
+    topHooks.length > 0 || contentCalendar.length > 0 || weeklyExecutionPlan.length > 0,
+    !!creativeBrief,
+    sentinelStatus === 'passed',
+    storedCalendarCount > 0,
+    campaign.status === 'ACTIVE' || campaign.status === 'SCHEDULED',
+    campaign.autopilotEnabled || campaign.status === 'SCHEDULED',
+  ].filter(Boolean).length / 7) * 100)
+  const engineReadyForApproval = sentinelStatus === 'passed' && storedCalendarCount > 0
+  const engineBlocked = sentinelStatus === 'needs_attention'
 
   const visualContext = {
     campaignId: campaign.id,
@@ -539,6 +606,102 @@ export default function CampaignDetailPage() {
       </div>
     )
   }
+
+  const mediaStrategy = aiOutput?.mediaStrategy || null
+  const creativeAssets: any[] = mediaStrategy?.assets?.length
+    ? mediaStrategy.assets
+    : creativeBrief?.assetAnalyses || []
+
+  const platformTheme = (platformRaw: string) => {
+    const platform = (platformRaw || 'GENERAL').toUpperCase()
+    if (platform.includes('INSTAGRAM')) return {
+      key: 'INSTAGRAM', label: 'Instagram', icon: '📸', accent: '#e879f9',
+      bg: 'linear-gradient(145deg, rgba(236,72,153,0.14), rgba(249,115,22,0.08))',
+      border: 'rgba(236,72,153,0.28)',
+    }
+    if (platform.includes('TIKTOK')) return {
+      key: 'TIKTOK', label: 'TikTok', icon: '🎵', accent: '#22d3ee',
+      bg: 'linear-gradient(145deg, rgba(34,211,238,0.14), rgba(244,63,94,0.08))',
+      border: 'rgba(34,211,238,0.28)',
+    }
+    if (platform.includes('LINKEDIN')) return {
+      key: 'LINKEDIN', label: 'LinkedIn', icon: '💼', accent: '#60a5fa',
+      bg: 'linear-gradient(145deg, rgba(37,99,235,0.16), rgba(14,165,233,0.06))',
+      border: 'rgba(96,165,250,0.26)',
+    }
+    if (platform.includes('FACEBOOK') || platform.includes('META')) return {
+      key: 'FACEBOOK', label: 'Facebook', icon: '👥', accent: '#818cf8',
+      bg: 'linear-gradient(145deg, rgba(99,102,241,0.14), rgba(59,130,246,0.06))',
+      border: 'rgba(129,140,248,0.26)',
+    }
+    return {
+      key: platform || 'GENERAL', label: platform || 'General', icon: '🌐', accent: '#a78bfa',
+      bg: 'rgba(139,92,246,0.08)',
+      border: 'rgba(139,92,246,0.2)',
+    }
+  }
+
+  const resolvePreviewAsset = (item: any, index: number) => {
+    if (item.imageUrl || item.url) return item.imageUrl || item.url
+    const assetByName = creativeAssets.find((asset: any) => {
+      const haystack = `${item.visualNote || ''} ${item.topic || ''} ${item.title || ''}`.toLowerCase()
+      return asset.fileName && haystack.includes(String(asset.fileName).toLowerCase())
+    })
+    if (assetByName?.url) return assetByName.url
+    const usable = creativeAssets.filter((asset: any) => asset.type !== 'VIDEO' && asset.url)
+    return usable.length > 0 ? usable[index % usable.length].url : null
+  }
+
+  const monthlyPreviewItems = (() => {
+    const items: any[] = []
+    const pushed = Array.isArray(aiOutput?.calendarItems) ? aiOutput.calendarItems : []
+    if (pushed.length > 0) {
+      return pushed.map((item: any, index: number) => ({
+        id: item.id || `pushed-${index}`,
+        date: item.date,
+        week: item.week,
+        platform: item.platform || 'GENERAL',
+        topic: item.topic || item.title || 'Campaign Post',
+        title: item.title,
+        hook: item.hook,
+        caption: item.caption,
+        cta: item.cta,
+        visualNote: item.visualNote,
+        contentType: item.contentType,
+        assetUrl: resolvePreviewAsset(item, index),
+      }))
+    }
+
+    contentCalendar.forEach((week: any, wi: number) => {
+      ;(week.posts || []).forEach((post: any, pi: number) => {
+        items.push({
+          id: `week-${wi}-post-${pi}`,
+          date: post.date || post.day || `${cdT?.weekLabel || 'Week'} ${week.week || wi + 1}`,
+          week: week.week || wi + 1,
+          platform: post.platform || 'GENERAL',
+          topic: post.topic || post.contentPillar || post.title || 'Campaign Post',
+          title: post.title || post.headline,
+          hook: post.hook,
+          caption: post.caption || post.content,
+          cta: post.cta || post.callToAction,
+          visualNote: post.visual || post.visualNote || post.visualDirection,
+          contentType: post.type || post.format || post.contentType,
+          assetUrl: resolvePreviewAsset(post, items.length),
+        })
+      })
+    })
+    return items
+  })()
+
+  const postsByPlatform = monthlyPreviewItems.reduce((acc: Record<string, any[]>, item: any) => {
+    const key = platformTheme(item.platform).key
+    if (!acc[key]) acc[key] = []
+    acc[key].push(item)
+    return acc
+  }, {})
+
+  // Platform-native card is now handled by PlatformNativeCard component
+  const _postBrandName = brandDNA?.brandName || campaign.name || 'NEXUS'
 
   return (
     <>
@@ -685,6 +848,68 @@ export default function CampaignDetailPage() {
             }}>
 
             {/* Pipeline stage tracker */}
+            <div className="mb-5 rounded-2xl p-4 border"
+              style={{
+                background: engineBlocked
+                  ? 'rgba(234,179,8,0.06)'
+                  : 'linear-gradient(135deg, rgba(139,92,246,0.14), rgba(34,211,238,0.06))',
+                borderColor: engineBlocked ? 'rgba(234,179,8,0.24)' : 'rgba(139,92,246,0.28)',
+              }}>
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`w-2 h-2 rounded-full ${engineRunning ? 'bg-cyan-400 animate-pulse' : engineReadyForApproval ? 'bg-green-400' : engineBlocked ? 'bg-amber-400' : 'bg-violet-400'}`} />
+                    <p className="text-xs uppercase tracking-wider font-bold" style={{ color: engineBlocked ? '#facc15' : '#a78bfa' }}>
+                      {locale === 'ar' ? 'NEXUS Engine' : 'NEXUS Engine'}
+                    </p>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full border border-white/10 text-gray-400">
+                      {engineScore}% {locale === 'ar' ? 'جاهز' : 'ready'}
+                    </span>
+                  </div>
+                  <h3 className="text-white font-bold text-sm">
+                    {engineRunning
+                      ? (locale === 'ar' ? 'المكينة شغالة دلوقتي...' : 'The machine is running...')
+                      : engineReadyForApproval
+                        ? (locale === 'ar' ? 'الحملة جاهزة للموافقة والتشغيل' : 'Campaign is ready for approval and launch')
+                        : engineBlocked
+                          ? (locale === 'ar' ? 'Sentinel وقف التشغيل لحين تعديل المخاطر' : 'Sentinel blocked launch until risks are fixed')
+                          : (locale === 'ar' ? 'شغّل الماكينة لتحويل الحملة لخطة تنفيذ كاملة' : 'Run the engine to turn this campaign into a complete execution package')}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    {locale === 'ar'
+                      ? 'مفتاح واحد يجهز الاستراتيجية، المحتوى، الكرييتف، مراجعة الأمان، والتقويم. النشر يحتاج موافقتك الصريحة.'
+                      : 'One key prepares strategy, content, creative direction, safety review, and calendar. Publishing still requires explicit approval.'}
+                  </p>
+                  {(engineError || generateError) && (
+                    <p className="text-xs text-red-400 mt-2">{engineError || generateError}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleRunEngine(false)}
+                    disabled={engineRunning}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-50 transition"
+                    style={{
+                      background: engineRunning ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+                      boxShadow: engineRunning ? 'none' : '0 0 24px rgba(124,58,237,0.28)',
+                    }}
+                  >
+                    {engineRunning
+                      ? (locale === 'ar' ? 'جاري التشغيل...' : 'Running...')
+                      : (locale === 'ar' ? 'تشغيل الماكينة' : 'Run Engine')}
+                  </button>
+                  <button
+                    onClick={() => handleRunEngine(true)}
+                    disabled={engineRunning}
+                    className="px-3 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-gray-400 hover:text-white hover:border-white/20 disabled:opacity-40 transition"
+                    title={locale === 'ar' ? 'إعادة بناء كل المخرجات من جديد' : 'Rebuild every output from scratch'}
+                  >
+                    {locale === 'ar' ? 'إعادة' : 'Re-run'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <p className="text-xs uppercase tracking-wider mb-3 font-medium" style={{ color: 'var(--nx-text-4)' }}>{cdT?.pipelineLabel || 'Campaign Pipeline'}</p>
             <div className="flex items-center gap-1.5 mb-5 overflow-x-auto pb-1 flex-nowrap">
               {[
@@ -693,7 +918,7 @@ export default function CampaignDetailPage() {
                 { key: 'creative',  label: cdT?.pipelineCreative  || 'Creative',  done: !!creativeBrief },
                 { key: 'sentinel',  label: cdT?.pipelineSentinel  || 'Sentinel',  done: sentinelStatus === 'passed', warn: sentinelStatus === 'needs_attention' },
                 { key: 'approved',  label: cdT?.pipelineApproved  || 'Approved',  done: campaign.status === 'ACTIVE' || approvalState === 'done' },
-                { key: 'executing', label: cdT?.pipelineExecuting || 'Executing', done: false, dim: true },
+                { key: 'executing', label: cdT?.pipelineExecuting || 'Executing', done: !!campaign.autopilotEnabled, dim: !campaign.autopilotEnabled },
               ].map((stage, i, arr) => (
                 <div key={stage.key} className="flex items-center gap-1.5 flex-shrink-0">
                   <span className={`text-xs px-3 py-1 rounded-full font-semibold border ${
@@ -753,8 +978,8 @@ export default function CampaignDetailPage() {
                   ) : (
                     <button
                       onClick={() => setApprovalState('confirming')}
-                      disabled={approvalState === 'approving'}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold hover:bg-green-500/15 transition text-left disabled:opacity-60"
+                      disabled={approvalState === 'approving' || !engineReadyForApproval}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/30 bg-green-500/8 text-green-400 text-xs font-semibold hover:bg-green-500/15 transition text-left disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {approvalState === 'approving' ? '...' : (cdT?.stepApproveCampaign || '✅ Approve for Execution')}
                     </button>
@@ -807,9 +1032,9 @@ export default function CampaignDetailPage() {
                       )}
                       <button
                         onClick={() => handlePushToCalendar(false)}
-                        disabled={calendarPushState === 'pushing' || !hasContentCalendar}
+                        disabled={calendarPushState === 'pushing' || !hasContentCalendar || sentinelStatus !== 'passed'}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition text-left disabled:opacity-50 ${
-                          hasContentCalendar
+                          hasContentCalendar && sentinelStatus === 'passed'
                             ? 'border-cyan-500/30 bg-cyan-500/8 text-cyan-400 hover:bg-cyan-500/15'
                             : 'border-dark-tertiary text-gray-600 cursor-not-allowed'
                         }`}
@@ -827,6 +1052,11 @@ export default function CampaignDetailPage() {
                       )}
                       {!hasContentCalendar && (
                         <p className="text-gray-600 text-xs px-1">{cdT?.pushCalendarNoContent || 'Run Full Strategy first to enable.'}</p>
+                      )}
+                      {hasContentCalendar && sentinelStatus !== 'passed' && (
+                        <p className="text-amber-500/70 text-xs px-1">
+                          {locale === 'ar' ? 'شغّل NEXUS Engine واجعل Sentinel يمر قبل التقويم.' : 'Run NEXUS Engine and pass Sentinel before calendar execution.'}
+                        </p>
                       )}
                     </div>
                   )}
@@ -885,13 +1115,13 @@ export default function CampaignDetailPage() {
                 {sentinelStatus === 'not_reviewed' && (
                   <div className="mb-3 p-3 bg-amber-500/8 border border-amber-500/25 rounded-lg">
                     <p className="text-xs font-semibold text-amber-400 mb-0.5">⚠️ {cdT?.sentinelNoReviewWarning || 'Sentinel review has not been completed yet.'}</p>
-                    <p className="text-xs text-gray-500">{cdT?.sentinelNoReviewWarningDesc || 'We recommend running a Sentinel review before approving. You can still approve without it.'}</p>
+                    <p className="text-xs text-gray-500">{locale === 'ar' ? 'شغّل NEXUS Engine أو Sentinel قبل الاعتماد. الاعتماد مقفول لحد ما المراجعة تعدي.' : 'Run NEXUS Engine or Sentinel before approval. Approval stays locked until review passes.'}</p>
                   </div>
                 )}
                 {sentinelStatus === 'needs_attention' && (
                   <div className="mb-3 p-3 bg-amber-500/8 border border-amber-500/25 rounded-lg">
                     <p className="text-xs font-semibold text-amber-400 mb-0.5">⚠️ {cdT?.sentinelNeedsAttentionWarning || 'Sentinel review flagged issues that need attention.'}</p>
-                    <p className="text-xs text-gray-500">{cdT?.sentinelNeedsAttentionDesc || 'Review the Sentinel findings below before executing. You can still approve if you choose.'}</p>
+                    <p className="text-xs text-gray-500">{locale === 'ar' ? 'راجع التعديلات المقترحة وأعد تشغيل الماكينة. الاعتماد مقفول لحد ما Sentinel يعدي.' : 'Review the recommended fixes and re-run the engine. Approval stays locked until Sentinel passes.'}</p>
                   </div>
                 )}
                 <p className="text-sm font-semibold text-green-400 mb-1">{cdT?.approveConfirmTitle || 'Approve campaign for execution?'}</p>
@@ -2207,35 +2437,65 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
-                {/* Content Calendar (NEX-generated posts) */}
-                {contentCalendar.length > 0 && (
-                  <div className="space-y-4">
-                    {weeklyPlan.length > 0 && (
-                      <p className="text-xs text-gray-500 uppercase tracking-wide px-1 pt-2">Content Calendar</p>
-                    )}
-                    {contentCalendar.map((week: any, wi: number) => (
-                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                        <h3 className="font-bold mb-2 text-amber-400">{week.week || `Week ${wi + 1}`}</h3>
-                        {week.theme && <p className="text-xs text-gray-500 mb-4 italic">{week.theme}</p>}
-                        <div className="space-y-2">
-                          {(week.posts || []).map((post: any, pi: number) => (
-                            <div key={pi} className="flex items-start gap-4 bg-dark rounded-xl p-3 text-sm">
-                              <span className="text-gray-500 w-16 flex-shrink-0">{post.day}</span>
-                              <span className="flex-shrink-0">{PLATFORM_ICONS[post.platform] || '🌐'}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-gray-300">{post.topic || post.contentPillar}</p>
-                                {post.hook && <p className="text-accent text-xs mt-1 truncate">"{post.hook}"</p>}
-                              </div>
-                              <span className="text-xs text-gray-500 bg-dark-tertiary px-2 py-1 rounded-full flex-shrink-0">{post.type || post.format}</span>
-                            </div>
-                          ))}
+                {/* Platform preview calendar */}
+                {monthlyPreviewItems.length > 0 && (
+                  <div className="space-y-5">
+                    <div className="rounded-2xl p-5 border"
+                      style={{ background: 'rgba(10,11,28,0.82)', borderColor: 'rgba(139,92,246,0.18)' }}>
+                      <div className="flex flex-col md:flex-row md:items-center gap-3">
+                        <div>
+                          <p className="text-xs text-gray-500 uppercase tracking-wide">
+                            {locale === 'ar' ? 'خطة الشهر حسب المنصة' : 'Monthly plan by platform'}
+                          </p>
+                          <h3 className="text-white font-bold mt-1">
+                            {locale === 'ar'
+                              ? `${monthlyPreviewItems.length} كارت محتوى جاهز للمراجعة`
+                              : `${monthlyPreviewItems.length} content cards ready for review`}
+                          </h3>
+                        </div>
+                        <div className="md:ml-auto flex flex-wrap gap-2">
+                          <span className="text-[11px] px-2.5 py-1 rounded-full border border-cyan-500/20 text-cyan-300 bg-cyan-500/5">
+                            {mediaStrategy?.mode === 'client_assets'
+                              ? (locale === 'ar' ? `${mediaStrategy.sourceCount} ملف من الميديا دخلوا في الخطة` : `${mediaStrategy.sourceCount} media assets used`)
+                              : (locale === 'ar' ? 'بدون ميديا: الصور هتتولد بالـ AI' : 'No media: AI visuals planned')}
+                          </span>
+                          {creativeAssets.some((asset: any) => asset.type === 'VIDEO') && (
+                            <span className="text-[11px] px-2.5 py-1 rounded-full border border-pink-500/20 text-pink-300 bg-pink-500/5">
+                              {locale === 'ar' ? 'الفيديوهات محسوبة في الخطة' : 'Videos considered in plan'}
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ))}
+                    </div>
+
+                    {Object.entries(postsByPlatform).map(([platformKey, postsUnknown]) => {
+                      const posts = postsUnknown as any[]
+                      const theme = platformTheme(platformKey)
+                      return (
+                        <div key={platformKey} className="space-y-3">
+                          <div className="flex items-center gap-2 px-1">
+                            <span className="text-lg">{theme.icon}</span>
+                            <h3 className="font-bold text-white">{theme.label}</h3>
+                            <span className="text-xs text-gray-600">· {posts.length} {locale === 'ar' ? 'بوست' : 'posts'}</span>
+                          </div>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {posts.map((item: any, index: number) => (
+                              <PlatformNativeCard
+                                key={item.id || index}
+                                item={item}
+                                index={index}
+                                locale={locale}
+                                brandName={_postBrandName}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
 
-                {weeklyExecutionPlan.length === 0 && weeklyPlan.length === 0 && contentCalendar.length === 0 && (
+                {weeklyExecutionPlan.length === 0 && weeklyPlan.length === 0 && contentCalendar.length === 0 && monthlyPreviewItems.length === 0 && (
                   <EmptySection icon="📅" message={cdT?.emptyCalendarDesc || 'Content calendar not available yet.'} />
                 )}
               </div>
