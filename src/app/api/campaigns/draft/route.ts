@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/auth-utils'
+import { getServerUserId } from '@/lib/apiAuth'
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuth()
+    const userId = await getServerUserId(req)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = { id: userId }
     const body = await req.json()
     const { projectId, name } = body
 

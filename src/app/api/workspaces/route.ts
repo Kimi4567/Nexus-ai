@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth-utils'
+import { getServerUserId, ensureDbUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth()
+    // ensureDbUser verifies the JWT AND upserts the Prisma User row in one
+    // step — guaranteeing the DB row exists before workspace.create runs.
+    const user = await ensureDbUser(request)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const data = await request.json()
 
     const {
@@ -12,23 +15,6 @@ export async function POST(request: NextRequest) {
       slug,
       description,
     } = data
-
-    // ── Ensure Prisma User row exists BEFORE creating workspace ──────────────
-    // New email/password sign-ups only create a Supabase Auth user, NOT a
-    // Prisma User row. Without this upsert the workspace.create call throws a
-    // foreign-key constraint error (ownerId references non-existent User).
-    await prisma.user.upsert({
-      where: { id: user.id },
-      update: {
-        ...(user.email ? { email: user.email } : {}),
-        ...(user.name  ? { name:  user.name  } : {}),
-      },
-      create: {
-        id:    user.id,
-        email: user.email || `${user.id}@placeholder.nexus`,
-        name:  user.name  || null,
-      },
-    })
 
     // Check if workspace slug already exists
     const existing = await prisma.workspace.findUnique({
@@ -63,7 +49,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth()
+    const userId = await getServerUserId(request)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = { id: userId }
 
     const workspaces = await prisma.workspace.findMany({
       where: {

@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth-utils'
+import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth()
+    const userId = await getServerUserId(request)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = { id: userId }
     const data = await request.json()
 
     const {
@@ -50,7 +52,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth()
+    const userId = await getServerUserId(request)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = { id: userId }
     const { searchParams } = new URL(request.url)
     const workspaceId = searchParams.get('workspaceId')
 

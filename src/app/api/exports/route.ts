@@ -7,7 +7,7 @@
  * Upgrade path: add PDF renderer (puppeteer / react-pdf) later.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth-utils'
+import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { adminClient } from '@/lib/supabaseAuth'
 
@@ -163,7 +163,9 @@ ${cta ? `
 // ── Main handler ───────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth()
+    const userId = await getServerUserId(request)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const user = { id: userId }
     const body = await request.json()
     const { campaignId, format = 'HTML', type = 'full_campaign' } = body
 
