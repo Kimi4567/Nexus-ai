@@ -17,6 +17,7 @@ const PLATFORM_ICONS: Record<string, string> = {
 }
 
 export async function GET(req: NextRequest) {
+  try {
   const token = req.nextUrl.searchParams.get('token')
   if (!token) return new NextResponse('Missing token', { status: 400 })
 
@@ -111,4 +112,8 @@ export async function GET(req: NextRequest) {
       'Cache-Control': 'public, max-age=86400, s-maxage=86400',
     },
   })
+  } catch (err) {
+    console.error('[og/share]', err)
+    return new NextResponse('Internal Server Error', { status: 500 })
+  }
 }

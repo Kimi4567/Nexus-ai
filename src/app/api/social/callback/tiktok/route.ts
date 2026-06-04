@@ -47,8 +47,6 @@ async function attemptTokenExchange(
     body = new URLSearchParams({ code, grant_type: 'authorization_code', redirect_uri: redirectUri })
   }
 
-  console.log(`[TikTok] attemptTokenExchange method=${method} redirect_uri=${redirectUri} client_key_prefix=${clientKey.slice(0, 8)}`)
-
   // redirect:'follow' — let fetch follow any redirects, then inspect the final URL
   const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
     method: 'POST',
@@ -58,17 +56,10 @@ async function attemptTokenExchange(
     cache: 'no-store',
   })
 
-  const status      = res.status
-  const redirected  = res.redirected          // true if fetch followed a redirect
-  const finalUrl    = res.url                  // final URL after any redirects
-  const contentType = res.headers.get('content-type') ?? ''
-  const allHeaders  = Object.fromEntries([...res.headers.entries()])
-
-  console.log(`[TikTok] method=${method} status=${status} redirected=${redirected} finalUrl=${finalUrl} content-type=${contentType}`)
-  console.log(`[TikTok] all headers: ${JSON.stringify(allHeaders)}`)
-
-  const text = await res.text()
-  console.log(`[TikTok] method=${method} raw body (first 1500): ${text.slice(0, 1500)}`)
+  const status     = res.status
+  const redirected = res.redirected
+  const finalUrl   = res.url
+  const text       = await res.text()
 
   // If we were redirected to an HTML page, reject immediately
   if (redirected) {
@@ -105,8 +96,6 @@ export async function GET(req: NextRequest) {
 
   const baseUrl = getBaseUrl()
 
-  console.log('[TikTok] Callback hit — baseUrl:', baseUrl, '| code present:', !!code, '| state present:', !!state, '| error:', errorParam)
-
   // User denied access
   if (errorParam) {
     return NextResponse.redirect(`${baseUrl}/connections?social=denied`)
@@ -122,7 +111,6 @@ export async function GET(req: NextRequest) {
     const decoded = JSON.parse(Buffer.from(state, 'base64url').toString())
     userId = decoded.userId
     if (Date.now() - decoded.ts > 60 * 60 * 1000) throw new Error('stale')
-    console.log('[TikTok] State decoded — userId:', userId, '| age_ms:', Date.now() - decoded.ts)
   } catch {
     return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=invalid_state`)
   }
@@ -143,13 +131,11 @@ export async function GET(req: NextRequest) {
 
     try {
       tokenData = await attemptTokenExchange('body', exchangeParams)
-      console.log('[TikTok] Token exchange succeeded via body method')
     } catch (bodyErr) {
       const bodyErrMsg = bodyErr instanceof Error ? bodyErr.message : String(bodyErr)
       console.warn('[TikTok] Body method failed:', bodyErrMsg, '— trying Basic Auth...')
       try {
         tokenData = await attemptTokenExchange('basic_auth', exchangeParams)
-        console.log('[TikTok] Token exchange succeeded via Basic Auth method')
       } catch (basicErr) {
         const basicErrMsg = basicErr instanceof Error ? basicErr.message : String(basicErr)
         console.error('[TikTok] Both token exchange methods failed. body:', bodyErrMsg, '| basic:', basicErrMsg)
@@ -179,7 +165,6 @@ export async function GET(req: NextRequest) {
         }
       )
       const profileText = await profileRes.text()
-      console.log('[TikTok] Profile response:', profileText.slice(0, 500))
       const profileData = JSON.parse(profileText)
       const profile = profileData.data?.user || {}
       displayName = profile.display_name || 'TikTok User'
@@ -187,8 +172,6 @@ export async function GET(req: NextRequest) {
     } catch (profileErr) {
       console.error('[TikTok] Profile fetch failed (non-fatal):', profileErr)
     }
-
-    console.log('[TikTok] userId:', userId, '| openId:', openId, '| name:', displayName)
 
     // ── Ensure User + Workspace exist ─────────────────────────────────────
     await prisma.user.upsert({
@@ -242,7 +225,6 @@ export async function GET(req: NextRequest) {
         lastSyncedAt: new Date(),
       },
     })
-    console.log('[TikTok] Integration saved! openId:', openId)
 
     return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=tiktok`)
 

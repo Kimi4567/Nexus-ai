@@ -1,23 +1,17 @@
 // Placeholder upload processing helpers
 // This module defines the upload architecture for async processing, transcoding,
 // thumbnail generation, compression, and future render pipelines.
+// Phase 2: wire enqueueJob once BullMQ / Redis is in place.
 
 import { prisma } from './prisma'
-import { enqueueJob } from './queue'
 
 export async function scheduleProcessingForMedia(mediaId: string) {
   try {
-    await prisma.media.update({ where: { id: mediaId }, data: { /* queuedForProcessing: true */ } as any })
-  } catch (err) {
-    console.warn('Failed to mark media for processing', err)
+    await prisma.media.update({ where: { id: mediaId }, data: {} })
+  } catch {
+    // noop — media record may not exist yet
   }
-
-  enqueueJob({
-    id: `media-${mediaId}-${Date.now()}`,
-    type: 'media.process',
-    payload: { mediaId },
-    createdAt: Date.now(),
-  })
+  // TODO: enqueue to BullMQ when Redis is available
 }
 
 export async function markMediaProcessingFailed(mediaId: string, reason: string) {
