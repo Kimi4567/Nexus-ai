@@ -153,6 +153,7 @@ export default function CampaignDetailPage() {
   const [brandNoticeDismissed, setBrandNoticeDismissed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(isGenerating)
+  const [generateError, setGenerateError] = useState('')
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
@@ -362,6 +363,45 @@ export default function CampaignDetailPage() {
     } catch {
       setSentinelError('Network error — please try again')
       setSentinelState('idle')
+    }
+  }
+
+  // Generate AI strategy for this campaign (used when aiOutput is empty)
+  const handleGenerateStrategy = async () => {
+    const token = authHeader()
+    if (!token || !campaignId) return
+    setGenerating(true)
+    setGenerateError('')
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ campaignId, language: locale }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        if (res.status === 402) {
+          setUpgradeReason('no_credits')
+          setShowUpgrade(true)
+        } else {
+          setGenerateError(err.error || (locale === 'ar' ? 'فشل التوليد، حاول مرة أخرى' : 'Generation failed — please try again'))
+        }
+        console.error('[handleGenerateStrategy]', err)
+        setGenerating(false)
+        return
+      }
+      const d = await res.json()
+      if (d.strategy) {
+        setCampaign(prev => prev ? { ...prev, aiOutput: { strategy: d.strategy, concepts: d.concepts } } : prev)
+      } else {
+        // Fallback: refetch the campaign to get updated aiOutput
+        await fetchCampaign()
+      }
+    } catch (e: any) {
+      console.error('[handleGenerateStrategy] network error', e)
+      setGenerateError(locale === 'ar' ? 'خطأ في الشبكة، حاول مرة أخرى' : 'Network error — please try again')
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -1043,11 +1083,15 @@ export default function CampaignDetailPage() {
             </div>
             <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>{cdT?.noOutputTitle}</h3>
             <p className="mb-6 text-sm" style={{ color: 'var(--nx-text-3)' }}>{cdT?.noOutputDesc}</p>
-            <Link href="/campaigns/new"
+            <button
+              onClick={handleGenerateStrategy}
               className="px-6 py-3 rounded-xl font-bold transition"
               style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
-              {cdT?.noOutputBtn}
-            </Link>
+              {cdT?.noOutputBtn || (locale === 'ar' ? 'توليد الاستراتيجية' : 'Generate Strategy')}
+            </button>
+            {generateError && (
+              <p className="mt-3 text-sm text-red-400">{generateError}</p>
+            )}
           </div>
         )}
 

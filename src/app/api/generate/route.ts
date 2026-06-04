@@ -43,8 +43,11 @@ export async function POST(req: NextRequest) {
   const campaignWithLang = { ...(campaign as any), language: language || 'ar' }
 
   try {
-    const strategy = await ai.generateMarketingStrategy(campaignWithLang, project as any)
-    const concepts = await ai.generateAdConcepts(campaignWithLang, project as any)
+    // Run both AI calls in parallel — halves execution time vs sequential
+    const [strategy, concepts] = await Promise.all([
+      ai.generateMarketingStrategy(campaignWithLang, project as any),
+      ai.generateAdConcepts(campaignWithLang, project as any),
+    ])
 
     // AD3: Post-generation quality validation (non-blocking — logs only)
     const qualityReport = validateOutputObject(strategy, {
@@ -74,6 +77,20 @@ export async function POST(req: NextRequest) {
         status: 'COMPLETED',
         output: JSON.stringify(concepts),
         provider: process.env.OPENAI_API_KEY ? 'openai' : 'mock',
+      },
+    })
+
+    // ── CRITICAL: Persist aiOutput on the Campaign row so the frontend polling finds it ──
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: {
+        aiOutput: { strategy, concepts },
+        activities: {
+          create: {
+            type: 'generated',
+            description: 'AI strategy and ad concepts generated',
+          },
+        },
       },
     })
 

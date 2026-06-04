@@ -135,13 +135,13 @@ BRAND MEMORY (use this to stay on-brand):
 PLATFORM-SPECIFIC GUIDES (apply these):
 ${platformGuides || 'Create platform-native content appropriate to each platform.'}
 
-Generate the contentCalendar for 4 weeks with 5-7 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
+Generate the contentCalendar for 2 weeks with 4-5 posts per week spread across the platforms: ${(campaign.platforms || ['INSTAGRAM']).join(', ')}.
 For each calendar post, include a "caption" field with a ready-to-post caption draft (including relevant hashtags for social platforms).
 Make ALL recommendations hyper-specific to this campaign — use real copy examples, not placeholders.
 Every value prop, CTA, and hook should name the actual product/service and audience.
 REMINDER: ${getLanguageInstruction(campaign.language)}`
 
-  return callOpenAI(system, user, true, 4096)
+  return callOpenAI(system, user, true, 2500)
 }
 
 // ─────────────────────────────────────────────
@@ -210,7 +210,7 @@ CRITICAL: ${getLanguageInstruction(campaign.language)}
 
 Return: { "concepts": [ ...exactly 5 concepts... ] }`
 
-  const result = await callOpenAI(system, user, true, 4096)
+  const result = await callOpenAI(system, user, true, 2000)
   // Handle both { concepts: [] } and direct array
   if (Array.isArray(result)) return result
   if (result?.concepts) return result.concepts
