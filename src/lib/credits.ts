@@ -72,6 +72,14 @@ export const CREDIT_COSTS = {
   CHAT_MESSAGE: 1,
 
   /**
+   * Content plan generation — GPT-4o-mini writes all post captions + image prompts
+   * Route: /api/campaigns/[id]/generate-content-plan
+   * API cost: ~$0.002 (GPT-4o-mini, ~3,000 tokens). Charged per-plan not per-post.
+   * Actual charge = max(2, ceil(postsPerMonth / 5)) — scales with plan size.
+   */
+  CONTENT_PLAN_GENERATION: 2,
+
+  /**
    * NOTE: VIDEO_GENERATION is NOT a credit action.
    * Video generation ($0.30–$1.00/video via Replicate) uses a separate monthly
    * quota per plan (FREE: 0, PRO: 5, BUSINESS: 20). This prevents margin collapse

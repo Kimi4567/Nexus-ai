@@ -2333,6 +2333,35 @@ export default function CampaignDetailPage() {
                   </button>
                 </div>
 
+                {/* ── Content Hub Entry Card ── */}
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(12px)' }}>
+                  <div className="flex items-start gap-3 mb-4">
+                    <span className="text-2xl">📅</span>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-base text-purple-400">Content Hub</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {locale === 'ar'
+                          ? 'كل المنشورات الشهرية — معاينة حقيقية + توليد الصور'
+                          : 'All monthly posts — real platform previews + AI image generation'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mb-4 flex-wrap">
+                    {['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok'].map(p => (
+                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>{p}</span>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => window.open(`/campaigns/${campaign.id}/content-hub`, '_blank')}
+                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white flex items-center justify-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.9), rgba(109,40,217,0.9))', border: '1px solid rgba(139,92,246,0.4)' }}
+                  >
+                    <span>📅</span>
+                    {locale === 'ar' ? 'فتح مركز المحتوى' : 'Open Content Hub'}
+                    <span className="text-purple-300 text-xs">↗</span>
+                  </button>
+                </div>
+
                 {/* Visual Direction from strategy */}
                 {strategy.visualDirection && (
                   <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>

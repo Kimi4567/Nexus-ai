@@ -782,8 +782,10 @@ model SocialPost {
   campaignId    String?
 
   // Which integration / page this was published to
-  integrationId String
-  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  // integrationId is optional: NULL means the post is in the content plan
+  // but not yet linked to a connected platform account.
+  integrationId String?
+  integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
   platform      IntegrationType   // META, TIKTOK, etc.
   pageId        String?           // Facebook page ID or IG account ID
@@ -791,7 +793,7 @@ model SocialPost {
 
   // Content
   caption       String     @db.Text
-  imageUrl      String?    // Optional attached image
+  imageUrl      String?    // Final generated/uploaded image URL
   link          String?    // Optional link in post
 
   // Platform result
@@ -813,6 +815,14 @@ model SocialPost {
   // Media Intelligence (Sprint AF)
   sourceType    String?    @default("AI_GENERATED")  // "AI_GENERATED" | "USER_ASSET" | "NONE"
   sourceMediaId String?    // ID of the Media record used as visual
+
+  // Content Hub fields (Sprint CH)
+  isVideoPost       Boolean  @default(false)              // true = this slot is a video
+  videoPrompt       String?  @db.Text                     // Replicate prompt for video gen
+  generationStatus  String   @default("PENDING")          // PENDING | GENERATING | DONE | FAILED | SKIPPED
+  mediaSource       String   @default("GENERATE")         // GENERATE | UPLOAD | MIXED
+  uploadedMediaId   String?                               // user's own uploaded asset (Media.id)
+  contentPlanIndex  Int?                                  // position in the monthly content plan (1-N)
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
