@@ -5,11 +5,11 @@
  * Fetches Brand Brain + Strategy from DB to build a rich VisualContext,
  * then routes to the correct brand-category prompt builder.
  *
- * Providers:
- *   - 'openai' (default): gpt-image-1 high quality — reliable, fast
- *   - 'flux': Flux 1.1 Pro Ultra via fal.ai — best-in-class photorealism, requires FAL_KEY
+ * Provider selection is automatic (server-side):
+ *   - FAL_KEY present → Flux 1.1 Pro Ultra via fal.ai (best photorealism, ~$0.06/image)
+ *   - FAL_KEY absent  → gpt-image-1 high quality (reliable fallback)
  *
- * Pass { provider: 'flux' } in request body to use Flux.
+ * Clients do not choose the provider — it's an infrastructure decision.
  * Returns the completed visual synchronously (Vercel 60s timeout).
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -41,8 +41,6 @@ export async function POST(req: NextRequest) {
     campaignId,
     visualType    = 'HERO'    as VisualType,
     visualStyle   = 'Premium' as VisualStyle,
-    // Provider selection: 'openai' (default) | 'flux' (premium, requires FAL_KEY)
-    provider      = 'openai'  as 'openai' | 'flux',
     // Platform hint for sizing: META | TIKTOK | LINKEDIN
     platform      = 'META'    as string,
     // Client can pass overrides — DB is the authoritative source for brand context
@@ -174,11 +172,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Run generation — provider-aware ──────────────────────────────────────
+  // ── Run generation — server auto-detects provider ────────────────────────
+  // If FAL_KEY is configured → Flux 1.1 Pro Ultra (best photorealism)
+  // Otherwise → gpt-image-1 high quality (default)
+  // Client never controls this — provider is an infrastructure decision, not a UI choice.
   try {
     let rawImageUrl: string
+    const useFlux = !!process.env.FAL_KEY
 
-    if (provider === 'flux' && process.env.FAL_KEY) {
+    if (useFlux) {
       // Flux 1.1 Pro Ultra — best photorealism, returns hosted CDN URL
       const fluxSize = platformToFluxSize(platform)
       console.log(`[visuals/generate] Using Flux Pro Ultra — size: ${fluxSize}`)
@@ -186,11 +188,7 @@ export async function POST(req: NextRequest) {
       rawImageUrl = fluxResult.imageUrl
     } else {
       // gpt-image-1 high quality — returns base64 data URI
-      if (provider === 'flux') {
-        console.warn('[visuals/generate] FAL_KEY not set — falling back to gpt-image-1')
-      }
-      // Apply platform-aware sizing for gpt-image-1
-      // Note: generateWithDallE uses its own default size; we pass platform hint via prompt
+      console.log(`[visuals/generate] Using gpt-image-1 high quality — platform: ${platform}`)
       rawImageUrl = await generateWithDallE(prompt, platformToOpenAISize(platform))
     }
 

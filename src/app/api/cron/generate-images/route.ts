@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
+import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,14 +27,24 @@ const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 
 /**
- * Generate image using gpt-image-1 (latest OpenAI model — high quality).
- * Returns a data URI (base64 PNG). Must be uploaded to Cloudinary for permanence.
- * Platform-aware sizing: square for Meta/TikTok, portrait for Stories, landscape for LinkedIn.
+ * Generate image — auto-detects provider:
+ *   FAL_KEY set  → Flux 1.1 Pro Ultra (best photorealism, returns CDN URL)
+ *   FAL_KEY unset → gpt-image-1 high quality (returns base64 data URI)
+ * Platform-aware sizing applied in both paths.
  */
 async function generateImage(
   prompt: string,
   platform: string
 ): Promise<string> {
+  // Auto-detect provider — FAL_KEY presence is the only signal
+  if (process.env.FAL_KEY) {
+    const fluxSize = platformToFluxSize(platform)
+    console.log(`[Cron generate-images] Using Flux Pro Ultra — size: ${fluxSize}`)
+    const result = await generateWithFlux({ prompt, imageSize: fluxSize })
+    return result.imageUrl // Hosted CDN URL — no base64 needed
+  }
+
+  // Fallback: gpt-image-1 high quality
   // Platform-aware sizing — gpt-image-1 supported sizes only
   const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
     TIKTOK:    '1024x1536',   // portrait — TikTok vertical format
@@ -141,8 +152,8 @@ export async function GET(req: NextRequest) {
         const prompt = post.imagePrompt!
         const platform: string = post.platform || 'META'
 
-        // 1. Generate with gpt-image-1 (high quality, platform-aware size)
-        console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}`)
+        // 1. Generate image — auto-routes to Flux Pro Ultra if FAL_KEY set, else gpt-image-1 high
+        console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}, provider: ${process.env.FAL_KEY ? 'flux' : 'gpt-image-1'}`)
         const dataUri = await generateImage(prompt, platform)
 
         // 2. Upload to Cloudinary for permanence (accepts data URI directly)
