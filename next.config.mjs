@@ -25,9 +25,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // typescript.ignoreBuildErrors removed — build must fail on type errors
   trailingSlash: false,
 }
 
