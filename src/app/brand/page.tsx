@@ -76,12 +76,13 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 /* ── Sub-components ───────────────────────────────────────────── */
-function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest, suggesting }: {
+function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest, suggesting, locale }: {
   label: string; placeholder: string; values: string[]; onChange: (v: string[]) => void;
-  accentColor?: string; onSuggest?: () => void; suggesting?: boolean
+  accentColor?: string; onSuggest?: () => void; suggesting?: boolean; locale?: string
 }) {
   const [input, setInput] = useState('')
   const accent = accentColor || '#f59e0b'
+  const isAr = locale === 'ar'
   const add = (val: string) => { const v = val.trim(); if (v && !values.includes(v)) onChange([...values, v]); setInput('') }
   const remove = (i: number) => onChange(values.filter((_, idx) => idx !== i))
   return (
@@ -109,7 +110,9 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
         {suggesting && (
           <div className="flex items-center gap-2 px-2 py-1">
             <Wand2 size={12} style={{ color: accent }} className="animate-pulse"/>
-            <span className="text-xs" style={{ color: accent }}>جاري التفكير...</span>
+            <span className="text-xs" style={{ color: accent }}>
+              {isAr ? 'جاري التفكير...' : 'Thinking...'}
+            </span>
           </div>
         )}
         {!suggesting && values.map((v, i) => (
@@ -384,6 +387,7 @@ export default function BrandBrainPage() {
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const [suggesting, setSuggesting]   = useState<string | null>(null)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
   const [textSuggestion, setTextSuggestion] = useState<{ field: string; text: string } | null>(null)
   const [form, setForm]   = useState<BrandProfile>({
     brandName: '', industry: '', description: '',
@@ -412,6 +416,7 @@ export default function BrandBrainPage() {
   // ── handleSuggestText: for plain text fields ──────────────────
   const handleSuggestText = async (field: keyof BrandProfile) => {
     setSuggesting(field)
+    setSuggestError(null)
     setTextSuggestion(null)
     try {
       const res = await fetch('/api/brand/suggest', {
@@ -424,20 +429,41 @@ export default function BrandBrainPage() {
           description:    form.description,
           primaryOffer:   form.primaryOffer,
           targetAudience: form.targetAudience,
+          audienceLocation: form.audienceLocation,
+          pricePoint:     form.pricePoint,
+          uniqueAdvantages: form.uniqueAdvantages,
+          toneKeywords:   form.toneKeywords,
+          competitorNotes: form.competitorNotes,
           locale,
         }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.suggestion) setTextSuggestion({ field, text: data.suggestion })
+      if (res.status === 402) {
+        setSuggestError(locale === 'ar' ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
+        return
       }
-    } catch {/* silent */}
+      if (res.status === 401) {
+        setSuggestError(locale === 'ar' ? 'يرجى تسجيل الدخول أولاً' : 'Please log in again')
+        return
+      }
+      if (!res.ok) {
+        setSuggestError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
+        return
+      }
+      const data = await res.json()
+      if (data.suggestion) setTextSuggestion({ field, text: data.suggestion })
+    } catch {
+      setSuggestError(locale === 'ar' ? 'تعذّر الاتصال، حاول مرة أخرى' : 'Connection failed, please try again')
+    }
     finally { setSuggesting(null) }
   }
 
   const handleSuggest = async (field: keyof BrandProfile) => {
-    if (!form.brandName && !form.industry) return
+    if (!form.brandName && !form.industry) {
+      setSuggestError(locale === 'ar' ? 'أدخل اسم العلامة أو المجال أولاً' : 'Enter brand name or industry first')
+      return
+    }
     setSuggesting(field)
+    setSuggestError(null)
     try {
       const res = await fetch('/api/brand/suggest', {
         method: 'POST',
@@ -449,18 +475,37 @@ export default function BrandBrainPage() {
           description:    form.description,
           primaryOffer:   form.primaryOffer,
           targetAudience: form.targetAudience,
+          audienceLocation: form.audienceLocation,
+          pricePoint:     form.pricePoint,
+          uniqueAdvantages: form.uniqueAdvantages,
+          toneKeywords:   form.toneKeywords,
+          competitorNotes: form.competitorNotes,
           locale,
         }),
       })
-      if (res.ok) {
-        const { suggestions } = await res.json()
-        if (Array.isArray(suggestions) && suggestions.length) {
-          const existing = (form[field] as string[]) || []
-          const merged = [...new Set([...existing, ...suggestions])]
-          set(field, merged)
-        }
+      if (res.status === 402) {
+        setSuggestError(locale === 'ar' ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
+        return
       }
-    } catch {/* silent */}
+      if (res.status === 401) {
+        setSuggestError(locale === 'ar' ? 'يرجى تسجيل الدخول أولاً' : 'Please log in again')
+        return
+      }
+      if (!res.ok) {
+        setSuggestError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
+        return
+      }
+      const { suggestions } = await res.json()
+      if (Array.isArray(suggestions) && suggestions.length) {
+        const existing = (form[field] as string[]) || []
+        const merged = [...new Set([...existing, ...suggestions])]
+        set(field, merged)
+      } else {
+        setSuggestError(locale === 'ar' ? 'لم يتم إرجاع اقتراحات، حاول مرة أخرى' : 'No suggestions returned, please try again')
+      }
+    } catch {
+      setSuggestError(locale === 'ar' ? 'تعذّر الاتصال، حاول مرة أخرى' : 'Connection failed, please try again')
+    }
     finally { setSuggesting(null) }
   }
 
@@ -677,6 +722,18 @@ export default function BrandBrainPage() {
               </div>
             </div>
 
+            {/* AI Suggest error banner */}
+            {suggestError && (
+              <div className="mx-6 mt-3 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={13} className="text-red-400 flex-shrink-0"/>
+                  <span className="text-xs font-medium" style={{ color: '#fca5a5' }}>{suggestError}</span>
+                </div>
+                <button onClick={() => setSuggestError(null)} className="text-xs opacity-50 hover:opacity-100 transition-opacity" style={{ color: '#fca5a5' }}>✕</button>
+              </div>
+            )}
+
             {/* Form content */}
             <div className="p-6 space-y-5">
 
@@ -732,14 +789,14 @@ export default function BrandBrainPage() {
                   )}
                   <TagInput label={t('brand.productSecondaryLabel')} placeholder={t('brand.productSecondaryPlaceholder')}
                     values={form.secondaryOffers||[]} onChange={v=>set('secondaryOffers',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('secondaryOffers')} suggesting={suggesting==='secondaryOffers'}/>
+                    onSuggest={() => handleSuggest('secondaryOffers')} suggesting={suggesting==='secondaryOffers'} locale={locale}/>
                   <Field label={t('brand.productPriceLabel')}>
                     <RadioGroup options={PRICE_OPTIONS.map(o=>({v:o.v,l:locale==='ar'?o.l:o.lEn}))}
                       value={form.pricePoint||''} onChange={v=>set('pricePoint',v)} color={currentStep.color}/>
                   </Field>
                   <TagInput label={t('brand.productAdvantagesLabel')} placeholder={t('brand.productAdvantagesPlaceholder')}
                     values={form.uniqueAdvantages||[]} onChange={v=>set('uniqueAdvantages',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('uniqueAdvantages')} suggesting={suggesting==='uniqueAdvantages'}/>
+                    onSuggest={() => handleSuggest('uniqueAdvantages')} suggesting={suggesting==='uniqueAdvantages'} locale={locale}/>
                 </div>
               )}
 
@@ -780,10 +837,10 @@ export default function BrandBrainPage() {
                   </div>
                   <TagInput label={t('brand.audiencePainLabel')} placeholder={t('brand.audiencePainPlaceholder')}
                     values={form.audiencePainPoints||[]} onChange={v=>set('audiencePainPoints',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('audiencePainPoints')} suggesting={suggesting==='audiencePainPoints'}/>
+                    onSuggest={() => handleSuggest('audiencePainPoints')} suggesting={suggesting==='audiencePainPoints'} locale={locale}/>
                   <TagInput label={t('brand.audienceDesireLabel')} placeholder={t('brand.audienceDesirePlaceholder')}
                     values={form.audienceDesires||[]} onChange={v=>set('audienceDesires',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('audienceDesires')} suggesting={suggesting==='audienceDesires'}/>
+                    onSuggest={() => handleSuggest('audienceDesires')} suggesting={suggesting==='audienceDesires'} locale={locale}/>
                 </div>
               )}
 
@@ -806,10 +863,10 @@ export default function BrandBrainPage() {
                   )}
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
                     values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('avoidKeywords')} suggesting={suggesting==='avoidKeywords'}/>
+                    onSuggest={() => handleSuggest('avoidKeywords')} suggesting={suggesting==='avoidKeywords'} locale={locale}/>
                   <TagInput label={t('brand.voiceHooksLabel')} placeholder={t('brand.voiceHooksPlaceholder')}
                     values={form.winningHooks||[]} onChange={v=>set('winningHooks',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('winningHooks')} suggesting={suggesting==='winningHooks'}/>
+                    onSuggest={() => handleSuggest('winningHooks')} suggesting={suggesting==='winningHooks'} locale={locale}/>
                 </div>
               )}
 
@@ -837,9 +894,9 @@ export default function BrandBrainPage() {
                   </Field>
                   <TagInput label={t('brand.platformsAnglesLabel')} placeholder={t('brand.platformsAnglesPlaceholder')}
                     values={form.winningAngles||[]} onChange={v=>set('winningAngles',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('winningAngles')} suggesting={suggesting==='winningAngles'}/>
+                    onSuggest={() => handleSuggest('winningAngles')} suggesting={suggesting==='winningAngles'} locale={locale}/>
                   <TagInput label={t('brand.platformsFailedLabel')} placeholder={t('brand.platformsFailedPlaceholder')}
-                    values={form.failedAngles||[]} onChange={v=>set('failedAngles',v)} accentColor={currentStep.color}/>
+                    values={form.failedAngles||[]} onChange={v=>set('failedAngles',v)} accentColor={currentStep.color} locale={locale}/>
                 </div>
               )}
 
