@@ -5,7 +5,11 @@
  * Fetches Brand Brain + Strategy from DB to build a rich VisualContext,
  * then routes to the correct brand-category prompt builder.
  *
- * Model: gpt-image-1 (replaces deprecated dall-e-3).
+ * Providers:
+ *   - 'openai' (default): gpt-image-1 high quality — reliable, fast
+ *   - 'flux': Flux 1.1 Pro Ultra via fal.ai — best-in-class photorealism, requires FAL_KEY
+ *
+ * Pass { provider: 'flux' } in request body to use Flux.
  * Returns the completed visual synchronously (Vercel 60s timeout).
  */
 import { NextRequest, NextResponse } from 'next/server'
@@ -20,6 +24,7 @@ import {
   VisualStyle,
   VisualType,
 } from '@/lib/ai/imageGen'
+import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
 import { applyBrandOverlayFromProfile } from '@/lib/cloudinaryOverlay'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,6 +41,10 @@ export async function POST(req: NextRequest) {
     campaignId,
     visualType    = 'HERO'    as VisualType,
     visualStyle   = 'Premium' as VisualStyle,
+    // Provider selection: 'openai' (default) | 'flux' (premium, requires FAL_KEY)
+    provider      = 'openai'  as 'openai' | 'flux',
+    // Platform hint for sizing: META | TIKTOK | LINKEDIN
+    platform      = 'META'    as string,
     // Client can pass overrides — DB is the authoritative source for brand context
     campaignName,
     campaignGoal,
@@ -165,13 +174,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Run gpt-image-1 generation ────────────────────────────────────────────
+  // ── Run generation — provider-aware ──────────────────────────────────────
   try {
-    const dalleUrl = await generateWithDallE(prompt)
+    let rawImageUrl: string
+
+    if (provider === 'flux' && process.env.FAL_KEY) {
+      // Flux 1.1 Pro Ultra — best photorealism, returns hosted CDN URL
+      const fluxSize = platformToFluxSize(platform)
+      console.log(`[visuals/generate] Using Flux Pro Ultra — size: ${fluxSize}`)
+      const fluxResult = await generateWithFlux({ prompt, imageSize: fluxSize })
+      rawImageUrl = fluxResult.imageUrl
+    } else {
+      // gpt-image-1 high quality — returns base64 data URI
+      if (provider === 'flux') {
+        console.warn('[visuals/generate] FAL_KEY not set — falling back to gpt-image-1')
+      }
+      // Apply platform-aware sizing for gpt-image-1
+      // Note: generateWithDallE uses its own default size; we pass platform hint via prompt
+      rawImageUrl = await generateWithDallE(prompt, platformToOpenAISize(platform))
+    }
 
     // Persist to Cloudinary
     const publicId     = `visual_${visual.id}`
-    const cloudinaryUrl = await uploadToCloudinary(dalleUrl, publicId)
+    const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, publicId)
 
     // Apply brand overlay (Cloudinary URL transformation — no extra API call)
     const permanentUrl = applyBrandOverlayFromProfile(cloudinaryUrl, brand, 'square')

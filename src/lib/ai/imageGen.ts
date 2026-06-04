@@ -404,16 +404,25 @@ export function buildImagePrompt(ctx: VisualContext): string {
 }
 
 /**
- * Generate image via gpt-image-1 (replaces deprecated dall-e-3).
+ * Generate image via gpt-image-1 (latest OpenAI model).
  * Returns a data URI (base64 PNG) — gpt-image-1 does not return hosted URLs.
  * Caller should upload the data URI to Cloudinary for permanent storage.
+ *
+ * @param prompt - Full brand-aware prompt from buildImagePrompt()
+ * @param size   - Platform-aware size (default: landscape 1536x1024)
+ *                 '1024x1024' → Instagram/Facebook/TikTok square
+ *                 '1024x1536' → Instagram Stories / TikTok portrait
+ *                 '1536x1024' → LinkedIn / Facebook / Twitter landscape (default)
  */
-export async function generateWithDallE(prompt: string): Promise<string> {
+export async function generateWithDallE(
+  prompt: string,
+  size: '1024x1024' | '1024x1536' | '1536x1024' = '1536x1024'
+): Promise<string> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[imageGen] prompt preview:', prompt.slice(0, 200) + (prompt.length > 200 ? '…' : ''))
+    console.log('[imageGen] gpt-image-1 | size:', size, '| prompt preview:', prompt.slice(0, 200) + (prompt.length > 200 ? '…' : ''))
   }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -426,8 +435,8 @@ export async function generateWithDallE(prompt: string): Promise<string> {
       model: 'gpt-image-1',
       prompt,
       n: 1,
-      size: '1536x1024',  // gpt-image-1 supported: 1024x1024 | 1024x1536 | 1536x1024
-      quality: 'high',    // low | medium | high | auto — always use high for production
+      size,            // platform-aware — caller decides
+      quality: 'high', // always high — production asset
     }),
   })
 

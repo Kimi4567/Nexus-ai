@@ -18,14 +18,32 @@ export const dynamic = 'force-dynamic'
        imagePrompt is set
        imageUrl is null
        scheduledAt is within the next 48 hours
-   - For each post: call DALL-E 3 → upload to Cloudinary → update imageUrl
+   - For each post: call gpt-image-1 (high quality, platform-aware size) → upload to Cloudinary → update imageUrl
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 
-async function generateDalleImage(prompt: string): Promise<string> {
+/**
+ * Generate image using gpt-image-1 (latest OpenAI model — high quality).
+ * Returns a data URI (base64 PNG). Must be uploaded to Cloudinary for permanence.
+ * Platform-aware sizing: square for Meta/TikTok, portrait for Stories, landscape for LinkedIn.
+ */
+async function generateImage(
+  prompt: string,
+  platform: string
+): Promise<string> {
+  // Platform-aware sizing — gpt-image-1 supported sizes only
+  const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
+    TIKTOK:    '1024x1536',   // portrait — TikTok vertical format
+    LINKEDIN:  '1536x1024',   // landscape — LinkedIn feed
+    META:      '1024x1024',   // square — Instagram + Facebook feed
+    FACEBOOK:  '1024x1024',
+    INSTAGRAM: '1024x1024',
+  }
+  const size = sizeMap[platform?.toUpperCase()] || '1024x1024'
+
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
@@ -33,16 +51,25 @@ async function generateDalleImage(prompt: string): Promise<string> {
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'dall-e-3',
-      prompt: prompt.slice(0, 1000),
-      n: 1,
-      size: '1024x1024',
-      quality: 'standard',
+      model:   'gpt-image-1',
+      prompt,          // no truncation — gpt-image-1 handles long prompts
+      n:       1,
+      size,
+      quality: 'high', // always high — production asset
     }),
   })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any)?.error?.message || `Image API error: ${res.status}`)
+  }
+
   const data = await res.json()
-  if (data.error) throw new Error(`DALL-E: ${data.error.message}`)
-  return data.data?.[0]?.url as string
+  // gpt-image-1 returns b64_json (not a URL)
+  const b64 = data?.data?.[0]?.b64_json
+  if (!b64) throw new Error('Image generation returned no data')
+
+  return `data:image/png;base64,${b64}`
 }
 
 async function uploadToCloudinary(imageUrl: string, postId: string): Promise<string> {
@@ -52,7 +79,7 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
 
   const timestamp = Math.round(Date.now() / 1000)
   const publicId = `autopilot/${postId}`
-  const sigString = `public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_SECRET}`
+  const sigString = `folder=nexus/autopilot&public_id=${publicId}&timestamp=${timestamp}${CLOUDINARY_SECRET}`
 
   // SHA-256 via Web Crypto
   const encoder = new TextEncoder()
@@ -61,8 +88,9 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
   const signature = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
 
   const form = new FormData()
+  // gpt-image-1 returns data URIs — Cloudinary accepts them directly as 'file'
   form.append('file', imageUrl)
-  form.append('upload_preset', 'nexus_autopilot')
+  form.append('folder', 'nexus/autopilot')
   form.append('public_id', publicId)
   form.append('api_key', CLOUDINARY_KEY)
   form.append('timestamp', String(timestamp))
@@ -111,18 +139,20 @@ export async function GET(req: NextRequest) {
     posts.map(async (post) => {
       try {
         const prompt = post.imagePrompt!
+        const platform: string = post.platform || 'META'
 
-        // 1. Generate with DALL-E 3
-        const dalleUrl = await generateDalleImage(prompt)
+        // 1. Generate with gpt-image-1 (high quality, platform-aware size)
+        console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}`)
+        const dataUri = await generateImage(prompt, platform)
 
-        // 2. Upload to Cloudinary for permanence
-        let finalUrl = dalleUrl
+        // 2. Upload to Cloudinary for permanence (accepts data URI directly)
+        let finalUrl = dataUri
         try {
-          finalUrl = await uploadToCloudinary(dalleUrl, post.id)
+          finalUrl = await uploadToCloudinary(dataUri, post.id)
         } catch (uploadErr) {
-          console.warn(`[Cron generate-images] Cloudinary upload failed for ${post.id}, using DALL-E URL:`, uploadErr)
-          // Fall back to DALL-E URL (expires in ~1h but better than nothing)
-          finalUrl = dalleUrl
+          console.warn(`[Cron generate-images] Cloudinary upload failed for ${post.id}:`, uploadErr)
+          // Fall back to data URI — ephemeral but better than nothing
+          finalUrl = dataUri
         }
 
         // 3. Apply brand overlay (Cloudinary URL transformation — zero extra cost)
