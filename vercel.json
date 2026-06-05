@@ -89,6 +89,18 @@
     "src/app/api/strategy/generate/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/strategy/run-full/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/generate-content-plan/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/generate-content-plan/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/approve-content-plan/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/cron/check-integrations/route.ts": {
       "maxDuration": 60
     },
