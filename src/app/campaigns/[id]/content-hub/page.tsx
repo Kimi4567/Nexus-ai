@@ -154,6 +154,7 @@ export default function ContentHubPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [rewritingPost, setRewritingPost] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // ── Load data ────────────────────────────────────────────────────────────────
@@ -325,12 +326,57 @@ export default function ContentHubPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Approval failed')
-      setSuccessMsg(`✅ ${data.approved} posts approved and scheduled for auto-publishing`)
+
+      // FLC: Build success message — include Brand Brain learning feedback
+      let msg = `✅ ${data.approved} post${data.approved !== 1 ? 's' : ''} scheduled for auto-publishing`
+      if (data.learned?.hooks > 0 || data.learned?.angles > 0) {
+        const parts: string[] = []
+        if (data.learned.hooks  > 0) parts.push(`${data.learned.hooks} hooks`)
+        if (data.learned.angles > 0) parts.push(`${data.learned.angles} angles`)
+        msg += ` · 🧠 Brand Brain learned ${parts.join(' + ')}`
+      }
+      setSuccessMsg(msg)
       await loadData()
     } catch (err: any) {
       setError(err.message)
     } finally {
       setApproving(false)
+    }
+  }
+
+  // ── AI Rewrite a post caption ─────────────────────────────────────────────────
+
+  async function rewritePost(postId: string, instruction: string) {
+    if (!isAuthenticated) return
+    setRewritingPost(postId)
+    setError(null)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/content-plan/${postId}/rewrite`, {
+        method: 'POST',
+        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instruction }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.code === 'INSUFFICIENT_CREDITS') {
+          setError('Not enough credits to rewrite. Upgrade your plan.')
+        } else {
+          throw new Error(data.error ?? 'Rewrite failed')
+        }
+        return
+      }
+      // Update caption in state immediately (no re-fetch needed)
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, caption: data.post.caption } : p))
+      // Clear any pending edit for this post so it shows the fresh caption
+      setPendingEdits(prev => {
+        const next = { ...prev }
+        delete next[postId]
+        return next
+      })
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setRewritingPost(null)
     }
   }
 
@@ -581,6 +627,7 @@ export default function ContentHubPage() {
                   isEditingCaption={editingCaption === post.id}
                   isEditingPrompt={editingPrompt === post.id}
                   mediaPickerOpen={mediaPickerOpen === post.id}
+                  isRewriting={rewritingPost === post.id}
                   onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
                   onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
                   onEditPrompt={() => setEditingPrompt(editingPrompt === post.id ? null : post.id)}
@@ -592,6 +639,7 @@ export default function ContentHubPage() {
                     ...prev,
                     [post.id]: { ...(prev[post.id] ?? {}), ...updates }
                   }))}
+                  onRewrite={(instruction) => rewritePost(post.id, instruction)}
                 />
               ))}
           </div>
@@ -705,6 +753,7 @@ interface PostCardProps {
   isEditingCaption: boolean
   isEditingPrompt: boolean
   mediaPickerOpen: boolean
+  isRewriting: boolean
   onToggleExpand: () => void
   onEditCaption: () => void
   onEditPrompt: () => void
@@ -713,6 +762,7 @@ interface PostCardProps {
   onSaveEdit: (updates: Partial<ContentPost>) => Promise<void>
   onAssignMedia: (mediaId: string, url: string) => Promise<void>
   onPendingEdit: (updates: Partial<ContentPost>) => void
+  onRewrite: (instruction: string) => Promise<void>
 }
 
 function PostCard({
@@ -722,12 +772,17 @@ function PostCard({
   brandLogo,
   isExpanded,
   isEditingCaption,
+  isRewriting,
   onToggleExpand,
   onEditCaption,
   onOpenMediaPicker,
   onSaveEdit,
   onPendingEdit,
+  onRewrite,
 }: PostCardProps) {
+  const [showRewriteInput, setShowRewriteInput] = useState(false)
+  const [rewriteInstruction, setRewriteInstruction] = useState('')
+
   const platform = post.platform.toUpperCase()
   const caption = pendingEdit.caption ?? post.caption
   const hasImage = !!post.imageUrl
@@ -800,18 +855,82 @@ function PostCard({
         </div>
       )}
 
+      {/* ── AI Rewrite input overlay ──────── */}
+      {showRewriteInput && !isEditingCaption && (
+        <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(124,58,237,0.15)', background: 'rgba(124,58,237,0.04)' }}>
+          <p className="text-[10px] text-purple-400 font-medium mb-1.5 flex items-center gap-1">
+            <span>✨</span> Rewrite instruction <span className="text-gray-600">(optional)</span>
+          </p>
+          <input
+            type="text"
+            className="w-full rounded-xl text-xs px-3 py-2 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.35)', color: '#e5e7eb' }}
+            placeholder='e.g. "make it more casual" or "add urgency"'
+            value={rewriteInstruction}
+            onChange={e => setRewriteInstruction(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                onRewrite(rewriteInstruction).then(() => {
+                  setShowRewriteInput(false)
+                  setRewriteInstruction('')
+                })
+              }
+              if (e.key === 'Escape') {
+                setShowRewriteInput(false)
+                setRewriteInstruction('')
+              }
+            }}
+            autoFocus
+          />
+          <div className="flex justify-end gap-2 mt-2">
+            <button
+              onClick={() => { setShowRewriteInput(false); setRewriteInstruction('') }}
+              className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-white transition-colors"
+            >Cancel</button>
+            <button
+              onClick={() => {
+                onRewrite(rewriteInstruction).then(() => {
+                  setShowRewriteInput(false)
+                  setRewriteInstruction('')
+                })
+              }}
+              disabled={isRewriting}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all flex items-center gap-1.5"
+              style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', opacity: isRewriting ? 0.7 : 1 }}
+            >
+              {isRewriting
+                ? <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Rewriting…</>
+                : <>✨ Rewrite</>
+              }
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Action row ───────────────────── */}
       <div className="flex border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
         <button onClick={onEditCaption}
           className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-purple-400 hover:bg-purple-500/5 transition-all flex items-center justify-center gap-1.5">
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M11.5 2.5a2.121 2.121 0 013 3L5 15l-4 1 1-4L11.5 2.5z"/></svg>
-          Edit Caption
+          Edit
+        </button>
+        <button
+          onClick={() => { setShowRewriteInput(v => !v); setRewriteInstruction('') }}
+          disabled={isRewriting}
+          className="flex-1 py-2.5 text-xs font-medium hover:bg-purple-500/5 transition-all border-l flex items-center justify-center gap-1"
+          style={{ borderColor: 'rgba(255,255,255,0.06)', color: isRewriting ? '#7c3aed' : '#9b87f5' }}
+        >
+          {isRewriting
+            ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Rewriting</>
+            : <>✨ Rewrite</>
+          }
         </button>
         <button onClick={onOpenMediaPicker}
           className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l flex items-center justify-center gap-1.5"
           style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
-          {isVideo ? 'Upload Video' : 'My Images'}
+          {isVideo ? 'Video' : 'Image'}
         </button>
       </div>
     </div>

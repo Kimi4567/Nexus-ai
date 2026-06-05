@@ -57,6 +57,26 @@ function toIntegrationType(raw: string): string {
   return map[raw.toUpperCase()] ?? 'META'
 }
 
+// ── Platform-native best posting hours (UTC-agnostic — local-ish heuristic) ───
+
+/**
+ * Returns the best posting hour (0–23) for a platform.
+ * Research-backed peaks: we cycle through multiple slots so consecutive posts
+ * on the same platform hit different windows across the 30-day plan.
+ */
+const PLATFORM_BEST_HOURS: Record<string, number[]> = {
+  META:     [11, 15, 20],  // Facebook/Instagram: 11am, 3pm, 8pm
+  LINKEDIN: [8,  12, 17],  // LinkedIn: 8am, 12pm, 5pm (Tue-Thu focused)
+  TIKTOK:   [19, 21, 12],  // TikTok: 7pm, 9pm, 12pm
+  YOUTUBE:  [14, 16, 20],  // YouTube: 2pm, 4pm, 8pm
+}
+
+/** FLC3: Pick platform-optimal posting hour for slot i */
+function bestHourForPlatform(platform: string, slotIndex: number): number {
+  const hours = PLATFORM_BEST_HOURS[platform] ?? [10, 14, 18]
+  return hours[slotIndex % hours.length]
+}
+
 /** Distribute N posts across an array of platforms as evenly as possible */
 function distributePosts(
   totalPosts: number,
@@ -271,7 +291,8 @@ Rules:
 
       const scheduledAt = new Date(now)
       scheduledAt.setDate(now.getDate() + dayOffset)
-      scheduledAt.setHours(9 + (i % 12), 0, 0, 0) // stagger post times
+      // FLC3: Platform-native best posting hour instead of naive stagger
+      scheduledAt.setHours(bestHourForPlatform(slot.platform, i), 0, 0, 0)
 
       // Pick an uploaded media image if UPLOAD or MIXED mode
       let uploadedMediaId: string | null = null
