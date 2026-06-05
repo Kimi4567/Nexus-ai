@@ -168,6 +168,10 @@ export default function CampaignDetailPage() {
   const [autopilotError, setAutopilotError] = useState('')
   const [autopilotPausing, setAutopilotPausing] = useState(false)
 
+  // Performance / ROI Dashboard (Tab 6)
+  const [perfData, setPerfData] = useState<any>(null)
+  const [perfLoading, setPerfLoading] = useState(false)
+
   // Sprint H — Push to Calendar
   const [calendarPushState, setCalendarPushState] = useState<'idle' | 'pushing' | 'done' | 'already'>('idle')
   const [calendarPushCount, setCalendarPushCount] = useState(0)
@@ -184,7 +188,7 @@ export default function CampaignDetailPage() {
     { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabVisuals },
     { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
     { name: '', hidden: false,                       icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
-    { name: '', hidden: true,                        icon: '📋', title: '',                       color: 'text-gray-400',    border: '',                     bg: '',                 label: cdT?.tabActivity },
+    { name: '', hidden: false,                       icon: '📊', title: '',                       color: 'text-cyan-400',    border: 'border-cyan-500/30',   bg: 'bg-cyan-500/5',    label: locale === 'ar' ? 'الأداء' : 'Performance' },
   ]
 
   // Locale-aware timeAgo
@@ -257,6 +261,19 @@ export default function CampaignDetailPage() {
       .then(d => { if (d?.posts) setAutopilotQueue(d.posts) })
       .catch(() => {})
   }, [activeTab, isAuthenticated, campaignId, authHeader])
+
+  // Load performance data when tab 6 is active
+  useEffect(() => {
+    if (activeTab !== 6 || !isAuthenticated || perfData) return
+    const token = authHeader()
+    if (!token) return
+    setPerfLoading(true)
+    fetch(`/api/campaigns/${campaignId}/performance`, { headers: { Authorization: token } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setPerfData(d) })
+      .catch(() => {})
+      .finally(() => setPerfLoading(false))
+  }, [activeTab, isAuthenticated, campaignId, authHeader, perfData])
 
   // Auto-trigger generation for new campaigns that have no aiOutput yet
   const autoTriggeredRef = useRef(false)
@@ -2776,42 +2793,191 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            {/* ── Tab 6: Activity — NEXUS UI ────────────────────────────────── */}
+            {/* ── Tab 6: Performance / ROI Dashboard ───────────────────── */}
             {activeTab === 6 && (
-              <div className="rounded-2xl p-6"
-                style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(16px)' }}>
-                <h3 className="font-bold text-base mb-5 flex items-center gap-2" style={{ color: 'var(--nx-text-1)' }}>
-                  <span>📋</span> {cdT?.activityTitle}
-                </h3>
-                {campaign.activities.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                      style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
-                      <span className="text-xl">📋</span>
-                    </div>
-                    <p className="text-sm" style={{ color: 'var(--nx-text-4)' }}>{cdT?.noActivity}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {campaign.activities.map((activity, i) => (
-                      <div key={activity.id} className="flex gap-3">
-                        <div className="flex flex-col items-center">
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0"
-                            style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
-                            {ACTIVITY_ICONS[activity.type] || '·'}
-                          </div>
-                          {i < campaign.activities.length - 1 && (
-                            <div className="w-px flex-1 mt-2" style={{ background: 'rgba(139,92,246,0.1)' }} />
-                          )}
-                        </div>
-                        <div className="pb-3 flex-1">
-                          <p className="text-sm" style={{ color: 'var(--nx-text-2)' }}>{activity.description}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--nx-text-4)' }}>{timeAgo(activity.createdAt)}</p>
-                        </div>
-                      </div>
-                    ))}
+              <div className="space-y-4">
+                {perfLoading && (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="w-8 h-8 border-2 border-cyan-500/40 border-t-cyan-400 rounded-full animate-spin" />
                   </div>
                 )}
+
+                {!perfLoading && !perfData && (
+                  <div className="rounded-2xl p-8 text-center"
+                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                    <div className="text-4xl mb-3">📊</div>
+                    <h3 className="font-bold text-white text-base mb-1">No performance data yet</h3>
+                    <p className="text-sm text-gray-400">Data appears here after posts are published and analytics are fetched (24-48h after publishing).</p>
+                  </div>
+                )}
+
+                {!perfLoading && perfData && (() => {
+                  const s = perfData.summary
+                  const platforms: Record<string, any> = perfData.platformBreakdown ?? {}
+                  const topPosts: any[] = perfData.topPosts ?? []
+                  const trend: any[] = perfData.trend ?? []
+
+                  const PLATFORM_COLORS: Record<string, string> = {
+                    META: '#1877F2', LINKEDIN: '#0A66C2', TIKTOK: '#010101', YOUTUBE: '#FF0000',
+                  }
+                  const PLATFORM_ICONS: Record<string, string> = {
+                    META: '📘', LINKEDIN: '💼', TIKTOK: '🎵', YOUTUBE: '▶️',
+                  }
+
+                  return (
+                    <>
+                      {/* KPI summary row */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                          { label: 'Total Reach',      value: s.totalReach.toLocaleString(),       icon: '👥', color: '#22d3ee' },
+                          { label: 'Impressions',      value: s.totalImpressions.toLocaleString(), icon: '👁',  color: '#a78bfa' },
+                          { label: 'Engagements',      value: s.totalEngagements.toLocaleString(), icon: '💬', color: '#34d399' },
+                          { label: 'Avg Engagement',   value: `${s.avgEngagementRate}%`,           icon: '📈', color: '#fb923c' },
+                        ].map(kpi => (
+                          <div key={kpi.label} className="rounded-2xl p-4"
+                            style={{ background: 'rgba(10,11,28,0.85)', border: `1px solid ${kpi.color}25` }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-base">{kpi.icon}</span>
+                              <span className="text-xs text-gray-500 font-medium">{kpi.label}</span>
+                            </div>
+                            <div className="text-2xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Posts status row */}
+                      <div className="rounded-2xl p-4 flex flex-wrap gap-6"
+                        style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        {[
+                          ['Total Posts', s.totalPosts, '#9ca3af'],
+                          ['Published',   s.publishedPosts, '#34d399'],
+                          ['Scheduled',   s.scheduledPosts, '#a78bfa'],
+                          ['Awaiting analytics', s.pendingAnalytics, '#fb923c'],
+                        ].map(([label, val, color]) => (
+                          <div key={String(label)} className="text-center">
+                            <div className="text-xl font-bold" style={{ color: String(color) }}>{val}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+                          </div>
+                        ))}
+                        {s.pendingAnalytics > 0 && (
+                          <p className="text-xs text-amber-400/70 ml-auto self-center">
+                            Analytics are fetched automatically 24-72h after publishing
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Platform breakdown */}
+                      {Object.keys(platforms).length > 0 && (
+                        <div className="rounded-2xl p-5"
+                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <h4 className="font-semibold text-white text-sm mb-4">Platform Breakdown</h4>
+                          <div className="space-y-3">
+                            {Object.entries(platforms).map(([platform, data]: [string, any]) => {
+                              const color = PLATFORM_COLORS[platform] ?? '#6366f1'
+                              const icon  = PLATFORM_ICONS[platform]  ?? '📣'
+                              const maxReach = Math.max(...Object.values(platforms).map((d: any) => d.reach ?? 0), 1)
+                              const barWidth = Math.round((data.reach / maxReach) * 100)
+                              return (
+                                <div key={platform}>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <span>{icon}</span>
+                                      <span className="text-sm text-white font-medium">{platform}</span>
+                                      <span className="text-xs text-gray-500">{data.posts} posts</span>
+                                    </div>
+                                    <div className="flex gap-4 text-xs text-gray-400">
+                                      <span>{data.reach?.toLocaleString()} reach</span>
+                                      <span className="font-semibold" style={{ color }}>{data.avgEngagementRate}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                                    <div className="h-full rounded-full transition-all duration-700"
+                                      style={{ width: `${barWidth}%`, background: color }} />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Engagement trend */}
+                      {trend.length > 1 && (
+                        <div className="rounded-2xl p-5"
+                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <h4 className="font-semibold text-white text-sm mb-4">Engagement Trend</h4>
+                          <div className="flex items-end gap-1 h-20">
+                            {(() => {
+                              const maxEng = Math.max(...trend.map(t => t.engagements), 1)
+                              return trend.map((t, i) => (
+                                <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                                  <div
+                                    className="w-full rounded-sm transition-all duration-500 group-hover:opacity-100"
+                                    style={{
+                                      height: `${Math.max(4, Math.round((t.engagements / maxEng) * 72))}px`,
+                                      background: 'linear-gradient(to top, #22d3ee, #06b6d4)',
+                                      opacity: 0.7,
+                                    }}
+                                    title={`${t.date}: ${t.engagements} engagements`}
+                                  />
+                                </div>
+                              ))
+                            })()}
+                          </div>
+                          <div className="flex justify-between text-xs text-gray-600 mt-1">
+                            <span>{trend[0]?.date?.slice(5)}</span>
+                            <span>{trend[trend.length - 1]?.date?.slice(5)}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Top posts */}
+                      {topPosts.length > 0 && (
+                        <div className="rounded-2xl p-5"
+                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <h4 className="font-semibold text-white text-sm mb-4">🏆 Top Performing Posts</h4>
+                          <div className="space-y-3">
+                            {topPosts.map((post, i) => (
+                              <div key={post.id} className="flex gap-3 p-3 rounded-xl"
+                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                  style={{
+                                    background: i === 0 ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)',
+                                    color: i === 0 ? '#fbbf24' : '#6b7280',
+                                    border: `1px solid ${i === 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                  }}>
+                                  {i + 1}
+                                </div>
+                                {post.imageUrl && (
+                                  <img src={post.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-300 line-clamp-2">{post.caption}</p>
+                                  <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                    <span>{PLATFORM_ICONS[String(post.platform)] ?? '📣'} {post.platform}</span>
+                                    <span>❤️ {post.likes}</span>
+                                    <span>💬 {post.comments}</span>
+                                    <span>🔁 {post.shares}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  <div className="text-base font-bold text-cyan-400">{post.engagementRate}%</div>
+                                  <div className="text-xs text-gray-600">engagement</div>
+                                  {post.platformUrl && (
+                                    <a href={post.platformUrl} target="_blank" rel="noopener noreferrer"
+                                      className="text-xs text-purple-400 hover:text-purple-300 mt-1 block">
+                                      View →
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             )}
           </>

@@ -515,3 +515,211 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
     html: emailShell(content),
   })
 }
+
+// ── 5. CONTENT PLAN READY ─────────────────────────────────────────────
+
+export async function sendContentPlanReadyEmail(
+  to: string,
+  name: string,
+  campaignName: string,
+  postCount: number,
+  campaignId: string,
+) {
+  const firstName = name?.split(' ')[0] || 'there'
+  const hubUrl = `${APP_URL}/campaigns/${campaignId}/content-hub`
+
+  const platformNote = postCount >= 20
+    ? 'A full month of content — ready to review and schedule.'
+    : `${postCount} posts crafted and ready for your review.`
+
+  const content = `
+    ${h1(`Your content plan is ready, ${firstName}.`)}
+    ${p(`<strong style="color:#e8e8f5;">${postCount} posts</strong> for <strong style="color:#e8e8f5;">${campaignName}</strong> have been generated and are waiting in your Content Hub.`)}
+    ${p(platformNote, true)}
+
+    ${card(`
+      <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:14px;">What to do next:</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${[
+          ['Review captions', 'Read each post — edit or AI-rewrite any you want to improve'],
+          ['Approve & Schedule', 'Hit "Approve All" to auto-schedule every post at optimal times'],
+          ['Generate images', 'Click "Generate Images" to create AI visuals for each post'],
+          ['Watch it publish', 'Posts go live automatically — no manual posting needed'],
+        ].map(([step, desc], i) =>
+          `<div style="display:flex;gap:12px;align-items:flex-start;">
+            <div style="width:22px;height:22px;min-width:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;margin-top:1px;">${i + 1}</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#e8e8f5;">${step}</div>
+              <div style="font-size:12px;color:#9A9080;margin-top:2px;">${desc}</div>
+            </div>
+          </div>`
+        ).join('')}
+      </div>
+    `)}
+
+    ${btn(`Review ${postCount} posts →`, hubUrl)}
+
+    ${p('Posts are saved as drafts until you approve them — nothing goes live without your sign-off.', true)}
+  `
+
+  return resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: `✅ ${postCount} posts ready for "${campaignName}" — review now`,
+    html: emailShell(content),
+  })
+}
+
+// ── 8. INTEGRATION TOKEN EXPIRY WARNING ──────────────────────────────────────
+
+export async function sendIntegrationExpiryEmail(
+  to: string,
+  name: string,
+  platforms: string[],   // e.g. ['LinkedIn', 'Meta']
+  daysLeft: number,      // 0 = already expired
+) {
+  const firstName = name?.split(' ')[0] || 'there'
+  const isExpired = daysLeft <= 0
+  const platformList = platforms.join(', ')
+
+  const content = `
+    ${h1(isExpired ? `⚠️ Your ${platformList} connection expired` : `⏰ Action needed: reconnect ${platformList}`)}
+    ${p(`Hi ${firstName} — your ${platformList} ${platforms.length > 1 ? 'connections' : 'connection'} ${isExpired ? 'has expired' : `will expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`}.`)}
+    ${p('Without a valid connection, scheduled posts cannot be published and your content plan will go silent.')}
+    ${card(`
+      <div style="font-size:13px;color:#9A9080;margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Affected platforms</div>
+      ${platforms.map(p => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #1a1a18;">
+          <div style="width:8px;height:8px;border-radius:50%;background:${isExpired ? '#ef4444' : '#f59e0b'};"></div>
+          <span style="color:#F5F0E8;font-size:14px;font-weight:600;">${p}</span>
+          <span style="margin-left:auto;font-size:12px;color:${isExpired ? '#ef4444' : '#f59e0b'};">${isExpired ? 'Expired' : `Expires in ${daysLeft}d`}</span>
+        </div>
+      `).join('')}
+    `)}
+    ${p('It takes less than 30 seconds to reconnect. Click below to go to your Connections page.')}
+    ${btn('Reconnect now →', `${APP_URL}/connections`)}
+    ${p('If you need help, reply to this email and we\'ll sort it out.', true)}
+  `
+
+  return resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: isExpired
+      ? `⚠️ ${platformList} connection expired — posts won't publish`
+      : `⏰ ${platformList} connection expires in ${daysLeft} days — reconnect now`,
+    html: emailShell(content),
+  })
+}
+
+// ── 9. LIFECYCLE: BRAND BRAIN INCOMPLETE ─────────────────────────────────────
+
+export async function sendBrandBrainIncompleteEmail(to: string, name: string, completionPct: number) {
+  const firstName = name?.split(' ')[0] || 'there'
+
+  const content = `
+    ${h1(`${firstName}, your Brand Brain is ${completionPct}% complete`)}
+    ${p('The more you teach Nexus about your brand, the better every AI output gets — from campaign strategy to post captions to image prompts.')}
+    ${card(`
+      <div style="font-size:13px;color:#9A9080;margin-bottom:16px;">A complete Brand Brain unlocks:</div>
+      ${[
+        ['🎯', 'Captions that sound exactly like you'],
+        ['🧠', 'Strategy that targets your real audience'],
+        ['✨', 'Images aligned to your brand aesthetic'],
+        ['📈', 'Better engagement from day one'],
+      ].map(([icon, text]) => `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span style="font-size:16px;">${icon}</span>
+          <span style="font-size:13px;color:#F5F0E8;">${text}</span>
+        </div>
+      `).join('')}
+    `)}
+    ${btn('Complete Brand Brain →', `${APP_URL}/brand`)}
+    ${p('Takes about 3 minutes. Pays off in every campaign after that.', true)}
+  `
+
+  return resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: `Your Brand Brain needs 3 minutes — unlock better AI outputs`,
+    html: emailShell(content),
+  })
+}
+
+// ── 10. LIFECYCLE: CAMPAIGN AWAITING APPROVAL ─────────────────────────────────
+
+export async function sendContentAwaitingApprovalEmail(
+  to: string,
+  name: string,
+  campaignName: string,
+  postCount: number,
+  draftDays: number,
+  campaignId: string,
+) {
+  const firstName = name?.split(' ')[0] || 'there'
+  const hubUrl = `${APP_URL}/campaigns/${campaignId}/content-hub`
+
+  const content = `
+    ${h1(`${firstName}, your content plan has been waiting ${draftDays} days`)}
+    ${p(`You have <strong style="color:#FF9500">${postCount} posts ready</strong> for "${campaignName}" — but they haven't been approved yet, so nothing has been scheduled or published.`)}
+    ${card(`
+      <div style="font-size:13px;color:#9A9080;margin-bottom:8px;">Approving takes 60 seconds:</div>
+      ${[
+        'Review the AI-generated captions',
+        'Approve all → posts get scheduled automatically',
+        'Generate images → visuals are created overnight',
+        'Sit back → Nexus publishes on the optimal schedule',
+      ].map((step, i) => `
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
+          <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,149,0,0.15);border:1px solid rgba(255,149,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#FF9500;flex-shrink:0;">${i + 1}</div>
+          <span style="font-size:13px;color:#F5F0E8;">${step}</span>
+        </div>
+      `).join('')}
+    `)}
+    ${btn(`Review ${postCount} posts →`, hubUrl)}
+  `
+
+  return resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: `${postCount} posts are waiting for your approval in "${campaignName}"`,
+    html: emailShell(content),
+  })
+}
+
+// ── 11. LIFECYCLE: RE-ENGAGEMENT (7-DAY INACTIVE) ────────────────────────────
+
+export async function sendReEngagementEmail(to: string, name: string, daysSinceActive: number) {
+  const firstName = name?.split(' ')[0] || 'there'
+
+  const content = `
+    ${h1(`Your marketing is on pause, ${firstName}`)}
+    ${p(`It's been ${daysSinceActive} days since you last used Nexus. While you were away, your competitors kept posting.`)}
+    ${card(`
+      <div style="font-size:13px;color:#9A9080;margin-bottom:12px;">Here's what you can do in the next 10 minutes:</div>
+      ${[
+        ['🚀', 'Create a new campaign', `${APP_URL}/campaigns/new`],
+        ['✅', 'Approve a pending content plan', `${APP_URL}/campaigns`],
+        ['🧠', 'Update your Brand Brain', `${APP_URL}/brand`],
+      ].map(([icon, text, url]) => `
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #1a1a18;">
+          <span style="font-size:18px;">${icon}</span>
+          <a href="${url}" style="color:#FF9500;font-size:13px;font-weight:600;">${text}</a>
+        </div>
+      `).join('')}
+    `)}
+    ${btn('Back to Nexus →', APP_URL)}
+    ${p('Consistency is the biggest factor in social media growth. Let Nexus handle the heavy lifting.', true)}
+  `
+
+  return resend.emails.send({
+    from: FROM,
+    replyTo: REPLY_TO,
+    to,
+    subject: `${firstName}, your content pipeline needs you (${daysSinceActive} days idle)`,
+    html: emailShell(content),
+  })
+}

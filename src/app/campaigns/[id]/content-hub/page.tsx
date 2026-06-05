@@ -38,6 +38,10 @@ interface ContentPost {
   contentPlanIndex: number
   scheduledAt: string | null
   status: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+  // A/B Testing fields
+  variantGroup: string | null
+  variantLabel: string | null   // 'A' | 'B' | null
+  variantWinner: boolean
 }
 
 interface MediaItem {
@@ -164,6 +168,8 @@ export default function ContentHubPage() {
     lastDate: string | null
   } | null>(null)
   const [rewritingPost, setRewritingPost] = useState<string | null>(null)
+  const [enableABTesting, setEnableABTesting] = useState(false)
+  const [pickingWinner, setPickingWinner] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // ── Load data ────────────────────────────────────────────────────────────────
@@ -252,11 +258,14 @@ export default function ContentHubPage() {
       const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaSource: 'GENERATE' }),
+        body: JSON.stringify({ mediaSource: 'GENERATE', enableABTesting }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Generation failed')
-      setSuccessMsg(`Content plan created: ${data.summary.total} posts ready for review`)
+      const abInfo = data.summary?.abTesting?.enabled
+        ? ` · ${data.summary.abTesting.bVariants} B variants`
+        : ''
+      setSuccessMsg(`Content plan created: ${data.summary.total} posts ready for review${abInfo}`)
       await loadData()
     } catch (err: any) {
       setError(err.message)
@@ -402,6 +411,46 @@ export default function ContentHubPage() {
     }
   }
 
+  // ── Pick A/B winner ───────────────────────────────────────────────────────────
+
+  async function pickWinner(postId: string) {
+    if (!isAuthenticated) return
+    setPickingWinner(postId)
+    setError(null)
+    try {
+      const res = await fetch(
+        `/api/campaigns/${campaignId}/content-plan/${postId}/pick-winner`,
+        { method: 'PATCH', headers: { Authorization: authHeader() } },
+      )
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to pick winner')
+
+      // Remove the loser from local state, mark winner
+      setPosts(prev => {
+        const winner = prev.find(p => p.id === postId)
+        if (!winner) return prev
+        const varGroup = winner.variantGroup
+        // Keep posts where: not in this variantGroup OR same id as winner
+        return prev
+          .filter(p => !varGroup || p.variantGroup !== varGroup || p.id === postId)
+          .map(p => p.id === postId
+            ? { ...p, variantWinner: true, variantGroup: null, variantLabel: null }
+            : p,
+          )
+      })
+
+      setSuccessMsg(
+        data.hookLearned
+          ? '🏆 Winner selected! Hook added to Brand Brain.'
+          : '🏆 Winner selected!',
+      )
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setPickingWinner(null)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   if (authLoading || loading) {
@@ -518,23 +567,41 @@ export default function ContentHubPage() {
             )}
 
             {posts.length === 0 && (
-              <button
-                onClick={generatePlan}
-                disabled={generatingPlan}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
-                style={{
-                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                  color: 'white',
-                  opacity: generatingPlan ? 0.6 : 1,
-                }}
-              >
-                {generatingPlan ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                    Building Content Plan...
-                  </>
-                ) : '✨ Build Monthly Content Plan'}
-              </button>
+              <div className="flex items-center gap-3">
+                {/* A/B Testing toggle */}
+                <button
+                  onClick={() => setEnableABTesting(prev => !prev)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                  style={{
+                    background: enableABTesting ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.04)',
+                    border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                    color: enableABTesting ? '#fbbf24' : '#6b7280',
+                  }}
+                  title="Generate A/B variants for each post — compare two hook styles and pick the winner"
+                >
+                  <span>A/B</span>
+                  <span className={`w-6 h-3 rounded-full relative transition-all ${enableABTesting ? 'bg-yellow-500' : 'bg-gray-600'}`}>
+                    <span className={`absolute top-0.5 w-2 h-2 bg-white rounded-full shadow transition-all ${enableABTesting ? 'left-3.5' : 'left-0.5'}`} />
+                  </span>
+                </button>
+                <button
+                  onClick={generatePlan}
+                  disabled={generatingPlan}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    color: 'white',
+                    opacity: generatingPlan ? 0.6 : 1,
+                  }}
+                >
+                  {generatingPlan ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Building Content Plan...
+                    </>
+                  ) : '✨ Build Monthly Content Plan'}
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -633,39 +700,95 @@ export default function ContentHubPage() {
         )}
 
         {/* ── Post grid ────────────────────────────────────────────── */}
-        {filteredPosts.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredPosts
-              .sort((a, b) => (a.contentPlanIndex ?? 0) - (b.contentPlanIndex ?? 0))
-              .map(post => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  pendingEdit={getPendingEdit(post.id)}
-                  mediaLibrary={mediaLibrary}
-                  brandName={brandProfile.brandName ?? campaign?.name ?? 'your_brand'}
-                  brandLogo={brandProfile.logoUrl ?? null}
-                  isExpanded={expandedPost === post.id}
-                  isEditingCaption={editingCaption === post.id}
-                  isEditingPrompt={editingPrompt === post.id}
-                  mediaPickerOpen={mediaPickerOpen === post.id}
-                  isRewriting={rewritingPost === post.id}
-                  onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
-                  onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
-                  onEditPrompt={() => setEditingPrompt(editingPrompt === post.id ? null : post.id)}
-                  onOpenMediaPicker={() => setMediaPickerOpen(mediaPickerOpen === post.id ? null : post.id)}
-                  onCloseMediaPicker={() => setMediaPickerOpen(null)}
-                  onSaveEdit={(updates) => savePostEdit(post.id, updates)}
-                  onAssignMedia={(mediaId, url) => assignMedia(post.id, mediaId, url)}
-                  onPendingEdit={(updates) => setPendingEdits(prev => ({
-                    ...prev,
-                    [post.id]: { ...(prev[post.id] ?? {}), ...updates }
-                  }))}
-                  onRewrite={(instruction) => rewritePost(post.id, instruction)}
-                />
-              ))}
-          </div>
-        )}
+        {filteredPosts.length > 0 && (() => {
+          // Group posts: A/B pairs are rendered together, standalone posts are standalone
+          const sorted = [...filteredPosts].sort((a, b) => (a.contentPlanIndex ?? 0) - (b.contentPlanIndex ?? 0))
+
+          // Build render items: A/B pairs as { type: 'ab', a, b } or standalone as { type: 'single', post }
+          type RenderItem =
+            | { type: 'single'; post: ContentPost }
+            | { type: 'ab'; a: ContentPost; b: ContentPost }
+
+          const seen = new Set<string>()
+          const items: RenderItem[] = []
+
+          for (const post of sorted) {
+            if (seen.has(post.id)) continue
+            if (post.variantGroup) {
+              const sibling = sorted.find(p => p.variantGroup === post.variantGroup && p.id !== post.id)
+              if (sibling && !seen.has(sibling.id)) {
+                const [a, b] = post.variantLabel === 'A' ? [post, sibling] : [sibling, post]
+                items.push({ type: 'ab', a, b })
+                seen.add(post.id)
+                seen.add(sibling.id)
+                continue
+              }
+            }
+            items.push({ type: 'single', post })
+            seen.add(post.id)
+          }
+
+          const renderCard = (post: ContentPost) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              pendingEdit={getPendingEdit(post.id)}
+              mediaLibrary={mediaLibrary}
+              brandName={brandProfile.brandName ?? campaign?.name ?? 'your_brand'}
+              brandLogo={brandProfile.logoUrl ?? null}
+              isExpanded={expandedPost === post.id}
+              isEditingCaption={editingCaption === post.id}
+              isEditingPrompt={editingPrompt === post.id}
+              mediaPickerOpen={mediaPickerOpen === post.id}
+              isRewriting={rewritingPost === post.id}
+              isPickingWinner={pickingWinner === post.id}
+              onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
+              onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
+              onEditPrompt={() => setEditingPrompt(editingPrompt === post.id ? null : post.id)}
+              onOpenMediaPicker={() => setMediaPickerOpen(mediaPickerOpen === post.id ? null : post.id)}
+              onCloseMediaPicker={() => setMediaPickerOpen(null)}
+              onSaveEdit={(updates) => savePostEdit(post.id, updates)}
+              onAssignMedia={(mediaId, url) => assignMedia(post.id, mediaId, url)}
+              onPendingEdit={(updates) => setPendingEdits(prev => ({
+                ...prev,
+                [post.id]: { ...(prev[post.id] ?? {}), ...updates }
+              }))}
+              onRewrite={(instruction) => rewritePost(post.id, instruction)}
+              onPickWinner={post.variantGroup ? () => pickWinner(post.id) : undefined}
+            />
+          )
+
+          return (
+            <div className="space-y-4">
+              {items.map((item, idx) => {
+                if (item.type === 'single') {
+                  return (
+                    <div key={item.post.id} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {renderCard(item.post)}
+                    </div>
+                  )
+                }
+                // A/B pair
+                return (
+                  <div key={`ab-${item.a.variantGroup ?? idx}`} className="rounded-2xl overflow-hidden"
+                    style={{ border: '1px solid rgba(234,179,8,0.25)', background: 'rgba(234,179,8,0.02)' }}>
+                    {/* A/B header */}
+                    <div className="flex items-center gap-2 px-4 py-2.5"
+                      style={{ background: 'rgba(234,179,8,0.06)', borderBottom: '1px solid rgba(234,179,8,0.15)' }}>
+                      <span className="text-sm font-semibold" style={{ color: '#fbbf24' }}>⚡ A/B Test</span>
+                      <span className="text-xs text-gray-500">· Compare both variants and pick the winner</span>
+                    </div>
+                    {/* Side-by-side cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+                      {renderCard(item.a)}
+                      {renderCard(item.b)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
 
         {/* ── Approve All confirm dialog ───────────────────────────────── */}
         {showApproveConfirm && (
@@ -940,6 +1063,7 @@ interface PostCardProps {
   isEditingPrompt: boolean
   mediaPickerOpen: boolean
   isRewriting: boolean
+  isPickingWinner: boolean
   onToggleExpand: () => void
   onEditCaption: () => void
   onEditPrompt: () => void
@@ -949,6 +1073,7 @@ interface PostCardProps {
   onAssignMedia: (mediaId: string, url: string) => Promise<void>
   onPendingEdit: (updates: Partial<ContentPost>) => void
   onRewrite: (instruction: string) => Promise<void>
+  onPickWinner?: () => void
 }
 
 function PostCard({
@@ -959,12 +1084,14 @@ function PostCard({
   isExpanded,
   isEditingCaption,
   isRewriting,
+  isPickingWinner,
   onToggleExpand,
   onEditCaption,
   onOpenMediaPicker,
   onSaveEdit,
   onPendingEdit,
   onRewrite,
+  onPickWinner,
 }: PostCardProps) {
   const [showRewriteInput, setShowRewriteInput] = useState(false)
   const [rewriteInstruction, setRewriteInstruction] = useState('')
@@ -998,6 +1125,23 @@ function PostCard({
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">#{post.contentPlanIndex}</span>
           {scheduledDate && <span className="text-[10px] text-gray-600">· {scheduledDate}</span>}
+          {/* A/B variant badge */}
+          {post.variantLabel && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+              style={{
+                background: post.variantLabel === 'A' ? 'rgba(234,179,8,0.15)' : 'rgba(99,102,241,0.15)',
+                color: post.variantLabel === 'A' ? '#fbbf24' : '#a5b4fc',
+                border: post.variantLabel === 'A' ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(99,102,241,0.35)',
+              }}>
+              Variant {post.variantLabel}
+            </span>
+          )}
+          {post.variantWinner && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+              style={{ background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }}>
+              🏆 Winner
+            </span>
+          )}
         </div>
         <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
           style={{ background: `${statusColor}18`, color: statusColor }}>
@@ -1112,12 +1256,31 @@ function PostCard({
             : <>✨ Rewrite</>
           }
         </button>
-        <button onClick={onOpenMediaPicker}
-          className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l flex items-center justify-center gap-1.5"
-          style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
-          {isVideo ? 'Video' : 'Image'}
-        </button>
+        {onPickWinner ? (
+          /* A/B test: replace "Image" button with "Pick Winner" */
+          <button
+            onClick={onPickWinner}
+            disabled={isPickingWinner}
+            className="flex-1 py-2.5 text-xs font-semibold transition-all border-l flex items-center justify-center gap-1"
+            style={{
+              borderColor: 'rgba(234,179,8,0.25)',
+              color: isPickingWinner ? '#fbbf24' : '#fcd34d',
+              background: 'rgba(234,179,8,0.04)',
+            }}
+          >
+            {isPickingWinner
+              ? <><span className="w-2.5 h-2.5 border border-yellow-400/40 border-t-yellow-400 rounded-full animate-spin" />Picking…</>
+              : <>🏆 Pick Winner</>
+            }
+          </button>
+        ) : (
+          <button onClick={onOpenMediaPicker}
+            className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l flex items-center justify-center gap-1.5"
+            style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
+            {isVideo ? 'Video' : 'Image'}
+          </button>
+        )}
       </div>
     </div>
   )

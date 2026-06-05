@@ -41,6 +41,10 @@ export async function GET(req: NextRequest, { params }: Params) {
         contentPlanIndex: true,
         scheduledAt: true,
         status: true,
+        // A/B Testing fields
+        variantGroup: true,
+        variantLabel: true,
+        variantWinner: true,
       },
     })
 

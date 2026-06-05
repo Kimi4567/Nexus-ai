@@ -10,12 +10,24 @@
       "schedule": "0 12 * * *"
     },
     {
+      "path": "/api/cron/publish",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/publish",
+      "schedule": "0 19 * * *"
+    },
+    {
       "path": "/api/cron/reset-credits",
       "schedule": "5 0 1 * *"
     },
     {
       "path": "/api/cron/generate-images",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/generate-images",
+      "schedule": "0 10 * * *"
     },
     {
       "path": "/api/cron/weekly-brief",
@@ -32,6 +44,18 @@
     {
       "path": "/api/cron/agent-monitor",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/check-integrations",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/fetch-analytics",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/lifecycle-emails",
+      "schedule": "30 10 * * *"
     }
   ],
   "functions": {
@@ -63,6 +87,15 @@
       "maxDuration": 60
     },
     "src/app/api/strategy/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/check-integrations/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/fetch-analytics/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/lifecycle-emails/route.ts": {
       "maxDuration": 60
     }
   }

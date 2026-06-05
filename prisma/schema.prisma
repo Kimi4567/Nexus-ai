@@ -828,6 +828,16 @@ model SocialPost {
   uploadedMediaId   String?                               // user's own uploaded asset (Media.id)
   contentPlanIndex  Int?                                  // position in the monthly content plan (1-N)
 
+  // A/B Testing (Sprint FL2-E)
+  variantGroup      String?                               // shared ID linking A + B variants
+  variantLabel      String?  @default("A")                // "A" | "B"
+  variantWinner     Boolean  @default(false)              // true = this was the winning variant
+
+  // Post Analytics (Sprint FL2-B) — populated by cron/fetch-analytics
+  analyticsData     Json?    // { likes, comments, shares, impressions, reach, engagementRate }
+  analyticsUpdatedAt DateTime?
+  analyticsFetched  Boolean  @default(false)
+
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
