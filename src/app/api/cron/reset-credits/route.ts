@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const activeSubs = await prisma.subscription.findMany({
       where: {
         status: 'ACTIVE',
-        plan: { in: ['STARTER', 'PRO', 'AGENCY'] as any[] },
+        plan: { in: ['STARTER', 'PRO', 'BUSINESS', 'AGENCY'] as any[] },
       },
       select: {
         userId: true,
