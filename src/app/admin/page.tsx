@@ -379,13 +379,102 @@ function DeleteModal({ user, token, onClose, onSuccess }: {
   )
 }
 
+/* ─── Reset Account Modal ───────────────────────────────── */
+function ResetModal({ user, token, onClose, onSuccess }: {
+  user: AdminUser; token: string
+  onClose: () => void
+  onSuccess: (userId: string) => void
+}) {
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { inputRef.current?.focus() }, [])
+
+  async function submit() {
+    if (confirm !== 'RESET') return
+    setLoading(true); setError('')
+    try {
+      const res = await fetch('/api/admin/reset-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId: user.id, confirm: 'RESET' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      onSuccess(user.id)
+      onClose()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="rounded-2xl w-full max-w-sm p-6 shadow-2xl"
+        style={{ background: '#151005', border: '1px solid rgba(245,158,11,0.3)' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(245,158,11,0.12)' }}>
+            <RefreshCw size={18} style={{ color: '#F59E0B' }} />
+          </div>
+          <div>
+            <h3 className="text-[16px] font-bold text-white">Reset Account</h3>
+            <p className="text-[11px]" style={{ color: 'rgba(245,158,11,0.7)' }}>All data will be wiped</p>
+          </div>
+        </div>
+
+        <div className="mb-5 p-3 rounded-xl text-[12px] text-slate-400 leading-relaxed"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          All workspaces, campaigns, media, and credits for{' '}
+          <span className="text-white font-semibold">{user.email}</span> will be deleted.
+          The account will be restored to a fresh <span className="font-semibold text-amber-400">FREE</span> state
+          with 30 starter credits. Their login credentials are preserved.
+        </div>
+
+        <p className="text-[12px] text-slate-500 mb-2">Type <span className="text-amber-400 font-mono font-bold">RESET</span> to confirm:</p>
+        <input
+          ref={inputRef}
+          type="text" placeholder="RESET" value={confirm}
+          onChange={e => setConfirm(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && submit()}
+          className="w-full rounded-xl px-4 py-3 text-white text-[13px] placeholder:text-slate-600 focus:outline-none mb-4"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+        />
+
+        {error && (
+          <div className="flex items-center gap-2 text-red-400 text-[12px] mb-3 bg-red-400/10 rounded-lg px-3 py-2">
+            <AlertTriangle size={12} /> {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-3 rounded-xl text-[13px] font-semibold text-slate-400 hover:text-white transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            Cancel
+          </button>
+          <button onClick={submit} disabled={loading || confirm !== 'RESET'}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold transition-all disabled:opacity-30"
+            style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: '#F59E0B' }}>
+            {loading ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Row Action Menu ────────────────────────────────────── */
-function RowMenu({ user, onCredits, onPlan, onDelete, onCopyId }: {
+function RowMenu({ user, onCredits, onPlan, onDelete, onCopyId, onReset }: {
   user: AdminUser
   onCredits: () => void
   onPlan: () => void
   onDelete: () => void
   onCopyId: () => void
+  onReset: () => void
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -408,10 +497,11 @@ function RowMenu({ user, onCredits, onPlan, onDelete, onCopyId }: {
         <div className="absolute right-0 top-8 z-30 w-44 rounded-xl overflow-hidden shadow-2xl py-1"
           style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.1)' }}>
           {[
-            { icon: CreditCard, label: 'Adjust Credits', action: onCredits, color: '#A78BFA' },
-            { icon: Crown,      label: 'Change Plan',    action: onPlan,    color: '#10B981' },
-            { icon: Copy,       label: 'Copy User ID',   action: onCopyId,  color: '#64748B' },
-            { icon: Trash2,     label: 'Delete User',    action: onDelete,  color: '#EF4444' },
+            { icon: CreditCard, label: 'Adjust Credits',  action: onCredits, color: '#A78BFA' },
+            { icon: Crown,      label: 'Change Plan',     action: onPlan,    color: '#10B981' },
+            { icon: Copy,       label: 'Copy User ID',    action: onCopyId,  color: '#64748B' },
+            { icon: RefreshCw,  label: 'Reset Account',   action: onReset,   color: '#F59E0B' },
+            { icon: Trash2,     label: 'Delete User',     action: onDelete,  color: '#EF4444' },
           ].map(item => (
             <button key={item.label}
               onClick={() => { item.action(); setOpen(false) }}
@@ -461,6 +551,7 @@ export default function AdminPage() {
   const [creditsUser, setCreditsUser] = useState<AdminUser | null>(null)
   const [planUser, setPlanUser]       = useState<AdminUser | null>(null)
   const [deleteUser, setDeleteUser]   = useState<AdminUser | null>(null)
+  const [resetUser, setResetUser]     = useState<AdminUser | null>(null)
 
   const token = session?.access_token ?? ''
 
@@ -516,6 +607,14 @@ export default function AdminPage() {
   function handleDeleteSuccess(userId: string) {
     setUsers(prev => prev.filter(u => u.id !== userId))
     showToast('User deleted')
+  }
+
+  function handleResetSuccess(userId: string) {
+    setUsers(prev => prev.map(u => u.id === userId
+      ? { ...u, subscriptionStatus: 'FREE', aiCredits: 30, campaignCount: 0, _count: { workspaces: 0 } }
+      : u
+    ))
+    showToast('Account reset — user can start fresh')
   }
 
   function copyUserId(id: string) {
@@ -848,6 +947,7 @@ export default function AdminPage() {
                           onPlan={() => setPlanUser(u)}
                           onDelete={() => setDeleteUser(u)}
                           onCopyId={() => copyUserId(u.id)}
+                          onReset={() => setResetUser(u)}
                         />
                       </td>
                     </tr>
@@ -884,6 +984,10 @@ export default function AdminPage() {
       {deleteUser && (
         <DeleteModal user={deleteUser} token={token}
           onClose={() => setDeleteUser(null)} onSuccess={handleDeleteSuccess} />
+      )}
+      {resetUser && (
+        <ResetModal user={resetUser} token={token}
+          onClose={() => setResetUser(null)} onSuccess={handleResetSuccess} />
       )}
     </div>
   )
