@@ -514,18 +514,22 @@ export default function PaidLaunchPage() {
             {pack.estimatedReach && (
               <Section title="Estimated Reach" icon={<TrendingUp size={16} color="#22d3ee" />}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-                  {Object.entries(pack.estimatedReach).map(([p, r]) => {
+                  {Object.entries(pack.estimatedReach as Record<string, { impressionsMin?: number; impressionsMax?: number; cpmMin?: number; cpmMax?: number }>).map(([p, r]) => {
                     const plat = PLATFORMS.find(x => x.value === p)
+                    const impMin = r?.impressionsMin ?? 0
+                    const impMax = r?.impressionsMax ?? 0
+                    const cpmMin = r?.cpmMin ?? 0
+                    const cpmMax = r?.cpmMax ?? 0
                     return (
                       <div key={p} style={{ padding: '14px', borderRadius: 10, background: `${plat?.bg ?? 'rgba(255,255,255,0.03)'}`, border: `1px solid ${plat?.color ?? '#334155'}30` }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: plat?.color ?? '#94a3b8', marginBottom: 8 }}>
                           {plat?.icon} {plat?.label ?? p}
                         </div>
                         <div style={{ fontSize: 20, fontWeight: 800, color: '#f1f5f9' }}>
-                          {(r.impressionsMin / 1000).toFixed(0)}K – {(r.impressionsMax / 1000).toFixed(0)}K
+                          {(impMin / 1000).toFixed(0)}K – {(impMax / 1000).toFixed(0)}K
                         </div>
                         <div style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
-                          impressions · CPM ${r.cpmMin}–${r.cpmMax}
+                          impressions · CPM ${cpmMin}–${cpmMax}
                         </div>
                       </div>
                     )
@@ -546,7 +550,7 @@ export default function PaidLaunchPage() {
             {pack.audienceBrief && (
               <Section title="AI Audience Brief" icon={<Users size={16} color="#a78bfa" />}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                  {pack.platforms.map(p => (
+                  {(pack.platforms ?? []).map(p => (
                     <button
                       key={p}
                       onClick={() => setExpandedPlatform(p)}
@@ -570,8 +574,8 @@ export default function PaidLaunchPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>AGE · GENDER · LOCATION</div>
-                          <div style={{ color: '#e2e8f0', fontSize: 13 }}>{m.ageMin}–{m.ageMax} years · {m.genders.join(', ')}</div>
-                          <div style={{ marginTop: 4 }}>{m.locations.map(l => <Tag key={l}>{l}</Tag>)}</div>
+                          <div style={{ color: '#e2e8f0', fontSize: 13 }}>{m.ageMin}–{m.ageMax} years · {(m.genders ?? []).join(', ')}</div>
+                          <div style={{ marginTop: 4 }}>{(m.locations ?? []).map(l => <Tag key={l}>{l}</Tag>)}</div>
                         </div>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>PLACEMENTS · BID STRATEGY</div>
@@ -581,22 +585,22 @@ export default function PaidLaunchPage() {
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>INTERESTS</div>
-                        <div>{m.interests.map(i => <Tag key={i}>{i}</Tag>)}</div>
+                        <div>{(m.interests ?? []).map(i => <Tag key={i}>{i}</Tag>)}</div>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>BEHAVIORS</div>
-                          <div>{m.behaviors.map(b => <Tag key={b}>{b}</Tag>)}</div>
+                          <div>{(m.behaviors ?? []).map(b => <Tag key={b}>{b}</Tag>)}</div>
                         </div>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>EXCLUSIONS</div>
-                          <div>{m.exclusions.map(e => <Tag key={e}>{e}</Tag>)}</div>
+                          <div>{(m.exclusions ?? []).map(e => <Tag key={e}>{e}</Tag>)}</div>
                         </div>
                       </div>
-                      {m.customAudienceSuggestions?.length > 0 && (
+                      {(m.customAudienceSuggestions ?? []).length > 0 && (
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
                           <div style={{ color: '#a78bfa', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>💡 CUSTOM AUDIENCE IDEAS</div>
-                          {m.customAudienceSuggestions.map(c => (
+                          {(m.customAudienceSuggestions ?? []).map(c => (
                             <div key={c} style={{ color: '#c4b5fd', fontSize: 12, marginBottom: 3 }}>→ {c}</div>
                           ))}
                         </div>
@@ -608,6 +612,8 @@ export default function PaidLaunchPage() {
                 {/* Google audience */}
                 {expandedPlatform === 'google' && pack.audienceBrief.google && (() => {
                   const g = pack.audienceBrief.google
+                  const keywords = g.keywords ?? []
+                  const negKeywords = g.negativeKeywords ?? []
                   return (
                     <div style={{ display: 'grid', gap: 12 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -618,19 +624,19 @@ export default function PaidLaunchPage() {
                         </div>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>LOCATIONS</div>
-                          <div>{g.locations.map(l => <Tag key={l}>{l}</Tag>)}</div>
+                          <div>{(g.locations ?? []).map(l => <Tag key={l}>{l}</Tag>)}</div>
                         </div>
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>KEYWORDS ({g.keywords.length})</div>
-                          <CopyButton text={g.keywords.join('\n')} />
+                          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>KEYWORDS ({keywords.length})</div>
+                          <CopyButton text={keywords.join('\n')} />
                         </div>
-                        <div>{g.keywords.map(k => <Tag key={k}>{k}</Tag>)}</div>
+                        <div>{keywords.map(k => <Tag key={k}>{k}</Tag>)}</div>
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
                         <div style={{ color: '#fca5a5', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>NEGATIVE KEYWORDS</div>
-                        <div>{g.negativeKeywords.map(k => <Tag key={k}>{k}</Tag>)}</div>
+                        <div>{negKeywords.map(k => <Tag key={k}>{k}</Tag>)}</div>
                       </div>
                     </div>
                   )
@@ -644,8 +650,8 @@ export default function PaidLaunchPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>DEMOGRAPHICS</div>
-                          <div style={{ color: '#e2e8f0', fontSize: 13 }}>{t.ageMin}–{t.ageMax} · {t.genders.join(', ')}</div>
-                          <div>{t.locations.map(l => <Tag key={l}>{l}</Tag>)}</div>
+                          <div style={{ color: '#e2e8f0', fontSize: 13 }}>{t.ageMin}–{t.ageMax} · {(t.genders ?? []).join(', ')}</div>
+                          <div>{(t.locations ?? []).map(l => <Tag key={l}>{l}</Tag>)}</div>
                         </div>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>FORMAT · CREATOR</div>
@@ -655,7 +661,7 @@ export default function PaidLaunchPage() {
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>INTERESTS</div>
-                        <div>{t.interests.map(i => <Tag key={i}>{i}</Tag>)}</div>
+                        <div>{(t.interests ?? []).map(i => <Tag key={i}>{i}</Tag>)}</div>
                       </div>
                     </div>
                   )
@@ -669,16 +675,16 @@ export default function PaidLaunchPage() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>JOB TITLES</div>
-                          <div>{l.jobTitles.map(t => <Tag key={t}>{t}</Tag>)}</div>
+                          <div>{(l.jobTitles ?? []).map(t => <Tag key={t}>{t}</Tag>)}</div>
                         </div>
                         <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                           <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 8 }}>SENIORITY</div>
-                          <div>{l.seniority.map(s => <Tag key={s}>{s}</Tag>)}</div>
+                          <div>{(l.seniority ?? []).map(s => <Tag key={s}>{s}</Tag>)}</div>
                         </div>
                       </div>
                       <div style={{ padding: 12, borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700, marginBottom: 6 }}>FORMAT: {l.adFormat} · INDUSTRIES</div>
-                        <div>{l.industries.map(i => <Tag key={i}>{i}</Tag>)}</div>
+                        <div>{(l.industries ?? []).map(i => <Tag key={i}>{i}</Tag>)}</div>
                       </div>
                     </div>
                   )
@@ -772,7 +778,7 @@ export default function PaidLaunchPage() {
             {pack.platformGuides && (
               <Section title="Step-by-Step Launch Guides" icon={<BookOpen size={16} color="#f472b6" />} defaultOpen={false}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                  {pack.platforms.map(p => (
+                  {(pack.platforms ?? []).map(p => (
                     <button
                       key={p}
                       onClick={() => setExpandedPlatform(p)}
