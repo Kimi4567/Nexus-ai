@@ -69,7 +69,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
 
     // ── 2. Deduct 1 credit ─────────────────────────────────────────────────
-    const creditCheck = await checkAndDeductCredits(userId, 'CHAT_MESSAGE') // 1 credit
+    const creditCheck = await checkAndDeductCredits(userId, 'AI_POST_REWRITE') // 1 credit
     if (!creditCheck.ok) {
       return NextResponse.json(
         { error: creditCheck.error ?? 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' },

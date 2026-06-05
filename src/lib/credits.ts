@@ -65,6 +65,13 @@ export const CREDIT_COSTS = {
   CHAT_MESSAGE: 1,
 
   /**
+   * AI Post Rewrite — GPT-4o-mini rewrites a single content hub post
+   * Route: /api/campaigns/[id]/content-plan/[postId]/rewrite
+   * API cost: ~$0.0003. Margin @ Pro: 99%
+   */
+  AI_POST_REWRITE: 1,
+
+  /**
    * Content plan generation — GPT-4o-mini writes all post captions + image prompts
    * Route: /api/campaigns/[id]/generate-content-plan
    * API cost: ~$0.002 (GPT-4o-mini, ~3,000 tokens). Charged per-plan not per-post.
@@ -89,19 +96,22 @@ export type CreditAction = keyof typeof CREDIT_COSTS
 // 15 credits = 3× CAMPAIGN_GENERATION or 3× RUN_FULL_STRATEGY, or a mix of actions.
 // Adjust here to change the free tier without touching any route.
 
-export const FREE_STARTER_CREDITS = 20
+export const FREE_STARTER_CREDITS = 10
 
 // ── Monthly credit totals per plan ─────────────────────────────────────────────
 // Used by the dashboard credit progress bar.
-// -1 = unlimited (Agency plan and above).
+// Must stay in sync with PLAN_CREDITS in src/lib/stripe.ts.
+// Free=10 (one-time), Starter=50/mo, Growth(PRO)=150/mo, Agency(BUSINESS)=500/mo
 
 export const PLANS_CREDITS: Record<string, number> = {
-  FREE:      FREE_STARTER_CREDITS, // 20 (one-time, never refreshes)
-  PRO:       300,
-  BUSINESS:  1000,
+  FREE:      FREE_STARTER_CREDITS, // 10 (one-time, never refreshes)
+  STARTER:   50,
+  PRO:       150,  // Growth plan
+  GROWTH:    150,  // alias
+  BUSINESS:  500,  // Agency plan
+  AGENCY:    500,  // alias
   // Stripe subscription status aliases (subscriptionStatus field values)
-  ACTIVE:    300,  // Stripe active = PRO tier
-  AGENCY:    1000, // Legacy — maps to BUSINESS
+  ACTIVE:    150,  // Stripe active = Growth tier
 }
 
 // ── Low-credits warning threshold ─────────────────────────────────────────────
