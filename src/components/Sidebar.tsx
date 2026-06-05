@@ -244,15 +244,16 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* Core Loop */}
         {!collapsed && <SectionLabel>Core</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
-        <NavItem href="/campaigns" label="Campaigns"
+        <NavItem href="/campaigns" label={locale === 'ar' ? 'الكامبينات' : 'Campaigns'}
           icon={Icons.campaigns} {...sharedProps} />
+        <NavItem href="/templates" label={locale === 'ar' ? 'القوالب' : 'Templates'}
+          icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>}
+          {...sharedProps} />
         <NavItem href="/content-hub" label={locale === 'ar' ? 'مركز المحتوى' : 'Content Hub'}
           icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>}
           {...sharedProps} />
-        <NavItem href="/calendar" label={t('sidebar.calendar')}
+        <NavItem href="/calendar" label={locale === 'ar' ? 'التقويم' : 'Calendar'}
           icon={Icons.calendar} {...sharedProps} />
-        <NavItem href="/schedule" label={locale === 'ar' ? 'الجدولة' : 'Schedule'}
-          icon={Icons.schedule} {...sharedProps} />
         <NavItem href="/media" label={t('sidebar.media')}
           icon={Icons.media} {...sharedProps} />
 

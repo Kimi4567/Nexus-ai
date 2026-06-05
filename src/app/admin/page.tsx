@@ -491,7 +491,16 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!authLoading && !user) { router.push('/auth/login'); return }
-    if (!authLoading && token) load()
+    if (!authLoading && token) {
+      // Quick client-side role check before firing heavy admin API
+      fetch('/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          if (data.role !== 'ADMIN') { router.push('/dashboard'); return }
+          load()
+        })
+        .catch(() => load()) // On error fall through; server-side guard will 403
+    }
   }, [authLoading, user, token, load, router])
 
   function handleCreditSuccess(userId: string, newCredits: number) {
@@ -860,15 +869,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Grant admin hint */}
-        <div className="mt-6 flex items-center gap-2 text-[11px] text-slate-600">
-          <ExternalLink size={10} />
-          <span>Grant admin: </span>
-          <code className="px-1.5 py-0.5 rounded text-slate-500"
-            style={{ background: 'rgba(255,255,255,0.04)' }}>
-            UPDATE &quot;User&quot; SET role = &apos;ADMIN&apos; WHERE email = &apos;your@email.com&apos;;
-          </code>
-        </div>
 
       </div>
 
