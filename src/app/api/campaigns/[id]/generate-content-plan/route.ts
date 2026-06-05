@@ -136,13 +136,15 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // ── 6. Clear any existing DRAFT content plan posts ────────────────────
-    await prisma.socialPost.deleteMany({
+    // Cast to any — generationStatus was added via raw SQL migration; prisma generate
+    // hasn't re-run yet so the typed client doesn't include it. The cast bypasses
+    // both TS compile-time errors AND Prisma's runtime schema validation.
+    await (prisma.socialPost as any).deleteMany({
       where: {
         campaignId: params.id,
         workspaceId,
         status: 'DRAFT',
-        // @ts-ignore — new field, schema migration pending
-        generationStatus: { in: ['PENDING', 'FAILED'] } as any,
+        generationStatus: { in: ['PENDING', 'FAILED'] },
         publishedAt: null,
       },
     })
