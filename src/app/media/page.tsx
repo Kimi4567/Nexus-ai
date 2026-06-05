@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import AppShell from '@/components/AppShell'
+import { applyBrandOverlayFromProfile, type OverlayPlatform } from '@/lib/cloudinaryOverlay'
 
 // ── Upload limits ──────────────────────────────────────────────────────────────
 // Local path goes through Next.js JSON body: file is base64-encoded → 33% overhead.
@@ -210,6 +211,188 @@ function PreviewModal({
   )
 }
 
+// ── Brand It Modal ─────────────────────────────────────────────────────────────
+const PLATFORM_OPTIONS: { value: OverlayPlatform; label: string; labelAr: string; icon: string }[] = [
+  { value: 'square',    label: 'Square (Instagram)',  labelAr: 'مربع (إنستجرام)', icon: '▪' },
+  { value: 'instagram', label: 'Instagram Feed',      labelAr: 'إنستجرام فيد',    icon: '📷' },
+  { value: 'tiktok',   label: 'TikTok / Reels',      labelAr: 'تيكتوك / ريلز',   icon: '🎵' },
+  { value: 'linkedin', label: 'LinkedIn',             labelAr: 'لينكدإن',         icon: '💼' },
+  { value: 'facebook', label: 'Facebook',             labelAr: 'فيسبوك',          icon: '👤' },
+]
+
+function BrandItModal({
+  media,
+  brand,
+  onClose,
+  locale,
+}: {
+  media: MediaRecord
+  brand: { brandName?: string | null; logoUrl?: string | null } | null
+  onClose: () => void
+  locale: string
+}) {
+  const [platform, setPlatform] = useState<OverlayPlatform>('square')
+  const [copyFlash, setCopyFlash] = useState(false)
+  const isAr = locale === 'ar'
+
+  const brandedUrl = brand?.brandName
+    ? applyBrandOverlayFromProfile(media.url, brand, platform)
+    : media.url
+
+  const hasBrand = Boolean(brand?.brandName)
+  const isCloudinary = media.url?.includes('res.cloudinary.com')
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(brandedUrl).catch(() => {})
+    setCopyFlash(true)
+    setTimeout(() => setCopyFlash(false), 1500)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: 'rgba(6,7,26,0.9)', backdropFilter: 'blur(20px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-2xl rounded-2xl overflow-hidden"
+        style={{ background: 'rgba(10,11,28,0.97)', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 80px rgba(139,92,246,0.15)' }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Top accent bar */}
+        <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
+              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+              🎨
+            </div>
+            <span className="font-bold text-sm text-white">
+              {isAr ? 'إضافة هوية البراند' : 'Brand This Image'}
+            </span>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-lg leading-none">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+
+          {/* No brand warning */}
+          {!hasBrand && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
+              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <span className="text-amber-400 mt-0.5">⚠</span>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#fbbf24' }}>
+                  {isAr ? 'لا يوجد اسم براند' : 'No brand name set'}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(251,191,36,0.7)' }}>
+                  {isAr ? 'أضف اسم البراند في Brand Brain أولاً' : 'Add your brand name in Brand Brain first'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Not Cloudinary warning */}
+          {!isCloudinary && hasBrand && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+              <span className="text-red-400 mt-0.5">⚠</span>
+              <p className="text-xs" style={{ color: '#fca5a5' }}>
+                {isAr
+                  ? 'هذه الصورة مش على Cloudinary — الـ overlay بيحتاج صورة مرفوعة عبر المنصة'
+                  : 'This image is not on Cloudinary — overlay requires an image uploaded through the platform'}
+              </p>
+            </div>
+          )}
+
+          {/* Platform selector */}
+          {isCloudinary && (
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider mb-2 block"
+                style={{ color: 'rgba(148,163,184,0.6)' }}>
+                {isAr ? 'المنصة' : 'Platform'}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {PLATFORM_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={() => setPlatform(opt.value)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: platform === opt.value ? 'rgba(139,92,246,0.2)' : 'rgba(12,13,36,0.6)',
+                      border: `1px solid ${platform === opt.value ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.15)'}`,
+                      color: platform === opt.value ? '#a78bfa' : '#64748b',
+                    }}>
+                    {opt.icon} {isAr ? opt.labelAr : opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Image preview */}
+          <div className="rounded-xl overflow-hidden flex items-center justify-center"
+            style={{ background: 'rgba(6,7,26,0.6)', border: '1px solid rgba(139,92,246,0.1)', minHeight: 280 }}>
+            <img
+              key={brandedUrl}
+              src={brandedUrl}
+              alt={media.fileName}
+              className="max-w-full max-h-[400px] object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3' }}
+            />
+          </div>
+
+          {/* Brand info chips */}
+          {hasBrand && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              {brand?.brandName && (
+                <span className="px-2.5 py-1 rounded-full font-semibold"
+                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }}>
+                  ✦ {isAr ? 'الاسم:' : 'Name:'} {brand.brandName}
+                </span>
+              )}
+              {brand?.logoUrl && (
+                <span className="px-2.5 py-1 rounded-full font-semibold"
+                  style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#34d399' }}>
+                  ✦ {isAr ? 'اللوجو مضاف' : 'Logo applied'}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex gap-2 pt-1">
+            <a href={brandedUrl} download target="_blank" rel="noreferrer"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+              style={{
+                background: hasBrand && isCloudinary ? 'linear-gradient(135deg,#8b5cf6,#6d28d9)' : 'rgba(30,30,60,0.5)',
+                color: hasBrand && isCloudinary ? '#fff' : '#475569',
+                boxShadow: hasBrand && isCloudinary ? '0 0 24px rgba(139,92,246,0.3)' : 'none',
+                pointerEvents: (!hasBrand || !isCloudinary) ? 'none' : 'auto',
+              }}>
+              ⬇ {isAr ? 'تحميل' : 'Download'}
+            </a>
+            <button onClick={handleCopy}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)', color: copyFlash ? '#34d399' : '#94a3b8' }}>
+              {copyFlash ? '✓ ' : ''}{isAr ? 'نسخ الرابط' : 'Copy URL'}
+            </button>
+            <button onClick={onClose}
+              className="px-4 py-2.5 rounded-xl text-sm transition-all"
+              style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(255,255,255,0.06)', color: '#475569' }}>
+              {isAr ? 'إغلاق' : 'Close'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Type Badge ─────────────────────────────────────────────────────────────────
 function TypeBadge({ type, mT }: { type: string; mT: Record<string, string> }) {
   const label =
@@ -239,11 +422,13 @@ function MediaCard({
   mT,
   onPreview,
   onDelete,
+  onBrandIt,
 }: {
   media: MediaRecord
   mT: Record<string, string>
   onPreview: (m: MediaRecord) => void
   onDelete: (id: string) => void
+  onBrandIt: (m: MediaRecord) => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -349,11 +534,20 @@ function MediaCard({
             >
               {mT.btnPreview}
             </button>
+            {!isVideo && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onBrandIt(media) }}
+                className="flex-1 rounded-lg text-xs py-1.5 font-semibold transition-all"
+                style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#22d3ee' }}
+                title="Brand It">
+                🎨 Brand
+              </button>
+            )}
             <button
               onClick={handleCopyUrl}
-              className="flex-1 rounded-lg text-xs py-1.5 text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              className="rounded-lg text-xs py-1.5 px-2 text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
             >
-              {copyFlash ? '✓' : mT.btnCopyUrl}
+              {copyFlash ? '✓' : '⎘'}
             </button>
             <button
               onClick={() => setConfirmDelete(true)}
@@ -372,7 +566,7 @@ function MediaCard({
 // ── Main Page ──────────────────────────────────────────────────────────────────
 export default function MediaLibraryPage() {
   const { isAuthenticated, loading, authHeader } = useAuth()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const mT = t('media') as Record<string, string>
 
   const STATUS_LABELS: Record<string, string> = {
@@ -392,6 +586,8 @@ export default function MediaLibraryPage() {
   const [pageSize] = useState(24)
   const [totalPages, setTotalPages] = useState(1)
   const [previewMedia, setPreviewMedia] = useState<MediaRecord | null>(null)
+  const [brandItMedia, setBrandItMedia] = useState<MediaRecord | null>(null)
+  const [brandProfile, setBrandProfile] = useState<{ brandName?: string | null; logoUrl?: string | null } | null>(null)
   const [uploadInProgress, setUploadInProgress] = useState(false)
   const dropRef = useRef<HTMLDivElement | null>(null)
 
@@ -426,6 +622,15 @@ export default function MediaLibraryPage() {
     if (!isAuthenticated) return
     loadMedia(page, query, typeFilter)
   }, [isAuthenticated, page, typeFilter])
+
+  // Fetch brand profile for Brand It overlay
+  useEffect(() => {
+    if (!isAuthenticated) return
+    fetch('/api/brand', { headers: { Authorization: authHeader() } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.brandProfile) setBrandProfile(d.brandProfile) })
+      .catch(() => {})
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -655,6 +860,15 @@ export default function MediaLibraryPage() {
         />
       )}
 
+      {brandItMedia && (
+        <BrandItModal
+          media={brandItMedia}
+          brand={brandProfile}
+          onClose={() => setBrandItMedia(null)}
+          locale={locale}
+        />
+      )}
+
       <div className="relative min-h-screen">
           {/* Background grid */}
           <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-40" />
@@ -805,6 +1019,7 @@ export default function MediaLibraryPage() {
                     mT={mT}
                     onPreview={setPreviewMedia}
                     onDelete={handleMediaDeleted}
+                    onBrandIt={setBrandItMedia}
                   />
                 ))
               )}
