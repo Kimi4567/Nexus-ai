@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/nurture-emails",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/agent-monitor",
+      "schedule": "0 6 * * *"
     }
   ],
   "functions": {
@@ -47,6 +51,18 @@
       "maxDuration": 60
     },
     "src/app/api/cron/generate-images/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/engine/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/paid-pack/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/paid-pack/learn/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/strategy/generate/route.ts": {
       "maxDuration": 60
     }
   }

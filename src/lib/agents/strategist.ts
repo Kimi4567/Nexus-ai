@@ -280,7 +280,7 @@ export interface StrategyOutput {
 
 // ── OpenAI call helper ────────────────────────────────────────────────────────
 
-async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 2000): Promise<any> {
+async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 4000): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -288,7 +288,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',  // Upgraded from gpt-4o-mini — strategist is the core engine
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

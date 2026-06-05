@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndDeductCredits } from '@/lib/credits'
+import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
 /* ═══════════════════════════════════════════════════════════════
    /api/ai/generate
@@ -13,20 +14,6 @@ import { checkAndDeductCredits } from '@/lib/credits'
    2. LEGACY (old generate flows):
       { action: 'video_script'|'ad_copy'|'analyze', productName?, ... }
    ═══════════════════════════════════════════════════════════════ */
-
-// ── Rate limiting ──────────────────────────────────────────────
-const rateMap = new Map<string, { count: number; windowStart: number }>()
-const RATE_WINDOW_MS = 60_000
-const MAX_PER_WINDOW = 20
-
-function checkRateLimit(key: string): boolean {
-  const now = Date.now()
-  const entry = rateMap.get(key) ?? { count: 0, windowStart: now }
-  if (now - entry.windowStart > RATE_WINDOW_MS) { entry.count = 0; entry.windowStart = now }
-  entry.count++
-  rateMap.set(key, entry)
-  return entry.count <= MAX_PER_WINDOW
-}
 
 // ── Legacy action support ──────────────────────────────────────
 type LegacyAction = 'video_script' | 'ad_copy' | 'analyze'
@@ -62,10 +49,9 @@ export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // ── Rate limit ─────────────────────────────────────────────────
-  if (!checkRateLimit(userId)) {
-    return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 })
-  }
+  // ── Rate limit (DB-backed — survives cold starts) ─────────────
+  const rl = await aiRateLimitDb(userId)
+  if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
   const body = await req.json() as Record<string, unknown>
   const apiKey = process.env.OPENAI_API_KEY
