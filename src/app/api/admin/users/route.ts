@@ -17,9 +17,15 @@ export async function GET(req: NextRequest) {
   })
   if (dbUser?.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const url    = new URL(req.url)
+  const page   = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10))
+  const limit  = Math.min(200, parseInt(url.searchParams.get('limit') ?? '100', 10))
+
   try {
     const users = await prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
+      take: limit,
+      skip: page * limit,
       select: {
         id: true,
         email: true,
@@ -66,10 +72,13 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'asc' },
     })
 
+    const totalUsers = await prisma.user.count()
+
     return NextResponse.json({
       users: usersWithCampaigns,
       planCounts,
       recentSignups,
+      pagination: { page, limit, total: totalUsers, pages: Math.ceil(totalUsers / limit) },
     })
   } catch (err: unknown) {
     console.error('[admin/users GET]', err)

@@ -72,6 +72,14 @@ export const CREDIT_COSTS = {
    */
   CONTENT_PLAN_GENERATION: 2,
 
+  /**
+   * Paid campaign pack generation — GPT-4o writes full audience targeting, copy
+   * variants, budget insights, and platform-by-platform launch guides.
+   * Route: /api/campaigns/[id]/paid-pack/generate
+   * API cost: ~$0.06 (GPT-4o, ~4,000 tokens). Margin @ Pro: 90%
+   */
+  PAID_PACK_GENERATE: 6,
+
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS
@@ -211,16 +219,33 @@ export async function checkAndDeductCredits(
     }
   }
 
-  // ── Deduct credits ─────────────────────────────────────────────────────────
-  const newCredits = Math.max(0, currentCredits - cost)
-
-  await prisma.user.update({
-    where: { id: userId },
+  // ── Atomic deduction ──────────────────────────────────────────────────────
+  // Use updateMany with a conditional WHERE to avoid race conditions.
+  // Postgres executes the WHERE check and UPDATE in a single statement —
+  // if two requests arrive simultaneously, only one will see count === 1.
+  const deducted = await prisma.user.updateMany({
+    where: { id: userId, aiCredits: { gte: cost } },
     data: {
-      aiCredits: newCredits,
+      aiCredits: { decrement: cost },
       monthlyGenerations: { increment: 1 },
     },
   })
+
+  if (deducted.count === 0) {
+    // Lost the race — credits were already consumed by a concurrent request
+    return {
+      ok: false,
+      error: 'INSUFFICIENT_CREDITS',
+      message: isFree
+        ? `You've used all your free credits. Upgrade to continue.`
+        : 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
+      requiredCredits: cost,
+      currentCredits,
+      upgradeUrl: '/billing',
+    }
+  }
+
+  const newCredits = Math.max(0, currentCredits - cost)
 
   // ── Track usage (non-blocking) ─────────────────────────────────────────────
   await _trackUsage(userId, cost)

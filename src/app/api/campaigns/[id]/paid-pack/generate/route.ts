@@ -76,13 +76,11 @@ export async function POST(
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Check credits (use AD_COPY as closest match — 3 deductions)
-    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
+    // Check credits — single atomic deduction (6 credits for the full pack)
+    const creditResult = await checkAndDeductCredits(user.id, 'PAID_PACK_GENERATE')
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
     }
-    await checkAndDeductCredits(user.id, 'AD_COPY')
-    await checkAndDeductCredits(user.id, 'AD_COPY')
 
     // Fetch campaign + brand profile
     const campaign = await prisma.campaign.findFirst({
