@@ -96,6 +96,7 @@ Platforms: ${(campaign.platforms || []).join(', ')}
 ${campaign.description ? `Description: ${campaign.description}` : ''}
 ${campaign.brandProfile?.brandName ? `Brand: ${campaign.brandProfile.brandName}` : ''}
 ${platformGuides ? `Platform context:\n${platformGuides}` : ''}
+${campaign.pastLearnings ? `\n${campaign.pastLearnings}` : ''}
 
 Be specific and concise. Real copy, not generic placeholders.
 ${getLanguageInstruction(campaign.language)}`

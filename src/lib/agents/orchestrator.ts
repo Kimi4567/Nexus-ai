@@ -14,6 +14,7 @@ import {
   CampaignManagerOutput,
 } from './campaign-manager'
 import { runReportingAgent, getPeriodLabel, ReportingInput } from './reporting'
+import { saveCampaignMemory } from '@/lib/campaign-memory'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -52,6 +53,18 @@ export async function runFullAgency(
   })
 
   try {
+    // 0. Resolve user plan tier from workspace owner
+    const workspace = await db.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { owner: { select: { plan: true } } },
+    })
+    const planTier = (workspace?.owner?.plan || 'starter').toLowerCase()
+
+    // Inject plan tier into brief so agents can scale output depth
+    if (!brief.planTier) {
+      brief = { ...brief, planTier }
+    }
+
     // 1. Brand context — inject ALL Brand Brain fields
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
     const brandContext = brandProfile
@@ -94,6 +107,7 @@ export async function runFullAgency(
       painPoints: brandProfile?.audiencePainPoints?.length ? brandProfile.audiencePainPoints : undefined,
       winningHooks: brandProfile?.winningHooks?.length ? brandProfile.winningHooks.slice(0, 3) : undefined,
       language: brief.language,
+      planTier: brief.planTier,
     }
     const content = await runContentDirectorAgent(contentInput)
     contentCreated = true
@@ -140,6 +154,17 @@ export async function runFullAgency(
         },
       },
     })
+
+    // 5b. Save campaign memory (non-blocking)
+    saveCampaignMemory({
+      workspaceId,
+      campaignId: campaign.id,
+      goal: brief.primaryGoal ?? undefined,
+      tone: undefined,
+      industry: brief.businessType ?? undefined,
+      audienceHint: brief.targetAudience ?? undefined,
+      strategy,
+    }).catch(() => {})
 
     // 6. Update brand profile insights
     if (brandProfile) {

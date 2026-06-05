@@ -206,6 +206,265 @@ function PipelineCard({ icon: Icon, label, status, color, delay }: {
   )
 }
 
+function CommandCenterVisual({ ar, steps }: {
+  ar: boolean
+  steps: { icon: ElementType; label: string; status: string; color: string }[]
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ delay: 0.55, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+      className="relative mx-auto w-full max-w-[650px] lg:max-w-none"
+    >
+      <div className="absolute -inset-8 rounded-[42px] blur-3xl opacity-60" style={{ background: 'radial-gradient(circle at 40% 45%, rgba(139,92,246,0.28), transparent 45%), radial-gradient(circle at 75% 62%, rgba(34,211,238,0.18), transparent 42%), radial-gradient(circle at 20% 82%, rgba(16,185,129,0.12), transparent 36%)' }} />
+      <div className="absolute inset-x-8 top-8 h-px opacity-70" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.75), rgba(34,211,238,0.55), transparent)' }} />
+
+      <div className="relative rounded-[28px] p-3 sm:p-4" style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02))', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 35px 90px rgba(0,0,0,0.45)' }}>
+        <div className="rounded-[22px] overflow-hidden" style={{ background: 'linear-gradient(180deg, rgba(8,10,33,0.96), rgba(7,8,27,0.92))', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-purple-400 shadow-[0_0_14px_rgba(139,92,246,0.8)]" />
+              <span className="font-mono text-[10px] font-bold tracking-[2px] text-slate-400">NEXUS COMMAND CENTER</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-mono text-emerald-300">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {ar ? 'مباشر' : 'LIVE'}
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-4 sm:grid-cols-[1.08fr_0.92fr]">
+            <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <p className="text-[11px] font-mono uppercase tracking-[2px] text-slate-500">{ar ? 'خطة الشهر' : 'Monthly plan'}</p>
+                  <p className="text-[20px] font-extrabold text-white">{ar ? '30 بوست جاهز' : '30 posts ready'}</p>
+                </div>
+                <div className="w-14 h-14 rounded-2xl grid place-items-center" style={{ background: 'conic-gradient(from 20deg,#8B5CF6,#22D3EE,#10B981,#8B5CF6)' }}>
+                  <div className="w-10 h-10 rounded-xl bg-[#07081d] grid place-items-center">
+                    <Sparkles size={18} className="text-white" />
+                  </div>
+                </div>
+              </div>
+              <div className="h-[150px] rounded-xl relative overflow-hidden" style={{ background: 'linear-gradient(180deg, rgba(139,92,246,0.09), rgba(34,211,238,0.02))' }}>
+                <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)', backgroundSize: '34px 34px' }} />
+                <svg className="absolute inset-0 h-full w-full" viewBox="0 0 360 150" fill="none" aria-hidden="true">
+                  <path d="M16 118 C55 92 71 102 103 76 C139 46 159 63 190 48 C235 25 254 71 293 46 C319 30 336 23 350 18" stroke="url(#heroLine)" strokeWidth="4" strokeLinecap="round" />
+                  <path d="M16 118 C55 92 71 102 103 76 C139 46 159 63 190 48 C235 25 254 71 293 46 C319 30 336 23 350 18" stroke="white" strokeOpacity="0.14" strokeWidth="10" strokeLinecap="round" />
+                  <defs>
+                    <linearGradient id="heroLine" x1="16" y1="118" x2="350" y2="18" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#8B5CF6" />
+                      <stop offset="0.55" stopColor="#22D3EE" />
+                      <stop offset="1" stopColor="#10B981" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute bottom-3 left-3 right-3 grid grid-cols-3 gap-2">
+                  {[
+                    { platform: 'Instagram', count: '12', accent: '#EC4899', label: ar ? 'إعلان' : 'Ad' },
+                    { platform: 'LinkedIn', count: '9', accent: '#22D3EE', label: ar ? 'بوست' : 'Post' },
+                    { platform: 'TikTok', count: '9', accent: '#8B5CF6', label: ar ? 'فيديو' : 'Video' },
+                  ].map((item) => (
+                    <div key={item.platform} className="rounded-lg px-2 py-2 overflow-hidden relative" style={{ background: 'rgba(7,8,29,0.82)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div className="h-10 rounded-md mb-1.5 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${item.accent}, #0f172a)` }}>
+                        <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.22) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.2) 1px, transparent 1px)', backgroundSize: '10px 10px' }} />
+                        <span className="absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[7px] font-bold text-white bg-black/35">{item.label}</span>
+                      </div>
+                      <p className="text-[9px] text-slate-500">{item.platform}</p>
+                      <p className="text-[13px] font-bold text-white">{item.count}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-[11px] font-mono uppercase tracking-[2px] text-slate-500">AI AGENTS</p>
+                  <span className="text-[10px] text-emerald-300">{ar ? 'متصل' : 'Connected'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {['NEXUS', 'NEX', 'VEX', 'SENTINEL'].map((name, i) => (
+                    <div key={name} className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.035)', border: `1px solid ${['#8B5CF6', '#22D3EE', '#F97316', '#10B981'][i]}22` }}>
+                      <span className="font-mono text-[10px] font-bold" style={{ color: ['#8B5CF6', '#22D3EE', '#F97316', '#10B981'][i] }}>{name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <p className="text-[11px] font-mono uppercase tracking-[2px] text-slate-500 mb-3">{ar ? 'التنفيذ' : 'Execution'}</p>
+                <div className="space-y-2">
+                  {steps.map((step, i) => (
+                    <div key={step.label} className="flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-lg grid place-items-center" style={{ background: `${step.color}14`, border: `1px solid ${step.color}22` }}>
+                        <step.icon size={13} style={{ color: step.color }} />
+                      </div>
+                      <span className="text-[11px] text-slate-300 flex-1">{step.label}</span>
+                      <span className="text-[9px] font-mono" style={{ color: step.color }}>{step.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden">
+          <p className="mb-3 text-center font-mono text-[10px] font-bold uppercase tracking-[2px] text-slate-500">
+            {ar ? 'منشورات جاهزة كما تظهر على المنصات' : 'Ready-to-publish social posts'}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <motion.div animate={{ y: [0, -6, 0] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}>
+              <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(12,12,15,0.96)', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 18px 46px rgba(0,0,0,0.34)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
+              <span className="h-7 w-7 rounded-full grid place-items-center text-[11px] font-bold text-white" style={{ background: 'linear-gradient(135deg,#F97316,#EC4899,#8B5CF6)' }}>N</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold leading-none text-white">luna.restaurant</p>
+                <p className="text-[8px] leading-none text-slate-500 mt-1">{ar ? 'إعلان ممول' : 'Sponsored'}</p>
+              </div>
+              <span className="ml-auto text-[13px] text-slate-500">•••</span>
+            </div>
+            <div className="aspect-[4/3] relative overflow-hidden" style={{ background: 'linear-gradient(135deg,#180b12 0%,#3b1d12 42%,#071827 100%)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 58% 46%, rgba(251,191,36,0.42), transparent 23%), radial-gradient(circle at 28% 28%, rgba(236,72,153,0.28), transparent 28%)' }} />
+              <div className="absolute left-1/2 top-[46%] h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(circle,#f8e7bd 0%,#d97706 38%,#451a03 70%)', boxShadow: '0 0 40px rgba(251,191,36,0.4)' }} />
+              <div className="absolute left-[28%] top-[36%] h-7 w-16 rotate-[-18deg] rounded-full bg-emerald-300/70 blur-[1px]" />
+              <div className="absolute right-[23%] top-[58%] h-6 w-14 rotate-[18deg] rounded-full bg-orange-300/80 blur-[1px]" />
+              <div className="absolute inset-x-3 top-3 flex items-center justify-between">
+                <span className="rounded-full bg-black/45 px-2 py-0.5 text-[7px] font-bold text-white backdrop-blur-sm">{ar ? 'عرض العشاء' : 'Dinner offer'}</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[7px] font-extrabold text-slate-950">20% OFF</span>
+              </div>
+            </div>
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-3 text-[13px] text-white">
+                <span>♡</span><span>💬</span><span>↗</span>
+                <span className="ml-auto">🔖</span>
+              </div>
+              <p className="mt-1.5 text-[9px] font-bold text-white">2,418 likes</p>
+              <p className="mt-1 text-[9px] leading-tight text-slate-300">
+                <span className="font-bold text-white">luna.restaurant </span>
+                {ar ? 'ليلة مميزة تبدأ بطبق لا يُنسى. احجز الآن.' : 'A dinner worth posting about. Reserve your table tonight.'}
+              </p>
+              <p className="mt-1 text-[8px] text-slate-600">{ar ? 'عرض 63 تعليقاً' : 'View 63 comments'}</p>
+            </div>
+          </div>
+            </motion.div>
+
+            <motion.div animate={{ y: [0, 7, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}>
+              <div className="rounded-2xl p-2" style={{ background: 'rgba(10,10,10,0.95)', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 18px 46px rgba(0,0,0,0.34)' }}>
+            <div className="h-[250px] rounded-xl relative overflow-hidden" style={{ background: 'linear-gradient(180deg,#06131f,#020617)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 52% 28%, rgba(14,165,233,0.34), transparent 30%), radial-gradient(circle at 58% 74%, rgba(16,185,129,0.28), transparent 34%)' }} />
+              <div className="absolute inset-x-4 top-5 h-[126px] rounded-xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#0f172a,#1d4ed8 48%,#10b981)', border: '1px solid rgba(255,255,255,0.22)' }}>
+                <div className="absolute bottom-0 left-3 h-16 w-20 rounded-t-xl bg-white/18" />
+                <div className="absolute bottom-0 right-4 h-24 w-14 rounded-t-lg bg-white/24" />
+                <div className="absolute left-4 top-4 rounded-full bg-black/40 px-2 py-0.5 text-[7px] font-bold text-white">NEW LISTING</div>
+              </div>
+              <Play size={24} fill="white" className="absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2 text-white drop-shadow-[0_0_16px_rgba(255,255,255,0.65)]" />
+              <div className="absolute right-2 top-[48%] -translate-y-1/2 flex flex-col items-center gap-2 text-white">
+                {[
+                  ['♡', '12.4K'],
+                  ['💬', '284'],
+                  ['↗', '1.2K'],
+                ].map(([icon, count]) => (
+                  <div key={icon} className="text-center leading-none">
+                    <div className="text-[14px]">{icon}</div>
+                    <div className="text-[7px] font-bold mt-1">{count}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="absolute bottom-4 left-3 right-8">
+                <span className="block text-[10px] font-bold text-white">@primehomes</span>
+                <span className="block text-[9px] leading-tight text-slate-300">{ar ? 'جولة سريعة داخل فيلا جديدة على البحر.' : 'Quick tour of a new waterfront villa.'}</span>
+                <span className="mt-1 block text-[8px] text-slate-500">♪ {ar ? 'صوت أصلي' : 'Original sound'}</span>
+              </div>
+            </div>
+          </div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+function SocialPostCards({ ar }: { ar: boolean }) {
+  return (
+    <div className="my-5 max-w-[620px]">
+      <p className={`mb-3 font-mono text-[10px] font-bold uppercase tracking-[2px] text-slate-500 ${ar ? 'text-right' : 'text-left'}`}>
+        {ar ? 'منشورات جاهزة كما تظهر على المنصات' : 'Ready-to-publish social posts'}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(12,12,15,0.96)', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 18px 46px rgba(0,0,0,0.34)' }}>
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10">
+              <span className="h-7 w-7 rounded-full grid place-items-center text-[11px] font-bold text-white" style={{ background: 'linear-gradient(135deg,#F97316,#EC4899,#8B5CF6)' }}>L</span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold leading-none text-white">luna.restaurant</p>
+                <p className="text-[8px] leading-none text-slate-500 mt-1">{ar ? 'إعلان ممول' : 'Sponsored'}</p>
+              </div>
+              <span className="ml-auto text-[13px] text-slate-500">•••</span>
+            </div>
+            <div className="aspect-video relative overflow-hidden" style={{ background: 'linear-gradient(135deg,#180b12 0%,#3b1d12 42%,#071827 100%)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 58% 46%, rgba(251,191,36,0.42), transparent 23%), radial-gradient(circle at 28% 28%, rgba(236,72,153,0.28), transparent 28%)' }} />
+              <div className="absolute left-1/2 top-[48%] h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(circle,#f8e7bd 0%,#d97706 38%,#451a03 70%)', boxShadow: '0 0 40px rgba(251,191,36,0.4)' }} />
+              <div className="absolute left-[28%] top-[36%] h-7 w-16 rotate-[-18deg] rounded-full bg-emerald-300/70 blur-[1px]" />
+              <div className="absolute right-[23%] top-[58%] h-6 w-14 rotate-[18deg] rounded-full bg-orange-300/80 blur-[1px]" />
+              <div className="absolute inset-x-3 top-3 flex items-center justify-between">
+                <span className="rounded-full bg-black/45 px-2 py-0.5 text-[7px] font-bold text-white backdrop-blur-sm">{ar ? 'عرض العشاء' : 'Dinner offer'}</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[7px] font-extrabold text-slate-950">20% OFF</span>
+              </div>
+            </div>
+            <div className="px-3 py-2">
+              <div className="flex items-center gap-3 text-[13px] text-white">
+                <span>♡</span><span>💬</span><span>↗</span>
+                <span className="ml-auto">🔖</span>
+              </div>
+              <p className="mt-1.5 text-[9px] font-bold text-white">2,418 likes</p>
+              <p className="mt-1 text-[9px] leading-tight text-slate-300">
+                <span className="font-bold text-white">luna.restaurant </span>
+                {ar ? 'ليلة مميزة تبدأ بطبق لا يُنسى. احجز الآن.' : 'A dinner worth posting about. Reserve your table tonight.'}
+              </p>
+              <p className="mt-1 text-[8px] text-slate-600">{ar ? 'عرض 63 تعليقاً' : 'View 63 comments'}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div animate={{ y: [0, 6, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}>
+          <div className="rounded-2xl p-2" style={{ background: 'rgba(10,10,10,0.95)', border: '1px solid rgba(255,255,255,0.16)', boxShadow: '0 18px 46px rgba(0,0,0,0.34)' }}>
+            <div className="h-[190px] rounded-xl relative overflow-hidden" style={{ background: 'linear-gradient(180deg,#06131f,#020617)' }}>
+              <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 52% 28%, rgba(14,165,233,0.34), transparent 30%), radial-gradient(circle at 58% 74%, rgba(16,185,129,0.28), transparent 34%)' }} />
+              <div className="absolute inset-x-4 top-4 h-[92px] rounded-xl overflow-hidden" style={{ background: 'linear-gradient(135deg,#0f172a,#1d4ed8 48%,#10b981)', border: '1px solid rgba(255,255,255,0.22)' }}>
+                <div className="absolute bottom-0 left-3 h-16 w-20 rounded-t-xl bg-white/18" />
+                <div className="absolute bottom-0 right-4 h-24 w-14 rounded-t-lg bg-white/24" />
+                <div className="absolute left-4 top-4 rounded-full bg-black/40 px-2 py-0.5 text-[7px] font-bold text-white">NEW LISTING</div>
+              </div>
+              <Play size={24} fill="white" className="absolute left-1/2 top-[33%] -translate-x-1/2 -translate-y-1/2 text-white drop-shadow-[0_0_16px_rgba(255,255,255,0.65)]" />
+              <div className="absolute right-2 top-[48%] -translate-y-1/2 flex flex-col items-center gap-2 text-white">
+                {[
+                  ['♡', '12.4K'],
+                  ['💬', '284'],
+                  ['↗', '1.2K'],
+                ].map(([icon, count]) => (
+                  <div key={icon} className="text-center leading-none">
+                    <div className="text-[14px]">{icon}</div>
+                    <div className="text-[7px] font-bold mt-1">{count}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="absolute bottom-4 left-3 right-8">
+                <span className="block text-[10px] font-bold text-white">@primehomes</span>
+                <span className="block text-[9px] leading-tight text-slate-300">{ar ? 'جولة سريعة داخل فيلا جديدة على البحر.' : 'Quick tour of a new waterfront villa.'}</span>
+                <span className="mt-1 block text-[8px] text-slate-500">♪ {ar ? 'صوت أصلي' : 'Original sound'}</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────────────
    INSTAGRAM MOCKUP
 ───────────────────────────────────────────────────── */
@@ -392,7 +651,7 @@ export default function LandingPage() {
         : 'Writes every post in your brand voice — no generic templates. Platform-aware, audience-aware, with a strong hook on every caption.',
       skills: ar
         ? ['Instagram · LinkedIn · TikTok', 'صوت العلامة التجارية', 'أسلوب عربي وإنجليزي', 'AI Rewrite في كبسة']
-        : ['Instagram · LinkedIn · TikTok', 'Brand voice injection', 'Arabic & English', 'One-click AI Rewrite'],
+        : ['Instagram', 'LinkedIn', 'TikTok', 'Brand voice injection', 'Arabic & English', 'One-click AI Rewrite'],
     },
     {
       codename: 'VEX',
@@ -427,75 +686,118 @@ export default function LandingPage() {
       price: '0',
       period: '',
       badge: '',
-      desc: ar ? 'اكتشف القوة الكاملة بدون بطاقة ائتمان.' : 'Explore the full power. No credit card needed.',
+      desc: ar
+        ? 'اكتشف القوة الكاملة بدون بطاقة ائتمان.'
+        : 'Explore the full power. No credit card needed.',
       features: ar
-        ? ['20 رصيد AI للتجربة', 'مساحة عمل واحدة', 'حملة واحدة كاملة', 'استراتيجية + محتوى + صور', 'Brand Brain (القراءة والكتابة)']
-        : ['20 AI credits to explore', '1 workspace', '1 full campaign', 'Strategy + content + images', 'Brand Brain (read & write)'],
+        ? [
+            '10 رصيد AI للتجربة',
+            '1 workspace · 1 حملة كاملة',
+            'استراتيجية + محتوى + صور',
+            'Brand Brain (قراءة وكتابة)',
+            '3 بوستات / شهر',
+          ]
+        : [
+            '10 AI credits to explore',
+            '1 workspace · 1 full campaign',
+            'Strategy + content + images',
+            'Brand Brain (read & write)',
+            '3 posts / month',
+          ],
+      upgradeHint: null,
       cta: ar ? 'ابدأ مجاناً' : 'Start Free',
       href: '/auth/register',
       featured: false,
     },
     {
-      name: ar ? 'برو' : 'Pro',
-      price: '79',
+      name: ar ? 'ستارتر' : 'Starter',
+      price: '19',
       period: ar ? '/شهر' : '/mo',
-      badge: ar ? 'الأكثر شيوعاً' : 'Most popular',
-      desc: ar ? 'للشركات الجادة والفرق الصغيرة.' : 'For serious businesses and small teams.',
+      badge: '',
+      desc: ar
+        ? 'للأفراد وأصحاب المشاريع الناشئة.'
+        : 'For individuals and early-stage businesses.',
       features: ar
         ? [
-            '300 رصيد AI — يتجدد شهرياً',
-            '3 مساحات عمل',
-            '20 حملة / شهر',
-            '100 بوست مجدول / شهر',
-            'النشر التلقائي: Meta · LinkedIn · TikTok',
-            'Brand Brain الكامل + كل الوكلاء',
-            'A/B Testing + AI Rewrite',
-            'لوحة تحليلات + ROI Dashboard',
+            '50 رصيد AI — يتجدد شهرياً',
+            '1 workspace · 2 حملة / شهر',
+            '10 بوستات / شهر · منصتين',
+            'Brand Brain الكامل + الوكلاء',
             'تصدير PDF + DOCX',
           ]
         : [
-            '300 AI credits — renews monthly',
-            '3 workspaces',
-            '20 campaigns / month',
-            '100 scheduled posts / month',
-            'Auto-publish: Meta · LinkedIn · TikTok',
+            '50 AI credits — renews monthly',
+            '1 workspace · 2 campaigns / month',
+            '10 posts / month · 2 platforms',
             'Full Brand Brain + all agents',
-            'A/B Testing + AI Rewrite',
-            'Analytics + ROI Dashboard',
             'PDF + DOCX export',
           ],
-      cta: ar ? 'ابدأ Pro — $79/شهر' : 'Start Pro — $79/mo',
+      upgradeHint: ar
+        ? '⚠️ 10 بوستات / شهر أقل من عتبة الـ 16 بوست الضرورية لمضاعفة الـ leads 4.5×. Growth يتجاوزها.'
+        : '⚠️ 10 posts/mo is below the 16-post threshold for 4.5× more leads. Growth crosses it.',
+      cta: ar ? 'ابدأ Starter — $19/شهر' : 'Start Starter — $19/mo',
+      href: '/auth/register',
+      featured: false,
+    },
+    {
+      name: ar ? 'جروث' : 'Growth',
+      price: '49',
+      period: ar ? '/شهر' : '/mo',
+      badge: ar ? 'الأكثر شيوعاً' : 'Most popular',
+      desc: ar
+        ? 'تجاوز عتبة الـ 16 بوست وضاعف النتائج 4.5×.'
+        : 'Cross the 16-post threshold. 4.5× more leads.',
+      features: ar
+        ? [
+            '150 رصيد AI — يتجدد شهرياً',
+            '3 workspaces · 5 حملات / شهر',
+            '25 بوست / شهر · 4 منصات',
+            'Brand Brain الكامل + كل الوكلاء',
+            'تقويم محتوى 4 أسابيع كامل',
+            'A/B Testing + AI Rewrite',
+            'لوحة تحليلات + تصدير',
+          ]
+        : [
+            '150 AI credits — renews monthly',
+            '3 workspaces · 5 campaigns / month',
+            '25 posts / month · 4 platforms',
+            'Full Brand Brain + all agents',
+            'Full 4-week content calendar',
+            'A/B Testing + AI Rewrite',
+            'Analytics dashboard + export',
+          ],
+      upgradeHint: null,
+      cta: ar ? 'ابدأ Growth — $49/شهر' : 'Start Growth — $49/mo',
       href: '/auth/register',
       featured: true,
     },
     {
-      name: ar ? 'بيزنس' : 'Business',
-      price: '199',
+      name: ar ? 'أيجنسي' : 'Agency',
+      price: '99',
       period: ar ? '/شهر' : '/mo',
       badge: '',
-      desc: ar ? 'للوكالات والفرق الكبيرة.' : 'For agencies and larger teams.',
+      desc: ar
+        ? 'للوكالات وفرق التسويق المتخصصة.'
+        : 'For agencies and dedicated marketing teams.',
       features: ar
         ? [
-            '1,000 رصيد AI — يتجدد شهرياً',
-            '10 مساحات عمل',
-            '60 حملة / شهر · بوستات غير محدودة',
-            'نشر متعدد الحسابات',
-            '3 مقاعد للفريق',
-            'White-label exports (بشعارك)',
-            'تحليلات متقدمة',
-            'دعم ذو أولوية',
+            '500 رصيد AI — يتجدد شهرياً',
+            '10 workspaces · حملات غير محدودة',
+            '60 بوست / شهر · 6 منصات',
+            'تصدير White-label بشعارك',
+            '4 أسابيع تقويم · 4 شرائح جمهور',
+            'Priority support',
           ]
         : [
-            '1,000 AI credits — renews monthly',
-            '10 workspaces',
-            '60 campaigns / mo · unlimited posts',
-            'Multi-account publishing',
-            '3 team seats',
+            '500 AI credits — renews monthly',
+            '10 workspaces · unlimited campaigns',
+            '60 posts / month · 6 platforms',
             'White-label exports (your logo)',
-            'Advanced analytics',
+            '4-week calendar · 4 audience segments',
             'Priority support',
           ],
-      cta: ar ? 'ابدأ Business — $199/شهر' : 'Start Business — $199/mo',
+      upgradeHint: null,
+      cta: ar ? 'ابدأ Agency — $99/شهر' : 'Start Agency — $99/mo',
       href: '/auth/register',
       featured: false,
     },
@@ -554,86 +856,73 @@ export default function LandingPage() {
         }} />
         <ParticleBackground />
 
-        <div className="relative z-10 max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8 w-full pt-16 lg:pt-24 pb-10 text-center">
-
-          {/* Badge */}
-          <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1, duration:0.5 }}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[rgba(139,92,246,0.25)] bg-[rgba(139,92,246,0.08)] mb-7">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[2.5px] text-emerald-400">
-              {ar ? 'قسم التسويق الذكي بالكامل' : 'Your Complete AI Marketing Department'}
-            </span>
-          </motion.div>
-
-          {/* H1 */}
-          <motion.h1 initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.25, duration:0.65 }}
-            className="text-[42px] sm:text-[62px] lg:text-[76px] font-extrabold leading-[1.04] tracking-[-3px] mb-6">
-            {ar ? (
-              <>
-                من brief فارغ<br />
-                <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                  لشهر محتوى
+        <div className="relative z-10 max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 w-full pt-16 lg:pt-24 pb-16">
+          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-12 lg:gap-8 items-center">
+            <div className={ar ? 'text-right' : 'text-left'}>
+              <motion.div initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.1, duration:0.5 }}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[rgba(139,92,246,0.25)] bg-[rgba(139,92,246,0.08)] mb-7">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="font-mono text-[11px] font-semibold uppercase tracking-[2.5px] text-emerald-400">
+                  {ar ? 'قسم التسويق الذكي بالكامل' : 'YOUR COMPLETE AI MARKETING DEPARTMENT'}
                 </span>
-                <br />في جلسة واحدة.
-              </>
-            ) : (
-              <>
-                From blank brief<br />
-                <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                  to a month of content
-                </span>
-                <br />in one session.
-              </>
-            )}
-          </motion.h1>
+              </motion.div>
 
-          {/* Sub */}
-          <motion.p initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.45, duration:0.6 }}
-            className="text-[17px] sm:text-[20px] text-slate-400 leading-relaxed max-w-[640px] mx-auto mb-9">
-            {ar
-              ? 'NEXUS يتذكر علامتك التجارية، يبني استراتيجية كاملة بالـ AI، يولد 30 بوست جاهزة للنشر، وينشر أوتوماتيك على Facebook وLinkedIn وTikTok.'
-              : 'NEXUS remembers your brand, builds a full AI strategy, generates 30 publish-ready posts, and auto-publishes to Facebook, LinkedIn, and TikTok.'}
-          </motion.p>
+              <motion.h1 initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.25, duration:0.65 }}
+                className="text-[42px] sm:text-[58px] lg:text-[70px] font-extrabold leading-[1.04] tracking-[-3px] mb-6">
+                {ar ? (
+                  <>
+                    من brief فارغ<br />
+                    <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+                      لشهر محتوى
+                    </span>
+                    <br />في جلسة واحدة.
+                  </>
+                ) : (
+                  <>
+                    From blank brief<br />
+                    <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+                      to a month of content
+                    </span>
+                    <br />in one session.
+                  </>
+                )}
+              </motion.h1>
 
-          {/* CTAs */}
-          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.65, duration:0.5 }}
-            className="flex flex-wrap items-center justify-center gap-4 mb-6">
-            <Link href="/auth/register"
-              className="inline-flex items-center gap-2 text-[14px] font-bold text-white px-8 py-4 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
-              style={{ background:'linear-gradient(135deg,#7C3AED,#8B5CF6,#06B6D4)', boxShadow:'0 0 40px rgba(139,92,246,0.35), 0 4px 20px rgba(6,182,212,0.15)' }}>
-              {ar ? 'ابدأ مجاناً — لا بطاقة ائتمان' : 'Start Free — No credit card'} <ArrowRight size={16} />
-            </Link>
-            <a href="#pipeline"
-              className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 hover:text-white transition-colors border border-[rgba(255,255,255,0.1)] px-6 py-4 rounded-xl hover:border-[rgba(255,255,255,0.2)]">
-              <Play size={14} /> {ar ? 'شاهد كيف يعمل' : 'See how it works'}
-            </a>
-          </motion.div>
+              <motion.p initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.45, duration:0.6 }}
+                className="text-[17px] sm:text-[20px] text-slate-400 leading-relaxed max-w-[620px] mb-9">
+                {ar
+                  ? 'NEXUS يتذكر علامتك التجارية، يبني استراتيجية كاملة بالـ AI، يولد 30 بوست جاهزة للنشر، وينشر أوتوماتيك على Facebook وLinkedIn وTikTok.'
+                  : 'NEXUS remembers your brand, builds a full AI strategy, generates 30 publish-ready posts, and auto-publishes to Facebook, LinkedIn, and TikTok.'}
+              </motion.p>
 
-          {/* Trust */}
-          <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.85, duration:0.5 }}
-            className="flex items-center justify-center gap-4 text-[12px] text-slate-500 flex-wrap">
-            {[
-              { icon: CheckCircle, text: ar ? '20 رصيد AI مجاناً' : '20 free AI credits' },
-              { icon: CheckCircle, text: ar ? 'إلغاء في أي وقت' : 'Cancel anytime' },
-              { icon: CheckCircle, text: ar ? 'عربي وإنجليزي' : 'Arabic & English' },
-            ].map(({ icon: Icon, text }) => (
-              <span key={text} className="flex items-center gap-1.5">
-                <Icon size={11} className="text-emerald-500" />{text}
-              </span>
-            ))}
-          </motion.div>
-        </div>
+              <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.65, duration:0.5 }}
+                className="flex flex-wrap items-center gap-4 mb-6">
+                <Link href="/auth/register"
+                  className="inline-flex items-center gap-2 text-[14px] font-bold text-white px-8 py-4 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
+                  style={{ background:'linear-gradient(135deg,#7C3AED,#8B5CF6,#06B6D4)', boxShadow:'0 0 40px rgba(139,92,246,0.35), 0 4px 20px rgba(6,182,212,0.15)' }}>
+                  {ar ? 'ابدأ مجاناً — لا بطاقة ائتمان' : 'Start Free — No credit card'} <ArrowRight size={16} />
+                </Link>
+                <a href="#pipeline"
+                  className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 hover:text-white transition-colors border border-[rgba(255,255,255,0.1)] px-6 py-4 rounded-xl hover:border-[rgba(255,255,255,0.2)]">
+                  <Play size={14} /> {ar ? 'شاهد كيف يعمل' : 'See how it works'}
+                </a>
+              </motion.div>
 
-        {/* Pipeline cards */}
-        <div className="relative z-10 max-w-[1000px] mx-auto px-4 sm:px-6 pb-16">
-          <div className="flex justify-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto pb-1">
-            {pipelineSteps.map((s, i) => (
-              <PipelineCard key={i} {...s} delay={0.7 + i * 0.08} />
-            ))}
-          </div>
-          {/* connector line */}
-          <div className="hidden sm:flex items-center justify-center mt-[-28px] mb-0 px-20 pointer-events-none">
-            <div className="h-px flex-1" style={{ background:'linear-gradient(90deg,transparent,rgba(139,92,246,0.3),rgba(34,211,238,0.3),transparent)' }} />
+              <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.85, duration:0.5 }}
+                className="flex items-center gap-4 text-[12px] text-slate-500 flex-wrap">
+                {[
+                  { icon: CheckCircle, text: ar ? '20 رصيد AI مجاناً' : '20 free AI credits' },
+                  { icon: CheckCircle, text: ar ? 'إلغاء في أي وقت' : 'Cancel anytime' },
+                  { icon: CheckCircle, text: ar ? 'عربي وإنجليزي' : 'Arabic & English' },
+                ].map(({ icon: Icon, text }) => (
+                  <span key={text} className="flex items-center gap-1.5">
+                    <Icon size={11} className="text-emerald-500" />{text}
+                  </span>
+                ))}
+              </motion.div>
+            </div>
+
+            <CommandCenterVisual ar={ar} steps={pipelineSteps} />
           </div>
         </div>
       </section>
@@ -644,10 +933,7 @@ export default function LandingPage() {
       <div className="border-y border-[rgba(255,255,255,0.05)]" style={{ background:'rgba(255,255,255,0.015)' }}>
         <div className="max-w-[1100px] mx-auto px-6 py-4">
           <div className="flex items-center justify-center gap-6 flex-wrap text-[11px] font-mono font-semibold uppercase tracking-[2px] text-slate-500">
-            {[
-              'GPT-4o', 'Flux 1.1 Pro', 'Meta API', 'LinkedIn API', 'TikTok API',
-              ar ? 'عربي · إنجليزي' : 'Arabic · English', 'Stripe', 'Supabase',
-            ].map(t => (
+            {'GPT-4o · Flux 1.1 Pro · Meta API · LinkedIn API · TikTok API · Arabic · English · Stripe · Supabase'.split(' · ').map(t => (
               <span key={t} className="flex items-center gap-1.5">
                 <span className="w-1 h-1 rounded-full bg-purple-500 opacity-60" />
                 {t}
@@ -691,45 +977,31 @@ export default function LandingPage() {
           </Reveal>
 
           {/* 6 Brain sections */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-12">
+          <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="absolute inset-0 -z-10 opacity-40" style={{ backgroundImage: 'linear-gradient(rgba(139,92,246,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.1) 1px, transparent 1px)', backgroundSize: '56px 56px', maskImage: 'radial-gradient(circle at center, black, transparent 72%)' }} />
             {[
               { icon: '🏷️', title: ar ? 'هوية العلامة' : 'Brand Identity',  desc: ar ? 'الاسم، الوصف، الفئة' : 'Name, tagline, category' },
               { icon: '🎙️', title: ar ? 'الصوت والأسلوب' : 'Voice & Tone',   desc: ar ? 'كيف تتحدث علامتك' : 'How your brand speaks' },
               { icon: '🎯', title: ar ? 'الجمهور المستهدف' : 'Target Audience', desc: ar ? 'من تخاطب' : "Who you're talking to" },
               { icon: '⚔️', title: ar ? 'المنافسون' : 'Competitors',      desc: ar ? 'من تتفوق عليهم' : "Who you're beating" },
-              { icon: '📈', title: ar ? 'أهداف التسويق' : 'Marketing Goals', desc: ar ? 'ما تريد تحقيقه' : 'What you want to achieve' },
-              { icon: '💎', title: ar ? 'التموضع' : 'Positioning',       desc: ar ? 'لماذا أنت الخيار' : "Why you're the choice" },
+              { icon: '💡', title: ar ? 'القيمة الفريدة' : 'Unique Value', desc: ar ? 'لماذا تفوز' : 'Why you win' },
+              { icon: '📣', title: ar ? 'الخطافات الرابحة' : 'Winning Hooks', desc: ar ? 'ما يحوّل' : 'What converts' },
             ].map((s, i) => (
               <Reveal key={i} delay={i * 0.06}>
-                <div className="rounded-2xl p-4 h-full text-center hover:border-purple-500/30 transition-all"
-                  style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
-                  <div className="text-2xl mb-2">{s.icon}</div>
-                  <p className="font-semibold text-[12px] text-white mb-1">{s.title}</p>
-                  <p className="text-[11px] text-slate-500 leading-snug">{s.desc}</p>
+                <div className="relative rounded-2xl p-5 h-full overflow-hidden group transition-all hover:-translate-y-1"
+                  style={{ background:'linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018))', border:'1px solid rgba(255,255,255,0.08)', boxShadow: '0 20px 60px rgba(0,0,0,0.16)' }}>
+                  <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-[40px] opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'radial-gradient(circle at top right, rgba(139,92,246,0.26), transparent 68%)' }} />
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl w-11 h-11 rounded-xl grid place-items-center" style={{ background: 'rgba(139,92,246,0.09)', border: '1px solid rgba(139,92,246,0.18)' }}>{s.icon}</div>
+                    <div>
+                      <p className="font-semibold text-[14px] text-white mb-1">{s.title}</p>
+                      <p className="text-[12px] text-slate-500 leading-snug">{s.desc}</p>
+                    </div>
+                  </div>
                 </div>
               </Reveal>
             ))}
           </div>
-
-          {/* Learning loop callout */}
-          <Reveal>
-            <div className="rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-5"
-              style={{ background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)' }}>
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background:'rgba(139,92,246,0.15)' }}>
-                <RefreshCw size={22} className="text-purple-400" />
-              </div>
-              <div>
-                <p className="font-bold text-[15px] text-white mb-1">
-                  {ar ? 'تتعلم من كل حملة — أوتوماتيك.' : 'Learns from every campaign — automatically.'}
-                </p>
-                <p className="text-[13px] text-slate-400 leading-relaxed">
-                  {ar
-                    ? 'عند الموافقة على خطة المحتوى، يستخرج النظام الـ hooks والـ angles الناجحة ويضيفها لـ Brand Brain. كلما استخدمت المنصة أكثر، ازداد المحتوى تخصصاً.'
-                    : 'When you approve a content plan, the system extracts successful hooks and content angles and adds them to Brand Brain. The more you use the platform, the more personalized the output becomes.'}
-                </p>
-              </div>
-            </div>
-          </Reveal>
         </div>
       </section>
 
@@ -741,169 +1013,55 @@ export default function LandingPage() {
         <div className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8">
 
           <Reveal className="text-center mb-16">
-            <Label text={ar ? 'pipeline كامل في مكان واحد' : 'FULL PIPELINE IN ONE PLACE'} />
+            <Label text={ar ? 'كيف يعمل' : 'How It Works'} />
             <h2 className="text-[30px] sm:text-[42px] lg:text-[52px] font-extrabold text-white leading-[1.1] tracking-[-2px] mb-4">
-              {ar
-                ? <>من brief فارغ — لحملة منشورة.<br /><span className="text-slate-400">في جلسة واحدة.</span></>
-                : <>From empty brief — to live campaign.<br /><span className="text-slate-400">In one session.</span></>}
+              {ar ? 'Brief واحد. شهر تسويق كامل. جاهز للنشر.' : 'One brief. A full month of marketing. Ready to publish.'}
             </h2>
-            <p className="text-[16px] text-slate-400 max-w-[500px] mx-auto">
-              {ar
-                ? 'لا تنتقل بين أدوات — الاستراتيجية والمحتوى والتصميم والنشر كلها في pipeline واحد متصل.'
-                : "Don't jump between tools. Strategy, content, visuals, and publishing are all in one connected pipeline."}
-            </p>
           </Reveal>
 
           {/* Steps */}
-          <div className="space-y-4">
+          <div className="relative grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="hidden md:block absolute left-[8%] right-[8%] top-[44px] h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.2), rgba(34,211,238,0.45), rgba(16,185,129,0.25), rgba(249,115,22,0.3))' }} />
             {[
               {
                 num: '01', color: '#8B5CF6', icon: Brain,
-                title: ar ? 'Brief + Brand Brain' : 'Brief + Brand Brain',
-                desc: ar
-                  ? 'تملأ تفاصيل الحملة (من، ماذا، لمن، لماذا). Brand Brain يضيف هوية علامتك أوتوماتيك. الـ AI يعرف الآن كل ما يحتاجه.'
-                  : 'Fill in your campaign details (who, what, for whom, why). Brand Brain automatically injects your brand identity. The AI now knows everything it needs.',
-                time: ar ? '~3 دقائق' : '~3 min',
+                title: ar ? 'Brand Brain' : 'Brand Brain',
+                status: ar ? 'جاهز' : 'Ready',
               },
               {
                 num: '02', color: '#818CF8', icon: Target,
-                title: ar ? 'الاستراتيجية الكاملة' : 'Full Strategy',
-                desc: ar
-                  ? 'في 30 ثانية: positioning statement، target hooks، content angles، CTAs، وتقويم نشر أسبوعي. ليس generic — مبني على علامتك تحديداً.'
-                  : 'In 30 seconds: positioning statement, target hooks, content angles, CTAs, and a weekly publishing calendar. Not generic — built for your brand specifically.',
-                time: ar ? '~30 ثانية' : '~30 sec',
+                title: ar ? 'Strategy' : 'Strategy',
+                status: ar ? 'مولّدة' : 'Generated',
               },
               {
                 num: '03', color: '#22D3EE', icon: LayoutGrid,
                 title: ar ? 'Content Hub — 30 بوست' : 'Content Hub — 30 posts',
-                desc: ar
-                  ? 'يولد 30 بوست لكل المنصات — Instagram، LinkedIn، TikTok، Facebook. كل بوست بـ hook قوي وبأسلوب علامتك. مع A/B variants لأفضل النتائج.'
-                  : 'Generates 30 posts for all platforms — Instagram, LinkedIn, TikTok, Facebook. Every post with a strong hook in your brand voice. A/B variants included for best results.',
-                time: ar ? '~2 دقيقة' : '~2 min',
+                status: ar ? '30 بوست' : '30 posts',
               },
               {
                 num: '04', color: '#34D399', icon: Eye,
-                title: ar ? 'مراجعة وموافقة' : 'Review & Approve',
-                desc: ar
-                  ? 'ترى كل بوست بمظهره الفعلي على المنصة — Instagram card، LinkedIn post، TikTok caption. أعِد الكتابة بـ AI في كبسة، اختر الـ winner بين A/B، وافق على الكل دفعة واحدة.'
-                  : "See every post exactly as it'll look on the platform — Instagram card, LinkedIn post, TikTok caption. Rewrite with AI in one click, pick the A/B winner, and approve everything in one go.",
-                time: ar ? '~10 دقائق' : '~10 min',
+                title: ar ? 'Approved' : 'Approved',
+                status: ar ? 'تم' : 'Done',
               },
               {
                 num: '05', color: '#F97316', icon: Rocket,
-                title: ar ? 'النشر التلقائي' : 'Auto-Publish',
-                desc: ar
-                  ? 'البوستات تُنشر أوتوماتيك في الوقت الأمثل لكل منصة. تقرير الأداء يُعاد لـ Brand Brain لتحسين الحملات القادمة.'
-                  : 'Posts publish automatically at the optimal time for each platform. Performance data feeds back into Brand Brain to improve future campaigns.',
-                time: ar ? 'أوتوماتيك' : 'Automatic',
+                title: ar ? 'Published' : 'Published',
+                status: ar ? 'مباشر' : 'Live',
               },
             ].map((step, i) => (
               <Reveal key={i} delay={i * 0.07}>
-                <div className="rounded-2xl p-5 sm:p-6 flex items-start gap-5 group hover:border-opacity-50 transition-all"
-                  style={{ background:'rgba(255,255,255,0.025)', border:`1px solid ${step.color}20` }}>
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"
-                    style={{ background:`${step.color}15`, border:`1px solid ${step.color}30` }}>
+                <div className="relative rounded-2xl p-5 text-center h-full group hover:-translate-y-1 transition-transform"
+                  style={{ background:'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.018))', border:`1px solid ${step.color}24` }}>
+                  <div className="relative z-10 mx-auto mb-4 w-[72px] h-[72px] rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform"
+                    style={{ background:`linear-gradient(145deg, ${step.color}22, rgba(255,255,255,0.03))`, border:`1px solid ${step.color}36`, boxShadow: `0 0 35px ${step.color}16` }}>
                     <step.icon size={20} style={{ color: step.color }} />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1.5 flex-wrap">
-                      <span className="font-mono text-[11px] font-semibold" style={{ color: step.color }}>{step.num}</span>
-                      <h3 className="font-bold text-[15px] text-white">{step.title}</h3>
-                      <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full ml-auto"
-                        style={{ background:`${step.color}12`, color: step.color, border:`1px solid ${step.color}25` }}>
-                        {step.time}
-                      </span>
-                    </div>
-                    <p className="text-[13px] text-slate-400 leading-relaxed">{step.desc}</p>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════
-          CONTENT HUB — PLATFORM PREVIEWS
-      ══════════════════════════════════ */}
-      <section className="py-24 lg:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none" style={{ background:'radial-gradient(ellipse 60% 50% at 20% 50%, rgba(16,185,129,0.04) 0%, transparent 70%)' }} />
-        <div className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8">
-
-          <Reveal className="text-center mb-14">
-            <Label text={ar ? 'Content Hub' : 'CONTENT HUB'} />
-            <h2 className="text-[30px] sm:text-[42px] lg:text-[52px] font-extrabold text-white leading-[1.1] tracking-[-2px] mb-4">
-              {ar
-                ? <>شوف بوستاتك كما ستبدو.<br /><span className="text-slate-400">قبل النشر بلحظات.</span></>
-                : <>See your posts as they'll look.<br /><span className="text-slate-400">Before they go live.</span></>}
-            </h2>
-            <p className="text-[16px] text-slate-400 max-w-[520px] mx-auto">
-              {ar
-                ? 'Content Hub يعرض كل بوست بـ mockup المنصة الحقيقي. أعِد الكتابة بـ AI، اختر الفائز بين A/B، وافق على الكل في دقائق.'
-                : 'Content Hub shows every post in its real platform mockup. Rewrite with AI, pick the A/B winner, and approve everything in minutes.'}
-            </p>
-          </Reveal>
-
-          {/* Mockups */}
-          <div className="flex flex-wrap justify-center gap-6 mb-12">
-            <Reveal delay={0.1} className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-2 text-[12px] font-mono font-semibold text-slate-400">
-                <span className="text-[13px]">📸</span> Instagram
-              </div>
-              <IGMockup
-                brand={ar ? 'نيكسوس' : 'Nexus Brand'}
-                caption={ar ? 'حوّل استراتيجيتك التسويقية في 30 ثانية. 🚀 جرّب الآن.' : 'Transform your marketing strategy in 30 seconds. 🚀 Try now.'}
-                ar={ar}
-              />
-            </Reveal>
-            <Reveal delay={0.2} className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-2 text-[12px] font-mono font-semibold text-slate-400">
-                <span className="text-[13px]">💼</span> LinkedIn
-              </div>
-              <LIMockup
-                brand={ar ? 'نيكسوس' : 'Nexus Brand'}
-                caption={ar ? 'اكتشفنا أن 80% من الشركات الصغيرة تنشر محتوى بدون استراتيجية. هذا يتغير الآن مع AI يتذكر علامتك ويبني خطة كاملة في دقائق.' : "We found that 80% of small businesses post without a strategy. That's changing — with AI that remembers your brand and builds a full plan in minutes."}
-                ar={ar}
-              />
-            </Reveal>
-            <Reveal delay={0.3} className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-2 text-[12px] font-mono font-semibold text-slate-400">
-                <span className="text-[13px]">🎵</span> TikTok
-              </div>
-              <TKMockup
-                brand={ar ? 'نيكسوس' : 'nexusbrand'}
-                caption={ar ? 'من brief فارغ لـ 30 بوست في جلسة واحدة ✅ #AIMarketing #تسويق' : 'From blank brief to 30 posts in one session ✅ #AIMarketing #nexus'}
-                ar={ar}
-              />
-            </Reveal>
-          </div>
-
-          {/* Features row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              {
-                icon: Sparkles, color: '#8B5CF6',
-                title: ar ? 'AI Rewrite بكبسة' : 'One-click AI Rewrite',
-                desc: ar ? 'أي بوست مش عاجبك — انقر ✨ وNEX يكتبه من جديد.' : "Any post you don't like — click ✨ and NEX rewrites it.",
-              },
-              {
-                icon: BarChart3, color: '#22D3EE',
-                title: ar ? 'A/B Testing مدمج' : 'Built-in A/B Testing',
-                desc: ar ? 'كل بوست له variant. انشر الاثنين، واختر الفائز بناءً على البيانات الحقيقية.' : 'Every post has a variant. Publish both, pick the winner based on real data.',
-              },
-              {
-                icon: CheckCircle, color: '#10B981',
-                title: ar ? 'Approve All — شهر كامل في ثوانٍ' : 'Approve All — a full month in seconds',
-                desc: ar ? 'راجع كل شيء. موافق؟ اضغط Approve All وتُجدوَل كل البوستات فوراً.' : "Review everything. Happy? Press Approve All and every post gets scheduled instantly.",
-              },
-            ].map((f, i) => (
-              <Reveal key={i} delay={i * 0.08}>
-                <div className="rounded-2xl p-5 h-full" style={{ background:'rgba(255,255,255,0.025)', border:`1px solid ${f.color}15` }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:`${f.color}15` }}>
-                    <f.icon size={18} style={{ color: f.color }} />
-                  </div>
-                  <p className="font-bold text-[14px] text-white mb-1.5">{f.title}</p>
-                  <p className="text-[13px] text-slate-400 leading-relaxed">{f.desc}</p>
+                  <span className="font-mono text-[11px] font-semibold" style={{ color: step.color }}>{step.num}</span>
+                  <h3 className="font-bold text-[15px] text-white mt-2">{step.title}</h3>
+                  <span className="inline-flex mt-3 text-[11px] font-mono px-2.5 py-0.5 rounded-full"
+                    style={{ background:`${step.color}12`, color: step.color, border:`1px solid ${step.color}25` }}>
+                    {step.status}
+                  </span>
                 </div>
               </Reveal>
             ))}
@@ -919,17 +1077,10 @@ export default function LandingPage() {
         <div className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8">
 
           <Reveal className="text-center mb-14">
-            <Label text={ar ? 'فريق الـ AI بتاعك' : 'YOUR AI TEAM'} />
+            <Label text={ar ? 'الفريق' : 'THE TEAM'} />
             <h2 className="text-[30px] sm:text-[42px] lg:text-[52px] font-extrabold text-white leading-[1.1] tracking-[-2px] mb-4">
-              {ar
-                ? <>4 وكلاء متخصصون.<br /><span className="text-slate-400">يعملون معاً.</span></>
-                : <>4 specialized agents.<br /><span className="text-slate-400">Working together.</span></>}
+              {ar ? '4 وكلاء AI. مهمة واحدة: تنمية علامتك.' : '4 AI agents. One mission: grow your brand.'}
             </h2>
-            <p className="text-[16px] text-slate-400 max-w-[500px] mx-auto">
-              {ar
-                ? 'كل وكيل متخصص في مجاله — وكلهم يقرأون من نفس Brand Brain. لا تعارض، لا تكرار، لا gap.'
-                : "Each agent specializes in what it does best — all reading from the same Brand Brain. No conflicts, no repetition, no gaps."}
-            </p>
           </Reveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -971,32 +1122,6 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════
-          NUMBERS
-      ══════════════════════════════════ */}
-      <div className="py-16 border-y border-[rgba(255,255,255,0.05)]" style={{ background:'rgba(255,255,255,0.01)' }}>
-        <div className="max-w-[1100px] mx-auto px-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-            {[
-              { value: '30s',  label: ar ? 'لتوليد استراتيجية كاملة' : 'to generate a full strategy' },
-              { value: '30',   label: ar ? 'بوست في حملة واحدة' : 'posts per campaign' },
-              { value: '3',    label: ar ? 'منصات للنشر التلقائي' : 'platforms for auto-publish' },
-              { value: '∞',    label: ar ? 'Brand Brain يتطور دائماً' : 'Brand Brain keeps evolving' },
-            ].map((s, i) => (
-              <Reveal key={i} delay={i * 0.07}>
-                <div>
-                  <p className="font-mono text-[42px] lg:text-[52px] font-extrabold text-white leading-none mb-1.5"
-                    style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6,#22D3EE)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                    {s.value}
-                  </p>
-                  <p className="text-[12px] text-slate-500">{s.label}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════
           PRICING
       ══════════════════════════════════ */}
       <section id="pricing" className="py-24 lg:py-32 relative overflow-hidden">
@@ -1006,14 +1131,16 @@ export default function LandingPage() {
           <Reveal className="text-center mb-14">
             <Label text={ar ? 'الأسعار' : 'PRICING'} />
             <h2 className="text-[30px] sm:text-[42px] lg:text-[50px] font-extrabold text-white leading-[1.1] tracking-[-2px] mb-3">
-              {ar ? 'سعر واضح. قيمة حقيقية.' : 'Clear price. Real value.'}
+              {ar ? 'ابدأ مجاناً. تطور عندما تكون جاهزاً.' : 'Start free. Scale when ready.'}
             </h2>
-            <p className="text-[15px] text-slate-400">
-              {ar ? 'ابدأ مجاناً — انتقل للـ Pro عندما تكون جاهزاً.' : 'Start free — upgrade to Pro when you\'re ready.'}
+            <p className="text-[15px] text-slate-400 max-w-[520px] mx-auto">
+              {ar
+                ? 'أربع خطط مصممة على أساس بيانات حقيقية — كل خطة محسوبة لتحقق أقصى نتيجة بأقل تكلفة.'
+                : 'Four plans built on real marketing data — each calibrated for maximum results at the right scale.'}
             </p>
           </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 items-start">
             {plans.map((plan, i) => (
               <Reveal key={i} delay={i * 0.08}>
                 <div className="rounded-2xl p-6 relative h-full flex flex-col"
@@ -1048,6 +1175,13 @@ export default function LandingPage() {
                     ))}
                   </ul>
 
+                  {plan.upgradeHint && (
+                    <div className="mb-4 rounded-xl px-3 py-2.5 text-[11px] leading-snug text-amber-300"
+                      style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                      {plan.upgradeHint}
+                    </div>
+                  )}
+
                   <Link href={plan.href}
                     className="block text-center py-3 rounded-xl text-[13px] font-bold transition-all hover:opacity-90"
                     style={{
@@ -1062,11 +1196,11 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <Reveal className="mt-6 text-center">
-            <p className="text-[12px] text-slate-500">
+          <Reveal className="text-center mt-8">
+            <p className="text-[11px] text-slate-600">
               {ar
-                ? 'جميع الخطط تشمل Brand Brain · النشر التلقائي · العربي والإنجليزي · إلغاء في أي وقت'
-                : 'All plans include Brand Brain · Auto-publish · Arabic & English · Cancel anytime'}
+                ? '* 16+ بوست/شهر = 4.5× leads أكتر — HubSpot State of Marketing (13,000+ شركة) · Starter=$0.38/cr · Growth=$0.33/cr · Agency=$0.20/cr'
+                : '* 16+ posts/month = 4.5× more leads — HubSpot State of Marketing (13,000+ companies) · Starter=$0.38/cr · Growth=$0.33/cr · Agency=$0.20/cr'}
             </p>
           </Reveal>
         </div>
@@ -1079,9 +1213,6 @@ export default function LandingPage() {
         <div className="max-w-[720px] mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal className="text-center mb-12">
             <Label text={ar ? 'الأسئلة الشائعة' : 'FAQ'} />
-            <h2 className="text-[28px] sm:text-[38px] font-extrabold text-white tracking-[-1.5px]">
-              {ar ? 'أسئلة في ذهنك؟' : 'Questions in your head?'}
-            </h2>
           </Reveal>
           <div className="space-y-3">
             {faqs.map((f, i) => (
@@ -1094,63 +1225,28 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════
-          FINAL CTA
-      ══════════════════════════════════ */}
-      <section className="py-24 lg:py-32 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'radial-gradient(ellipse 70% 60% at 50% 50%, rgba(139,92,246,0.15) 0%, transparent 70%)',
-        }} />
-        <div className="relative z-10 max-w-[760px] mx-auto px-4 sm:px-6 text-center">
-          <Reveal>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[rgba(139,92,246,0.3)] bg-[rgba(139,92,246,0.08)] mb-7">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-[2px] text-purple-300">
-                {ar ? 'جاهز؟' : 'Ready?'}
-              </span>
-            </div>
-            <h2 className="text-[34px] sm:text-[52px] lg:text-[62px] font-extrabold text-white leading-[1.06] tracking-[-2.5px] mb-5">
-              {ar
-                ? <>علامتك التجارية<br /><span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6,#22D3EE,#10B981)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>تستحق أكثر من هذا.</span></>
-                : <>Your brand deserves<br /><span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6,#22D3EE,#10B981)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>better than this.</span></>}
-            </h2>
-            <p className="text-[16px] sm:text-[18px] text-slate-400 mb-9 leading-relaxed">
-              {ar
-                ? 'Stop posting randomly. Stop paying for tools that don\'t talk to each other. ابدأ بـ NEXUS — AI يتذكر علامتك، يبني الاستراتيجية، وينشر المحتوى بينما أنت تركز على البيزنس.'
-                : "Stop posting randomly. Stop paying for tools that don't talk to each other. Start with NEXUS — AI that remembers your brand, builds the strategy, and publishes content while you focus on the business."}
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-4 mb-7">
-              <Link href="/auth/register"
-                className="inline-flex items-center gap-2 text-[15px] font-bold text-white px-8 py-4 rounded-xl hover:opacity-90 hover:scale-[1.02] transition-all"
-                style={{ background:'linear-gradient(135deg,#7C3AED,#8B5CF6,#06B6D4)', boxShadow:'0 0 50px rgba(139,92,246,0.4)' }}>
-                {ar ? 'ابدأ مجاناً الآن' : 'Start Free Now'} <ArrowRight size={18} />
-              </Link>
-            </div>
-            <p className="text-[12px] text-slate-500">
-              {ar ? 'لا بطاقة ائتمان · 20 رصيد AI مجاناً · حملة كاملة من الأولى' : 'No credit card · 20 free AI credits · Full campaign from day one'}
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════
           FOOTER
       ══════════════════════════════════ */}
       <footer className="border-t border-[rgba(255,255,255,0.06)] py-10">
         <div className="max-w-[1160px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
-            <div className="flex items-center gap-2">
-              <span className="font-extrabold text-[17px] text-white tracking-tight">NEXUS</span>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white" style={{ background:'linear-gradient(135deg,#8B5CF6,#22D3EE)' }}>AI</span>
+            <div className="text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
+                <span className="font-extrabold text-[17px] text-white tracking-tight">NEXUS</span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded text-white" style={{ background:'linear-gradient(135deg,#8B5CF6,#22D3EE)' }}>AI</span>
+              </div>
+              <p className="text-[12px] text-slate-500">AI-powered marketing intelligence for serious businesses.</p>
             </div>
             <div className="flex items-center gap-5 text-[12px] text-slate-500">
-              <Link href="/privacy-policy" className="hover:text-white transition-colors">{ar ? 'الخصوصية' : 'Privacy'}</Link>
-              <Link href="/terms-of-service" className="hover:text-white transition-colors">{ar ? 'الشروط' : 'Terms'}</Link>
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <a href="mailto:support@nexus-grow.com" className="hover:text-white transition-colors">Contact</a>
               <button onClick={() => setLang(ar ? 'en' : 'ar')} className="flex items-center gap-1.5 hover:text-white transition-colors">
                 <Globe size={11} />{ar ? 'English' : 'العربية'}
               </button>
             </div>
             <p className="text-[11px] text-slate-600">
-              © 2025 NEXUS AI · {ar ? 'جميع الحقوق محفوظة' : 'All rights reserved'}
+              © 2025 NEXUS AI. All rights reserved.
             </p>
           </div>
         </div>

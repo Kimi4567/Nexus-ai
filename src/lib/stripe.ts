@@ -1,14 +1,22 @@
 /**
  * Nexus AI — Stripe client + Plan definitions
  *
- * Pricing:
- *   Free     — $0       — 20 credits (one-time)  — 1 workspace, 2 campaigns, 0 videos
- *   Starter  — $29/mo   — 150 credits/month       — 2 workspaces, 8 campaigns, 2 videos/mo
- *   Pro      — $79/mo   — 300 credits/month       — 3 workspaces, 20 campaigns, 5 videos/mo
- *   Business — $199/mo  — 1,000 credits/month     — 10 workspaces, 60 campaigns, 20 videos/mo
+ * Pricing (Research-backed — June 2025):
+ *   Free    — $0      — 10 credits (one-time) — 1 workspace, 1 campaign, 3 posts
+ *   Starter — $19/mo  — 50 credits/month      — 1 workspace, 2 campaigns, 10 posts/mo
+ *   Growth  — $49/mo  — 150 credits/month     — 3 workspaces, 5 campaigns, 25 posts/mo  ← crosses 16+ post threshold
+ *   Agency  — $99/mo  — 500 credits/month     — 10 workspaces, unlimited campaigns, 60 posts/mo
+ *
+ * Research basis:
+ *   - 16+ posts/month = 4.5x more leads (HubSpot State of Marketing)
+ *   - Starter is deliberately below this threshold → natural upgrade pressure to Growth
+ *   - Growth (25 posts) crosses the 16+ threshold for 2-3 active platforms
+ *   - Agency (60 posts) covers 3-4 clients at the 16-20/mo optimal level each
+ *
+ * Display names: Starter (id: starter), Growth (id: pro), Agency (id: business)
+ * Plan IDs kept backward compatible for Stripe price ID lookups.
  *
  * Credit costs per action: see src/lib/credits.ts → CREDIT_COSTS
- * Video generation: separate monthly quota (NOT credits) — see PLAN_VIDEO_QUOTA
  * Referral bonus: +20 credits for both referrer and new user on signup
  */
 
@@ -51,28 +59,34 @@ export function billingNotConfiguredResponse() {
 export interface PlanDefinition {
   id: string
   name: string
+  displayName: string     // Human-facing name (Growth, Agency)
   price: number
   credits: number
+  postsPerMonth: number   // Research-backed content volume
   stripePriceEnvKey: string
   features: string[]
   highlight?: string
   cta: string
+  researchNote?: string   // Why this post count was chosen
 }
 
 export const PLANS: PlanDefinition[] = [
   {
     id: 'free',
     name: 'Free',
+    displayName: 'Free',
     price: 0,
-    credits: 20,
+    credits: 10,
+    postsPerMonth: 3,
     stripePriceEnvKey: '',
     cta: 'Get Started Free',
+    researchNote: 'Enough to experience the product — not enough for real marketing results',
     features: [
-      '20 AI credits — one-time (never refreshes)',
+      '10 AI credits — one-time (never refreshes)',
       '1 workspace',
-      '2 campaigns maximum',
-      '2 social platforms',
-      'No video generation',
+      '1 campaign maximum',
+      '3 AI posts to try',
+      '1 social platform',
       'Watermarked exports',
       'Community support',
     ],
@@ -80,98 +94,113 @@ export const PLANS: PlanDefinition[] = [
   {
     id: 'starter',
     name: 'Starter',
-    price: 29,
-    credits: 150,
+    displayName: 'Starter',
+    price: 19,
+    credits: 50,
+    postsPerMonth: 10,
     stripePriceEnvKey: 'STRIPE_PRICE_STARTER',
-    cta: 'Start Starter — $29/mo',
+    cta: 'Start Starter — $19/mo',
+    researchNote: '10 posts/mo = consistent presence on 1-2 platforms. Below the lead-gen threshold by design.',
     features: [
-      '150 AI credits / month (refreshes monthly)',
-      '2 workspaces',
-      '8 campaigns / month',
-      '50 posts / month',
-      '3 social platforms',
-      '2 AI videos / month',
-      'Full Brand Brain + all AI agents',
+      '50 AI credits / month (refreshes monthly)',
+      '1 workspace (1 brand)',
+      '2 campaigns / month',
+      '10 AI posts / month',
+      '2 social platforms',
+      'Full Campaign Wizard',
+      'Brand Brain (memory across campaigns)',
       'No-watermark exports',
       'Email support',
     ],
   },
   {
     id: 'pro',
-    name: 'Pro',
-    price: 79,
-    credits: 300,
+    name: 'Growth',
+    displayName: 'Growth',
+    price: 49,
+    credits: 150,
+    postsPerMonth: 25,
     stripePriceEnvKey: 'STRIPE_PRICE_PRO',
     highlight: 'Most Popular',
-    cta: 'Start Pro — $79/mo',
+    cta: 'Start Growth — $49/mo',
+    researchNote: '25 posts/mo crosses the research-proven 16+ threshold = 4.5x more leads (HubSpot)',
     features: [
-      '300 AI credits / month (refreshes monthly)',
-      '3 workspaces',
-      '20 campaigns / month',
-      '100 posts / month',
-      'All 5 social platforms',
-      '5 AI videos / month (Replicate)',
-      'Full Brand Brain + all AI agents',
-      'Analytics dashboard',
-      'Export campaigns (PDF + DOCX)',
-      'Email support',
+      '150 AI credits / month (refreshes monthly)',
+      '3 workspaces (3 brands)',
+      '5 campaigns / month',
+      '25 AI posts / month — crosses the 16+ leads threshold',
+      'All social platforms (unlimited)',
+      'Campaign Memory — AI learns your brand',
+      'Media uploads + Brand overlays',
+      'A/B Testing + AI Rewrite',
+      'Analytics + ROI Dashboard',
+      'PDF + DOCX export',
+      'Priority email support',
     ],
   },
   {
     id: 'business',
-    name: 'Business',
-    price: 199,
-    credits: 1000,
+    name: 'Agency',
+    displayName: 'Agency',
+    price: 99,
+    credits: 500,
+    postsPerMonth: 60,
     stripePriceEnvKey: 'STRIPE_PRICE_BUSINESS',
-    cta: 'Start Business — $199/mo',
+    cta: 'Start Agency — $99/mo',
+    researchNote: '60 posts/mo = 3-4 clients each at the optimal 16-20 posts/month level',
     features: [
-      '1,000 AI credits / month (refreshes monthly)',
-      '10 workspaces',
-      '60 campaigns / month',
-      'Unlimited posts',
-      'All 5 social platforms',
-      '20 AI videos / month',
-      'Team collaboration (3 seats)',
-      'White-label PDF exports',
+      '500 AI credits / month (refreshes monthly)',
+      '10 workspaces (10 brands / clients)',
+      'Unlimited campaigns / month',
+      '60 AI posts / month',
+      'All social platforms + multi-account publishing',
+      '2 team seats included (+$19/extra)',
+      'White-label reports (your logo)',
+      'API access',
       'Advanced analytics',
-      'Priority support',
+      'Dedicated Slack support + onboarding call',
     ],
   },
 ]
 
-// ── Monthly video generation quota per plan ────────────────────────────────────
-// Video generation costs $0.30–$1.00/video via Replicate — too expensive to gate
-// behind credits alone. These hard monthly limits protect margins regardless of
-// how many credits a user has.
+// ── Monthly video slot quota per plan ─────────────────────────────────────────
+// Video slots = how many video posts a user can schedule per month.
+// Free/Starter: no video (AI image posts only — keeps COGS near zero).
+// Growth: 2 video slots (enough for 1 short-form/platform on 2 platforms).
+// Agency: 5 video slots (covers 1 video per client per month).
 
 export const PLAN_VIDEO_QUOTA: Record<string, number> = {
   FREE:     0,
-  STARTER:  2,
-  PRO:      5,
-  BUSINESS: 20,
+  STARTER:  0,
+  PRO:      2,
+  BUSINESS: 5,
   free:     0,
-  starter:  2,
-  pro:      5,
-  business: 20,
-  agency:   20,
-  ACTIVE:   5,
-  // Admin / founder accounts — unlimited video
+  starter:  0,
+  pro:      2,
+  business: 5,
+  agency:   5,
+  ACTIVE:   2,
+  // Admin / founder accounts — unlimited
   ADMIN:    999,
   admin:    999,
 }
 
 // ── Campaign count limit per plan (per month) ──────────────────────────────────
+// Aligned with PLANS array research notes.
+// Free: 1 (taste the product). Starter: 2 (1 brand, 2 concurrent campaigns).
+// Growth: 5 (3 brands × 1-2 campaigns each). Agency: unlimited (10 clients).
+
 export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
-  FREE:     2,
-  STARTER:  8,
-  PRO:      20,
-  BUSINESS: 60,
-  free:     2,
-  starter:  8,
-  pro:      20,
-  business: 60,
-  agency:   60,
-  ACTIVE:   20,
+  FREE:     1,
+  STARTER:  2,
+  PRO:      5,
+  BUSINESS: 999,
+  free:     1,
+  starter:  2,
+  pro:      5,
+  business: 999,
+  agency:   999,
+  ACTIVE:   5,
 }
 
 // ── Stripe Price ID mapping ────────────────────────────────────────────────────
@@ -185,43 +214,50 @@ export const STRIPE_PRICES: Record<string, string> = {
 }
 
 // ── Plan → monthly credit allocation ──────────────────────────────────────────
+// Matches PLANS array exactly. Credits refresh monthly on paid plans.
+// Free credits are one-time (never refresh) — creates upgrade pressure.
 
 export const PLAN_CREDITS: Record<string, number> = {
-  FREE:     20,
-  STARTER:  150,
-  PRO:      300,
-  BUSINESS: 1000,
-  free:     20,
-  starter:  150,
-  pro:      300,
-  business: 1000,
-  agency:   1000,
-  ACTIVE:   300,
+  FREE:     10,
+  STARTER:  50,
+  PRO:      150,
+  BUSINESS: 500,
+  free:     10,
+  starter:  50,
+  pro:      150,
+  business: 500,
+  agency:   500,
+  ACTIVE:   150,
+  ADMIN:    9999,
+  admin:    9999,
 }
 
 // ── Content Hub: monthly post + video quotas ──────────────────────────────────
-// Posts cost ~$0.05 each (GPT-4o-mini text + gpt-image-1). Videos cost ~$0.50
-// each (Replicate). Margins: 93-94% across all paid tiers.
-// Videos are the cost driver — gate them hard. Posts are cheap — be generous.
+// Research basis (HubSpot / SproutSocial / Hootsuite 2024):
+//   Free    →  3 posts/mo  — taste the product only
+//   Starter → 10 posts/mo  — consistent presence, BELOW the 16+ lead-gen threshold (by design)
+//   Growth  → 25 posts/mo  — crosses the research-proven 16+ threshold (+4.5x leads)
+//   Agency  → 60 posts/mo  — 3-4 clients at 16-20/mo each (optimal agency load)
+// Post COGS: ~$0.05 each (GPT-4o-mini + gpt-image-1). Margins: 96%+.
 
 export interface PlanQuota {
-  postsPerMonth: number   // image posts — auto-generated by AI (~$0.05 each)
-  videoSlotsPerMonth: number  // video post slots — user uploads their own video (no AI cost)
+  postsPerMonth: number        // AI-generated image/caption posts (~$0.05 each)
+  videoSlotsPerMonth: number   // scheduled video post slots (user uploads own video — $0 COGS)
 }
 
 export const PLAN_QUOTAS: Record<string, PlanQuota> = {
-  FREE:     { postsPerMonth: 5,   videoSlotsPerMonth: 0  },
-  STARTER:  { postsPerMonth: 20,  videoSlotsPerMonth: 2  },
-  PRO:      { postsPerMonth: 50,  videoSlotsPerMonth: 5  },
-  BUSINESS: { postsPerMonth: 120, videoSlotsPerMonth: 15 },
-  free:     { postsPerMonth: 5,   videoSlotsPerMonth: 0  },
-  starter:  { postsPerMonth: 20,  videoSlotsPerMonth: 2  },
-  pro:      { postsPerMonth: 50,  videoSlotsPerMonth: 5  },
-  business: { postsPerMonth: 120, videoSlotsPerMonth: 15 },
-  agency:   { postsPerMonth: 120, videoSlotsPerMonth: 15 },
-  ACTIVE:   { postsPerMonth: 50,  videoSlotsPerMonth: 5  },
-  ADMIN:    { postsPerMonth: 500, videoSlotsPerMonth: 50 },
-  admin:    { postsPerMonth: 500, videoSlotsPerMonth: 50 },
+  FREE:     { postsPerMonth: 3,   videoSlotsPerMonth: 0  },
+  STARTER:  { postsPerMonth: 10,  videoSlotsPerMonth: 0  },
+  PRO:      { postsPerMonth: 25,  videoSlotsPerMonth: 2  },
+  BUSINESS: { postsPerMonth: 60,  videoSlotsPerMonth: 5  },
+  free:     { postsPerMonth: 3,   videoSlotsPerMonth: 0  },
+  starter:  { postsPerMonth: 10,  videoSlotsPerMonth: 0  },
+  pro:      { postsPerMonth: 25,  videoSlotsPerMonth: 2  },
+  business: { postsPerMonth: 60,  videoSlotsPerMonth: 5  },
+  agency:   { postsPerMonth: 60,  videoSlotsPerMonth: 5  },
+  ACTIVE:   { postsPerMonth: 25,  videoSlotsPerMonth: 2  },
+  ADMIN:    { postsPerMonth: 999, videoSlotsPerMonth: 99 },
+  admin:    { postsPerMonth: 999, videoSlotsPerMonth: 99 },
 }
 
 // ── Referral bonus credits ─────────────────────────────────────────────────────

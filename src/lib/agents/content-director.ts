@@ -11,6 +11,7 @@ import { StrategyOutput } from './strategist'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
 import { BANNED_PHRASES, SPECIFICITY_RULES, CONTENT_QUALITY_RULES } from '@/lib/ai/promptRules'
+import { getPlanContext, getPlanLimits } from './planContext'
 
 async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 3000): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -49,6 +50,8 @@ export interface ContentDirectorInput {
   winningHooks?: string[]
   // Language preference: 'ar' | 'en' | 'bilingual'
   language?: string
+  // Subscription tier — controls calendar length, post count, content angle depth
+  planTier?: string
 }
 
 export interface ContentPost {
@@ -84,8 +87,11 @@ export async function runContentDirectorAgent(
   input: ContentDirectorInput
 ): Promise<ContentDirectorOutput> {
   const langInstruction = getLanguageInstruction(input.language)
+  const planContext = getPlanContext(input.planTier)
+  const planLimits = getPlanLimits(input.planTier)
 
   const systemPrompt = `${langInstruction}
+${planContext}
 
 You are the world's most accomplished direct-response copywriter and platform content scientist. You have studied under the traditions of Eugene Schwartz, Gary Halbert, David Ogilvy, and Dan Kennedy — and you have adapted their principles to the scroll-speed world of TikTok, Instagram, and LinkedIn.
 
@@ -181,7 +187,9 @@ Before writing any hook, ask: "Would a competitor of ${input.brandName} write th
 Before writing any caption, ask: "Does this caption reference a specific pain from the list above?" If no, rewrite it.
 Before writing any CTA, ask: "Is this CTA specific enough that someone knows exactly what they're clicking?" If no, make it specific.
 
-━━━ GENERATE 4-WEEK CONTENT CALENDAR ━━━
+━━━ GENERATE ${planLimits.calendarWeeks}-WEEK CONTENT CALENDAR (${planLimits.postsPerMonth} posts total) ━━━
+Distribute ${planLimits.postsPerMonth} posts across ${planLimits.calendarWeeks} weeks and ${planLimits.platformCount} platforms maximum.
+Do NOT generate more posts than the plan allows. Each post must be executable within this quota.
 For each post: hook ≤ 10 words (scroll-stopping), caption 60-130 words (specific, value-first), 5-8 hashtags (mix niche + medium), visualNote (describe exact shot/scene).
 
 Return JSON with exactly these fields:

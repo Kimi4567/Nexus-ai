@@ -14,6 +14,7 @@ import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 
 export async function POST(req: NextRequest) {
   try {
@@ -116,6 +117,13 @@ export async function POST(req: NextRequest) {
         : undefined,
       // Language preference -- drives AI output language
       language,
+      // Campaign memory: inject past learnings for this workspace
+      pastLearnings: formatMemoriesForPrompt(
+        await getRelevantMemories({
+          workspaceId: workspace.id,
+          goal: goalOverride,
+        })
+      ) || undefined,
     }
 
     // Run full orchestration (reuses existing orchestrator unchanged)

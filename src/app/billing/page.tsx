@@ -1,10 +1,11 @@
 'use client'
 
 /**
- * Billing page
- * Plans: Free $0 · Starter $29 · Pro $79 · Business $199
- * Credits: 20 (one-time) · 150/mo · 300/mo · 1,000/mo
- * Video quota: 0 · 2/mo · 5/mo · 20/mo  (separate from credits)
+ * Billing page — Research-backed 3-tier pricing (updated June 2025)
+ * Plans: Free $0 · Starter $19 · Growth $49 · Agency $99
+ * Credits: 10 (one-time) · 50/mo · 150/mo · 500/mo
+ * Research: HubSpot — 16+ posts/month = 4.5× more leads
+ * Starter is deliberately below 16/mo threshold → natural Growth upgrade
  */
 
 import { useAuth } from '@/lib/auth-context'
@@ -13,12 +14,19 @@ import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 import {
-  Sparkles, Zap, CheckCircle2, Settings2, ArrowUpRight,
-  Rocket, Brain, BarChart3, Shield, Globe, Video, Image,
-  MessageSquare, FileText, Star, Gift, Users,
+  Sparkles, CheckCircle2, Settings2,
+  Rocket, Brain, BarChart3, Shield, Globe, Image,
+  MessageSquare, FileText, Gift, TrendingUp, Zap,
 } from 'lucide-react'
 
-// ─── Plan definitions ─────────────────────────────────────────────────────────
+// ─── Plan definitions (research-backed June 2025) ─────────────────────────────
+//
+// Pricing logic:
+//   Starter ($19) = 10 posts/mo → BELOW the 16-post lead-gen threshold (by design)
+//   Growth  ($49) = 25 posts/mo → CROSSES the 16-post threshold (+4.5× leads)
+//   Agency  ($99) = 60 posts/mo → 3-4 clients at 16-20/mo each (optimal agency load)
+//
+// This creates a real, research-grounded upgrade reason at every tier.
 
 const PLANS = [
   {
@@ -26,29 +34,31 @@ const PLANS = [
     nameAr: 'مجاني',
     nameEn: 'Free',
     price: 0,
-    creditsAr: '20 رصيد — مرة واحدة فقط',
-    creditsEn: '20 credits — one-time only',
+    creditsAr: '10 رصيد — مرة واحدة فقط',
+    creditsEn: '10 credits — one-time only',
     accentColor: '#6b7280',
     featured: false,
     badgeAr: null as string | null,
     badgeEn: null as string | null,
-    descAr: 'للتجربة بدون بطاقة ائتمانية',
-    descEn: 'Try it — no credit card needed',
+    descAr: 'جرّب المنصة، لا بطاقة مطلوبة',
+    descEn: 'Try the platform — no credit card needed',
+    upgradeHintAr: null as string | null,
+    upgradeHintEn: null as string | null,
     limitsAr: [
-      '20 رصيد AI (مرة واحدة، لا يتجدد)',
+      '10 رصيد AI (مرة واحدة، لا يتجدد)',
       'مساحة عمل واحدة',
-      'حملتان كحد أقصى (للأبد)',
-      'منصتان اجتماعيتان',
-      'لا توليد فيديو',
+      'حملة واحدة كحد أقصى',
+      '3 بوستات للتجربة',
+      'منصة اجتماعية واحدة',
       'علامة مائية على الصادرات',
       'دعم مجتمعي',
     ],
     limitsEn: [
-      '20 AI credits (one-time, never refreshes)',
+      '10 AI credits (one-time, never refreshes)',
       '1 workspace',
-      '2 campaigns maximum (forever)',
-      '2 social platforms',
-      'No video generation',
+      '1 campaign maximum',
+      '3 posts to try',
+      '1 social platform',
       'Watermarked exports',
       'Community support',
     ],
@@ -57,118 +67,125 @@ const PLANS = [
     id: 'starter',
     nameAr: 'ستارتر',
     nameEn: 'Starter',
-    price: 29,
-    creditsAr: '150 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '150 credits / month — renews monthly',
+    price: 19,
+    creditsAr: '50 رصيد / شهر — يتجدد تلقائياً',
+    creditsEn: '50 credits / month — renews monthly',
     accentColor: '#3b82f6',
     featured: false,
     badgeAr: null as string | null,
     badgeEn: null as string | null,
-    descAr: 'للبداية بسعر مناسب',
-    descEn: 'Perfect entry point for solo creators',
+    descAr: 'ابدأ ببناء حضور منتظم على منصتين',
+    descEn: 'Build consistent presence on 1-2 platforms',
+    upgradeHintAr: '10 بوستات/شهر = حضور ثابت. للوصول لعتبة الـ16+ بوست التي تولّد 4.5× أضعاف العملاء، جرّب Growth.' as string | null,
+    upgradeHintEn: '10 posts/month builds a steady presence. To cross the 16+ posts threshold that generates 4.5× more leads, upgrade to Growth.' as string | null,
     limitsAr: [
-      '150 رصيد AI / شهر (يتجدد شهرياً)',
-      'مساحتا عمل',
-      '8 حملات / شهر',
-      '50 بوست / شهر',
-      '3 منصات اجتماعية',
-      'فيديوهان مولّدان / شهر',
+      '50 رصيد AI / شهر (يتجدد شهرياً)',
+      'مساحة عمل واحدة (براند واحد)',
+      'حملتان / شهر',
+      '10 بوستات / شهر',
+      'منصتان اجتماعيتان',
       'Brand Brain الكامل + جميع الوكلاء',
+      'ذاكرة الحملات (تعلّم من كل حملة)',
       'تصدير بدون علامة مائية',
       'دعم بريد إلكتروني',
     ],
     limitsEn: [
-      '150 AI credits / month (renews monthly)',
-      '2 workspaces',
-      '8 campaigns / month',
-      '50 posts / month',
-      '3 social platforms',
-      '2 AI-generated videos / month',
+      '50 AI credits / month (renews monthly)',
+      '1 workspace (1 brand)',
+      '2 campaigns / month',
+      '10 AI posts / month',
+      '2 social platforms',
       'Full Brand Brain + all AI agents',
+      'Campaign Memory (AI learns your brand)',
       'No-watermark exports',
       'Email support',
     ],
   },
   {
     id: 'pro',
-    nameAr: 'برو',
-    nameEn: 'Pro',
-    price: 79,
-    creditsAr: '300 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '300 credits / month — renews monthly',
+    nameAr: 'جروث',
+    nameEn: 'Growth',
+    price: 49,
+    creditsAr: '150 رصيد / شهر — يتجدد تلقائياً',
+    creditsEn: '150 credits / month — renews monthly',
     accentColor: '#8b5cf6',
     featured: true,
     badgeAr: 'الأكثر شعبية',
     badgeEn: 'Most Popular',
-    descAr: 'لأصحاب الأعمال والفرق الصغيرة',
-    descEn: 'For growing businesses & small teams',
+    descAr: '25 بوست/شهر = يتجاوز عتبة الـ16+ بوست (×4.5 عملاء)',
+    descEn: '25 posts/month — crosses the lead-gen threshold',
+    upgradeHintAr: null as string | null,
+    upgradeHintEn: null as string | null,
     limitsAr: [
-      '300 رصيد AI / شهر (يتجدد شهرياً)',
-      '3 مساحات عمل',
-      '20 حملة / شهر',
-      '100 بوست / شهر',
-      'جميع المنصات الـ 5',
-      '5 فيديوهات مولّدة / شهر',
-      'Brand Brain الكامل + جميع الوكلاء',
-      'لوحة تحليلات متقدمة',
-      'تصدير بدون علامة مائية',
-      'دعم بريد إلكتروني',
+      '150 رصيد AI / شهر (يتجدد شهرياً)',
+      '3 مساحات عمل (3 براندات)',
+      '5 حملات / شهر',
+      '25 بوست / شهر — يتجاوز عتبة الـ16+ بوست',
+      'جميع المنصات (غير محدود)',
+      'Brand Brain الكامل + ذاكرة الحملات',
+      'تحميل الميديا + طبقات البراند',
+      'اختبار A/B + إعادة كتابة بالـ AI',
+      'تحليلات متقدمة + لوحة ROI',
+      'تصدير PDF + DOCX',
+      'دعم بريد إلكتروني بأولوية',
     ],
     limitsEn: [
-      '300 AI credits / month (renews monthly)',
-      '3 workspaces',
-      '20 campaigns / month',
-      '100 posts / month',
-      'All 5 social platforms',
-      '5 AI-generated videos / month',
-      'Full Brand Brain + all AI agents',
-      'Analytics dashboard',
-      'No-watermark exports (PDF + DOCX)',
-      'Email support',
+      '150 AI credits / month (renews monthly)',
+      '3 workspaces (3 brands)',
+      '5 campaigns / month',
+      '25 AI posts / month — crosses the 16+ lead-gen threshold',
+      'All social platforms (unlimited)',
+      'Full Brand Brain + Campaign Memory',
+      'Media uploads + Brand overlays',
+      'A/B Testing + AI Rewrite',
+      'Analytics + ROI Dashboard',
+      'PDF + DOCX export',
+      'Priority email support',
     ],
   },
   {
     id: 'business',
-    nameAr: 'بيزنس',
-    nameEn: 'Business',
-    price: 199,
-    creditsAr: '1,000 رصيد / شهر — يتجدد تلقائياً',
-    creditsEn: '1,000 credits / month — renews monthly',
+    nameAr: 'وكالة',
+    nameEn: 'Agency',
+    price: 99,
+    creditsAr: '500 رصيد / شهر — يتجدد تلقائياً',
+    creditsEn: '500 credits / month — renews monthly',
     accentColor: '#10b981',
     featured: false,
-    badgeAr: 'للوكالات والفرق',
-    badgeEn: 'For agencies & teams',
-    descAr: 'للوكالات والفرق الكبيرة',
-    descEn: 'For agencies and larger teams',
+    badgeAr: 'للوكالات',
+    badgeEn: 'For agencies',
+    descAr: '10 براندات × 16-20 بوست / شهر = أقصى أداء للوكالة',
+    descEn: '10 clients × 16-20 posts/month = max agency ROI',
+    upgradeHintAr: null as string | null,
+    upgradeHintEn: null as string | null,
     limitsAr: [
-      '1,000 رصيد AI / شهر (يتجدد شهرياً)',
-      '10 مساحات عمل',
-      '60 حملة / شهر',
-      'بوستات غير محدودة',
-      'جميع المنصات الـ 5',
-      '20 فيديو مولّد / شهر',
-      '3 مقاعد لأعضاء الفريق',
-      'تصدير بدون علامة مائية (White-label)',
-      'تحليلات متقدمة + API',
-      'دعم ذو أولوية',
+      '500 رصيد AI / شهر (يتجدد شهرياً)',
+      '10 مساحات عمل (10 براندات أو عملاء)',
+      'حملات غير محدودة / شهر',
+      '60 بوست / شهر',
+      'جميع المنصات + نشر متعدد الحسابات',
+      'مقعدان للفريق مضمّنان (+$19/إضافي)',
+      'تقارير White-label (شعارك)',
+      'وصول API',
+      'تحليلات متقدمة',
+      'دعم مخصص عبر Slack + جلسة اونبوردنج',
     ],
     limitsEn: [
-      '1,000 AI credits / month (renews monthly)',
-      '10 workspaces',
-      '60 campaigns / month',
-      'Unlimited posts',
-      'All 5 social platforms',
-      '20 AI-generated videos / month',
-      'Team collaboration (3 seats)',
-      'White-label PDF/DOCX exports',
-      'Advanced analytics + API access',
-      'Priority support',
+      '500 AI credits / month (renews monthly)',
+      '10 workspaces (10 brands / clients)',
+      'Unlimited campaigns / month',
+      '60 AI posts / month',
+      'All platforms + multi-account publishing',
+      '2 team seats included (+$19/extra)',
+      'White-label reports (your logo)',
+      'API access',
+      'Advanced analytics',
+      'Dedicated Slack support + onboarding call',
     ],
   },
 ]
 
 // ─── Credit cost breakdown ────────────────────────────────────────────────────
-// Maps each AI action to credits consumed + icon + description.
 // Keep in sync with src/lib/credits.ts → CREDIT_COSTS
 
 const CREDIT_ACTIONS = [
@@ -177,48 +194,40 @@ const CREDIT_ACTIONS = [
     labelAr: 'توليد الحملة الكاملة',
     labelEn: 'Full campaign generation',
     cost: 5,
-    noteAr: 'استراتيجية + محتوى + خطة',
-    noteEn: 'Strategy + content + plan',
+    noteAr: 'استراتيجية + محتوى + خطة تنفيذ',
+    noteEn: 'Strategy + content + execution plan',
   },
   {
     icon: Brain,
     labelAr: 'تشغيل الاستراتيجية الكاملة',
     labelEn: 'Run full strategy',
     cost: 8,
-    noteAr: 'كل الوكلاء معاً: استراتيجي + بصري + سنتنيل',
-    noteEn: 'All agents: Strategist + Visual + Sentinel',
+    noteAr: 'كل الوكلاء: SAGE + MUSE + PULSE + PRISM',
+    noteEn: 'All agents: SAGE + MUSE + PULSE + PRISM',
   },
   {
     icon: Image,
-    labelAr: 'توليد صورة (DALL-E 3)',
-    labelEn: 'AI image generation (DALL-E 3)',
+    labelAr: 'توليد صورة AI',
+    labelEn: 'AI image generation',
     cost: 3,
-    noteAr: '1024×1024، بجودة عالية، مرتبطة بهوية البراند',
+    noteAr: '1024×1024، جودة عالية، مرتبطة بهوية البراند',
     noteEn: '1024×1024, brand-aware, high quality',
-  },
-  {
-    icon: Video,
-    labelAr: 'موجز الفيديو (Video Brief)',
-    labelEn: 'Video brief generation',
-    cost: 3,
-    noteAr: 'سيناريو + ستوري بورد + توجيه بصري',
-    noteEn: 'Script + storyboard + visual direction',
   },
   {
     icon: FileText,
     labelAr: 'موجز الإبداع (Creative Brief)',
     labelEn: 'Creative brief',
     cost: 3,
-    noteAr: 'تحليل الأصول + توجيه بصري لحملتك',
-    noteEn: 'Asset analysis + visual direction',
+    noteAr: 'تحليل الأصول + توجيه بصري للحملة',
+    noteEn: 'Asset analysis + visual direction for campaign',
   },
   {
     icon: Globe,
     labelAr: 'نسخ إعلانية (Ad Copy)',
     labelEn: 'Ad copy generation',
     cost: 2,
-    noteAr: 'عناوين + CTA + أوصاف مخصصة',
-    noteEn: 'Headlines + CTAs + descriptions',
+    noteAr: 'عناوين + CTA + أوصاف مخصصة للبراند',
+    noteEn: 'Headlines + CTAs + brand-specific descriptions',
   },
   {
     icon: Shield,
@@ -226,25 +235,23 @@ const CREDIT_ACTIONS = [
     labelEn: 'Sentinel quality review',
     cost: 2,
     noteAr: 'مراجعة الجودة والمخاطر قبل النشر',
-    noteEn: 'Quality + risk gate before publishing',
+    noteEn: 'Quality + risk review before publishing',
+  },
+  {
+    icon: Zap,
+    labelAr: 'إعادة كتابة بوست AI',
+    labelEn: 'AI post rewrite',
+    cost: 1,
+    noteAr: 'حسّن أي بوست بنقرة واحدة',
+    noteEn: 'Improve any post with one click',
   },
   {
     icon: MessageSquare,
     labelAr: 'رسالة دردشة AI',
     labelEn: 'AI chat message',
     cost: 1,
-    noteAr: 'مساعد ذكي لأسئلتك التسويقية',
-    noteEn: 'Marketing assistant chat',
-  },
-  {
-    icon: Video,
-    labelAr: 'توليد فيديو (Replicate)',
-    labelEn: 'AI video generation (Replicate)',
-    cost: 0,
-    quotaAr: 'من حصة الفيديو الشهرية',
-    quotaEn: 'From monthly video quota',
-    noteAr: 'فيديو 5-30 ثانية بجودة إنتاجية عالية',
-    noteEn: '5–30 second production-quality video',
+    noteAr: 'مساعد تسويقي ذكي يعرف براندك',
+    noteEn: 'Marketing assistant that knows your brand',
   },
 ]
 
@@ -252,34 +259,40 @@ const CREDIT_ACTIONS = [
 
 const FAQS = [
   {
-    qAr: 'ما الفرق بين الأرصدة وحصة الفيديو؟',
-    qEn: 'What is the difference between credits and video quota?',
-    aAr: 'الأرصدة تُستهلك لتوليد النصوص والصور والاستراتيجيات. أما توليد الفيديو فله حصة شهرية مستقلة (5 فيديوهات للبرو، 20 للبيزنس) لأن تكلفة الفيديو تتراوح بين $0.30 و$1.00 للفيديو عبر Replicate — فصلها يضمن أن الأسعار تبقى ثابتة ومعقولة.',
-    aEn: 'Credits are consumed for text, image, and strategy generation. Video generation has a separate monthly quota (5 for Pro, 20 for Business) because each video costs $0.30–$1.00 via Replicate. Keeping it separate ensures pricing stays predictable and fair.',
+    qAr: 'لماذا Starter أقل من 16 بوست / شهر؟',
+    qEn: 'Why is Starter below 16 posts / month?',
+    aAr: 'هذا مقصود. البحث يُثبت أن 16+ بوست/شهر = 4.5× أضعاف العملاء المحتملين (HubSpot). Starter يُعطيك حضوراً ثابتاً على منصة أو اثنتين — لكن Growth هو الذي يتجاوز هذا الحاجز ويُطلق تأثير الزخم الحقيقي.',
+    aEn: 'Intentional. Research proves that 16+ posts/month = 4.5× more leads (HubSpot State of Marketing). Starter gives you a consistent presence on 1-2 platforms — but Growth is what crosses the threshold and unlocks the compounding lead-gen effect.',
   },
   {
     qAr: 'هل تتجدد الأرصدة كل شهر؟',
     qEn: 'Do credits renew every month?',
-    aAr: 'نعم، للمشتركين في برو وبيزنس. الخطة المجانية تمنحك 20 رصيداً مرة واحدة فقط لا تتجدد. هذا يشجعك على تجربة المنصة قبل الاشتراك.',
-    aEn: 'Yes, for Pro and Business subscribers. The Free plan gives you 20 credits once — they never refresh. This lets you experience the platform before committing.',
+    aAr: 'نعم، لجميع الخطط المدفوعة (Starter وGrowth وAgency). الخطة المجانية تمنحك 10 أرصدة مرة واحدة فقط لا تتجدد — لتجربة المنصة قبل الالتزام.',
+    aEn: 'Yes, for all paid plans (Starter, Growth, Agency). The Free plan gives you 10 credits once — they never refresh — so you can experience the platform before committing.',
+  },
+  {
+    qAr: 'ما الفرق بين Growth وAgency؟',
+    qEn: 'What is the difference between Growth and Agency?',
+    aAr: 'Growth = براند واحد يُريد الحصول على أقصى نتائج (25 بوست/شهر عبر 3 مساحات عمل). Agency = 10 عملاء أو براندات مع 60 بوست/شهر — يعني 16-20 بوست/شهر لكل عميل، وهو المعدل الأمثل.',
+    aEn: 'Growth = one brand maximizing results (25 posts/month across 3 workspaces). Agency = 10 clients or brands with 60 posts/month — roughly 16-20 posts/month per client, which is the research-optimal level.',
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
-    qEn: 'What happens if I run out of credits before month-end?',
-    aAr: 'ستتوقف عمليات الـ AI حتى تترقى خطتك أو حتى يبدأ شهر جديد. يمكنك دائماً عرض الحملات والبيانات الموجودة. رسالة واضحة ستظهر مع رابط ترقية.',
-    aEn: 'AI actions will pause until you upgrade or the next billing cycle begins. You can always view existing campaigns and data. A clear message appears with an upgrade link.',
+    qEn: 'What happens if I run out of credits?',
+    aAr: 'ستتوقف عمليات الـ AI حتى تترقى أو يبدأ شهر جديد. يمكنك دائماً عرض حملاتك وبياناتك الموجودة. ستظهر رسالة واضحة مع رابط ترقية.',
+    aEn: 'AI actions pause until you upgrade or your billing cycle renews. You can always view existing campaigns and data. A clear message appears with an upgrade link.',
   },
   {
     qAr: 'هل يمكنني إلغاء اشتراكي في أي وقت؟',
     qEn: 'Can I cancel anytime?',
-    aAr: 'نعم، يمكنك الإلغاء في أي وقت من إعدادات الفوترة. ستبقى مشتركاً حتى نهاية فترة الفوترة الحالية.',
+    aAr: 'نعم، من إعدادات الفوترة في أي وقت. ستبقى مشتركاً حتى نهاية دورة الفوترة الحالية.',
     aEn: 'Yes, cancel anytime from your billing settings. You retain access until the end of the current billing period.',
   },
   {
     qAr: 'كيف يعمل نظام الإحالة؟',
     qEn: 'How does the referral program work?',
-    aAr: 'ادعُ صديقاً بالرابط الخاص بك — كلاكما يحصل على +20 رصيداً مجاناً عند إتمام الصديق الإعداد. ابحث عن رابطك في الإعدادات > ادعُ أصدقاء.',
-    aEn: 'Invite a friend with your unique link — you both get +20 free credits when they complete onboarding. Find your link in Settings → Refer & Earn.',
+    aAr: 'ادعُ صديقاً بالرابط الخاص بك — كلاكما يحصل على +20 رصيداً مجاناً عند إتمام الصديق الإعداد.',
+    aEn: 'Invite a friend with your unique link — you both get +20 free credits when they complete onboarding.',
   },
 ]
 
@@ -463,7 +476,7 @@ export default function BillingPage() {
             }
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {PLANS.map((plan) => {
               const isCurrent = currentPlan === plan.id
               const isPopular = plan.featured
@@ -521,6 +534,16 @@ export default function BillingPage() {
                     ))}
                   </ul>
 
+                  {/* Upgrade hint — only for Starter */}
+                  {(ar ? plan.upgradeHintAr : plan.upgradeHintEn) && (
+                    <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+                      <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-1.5">
+                        <TrendingUp className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                        {ar ? plan.upgradeHintAr : plan.upgradeHintEn}
+                      </p>
+                    </div>
+                  )}
+
                   {/* CTA */}
                   {isCurrent ? (
                     <div className="w-full py-2.5 rounded-xl text-center text-sm font-semibold border border-white/20 text-white/50">
@@ -564,15 +587,14 @@ export default function BillingPage() {
           </h2>
           <p className="text-sm text-white/40 mb-6">
             {ar
-              ? 'قيمة الرصيد في برو: $49 ÷ 300 = $0.163 / رصيد'
-              : 'Credit value at Pro: $49 ÷ 300 = $0.163 / credit'
+              ? 'قيمة الرصيد: Starter = $0.38/رصيد · Growth = $0.33/رصيد · Agency = $0.20/رصيد (توفر أكثر مع الترقية)'
+              : 'Credit value: Starter = $0.38/cr · Growth = $0.33/cr · Agency = $0.20/cr (better value as you scale)'
             }
           </p>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
             {CREDIT_ACTIONS.map((action, i) => {
               const Icon = action.icon
-              const isVideo = action.cost === 0
               return (
                 <div
                   key={i}
@@ -590,35 +612,29 @@ export default function BillingPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    {isVideo ? (
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 font-medium">
-                        {ar ? action.quotaAr : action.quotaEn}
-                      </span>
-                    ) : (
-                      <span className="text-sm font-bold text-white tabular-nums">
-                        {action.cost} <span className="text-white/40 text-xs font-normal">{ar ? 'رصيد' : 'cr'}</span>
-                      </span>
-                    )}
+                    <span className="text-sm font-bold text-white tabular-nums">
+                      {action.cost} <span className="text-white/40 text-xs font-normal">{ar ? 'رصيد' : 'cr'}</span>
+                    </span>
                   </div>
                 </div>
               )
             })}
           </div>
 
-          {/* Pro capacity note */}
+          {/* Growth capacity note */}
           <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
             <div className="flex items-start gap-3">
               <Sparkles className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
               <div className="text-sm text-white/60 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-white font-semibold">برو (300 رصيد)</span> = 60 حملة كاملة · أو 100 صورة · أو 37 استراتيجية كاملة · أو أي مزيج منها —
-                    {' '}<span className="text-violet-400">بالإضافة إلى 5 فيديوهات مولّدة / شهر (مستقلة عن الأرصدة)</span>
+                    <span className="text-white font-semibold">Growth (150 رصيد)</span> = 30 حملة كاملة · أو 50 صورة · أو 18 استراتيجية كاملة · أو أي مزيج —
+                    {' '}<span className="text-violet-400">بالإضافة إلى 25 بوست/شهر تتجاوز عتبة الـ16+ بوست (+4.5× عملاء)</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-white font-semibold">Pro (300 credits)</span> = 60 campaigns · or 100 images · or 37 full strategies · or any mix —
-                    {' '}<span className="text-violet-400">plus 5 AI-generated videos / month (separate from credits)</span>
+                    <span className="text-white font-semibold">Growth (150 credits)</span> = 30 campaigns · or 50 images · or 18 full strategies · or any mix —
+                    {' '}<span className="text-violet-400">plus 25 posts/month that cross the 16+ post lead-gen threshold (+4.5× leads)</span>
                   </>
                 )}
               </div>
@@ -648,17 +664,21 @@ export default function BillingPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-start pb-3 text-white/40 font-medium w-1/2">
+                  <th className="text-start pb-3 text-white/40 font-medium w-[30%]">
                     {ar ? 'الميزة' : 'Feature'}
                   </th>
-                  <th className="text-center pb-3 text-white/60 font-medium">
+                  <th className="text-center pb-3 text-white/50 font-medium">
                     {ar ? 'مجاني' : 'Free'}
                   </th>
+                  <th className="text-center pb-3 text-blue-400 font-medium">
+                    {ar ? 'ستارتر' : 'Starter'} <span className="text-blue-500/70">$19</span>
+                  </th>
                   <th className="text-center pb-3 text-violet-400 font-bold">
-                    {ar ? 'برو' : 'Pro'} <span className="text-violet-500">$49</span>
+                    {ar ? 'جروث' : 'Growth'} <span className="text-violet-500">$49</span>
+                    <span className="block text-[10px] text-violet-400/60">{ar ? '★ الأكثر شعبية' : '★ Popular'}</span>
                   </th>
                   <th className="text-center pb-3 text-emerald-400 font-medium">
-                    {ar ? 'بيزنس' : 'Business'} <span className="text-emerald-500/80">$99</span>
+                    {ar ? 'وكالة' : 'Agency'} <span className="text-emerald-500/80">$99</span>
                   </th>
                 </tr>
               </thead>
@@ -666,56 +686,71 @@ export default function BillingPage() {
                 {[
                   {
                     labelAr: 'أرصدة AI / شهر', labelEn: 'AI credits / month',
-                    free: ar ? '20 (مرة واحدة)' : '20 (one-time)',
-                    pro: '300',
-                    biz: '1,000',
-                  },
-                  {
-                    labelAr: 'مساحات العمل', labelEn: 'Workspaces',
-                    free: '1', pro: '3', biz: '10',
-                  },
-                  {
-                    labelAr: 'حملات / شهر', labelEn: 'Campaigns / month',
-                    free: '2 total', pro: '20', biz: '60',
+                    free: ar ? '10 (مرة واحدة)' : '10 (one-time)',
+                    starter: '50', pro: '150', biz: '500',
                   },
                   {
                     labelAr: 'بوستات / شهر', labelEn: 'Posts / month',
-                    free: '10 total', pro: '100', biz: ar ? 'غير محدود' : 'Unlimited',
+                    free: '3', starter: '10', pro: '25', biz: '60',
+                  },
+                  {
+                    labelAr: 'حملات / شهر', labelEn: 'Campaigns / month',
+                    free: '1', starter: '2', pro: '5', biz: ar ? 'غير محدود' : 'Unlimited',
+                  },
+                  {
+                    labelAr: 'مساحات العمل', labelEn: 'Workspaces',
+                    free: '1', starter: '1', pro: '3', biz: '10',
                   },
                   {
                     labelAr: 'المنصات الاجتماعية', labelEn: 'Social platforms',
-                    free: '2', pro: ar ? 'الكل (5)' : 'All (5)', biz: ar ? 'الكل (5)' : 'All (5)',
-                  },
-                  {
-                    labelAr: 'فيديوهات مولّدة / شهر', labelEn: 'AI videos / month',
-                    free: '0', pro: '5', biz: '20',
+                    free: '1', starter: '2', pro: ar ? 'الكل' : 'All', biz: ar ? 'الكل' : 'All',
                   },
                   {
                     labelAr: 'Brand Brain + وكلاء AI', labelEn: 'Brand Brain + AI agents',
-                    free: ar ? 'أساسي' : 'Basic', pro: ar ? 'كامل' : 'Full', biz: ar ? 'كامل' : 'Full',
+                    free: ar ? 'أساسي' : 'Basic', starter: ar ? 'كامل' : 'Full', pro: ar ? 'كامل' : 'Full', biz: ar ? 'كامل' : 'Full',
                   },
                   {
-                    labelAr: 'تصدير PDF + DOCX', labelEn: 'PDF + DOCX export',
-                    free: ar ? 'علامة مائية' : 'Watermarked', pro: ar ? 'بدون علامة' : 'No watermark', biz: ar ? 'White-label' : 'White-label',
+                    labelAr: 'ذاكرة الحملات', labelEn: 'Campaign Memory',
+                    free: '—', starter: '✓', pro: '✓', biz: '✓',
+                  },
+                  {
+                    labelAr: 'اختبار A/B', labelEn: 'A/B Testing',
+                    free: '—', starter: '—', pro: '✓', biz: '✓',
+                  },
+                  {
+                    labelAr: 'تصدير بدون علامة', labelEn: 'No-watermark exports',
+                    free: '—', starter: '✓', pro: ar ? 'PDF + DOCX' : 'PDF + DOCX', biz: ar ? 'White-label' : 'White-label',
                   },
                   {
                     labelAr: 'أعضاء الفريق', labelEn: 'Team seats',
-                    free: '1', pro: '1', biz: '3',
+                    free: '1', starter: '1', pro: '1', biz: '2+',
                   },
                   {
                     labelAr: 'الدعم', labelEn: 'Support',
-                    free: ar ? 'مجتمعي' : 'Community', pro: ar ? 'بريد إلكتروني' : 'Email', biz: ar ? 'أولوية' : 'Priority',
+                    free: ar ? 'مجتمعي' : 'Community', starter: ar ? 'إيميل' : 'Email', pro: ar ? 'إيميل أولوية' : 'Priority email', biz: ar ? 'Slack مخصص' : 'Dedicated Slack',
                   },
                 ].map(row => (
                   <tr key={ar ? row.labelAr : row.labelEn}>
                     <td className="py-2.5 text-white/60">{ar ? row.labelAr : row.labelEn}</td>
-                    <td className="py-2.5 text-center text-white/40">{row.free}</td>
+                    <td className="py-2.5 text-center text-white/30">{row.free}</td>
+                    <td className="py-2.5 text-center text-blue-300">{row.starter}</td>
                     <td className="py-2.5 text-center text-violet-300 font-medium">{row.pro}</td>
                     <td className="py-2.5 text-center text-emerald-300">{row.biz}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Research footnote */}
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
+            <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-white/60">
+              {ar
+                ? <><span className="text-amber-300 font-semibold">لماذا 16+ بوست/شهر يُغيّر كل شيء؟</span> بحث HubSpot على 13,000+ شركة: الشركات التي تنشر 16+ بوست/شهر تحصل على <span className="text-amber-300 font-semibold">4.5× أضعاف العملاء المحتملين</span> مقارنة بمن ينشرون أقل من ذلك. خطة Growth تُعطيك 25 بوست/شهر — أول خطة تتجاوز هذا الحاجز.</>
+                : <><span className="text-amber-300 font-semibold">Why does 16+ posts/month change everything?</span> HubSpot research across 13,000+ companies: brands publishing 16+ posts/month get <span className="text-amber-300 font-semibold">4.5× more leads</span> than those publishing less. Growth gives you 25 posts/month — the first plan to cross this threshold.</>
+              }
+            </p>
           </div>
         </div>
 

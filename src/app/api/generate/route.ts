@@ -6,6 +6,7 @@ import * as ai from '@/lib/ai/adapter'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
+import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -40,7 +41,17 @@ export async function POST(req: NextRequest) {
 
   // Attach language preference so AI functions use the correct output language
   // Falls back to 'ar' (Arabic) to preserve behaviour for existing users
-  const campaignWithLang = { ...(campaign as any), language: language || 'ar' }
+  const memories = await getRelevantMemories({
+    workspaceId: workspace.id,
+    goal: campaign.goal ?? undefined,
+  })
+  const pastLearnings = formatMemoriesForPrompt(memories) || undefined
+
+  const campaignWithLang = {
+    ...(campaign as any),
+    language: language || 'ar',
+    pastLearnings,
+  }
 
   try {
     // Run both AI calls in parallel — halves execution time vs sequential
@@ -86,6 +97,16 @@ export async function POST(req: NextRequest) {
         },
       }).catch(() => null),
     ])
+
+    // Save campaign memory (non-blocking — never delays the response)
+    saveCampaignMemory({
+      workspaceId: workspace.id,
+      campaignId: campaign.id,
+      goal: campaign.goal ?? undefined,
+      tone: (campaign as any).tone ?? undefined,
+      audienceHint: campaign.audience ?? undefined,
+      strategy: strategy as any,
+    }).catch(() => {})
 
     return NextResponse.json({
       strategy,

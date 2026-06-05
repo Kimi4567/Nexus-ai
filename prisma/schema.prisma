@@ -126,13 +126,14 @@ model Workspace {
   agentSuggestions AgentSuggestion[]
   agentReports  AgentReport[]
   paidPacks     PaidCampaignPack[]
+  campaignMemories CampaignMemory[]
 
   // Settings
   settings      Json?      // branding, integrations, etc.
-  
+
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  
+
   @@index([ownerId])
   @@index([slug])
 }
@@ -1128,6 +1129,40 @@ model PaidCampaignPack {
   @@index([workspaceId])
   @@index([campaignId])
   @@index([status])
+}
+
+// ============================================================================
+// CAMPAIGN MEMORY — AI learning across campaigns
+// ============================================================================
+
+// Stores distilled learnings from each campaign's AI output.
+// Retrieved before strategy generation so the AI can build on past wins.
+// No pgvector needed at this stage — text-based retrieval is sufficient
+// until we have enough data volume to justify vector similarity search.
+
+model CampaignMemory {
+  id           String    @id @default(cuid())
+
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  campaignId   String?   // linked campaign (nullable — workspace-level memories exist too)
+
+  // Campaign context (used for filtering relevant memories)
+  goal         String?   // "sales" | "awareness" | "leads" | "traffic"
+  tone         String?   // "luxury" | "modern" | "energetic" etc.
+  industry     String?   // from brand profile
+  audienceHint String?   // short description of the target audience
+
+  // Distilled learnings extracted from the AI output
+  // { topHooks, contentAngles, keyMessage, positioning, contentPillars, winningFormats }
+  learnings    Json
+
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId])
+  @@index([workspaceId, goal])
+  @@index([workspaceId, createdAt])
 }
 
 // ============================================================================

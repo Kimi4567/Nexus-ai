@@ -17,6 +17,7 @@
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
+import { getPlanContext } from './planContext'
 
 // ── Preserved interfaces (backwards compat) ──────────────────────────────────
 
@@ -41,6 +42,10 @@ export interface BusinessBrief {
   winningHooks?: string
   // Language preference: 'ar' | 'en' | 'bilingual'
   language?: string
+  // Campaign memory: past learnings injected from campaign-memory.ts
+  pastLearnings?: string
+  // Subscription tier — controls strategy depth, calendar length, content volume
+  planTier?: string
 }
 
 export interface FunnelStrategy {
@@ -312,8 +317,10 @@ export async function runStrategistAgent(
   language?: string
 ): Promise<StrategyOutput> {
   const langInstruction = getLanguageInstruction(language ?? brief.language)
+  const planContext = getPlanContext(brief.planTier)
 
   const systemPrompt = `${langInstruction}
+${planContext}
 
 You are the world's foremost marketing strategist — a rare hybrid of brand scientist, growth architect, and business diagnostician. You have spent 25 years building marketing strategy for 400+ brands across MENA, Europe, and North America — from early-stage startups to companies doing $500M/year.
 
@@ -367,6 +374,7 @@ Return ONLY valid JSON. No markdown. No explanation outside the JSON.`
     `Target Audience: ${brief.targetAudience}`,
     `Monthly Budget: $${brief.monthlyBudget} USD`,
     `Primary Goal: ${brief.primaryGoal || 'generate qualified leads'}`,
+    brief.planTier ? `User Plan Tier: ${brief.planTier} — scale the strategy scope to match this plan's quota (see Plan Context above)` : '',
     brief.region ? `Region/Market: ${brief.region}` : '',
     brief.primaryOffer ? `Core Offer: ${brief.primaryOffer}` : '',
     brief.pricePoint ? `Price Positioning: ${brief.pricePoint}` : '',
@@ -380,6 +388,7 @@ Return ONLY valid JSON. No markdown. No explanation outside the JSON.`
     brief.currentPlatforms?.length ? `Active Platforms: ${brief.currentPlatforms.join(', ')}` : '',
     brief.existingProblems ? `Current Challenges: ${brief.existingProblems}` : '',
     brandContext ? `\nFull Brand Context:\n${brandContext}` : '',
+    brief.pastLearnings ? `\n${brief.pastLearnings}` : '',
   ].filter(Boolean).join('\n')
 
   const userPrompt = `

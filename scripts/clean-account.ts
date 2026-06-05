@@ -57,10 +57,9 @@ async function main() {
   await prisma.usage.updateMany({
     where: { userId: user.id },
     data: {
-      aiGenerations: 0,
-      campaignsCreated: 0,
-      postsPublished: 0,
-      mediaUploaded: 0,
+      aiCreditsUsed: 0,
+      generationsCount: 0,
+      exportsCount: 0,
     }
   })
 
