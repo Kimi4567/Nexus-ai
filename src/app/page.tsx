@@ -1158,8 +1158,8 @@ export default function LandingPage() {
                     </div>
                   )}
                   <div className="mb-5">
-                    <p className="font-mono text-[12px] font-semibold uppercase tracking-[2px] text-slate-400 mb-2">{plan.name}</p>
-                    <div className="flex items-end gap-1 mb-2">
+                    <p className="font-mono text-[12px] font-semibold uppercase tracking-[2px] text-slate-400 mb-2" dir="ltr">{plan.name}</p>
+                    <div className="flex items-end gap-1 mb-2" dir="ltr">
                       <span className="text-[42px] font-extrabold text-white leading-none">${plan.price}</span>
                       {plan.period && <span className="text-slate-500 text-[14px] pb-1">{plan.period}</span>}
                     </div>
