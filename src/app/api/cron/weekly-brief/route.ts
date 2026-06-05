@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
       // Get user's campaign data for context
       const [campaigns, brandProfile] = await Promise.all([
         prisma.campaign.findMany({
-          where: { project: { workspace: { ownerId: user.id } } },
+          where: { workspace: { ownerId: user.id } },
           select: { platforms: true, goal: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 20,

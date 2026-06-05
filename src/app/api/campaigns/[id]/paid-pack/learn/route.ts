@@ -46,7 +46,6 @@ export async function POST(
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
     }
-    await checkAndDeductCredits(user.id, 'AD_COPY')
 
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: user.id } },
