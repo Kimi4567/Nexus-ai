@@ -24,12 +24,16 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const campaign = await prisma.campaign.findFirst({
-      where: { id: params.id, workspace: { ownerId: userId } },
-      include: {
-        activities: { orderBy: { createdAt: 'desc' }, take: 20 },
-      },
-    })
+    const [campaign, socialPostCount] = await Promise.all([
+      prisma.campaign.findFirst({
+        where: { id: params.id, workspace: { ownerId: userId } },
+        include: {
+          activities: { orderBy: { createdAt: 'desc' }, take: 20 },
+        },
+      }),
+      // FL4: Count content-plan posts for this campaign (uses cast — SocialPost has no Campaign back-relation)
+      (prisma as any).socialPost.count({ where: { campaignId: params.id } }).catch(() => 0),
+    ])
 
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -39,7 +43,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       data: { lastViewedAt: new Date() },
     }).catch(() => {})
 
-    return NextResponse.json({ campaign })
+    return NextResponse.json({ campaign: { ...campaign, socialPostCount } })
   } catch (err: any) {
     console.error('[campaigns/[id] GET]', err)
     return NextResponse.json({ error: 'Failed to load campaign' }, { status: 500 })

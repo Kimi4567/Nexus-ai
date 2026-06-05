@@ -129,7 +129,22 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const brandName    = campaign.workspace?.name ?? 'Brand'
     const campaignName = campaign.name ?? 'Campaign'
-    const platforms    = (campaign.platforms as string[]) ?? ['META']
+
+    // FL2: Prefer connected platforms from Integration table over wizard selection.
+    // This ensures the content plan targets channels the user actually has connected.
+    const connectedIntegrations = await prisma.integration.findMany({
+      where: {
+        workspaceId,
+        status: 'CONNECTED' as any,
+        // Exclude non-social integrations
+        type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
+      },
+      select: { type: true },
+    })
+    const platforms: string[] =
+      connectedIntegrations.length > 0
+        ? [...new Set(connectedIntegrations.map(i => String(i.type)))]
+        : ((campaign.platforms as string[]) ?? ['META'])
 
     const keyMessage    = strategy.keyMessage ?? strategy.coreMessage ?? ''
     const targetAudience = strategy.targetAudience

@@ -41,6 +41,7 @@ export default function NewCampaignPage() {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [generatingStrategy, setGeneratingStrategy] = useState(false)
+  const [loadingPhase, setLoadingPhase] = useState<'strategy' | 'content'>('strategy')
   const [error, setError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
@@ -140,6 +141,17 @@ export default function NewCampaignPage() {
           }
           throw new Error(engineErr.error || 'Strategy generation failed')
         }
+
+        // FL3: Strategy done — auto-generate the 30-day content plan
+        setLoadingPhase('content')
+        try {
+          await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+            body: JSON.stringify({ mediaSource: 'GENERATE' }),
+          })
+        } catch { /* non-fatal — plan can be generated from campaign page */ }
+
       } catch {
         // Non-fatal: campaign is saved, strategy can be retried from campaign page
       }
@@ -182,14 +194,35 @@ export default function NewCampaignPage() {
   const PrevIcon = isRTL ? ChevronRight : ChevronLeft
   const NextIcon = isRTL ? ChevronLeft : ChevronRight
 
-  // ── Strategy generation loading screen ───────────────────────────────────
+  // ── Strategy + Content generation loading screen ─────────────────────────
   if (generatingStrategy) {
-    const steps = [
-      locale === 'ar' ? 'تحليل البراند الخاص بك...' : 'Analysing your brand...',
-      locale === 'ar' ? 'بناء الاستراتيجية التسويقية...' : 'Building marketing strategy...',
-      locale === 'ar' ? 'تحديد الـ Content Angles...' : 'Identifying content angles...',
-      locale === 'ar' ? 'الانتهاء من خطة الكامبين...' : 'Finalising campaign plan...',
-    ]
+    const isContent = loadingPhase === 'content'
+    const loadingSteps = isContent
+      ? [
+          locale === 'ar' ? 'الاستراتيجية جاهزة ✓' : 'Strategy complete ✓',
+          locale === 'ar' ? 'اكتشاف المنصات المتصلة...' : 'Detecting connected platforms...',
+          locale === 'ar' ? 'توليد 30 بوست بالـ AI...' : 'Generating 30 posts with AI...',
+          locale === 'ar' ? 'بناء تقويم النشر...' : 'Building your publishing calendar...',
+        ]
+      : [
+          locale === 'ar' ? 'تحليل البراند الخاص بك...' : 'Analysing your brand...',
+          locale === 'ar' ? 'بناء الاستراتيجية التسويقية...' : 'Building marketing strategy...',
+          locale === 'ar' ? 'تحديد الـ Content Angles...' : 'Identifying content angles...',
+          locale === 'ar' ? 'الانتهاء من خطة الكامبين...' : 'Finalising campaign plan...',
+        ]
+
+    const headingText = isContent
+      ? (locale === 'ar' ? 'NEXUS بيولد المحتوى...' : 'NEXUS is generating your content...')
+      : (locale === 'ar' ? 'NEXUS بيبني استراتيجيتك...' : 'NEXUS is building your strategy...')
+
+    const subText = isContent
+      ? (locale === 'ar'
+          ? 'بنجهز 30 بوست جاهز للنشر على المنصات بتاعتك. لحظة.'
+          : 'Preparing 30 ready-to-publish posts across your channels. Just a moment.')
+      : (locale === 'ar'
+          ? 'الـ AI بيحلل البراند بتاعك ويبني استراتيجية تسويق كاملة. هيخلص في ثوانٍ.'
+          : 'AI is analysing your brand and building a full marketing strategy. Takes just seconds.')
+
     return (
       <AppShell>
         <div className="min-h-screen flex items-center justify-center px-4">
@@ -197,30 +230,53 @@ export default function NewCampaignPage() {
             {/* Pulsing logo ring */}
             <div className="relative w-24 h-24 mx-auto mb-8">
               <div className="absolute inset-0 rounded-full animate-ping"
-                style={{ background: 'rgba(139,92,246,0.15)' }} />
+                style={{ background: isContent ? 'rgba(99,102,241,0.15)' : 'rgba(139,92,246,0.15)' }} />
               <div className="absolute inset-2 rounded-full animate-pulse"
-                style={{ background: 'rgba(139,92,246,0.2)' }} />
+                style={{ background: isContent ? 'rgba(99,102,241,0.2)' : 'rgba(139,92,246,0.2)' }} />
               <div className="relative w-full h-full rounded-full flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#8B5CF6,#6366f1)', boxShadow: '0 0 40px rgba(139,92,246,0.4)' }}>
+                style={{
+                  background: isContent
+                    ? 'linear-gradient(135deg,#6366f1,#4f46e5)'
+                    : 'linear-gradient(135deg,#8B5CF6,#6366f1)',
+                  boxShadow: isContent
+                    ? '0 0 40px rgba(99,102,241,0.4)'
+                    : '0 0 40px rgba(139,92,246,0.4)',
+                }}>
                 <Wand2 className="w-10 h-10 text-white" />
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold mb-2">
-              {locale === 'ar' ? 'NEXUS بيبني استراتيجيتك...' : 'NEXUS is building your strategy...'}
-            </h2>
-            <p className="text-text-muted text-sm mb-8">
-              {locale === 'ar'
-                ? 'الـ AI بيحلل البراند بتاعك ويبني استراتيجية تسويق كاملة. هيخلص في ثوانٍ.'
-                : 'AI is analysing your brand and building a full marketing strategy. Takes just seconds.'}
-            </p>
+            <h2 className="text-2xl font-bold mb-2">{headingText}</h2>
+            <p className="text-text-muted text-sm mb-8">{subText}</p>
+
+            {/* Phase indicator */}
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full"
+                  style={{ background: isContent ? '#4ade80' : '#8B5CF6' }} />
+                <span className="text-xs" style={{ color: isContent ? '#4ade80' : '#8B5CF6' }}>
+                  {locale === 'ar' ? 'الاستراتيجية' : 'Strategy'}
+                </span>
+              </div>
+              <div className="w-8 h-px bg-gray-600" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full"
+                  style={{ background: isContent ? '#6366f1' : 'rgba(99,102,241,0.3)' }} />
+                <span className="text-xs" style={{ color: isContent ? '#6366f1' : 'rgba(156,163,175,0.5)' }}>
+                  {locale === 'ar' ? 'المحتوى' : 'Content'}
+                </span>
+              </div>
+            </div>
 
             {/* Animated steps */}
             <div className="space-y-3 text-left">
-              {steps.map((s, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm"
+              {loadingSteps.map((s, i) => (
+                <div key={`${loadingPhase}-${i}`} className="flex items-center gap-3 text-sm"
                   style={{ opacity: 0.4 + i * 0.2, animation: `fadeIn 0.5s ease ${i * 0.4}s both` }}>
-                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-violet-400" />
+                  {i === 0 && isContent
+                    ? <Check className="w-4 h-4 flex-shrink-0 text-green-400" />
+                    : <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-violet-400" />
+                  }
                   <span className="text-text-secondary">{s}</span>
                 </div>
               ))}

@@ -41,6 +41,7 @@ interface Campaign {
   activities: Activity[]
   autopilotEnabled?: boolean
   autopilotActivatedAt?: string
+  socialPostCount?: number
 }
 
 interface AutopilotPost {
@@ -740,6 +741,30 @@ export default function CampaignDetailPage() {
                 className="text-text-muted hover:text-white transition-all text-xs px-1 flex-shrink-0">
                 ✕
               </button>
+            </div>
+          )
+        })()}
+
+        {/* FL4: Content-ready banner — shown when AI has generated posts for this campaign */}
+        {(campaign.socialPostCount ?? 0) > 0 && (() => {
+          const postCount = campaign.socialPostCount!
+          return (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-4"
+              style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-green-400 text-sm flex-shrink-0">✅</span>
+                <p className="text-xs" style={{ color: 'rgba(74,222,128,0.85)' }}>
+                  {locale === 'ar'
+                    ? `${postCount} بوست جاهز للمراجعة والنشر`
+                    : `${postCount} post${postCount !== 1 ? 's' : ''} ready — review and schedule in Content Hub`}
+                </p>
+              </div>
+              <Link
+                href={`/campaigns/${campaign.id}/content-hub`}
+                className="text-xs font-bold flex-shrink-0 px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+                style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', color: '#4ade80' }}>
+                {locale === 'ar' ? 'مركز المحتوى →' : 'View Content Hub →'}
+              </Link>
             </div>
           )
         })()}
