@@ -9,7 +9,8 @@ import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandP
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
-  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X, Rocket
+  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X, Rocket,
+  Upload, ImageIcon
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -393,12 +394,15 @@ export default function BrandBrainPage() {
   const [textSuggestion, setTextSuggestion] = useState<{ field: string; text: string } | null>(null)
   const [form, setForm]   = useState<BrandProfile>({
     brandName: '', industry: '', description: '',
+    logoUrl: null,
     primaryOffer: '', secondaryOffers: [], pricePoint: 'mid-range', uniqueAdvantages: [],
     targetAudience: '', audienceAge: '', audienceLocation: '', audiencePainPoints: [], audienceDesires: [],
     toneKeywords: [], avoidKeywords: [], writingStyle: '',
     topPlatforms: [], visualStyle: '',
     winningHooks: [], winningAngles: [], failedAngles: [], competitorNotes: '', strategicNotes: '',
   })
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoError, setLogoError]         = useState<string | null>(null)
 
   useEffect(() => {
     try {
@@ -516,6 +520,30 @@ export default function BrandBrainPage() {
       setSuggestError(locale === 'ar' ? 'تعذّر الاتصال، حاول مرة أخرى' : 'Connection failed, please try again')
     }
     finally { setSuggesting(null) }
+  }
+
+  const handleLogoUpload = async (file: File) => {
+    setLogoError(null)
+    setLogoUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/brand/upload-logo', {
+        method: 'POST',
+        headers: { Authorization: authHeader() },
+        body: fd,
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setLogoError(data.error || 'Upload failed')
+        return
+      }
+      set('logoUrl', data.logoUrl)
+    } catch {
+      setLogoError(locale === 'ar' ? 'تعذّر رفع الصورة' : 'Upload failed, please try again')
+    } finally {
+      setLogoUploading(false)
+    }
   }
 
   const { score, missing } = getBrandCompleteness(form, locale)
@@ -748,6 +776,79 @@ export default function BrandBrainPage() {
 
               {step === 'identity' && (
                 <div className="space-y-5">
+
+                  {/* ── Brand Logo Upload ──────────────────────────── */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                      {locale === 'ar' ? 'شعار العلامة التجارية' : 'Brand Logo'}
+                    </label>
+                    <div className="flex items-center gap-4">
+                      {/* Logo preview */}
+                      <div className="relative flex-shrink-0">
+                        {form.logoUrl ? (
+                          <div className="w-16 h-16 rounded-2xl overflow-hidden"
+                            style={{ border: '2px solid rgba(245,158,11,0.4)', boxShadow: '0 0 20px rgba(245,158,11,0.15)' }}>
+                            <img src={form.logoUrl} alt="Brand logo"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                            style={{ background: 'rgba(8,9,28,0.7)', border: '2px dashed rgba(139,92,246,0.25)' }}>
+                            <ImageIcon size={22} style={{ color: 'rgba(139,92,246,0.35)' }} />
+                          </div>
+                        )}
+                        {logoUploading && (
+                          <div className="absolute inset-0 rounded-2xl flex items-center justify-center"
+                            style={{ background: 'rgba(6,7,26,0.75)' }}>
+                            <Loader2 size={18} className="animate-spin" style={{ color: '#f59e0b' }} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Upload button + hint */}
+                      <div className="flex flex-col gap-2">
+                        <label className="cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                          style={{
+                            background: logoUploading ? 'rgba(245,158,11,0.06)' : 'rgba(245,158,11,0.12)',
+                            border: '1px solid rgba(245,158,11,0.3)',
+                            color: logoUploading ? 'rgba(245,158,11,0.4)' : '#f59e0b',
+                            pointerEvents: logoUploading ? 'none' : 'auto',
+                          }}>
+                          <Upload size={13} />
+                          {locale === 'ar' ? 'رفع الشعار' : 'Upload Logo'}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                            className="hidden"
+                            disabled={logoUploading}
+                            onChange={e => {
+                              const f = e.target.files?.[0]
+                              if (f) handleLogoUpload(f)
+                              e.target.value = ''
+                            }}
+                          />
+                        </label>
+                        <p className="text-[10px]" style={{ color: '#334155' }}>
+                          {locale === 'ar' ? 'PNG, JPG, WebP أو SVG · حتى 5 ميجا' : 'PNG, JPG, WebP or SVG · max 5 MB'}
+                        </p>
+                        {form.logoUrl && !logoUploading && (
+                          <button onClick={() => { set('logoUrl', null) }}
+                            className="text-[10px] font-semibold transition-all"
+                            style={{ color: '#ef4444', textAlign: 'left' }}>
+                            {locale === 'ar' ? '✕ إزالة الشعار' : '✕ Remove logo'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {logoError && (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                        <AlertTriangle size={12} style={{ color: '#f87171' }} />
+                        <span className="text-xs" style={{ color: '#fca5a5' }}>{logoError}</span>
+                      </div>
+                    )}
+                  </div>
+
                   <Field label={t('brand.identityBrandNameLabel')}>
                     <NxInput value={form.brandName||''} onChange={v=>set('brandName',v)}
                       placeholder={t('brand.identityBrandNamePlaceholder')} accentColor={currentStep.color}/>

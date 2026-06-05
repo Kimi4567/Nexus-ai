@@ -14,6 +14,7 @@ export interface BrandProfile {
   brandName?: string | null
   industry?: string | null
   description?: string | null
+  logoUrl?: string | null
   toneKeywords?: string[]
   avoidKeywords?: string[]
   writingStyle?: string | null
