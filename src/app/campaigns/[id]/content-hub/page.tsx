@@ -154,6 +154,15 @@ export default function ContentHubPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [approveResult, setApproveResult] = useState<{
+    approved: number
+    linked: number
+    unlinked: number
+    learned: { hooks: number; angles: number }
+    platforms: string[]
+    firstDate: string | null
+    lastDate: string | null
+  } | null>(null)
   const [rewritingPost, setRewritingPost] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -327,16 +336,29 @@ export default function ContentHubPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Approval failed')
 
-      // FLC: Build success message — include Brand Brain learning feedback
-      let msg = `✅ ${data.approved} post${data.approved !== 1 ? 's' : ''} scheduled for auto-publishing`
-      if (data.learned?.hooks > 0 || data.learned?.angles > 0) {
-        const parts: string[] = []
-        if (data.learned.hooks  > 0) parts.push(`${data.learned.hooks} hooks`)
-        if (data.learned.angles > 0) parts.push(`${data.learned.angles} angles`)
-        msg += ` · 🧠 Brand Brain learned ${parts.join(' + ')}`
-      }
-      setSuccessMsg(msg)
+      // Reload posts so we can compute schedule window from updated state
       await loadData()
+
+      // Build approval result for the summary modal
+      // (posts state is now updated after loadData)
+      const scheduledPosts = posts.filter(p => p.status === 'SCHEDULED' && p.scheduledAt)
+      const scheduledDates = scheduledPosts
+        .map(p => p.scheduledAt!)
+        .sort()
+      const platformsUsed = [...new Set(scheduledPosts.map(p => p.platform.toUpperCase()))]
+
+      setApproveResult({
+        approved:  data.approved  ?? 0,
+        linked:    data.linked    ?? 0,
+        unlinked:  data.unlinked  ?? 0,
+        learned: {
+          hooks:  data.learned?.hooks  ?? 0,
+          angles: data.learned?.angles ?? 0,
+        },
+        platforms: platformsUsed.length > 0 ? platformsUsed : (data.summary?.platforms ?? []),
+        firstDate: scheduledDates[0] ?? null,
+        lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
+      })
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -683,6 +705,170 @@ export default function ContentHubPage() {
                 >
                   ✓ Yes, Schedule All
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Approval Summary Modal ────────────────────────────────── */}
+        {approveResult && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.8)' }}
+            onClick={() => setApproveResult(null)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
+              style={{ background: '#1a1625', border: '1px solid rgba(5,150,105,0.35)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Top accent bar */}
+              <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #059669, #34d399, #7c3aed)' }} />
+
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+                      style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.25)' }}>
+                      🚀
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">
+                        {approveResult.approved} posts scheduled!
+                      </h3>
+                      <p className="text-sm text-emerald-400">Your content plan is live</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setApproveResult(null)}
+                    className="text-gray-500 hover:text-gray-300 text-xl leading-none"
+                  >×</button>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  <div className="rounded-xl p-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="text-2xl font-bold text-white">{approveResult.approved}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Posts</div>
+                  </div>
+                  <div className="rounded-xl p-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="text-2xl font-bold text-emerald-400">{approveResult.linked}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Linked</div>
+                  </div>
+                  <div className="rounded-xl p-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="text-2xl font-bold text-purple-400">{approveResult.platforms.length}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Platforms</div>
+                  </div>
+                </div>
+
+                {/* Platform breakdown */}
+                {approveResult.platforms.length > 0 && (
+                  <div className="rounded-xl p-3 mb-4"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Publishing to</p>
+                    <div className="flex flex-wrap gap-2">
+                      {approveResult.platforms.map(p => {
+                        const cfg = getPlatformConfig(p)
+                        const count = posts.filter(post => post.platform.toUpperCase() === p && post.status === 'SCHEDULED').length
+                        return (
+                          <div key={p} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                            style={{ background: `${cfg.color}18`, border: `1px solid ${cfg.color}35`, color: cfg.color }}>
+                            <span>{cfg.icon}</span>
+                            <span>{cfg.label}</span>
+                            {count > 0 && <span className="opacity-70">×{count}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Schedule window */}
+                {(approveResult.firstDate || approveResult.lastDate) && (
+                  <div className="rounded-xl p-3 mb-4 flex items-center gap-3"
+                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                    <span className="text-lg">📅</span>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-0.5">Publishing window</p>
+                      <p className="text-sm text-purple-300 font-medium">
+                        {approveResult.firstDate
+                          ? new Date(approveResult.firstDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : '—'}
+                        {' → '}
+                        {approveResult.lastDate
+                          ? new Date(approveResult.lastDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Brand Brain learning */}
+                {(approveResult.learned.hooks > 0 || approveResult.learned.angles > 0) && (
+                  <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
+                    style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)' }}>
+                    <span className="text-xl mt-0.5">🧠</span>
+                    <div>
+                      <p className="text-sm font-semibold text-purple-300 mb-0.5">Brand Brain updated</p>
+                      <p className="text-xs text-gray-400">
+                        Learned{' '}
+                        {approveResult.learned.hooks > 0 && (
+                          <span className="text-purple-300 font-medium">{approveResult.learned.hooks} winning hooks</span>
+                        )}
+                        {approveResult.learned.hooks > 0 && approveResult.learned.angles > 0 && ' + '}
+                        {approveResult.learned.angles > 0 && (
+                          <span className="text-purple-300 font-medium">{approveResult.learned.angles} content angles</span>
+                        )}
+                        {' '}from your approved content — future campaigns will feel even more on-brand.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Unlinked warning */}
+                {approveResult.unlinked > 0 && (
+                  <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
+                    style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    <span className="text-base mt-0.5">⚠️</span>
+                    <div>
+                      <p className="text-xs text-amber-400">
+                        {approveResult.unlinked} post{approveResult.unlinked !== 1 ? 's have' : ' has'} no connected platform yet.
+                        Connect your social accounts in{' '}
+                        <button
+                          onClick={() => { setApproveResult(null); router.push('/connections') }}
+                          className="underline hover:no-underline"
+                        >Connections</button>{' '}
+                        to enable auto-publishing.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* CTA buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setApproveResult(null)
+                      generateAllImages()
+                    }}
+                    disabled={posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length === 0}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
+                    style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                  >
+                    ✨ Generate Images
+                  </button>
+                  <button
+                    onClick={() => { setApproveResult(null); router.push('/schedule') }}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border"
+                    style={{ borderColor: 'rgba(5,150,105,0.35)', color: '#34d399' }}
+                  >
+                    📅 View Schedule
+                  </button>
+                </div>
               </div>
             </div>
           </div>
