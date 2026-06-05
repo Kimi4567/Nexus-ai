@@ -595,267 +595,332 @@ function PostCard({
   pendingEdit,
   isExpanded,
   isEditingCaption,
-  isEditingPrompt,
   onToggleExpand,
   onEditCaption,
-  onEditPrompt,
   onOpenMediaPicker,
   onSaveEdit,
   onPendingEdit,
 }: PostCardProps) {
-  const cfg = getPlatformConfig(post.platform)
+  const platform = post.platform.toUpperCase()
   const caption = pendingEdit.caption ?? post.caption
-  const imagePrompt = pendingEdit.imagePrompt ?? post.imagePrompt ?? ''
   const hasImage = !!post.imageUrl
   const isVideo = post.isVideoPost
   const status = post.generationStatus
 
   const statusColor = {
-    PENDING: '#f59e0b',
-    GENERATING: '#6366f1',
-    DONE: '#10b981',
-    FAILED: '#ef4444',
-    AWAITING_UPLOAD: '#8b5cf6',
-    SKIPPED: '#6b7280',
+    PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
+    FAILED: '#ef4444', AWAITING_UPLOAD: '#8b5cf6', SKIPPED: '#6b7280',
   }[status] ?? '#6b7280'
 
   const statusLabel = {
-    PENDING: 'Pending',
-    GENERATING: 'Generating...',
-    DONE: 'Ready',
-    FAILED: 'Failed',
-    AWAITING_UPLOAD: 'Upload Video',
-    SKIPPED: 'Skipped',
+    PENDING: 'Pending', GENERATING: 'Generating…', DONE: 'Ready',
+    FAILED: 'Failed', AWAITING_UPLOAD: 'Upload Video', SKIPPED: 'Skipped',
   }[status] ?? status
 
   const scheduledDate = post.scheduledAt
     ? new Date(post.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : null
 
+  // Wrapper with status bar on top + action row on bottom
   return (
-    <div
-      className="rounded-2xl overflow-hidden flex flex-col transition-all"
-      style={{
-        background: '#1a1625',
-        border: `1px solid rgba(255,255,255,0.08)`,
-        boxShadow: isExpanded ? `0 0 0 2px ${cfg.color}40` : 'none',
-      }}
-    >
-      {/* ── Platform header bar ───────────────── */}
-      <div
-        className="flex items-center justify-between px-3 py-2"
-        style={{ background: `${cfg.color}18`, borderBottom: `1px solid ${cfg.color}30` }}
-      >
+    <div className="rounded-2xl overflow-hidden flex flex-col" style={{ background: '#161020', border: '1px solid rgba(255,255,255,0.07)' }}>
+
+      {/* ── Top meta bar ─────────────────── */}
+      <div className="flex items-center justify-between px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-2">
-          <span className="text-base">{cfg.icon}</span>
-          <span className="text-xs font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
-          <span className="text-xs text-gray-600">#{post.contentPlanIndex}</span>
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">#{post.contentPlanIndex}</span>
+          {scheduledDate && <span className="text-[10px] text-gray-600">· {scheduledDate}</span>}
         </div>
-        <div className="flex items-center gap-2">
-          {scheduledDate && (
-            <span className="text-xs text-gray-500">{scheduledDate}</span>
-          )}
-          <span
-            className="text-xs px-2 py-0.5 rounded-full font-medium"
-            style={{ background: `${statusColor}20`, color: statusColor }}
-          >
-            {status === 'GENERATING' && (
-              <span className="inline-block w-2 h-2 rounded-full mr-1 animate-pulse" style={{ background: statusColor }} />
-            )}
-            {statusLabel}
-          </span>
-        </div>
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+          style={{ background: `${statusColor}18`, color: statusColor }}>
+          {status === 'GENERATING' && <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ background: statusColor }} />}
+          {statusLabel}
+        </span>
       </div>
 
-      {/* ── Image area ───────────────────────── */}
-      <div className="relative" style={{ aspectRatio: '16/9', background: '#120f1c' }}>
-        {hasImage ? (
-          <img src={post.imageUrl!} alt="Post visual" className="w-full h-full object-cover" />
-        ) : isVideo ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-              <span className="text-2xl">🎬</span>
-            </div>
-            <span className="text-xs text-gray-400">Upload your video</span>
-          </div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
-              <span className="text-2xl">🖼</span>
-            </div>
-            <span className="text-xs text-gray-400">
-              {status === 'PENDING' ? 'Awaiting generation' : 'No image yet'}
-            </span>
-          </div>
-        )}
+      {/* ── Platform Mockup ──────────────── */}
+      {(platform === 'META' || platform === 'FACEBOOK' || platform === 'INSTAGRAM') && (
+        <InstagramMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} isExpanded={isExpanded} onExpandToggle={onToggleExpand} />
+      )}
+      {platform === 'LINKEDIN' && (
+        <LinkedInMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} isExpanded={isExpanded} onExpandToggle={onToggleExpand} />
+      )}
+      {platform === 'TIKTOK' && (
+        <TikTokMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} />
+      )}
+      {!['META','FACEBOOK','INSTAGRAM','LINKEDIN','TIKTOK'].includes(platform) && (
+        <GenericMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} platform={platform} isExpanded={isExpanded} onExpandToggle={onToggleExpand} />
+      )}
 
-        {/* Media source badge */}
-        <div className="absolute top-2 left-2">
-          <MediaSourceBadge
-            source={post.mediaSource as MediaSource}
-            isVideo={isVideo}
-            onGenerateClick={() => onSaveEdit({ mediaSource: 'GENERATE', generationStatus: 'PENDING' })}
-            onUploadClick={onOpenMediaPicker}
-            onUploadRawClick={onOpenMediaPicker}
+      {/* ── Edit caption overlay ─────────── */}
+      {isEditingCaption && (
+        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <textarea
+            className="w-full rounded-xl text-sm p-3 resize-none focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.4)', color: '#e5e7eb', minHeight: '90px' }}
+            value={caption}
+            onChange={e => onPendingEdit({ caption: e.target.value })}
+            autoFocus
           />
+          <div className="flex justify-end gap-2 mt-2">
+            <button onClick={onEditCaption} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-white transition-colors">Cancel</button>
+            <button
+              onClick={() => { onSaveEdit({ caption }); onEditCaption() }}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all"
+              style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+            >Save</button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Caption area ─────────────────────── */}
-      <div className="p-3 flex-1 flex flex-col gap-2">
-        {isEditingCaption ? (
-          <div>
-            <textarea
-              className="w-full rounded-lg text-sm p-2 resize-none focus:outline-none"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(139,92,246,0.4)', color: '#e5e7eb', minHeight: '80px' }}
-              value={caption}
-              onChange={e => onPendingEdit({ caption: e.target.value })}
-              onBlur={() => {
-                onSaveEdit({ caption })
-                onEditCaption()
-              }}
-              autoFocus
-            />
-            <div className="flex justify-end gap-2 mt-1">
-              <button onClick={onEditCaption} className="text-xs text-gray-500 hover:text-gray-300">Cancel</button>
-              <button
-                onClick={() => { onSaveEdit({ caption }); onEditCaption() }}
-                className="text-xs text-purple-400 hover:text-purple-300"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="text-sm text-gray-300 cursor-pointer hover:text-white transition-colors"
-            style={{ lineHeight: '1.5' }}
-            onClick={onEditCaption}
-          >
-            <p className={isExpanded ? '' : 'line-clamp-3'}>
-              {caption || <span className="text-gray-600 italic">No caption</span>}
-            </p>
-            {caption && caption.length > 120 && !isExpanded && (
-              <button
-                className="text-xs text-purple-400 mt-1 hover:text-purple-300"
-                onClick={e => { e.stopPropagation(); onToggleExpand() }}
-              >
-                See more
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Image prompt (collapsed by default) */}
-        {!isVideo && (
-          <details className="group" open={isExpanded}>
-            <summary className="text-xs text-gray-500 cursor-pointer hover:text-purple-400 list-none flex items-center gap-1 select-none">
-              <span className="group-open:rotate-90 transition-transform duration-150 inline-block">▶</span>
-              Image prompt
-            </summary>
-            <div className="mt-1.5">
-              {isEditingPrompt ? (
-                <div>
-                  <textarea
-                    className="w-full rounded-lg text-xs p-2 resize-none focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.3)', color: '#9ca3af', minHeight: '60px' }}
-                    value={imagePrompt}
-                    onChange={e => onPendingEdit({ imagePrompt: e.target.value })}
-                    onBlur={() => { onSaveEdit({ imagePrompt }); onEditPrompt() }}
-                    autoFocus
-                  />
-                </div>
-              ) : (
-                <p
-                  className="text-xs text-gray-500 cursor-pointer hover:text-gray-300 transition-colors italic rounded p-1"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}
-                  onClick={onEditPrompt}
-                >
-                  {imagePrompt || <span className="text-gray-700">No prompt</span>}
-                </p>
-              )}
-            </div>
-          </details>
-        )}
-
-        {/* Video post instructions */}
-        {isVideo && (
-          <div className="text-xs text-purple-400/70 rounded-lg p-2" style={{ background: 'rgba(139,92,246,0.08)' }}>
-            📎 Upload your video file to fill this slot
-          </div>
-        )}
-      </div>
-
-      {/* ── Action buttons ────────────────────── */}
+      {/* ── Action row ───────────────────── */}
       <div className="flex border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-        <button
-          onClick={onEditCaption}
-          className="flex-1 py-2 text-xs text-gray-500 hover:text-purple-400 hover:bg-purple-500/5 transition-all"
-        >
-          ✏️ Edit
+        <button onClick={onEditCaption}
+          className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-purple-400 hover:bg-purple-500/5 transition-all flex items-center justify-center gap-1.5">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M11.5 2.5a2.121 2.121 0 013 3L5 15l-4 1 1-4L11.5 2.5z"/></svg>
+          Edit Caption
         </button>
-        {!isVideo && (
-          <button
-            onClick={onOpenMediaPicker}
-            className="flex-1 py-2 text-xs text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l"
-            style={{ borderColor: 'rgba(255,255,255,0.06)' }}
-          >
-            📁 My Images
-          </button>
-        )}
-        {isVideo && (
-          <button
-            onClick={onOpenMediaPicker}
-            className="flex-1 py-2 text-xs text-gray-500 hover:text-green-400 hover:bg-green-500/5 transition-all border-l"
-            style={{ borderColor: 'rgba(255,255,255,0.06)' }}
-          >
-            🎬 Upload Video
-          </button>
-        )}
+        <button onClick={onOpenMediaPicker}
+          className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l flex items-center justify-center gap-1.5"
+          style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
+          {isVideo ? 'Upload Video' : 'My Images'}
+        </button>
       </div>
     </div>
   )
 }
 
-// ── MediaSourceBadge ───────────────────────────────────────────────────────────
+// ── Instagram Mockup ───────────────────────────────────────────────────────────
 
-function MediaSourceBadge({
-  source,
-  isVideo,
-  onGenerateClick,
-  onUploadClick,
-  onUploadRawClick,
-}: {
-  source: MediaSource
-  isVideo: boolean
-  onGenerateClick: () => void
-  onUploadClick: () => void
-  onUploadRawClick: () => void
+function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void
 }) {
-  if (isVideo) {
-    return (
-      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(139,92,246,0.7)', color: '#fff' }}>
-        Video
-      </span>
-    )
-  }
-
-  const options: Array<{ key: MediaSource; label: string; color: string; onClick: () => void }> = [
-    { key: 'GENERATE', label: '✨ AI Generate', color: 'rgba(139,92,246,0.8)', onClick: onGenerateClick },
-    { key: 'UPLOAD', label: '📁 From Library', color: 'rgba(59,130,246,0.8)', onClick: onUploadClick },
-    { key: 'UPLOAD_RAW', label: '⬆ Upload', color: 'rgba(16,185,129,0.8)', onClick: onUploadRawClick },
-  ]
-
-  const active = options.find(o => o.key === source) ?? options[0]
-
+  const shortCaption = !isExpanded && caption.length > 100 ? caption.slice(0, 100) + '…' : caption
   return (
-    <span
-      className="text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer"
-      style={{ background: active.color, color: '#fff' }}
-      onClick={active.onClick}
-      title="Click to change"
-    >
-      {active.label}
-    </span>
+    <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* Profile row */}
+      <div className="flex items-center justify-between px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)' }}>N</div>
+          <div>
+            <div className="text-[12px] font-semibold text-gray-900 leading-tight">your_brand</div>
+            <div className="text-[10px] text-gray-500">Sponsored</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[20px] text-gray-900 leading-none font-light">···</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+      </div>
+
+      {/* Image — 1:1 square */}
+      <div className="relative w-full" style={{ aspectRatio: '1/1', background: '#f3f3f3', overflow: 'hidden' }}>
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
+        )}
+      </div>
+
+      {/* Action icons */}
+      <div className="px-3 pt-2.5 pb-1">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3.5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </div>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div className="text-[12px] font-semibold text-gray-900 mb-1">1,234 likes</div>
+        <div className="text-[12px] text-gray-900 leading-relaxed">
+          <span className="font-semibold">your_brand</span>{' '}
+          <span className="text-gray-800">{shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}</span>
+          {caption.length > 100 && (
+            <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">
+              {isExpanded ? 'less' : 'more'}
+            </button>
+          )}
+        </div>
+        <div className="text-[11px] text-gray-400 mt-1">View all 42 comments</div>
+        <div className="text-[10px] text-gray-400 uppercase tracking-wide mt-1">2 hours ago</div>
+      </div>
+    </div>
+  )
+}
+
+// ── LinkedIn Mockup ────────────────────────────────────────────────────────────
+
+function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void
+}) {
+  const shortCaption = !isExpanded && caption.length > 140 ? caption.slice(0, 140) + '…' : caption
+  return (
+    <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* Profile */}
+      <div className="flex items-start justify-between px-3 py-3">
+        <div className="flex items-start gap-2.5">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+            style={{ background: '#0A66C2' }}>N</div>
+          <div>
+            <div className="text-[13px] font-semibold text-gray-900 leading-tight">Your Brand</div>
+            <div className="text-[11px] text-gray-500 leading-tight">Marketing · Company</div>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-[11px] text-gray-400">2h</span>
+              <span className="text-gray-300">·</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
+          </div>
+        </div>
+        <button className="text-[11px] font-semibold px-3 py-1 rounded-full border" style={{ borderColor: '#0A66C2', color: '#0A66C2' }}>+ Follow</button>
+      </div>
+
+      {/* Caption */}
+      <div className="px-3 pb-2.5 text-[13px] text-gray-800 leading-relaxed">
+        {shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}
+        {caption.length > 140 && (
+          <button onClick={onExpandToggle} className="ml-1 font-semibold text-gray-500 text-[12px]">
+            {isExpanded ? 'Show less' : '…see more'}
+          </button>
+        )}
+      </div>
+
+      {/* Image — 4:5 */}
+      <div className="relative w-full" style={{ aspectRatio: '4/3', background: '#f3f3f3', overflow: 'hidden' }}>
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
+        )}
+      </div>
+
+      {/* Reactions */}
+      <div className="px-3 pt-2 pb-1">
+        <div className="flex items-center justify-between text-[11px] text-gray-500 mb-2 pb-1.5" style={{ borderBottom: '1px solid #e5e7eb' }}>
+          <div className="flex items-center gap-1">
+            <span>👍❤️💡</span>
+            <span>1,847</span>
+          </div>
+          <span>84 comments</span>
+        </div>
+        <div className="flex items-center justify-around pb-1">
+          {[['👍','Like'],['💬','Comment'],['🔁','Repost'],['✉️','Send']].map(([icon, label]) => (
+            <button key={label} className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800 font-medium">
+              <span className="text-[14px]">{icon}</span>{label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── TikTok Mockup ──────────────────────────────────────────────────────────────
+
+function TikTokMockup({ caption, imageUrl, isVideo, status }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string
+}) {
+  return (
+    <div className="relative flex" style={{ background: '#000', aspectRatio: '9/14', overflow: 'hidden' }}>
+      {/* Background image/video */}
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' }}>
+          <ImagePlaceholder isVideo={isVideo} status={status} dark={true} />
+        </div>
+      )}
+      {/* Overlay gradient */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 50%)' }} />
+
+      {/* Right sidebar icons */}
+      <div className="absolute right-2.5 bottom-16 flex flex-col items-center gap-4">
+        <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white flex items-center justify-center text-white text-xs font-bold" style={{ background: '#fe2c55' }}>N</div>
+        {[
+          { icon: '♥', count: '142K' }, { icon: '💬', count: '1.2K' },
+          { icon: '⤴', count: '8.4K' }, { icon: '⊙', count: '' },
+        ].map(({ icon, count }) => (
+          <div key={icon} className="flex flex-col items-center gap-0.5">
+            <span className="text-white text-2xl drop-shadow">{icon}</span>
+            {count && <span className="text-white text-[10px] font-semibold">{count}</span>}
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom caption */}
+      <div className="absolute bottom-0 left-0 right-10 p-3">
+        <div className="text-white text-[12px] font-bold mb-1">@your_brand</div>
+        <p className="text-white text-[11px] leading-relaxed line-clamp-2 drop-shadow">
+          {caption || <span className="text-white/60 italic">Caption will appear here…</span>}
+        </p>
+        <div className="flex items-center gap-1.5 mt-2">
+          <span className="text-white text-[13px] animate-spin" style={{ display: 'inline-block', animationDuration: '3s' }}>♪</span>
+          <span className="text-white text-[10px]">Original Sound · your_brand</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Generic Mockup ─────────────────────────────────────────────────────────────
+
+function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpanded, onExpandToggle }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; platform: string; isExpanded: boolean; onExpandToggle: () => void
+}) {
+  const cfg = getPlatformConfig(platform)
+  const shortCaption = !isExpanded && caption.length > 120 ? caption.slice(0, 120) + '…' : caption
+  return (
+    <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+          style={{ background: cfg.color }}>N</div>
+        <div>
+          <div className="text-[12px] font-semibold text-gray-900">Your Brand</div>
+          <div className="text-[10px] text-gray-400">2h ago</div>
+        </div>
+      </div>
+      <div className="px-3 pb-2 text-[12px] text-gray-800 leading-relaxed">
+        {shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}
+        {caption.length > 120 && (
+          <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">{isExpanded ? 'less' : 'more'}</button>
+        )}
+      </div>
+      <div className="relative w-full" style={{ aspectRatio: '16/9', background: '#f3f3f3', overflow: 'hidden' }}>
+        {imageUrl ? (
+          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
+        )}
+      </div>
+      <div className="flex items-center gap-4 px-3 py-2 text-[11px] text-gray-500">
+        <button className="flex items-center gap-1 hover:text-gray-800">👍 Like</button>
+        <button className="flex items-center gap-1 hover:text-gray-800">💬 Comment</button>
+        <button className="flex items-center gap-1 hover:text-gray-800">↗ Share</button>
+      </div>
+    </div>
+  )
+}
+
+// ── Image Placeholder ──────────────────────────────────────────────────────────
+
+function ImagePlaceholder({ isVideo, status, dark }: { isVideo: boolean; status: string; dark: boolean }) {
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+      style={{ background: dark ? 'transparent' : '#f9f9f9' }}>
+      <div className="w-12 h-12 rounded-full flex items-center justify-center"
+        style={{ background: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }}>
+        <span className="text-2xl">{isVideo ? '🎬' : '🖼'}</span>
+      </div>
+      <span className="text-xs font-medium" style={{ color: dark ? 'rgba(255,255,255,0.5)' : '#9ca3af' }}>
+        {status === 'GENERATING' ? (
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+            Generating…
+          </span>
+        ) : isVideo ? 'Upload your video' : status === 'PENDING' ? 'Image will be generated' : 'No image yet'}
+      </span>
+    </div>
   )
 }
