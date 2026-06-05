@@ -25,12 +25,36 @@ type Params = { params: { id: string } }
 // ── Platform distribution helpers ─────────────────────────────────────────────
 
 const PLATFORM_LABELS: Record<string, string> = {
-  META: 'Facebook',
-  INSTAGRAM: 'Instagram',
-  LINKEDIN: 'LinkedIn',
-  TIKTOK: 'TikTok',
-  X: 'X (Twitter)',
-  TWITTER: 'X (Twitter)',
+  META:      'Facebook / Instagram',
+  LINKEDIN:  'LinkedIn',
+  TIKTOK:    'TikTok',
+  YOUTUBE:   'YouTube',
+}
+
+/**
+ * Map any user-facing platform string to a valid IntegrationType enum value.
+ * The Prisma enum only knows: META | LINKEDIN | TIKTOK | YOUTUBE | GOOGLE | STRIPE | CLOUDINARY | SLACK
+ * Instagram, Facebook, Twitter, X, Snapchat, Pinterest all collapse to META.
+ */
+function toIntegrationType(raw: string): string {
+  const map: Record<string, string> = {
+    INSTAGRAM: 'META',
+    FACEBOOK:  'META',
+    TWITTER:   'META',
+    X:         'META',
+    SNAPCHAT:  'META',
+    PINTEREST: 'META',
+    REELS:     'META',
+    STORIES:   'META',
+    THREADS:   'META',
+    LINKEDIN:  'LINKEDIN',
+    TIKTOK:    'TIKTOK',
+    YOUTUBE:   'YOUTUBE',
+    YOUTUBE_SHORTS: 'YOUTUBE',
+    META:      'META',
+    GOOGLE:    'GOOGLE',
+  }
+  return map[raw.toUpperCase()] ?? 'META'
 }
 
 /** Distribute N posts across an array of platforms as evenly as possible */
@@ -44,15 +68,15 @@ function distributePosts(
   const slots: Array<{ platform: string; isVideoPost: boolean; index: number }> = []
   let idx = 0
 
-  // Interleave posts across platforms
+  // Interleave posts across platforms — normalize to valid IntegrationType
   for (let i = 0; i < totalPosts; i++) {
-    const platform = platforms[i % platforms.length].toUpperCase()
+    const platform = toIntegrationType(platforms[i % platforms.length])
     slots.push({ platform, isVideoPost: false, index: idx++ })
   }
 
-  // Distribute video slots (spread across platforms too)
+  // Distribute video slots — normalize to valid IntegrationType
   for (let i = 0; i < totalVideoSlots; i++) {
-    const platform = platforms[i % platforms.length].toUpperCase()
+    const platform = toIntegrationType(platforms[i % platforms.length])
     slots.push({ platform, isVideoPost: true, index: idx++ })
   }
 
