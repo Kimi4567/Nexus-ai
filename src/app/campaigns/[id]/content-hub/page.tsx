@@ -53,6 +53,11 @@ interface Campaign {
   platforms: string[]
 }
 
+interface BrandProfile {
+  brandName: string | null
+  logoUrl: string | null
+}
+
 // ── Platform config ────────────────────────────────────────────────────────────
 
 const PLATFORM_CONFIG: Record<string, {
@@ -133,6 +138,7 @@ export default function ContentHubPage() {
   const { t } = useI18n()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>({ brandName: null, logoUrl: null })
   const [posts, setPosts] = useState<ContentPost[]>([])
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
@@ -175,6 +181,18 @@ export default function ContentHubPage() {
       if (mRes.ok) {
         const mData = await mRes.json()
         setMediaLibrary(mData.media ?? mData.items ?? [])
+      }
+
+      // Load brand profile (for name + logo in mockups)
+      const bRes = await fetch('/api/brand', { headers: { Authorization: authHeader() } })
+      if (bRes.ok) {
+        const bData = await bRes.json()
+        if (bData.brandProfile) {
+          setBrandProfile({
+            brandName: bData.brandProfile.brandName ?? null,
+            logoUrl: bData.brandProfile.logoUrl ?? null,
+          })
+        }
       }
     } catch (err: any) {
       setError(err.message)
@@ -557,6 +575,8 @@ export default function ContentHubPage() {
                   post={post}
                   pendingEdit={getPendingEdit(post.id)}
                   mediaLibrary={mediaLibrary}
+                  brandName={brandProfile.brandName ?? campaign?.name ?? 'your_brand'}
+                  brandLogo={brandProfile.logoUrl ?? null}
                   isExpanded={expandedPost === post.id}
                   isEditingCaption={editingCaption === post.id}
                   isEditingPrompt={editingPrompt === post.id}
@@ -679,6 +699,8 @@ interface PostCardProps {
   post: ContentPost
   pendingEdit: Partial<ContentPost>
   mediaLibrary: MediaItem[]
+  brandName: string
+  brandLogo: string | null
   isExpanded: boolean
   isEditingCaption: boolean
   isEditingPrompt: boolean
@@ -696,6 +718,8 @@ interface PostCardProps {
 function PostCard({
   post,
   pendingEdit,
+  brandName,
+  brandLogo,
   isExpanded,
   isEditingCaption,
   onToggleExpand,
@@ -743,16 +767,16 @@ function PostCard({
 
       {/* ── Platform Mockup ──────────────── */}
       {(platform === 'META' || platform === 'FACEBOOK' || platform === 'INSTAGRAM') && (
-        <InstagramMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} isExpanded={isExpanded} onExpandToggle={onToggleExpand} />
+        <InstagramMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} isExpanded={isExpanded} onExpandToggle={onToggleExpand} brandName={brandName} brandLogo={brandLogo} />
       )}
       {platform === 'LINKEDIN' && (
-        <LinkedInMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} isExpanded={isExpanded} onExpandToggle={onToggleExpand} />
+        <LinkedInMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} isExpanded={isExpanded} onExpandToggle={onToggleExpand} brandName={brandName} brandLogo={brandLogo} />
       )}
       {platform === 'TIKTOK' && (
-        <TikTokMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} />
+        <TikTokMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} brandName={brandName} brandLogo={brandLogo} />
       )}
       {!['META','FACEBOOK','INSTAGRAM','LINKEDIN','TIKTOK'].includes(platform) && (
-        <GenericMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} platform={platform} isExpanded={isExpanded} onExpandToggle={onToggleExpand} />
+        <GenericMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} platform={platform} isExpanded={isExpanded} onExpandToggle={onToggleExpand} brandName={brandName} brandLogo={brandLogo} />
       )}
 
       {/* ── Edit caption overlay ─────────── */}
@@ -794,21 +818,45 @@ function PostCard({
   )
 }
 
+// ── Brand Avatar helper ────────────────────────────────────────────────────────
+
+function BrandAvatar({ brandName, brandLogo, size = 32, gradientBg, rounded = 'full' }: {
+  brandName: string; brandLogo: string | null; size?: number; gradientBg?: string; rounded?: 'full' | 'lg'
+}) {
+  const initial = (brandName || 'B').charAt(0).toUpperCase()
+  const bg = gradientBg ?? 'linear-gradient(135deg,#7c3aed,#6d28d9)'
+  const radius = rounded === 'full' ? '9999px' : '8px'
+  if (brandLogo) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden', flexShrink: 0 }}>
+        <img src={brandLogo} alt={brandName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      </div>
+    )
+  }
+  return (
+    <div style={{ width: size, height: size, borderRadius: radius, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: size * 0.38, fontWeight: 700, flexShrink: 0 }}>
+      {initial}
+    </div>
+  )
+}
+
 // ── Instagram Mockup ───────────────────────────────────────────────────────────
 
-function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle }: {
-  caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void
+function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle, brandName, brandLogo }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void; brandName: string; brandLogo: string | null
 }) {
+  const handle = brandName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
   const shortCaption = !isExpanded && caption.length > 100 ? caption.slice(0, 100) + '…' : caption
   return (
     <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       {/* Profile row */}
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)' }}>N</div>
+          <div style={{ padding: '2px', borderRadius: '9999px', background: 'linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4)' }}>
+            <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={30} />
+          </div>
           <div>
-            <div className="text-[12px] font-semibold text-gray-900 leading-tight">your_brand</div>
+            <div className="text-[12px] font-semibold text-gray-900 leading-tight">{handle}</div>
             <div className="text-[10px] text-gray-500">Sponsored</div>
           </div>
         </div>
@@ -821,7 +869,7 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
       {/* Image — 1:1 square */}
       <div className="relative w-full" style={{ aspectRatio: '1/1', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
@@ -839,7 +887,7 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
         </div>
         <div className="text-[12px] font-semibold text-gray-900 mb-1">1,234 likes</div>
         <div className="text-[12px] text-gray-900 leading-relaxed">
-          <span className="font-semibold">your_brand</span>{' '}
+          <span className="font-semibold">{handle}</span>{' '}
           <span className="text-gray-800">{shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}</span>
           {caption.length > 100 && (
             <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">
@@ -856,8 +904,8 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
 
 // ── LinkedIn Mockup ────────────────────────────────────────────────────────────
 
-function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle }: {
-  caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void
+function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle, brandName, brandLogo }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void; brandName: string; brandLogo: string | null
 }) {
   const shortCaption = !isExpanded && caption.length > 140 ? caption.slice(0, 140) + '…' : caption
   return (
@@ -865,10 +913,9 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
       {/* Profile */}
       <div className="flex items-start justify-between px-3 py-3">
         <div className="flex items-start gap-2.5">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-            style={{ background: '#0A66C2' }}>N</div>
+          <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={40} gradientBg="#0A66C2" />
           <div>
-            <div className="text-[13px] font-semibold text-gray-900 leading-tight">Your Brand</div>
+            <div className="text-[13px] font-semibold text-gray-900 leading-tight">{brandName}</div>
             <div className="text-[11px] text-gray-500 leading-tight">Marketing · Company</div>
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-[11px] text-gray-400">2h</span>
@@ -890,10 +937,10 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
         )}
       </div>
 
-      {/* Image — 4:5 */}
+      {/* Image — 4:3 */}
       <div className="relative w-full" style={{ aspectRatio: '4/3', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
@@ -922,9 +969,10 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
 
 // ── TikTok Mockup ──────────────────────────────────────────────────────────────
 
-function TikTokMockup({ caption, imageUrl, isVideo, status }: {
-  caption: string; imageUrl: string | null; isVideo: boolean; status: string
+function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; brandName: string; brandLogo: string | null
 }) {
+  const handle = '@' + brandName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
   return (
     <div className="relative flex" style={{ background: '#000', aspectRatio: '9/14', overflow: 'hidden' }}>
       {/* Background image/video */}
@@ -940,7 +988,9 @@ function TikTokMockup({ caption, imageUrl, isVideo, status }: {
 
       {/* Right sidebar icons */}
       <div className="absolute right-2.5 bottom-16 flex flex-col items-center gap-4">
-        <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white flex items-center justify-center text-white text-xs font-bold" style={{ background: '#fe2c55' }}>N</div>
+        <div style={{ width: 36, height: 36, borderRadius: '9999px', border: '2px solid white', overflow: 'hidden', flexShrink: 0 }}>
+          <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={36} gradientBg="#fe2c55" />
+        </div>
         {[
           { icon: '♥', count: '142K' }, { icon: '💬', count: '1.2K' },
           { icon: '⤴', count: '8.4K' }, { icon: '⊙', count: '' },
@@ -954,13 +1004,13 @@ function TikTokMockup({ caption, imageUrl, isVideo, status }: {
 
       {/* Bottom caption */}
       <div className="absolute bottom-0 left-0 right-10 p-3">
-        <div className="text-white text-[12px] font-bold mb-1">@your_brand</div>
+        <div className="text-white text-[12px] font-bold mb-1">{handle}</div>
         <p className="text-white text-[11px] leading-relaxed line-clamp-2 drop-shadow">
           {caption || <span className="text-white/60 italic">Caption will appear here…</span>}
         </p>
         <div className="flex items-center gap-1.5 mt-2">
           <span className="text-white text-[13px] animate-spin" style={{ display: 'inline-block', animationDuration: '3s' }}>♪</span>
-          <span className="text-white text-[10px]">Original Sound · your_brand</span>
+          <span className="text-white text-[10px]">Original Sound · {handle}</span>
         </div>
       </div>
     </div>
@@ -969,18 +1019,17 @@ function TikTokMockup({ caption, imageUrl, isVideo, status }: {
 
 // ── Generic Mockup ─────────────────────────────────────────────────────────────
 
-function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpanded, onExpandToggle }: {
-  caption: string; imageUrl: string | null; isVideo: boolean; status: string; platform: string; isExpanded: boolean; onExpandToggle: () => void
+function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpanded, onExpandToggle, brandName, brandLogo }: {
+  caption: string; imageUrl: string | null; isVideo: boolean; status: string; platform: string; isExpanded: boolean; onExpandToggle: () => void; brandName: string; brandLogo: string | null
 }) {
   const cfg = getPlatformConfig(platform)
   const shortCaption = !isExpanded && caption.length > 120 ? caption.slice(0, 120) + '…' : caption
   return (
     <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-          style={{ background: cfg.color }}>N</div>
+        <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={32} gradientBg={cfg.color} />
         <div>
-          <div className="text-[12px] font-semibold text-gray-900">Your Brand</div>
+          <div className="text-[12px] font-semibold text-gray-900">{brandName}</div>
           <div className="text-[10px] text-gray-400">2h ago</div>
         </div>
       </div>
@@ -992,7 +1041,7 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
       </div>
       <div className="relative w-full" style={{ aspectRatio: '16/9', background: '#f3f3f3', overflow: 'hidden' }}>
         {imageUrl ? (
-          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+          <img src={imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
           <ImagePlaceholder isVideo={isVideo} status={status} dark={false} />
         )}
