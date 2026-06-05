@@ -28,23 +28,67 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-    // Move all DRAFT posts → SCHEDULED
-    const result = await prisma.socialPost.updateMany({
+    // FL2A: Build platform → integration map so the publish cron has credentials
+    // Exclude non-social integrations; prefer first connected one per platform type
+    const connectedIntegrations = await prisma.integration.findMany({
+      where: {
+        workspaceId: campaign.workspaceId,
+        status: 'CONNECTED' as any,
+        type: { notIn: ['STRIPE', 'CLOUDINARY', 'GOOGLE', 'SLACK'] as any[] },
+      },
+      select: { id: true, type: true, config: true, accountId: true },
+    })
+
+    // Map: IntegrationType → { integrationId, pageId }
+    const integrationMap: Record<string, { integrationId: string; pageId: string | null }> = {}
+    for (const intg of connectedIntegrations) {
+      const key = String(intg.type)
+      if (integrationMap[key]) continue // keep first
+      const pages: any[] = (intg.config as any)?.pages ?? []
+      const pageId: string | null = pages[0]?.id ?? intg.accountId ?? null
+      integrationMap[key] = { integrationId: intg.id, pageId }
+    }
+
+    // Load draft posts so we can assign per-platform integration
+    const draftPosts = await (prisma.socialPost as any).findMany({
       where: {
         campaignId: params.id,
         workspaceId: campaign.workspaceId,
         status: 'DRAFT',
         publishedAt: null,
       },
-      data: {
-        status: 'SCHEDULED',
-      },
+      select: { id: true, platform: true },
     })
+
+    if (draftPosts.length === 0) {
+      return NextResponse.json({ success: true, approved: 0, message: 'No draft posts to approve' })
+    }
+
+    // Update each post: DRAFT → SCHEDULED + assign integrationId where available
+    let approved = 0
+    for (const post of draftPosts) {
+      const platformKey = String(post.platform)
+      const match = integrationMap[platformKey]
+
+      await (prisma.socialPost as any).update({
+        where: { id: post.id },
+        data: {
+          status: 'SCHEDULED',
+          ...(match ? { integrationId: match.integrationId, pageId: match.pageId } : {}),
+        },
+      })
+      approved++
+    }
+
+    const linked  = draftPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length
+    const unlinked = approved - linked
 
     return NextResponse.json({
       success: true,
-      approved: result.count,
-      message: `${result.count} posts scheduled for publishing`,
+      approved,
+      linked,
+      unlinked,
+      message: `${approved} posts scheduled${linked > 0 ? ` (${linked} linked to connected platforms)` : ''}`,
     })
   } catch (err: any) {
     console.error('[approve-content-plan POST]', err)
