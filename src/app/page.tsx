@@ -871,19 +871,19 @@ export default function LandingPage() {
                 className="text-[42px] sm:text-[58px] lg:text-[70px] font-extrabold leading-[1.04] tracking-[-3px] mb-6">
                 {ar ? (
                   <>
-                    من brief فارغ<br />
+                    أخيراً —<br />
                     <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                      لشهر محتوى
+                      ذكاء يعرف علامتك
                     </span>
-                    <br />في جلسة واحدة.
+                    <br />ويسوّق عنك.
                   </>
                 ) : (
                   <>
-                    From blank brief<br />
+                    Finally —<br />
                     <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                      to a month of content
+                      an AI that knows your brand
                     </span>
-                    <br />in one session.
+                    <br />and markets for you.
                   </>
                 )}
               </motion.h1>
@@ -891,8 +891,8 @@ export default function LandingPage() {
               <motion.p initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.45, duration:0.6 }}
                 className="text-[17px] sm:text-[20px] text-slate-400 leading-relaxed max-w-[620px] mb-9">
                 {ar
-                  ? 'NEXUS يتذكر علامتك التجارية، يبني استراتيجية كاملة بالـ AI، يولد 30 بوست جاهزة للنشر، وينشر أوتوماتيك على Facebook وLinkedIn وTikTok.'
-                  : 'NEXUS remembers your brand, builds a full AI strategy, generates 30 publish-ready posts, and auto-publishes to Facebook, LinkedIn, and TikTok.'}
+                  ? 'NEXUS يحفظ هوية علامتك التجارية، يضع الاستراتيجية، ويُنتج المحتوى — وينشره تلقائياً على Facebook وLinkedIn وTikTok.'
+                  : 'NEXUS learns your brand identity, builds your strategy, and produces your content — then publishes it automatically to Facebook, LinkedIn, and TikTok.'}
               </motion.p>
 
               <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.65, duration:0.5 }}
