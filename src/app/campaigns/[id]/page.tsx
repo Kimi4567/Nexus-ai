@@ -168,6 +168,9 @@ export default function CampaignDetailPage() {
   const [autopilotError, setAutopilotError] = useState('')
   const [autopilotPausing, setAutopilotPausing] = useState(false)
 
+  // VEX Ad Setup expand/collapse
+  const [adSetupOpen, setAdSetupOpen] = useState(false)
+
   // Performance / ROI Dashboard (Tab 6)
   const [perfData, setPerfData] = useState<any>(null)
   const [perfLoading, setPerfLoading] = useState(false)
@@ -1862,64 +1865,139 @@ export default function CampaignDetailPage() {
                   </details>
                 )}
 
-                {/* VEX Ad Setup Plan — collapsible advanced */}
-                {adSetupPlan && (
-                  <details className="group">
-                    <summary className="flex items-center gap-2 cursor-pointer select-none list-none rounded-xl p-3 transition-colors hover:bg-blue-500/5"
-                      style={{ border: '1px solid rgba(59,130,246,0.2)' }}>
-                      <span>📡</span>
-                      <span className="text-sm font-semibold text-blue-400">{cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</span>
-                      <span className="text-xs text-gray-600 ml-1">{cdT?.advanced || 'Advanced'}</span>
-                      <span className="ml-auto text-gray-600 text-xs group-open:rotate-180 transition-transform duration-200">▾</span>
-                    </summary>
-                    <div className="mt-2 rounded-xl p-4" style={{ background: 'rgba(59,130,246,0.03)', border: '1px solid rgba(59,130,246,0.12)' }}>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
-                        {[
-                          { label: cdT?.adTestBudget || 'Test Budget', value: adSetupPlan.testBudget },
-                          { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
-                          { label: cdT?.adAbTest || 'A/B Test Plan', value: adSetupPlan.abTestPlan },
-                          { label: cdT?.adLandingPath || 'Landing Path', value: adSetupPlan.landingPath },
-                          { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
-                        ].filter(item => item.value).map((item, i) => (
-                          <div key={i} className="bg-dark rounded-lg p-2.5 border border-dark-tertiary">
-                            <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
-                            <p className="text-xs text-gray-200 leading-snug">{item.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {adSetupPlan.targeting && (
-                        <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
-                          <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
-                        </div>
-                      )}
-                      {adSetupPlan.adCopyAngles?.length > 0 && (
-                        <div className="mb-2">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">Ad Copy Angles</p>
-                          <div className="space-y-1">
-                            {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
-                              <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
-                                <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
+                {/* VEX Ad Setup Plan — React-state collapsible */}
+                {(() => {
+                  const hasAdContent = adSetupPlan && (
+                    adSetupPlan.testBudget || adSetupPlan.duration || adSetupPlan.targeting ||
+                    adSetupPlan.abTestPlan || adSetupPlan.landingPath || adSetupPlan.trackingRequired ||
+                    adSetupPlan.adCopyAngles?.length > 0 || adSetupPlan.notReadyIf?.length > 0 ||
+                    adSetupPlan.objective || adSetupPlan.platformPriority?.length > 0
+                  )
+                  return (
+                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.2)' }}>
+                      {/* Header — always clickable */}
+                      <button
+                        type="button"
+                        onClick={() => setAdSetupOpen(v => !v)}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-blue-500/5"
+                        style={{ background: 'transparent' }}
+                      >
+                        <span>📡</span>
+                        <span className="text-sm font-semibold text-blue-400">{cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</span>
+                        <span className="text-xs text-gray-600 ml-1">{cdT?.advanced || 'Advanced'}</span>
+                        <span className="ml-auto text-gray-500 text-sm transition-transform duration-200" style={{ transform: adSetupOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                      </button>
+
+                      {/* Body */}
+                      {adSetupOpen && (
+                        <div className="px-4 pb-4 pt-1" style={{ background: 'rgba(59,130,246,0.03)', borderTop: '1px solid rgba(59,130,246,0.1)' }}>
+                          {!hasAdContent ? (
+                            /* Empty state — campaign was generated before adSetupPlan schema */
+                            <div className="flex flex-col items-center gap-3 py-6 text-center">
+                              <span className="text-3xl">📡</span>
+                              <p className="text-sm text-gray-400 max-w-xs">
+                                {locale === 'ar' ? 'خطة الإعلانات غير متاحة لهذه الحملة. أعد تشغيل الاستراتيجية للحصول على خطة إعلانية كاملة.' : 'Ad setup plan not available for this campaign. Regenerate the strategy to get a full ad plan.'}
+                              </p>
+                              <button
+                                type="button"
+                                disabled={engineRunning}
+                                onClick={() => handleRunEngine(true)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+                                style={{ background: 'linear-gradient(135deg,#3B82F6,#6366F1)' }}
+                              >
+                                {engineRunning ? (locale === 'ar' ? 'جارٍ التشغيل...' : 'Running...') : (locale === 'ar' ? '🔄 أعد تشغيل الاستراتيجية' : '🔄 Regenerate Strategy')}
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Quick stat chips */}
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3 mt-2">
+                                {[
+                                  { label: cdT?.adTestBudget || 'Test Budget', value: adSetupPlan.testBudget },
+                                  { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
+                                  { label: cdT?.adAbTest || 'A/B Test Plan', value: adSetupPlan.abTestPlan },
+                                  { label: cdT?.adLandingPath || 'Landing Path', value: adSetupPlan.landingPath },
+                                  { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
+                                  { label: 'Objective', value: adSetupPlan.objective },
+                                ].filter(item => item.value).map((item, i) => (
+                                  <div key={i} className="bg-dark rounded-lg p-2.5 border border-dark-tertiary">
+                                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
+                                    <p className="text-xs text-gray-200 leading-snug">{item.value}</p>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {adSetupPlan.notReadyIf?.length > 0 && (
-                        <div className="rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}>
-                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.adNotReadyIf || 'Do not launch ads if'}</p>
-                          <ul className="space-y-0.5">
-                            {adSetupPlan.notReadyIf.map((item: string, i: number) => (
-                              <li key={i} className="text-xs text-amber-300/70 flex items-start gap-1.5">
-                                <span className="flex-shrink-0">⚠</span>{item}
-                              </li>
-                            ))}
-                          </ul>
+
+                              {/* Platform priority */}
+                              {adSetupPlan.platformPriority?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                  {adSetupPlan.platformPriority.map((p: string, i: number) => (
+                                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full text-blue-300" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                      #{i + 1} {p}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Targeting */}
+                              {adSetupPlan.targeting && (
+                                <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
+                                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
+                                  <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
+                                </div>
+                              )}
+
+                              {/* Exclusions */}
+                              {adSetupPlan.exclusions && (
+                                <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
+                                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Exclusions</p>
+                                  <p className="text-sm text-gray-300">{adSetupPlan.exclusions}</p>
+                                </div>
+                              )}
+
+                              {/* Ad Copy Angles */}
+                              {adSetupPlan.adCopyAngles?.length > 0 && (
+                                <div className="mb-2">
+                                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">Ad Copy Angles</p>
+                                  <div className="space-y-1">
+                                    {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
+                                      <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
+                                        <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Creative formats */}
+                              {adSetupPlan.creativeFormats?.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mb-3">
+                                  <p className="w-full text-xs text-gray-500 uppercase tracking-wide mb-1">Creative Formats</p>
+                                  {adSetupPlan.creativeFormats.map((f: string, i: number) => (
+                                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full text-purple-300" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>{f}</span>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Do not launch if */}
+                              {adSetupPlan.notReadyIf?.length > 0 && (
+                                <div className="rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                                  <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.adNotReadyIf || 'Do not launch ads if'}</p>
+                                  <ul className="space-y-0.5">
+                                    {adSetupPlan.notReadyIf.map((item: string, i: number) => (
+                                      <li key={i} className="text-xs text-amber-300/70 flex items-start gap-1.5">
+                                        <span className="flex-shrink-0">⚠</span>{item}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
-                  </details>
-                )}
+                  )
+                })()}
               </div>
             )}
 
