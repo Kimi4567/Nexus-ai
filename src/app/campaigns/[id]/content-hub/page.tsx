@@ -37,6 +37,7 @@ interface ContentPost {
   uploadedMediaId: string | null
   contentPlanIndex: number
   scheduledAt: string | null
+  status: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
 }
 
 interface MediaItem {
@@ -145,6 +146,8 @@ export default function ContentHubPage() {
   const [pendingEdits, setPendingEdits] = useState<Record<string, Partial<ContentPost>>>({})
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [approving, setApproving] = useState(false)
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // ── Load data ────────────────────────────────────────────────────────────────
@@ -290,6 +293,29 @@ export default function ContentHubPage() {
     }
   }
 
+  // ── Approve all posts → scheduled ────────────────────────────────────────────
+
+  async function approveAll() {
+    if (!isAuthenticated) return
+    setApproving(true)
+    setShowApproveConfirm(false)
+    setError(null)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/approve-content-plan`, {
+        method: 'POST',
+        headers: { Authorization: authHeader() },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Approval failed')
+      setSuccessMsg(`✅ ${data.approved} posts approved and scheduled for auto-publishing`)
+      await loadData()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setApproving(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   if (authLoading || loading) {
@@ -334,6 +360,40 @@ export default function ContentHubPage() {
           <div className="flex items-center gap-3 flex-wrap">
             {posts.length > 0 && (
               <>
+                {/* Approve All — primary CTA when posts exist */}
+                {posts.filter(p => p.status === 'DRAFT').length > 0 ? (
+                  <button
+                    onClick={() => setShowApproveConfirm(true)}
+                    disabled={approving}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    style={{
+                      background: 'linear-gradient(135deg, #059669, #047857)',
+                      color: 'white',
+                      opacity: approving ? 0.6 : 1,
+                    }}
+                  >
+                    {approving ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        Approving...
+                      </>
+                    ) : (
+                      <>
+                        ✓ Approve All &amp; Schedule
+                        <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
+                          {posts.filter(p => p.status === 'DRAFT').length}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+                    style={{ background: 'rgba(5,150,105,0.1)', color: '#34d399', border: '1px solid rgba(5,150,105,0.2)' }}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
+                    All posts scheduled
+                  </div>
+                )}
+
                 <button
                   onClick={generateAllImages}
                   disabled={generating || posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length === 0}
@@ -351,7 +411,7 @@ export default function ContentHubPage() {
                     </>
                   ) : (
                     <>
-                      ✨ Generate All Images
+                      ✨ Generate Images
                       {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length > 0 && (
                         <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
                           {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length}
@@ -514,6 +574,49 @@ export default function ContentHubPage() {
                   }))}
                 />
               ))}
+          </div>
+        )}
+
+        {/* ── Approve All confirm dialog ───────────────────────────────── */}
+        {showApproveConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.75)' }}
+            onClick={() => setShowApproveConfirm(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
+              style={{ background: '#1a1625', border: '1px solid rgba(5,150,105,0.3)' }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4"
+                style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.2)' }}>
+                📅
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Approve &amp; Schedule all posts?</h3>
+              <p className="text-sm text-gray-400 mb-1">
+                This will mark all <span className="text-white font-semibold">{posts.filter(p => p.status === 'DRAFT').length} draft posts</span> as scheduled.
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Posts will auto-publish at their scheduled times. You can still edit captions before they go live.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowApproveConfirm(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border transition-all"
+                  style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={approveAll}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                >
+                  ✓ Yes, Schedule All
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
