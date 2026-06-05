@@ -125,6 +125,7 @@ model Workspace {
   agentRuns     AgentRun[]
   agentSuggestions AgentSuggestion[]
   agentReports  AgentReport[]
+  paidPacks     PaidCampaignPack[]
 
   // Settings
   settings      Json?      // branding, integrations, etc.
@@ -331,6 +332,9 @@ model Campaign {
   // Autopilot
   autopilotEnabled   Boolean   @default(false)
   autopilotActivatedAt DateTime?
+
+  // Paid Campaign Pack (one per campaign)
+  paidPack      PaidCampaignPack?
 
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -1034,6 +1038,81 @@ model GeneratedVisual {
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+
+  @@index([workspaceId])
+  @@index([campaignId])
+  @@index([status])
+}
+
+// ============================================================================
+// PAID CAMPAIGN PACK
+// ============================================================================
+// Stores everything needed to launch a paid campaign on any platform.
+// Designed so the same data model maps 1:1 to Meta/Google/TikTok Marketing APIs
+// — when API approvals arrive, we just add the API call on top of this model.
+
+enum PaidPackStatus {
+  DRAFT
+  GENERATED
+  LAUNCHED
+  COMPLETED
+}
+
+enum PaidObjective {
+  AWARENESS     // Brand awareness, reach
+  TRAFFIC       // Link clicks, website visits
+  CONVERSIONS   // Purchases, sign-ups, form fills
+  LEADS         // Lead gen forms
+  ENGAGEMENT    // Post engagement, video views
+}
+
+model PaidCampaignPack {
+  id          String   @id @default(cuid())
+  campaignId  String   @unique
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // Campaign Setup
+  objective        PaidObjective  @default(TRAFFIC)
+  platforms        String[]       @default([])  // ["meta", "google", "tiktok", "linkedin"]
+  dailyBudget      Float?         // USD
+  totalBudget      Float?         // USD
+  durationDays     Int            @default(7)
+  startDate        DateTime?
+  currency         String         @default("USD")
+
+  // AI-Generated Content
+  audienceBrief    Json?   // { meta: {...}, google: {...}, tiktok: {...}, linkedin: {...} }
+  copyVariants     Json?   // [ { id, label, primaryText, headline, description, cta, platform } ]
+  estimatedReach   Json?   // { meta: { min, max }, tiktok: { min, max }, ... }
+  utmParams        Json?   // { source, medium, campaign, content, term, fullUrl }
+  platformGuides   Json?   // { meta: [...steps], google: [...steps], tiktok: [...steps] }
+  budgetInsights   Json?   // { recommendation, splitSuggestion, competitorBenchmark }
+
+  // Selected Assets
+  creativeAssetUrls String[] @default([])  // Cloudinary URLs from Media Library
+  primaryCopyId     String?  // which copyVariant is currently selected
+
+  // Status Tracking
+  status           PaidPackStatus @default(DRAFT)
+  launchedAt       DateTime?
+  launchNotes      String?   @db.Text  // user notes when marking as launched
+  completedAt      DateTime?
+
+  // Performance (manually entered or GA4)
+  metrics          Json?   // { impressions, reach, clicks, ctr, cpc, cpm, spend, conversions, roas }
+  metricsSource    String? // "manual" | "ga4" | "meta_api"
+  metricsUpdatedAt DateTime?
+
+  // Brand Brain Learning
+  learnings        Json?   // { winningHooks[], winningAudiences{}, bestPlatform, failedAngles[], insights }
+  brandBrainUpdated Boolean @default(false)
+  brandBrainUpdatedAt DateTime?
+
+  generatedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([campaignId])
