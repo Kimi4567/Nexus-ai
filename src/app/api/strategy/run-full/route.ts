@@ -129,8 +129,8 @@ export async function POST(req: NextRequest) {
     // Run full orchestration (reuses existing orchestrator unchanged)
     const result = await runFullAgency(workspace.id, brief)
 
-    // Fetch the newly-created campaign name for the success UI
-    const campaign = result.errors.length === 0
+    // Always fetch the latest campaign — strategy success matters, not content director warnings
+    const campaign = result.strategyCreated
       ? await (prisma as any).campaign.findFirst({
           where: { workspaceId: workspace.id },
           orderBy: { createdAt: 'desc' },
@@ -138,8 +138,10 @@ export async function POST(req: NextRequest) {
         })
       : null
 
+    const success = result.strategyCreated && !!campaign?.id
+
     return NextResponse.json({
-      ok: result.errors.length === 0,
+      ok: success,
       agentRunId: result.agentRunId,
       campaignId: campaign?.id ?? null,
       campaignName: campaign?.name ?? null,

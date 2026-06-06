@@ -110,13 +110,16 @@ export async function runFullAgency(
       planTier: brief.planTier,
     }
     // Content Director — wrapped in try/catch so strategy saves even if content fails
+    // NOTE: content director failures are NON-CRITICAL — strategy + campaign still saves
     let content: ContentDirectorOutput
     try {
       content = await runContentDirectorAgent(contentInput)
       contentCreated = true
     } catch (contentErr: unknown) {
       const contentMsg = contentErr instanceof Error ? contentErr.message : 'Content Director failed'
-      errors.push(`ContentDirector: ${contentMsg}`)
+      // Use console.warn (not errors.push) — content failure is a warning, not a fatal error
+      // Pushing to errors would cause strategy/run-full to return campaignId=null
+      console.warn('[Orchestrator] ContentDirector failed (non-critical):', contentMsg)
       // Graceful fallback — use strategy hooks/pillars as minimal content output
       content = {
         contentPillars: strategy.contentPillars || [],
