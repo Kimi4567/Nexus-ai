@@ -42,15 +42,21 @@ export async function runFullAgency(
   let contentCreated = false
   let suggestionsCount = 0
 
-  const agentRun = await db.agentRun.create({
-    data: {
-      workspaceId,
-      agent: 'STRATEGIST',
-      status: 'RUNNING',
-      triggeredBy: 'user',
-      inputData: brief,
-    },
-  })
+  // AgentRun is non-critical — wrap so it never blocks strategy generation
+  let agentRun: { id: string } = { id: 'local-' + Date.now() }
+  try {
+    agentRun = await db.agentRun.create({
+      data: {
+        workspaceId,
+        agent: 'STRATEGIST',
+        status: 'RUNNING',
+        triggeredBy: 'user',
+        inputData: brief,
+      },
+    })
+  } catch (agentRunErr) {
+    console.warn('[Orchestrator] agentRun.create failed (non-critical):', agentRunErr)
+  }
 
   try {
     // 0. Resolve user plan tier from workspace owner
