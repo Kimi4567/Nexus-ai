@@ -574,7 +574,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </div>
 
             {result.campaignId ? (
-              <Link href={`/campaigns/${result.campaignId}`} onClick={onClose}
+              <Link href={`/campaigns/${result.campaignId}?tab=strategy`} onClick={onClose}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
                 <Rocket className="w-4 h-4" />
                 {rs.successCampaign}
