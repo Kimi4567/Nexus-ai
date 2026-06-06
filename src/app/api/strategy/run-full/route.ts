@@ -126,10 +126,10 @@ export async function POST(req: NextRequest) {
       ) || undefined,
     }
 
-    // Run full orchestration (reuses existing orchestrator unchanged)
+    // Run full orchestration
     const result = await runFullAgency(workspace.id, brief)
 
-    // Always fetch the latest campaign — strategy success matters, not content director warnings
+    // Fetch the newly-created campaign
     const campaign = result.strategyCreated
       ? await (prisma as any).campaign.findFirst({
           where: { workspaceId: workspace.id },
@@ -140,14 +140,29 @@ export async function POST(req: NextRequest) {
 
     const success = result.strategyCreated && !!campaign?.id
 
+    // ── Credit refund on complete failure ──────────────────────────────────
+    // If strategy itself failed (no campaign created), refund the credits
+    if (!success && credit.creditsUsed > 0) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { aiCredits: { increment: credit.creditsUsed } },
+        })
+        console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${user.id}`)
+      } catch (refundErr) {
+        console.error('[strategy/run-full] Credit refund failed:', refundErr)
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     return NextResponse.json({
       ok: success,
       agentRunId: result.agentRunId,
       campaignId: campaign?.id ?? null,
       campaignName: campaign?.name ?? null,
       suggestions: result.suggestions,
-      creditsRemaining: credit.creditsRemaining,
-      creditsUsed: credit.creditsUsed,
+      creditsRemaining: success ? credit.creditsRemaining : credit.creditsRemaining + credit.creditsUsed,
+      creditsUsed: success ? credit.creditsUsed : 0,
       errors: result.errors,
     })
   } catch (err: any) {

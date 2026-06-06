@@ -95,41 +95,19 @@ export async function runFullAgency(
     const strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language)
     strategyCreated = true
 
-    // 3. Content Director agent — pass full brand context
-    const contentInput: ContentDirectorInput = {
-      strategy,
-      brandName: brandProfile?.brandName || brief.companyName,
-      brandTone: brandProfile?.toneKeywords.length ? brandProfile.toneKeywords : ['modern', 'professional'],
-      avoidKeywords: brandProfile?.avoidKeywords || [],
-      writingStyle: brandProfile?.writingStyle || 'direct and engaging',
-      competitors: brandProfile?.competitorNotes || undefined,
-      region: brandProfile?.audienceLocation || undefined,
-      painPoints: brandProfile?.audiencePainPoints?.length ? brandProfile.audiencePainPoints : undefined,
-      winningHooks: brandProfile?.winningHooks?.length ? brandProfile.winningHooks.slice(0, 3) : undefined,
-      language: brief.language,
-      planTier: brief.planTier,
+    // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
+    //    Strategy-only run: campaign is created from strategy output.
+    //    Content plan is generated separately via /api/campaigns/[id]/generate-content-plan
+    //    which the user can trigger from the Content Hub.
+    const content: ContentDirectorOutput = {
+      contentPillars: strategy.contentPillars || [],
+      calendar: [],
+      topHooks: (strategy as any).topHooks || [],
+      ctaVariations: (strategy as any).ctaVariations || [],
+      scriptTemplate: '',
+      captionFormulas: [],
     }
-    // Content Director — wrapped in try/catch so strategy saves even if content fails
-    // NOTE: content director failures are NON-CRITICAL — strategy + campaign still saves
-    let content: ContentDirectorOutput
-    try {
-      content = await runContentDirectorAgent(contentInput)
-      contentCreated = true
-    } catch (contentErr: unknown) {
-      const contentMsg = contentErr instanceof Error ? contentErr.message : 'Content Director failed'
-      // Use console.warn (not errors.push) — content failure is a warning, not a fatal error
-      // Pushing to errors would cause strategy/run-full to return campaignId=null
-      console.warn('[Orchestrator] ContentDirector failed (non-critical):', contentMsg)
-      // Graceful fallback — use strategy hooks/pillars as minimal content output
-      content = {
-        contentPillars: strategy.contentPillars || [],
-        calendar: [],
-        topHooks: (strategy as any).topHooks || [],
-        ctaVariations: (strategy as any).ctaVariations || [],
-        scriptTemplate: '',
-        captionFormulas: [],
-      }
-    }
+    contentCreated = true  // Content Director runs separately — mark as ok
 
     // 4. Find or create project
     let project = await db.project.findFirst({
