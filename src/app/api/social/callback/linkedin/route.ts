@@ -8,6 +8,8 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 
+export const maxDuration = 30
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
@@ -16,9 +18,11 @@ export async function GET(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-  // User denied access
+  // User denied access or LinkedIn-side error
   if (errorParam) {
-    return NextResponse.redirect(`${baseUrl}/connections?social=denied`)
+    const desc = searchParams.get('error_description') || errorParam
+    console.error('[LinkedIn OAuth] Error from LinkedIn:', errorParam, desc)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(desc.slice(0, 120))}`)
   }
 
   if (!code || !state) {
@@ -40,22 +44,29 @@ export async function GET(req: NextRequest) {
   const redirectUri  = `${baseUrl}/api/social/callback/linkedin`
 
   // ── Exchange code for access token ────────────────────────────────────────
-  const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type:    'authorization_code',
-      code,
-      redirect_uri:  redirectUri,
-      client_id:     clientId,
-      client_secret: clientSecret,
-    }),
-  })
-  const tokenData = await tokenRes.json()
+  let tokenData: any
+  try {
+    const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'authorization_code',
+        code,
+        redirect_uri:  redirectUri,
+        client_id:     clientId,
+        client_secret: clientSecret,
+      }),
+    })
+    tokenData = await tokenRes.json()
+  } catch (fetchErr) {
+    console.error('[LinkedIn OAuth] Token fetch network error:', fetchErr)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=network_error`)
+  }
 
   if (!tokenData.access_token) {
+    const errMsg = tokenData.error_description || tokenData.error || 'token_exchange'
     console.error('[LinkedIn OAuth] Token exchange failed:', tokenData)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
   }
 
   const accessToken = tokenData.access_token as string
@@ -65,14 +76,21 @@ export async function GET(req: NextRequest) {
     : null
 
   // ── Fetch member profile via OIDC userinfo ────────────────────────────────
-  const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  const profile = await profileRes.json()
+  let profile: any = {}
+  try {
+    const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    profile = await profileRes.json()
+  } catch (fetchErr) {
+    console.error('[LinkedIn OAuth] Profile fetch network error:', fetchErr)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
+  }
 
   if (!profile.sub) {
+    const errMsg = profile.message || profile.error || 'profile_fetch'
     console.error('[LinkedIn OAuth] Profile fetch failed:', profile)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
   }
 
   const personId   = profile.sub as string          // LinkedIn member URN id

@@ -171,6 +171,7 @@ export default function ContentHubPage() {
   const [enableABTesting, setEnableABTesting] = useState(false)
   const [pickingWinner, setPickingWinner] = useState<string | null>(null)
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED'>('ALL')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // ── Load data ────────────────────────────────────────────────────────────────
@@ -237,9 +238,15 @@ export default function ContentHubPage() {
 
   // ── Helpers ───────────────────────────────────────────────────────────────────
 
-  const filteredPosts = activePlatform === 'ALL'
-    ? posts
-    : posts.filter(p => p.platform.toUpperCase() === activePlatform)
+  const filteredPosts = posts
+    .filter(p => activePlatform === 'ALL' || p.platform.toUpperCase() === activePlatform)
+    .filter(p => {
+      if (statusFilter === 'ALL') return true
+      if (statusFilter === 'PENDING') return p.generationStatus === 'PENDING' || p.generationStatus === 'AWAITING_UPLOAD'
+      if (statusFilter === 'DONE') return p.generationStatus === 'DONE'
+      if (statusFilter === 'SCHEDULED') return p.status === 'SCHEDULED'
+      return true
+    })
 
   const platforms = ['ALL', ...Array.from(new Set(posts.map(p => p.platform.toUpperCase())))]
 
@@ -668,42 +675,64 @@ export default function ContentHubPage() {
           </div>
         )}
 
-        {/* ── Platform filter tabs ───────────────────────────────────── */}
+        {/* ── Filter bar (sticky) ──────────────────────────────────── */}
         {posts.length > 0 && (
-          <div className="flex gap-2 mb-6 flex-wrap">
-            {platforms.map(p => {
-              const cfg = p === 'ALL' ? null : getPlatformConfig(p)
-              const count = p === 'ALL' ? posts.length : posts.filter(post => post.platform.toUpperCase() === p).length
-              const isActive = activePlatform === p
-              return (
-                <button
-                  key={p}
-                  onClick={() => setActivePlatform(p as Platform)}
-                  className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5"
-                  style={{
-                    background: isActive
-                      ? (cfg ? cfg.color : 'rgba(139,92,246,0.8)')
-                      : 'rgba(255,255,255,0.05)',
-                    color: isActive ? '#fff' : '#9ca3af',
-                    border: isActive
-                      ? `1px solid ${cfg ? cfg.color : '#7c3aed'}`
-                      : '1px solid rgba(255,255,255,0.08)',
-                  }}
-                >
-                  {cfg && <span>{cfg.icon}</span>}
-                  {p === 'ALL' ? 'All Platforms' : (cfg?.label ?? p)}
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded-full"
+          <div className="sticky top-0 z-10 mb-5 -mx-6 px-6 py-3"
+            style={{ background: 'rgba(13,10,25,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            {/* Platform tabs */}
+            <div className="flex gap-2 flex-wrap mb-2.5">
+              {platforms.map(p => {
+                const cfg = p === 'ALL' ? null : getPlatformConfig(p)
+                const count = p === 'ALL' ? posts.length : posts.filter(post => post.platform.toUpperCase() === p).length
+                const isActive = activePlatform === p
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setActivePlatform(p as Platform)}
+                    className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5"
                     style={{
-                      background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
-                      color: isActive ? '#fff' : '#6b7280',
+                      background: isActive ? (cfg ? cfg.color : 'rgba(139,92,246,0.8)') : 'rgba(255,255,255,0.05)',
+                      color: isActive ? '#fff' : '#9ca3af',
+                      border: isActive ? `1px solid ${cfg ? cfg.color : '#7c3aed'}` : '1px solid rgba(255,255,255,0.08)',
                     }}
                   >
-                    {count}
-                  </span>
+                    {cfg && <span>{cfg.icon}</span>}
+                    {p === 'ALL' ? 'All Platforms' : (cfg?.label ?? p)}
+                    <span className="text-xs px-1.5 py-0.5 rounded-full"
+                      style={{ background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)', color: isActive ? '#fff' : '#6b7280' }}>
+                      {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {/* Status filter */}
+            <div className="flex gap-1.5 items-center">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 mr-1">Status</span>
+              {(['ALL', 'PENDING', 'DONE', 'SCHEDULED'] as const).map(s => {
+                const isActive = statusFilter === s
+                const label = s === 'ALL' ? 'All' : s === 'PENDING' ? 'Pending' : s === 'DONE' ? '✓ Ready' : '🗓 Scheduled'
+                const activeColor = s === 'DONE' ? '#10b981' : s === 'PENDING' ? '#f59e0b' : s === 'SCHEDULED' ? '#6366f1' : '#7c3aed'
+                return (
+                  <button key={s} onClick={() => setStatusFilter(s)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: isActive ? `${activeColor}22` : 'rgba(255,255,255,0.03)',
+                      color: isActive ? activeColor : '#6b7280',
+                      border: isActive ? `1px solid ${activeColor}44` : '1px solid rgba(255,255,255,0.06)',
+                    }}>
+                    {label}
+                  </button>
+                )
+              })}
+              {(activePlatform !== 'ALL' || statusFilter !== 'ALL') && (
+                <button onClick={() => { setActivePlatform('ALL'); setStatusFilter('ALL') }}
+                  className="px-2 py-1 rounded-lg text-xs text-gray-600 hover:text-gray-400 transition-all ml-1"
+                  style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  ✕ Clear
                 </button>
-              )
-            })}
+              )}
+            </div>
           </div>
         )}
 
@@ -793,30 +822,44 @@ export default function ContentHubPage() {
             />
           )
 
+          // Pre-group: consecutive singles share a grid row; A/B pairs break out full-width
+          type RenderGroup =
+            | { type: 'singles'; posts: ContentPost[] }
+            | { type: 'ab'; a: ContentPost; b: ContentPost; groupKey: string }
+          const groups: RenderGroup[] = []
+          let singlesBuffer: ContentPost[] = []
+          for (const item of items) {
+            if (item.type === 'single') {
+              singlesBuffer.push(item.post)
+            } else {
+              if (singlesBuffer.length) { groups.push({ type: 'singles', posts: singlesBuffer }); singlesBuffer = [] }
+              groups.push({ type: 'ab', a: item.a, b: item.b, groupKey: `ab-${item.a.variantGroup ?? item.a.id}` })
+            }
+          }
+          if (singlesBuffer.length) groups.push({ type: 'singles', posts: singlesBuffer })
+
           return (
             <div className="space-y-4">
-              {items.map((item, idx) => {
-                if (item.type === 'single') {
+              {groups.map((group) => {
+                if (group.type === 'singles') {
                   return (
-                    <div key={item.post.id} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                      {renderCard(item.post)}
+                    <div key={`singles-${group.posts[0].id}`} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {group.posts.map(p => renderCard(p))}
                     </div>
                   )
                 }
-                // A/B pair
+                // A/B pair — full-width container
                 return (
-                  <div key={`ab-${item.a.variantGroup ?? idx}`} className="rounded-2xl overflow-hidden"
+                  <div key={group.groupKey} className="rounded-2xl overflow-hidden"
                     style={{ border: '1px solid rgba(234,179,8,0.25)', background: 'rgba(234,179,8,0.02)' }}>
-                    {/* A/B header */}
                     <div className="flex items-center gap-2 px-4 py-2.5"
                       style={{ background: 'rgba(234,179,8,0.06)', borderBottom: '1px solid rgba(234,179,8,0.15)' }}>
                       <span className="text-sm font-semibold" style={{ color: '#fbbf24' }}>⚡ A/B Test</span>
                       <span className="text-xs text-gray-500">· Compare both variants and pick the winner</span>
                     </div>
-                    {/* Side-by-side cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-                      {renderCard(item.a)}
-                      {renderCard(item.b)}
+                      {renderCard(group.a)}
+                      {renderCard(group.b)}
                     </div>
                   </div>
                 )
@@ -1295,21 +1338,27 @@ function PostCard({
             : <>✨ Rewrite</>
           }
         </button>
-        {/* Generate AI image — per-card on-demand */}
-        <button
-          onClick={onGenerateImage}
-          disabled={isGeneratingImage}
-          className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
-          style={{
-            borderColor: 'rgba(255,255,255,0.06)',
-            color: isGeneratingImage ? '#a78bfa' : '#8b5cf6',
-          }}
-        >
-          {isGeneratingImage
-            ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>
-            : <>🎨 Gen</>
-          }
-        </button>
+        {/* Generate AI image (disabled for TikTok — needs real video) */}
+        {platform === 'TIKTOK' ? (
+          <button onClick={onOpenMediaPicker}
+            className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
+            style={{ borderColor: 'rgba(255,255,255,0.06)', color: '#f472b6' }}
+            title="TikTok requires real video — upload yours">
+            📹 Vid
+          </button>
+        ) : (
+          <button
+            onClick={onGenerateImage}
+            disabled={isGeneratingImage}
+            className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
+            style={{ borderColor: 'rgba(255,255,255,0.06)', color: isGeneratingImage ? '#a78bfa' : '#8b5cf6' }}
+          >
+            {isGeneratingImage
+              ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>
+              : <>🎨 Gen</>
+            }
+          </button>
+        )}
         {onPickWinner ? (
           /* A/B test: replace "Image" button with "Pick Winner" */
           <button

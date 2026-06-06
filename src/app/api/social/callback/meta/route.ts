@@ -3,17 +3,22 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { encryptToken } from '@/lib/tokenCrypto'
 
+export const maxDuration = 30
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
+  const errorDescription = searchParams.get('error_description')
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-  // Handle user denial
+  // Handle user denial or Meta-side error
   if (errorParam) {
-    return NextResponse.redirect(`${baseUrl}/connections?social=denied`)
+    const desc = errorDescription ? encodeURIComponent(errorDescription.slice(0, 120)) : errorParam
+    console.error('[Meta OAuth] Error from Meta:', errorParam, errorDescription)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${desc}`)
   }
 
   if (!code || !state) {
@@ -38,41 +43,59 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${baseUrl}/api/social/callback/meta`
 
   // Exchange code for access token
-  const tokenRes = await fetch(
-    `https://graph.facebook.com/v19.0/oauth/access_token` +
-    `?client_id=${appId}` +
-    `&client_secret=${appSecret}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&code=${code}`
-  )
-  const tokenData = await tokenRes.json()
+  let tokenData: any
+  try {
+    const tokenRes = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token` +
+      `?client_id=${appId}` +
+      `&client_secret=${appSecret}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&code=${code}`
+    )
+    tokenData = await tokenRes.json()
+  } catch (fetchErr) {
+    console.error('[Meta OAuth] Token fetch network error:', fetchErr)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=network_error`)
+  }
 
   if (tokenData.error || !tokenData.access_token) {
+    const errMsg = tokenData.error?.message || tokenData.error?.type || 'token_exchange'
     console.error('[Meta OAuth] Token exchange failed:', tokenData)
-    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=token_exchange`)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=${encodeURIComponent(errMsg.slice(0, 120))}`)
   }
 
   const shortToken = tokenData.access_token
 
   // Exchange for long-lived token (60 days)
-  const longTokenRes = await fetch(
-    `https://graph.facebook.com/v19.0/oauth/access_token` +
-    `?grant_type=fb_exchange_token` +
-    `&client_id=${appId}` +
-    `&client_secret=${appSecret}` +
-    `&fb_exchange_token=${shortToken}`
-  )
-  const longTokenData = await longTokenRes.json()
-  const longToken = longTokenData.access_token || shortToken
+  let longToken = shortToken
+  try {
+    const longTokenRes = await fetch(
+      `https://graph.facebook.com/v21.0/oauth/access_token` +
+      `?grant_type=fb_exchange_token` +
+      `&client_id=${appId}` +
+      `&client_secret=${appSecret}` +
+      `&fb_exchange_token=${shortToken}`
+    )
+    const longTokenData = await longTokenRes.json()
+    longToken = longTokenData.access_token || shortToken
+  } catch {
+    console.warn('[Meta OAuth] Long-lived token exchange failed — using short-lived token')
+  }
 
   // Fetch user profile + pages
-  const [meRes, pagesRes] = await Promise.all([
-    fetch(`https://graph.facebook.com/v19.0/me?fields=id,name,picture&access_token=${longToken}`),
-    fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longToken}`),
-  ])
-
-  const me = await meRes.json()
-  const pagesData = await pagesRes.json()
+  let me: any = {}
+  let pagesData: any = { data: [] }
+  try {
+    const [meRes, pagesRes] = await Promise.all([
+      fetch(`https://graph.facebook.com/v21.0/me?fields=id,name,picture&access_token=${longToken}`),
+      fetch(`https://graph.facebook.com/v21.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longToken}`),
+    ])
+    me = await meRes.json()
+    pagesData = await pagesRes.json()
+  } catch (fetchErr) {
+    console.error('[Meta OAuth] Profile fetch network error:', fetchErr)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=profile_fetch_failed`)
+  }
 
   const pages = (pagesData.data || []).map((p: any) => ({
     id: p.id,

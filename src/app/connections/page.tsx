@@ -185,13 +185,36 @@ export default function ConnectionsPage() {
       window.history.replaceState({}, '', '/connections')
       setTimeout(() => setMessage(null), 5000)
     } else if (social === 'error') {
-      const msg = params.get('msg') || t('connections.errorUnknown') as string
+      const rawMsg = params.get('msg') || ''
+      // Translate known OAuth error codes into human-readable messages
+      const ERROR_MAP_AR: Record<string, string> = {
+        'token_exchange':     'فشل في الحصول على رمز الوصول. تأكد من إعدادات التطبيق في Meta Developer.',
+        'profile_fetch':      'فشل جلب بيانات الملف الشخصي. حاول مرة أخرى.',
+        'profile_fetch_failed':'فشل جلب بيانات الملف الشخصي. حاول مرة أخرى.',
+        'network_error':      'خطأ في الشبكة. تحقق من الاتصال وحاول مجدداً.',
+        'invalid_state':      'انتهت صلاحية الطلب. حاول الربط من جديد.',
+        'missing_params':     'معلمات OAuth ناقصة. حاول الربط من جديد.',
+        'db_error':           'خطأ في حفظ بيانات الربط. حاول مرة أخرى.',
+        'stale':              'انتهت صلاحية الجلسة. حاول الربط من جديد.',
+      }
+      const ERROR_MAP_EN: Record<string, string> = {
+        'token_exchange':     'Failed to get access token. Check your Meta App configuration.',
+        'profile_fetch':      'Failed to fetch profile data. Please try again.',
+        'profile_fetch_failed':'Failed to fetch profile data. Please try again.',
+        'network_error':      'Network error. Check your connection and try again.',
+        'invalid_state':      'Request expired. Please try connecting again.',
+        'missing_params':     'Missing OAuth parameters. Please try connecting again.',
+        'db_error':           'Error saving connection data. Please try again.',
+        'stale':              'Session expired. Please try connecting again.',
+      }
+      const errorMap = locale === 'ar' ? ERROR_MAP_AR : ERROR_MAP_EN
+      const msg = errorMap[rawMsg] || (rawMsg ? decodeURIComponent(rawMsg) : t('connections.errorUnknown') as string)
       setMessage({
         type: 'error',
-        text: (t('connections.errorConnect') as string).replace('{msg}', msg),
+        text: msg,
       })
       window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 8000)
+      setTimeout(() => setMessage(null), 10000)
     } else if (social === 'denied') {
       setMessage({ type: 'error', text: t('connections.errorDenied') as string })
       window.history.replaceState({}, '', '/connections')

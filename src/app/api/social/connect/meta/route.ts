@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     ].join(',')
 
     const metaOAuthUrl =
-      `https://www.facebook.com/v19.0/dialog/oauth` +
+      `https://www.facebook.com/v21.0/dialog/oauth` +
       `?client_id=${appId}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&scope=${encodeURIComponent(scopes)}` +
