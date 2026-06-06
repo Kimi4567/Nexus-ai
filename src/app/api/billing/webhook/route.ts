@@ -23,7 +23,7 @@ import Stripe from 'stripe'
 
 /** Credits allocated by plan name */
 function creditsForPlan(plan: string): number {
-  return PLAN_CREDITS[plan.toLowerCase()] ?? 15
+  return PLAN_CREDITS[plan.toLowerCase()] ?? 10
 }
 
 /** Upsert Subscription row + update User row atomically */

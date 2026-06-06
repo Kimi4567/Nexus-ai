@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ensureDbUser, getServerUserId } from '@/lib/apiAuth'
+import { PLAN_CAMPAIGN_LIMIT } from '@/lib/stripe'
 import type { Platform } from '@prisma/client'
 
 // Map display names → Prisma Platform enum values
@@ -72,6 +73,36 @@ export async function POST(req: NextRequest) {
     const { name, goal, audience, tone, platforms, description, aiOutput } = body
 
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
+
+    // ── Enforce campaign limit per plan ──────────────────────────────────────
+    // Check both user status and subscription plan for accurate limit
+    const [dbUser, subscription] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { subscriptionStatus: true } }),
+      (prisma as any).subscription.findUnique({ where: { userId }, select: { plan: true, status: true } }),
+    ])
+    const status = dbUser?.subscriptionStatus || 'FREE'
+    // Derive plan: use subscription.plan if ACTIVE, else fall back to status
+    const planKey = (
+      subscription?.status === 'ACTIVE' && subscription?.plan
+        ? subscription.plan
+        : status
+    ).toUpperCase()
+    const limit = PLAN_CAMPAIGN_LIMIT[planKey] ?? PLAN_CAMPAIGN_LIMIT['FREE']
+
+    if (limit !== 999) {
+      const workspace = await prisma.workspace.findFirst({ where: { ownerId: userId }, select: { id: true } })
+      if (workspace) {
+        const existing = await prisma.campaign.count({ where: { workspaceId: workspace.id } })
+        if (existing >= limit) {
+          return NextResponse.json({
+            error: 'CAMPAIGN_LIMIT_REACHED',
+            message: `Your plan allows up to ${limit} campaign${limit === 1 ? '' : 's'}. Upgrade to create more.`,
+            upgradeUrl: '/billing',
+          }, { status: 402 })
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const ids = await getOrCreateDefaultProject(userId, userEmail)
     if (!ids) return NextResponse.json({ error: 'Could not create workspace' }, { status: 500 })

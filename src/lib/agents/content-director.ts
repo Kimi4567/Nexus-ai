@@ -226,7 +226,11 @@ Return JSON with exactly these fields:
   ]
 }`
 
-  const output = await callOpenAI(systemPrompt, userPrompt) as ContentDirectorOutput
+  // Dynamic max_tokens based on plan quota:
+  // Each post needs ~150 tokens of JSON + ~800 for hooks/CTAs/script/pillars
+  // Free=3posts→1250, Starter=10posts→2300, Growth=25posts→4550, Agency=60posts→8000
+  const maxOutputTokens = Math.min(8000, Math.max(2500, planLimits.postsPerMonth * 150 + 800))
+  const output = await callOpenAI(systemPrompt, userPrompt, maxOutputTokens) as ContentDirectorOutput
   checkAndLog('content-director', JSON.stringify(output), {
     brandName: input.brandName,
     targetAudience: input.strategy.targetAudienceRefined,

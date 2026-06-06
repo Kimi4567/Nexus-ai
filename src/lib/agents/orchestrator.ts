@@ -7,7 +7,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { runStrategistAgent, BusinessBrief, StrategyOutput } from './strategist'
-import { runContentDirectorAgent, ContentDirectorInput } from './content-director'
+import { runContentDirectorAgent, ContentDirectorInput, ContentDirectorOutput } from './content-director'
 import {
   runCampaignManagerAgent,
   buildMetricsFromCampaign,
@@ -109,8 +109,24 @@ export async function runFullAgency(
       language: brief.language,
       planTier: brief.planTier,
     }
-    const content = await runContentDirectorAgent(contentInput)
-    contentCreated = true
+    // Content Director — wrapped in try/catch so strategy saves even if content fails
+    let content: ContentDirectorOutput
+    try {
+      content = await runContentDirectorAgent(contentInput)
+      contentCreated = true
+    } catch (contentErr: unknown) {
+      const contentMsg = contentErr instanceof Error ? contentErr.message : 'Content Director failed'
+      errors.push(`ContentDirector: ${contentMsg}`)
+      // Graceful fallback — use strategy hooks/pillars as minimal content output
+      content = {
+        contentPillars: strategy.contentPillars || [],
+        calendar: [],
+        topHooks: (strategy as any).topHooks || [],
+        ctaVariations: (strategy as any).ctaVariations || [],
+        scriptTemplate: '',
+        captionFormulas: [],
+      }
+    }
 
     // 4. Find or create project
     let project = await db.project.findFirst({
