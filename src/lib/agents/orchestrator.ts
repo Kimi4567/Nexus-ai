@@ -54,11 +54,12 @@ export async function runFullAgency(
 
   try {
     // 0. Resolve user plan tier from workspace owner
+    // NOTE: User model uses 'subscriptionStatus' not 'plan'
     const workspace = await db.workspace.findUnique({
       where: { id: workspaceId },
-      select: { owner: { select: { plan: true } } },
+      select: { owner: { select: { subscriptionStatus: true } } },
     })
-    const planTier = (workspace?.owner?.plan || 'starter').toLowerCase()
+    const planTier = (workspace?.owner?.subscriptionStatus || 'starter').toLowerCase()
 
     // Inject plan tier into brief so agents can scale output depth
     if (!brief.planTier) {
