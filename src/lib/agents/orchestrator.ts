@@ -127,22 +127,49 @@ export async function runFullAgency(
     }
 
     // 5. Create campaign
+    // ── Null-safe field extraction ────────────────────────────────────────────
+    const campaignName = strategy.campaignName
+      || strategy.goal
+      || `${brief.companyName} Campaign`
+
+    const campaignDesc = strategy.positioning
+      || (strategy as any).keyMessage
+      || (strategy as any).positioningStatement
+      || ''
+
+    const campaignAudience = strategy.targetAudienceRefined
+      || (strategy as any).targetAudience
+      || brief.targetAudience
+      || 'General audience'
+
+    const rawPlatforms = Array.isArray(strategy.channelMix)
+      ? strategy.channelMix.map((c: any) => c?.platform || c || '').filter(Boolean)
+      : []
+
+    console.log('[Orchestrator] Creating campaign:', {
+      name: campaignName,
+      goal: strategy.goal,
+      platforms: rawPlatforms,
+      hasAudience: !!campaignAudience,
+    })
+    // ─────────────────────────────────────────────────────────────────────────
+
     const campaign = await db.campaign.create({
       data: {
         workspaceId,
         projectId: project.id,
-        name: strategy.campaignName || `${brief.companyName} — ${strategy.goal}`,
-        description: strategy.positioning,
+        name: campaignName,
+        description: campaignDesc,
         goal: mapGoal(strategy.goal),
-        audience: strategy.targetAudienceRefined,
+        audience: campaignAudience,
         tone: 'MODERN',
-        platforms: mapPlatforms(strategy.channelMix.map((c: { platform: string }) => c.platform)),
+        platforms: mapPlatforms(rawPlatforms),
         status: 'DRAFT',
         aiOutput: {
           strategy,
           contentCalendar: content.calendar,
-          topHooks: content.topHooks?.length ? content.topHooks : strategy.topHooks || [],
-          ctaVariations: content.ctaVariations?.length ? content.ctaVariations : strategy.ctaVariations || [],
+          topHooks: content.topHooks?.length ? content.topHooks : (strategy as any).topHooks || [],
+          ctaVariations: content.ctaVariations?.length ? content.ctaVariations : (strategy as any).ctaVariations || [],
           captionFormulas: content.captionFormulas || [],
           scriptTemplate: content.scriptTemplate || '',
           contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
@@ -207,11 +234,13 @@ export async function runFullAgency(
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error'
+    // Log full error stack so Vercel logs show the real failure point
+    console.error('[Orchestrator] runFullAgency FAILED:', message, err)
     errors.push(message)
     await db.agentRun.update({
       where: { id: agentRun.id },
       data: { status: 'FAILED', error: message, completedAt: new Date() },
-    })
+    }).catch(() => {})  // Don't let agentRun update failure mask the real error
   }
 
   return { agentRunId: agentRun.id, strategyCreated, contentCreated, suggestions: suggestionsCount, errors }
