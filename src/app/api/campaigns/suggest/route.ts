@@ -123,6 +123,10 @@ Rules:
     const prompt = prompts[field]
     if (!prompt) return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
 
+    // Add variation tag so the AI always produces a fresh result
+    const variationTag = `[Variation ${Math.floor(Math.random() * 9999)}]`
+    const freshPrompt = `${prompt}\n\n${variationTag}`
+
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -133,17 +137,20 @@ Rules:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt },
+          { role: 'user', content: freshPrompt },
         ],
         max_tokens: 200,
-        temperature: 0.5,  // Analytical — was 0.75
+        temperature: 0.85,  // High enough for real variety on repeated clicks
       }),
     })
 
     const completion = await res.json()
     const suggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
 
-    return NextResponse.json({ suggestion })
+    // Prevent any edge caching
+    return NextResponse.json({ suggestion }, {
+      headers: { 'Cache-Control': 'no-store' },
+    })
   } catch (error) {
     console.error('POST /api/campaigns/suggest error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

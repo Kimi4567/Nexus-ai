@@ -129,6 +129,17 @@ export default function DashboardPage() {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
   const [suggestionsKey, setSuggestionsKey] = useState(0)
+
+  // Auto-open RunFullStrategy modal when redirected from Brand Brain (?runStrategy=1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('runStrategy') === '1') {
+      setRunStrategyOpen(true)
+      // Clean up URL so back-button doesn't re-trigger
+      router.replace('/dashboard', { scroll: false })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
   const [brandCardDismissed, setBrandCardDismissed] = useState(false)
