@@ -359,7 +359,7 @@ function BrandSummaryCard({
 
         {/* CTA footer */}
         <div className="px-6 pb-6 flex items-center gap-3">
-          <a href="/campaigns/new"
+          <a href="/dashboard?runStrategy=1"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
             style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#0a0a0a', boxShadow: '0 0 30px rgba(245,158,11,0.25)' }}>
             <Rocket size={15}/> {t('brand.summaryCtaLabel')}

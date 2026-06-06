@@ -1417,8 +1417,26 @@ export default function CampaignDetailPage() {
                   </div>
                 )}
 
+                {/* ══ TOP HOOKS — Copyable scroll-stopping lines ══════════════ */}
+                {topHooks.length > 0 && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                      <span>🎯</span> {cdT?.sectionTopHooks || 'Top Hooks'}
+                    </h3>
+                    <div className="space-y-2">
+                      {topHooks.slice(0, 6).map((hook: string, i: number) => (
+                        <div key={i} className="flex items-start gap-3 rounded-xl p-3 border border-dark-tertiary hover:border-accent/30 transition-colors" style={{ background: 'rgba(139,92,246,0.03)' }}>
+                          <span className="text-[10px] font-black text-accent/50 mt-0.5 w-4 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                          <p className="text-gray-200 text-sm flex-1 leading-snug">{hook}</p>
+                          <CopyBtn text={hook} label={cdT?.copyBtn || 'Copy'} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* ══ CHAPTER 03 — EXECUTION PLAN ══════════════════════════════ */}
-                {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.contentPillars?.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection) && (
+                {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.contentPillars?.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
                   <div className="flex items-center gap-3 mt-1">
                     <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>03</span>
                     <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
@@ -1604,6 +1622,80 @@ export default function CampaignDetailPage() {
                       <span>🎨</span> {cdT?.sectionVisualDirection || 'Visual Direction'}
                     </h3>
                     <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
+                  </div>
+                )}
+
+                {/* ══ WEEKLY EXECUTION PLAN ════════════════════════════════════ */}
+                {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                      <span>📅</span> {cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}
+                    </h3>
+                    {weeklyExecutionPlan.length > 0 ? (
+                      <div className="space-y-3">
+                        {weeklyExecutionPlan.map((w: any) => (
+                          <div key={w.week} className="rounded-xl overflow-hidden border border-dark-tertiary">
+                            {/* Week header */}
+                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)' }}>
+                              <span className="text-[10px] font-black text-accent">W{w.week}</span>
+                              <span className="text-sm font-semibold text-white flex-1">{w.objective}</span>
+                              {w.cta && <span className="text-[10px] text-accent font-semibold hidden md:block">{w.cta}</span>}
+                            </div>
+                            {/* Week body */}
+                            <div className="px-4 py-3 space-y-2">
+                              {w.keyMessage && (
+                                <p className="text-xs text-gray-400 italic">"{w.keyMessage}"</p>
+                              )}
+                              {w.deliverables?.length > 0 && (
+                                <ul className="space-y-1">
+                                  {w.deliverables.map((d: string, di: number) => (
+                                    <li key={di} className="flex items-start gap-2 text-xs text-gray-300">
+                                      <span className="text-accent/60 mt-0.5 flex-shrink-0">→</span> {d}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              <div className="flex items-center gap-3 pt-1">
+                                {w.platforms?.length > 0 && (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {w.platforms.map((p: string, pi: number) => (
+                                      <span key={pi} className="text-[10px] bg-dark rounded-md px-2 py-0.5 text-gray-500 border border-dark-tertiary">{p}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                {w.successMetric && (
+                                  <span className="text-[10px] text-green-400 ml-auto">📈 {w.successMetric}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      /* Fallback: simple weeklyPlan array */
+                      <div className="space-y-3">
+                        {weeklyPlan.map((w: any) => (
+                          <div key={w.week} className="rounded-xl overflow-hidden border border-dark-tertiary">
+                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)' }}>
+                              <span className="text-[10px] font-black text-accent">W{w.week}</span>
+                              <span className="text-sm font-semibold text-white flex-1">{w.objective}</span>
+                            </div>
+                            <div className="px-4 py-3 space-y-1">
+                              {w.keyMessage && <p className="text-xs text-gray-400 italic">"{w.keyMessage}"</p>}
+                              {w.deliverables?.length > 0 && (
+                                <ul className="space-y-1">
+                                  {w.deliverables.map((d: string, di: number) => (
+                                    <li key={di} className="flex items-start gap-2 text-xs text-gray-300">
+                                      <span className="text-accent/60 mt-0.5 flex-shrink-0">→</span> {d}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

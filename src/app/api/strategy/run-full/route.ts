@@ -126,6 +126,24 @@ export async function POST(req: NextRequest) {
       ) || undefined,
     }
 
+    // Fetch media context — inject asset awareness into strategy brief
+    try {
+      const mediaItems = await prisma.media.findMany({
+        where: { workspace: { ownerId: user.id } },
+        select: { type: true, fileName: true },
+        take: 100,
+      })
+      if (mediaItems.length > 0) {
+        const imageCount = mediaItems.filter(m => m.type === 'IMAGE').length
+        const videoCount = mediaItems.filter(m => m.type === 'VIDEO').length
+        const parts: string[] = []
+        if (imageCount > 0) parts.push(`${imageCount} image${imageCount !== 1 ? 's' : ''}`)
+        if (videoCount > 0) parts.push(`${videoCount} video${videoCount !== 1 ? 's' : ''}`)
+        ;(brief as Record<string, unknown>).mediaContext =
+          `User has ${parts.join(' and ')} in their media library. Incorporate these existing visual assets into the content strategy — recommend specific usage per platform and content format.`
+      }
+    } catch { /* non-fatal — proceed without media context */ }
+
     // Run full orchestration
     const result = await runFullAgency(workspace.id, brief)
 

@@ -46,6 +46,8 @@ export interface BusinessBrief {
   pastLearnings?: string
   // Subscription tier — controls strategy depth, calendar length, content volume
   planTier?: string
+  // Media library context: describes existing assets the user has uploaded
+  mediaContext?: string
 }
 
 export interface FunnelStrategy {
@@ -355,6 +357,7 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     brief.existingProblems ? `Current Challenges: ${brief.existingProblems}` : '',
     brandContext ? `\nFull Brand Context:\n${brandContext}` : '',
     brief.pastLearnings ? `\n${brief.pastLearnings}` : '',
+    brief.mediaContext ? `\nMEDIA LIBRARY CONTEXT:\n${brief.mediaContext}` : '',
   ].filter(Boolean).join('\n')
 
   const userPrompt = `

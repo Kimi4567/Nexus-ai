@@ -22,7 +22,7 @@ import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '
 import {
   Cpu, BarChart3, Film, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
-  Brain, Globe, AlertCircle, AlertTriangle,
+  Brain, Globe, AlertCircle, AlertTriangle, ImageIcon, Upload,
 } from 'lucide-react'
 
 // -- Types -------------------------------------------------------------------
@@ -42,7 +42,7 @@ interface RunResult {
   currentCredits?: number
 }
 
-type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate'
+type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'media_check'
 
 interface Props {
   isOpen: boolean
@@ -109,6 +109,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // runKey increments on retry to re-trigger the effect while modal stays open
   const [runKey, setRunKey]           = useState(0)
   const [showUpgrade, setShowUpgrade] = useState(false)
+  // Media check state
+  const [mediaImages, setMediaImages] = useState(0)
+  const [mediaVideos, setMediaVideos] = useState(0)
+  // Ref to the "start API call" function — called from Continue button in media_check phase
+  const startStrategyFnRef = useRef<(() => void) | null>(null)
+  // Skip media check on retry (we already showed it once)
+  const skipMediaCheckRef = useRef(false)
 
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
@@ -133,7 +140,81 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
     let cancelled = false
     const timers: ReturnType<typeof setTimeout>[] = []
-    let apiDone = false
+
+    // ── Define the actual strategy run (called from Continue button or retry) ─
+    const startStrategyRun = () => {
+      if (cancelled) return
+      let apiDone = false
+      setPhase('running')
+      setCurrentStep(0)
+
+      let cumulative = 0
+      STEP_DURATIONS.forEach((duration, i) => {
+        cumulative += duration
+        timers.push(
+          setTimeout(() => {
+            if (!cancelled && !apiDone) setCurrentStep(i + 1)
+          }, cumulative)
+        )
+      })
+
+      fetch('/api/strategy/run-full', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeaderRef.current(),
+        },
+        body: JSON.stringify({ language: locale }),
+      })
+        .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
+        .then(({ ok, data: d }) => {
+          if (cancelled) return
+          apiDone = true
+          timers.forEach(clearTimeout)
+
+          // Check both d.error (string) and d.errors (array) — route returns errors array
+          const errorMsg = d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
+
+          if (!ok || errorMsg) {
+            setResult({ ...d, error: errorMsg || d.error })
+            if (errorMsg === 'INSUFFICIENT_CREDITS' || errorMsg === 'CREDITS_EXHAUSTED' || d.error === 'INSUFFICIENT_CREDITS') {
+              setPhase('credits')
+            } else if (d.error === 'NO_BRAND_PROFILE' || d.error === 'NO_WORKSPACE') {
+              setPhase('no_brand')
+            } else {
+              setPhase('error')
+            }
+            return
+          }
+
+          setCurrentStep(5)
+          timers.push(
+            setTimeout(() => {
+              if (!cancelled) {
+                setResult(d)
+                if (!d.campaignId) {
+                  setPhase('no_campaign')
+                } else {
+                  setPhase('success')
+                  onSuccess?.()
+                  // Cache the result so reopening the modal shows success
+                  // immediately instead of re-running the strategy API
+                  saveResultCache(d)
+                }
+              }
+            }, 600)
+          )
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setPhase('error')
+            setResult({ ok: false, error: 'Network error. Please check your connection.' })
+          }
+        })
+    }
+
+    // Store so the Continue button can call it
+    startStrategyFnRef.current = startStrategyRun
 
     // Pre-flight: check Brand Brain readiness before spending credits
     fetch('/api/brand', {
@@ -151,69 +232,31 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           return
         }
 
-        // Brand Brain is ready -- start timers + main API call
-        let cumulative = 0
-        STEP_DURATIONS.forEach((duration, i) => {
-          cumulative += duration
-          timers.push(
-            setTimeout(() => {
-              if (!cancelled && !apiDone) setCurrentStep(i + 1)
-            }, cumulative)
-          )
-        })
+        // Brand Brain ready — check if we should skip media check (e.g. on retry)
+        if (skipMediaCheckRef.current) {
+          skipMediaCheckRef.current = false
+          startStrategyRun()
+          return
+        }
 
-        fetch('/api/strategy/run-full', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authHeaderRef.current(),
-          },
-          body: JSON.stringify({ language: locale }),
+        // Fetch media count to show the media awareness step
+        fetch('/api/media?limit=50', {
+          headers: { Authorization: authHeaderRef.current() },
         })
-          .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
-          .then(({ ok, data: d }) => {
+          .then(r => r.ok ? r.json() : { media: [], pagination: { total: 0 } })
+          .then((mediaData: { media?: Array<{type: string}>; pagination?: { total?: number } }) => {
             if (cancelled) return
-            apiDone = true
-            timers.forEach(clearTimeout)
-
-            // Check both d.error (string) and d.errors (array) — route returns errors array
-            const errorMsg = d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
-
-            if (!ok || errorMsg) {
-              setResult({ ...d, error: errorMsg || d.error })
-              if (errorMsg === 'INSUFFICIENT_CREDITS' || errorMsg === 'CREDITS_EXHAUSTED' || d.error === 'INSUFFICIENT_CREDITS') {
-                setPhase('credits')
-              } else if (d.error === 'NO_BRAND_PROFILE' || d.error === 'NO_WORKSPACE') {
-                setPhase('no_brand')
-              } else {
-                setPhase('error')
-              }
-              return
-            }
-
-            setCurrentStep(5)
-            timers.push(
-              setTimeout(() => {
-                if (!cancelled) {
-                  setResult(d)
-                  if (!d.campaignId) {
-                    setPhase('no_campaign')
-                  } else {
-                    setPhase('success')
-                    onSuccess?.()
-                    // Cache the result so reopening the modal shows success
-                    // immediately instead of re-running the strategy API
-                    saveResultCache(d)
-                  }
-                }
-              }, 600)
-            )
+            const items = mediaData.media ?? []
+            const imgs = items.filter(m => m.type === 'IMAGE').length
+            const vids = items.filter(m => m.type === 'VIDEO').length
+            setMediaImages(imgs)
+            setMediaVideos(vids)
+            setPhase('media_check')
           })
           .catch(() => {
-            if (!cancelled) {
-              setPhase('error')
-              setResult({ ok: false, error: 'Network error. Please check your connection.' })
-            }
+            if (cancelled) return
+            // Media check failed — just proceed directly
+            startStrategyRun()
           })
       })
       .catch(() => {
@@ -226,6 +269,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     return () => {
       cancelled = true
       timers.forEach(clearTimeout)
+      startStrategyFnRef.current = null
     }
   }, [isOpen, runKey]) // runKey increments on retry
 
@@ -250,6 +294,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     setPhase('running')
     setCurrentStep(0)
     setResult(null)
+    skipMediaCheckRef.current = true  // skip media check on retry — user already saw it
     setRunKey(k => k + 1)
   }
 
@@ -317,6 +362,82 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </div>
 
             <p className="text-[10px] text-text-muted mt-4 text-center">{rs.infoUsing}</p>
+          </div>
+        )}
+
+        {/* ========== MEDIA CHECK PHASE ========== */}
+        {phase === 'media_check' && (
+          <div className="p-6">
+            <button onClick={onClose}
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Icon + title */}
+            <div className="text-center mb-5">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                style={{
+                  background: (mediaImages + mediaVideos) > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.1)',
+                  border: `1px solid ${(mediaImages + mediaVideos) > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
+                }}>
+                <ImageIcon className="w-7 h-7" style={{ color: (mediaImages + mediaVideos) > 0 ? '#10B981' : '#8B5CF6' }} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">
+                {(mediaImages + mediaVideos) > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
+              </h2>
+              <p className="text-sm text-text-muted leading-relaxed">
+                {(mediaImages + mediaVideos) > 0 ? rs.mediaCheckDescHas : rs.mediaCheckDescNone}
+              </p>
+            </div>
+
+            {/* Media asset count chips */}
+            {(mediaImages + mediaVideos) > 0 ? (
+              <div className="flex gap-3 justify-center mb-5">
+                {mediaImages > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <ImageIcon className="w-3.5 h-3.5 text-accent-teal" />
+                    <span className="text-sm font-bold text-accent-teal">{mediaImages}</span>
+                    <span className="text-xs text-text-muted">{rs.mediaCheckImages}</span>
+                  </div>
+                )}
+                {mediaVideos > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                    style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <Film className="w-3.5 h-3.5 text-accent-purple" />
+                    <span className="text-sm font-bold text-accent-purple">{mediaVideos}</span>
+                    <span className="text-xs text-text-muted">{rs.mediaCheckVideos}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="rounded-xl p-3 mb-5 flex items-start gap-2.5"
+                style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
+                <p className="text-xs text-text-muted leading-relaxed">
+                  {locale === 'ar'
+                    ? 'الصور والفيديوهات تساعد الاستراتيجية على اقتراح محتوى مرئي أكثر دقة. يمكنك رفعها الآن أو المتابعة بدونها.'
+                    : 'Visual assets help the strategy suggest more precise content formats. You can upload now or continue without them.'}
+                </p>
+              </div>
+            )}
+
+            {/* Actions */}
+            <button
+              onClick={() => { startStrategyFnRef.current?.() }}
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white btn-gradient mb-2 transition-all hover:brightness-110">
+              <Rocket className="w-4 h-4" />
+              {rs.mediaCheckContinue}
+            </button>
+
+            {(mediaImages + mediaVideos) === 0 && (
+              <Link href="/media" onClick={onClose}
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-medium transition-all"
+                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)', color: '#a5a0ff' }}>
+                <Upload className="w-3.5 h-3.5" />
+                {rs.mediaCheckUpload}
+              </Link>
+            )}
           </div>
         )}
 

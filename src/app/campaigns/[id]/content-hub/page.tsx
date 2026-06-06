@@ -170,6 +170,7 @@ export default function ContentHubPage() {
   const [rewritingPost, setRewritingPost] = useState<string | null>(null)
   const [enableABTesting, setEnableABTesting] = useState(false)
   const [pickingWinner, setPickingWinner] = useState<string | null>(null)
+  const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
 
   // ── Load data ────────────────────────────────────────────────────────────────
@@ -408,6 +409,38 @@ export default function ContentHubPage() {
       setError(err.message)
     } finally {
       setRewritingPost(null)
+    }
+  }
+
+  // ── Generate image for a single post ──────────────────────────────────────────
+
+  async function generatePostImage(postId: string, platform: string) {
+    if (!isAuthenticated) return
+    setGeneratingImageId(postId)
+    setError(null)
+    try {
+      const res = await fetch('/api/visuals/generate', {
+        method: 'POST',
+        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId, platform: platform.toUpperCase() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.code === 'INSUFFICIENT_CREDITS') {
+          setError('Not enough credits to generate an image. Upgrade your plan.')
+        } else {
+          throw new Error(data.error ?? 'Image generation failed')
+        }
+        return
+      }
+      const imageUrl = data.visual?.imageUrl
+      if (imageUrl) {
+        await savePostEdit(postId, { imageUrl, generationStatus: 'DONE' })
+      }
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setGeneratingImageId(null)
     }
   }
 
@@ -742,6 +775,8 @@ export default function ContentHubPage() {
               mediaPickerOpen={mediaPickerOpen === post.id}
               isRewriting={rewritingPost === post.id}
               isPickingWinner={pickingWinner === post.id}
+              isGeneratingImage={generatingImageId === post.id}
+              onGenerateImage={() => generatePostImage(post.id, post.platform)}
               onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
               onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
               onEditPrompt={() => setEditingPrompt(editingPrompt === post.id ? null : post.id)}
@@ -1064,6 +1099,8 @@ interface PostCardProps {
   mediaPickerOpen: boolean
   isRewriting: boolean
   isPickingWinner: boolean
+  isGeneratingImage: boolean
+  onGenerateImage: () => Promise<void>
   onToggleExpand: () => void
   onEditCaption: () => void
   onEditPrompt: () => void
@@ -1085,6 +1122,8 @@ function PostCard({
   isEditingCaption,
   isRewriting,
   isPickingWinner,
+  isGeneratingImage,
+  onGenerateImage,
   onToggleExpand,
   onEditCaption,
   onOpenMediaPicker,
@@ -1256,6 +1295,21 @@ function PostCard({
             : <>✨ Rewrite</>
           }
         </button>
+        {/* Generate AI image — per-card on-demand */}
+        <button
+          onClick={onGenerateImage}
+          disabled={isGeneratingImage}
+          className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
+          style={{
+            borderColor: 'rgba(255,255,255,0.06)',
+            color: isGeneratingImage ? '#a78bfa' : '#8b5cf6',
+          }}
+        >
+          {isGeneratingImage
+            ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>
+            : <>🎨 Gen</>
+          }
+        </button>
         {onPickWinner ? (
           /* A/B test: replace "Image" button with "Pick Winner" */
           <button
@@ -1270,7 +1324,7 @@ function PostCard({
           >
             {isPickingWinner
               ? <><span className="w-2.5 h-2.5 border border-yellow-400/40 border-t-yellow-400 rounded-full animate-spin" />Picking…</>
-              : <>🏆 Pick Winner</>
+              : <>🏆 Win</>
             }
           </button>
         ) : (
@@ -1278,7 +1332,7 @@ function PostCard({
             className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l flex items-center justify-center gap-1.5"
             style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
-            {isVideo ? 'Video' : 'Image'}
+            {isVideo ? 'Vid' : 'Img'}
           </button>
         )}
       </div>

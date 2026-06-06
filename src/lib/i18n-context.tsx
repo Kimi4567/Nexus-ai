@@ -1812,6 +1812,15 @@ const translations: Record<Locale, Record<string, any>> = {
       infoUsing: 'يستخدم بيانات Brand Brain الخاصة بك',
       noResultTitle: 'لم تُنشأ حملة',
       noResultDesc: 'تم تشغيل الاستراتيجية لكن لم يُنشأ أي محتوى. حاول مرة أخرى.',
+      mediaCheckTitle: 'لديك أصول مرئية',
+      mediaCheckTitleNoMedia: 'إضافة أصول مرئية؟ (اختياري)',
+      mediaCheckDescHas: 'سيتم استخدام ملفاتك لإثراء استراتيجيتك المرئية.',
+      mediaCheckDescNone: 'يمكنك رفع صور أو فيديوهات لاستخدامها في الاستراتيجية، أو تخطي هذه الخطوة.',
+      mediaCheckImages: 'صورة',
+      mediaCheckVideos: 'فيديو',
+      mediaCheckContinue: 'متابعة وتشغيل الاستراتيجية',
+      mediaCheckUpload: 'رفع ملفات',
+      mediaCheckSkip: 'تخطي وتشغيل',
     },
     brandGate: {
       // Gate titles per action
@@ -3591,6 +3600,15 @@ const translations: Record<Locale, Record<string, any>> = {
       infoUsing: 'Using your Brand Brain data',
       noResultTitle: 'No campaign created',
       noResultDesc: 'The strategy ran but no content was created. Please try again.',
+      mediaCheckTitle: 'You have media assets',
+      mediaCheckTitleNoMedia: 'Add media assets? (optional)',
+      mediaCheckDescHas: 'Your files will enrich your visual strategy.',
+      mediaCheckDescNone: 'Upload photos or videos to inform your strategy, or skip and proceed.',
+      mediaCheckImages: 'images',
+      mediaCheckVideos: 'videos',
+      mediaCheckContinue: 'Continue & Run Strategy',
+      mediaCheckUpload: 'Upload Media',
+      mediaCheckSkip: 'Skip & Run',
     },
     brandGate: {
       // Gate titles per action
