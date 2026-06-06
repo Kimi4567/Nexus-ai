@@ -199,6 +199,9 @@ Rules:
     }
 
     // ── Route to appropriate handler ──────────────────────────────
+    // Variation tag forces a fresh result on every click
+    const variationTag = `[Variation ${Math.floor(Math.random() * 9999)}]`
+
     if (textFieldPrompts[field]) {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -207,15 +210,15 @@ Rules:
           model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: textFieldPrompts[field] },
+            { role: 'user', content: `${textFieldPrompts[field]}\n\n${variationTag}` },
           ],
           max_tokens: 250,
-          temperature: 0.5,  // Analytical — less random, more grounded
+          temperature: 0.85,
         }),
       })
       const completion = await res.json()
       const suggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
-      return NextResponse.json({ suggestion })
+      return NextResponse.json({ suggestion }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
     const arrayPrompt = arrayFieldPrompts[field]
@@ -228,10 +231,10 @@ Rules:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: arrayPrompt },
+          { role: 'user', content: `${arrayPrompt}\n\n${variationTag}` },
         ],
         max_tokens: 400,
-        temperature: 0.5,
+        temperature: 0.85,
       }),
     })
     const completion = await res.json()
@@ -246,7 +249,7 @@ Rules:
       suggestions = []
     }
 
-    return NextResponse.json({ suggestions })
+    return NextResponse.json({ suggestions }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('POST /api/brand/suggest error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
