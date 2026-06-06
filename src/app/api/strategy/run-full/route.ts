@@ -163,7 +163,9 @@ export async function POST(req: NextRequest) {
       suggestions: result.suggestions,
       creditsRemaining: success ? credit.creditsRemaining : credit.creditsRemaining + credit.creditsUsed,
       creditsUsed: success ? credit.creditsUsed : 0,
+      // Both formats for frontend compatibility
       errors: result.errors,
+      error: !success && result.errors.length > 0 ? result.errors[0] : undefined,
     })
   } catch (err: any) {
     console.error('[api/strategy/run-full]', err)

@@ -176,9 +176,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             apiDone = true
             timers.forEach(clearTimeout)
 
-            if (!ok || d.error) {
-              setResult(d)
-              if (d.error === 'INSUFFICIENT_CREDITS' || d.error === 'CREDITS_EXHAUSTED') {
+            // Check both d.error (string) and d.errors (array) — route returns errors array
+            const errorMsg = d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
+
+            if (!ok || errorMsg) {
+              setResult({ ...d, error: errorMsg || d.error })
+              if (errorMsg === 'INSUFFICIENT_CREDITS' || errorMsg === 'CREDITS_EXHAUSTED' || d.error === 'INSUFFICIENT_CREDITS') {
                 setPhase('credits')
               } else if (d.error === 'NO_BRAND_PROFILE' || d.error === 'NO_WORKSPACE') {
                 setPhase('no_brand')
