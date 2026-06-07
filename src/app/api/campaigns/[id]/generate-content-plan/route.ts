@@ -183,6 +183,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     const selectedMediaIds: string[] = body.selectedMediaIds ?? []
     const enableABTesting: boolean = body.enableABTesting ?? false
 
+    // OC3: Accept language + contentMix from organic content wizard
+    const bodyLanguage: string = body.language ?? ''            // 'ar' | 'en' | 'bilingual'
+    const contentMix: { educational?: number; promotional?: number; engagement?: number } =
+      body.contentMix ?? {}
+    const educationalPct  = contentMix.educational  ?? 35
+    const promotionalPct  = contentMix.promotional  ?? 30
+    const engagementPct   = contentMix.engagement   ?? 35
+
     let userMedia: Array<{ id: string; url: string; type: string; fileName: string }> = []
     if (mediaSource !== 'GENERATE') {
       userMedia = await prisma.media.findMany({
@@ -218,6 +226,15 @@ export async function POST(req: NextRequest, { params }: Params) {
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
 
+    // Build language instruction for GPT
+    const languageInstruction = bodyLanguage === 'bilingual'
+      ? 'Write every post in BOTH Arabic and English — Arabic first, then English below it, separated by a line break.'
+      : bodyLanguage === 'ar'
+      ? 'Write all posts in Arabic only.'
+      : bodyLanguage === 'en'
+      ? 'Write all posts in English only.'
+      : 'Write posts in the same language as the campaign description.'
+
     const systemPrompt = `You are an expert social media content strategist for ${brandName}.
 
 Campaign: "${campaignName}"
@@ -227,12 +244,19 @@ Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
 
+LANGUAGE RULE: ${languageInstruction}
+
+CONTENT MIX: Distribute the posts as follows (approximate percentages):
+- Educational/informational posts: ${educationalPct}% (teach, explain, share tips)
+- Promotional/conversion posts: ${promotionalPct}% (sell, highlight offer, drive action)
+- Engagement/community posts: ${engagementPct}% (ask questions, share stories, spark conversation)
+
 Generate platform-native social media posts. Each post must:
 - Feel native to its platform (length, style, hashtags)
 - Rotate across the content pillars
 - Have a clear hook in the first sentence
 - Include a call to action
-- Be in the same language as the campaign description
+- Follow the language rule above strictly
 
 Return a JSON array of exactly ${slots.length} post objects:
 [
