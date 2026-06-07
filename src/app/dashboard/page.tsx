@@ -44,6 +44,7 @@ interface Stats {
   plan: string
   publishedPostsTotal: number
   publishedPostsThisMonth: number
+  contentPostsTotal: number
 }
 interface Alert {
   id: string
@@ -139,11 +140,16 @@ export default function DashboardPage() {
       // Clean up URL so back-button doesn't re-trigger
       router.replace('/dashboard', { scroll: false })
     }
+    // Show welcome banner for first-time users
+    if (!localStorage.getItem('nexus_welcome_v1')) {
+      setWelcomeDismissed(false)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
   const [brandCardDismissed, setBrandCardDismissed] = useState(false)
   const [upgradeBannerDismissed, setUpgradeBannerDismissed] = useState(false)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(true) // true until localStorage checked
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -183,6 +189,7 @@ export default function DashboardPage() {
           plan: d.stats?.credits?.plan ?? 'FREE',
           publishedPostsTotal: d.stats?.publishedPosts?.total ?? 0,
           publishedPostsThisMonth: d.stats?.publishedPosts?.thisMonth ?? 0,
+          contentPostsTotal: d.stats?.contentPosts?.total ?? 0,
         })
         if (d.activities?.length > 0) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -344,6 +351,55 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* ── First-Login Welcome Banner ── */}
+          {!welcomeDismissed && (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.35)', backdropFilter: 'blur(20px)', boxShadow: '0 0 48px rgba(139,92,246,0.1)' }}>
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4, #10b981, #f59e0b)' }} />
+              <div className="p-5 flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4 flex-1 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl"
+                    style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 0 24px rgba(139,92,246,0.15)' }}>
+                    🚀
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-bold text-white mb-1">
+                      {ar ? 'مرحباً بك في NEXUS AI 👋' : 'Welcome to NEXUS AI 👋'}
+                    </p>
+                    <p className="text-sm mb-3" style={{ color: 'var(--nx-text-3)' }}>
+                      {ar
+                        ? 'أنت الآن تمتلك قسم تسويق AI كامل — استراتيجي، مخطط، منشئ محتوى، وناشر. ابدأ بـ Brand Brain لتعريف الوكلاء بعلامتك.'
+                        : 'You now have a full AI marketing department — strategist, planner, content creator, and publisher. Start with Brand Brain to teach the agents your brand.'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <a href="/brand"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
+                        style={{ background: 'rgba(139,92,246,0.2)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.3)' }}
+                        onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
+                      >
+                        🧠 {ar ? 'إعداد Brand Brain' : 'Set up Brand Brain'}
+                      </a>
+                      <a href="/campaigns/new"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
+                        style={{ background: 'rgba(6,182,212,0.1)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' }}
+                        onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
+                      >
+                        🚀 {ar ? 'إنشاء حملة' : 'Create a campaign'}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
+                  className="p-1.5 rounded-lg transition-all hover:bg-white/5 flex-shrink-0"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Connection Banner ── */}
           {hasConnections === false && (
             <div className="rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3"
@@ -446,7 +502,12 @@ export default function DashboardPage() {
 
           {/* ── Onboarding Checklist ── */}
           <OnboardingChecklist
-            stats={stats ? { campaigns: stats.campaigns, publishedPostsTotal: stats.publishedPostsTotal } : null}
+            stats={stats ? {
+              campaigns: stats.campaigns,
+              publishedPostsTotal: stats.publishedPostsTotal,
+              strategiesRun: stats.campaigns,
+              contentPlans: stats.contentPostsTotal,
+            } : null}
             brandReadiness={brandReadiness}
             hasConnections={hasConnections}
           />

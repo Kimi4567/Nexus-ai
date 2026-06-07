@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
       recentCampaigns,
       publishedPostsTotal,
       publishedPostsThisMonth,
+      contentPostsTotal,
     ] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
@@ -122,6 +123,12 @@ export async function GET(req: NextRequest) {
             where: { workspaceId, status: 'PUBLISHED', publishedAt: { gte: startOfMonth } },
           })
         : Promise.resolve(0),
+
+      // Content posts ever created (any status) — indicates content plan was generated
+      workspaceId
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? (prisma as any).socialPost.count({ where: { workspaceId } })
+        : Promise.resolve(0),
     ])
 
     // Calculate % change for campaigns
@@ -202,6 +209,9 @@ export async function GET(req: NextRequest) {
         publishedPosts: {
           total: publishedPostsTotal,
           thisMonth: publishedPostsThisMonth,
+        },
+        contentPosts: {
+          total: contentPostsTotal,
         },
       },
       activities,
