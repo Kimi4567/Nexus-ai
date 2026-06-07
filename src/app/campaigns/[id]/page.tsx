@@ -1232,6 +1232,100 @@ export default function CampaignDetailPage() {
                 <AgentBanner idx={0} />
                 <BrandDNABadge brand={brandDNA} locale={locale} />
 
+                {/* ── Strategy TL;DR Intelligence Card ────────────────────── */}
+                {(engineScore > 0 || strategy.keyMessage || topHooks.length > 0) && (() => {
+                  const brandFields: Array<keyof BrandDNAData> = ['brandName','industry','toneKeywords','targetAudience','writingStyle','uniqueAdvantages','audiencePainPoints','topPlatforms']
+                  const brandFilled = brandDNA ? brandFields.filter(k => {
+                    const v = (brandDNA as any)[k]
+                    return Array.isArray(v) ? v.length > 0 : !!v
+                  }).length : 0
+                  const brandTotal = brandFields.length
+                  const brandPct = Math.round((brandFilled / brandTotal) * 100)
+                  const confColor = engineScore >= 75 ? '#10b981' : engineScore >= 50 ? '#f59e0b' : '#ef4444'
+                  const confLabel = engineScore >= 75 ? (locale === 'ar' ? 'ثقة عالية' : 'High Confidence') : engineScore >= 50 ? (locale === 'ar' ? 'ثقة متوسطة' : 'Moderate Confidence') : (locale === 'ar' ? 'ثقة منخفضة' : 'Low Confidence')
+                  const topAngle = contentAnglesDetailed[0]?.angle || contentAnglesDetailed[0]?.title || null
+                  return (
+                    <div className="rounded-2xl overflow-hidden"
+                      style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 30px rgba(139,92,246,0.06)' }}>
+                      {/* Header bar */}
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(139,92,246,0.12)', background: 'rgba(139,92,246,0.06)' }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">🧠</span>
+                          <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nx-accent)' }}>
+                            {locale === 'ar' ? 'ملخص الاستراتيجية' : 'Strategy Intelligence'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${engineScore}%`, background: `linear-gradient(90deg, ${confColor}, ${confColor}bb)` }} />
+                          </div>
+                          <span className="text-[10px] font-black" style={{ color: confColor }}>{engineScore}%</span>
+                          <span className="text-[10px] font-semibold" style={{ color: confColor }}>{confLabel}</span>
+                        </div>
+                      </div>
+                      {/* Content grid */}
+                      <div className="p-4 grid grid-cols-1 gap-3">
+                        {/* Key Message */}
+                        {strategy.keyMessage && (
+                          <div className="flex gap-3 items-start">
+                            <div className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>💬</div>
+                            <div className="min-w-0">
+                              <p className="text-[9px] uppercase tracking-widest font-bold mb-0.5" style={{ color: 'rgba(139,92,246,0.8)' }}>
+                                {locale === 'ar' ? 'الرسالة الجوهرية' : 'Core Message'}
+                              </p>
+                              <p className="text-white text-sm font-semibold leading-snug">"{strategy.keyMessage}"</p>
+                            </div>
+                          </div>
+                        )}
+                        {/* Top Hook + Top Angle in a 2-col row */}
+                        {(topHooks[0] || topAngle) && (
+                          <div className={`grid gap-3 ${topHooks[0] && topAngle ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            {topHooks[0] && (
+                              <div className="rounded-xl p-3" style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                                <p className="text-[9px] uppercase tracking-widest font-bold mb-1" style={{ color: 'rgba(6,182,212,0.8)' }}>
+                                  {locale === 'ar' ? 'أقوى هوك' : 'Top Hook'}
+                                </p>
+                                <p className="text-gray-200 text-xs leading-relaxed line-clamp-3">{topHooks[0]}</p>
+                              </div>
+                            )}
+                            {topAngle && (
+                              <div className="rounded-xl p-3" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                                <p className="text-[9px] uppercase tracking-widest font-bold mb-1" style={{ color: 'rgba(245,158,11,0.8)' }}>
+                                  {locale === 'ar' ? 'الزاوية الأقوى' : 'Primary Angle'}
+                                </p>
+                                <p className="text-gray-200 text-xs leading-relaxed line-clamp-3">{topAngle}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Brand Brain completeness */}
+                        {brandDNA && (
+                          <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs">🧬</span>
+                              <span className="text-[10px] text-gray-400">{locale === 'ar' ? 'اكتمال Brand Brain' : 'Brand Brain'}</span>
+                              <div className="flex items-center gap-0.5">
+                                {brandFields.map((k, i) => {
+                                  const v = (brandDNA as any)[k]
+                                  const filled = Array.isArray(v) ? v.length > 0 : !!v
+                                  return <div key={i} className="w-1.5 h-2.5 rounded-sm" style={{ background: filled ? '#8b5cf6' : 'rgba(255,255,255,0.08)' }} />
+                                })}
+                              </div>
+                              <span className="text-[10px] font-bold" style={{ color: brandPct >= 70 ? '#10b981' : brandPct >= 40 ? '#f59e0b' : '#ef4444' }}>{brandPct}%</span>
+                            </div>
+                            {brandPct < 100 && (
+                              <a href="/brand" className="text-[9px] font-semibold px-2 py-0.5 rounded-lg transition-opacity hover:opacity-80"
+                                style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.9)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                {locale === 'ar' ? 'أكمل الملف ←' : 'Complete Profile →'}
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* 🚀 Next Best Action — pinned banner, shown once */}
                 {strategy.nextBestAction && (
                   <div className="rounded-2xl p-4 flex items-center gap-3"

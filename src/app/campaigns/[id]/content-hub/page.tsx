@@ -1128,6 +1128,67 @@ export default function ContentHubPage() {
   )
 }
 
+// ── Caption Quality Scorer ────────────────────────────────────────────────────
+// Pure client-side — no API call. Returns grade + score + breakdown for tooltip.
+
+const PLATFORM_IDEAL_LEN: Record<string, [number, number]> = {
+  TIKTOK:    [60,  150],
+  INSTAGRAM: [125, 300],
+  META:      [100, 250],
+  FACEBOOK:  [100, 250],
+  LINKEDIN:  [200, 500],
+  X:         [80,  230],
+  TWITTER:   [80,  230],
+  GENERAL:   [100, 300],
+}
+
+function scoreCaption(caption: string, platform: string): { grade: 'A+' | 'A' | 'B' | 'C'; score: number; color: string; tip: string } {
+  if (!caption || caption.length < 10) return { grade: 'C', score: 0, color: '#ef4444', tip: 'Caption is too short' }
+
+  let score = 0
+  const tips: string[] = []
+  const p = platform?.toUpperCase() || 'GENERAL'
+  const first = caption.split('\n')[0] || caption.slice(0, 100)
+
+  // ── Hook quality (25 pts) — compelling opening ─────────────────────────���───
+  const hookPatterns = [/^[🔥💡⚡🚀🎯✨💪🙌👇]/u, /\?/, /^[0-9]/, /\b(how|why|what|top|best|secret|truth|want|need|stop|start|never|always|warning|attention|breaking|introducing|announcing)\b/i]
+  const hookScore = hookPatterns.filter(p => p.test(first)).length
+  if (hookScore >= 2) score += 25
+  else if (hookScore === 1) { score += 12; tips.push('Strengthen your opening hook') }
+  else tips.push('Add a compelling hook to the first line')
+
+  // ── CTA presence (25 pts) ───────────────────────��─────────────────────────
+  const ctaPatterns = /\b(click|tap|swipe|comment|follow|save|share|like|tag|visit|check|learn|get|sign up|subscribe|dm|message|link in bio|try|buy|order|book|register)\b/i
+  if (ctaPatterns.test(caption)) score += 25
+  else tips.push('Add a clear call-to-action')
+
+  // ── Length appropriateness (20 pts) ──────────────────────────────────────
+  const [minLen, maxLen] = PLATFORM_IDEAL_LEN[p] ?? [100, 300]
+  const len = caption.length
+  if (len >= minLen && len <= maxLen) score += 20
+  else if (len < minLen) { score += 8; tips.push(`Caption is short for ${p}`) }
+  else { score += 12; tips.push('Consider trimming for better reach') }
+
+  // ── Emoji presence (15 pts) ───────────────────────────────────────────────
+  const emojiCount = (caption.match(/\p{Emoji}/gu) || []).length
+  if (emojiCount >= 1 && emojiCount <= 5) score += 15
+  else if (emojiCount > 5) { score += 8; tips.push('Too many emojis — aim for 1-5') }
+  else tips.push('Add 1-2 emojis to increase engagement')
+
+  // ── Hashtags (15 pts) ─────────────────────────────────────────────────────
+  const hashCount = (caption.match(/#\w+/g) || []).length
+  if (hashCount >= 2 && hashCount <= 10) score += 15
+  else if (hashCount === 1) { score += 8; tips.push('Add 3-5 relevant hashtags') }
+  else if (hashCount > 10) { score += 10; tips.push('Too many hashtags — aim for 3-7') }
+  else tips.push('Add relevant hashtags')
+
+  const clampedScore = Math.min(100, score)
+  const grade = clampedScore >= 85 ? 'A+' : clampedScore >= 70 ? 'A' : clampedScore >= 50 ? 'B' : 'C'
+  const color = clampedScore >= 85 ? '#10b981' : clampedScore >= 70 ? '#06b6d4' : clampedScore >= 50 ? '#f59e0b' : '#ef4444'
+  const tip = tips.length > 0 ? tips[0] : grade === 'A+' ? 'Excellent post quality!' : 'Good post'
+  return { grade, score: clampedScore, color, tip }
+}
+
 // ── PostCard Component ─────────────────────────────────────────────────────────
 
 interface PostCardProps {
@@ -1183,6 +1244,7 @@ function PostCard({
   const hasImage = !!post.imageUrl
   const isVideo = post.isVideoPost
   const status = post.generationStatus
+  const quality = caption.length > 20 ? scoreCaption(caption, platform) : null
 
   const statusColor = {
     PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
@@ -1225,11 +1287,22 @@ function PostCard({
             </span>
           )}
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
-          style={{ background: `${statusColor}18`, color: statusColor }}>
-          {status === 'GENERATING' && <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ background: statusColor }} />}
-          {statusLabel}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {/* Quality Score Badge */}
+          {quality && (
+            <span
+              title={quality.tip}
+              className="text-[10px] font-black px-1.5 py-0.5 rounded-md cursor-help"
+              style={{ background: `${quality.color}15`, color: quality.color, border: `1px solid ${quality.color}35`, letterSpacing: '0.02em' }}>
+              {quality.grade}
+            </span>
+          )}
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+            style={{ background: `${statusColor}18`, color: statusColor }}>
+            {status === 'GENERATING' && <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ background: statusColor }} />}
+            {statusLabel}
+          </span>
+        </div>
       </div>
 
       {/* ── Platform Mockup ──────────────── */}
