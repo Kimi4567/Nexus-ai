@@ -189,6 +189,20 @@ const Icons = {
       <path d="M8 4.5V8l2.5 2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
+  paidAds: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="1" y="3" width="14" height="10" rx="2"/>
+      <path d="M5 8h2.5M8.5 6.5l2 1.5-2 1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M5 10h3" strokeLinecap="round"/>
+    </svg>
+  ),
+  adAccounts: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="5" r="2.5"/>
+      <path d="M2.5 13c0-2.5 2.5-4 5.5-4s5.5 1.5 5.5 4" strokeLinecap="round"/>
+      <path d="M11.5 7.5l1 1 2-2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
 }
 
 // ── Main Sidebar ───────────────────────────────────────────────
@@ -268,6 +282,12 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           icon={Icons.analytics} {...sharedProps} />
         <NavItem href="/vex" label="Vex"
           icon={Icons.vex} badge="AI" badgeColor="#F97316" {...sharedProps} />
+
+        {/* Paid Ads */}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'إعلانات مدفوعة' : 'Paid Ads'}</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(249,115,22,0.15)' }} />}
+        <NavItem href="/paid-campaigns" label={locale === 'ar' ? 'الحملات المدفوعة' : 'Paid Campaigns'}
+          icon={Icons.paidAds} badge="NEW" badgeColor="#F97316" {...sharedProps} />
 
         {/* Platform */}
         {!collapsed && <SectionLabel>{t('sidebar.sectionPlatforms')}</SectionLabel>}

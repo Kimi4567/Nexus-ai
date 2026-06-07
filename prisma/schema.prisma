@@ -127,6 +127,8 @@ model Workspace {
   agentReports  AgentReport[]
   paidPacks     PaidCampaignPack[]
   campaignMemories CampaignMemory[]
+  adAccounts    AdAccount[]
+  adCampaigns   AdCampaign[]
 
   // Settings
   settings      Json?      // branding, integrations, etc.
@@ -1163,6 +1165,479 @@ model CampaignMemory {
   @@index([workspaceId])
   @@index([workspaceId, goal])
   @@index([workspaceId, createdAt])
+}
+
+// ============================================================================
+// PAID ADVERTISING CAMPAIGNS — Full Ad Manager System
+// ============================================================================
+// Architecture:
+//   AdAccount → AdCampaign → AdSet → Ad
+//   AdPerformanceSnapshot (daily metrics synced per campaign/adset/ad)
+//
+// Designed 1:1 with Meta Marketing API v21, Google Ads API v17,
+// TikTok Marketing API v1.3, LinkedIn Campaign Manager API v2.
+// Platform IDs (platformCampaignId, platformAdSetId, platformAdId) are
+// null until the campaign is pushed live — enabling "export mode" first,
+// then "live API mode" without changing the data model.
+
+enum AdPlatform {
+  META        // Facebook + Instagram (Meta Marketing API)
+  GOOGLE      // Google Ads: Search, Display, P-Max, YouTube
+  TIKTOK      // TikTok Marketing API
+  LINKEDIN    // LinkedIn Campaign Manager API
+}
+
+enum AdAccountStatus {
+  ACTIVE
+  DISCONNECTED
+  ERROR
+  PENDING
+}
+
+enum AdCampaignStatus {
+  DRAFT
+  PENDING_REVIEW    // submitted to platform, awaiting review
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+  REJECTED          // platform rejected the campaign
+}
+
+enum AdObjective {
+  BRAND_AWARENESS   // Reach people likely to remember your brand
+  REACH             // Show ad to maximum unique people
+  TRAFFIC           // Drive traffic to website, app, or WhatsApp
+  ENGAGEMENT        // Post likes, page follows, video views
+  APP_INSTALLS      // Drive app installs
+  VIDEO_VIEWS       // Maximize video view time
+  LEAD_GENERATION   // Lead Gen Forms / Google Lead Ads
+  MESSAGES          // Start conversations on WhatsApp/Messenger
+  CONVERSIONS       // Purchase, sign-up, add-to-cart
+  CATALOG_SALES     // Dynamic product ads from catalog
+  STORE_VISITS      // Drive in-store footfall
+}
+
+enum BidStrategy {
+  LOWEST_COST          // Spend budget, minimize cost (default)
+  COST_CAP             // Keep average cost at or below cap
+  BID_CAP              // Max bid per auction
+  TARGET_COST          // Maintain cost stability
+  MINIMUM_ROAS         // Maintain minimum return on ad spend
+  MANUAL_CPC           // Manual cost per click (Google)
+  MANUAL_CPM           // Manual cost per thousand impressions
+  MAXIMIZE_CONVERSIONS // Google: maximize conversion volume
+  TARGET_CPA           // Google: target cost per acquisition
+  TARGET_ROAS          // Google: target return on ad spend
+}
+
+enum AdFormat {
+  SINGLE_IMAGE
+  SINGLE_VIDEO
+  CAROUSEL            // Multi-image/video swipeable (Meta, LinkedIn)
+  COLLECTION          // Instant storefront (Meta)
+  STORIES             // Vertical 9:16 stories
+  REELS               // Instagram/Facebook Reels
+  SEARCH              // Google text ad
+  DISPLAY             // Google display banner
+  PERFORMANCE_MAX     // Google P-Max (AI-driven all formats)
+  RESPONSIVE_DISPLAY  // Google responsive display
+  SPARK_ADS           // TikTok: boost organic content
+  TOP_VIEW            // TikTok: full-screen on app open
+  IN_FEED             // TikTok: in-feed ad
+  SPONSORED_CONTENT   // LinkedIn: sponsored post
+  MESSAGE_ADS         // LinkedIn: InMail / sponsored messaging
+  LEAD_GEN_FORM       // Meta / LinkedIn: embedded lead form
+  DYNAMIC             // Dynamic creative optimization
+}
+
+enum AdStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  ARCHIVED
+  DISAPPROVED
+  COMPLETED
+}
+
+// Connected ad account (one per platform per workspace)
+model AdAccount {
+  id              String          @id @default(cuid())
+
+  workspaceId     String
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  platform        AdPlatform
+  status          AdAccountStatus @default(DISCONNECTED)
+
+  // Platform identifiers
+  platformAccountId   String      // Meta: "act_123456789" | Google: "123-456-7890" | TikTok: "7123456789"
+  platformAccountName String?     // Human-readable name from the platform
+  businessId          String?     // Meta Business Manager ID / Google MCC account ID
+  businessName        String?
+
+  // OAuth credentials
+  accessToken     String?   @db.Text  // Platform access token (handle encryption at app layer)
+  refreshToken    String?   @db.Text
+  tokenExpiresAt  DateTime?
+
+  // Account configuration
+  currency        String    @default("USD")   // Account-level billing currency
+  timeZone        String?   @default("UTC")   // Account timezone (e.g., "Asia/Dubai")
+  country         String?
+
+  // Verification status
+  isVerified      Boolean   @default(false)   // Business verification complete
+  hasApiAccess    Boolean   @default(false)   // API permission approved by platform
+  permissionScopes String[] @default([])      // Granted OAuth scopes
+
+  // Meta-specific
+  pageId          String?   // Connected Facebook Page ID
+  pageName        String?
+  pixelId         String?   // Meta Pixel ID for conversion tracking
+  instagramAccountId String? // Linked Instagram Business Account
+
+  // Google-specific
+  loginCustomerId String?   // MCC / manager account ID
+
+  // Account health
+  spendLimit      Float?    // Monthly spend cap (set by user in Nexus)
+  totalSpent      Float     @default(0)   // Lifetime spend synced from platform
+  lastSyncAt      DateTime?
+  lastErrorAt     DateTime?
+  lastError       String?
+
+  // Relations
+  adCampaigns     AdCampaign[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([workspaceId, platform, platformAccountId])
+  @@index([workspaceId])
+  @@index([platform])
+  @@index([status])
+}
+
+// A paid advertising campaign (separate from organic Campaign)
+model AdCampaign {
+  id              String            @id @default(cuid())
+
+  workspaceId     String
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  adAccountId     String?
+  adAccount       AdAccount?        @relation(fields: [adAccountId], references: [id], onDelete: SetNull)
+
+  // Optional cross-reference to the organic campaign that inspired this
+  organicCampaignId String?
+
+  // Platform
+  platform        AdPlatform
+  platformCampaignId String?        // Null until pushed to platform via API
+  platformStatus  String?           // Status as reported by the platform API
+
+  // Campaign config
+  name            String
+  objective       AdObjective       @default(TRAFFIC)
+  status          AdCampaignStatus  @default(DRAFT)
+
+  // Budget
+  budgetType      String            @default("DAILY")  // "DAILY" | "LIFETIME"
+  dailyBudget     Float?            // In account currency
+  lifetimeBudget  Float?
+  currency        String            @default("USD")
+
+  // Schedule
+  startDate       DateTime?
+  endDate         DateTime?
+
+  // Special flags
+  isBoosted       Boolean           @default(false)   // Boosted post / Spark Ad
+  isAbTest        Boolean           @default(false)   // A/B split test campaign
+
+  // AI Intelligence (Brand Brain powered)
+  // Generated by POST /api/ad-campaigns/[id]/generate-strategy
+  aiStrategy      Json?
+  // {
+  //   positioning: string,
+  //   targetingRationale: string,
+  //   creativeBrief: string,
+  //   messagingHierarchy: string[],
+  //   expectedResults: string,
+  //   competitorContext: string,
+  //   recommendedBudgetSplit: Record<string, number>,
+  // }
+
+  aiAudienceBrief Json?             // Full audience brief per platform
+  aiBudgetPlan    Json?             // { allocation, phasing, benchmarks, expectedReach }
+
+  // Brand Brain snapshot at creation time (for reproducibility)
+  brandBrainSnapshot Json?
+
+  // UTM tracking
+  utmSource       String?
+  utmMedium       String?  @default("paid_social")
+  utmCampaign     String?
+  trackingUrls    Json?    // { platform: "full UTM URL" }
+
+  // Denormalized performance totals (updated by cron / manual entry)
+  totalImpressions  Int     @default(0)
+  totalClicks       Int     @default(0)
+  totalSpend        Float   @default(0)
+  totalConversions  Int     @default(0)
+  avgCTR            Float?
+  avgCPC            Float?
+  avgROAS           Float?
+
+  // Sync state
+  lastSyncAt      DateTime?
+  lastSyncError   String?
+
+  // Relations
+  adSets          AdSet[]
+  performanceSnapshots AdPerformanceSnapshot[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([workspaceId])
+  @@index([adAccountId])
+  @@index([platform])
+  @@index([status])
+  @@index([organicCampaignId])
+  @@index([platformCampaignId])
+  @@index([startDate])
+}
+
+// Ad Set / Ad Group — targeting + budget within a campaign
+model AdSet {
+  id              String     @id @default(cuid())
+
+  adCampaignId    String
+  adCampaign      AdCampaign @relation(fields: [adCampaignId], references: [id], onDelete: Cascade)
+
+  platformAdSetId String?    // Null until pushed to platform
+
+  // Configuration
+  name            String
+  status          AdStatus   @default(DRAFT)
+
+  // Budget (overrides campaign-level budget if set)
+  dailyBudget     Float?
+  lifetimeBudget  Float?
+  bidStrategy     BidStrategy @default(LOWEST_COST)
+  bidAmount       Float?      // Bid cap / cost cap value
+
+  // Schedule
+  startDate       DateTime?
+  endDate         DateTime?
+
+  // Targeting — JSON for maximum flexibility across platforms
+  // Maps directly to Meta, Google, TikTok, LinkedIn API fields
+  targeting       Json?
+  // {
+  //   ageMin: number,
+  //   ageMax: number,
+  //   genders: string[],        // ["male","female"] or ["all"]
+  //   locations: {
+  //     country?: string,        // ISO 2-letter code
+  //     region?: string,
+  //     city?: string,
+  //     radius?: number,         // km
+  //   }[],
+  //   languages: string[],       // ISO language codes
+  //
+  //   // Meta interests & behaviors
+  //   interests: { id?: string, name: string }[],
+  //   behaviors: { id?: string, name: string }[],
+  //   exclusions: { interests?: unknown[], customAudiences?: unknown[] },
+  //
+  //   // Custom / Lookalike audiences
+  //   customAudiences: { id: string, name: string }[],
+  //   lookalikeSources: { id: string, type: string, ratio?: number }[],
+  //
+  //   // Google
+  //   keywords: { text: string, matchType: "BROAD"|"PHRASE"|"EXACT" }[],
+  //   negativeKeywords: string[],
+  //   audienceSegments: string[],
+  //
+  //   // LinkedIn
+  //   jobTitles: string[],
+  //   industries: string[],
+  //   companySizes: string[],
+  //   seniority: string[],
+  //   skills: string[],
+  //   memberGroups: string[],
+  //
+  //   // TikTok
+  //   interestCategories: string[],
+  //   deviceTypes: string[],
+  //   networkTypes: string[],
+  //
+  //   // Size estimate
+  //   audienceSizeMin: number,
+  //   audienceSizeMax: number,
+  // }
+
+  // Placement configuration
+  placements      Json?
+  // {
+  //   automatic: boolean,
+  //   manual: string[],     // e.g. ["FACEBOOK_NEWSFEED", "INSTAGRAM_REELS", "INSTAGRAM_STORY"]
+  //   devices: string[],    // ["MOBILE", "DESKTOP", "ALL"]
+  //   operatingSystems: string[],  // ["ANDROID", "IOS", "ALL"]
+  // }
+
+  // Optimization
+  optimizationGoal  String?  // "REACH" | "LINK_CLICKS" | "CONVERSIONS" | "LEAD_GENERATION"
+  billingEvent      String?  // "IMPRESSIONS" | "LINK_CLICKS" | "THRUPLAY"
+
+  // Denormalized performance totals
+  totalImpressions  Int     @default(0)
+  totalClicks       Int     @default(0)
+  totalSpend        Float   @default(0)
+  totalConversions  Int     @default(0)
+  avgCTR            Float?
+
+  // Relations
+  ads             Ad[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([adCampaignId])
+  @@index([status])
+  @@index([platformAdSetId])
+}
+
+// Individual ad creative within an Ad Set
+model Ad {
+  id              String     @id @default(cuid())
+
+  adSetId         String
+  adSet           AdSet      @relation(fields: [adSetId], references: [id], onDelete: Cascade)
+
+  // Platform identifiers (set after API push)
+  platformAdId    String?
+  platformCreativeId String?
+
+  // Configuration
+  name            String
+  status          AdStatus   @default(DRAFT)
+  format          AdFormat   @default(SINGLE_IMAGE)
+
+  // Copy fields
+  primaryText     String?    @db.Text   // Main body / post text
+  headline        String?               // Max 40 chars (Meta), 30 chars (Google RSA)
+  description     String?               // Link preview description
+  callToAction    String?               // "LEARN_MORE" | "SHOP_NOW" | "SIGN_UP" | "BOOK_NOW" | "CONTACT_US" | "GET_QUOTE"
+  displayUrl      String?               // Google ads display path
+  destinationUrl  String?               // Final URL with UTM params
+
+  // Creative assets (Cloudinary URLs)
+  imageUrl        String?
+  videoUrl        String?
+  thumbnailUrl    String?               // Video poster / cover image
+  carouselCards   Json?                 // [{ imageUrl, headline, description, linkUrl, cta }]
+
+  // Creative specs validation
+  creativeSpecs   Json?    // { width, height, aspectRatio, duration, fileSize, format }
+  specsValidated  Boolean  @default(false)
+  specsErrors     String[] @default([])  // Human-readable validation errors
+
+  // A/B testing
+  variantGroup    String?  // Shared UUID linking variant ads in same group
+  variantLabel    String?  // "A" | "B" | "C"
+  isWinner        Boolean  @default(false)  // Marked after analysis
+
+  // AI generation metadata
+  aiGenerated     Boolean  @default(false)
+  aiAngle         String?  // "pain_point" | "social_proof" | "curiosity" | "benefit" | "urgency"
+  aiHook          String?  // The opening hook line
+  generationPrompt String? @db.Text
+
+  // Denormalized performance metrics (synced from snapshots)
+  impressions     Int     @default(0)
+  clicks          Int     @default(0)
+  spend           Float   @default(0)
+  conversions     Int     @default(0)
+  ctr             Float?
+  cpc             Float?
+  cpm             Float?
+  roas            Float?
+
+  // Platform review
+  reviewStatus    String?   // "PENDING" | "APPROVED" | "DISAPPROVED"
+  reviewFeedback  String?   // Platform disapproval reason
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([adSetId])
+  @@index([status])
+  @@index([platformAdId])
+  @@index([variantGroup])
+}
+
+// Daily performance snapshots per campaign / adset / ad
+// Fetched from platform APIs via cron or entered manually
+model AdPerformanceSnapshot {
+  id              String     @id @default(cuid())
+
+  adCampaignId    String
+  adCampaign      AdCampaign @relation(fields: [adCampaignId], references: [id], onDelete: Cascade)
+
+  // Granularity (null = aggregate at that level)
+  adSetId         String?    // null = campaign-level
+  adId            String?    // null = adset-level
+
+  // Date dimension (UTC — represents the calendar day)
+  date            DateTime
+
+  // Reach & exposure
+  impressions     Int     @default(0)
+  reach           Int     @default(0)   // Unique accounts reached
+  frequency       Float?                // Avg impressions per unique user
+
+  // Engagement
+  clicks          Int     @default(0)
+  linkClicks      Int     @default(0)   // Outbound clicks to destination URL
+  videoViews      Int     @default(0)   // 3-second video views
+  videoViewRate   Float?                // % who watched 25%+
+  videoCompletions Int    @default(0)   // Watched 95%+ (ThruPlay)
+  postEngagements Int     @default(0)   // Likes, comments, shares, saves
+
+  // Conversions
+  conversions     Int     @default(0)   // Total tracked conversions
+  leads           Int     @default(0)
+  purchases       Int     @default(0)
+  addToCarts      Int     @default(0)
+  registrations   Int     @default(0)
+
+  // Cost metrics
+  spend           Float   @default(0)   // Actual spend in account currency
+  cpm             Float?                // Cost per 1,000 impressions
+  cpc             Float?                // Cost per click
+  ctr             Float?                // Click-through rate (%)
+  cpa             Float?                // Cost per action / conversion
+  roas            Float?                // Return on ad spend
+
+  // Quality signals
+  relevanceScore  Float?                // Meta relevance / Google quality score (1–10)
+
+  // Data provenance
+  dataSource      String  @default("api")   // "api" | "manual" | "estimated"
+  syncedAt        DateTime @default(now())
+
+  createdAt       DateTime @default(now())
+
+  @@unique([adCampaignId, adSetId, adId, date])
+  @@index([adCampaignId])
+  @@index([adSetId])
+  @@index([adId])
+  @@index([date])
 }
 
 // ============================================================================

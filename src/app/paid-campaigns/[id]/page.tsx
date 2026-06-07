@@ -1,0 +1,1040 @@
+'use client'
+
+/**
+ * /paid-campaigns/[id] — Campaign Detail Page
+ *
+ * Full campaign manager view:
+ * - Performance KPI bar (Spend / Impressions / CTR / ROAS)
+ * - AI Strategy Panel (positioning, audience, budget plan)
+ * - Ad Sets with nested Ads
+ * - Ad Copy cards with variant labels
+ * - Performance chart (last 30 days)
+ * - Export panel (JSON brief, UTM tracking, checklist)
+ */
+
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import AppShell from '@/components/AppShell'
+import { useAuth } from '@/lib/auth-context'
+import { supabase } from '@/lib/supabaseClient'
+
+// ── Types ──────────────────────────────────────────────────────────────────
+interface Ad {
+  id: string
+  name: string
+  status: string
+  format: string
+  primaryText: string
+  headline: string
+  callToAction: string
+  imageUrl?: string
+  videoUrl?: string
+  impressions: number
+  clicks: number
+  spend: number
+  ctr: number
+  cpc: number
+  roas: number
+  aiGenerated: boolean
+  aiAngle: string
+  variantLabel: string
+  isWinner: boolean
+  reviewStatus?: string
+}
+
+interface AdSet {
+  id: string
+  name: string
+  status: string
+  dailyBudget?: number
+  lifetimeBudget?: number
+  bidStrategy: string
+  targeting?: Record<string, unknown>
+  ads: Ad[]
+}
+
+interface Campaign {
+  id: string
+  name: string
+  platform: string
+  objective: string
+  status: string
+  budgetType: string
+  dailyBudget?: number
+  lifetimeBudget?: number
+  currency: string
+  startDate?: string
+  endDate?: string
+  totalSpend: number
+  totalImpressions: number
+  totalClicks: number
+  totalConversions: number
+  avgCTR: number
+  avgCPC: number
+  avgROAS: number
+  aiStrategy?: Record<string, unknown>
+  aiAudienceBrief?: Record<string, unknown>
+  aiBudgetPlan?: Record<string, unknown>
+  brandBrainSnapshot?: Record<string, unknown>
+  utmCampaign?: string
+  platformCampaignId?: string
+  adSets: AdSet[]
+  performanceSnapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number }>
+  adAccount?: {
+    platformAccountName: string
+    businessName?: string
+    currency: string
+    status: string
+    hasApiAccess: boolean
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+const PLATFORM_COLORS: Record<string, string> = {
+  META: '#1877F2', GOOGLE: '#4285F4', TIKTOK: '#FF0050', LINKEDIN: '#0A66C2',
+}
+
+const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+  DRAFT:    { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF', label: 'Draft' },
+  ACTIVE:   { bg: 'rgba(16,185,129,0.15)',  color: '#10B981', label: 'Active' },
+  PAUSED:   { bg: 'rgba(249,115,22,0.15)',  color: '#F97316', label: 'Paused' },
+  ARCHIVED: { bg: 'rgba(239,68,68,0.12)',   color: '#EF4444', label: 'Archived' },
+  COMPLETED:{ bg: 'rgba(139,92,246,0.15)',  color: '#8B5CF6', label: 'Completed' },
+}
+
+const fmt = (n: number, dec = 0) => n?.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec }) ?? '0'
+
+function KpiCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
+  return (
+    <div className="flex flex-col gap-1 p-4 rounded-[12px]"
+      style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <span className="text-[11px] text-text-muted font-medium">{label}</span>
+      <span className="text-[22px] font-bold leading-tight" style={{ color: accent || 'white' }}>{value}</span>
+      {sub && <span className="text-[11px] text-text-muted">{sub}</span>}
+    </div>
+  )
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────
+export default function CampaignDetailPage() {
+  const { user } = useAuth()
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+
+  const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState<'overview' | 'adsets' | 'strategy' | 'performance' | 'export'>('overview')
+  const [pushLoading, setPushLoading] = useState(false)
+  const [expandedAdSet, setExpandedAdSet] = useState<string | null>(null)
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
+  const [manualEntry, setManualEntry] = useState({ date: '', spend: '', impressions: '', clicks: '', conversions: '', roas: '' })
+
+  const getToken = async () => {
+    const { data: session } = await supabase.auth.getSession()
+    return session.session?.access_token || ''
+  }
+
+  const load = useCallback(async () => {
+    if (!user) return
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/ad-campaigns/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load')
+      setCampaign(data.campaign)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Load error')
+    } finally {
+      setLoading(false)
+    }
+  }, [user, id])
+
+  useEffect(() => { load() }, [load])
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!campaign) return
+    const token = await getToken()
+    await fetch(`/api/ad-campaigns/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    await load()
+  }
+
+  const handlePushToMeta = async () => {
+    if (!campaign) return
+    setPushLoading(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/ad-campaigns/${id}/push-to-platform`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+      await load()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Push failed')
+    } finally {
+      setPushLoading(false)
+    }
+  }
+
+  const handleSyncMetrics = async () => {
+    if (!campaign) return
+    setSyncLoading(true)
+    setSyncMsg('')
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/ad-campaigns/${id}/sync-metrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+      setSyncMsg(result.message || `Synced ${result.synced ?? 0} days`)
+      await load()
+    } catch (e: unknown) {
+      setSyncMsg(e instanceof Error ? e.message : 'Sync failed')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  const handleManualEntry = async () => {
+    if (!campaign || !manualEntry.date || !manualEntry.spend) return
+    setSyncLoading(true)
+    setSyncMsg('')
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/ad-campaigns/${id}/sync-metrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(manualEntry),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+      setSyncMsg('Entry saved ✓')
+      setManualEntry({ date: '', spend: '', impressions: '', clicks: '', conversions: '', roas: '' })
+      await load()
+    } catch (e: unknown) {
+      setSyncMsg(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  if (loading) return (
+    <AppShell>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-text-muted text-[13px]">Loading campaign...</p>
+        </div>
+      </div>
+    </AppShell>
+  )
+
+  if (error || !campaign) return (
+    <AppShell>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error || 'Campaign not found'}</p>
+          <button onClick={() => router.push('/paid-campaigns')}
+            className="px-4 py-2 rounded-lg text-[13px] text-white"
+            style={{ background: 'rgba(255,255,255,0.08)' }}>
+            ← Back to Campaigns
+          </button>
+        </div>
+      </div>
+    </AppShell>
+  )
+
+  const statusStyle = STATUS_STYLES[campaign.status] || STATUS_STYLES.DRAFT
+  const platformColor = PLATFORM_COLORS[campaign.platform] || '#8B5CF6'
+  const totalAds = campaign.adSets.reduce((acc, s) => acc + s.ads.length, 0)
+  const strategy = campaign.aiStrategy
+
+  return (
+    <AppShell>
+      <div className="max-w-[1100px] mx-auto px-4 py-6">
+        {/* ── Header ─────────────────────────────────────────────────── */}
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/paid-campaigns')}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-text-muted hover:text-white transition-all"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M9 2L4 7l5 5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: platformColor + '22', color: platformColor }}>
+                  {campaign.platform}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                  style={{ background: statusStyle.bg, color: statusStyle.color }}>
+                  {statusStyle.label}
+                </span>
+              </div>
+              <h1 className="text-[20px] font-bold text-white">{campaign.name}</h1>
+              <p className="text-[12px] text-text-muted">
+                {campaign.objective.replace(/_/g, ' ')}
+                {campaign.adAccount && ` · ${campaign.adAccount.platformAccountName}`}
+                {campaign.startDate && ` · ${new Date(campaign.startDate).toLocaleDateString()} – ${campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'ongoing'}`}
+              </p>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {campaign.status === 'DRAFT' && (
+              <button
+                onClick={handlePushToMeta}
+                disabled={pushLoading}
+                className="px-3 py-2 rounded-xl text-[12px] font-bold text-white flex items-center gap-1.5"
+                style={{ background: pushLoading ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` }}
+              >
+                {pushLoading ? (
+                  <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : '→'}
+                {pushLoading ? 'Pushing...' : `Export to ${campaign.platform}`}
+              </button>
+            )}
+            {campaign.status === 'ACTIVE' && (
+              <button onClick={() => handleStatusChange('PAUSED')}
+                className="px-3 py-2 rounded-xl text-[12px] font-bold"
+                style={{ background: 'rgba(249,115,22,0.1)', color: '#F97316', border: '1px solid rgba(249,115,22,0.3)' }}>
+                ⏸ Pause
+              </button>
+            )}
+            {campaign.status === 'PAUSED' && (
+              <button onClick={() => handleStatusChange('ACTIVE')}
+                className="px-3 py-2 rounded-xl text-[12px] font-bold"
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                ▶ Resume
+              </button>
+            )}
+            <button onClick={() => router.push(`/paid-campaigns/${id}/metrics`)}
+              className="px-3 py-2 rounded-xl text-[12px] font-medium text-text-muted hover:text-white transition-all"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              + Metrics
+            </button>
+          </div>
+        </div>
+
+        {/* ── KPI Bar ────────────────────────────────────────────────── */}
+        <div className="grid grid-cols-4 sm:grid-cols-7 gap-3 mb-6">
+          <div className="col-span-2">
+            <KpiCard
+              label="Total Spend"
+              value={`${campaign.currency} ${fmt(campaign.totalSpend, 2)}`}
+              sub={campaign.budgetType === 'DAILY' ? `${campaign.currency} ${campaign.dailyBudget}/day` : `${campaign.currency} ${campaign.lifetimeBudget} total`}
+              accent="#F97316"
+            />
+          </div>
+          <KpiCard label="Impressions" value={fmt(campaign.totalImpressions)} sub="Total served" />
+          <KpiCard label="Clicks" value={fmt(campaign.totalClicks)} sub={`CTR ${(campaign.avgCTR || 0).toFixed(2)}%`} />
+          <KpiCard label="Conversions" value={fmt(campaign.totalConversions)} sub="Reported" />
+          <KpiCard label="Avg CPC" value={`${campaign.currency} ${(campaign.avgCPC || 0).toFixed(2)}`} sub="Per click" />
+          <KpiCard
+            label="ROAS"
+            value={`${(campaign.avgROAS || 0).toFixed(2)}x`}
+            sub="Return on ad spend"
+            accent={campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444'}
+          />
+        </div>
+
+        {/* ── Tabs ───────────────────────────────────────────────────── */}
+        <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          {[
+            { key: 'overview', label: 'Overview' },
+            { key: 'adsets', label: `Ad Sets (${campaign.adSets.length})` },
+            { key: 'strategy', label: '✨ AI Strategy', hidden: !strategy },
+            { key: 'performance', label: '📊 Performance' },
+            { key: 'export', label: 'Export' },
+          ].filter(t => !t.hidden).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as typeof activeTab)}
+              className="px-4 py-1.5 rounded-[10px] text-[12px] font-medium transition-all"
+              style={{
+                background: activeTab === tab.key ? 'rgba(249,115,22,0.15)' : 'transparent',
+                color: activeTab === tab.key ? '#F97316' : 'var(--text-muted)',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── OVERVIEW TAB ───────────────────────────────────────────── */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Campaign info */}
+            <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-[13px] font-bold text-white mb-3">Campaign Settings</h3>
+              <div className="space-y-2.5">
+                {[
+                  { label: 'Platform', value: campaign.platform },
+                  { label: 'Objective', value: campaign.objective.replace(/_/g, ' ') },
+                  { label: 'Budget', value: campaign.budgetType === 'DAILY' ? `${campaign.currency} ${campaign.dailyBudget}/day` : `${campaign.currency} ${campaign.lifetimeBudget} lifetime` },
+                  { label: 'Ad Sets', value: campaign.adSets.length },
+                  { label: 'Total Ads', value: totalAds },
+                  { label: 'AI Generated', value: totalAds > 0 ? 'Yes' : 'No' },
+                  { label: 'Platform ID', value: campaign.platformCampaignId || 'Not published' },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between">
+                    <span className="text-[12px] text-text-muted">{item.label}</span>
+                    <span className="text-[12px] font-medium text-white">{String(item.value)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* AI status */}
+            <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(139,92,246,0.12)' }}>
+              <h3 className="text-[13px] font-bold text-white mb-3">AI Readiness</h3>
+              <div className="space-y-2.5">
+                {[
+                  { label: '✨ AI Strategy', done: !!campaign.aiStrategy },
+                  { label: '🎯 Audience Brief', done: !!campaign.aiAudienceBrief },
+                  { label: '💰 Budget Plan', done: !!campaign.aiBudgetPlan },
+                  { label: '📝 Ad Copy Variants', done: totalAds > 0 },
+                  { label: '🧠 Brand Brain Snapshot', done: !!campaign.brandBrainSnapshot },
+                  { label: '🔗 Platform Published', done: !!campaign.platformCampaignId },
+                ].map(item => (
+                  <div key={item.label} className="flex items-center justify-between">
+                    <span className="text-[12px] text-text-muted">{item.label}</span>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: item.done ? 'rgba(16,185,129,0.15)' : 'rgba(107,114,128,0.15)',
+                        color: item.done ? '#10B981' : '#9CA3AF',
+                      }}>
+                      {item.done ? '✓ Ready' : 'Pending'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {!campaign.aiStrategy && (
+                <button onClick={() => router.push(`/paid-campaigns/new?campaignId=${id}`)}
+                  className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #8B5CF6, #6366F1)' }}>
+                  ✨ Generate AI Strategy
+                </button>
+              )}
+              {campaign.aiStrategy && totalAds === 0 && (
+                <button onClick={() => router.push(`/paid-campaigns/new?campaignId=${id}&step=4`)}
+                  className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)' }}>
+                  ✨ Generate Ad Copy
+                </button>
+              )}
+            </div>
+
+            {/* Performance snapshots (sparkline-ish) */}
+            {campaign.performanceSnapshots.length > 0 && (
+              <div className="md:col-span-2 p-4 rounded-[14px]"
+                style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <h3 className="text-[13px] font-bold text-white mb-3">Performance (Last 30 Days)</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        {['Date', 'Spend', 'Impressions', 'Clicks', 'ROAS'].map(h => (
+                          <th key={h} className="pb-2 text-left font-medium text-text-muted pr-4">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campaign.performanceSnapshots.slice(0, 7).map(snap => (
+                        <tr key={snap.date} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                          <td className="py-2 pr-4 text-text-muted">{new Date(snap.date).toLocaleDateString()}</td>
+                          <td className="py-2 pr-4 text-white">{campaign.currency} {(snap.spend || 0).toFixed(2)}</td>
+                          <td className="py-2 pr-4 text-white">{fmt(snap.impressions)}</td>
+                          <td className="py-2 pr-4 text-white">{fmt(snap.clicks)}</td>
+                          <td className="py-2 pr-4 font-bold"
+                            style={{ color: snap.roas >= 2 ? '#10B981' : snap.roas >= 1 ? '#F97316' : '#EF4444' }}>
+                            {(snap.roas || 0).toFixed(2)}x
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── AD SETS TAB ────────────────────────────────────────────── */}
+        {activeTab === 'adsets' && (
+          <div className="space-y-3">
+            {campaign.adSets.length === 0 ? (
+              <div className="text-center py-12 text-text-muted text-[13px]">
+                No ad sets yet. Generate ad copy to create the first ad set.
+              </div>
+            ) : (
+              campaign.adSets.map(adSet => (
+                <div key={adSet.id} className="rounded-[14px] overflow-hidden"
+                  style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {/* Ad Set header */}
+                  <button
+                    onClick={() => setExpandedAdSet(expandedAdSet === adSet.id ? null : adSet.id)}
+                    className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.02] transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                        style={{ background: STATUS_STYLES[adSet.status]?.bg, color: STATUS_STYLES[adSet.status]?.color }}>
+                        {adSet.status}
+                      </span>
+                      <span className="text-[14px] font-semibold text-white">{adSet.name}</span>
+                      <span className="text-[11px] text-text-muted">{adSet.ads.length} ad{adSet.ads.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {adSet.dailyBudget && (
+                        <span className="text-[12px] text-text-muted">{campaign.currency} {adSet.dailyBudget}/day</span>
+                      )}
+                      <span className="text-text-muted transition-transform" style={{ transform: expandedAdSet === adSet.id ? 'rotate(180deg)' : 'none' }}>
+                        ▾
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Ads grid */}
+                  {expandedAdSet === adSet.id && (
+                    <div className="px-4 pb-4 pt-0">
+                      <div className="h-px mb-4" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {adSet.ads.map(ad => (
+                          <div key={ad.id} className="p-3 rounded-[12px]"
+                            style={{
+                              background: 'var(--nx-surface-2)',
+                              border: ad.isWinner ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.06)',
+                            }}>
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-1.5">
+                                {ad.isWinner && <span className="text-[10px]">🏆</span>}
+                                {ad.aiGenerated && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold"
+                                    style={{ background: 'rgba(139,92,246,0.2)', color: '#8B5CF6' }}>
+                                    AI
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-text-muted">{ad.variantLabel}</span>
+                              </div>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                                style={{ background: STATUS_STYLES[ad.status]?.bg, color: STATUS_STYLES[ad.status]?.color }}>
+                                {ad.status}
+                              </span>
+                            </div>
+
+                            <p className="text-[13px] font-semibold text-white mb-1">{ad.headline}</p>
+                            <p className="text-[11px] text-text-muted line-clamp-2 mb-2 leading-relaxed">{ad.primaryText}</p>
+
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: 'rgba(249,115,22,0.12)', color: '#F97316' }}>
+                                {ad.callToAction}
+                              </span>
+                              <span className="text-[10px] text-text-muted">{ad.format.replace(/_/g, ' ')}</span>
+                            </div>
+
+                            {(ad.impressions > 0 || ad.spend > 0) && (
+                              <div className="grid grid-cols-4 gap-1 pt-2"
+                                style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                {[
+                                  { label: 'Spend', value: `${campaign.currency} ${(ad.spend || 0).toFixed(2)}` },
+                                  { label: 'Impr.', value: fmt(ad.impressions) },
+                                  { label: 'CTR', value: `${(ad.ctr || 0).toFixed(2)}%` },
+                                  { label: 'ROAS', value: `${(ad.roas || 0).toFixed(2)}x` },
+                                ].map(kpi => (
+                                  <div key={kpi.label} className="text-center">
+                                    <p className="text-[9px] text-text-muted">{kpi.label}</p>
+                                    <p className="text-[11px] font-bold text-white">{kpi.value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* ── STRATEGY TAB ───────────────────────────────────────────── */}
+        {activeTab === 'strategy' && strategy && (
+          <div className="space-y-4">
+            {/* Positioning */}
+            <div className="p-5 rounded-[14px]"
+              style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+              <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#8B5CF6' }}>Campaign Positioning</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries((strategy.positioning as Record<string, unknown>) || {}).map(([k, v]) => (
+                  <div key={k}>
+                    <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{k.replace(/_/g, ' ')}</p>
+                    <p className="text-[13px] text-white leading-relaxed">{String(v)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Audience */}
+            {(strategy.audience as Record<string, unknown>) && (
+              <div className="p-5 rounded-[14px]"
+                style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#10B981' }}>Target Audience</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Primary Segment</p>
+                    <p className="text-[13px] text-white mb-2">
+                      {String(((strategy.audience as Record<string, unknown>)?.primary_segment as Record<string, unknown>)?.description || '')}
+                    </p>
+                    <p className="text-[12px] text-text-muted">
+                      Age: {String(((strategy.audience as Record<string, unknown>)?.primary_segment as Record<string, unknown>)?.ageRange || '—')}
+                      {' · '}
+                      {String(((strategy.audience as Record<string, unknown>)?.primary_segment as Record<string, unknown>)?.gender || '—')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Exclusions</p>
+                    <ul className="space-y-1">
+                      {((strategy.audience as Record<string, unknown>)?.exclusions as string[] || []).map((exc: string, i: number) => (
+                        <li key={i} className="text-[12px] text-text-muted">• {exc}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Platform Targeting */}
+            {strategy.targeting ? (
+              <div className="p-5 rounded-[14px]"
+                style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#F97316' }}>
+                  {campaign.platform} Targeting
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries((strategy.targeting as Record<string, unknown>) || {})
+                    .filter(([, v]) => v && (Array.isArray(v) ? (v as unknown[]).length > 0 : true))
+                    .map(([k, v]) => {
+                      const isArr = Array.isArray(v)
+                      return (
+                        <div key={k}>
+                          <p className="text-[10px] text-text-muted uppercase tracking-wider mb-1">{k.replace(/_/g, ' ').replace(/^(meta|google|tiktok|linkedin) /, '')}</p>
+                          {isArr
+                            ? <div className="flex flex-wrap gap-1">
+                                {(v as string[]).map((item: string, i: number) => (
+                                  <span key={i} className="text-[11px] px-2 py-0.5 rounded"
+                                    style={{ background: 'rgba(249,115,22,0.1)', color: '#F97316' }}>
+                                    {item}
+                                  </span>
+                                ))}
+                              </div>
+                            : <p className="text-[12px] text-white">{String(v ?? '')}</p>
+                          }
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Budget Plan */}
+            {strategy.budget_plan ? (
+              <div className="p-5 rounded-[14px]"
+                style={{ background: 'rgba(24,119,242,0.06)', border: '1px solid rgba(24,119,242,0.15)' }}>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#60A5FA' }}>Budget Intelligence</h3>
+                <p className="text-[13px] text-white mb-3">
+                  {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'Reach', key: 'estimated_reach' },
+                    { label: 'Impressions', key: 'estimated_impressions' },
+                    { label: 'CPM', key: 'estimated_cpm' },
+                  ].map(item => {
+                    const r = (strategy.budget_plan as Record<string, unknown>)?.[item.key] as Record<string, number> | undefined
+                    return (
+                      <div key={item.label} className="text-center p-3 rounded-xl"
+                        style={{ background: 'rgba(255,255,255,0.04)' }}>
+                        <p className="text-[11px] text-text-muted mb-1">{item.label}</p>
+                        <p className="text-[13px] font-bold text-white">
+                          {r ? `${(r.min / 1000).toFixed(0)}K – ${(r.max / 1000).toFixed(0)}K` : '—'}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Phasing */}
+                {(strategy.budget_plan as Record<string, unknown>)?.phasing ? (
+                  <div className="mt-3 space-y-1.5">
+                    <p className="text-[10px] text-text-muted uppercase tracking-wider">Phasing Plan</p>
+                    {['learning_phase', 'scaling_phase', 'recommendation'].map(k => {
+                      const phasing = ((strategy.budget_plan as Record<string, unknown>)?.phasing as Record<string, unknown>) || {}
+                      const val = phasing[k]
+                      if (!val) return null
+                      return (
+                        <p key={k} className="text-[12px] text-text-muted">
+                          <span className="text-white font-medium">{k.replace(/_/g, ' ')}: </span>{String(val)}
+                        </p>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* Launch Checklist */}
+            {strategy.launch_checklist ? (
+              <div className="p-5 rounded-[14px]"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3 text-text-muted">Launch Checklist</h3>
+                <ul className="space-y-2">
+                  {(strategy.launch_checklist as string[]).map((item: string, i: number) => (
+                    <li key={i} className="flex items-start gap-2 text-[12px] text-white">
+                      <span className="text-green-400 mt-0.5">☐</span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* ── EXPORT TAB ─────────────────────────────────────────────── */}
+        {activeTab === 'export' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <h3 className="text-[13px] font-bold text-white mb-3">Campaign Export</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    const brief = {
+                      campaign: { name: campaign.name, platform: campaign.platform, objective: campaign.objective },
+                      strategy: campaign.aiStrategy,
+                      budget: campaign.aiBudgetPlan,
+                      adSets: campaign.adSets.map(s => ({ name: s.name, ads: s.ads.map(a => ({ headline: a.headline, primaryText: a.primaryText })) }))
+                    }
+                    const blob = new Blob([JSON.stringify(brief, null, 2)], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url; a.download = `${campaign.name}-brief.json`; a.click()
+                  }}
+                  className="p-4 rounded-[12px] text-left hover:bg-white/[0.04] transition-all"
+                  style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="text-[13px] font-semibold text-white mb-1">📋 Export Campaign Brief</p>
+                  <p className="text-[11px] text-text-muted">Full strategy + copy variants as JSON</p>
+                </button>
+
+                {campaign.utmCampaign && (
+                  <div className="p-4 rounded-[12px]"
+                    style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-[13px] font-semibold text-white mb-2">🔗 UTM Tracking</p>
+                    {strategy?.utm_tracking ? (
+                      <code className="text-[10px] text-green-400 break-all">
+                        {`utm_source=${String((strategy.utm_tracking as Record<string, unknown>).source ?? '')}&utm_medium=${String((strategy.utm_tracking as Record<string, unknown>).medium ?? '')}&utm_campaign=${String((strategy.utm_tracking as Record<string, unknown>).campaign ?? '')}`}
+                      </code>
+                    ) : null}
+                  </div>
+                )}
+
+                <div className="p-4 rounded-[12px] md:col-span-2"
+                  style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                  <p className="text-[13px] font-semibold text-white mb-2">📤 Push to {campaign.platform} Ads Manager</p>
+                  <p className="text-[12px] text-text-muted mb-3">
+                    {campaign.adAccount?.hasApiAccess
+                      ? `Connected to "${campaign.adAccount.platformAccountName}" — ready to push live.`
+                      : `API access not yet approved. Export as JSON and import manually, or connect your ${campaign.platform} ad account via API.`}
+                  </p>
+                  <button
+                    onClick={handlePushToMeta}
+                    disabled={pushLoading || !campaign.adAccount?.hasApiAccess}
+                    className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                    style={{
+                      background: campaign.adAccount?.hasApiAccess ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.06)',
+                      cursor: campaign.adAccount?.hasApiAccess ? 'pointer' : 'not-allowed',
+                      opacity: pushLoading ? 0.6 : 1,
+                    }}>
+                    {pushLoading ? 'Pushing...' : `Push to ${campaign.platform} →`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PERFORMANCE TAB ───────────────────────────────────────── */}
+        {activeTab === 'performance' && (
+          <div className="space-y-5">
+            {/* Sync controls */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-[14px] font-bold text-white">Performance Dashboard</h3>
+                <p className="text-[12px] text-text-muted mt-0.5">
+                  {campaign.adAccount?.hasApiAccess
+                    ? 'Connected to Meta — sync pulls live data from Meta Insights API'
+                    : 'No API access yet — enter metrics manually until Meta App Review is approved'}
+                </p>
+              </div>
+              {campaign.adAccount?.hasApiAccess && campaign.platformCampaignId && (
+                <button
+                  onClick={handleSyncMetrics}
+                  disabled={syncLoading}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold text-white flex items-center gap-2"
+                  style={{ background: syncLoading ? 'rgba(255,255,255,0.05)' : `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` }}>
+                  {syncLoading
+                    ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Syncing...</>
+                    : '↻ Sync from Meta'}
+                </button>
+              )}
+            </div>
+            {syncMsg && (
+              <p className="text-[12px] px-3 py-2 rounded-lg"
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981' }}>
+                {syncMsg}
+              </p>
+            )}
+
+            {/* Aggregate KPI bar (duplicate of header for in-tab context) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Total Spend', value: `${campaign.currency} ${(campaign.totalSpend || 0).toFixed(2)}`, accent: '#F97316' },
+                { label: 'Impressions', value: fmt(campaign.totalImpressions) },
+                { label: 'Clicks', value: fmt(campaign.totalClicks) },
+                { label: 'ROAS', value: `${(campaign.avgROAS || 0).toFixed(2)}x`, accent: campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444' },
+              ].map(k => (
+                <div key={k.label} className="p-4 rounded-[12px]"
+                  style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-[11px] text-text-muted mb-1">{k.label}</p>
+                  <p className="text-[20px] font-bold" style={{ color: k.accent || 'white' }}>{k.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* SVG sparkline chart */}
+            {campaign.performanceSnapshots.length > 0 && (
+              <PerformanceChart
+                snapshots={campaign.performanceSnapshots}
+                currency={campaign.currency}
+              />
+            )}
+
+            {/* Full metrics table */}
+            {campaign.performanceSnapshots.length > 0 ? (
+              <div className="rounded-[14px] overflow-hidden"
+                style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="px-5 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                  <h4 className="text-[12px] font-bold text-white">Daily Breakdown</h4>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        {['Date', 'Spend', 'Impressions', 'Clicks', 'CTR', 'CPC', 'ROAS'].map(h => (
+                          <th key={h} className="px-5 py-3 text-left font-medium text-text-muted whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {campaign.performanceSnapshots.map(snap => (
+                        <tr key={snap.date}
+                          className="hover:bg-white/[0.02] transition-all"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                          <td className="px-5 py-3 text-text-muted whitespace-nowrap">{new Date(snap.date).toLocaleDateString()}</td>
+                          <td className="px-5 py-3 font-medium text-white">{campaign.currency} {(snap.spend || 0).toFixed(2)}</td>
+                          <td className="px-5 py-3 text-white">{fmt(snap.impressions)}</td>
+                          <td className="px-5 py-3 text-white">{fmt(snap.clicks)}</td>
+                          <td className="px-5 py-3 text-text-muted">—</td>
+                          <td className="px-5 py-3 text-text-muted">—</td>
+                          <td className="px-5 py-3 font-bold"
+                            style={{ color: snap.roas >= 2 ? '#10B981' : snap.roas >= 1 ? '#F97316' : '#EF4444' }}>
+                            {(snap.roas || 0).toFixed(2)}x
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              /* Empty state — show manual entry form */
+              <div className="p-5 rounded-[14px]"
+                style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-[13px] text-white font-semibold mb-1">No performance data yet</p>
+                <p className="text-[12px] text-text-muted mb-4">Enter your first daily metrics to start tracking</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                  {[
+                    { key: 'date', label: 'Date', type: 'date' },
+                    { key: 'spend', label: 'Spend', type: 'number' },
+                    { key: 'impressions', label: 'Impressions', type: 'number' },
+                    { key: 'clicks', label: 'Clicks', type: 'number' },
+                    { key: 'conversions', label: 'Conversions', type: 'number' },
+                    { key: 'roas', label: 'ROAS', type: 'number' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="text-[11px] text-text-muted block mb-1">{f.label}</label>
+                      <input
+                        type={f.type}
+                        value={manualEntry[f.key as keyof typeof manualEntry]}
+                        onChange={e => setManualEntry(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl text-[12px] text-white outline-none"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                        placeholder={f.type === 'date' ? '' : '0'}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={handleManualEntry}
+                  disabled={syncLoading || !manualEntry.date || !manualEntry.spend}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)', opacity: (!manualEntry.date || !manualEntry.spend) ? 0.5 : 1 }}>
+                  {syncLoading ? 'Saving...' : 'Save Entry'}
+                </button>
+              </div>
+            )}
+
+            {/* Manual entry form when data exists (add more days) */}
+            {campaign.performanceSnapshots.length > 0 && (
+              <details className="rounded-[14px] overflow-hidden" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <summary className="px-5 py-3 text-[12px] font-medium text-text-muted cursor-pointer select-none hover:text-white transition-all">
+                  + Add manual entry
+                </summary>
+                <div className="px-5 pb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+                    {[
+                      { key: 'date', label: 'Date', type: 'date' },
+                      { key: 'spend', label: 'Spend', type: 'number' },
+                      { key: 'impressions', label: 'Impressions', type: 'number' },
+                      { key: 'clicks', label: 'Clicks', type: 'number' },
+                      { key: 'conversions', label: 'Conversions', type: 'number' },
+                      { key: 'roas', label: 'ROAS', type: 'number' },
+                    ].map(f => (
+                      <div key={f.key}>
+                        <label className="text-[11px] text-text-muted block mb-1">{f.label}</label>
+                        <input
+                          type={f.type}
+                          value={manualEntry[f.key as keyof typeof manualEntry]}
+                          onChange={e => setManualEntry(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl text-[12px] text-white outline-none"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                          placeholder={f.type === 'date' ? '' : '0'}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleManualEntry}
+                    disabled={syncLoading || !manualEntry.date || !manualEntry.spend}
+                    className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)', opacity: (!manualEntry.date || !manualEntry.spend) ? 0.5 : 1 }}>
+                    {syncLoading ? 'Saving...' : 'Save Entry'}
+                  </button>
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
+    </AppShell>
+  )
+}
+
+// ── PerformanceChart — pure SVG, no external deps ─────────────────────────
+function PerformanceChart({
+  snapshots,
+  currency,
+}: {
+  snapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number }>
+  currency: string
+}) {
+  const W = 800; const H = 200; const PAD = 40
+
+  const spends = snapshots.map(s => s.spend || 0)
+  const maxSpend = Math.max(...spends, 1)
+
+  const roas = snapshots.map(s => s.roas || 0)
+  const maxRoas = Math.max(...roas, 1)
+
+  const xStep = (W - PAD * 2) / Math.max(snapshots.length - 1, 1)
+
+  const spendPts = snapshots.map((_, i) => {
+    const x = PAD + i * xStep
+    const y = H - PAD - ((spends[i] / maxSpend) * (H - PAD * 2))
+    return `${x},${y}`
+  }).join(' ')
+
+  const roasPts = snapshots.map((_, i) => {
+    const x = PAD + i * xStep
+    const y = H - PAD - ((roas[i] / maxRoas) * (H - PAD * 2))
+    return `${x},${y}`
+  }).join(' ')
+
+  // Gradient fill area for spend
+  const spendArea = `M${PAD},${H - PAD} ` +
+    snapshots.map((_, i) => `L${PAD + i * xStep},${H - PAD - ((spends[i] / maxSpend) * (H - PAD * 2))}`).join(' ') +
+    ` L${PAD + (snapshots.length - 1) * xStep},${H - PAD} Z`
+
+  return (
+    <div className="rounded-[14px] overflow-hidden"
+      style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <h4 className="text-[12px] font-bold text-white">Spend & ROAS Trend</h4>
+        <div className="flex items-center gap-4 text-[11px] text-text-muted">
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ background: '#F97316' }} /> Spend ({currency})</span>
+          <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 inline-block rounded" style={{ background: '#10B981' }} /> ROAS</span>
+        </div>
+      </div>
+      <div className="px-2 py-2">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{ height: 180 }}>
+          <defs>
+            <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#F97316" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#F97316" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Grid lines */}
+          {[0.25, 0.5, 0.75, 1].map(frac => {
+            const y = H - PAD - frac * (H - PAD * 2)
+            return <line key={frac} x1={PAD} y1={y} x2={W - PAD} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+          })}
+          {/* Spend fill area */}
+          <path d={spendArea} fill="url(#spendGrad)" />
+          {/* Spend line */}
+          <polyline points={spendPts} fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {/* ROAS line */}
+          <polyline points={roasPts} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="5,3" />
+          {/* X-axis date labels (every nth) */}
+          {snapshots.map((s, i) => {
+            if (snapshots.length > 10 && i % Math.ceil(snapshots.length / 7) !== 0) return null
+            const x = PAD + i * xStep
+            const label = new Date(s.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+            return (
+              <text key={i} x={x} y={H - 8} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.35)">{label}</text>
+            )
+          })}
+          {/* Y-axis max spend label */}
+          <text x={PAD - 4} y={PAD + 4} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.4)">{currency} {maxSpend.toFixed(0)}</text>
+          <text x={PAD - 4} y={H - PAD + 4} textAnchor="end" fontSize="9" fill="rgba(255,255,255,0.4)">0</text>
+        </svg>
+      </div>
+    </div>
+  )
+}
