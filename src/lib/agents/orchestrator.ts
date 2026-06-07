@@ -180,6 +180,8 @@ export async function runFullAgency(
           captionFormulas: content.captionFormulas || [],
           scriptTemplate: content.scriptTemplate || '',
           contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
+          // Persist language so all downstream agents (content plan, images) use the same language
+          language: brief.language || 'ar',
           generatedAt: new Date().toISOString(),
           generatedByAgents: true,
         },

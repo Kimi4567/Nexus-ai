@@ -8,7 +8,7 @@
  * Supported values:
  *   'ar'        → Arabic output (MSA / الفصحى) — default
  *   'en'        → English output
- *   'bilingual' → Both Arabic and English, clearly separated
+ *   'bilingual' → Smart mix: AI decides per-post based on platform & audience
  */
 
 export type LangPref = 'ar' | 'en' | 'bilingual'
@@ -23,7 +23,17 @@ export function getLanguageInstruction(lang?: string): string {
       return `LANGUAGE REQUIREMENT: Respond entirely in English. Use clear, professional English suitable for UAE/GCC business users. All text content — hooks, scripts, captions, CTAs, strategy summaries, content ideas, value propositions — must be written in English. Only JSON keys stay in their original form.`
 
     case 'bilingual':
-      return `LANGUAGE REQUIREMENT: Respond bilingually. Provide both Arabic and English for all user-facing text content (hooks, scripts, captions, CTAs, strategy summaries, content ideas). Format bilingual fields as: Arabic text followed by " | " then the English version. Example: "اكتشف الفرق الحقيقي | Discover the real difference". JSON keys stay in English.`
+      return `LANGUAGE REQUIREMENT: Smart bilingual strategy — assign the most effective language to each piece of content individually, based on the brand's audience and each platform's primary user base.
+
+DECISION RULES (apply per post/platform):
+- LinkedIn → English (professional/B2B audience)
+- Instagram, TikTok, Snapchat targeting GCC consumers → Arabic
+- Facebook → match the brand's dominant market language
+- International/expat-focused content → English
+- GCC consumer-facing content (Saudi, UAE, Kuwait, etc.) → Arabic
+- Young GCC professionals (18-35) → Arabic preferred
+
+Each post, caption, hook, and CTA must be written ENTIRELY in ONE language — either Arabic OR English — never a hybrid "Arabic | English" mix in the same sentence. The language per item is dictated by who will actually see and engage with that specific content. Document your language allocation rationale in the strategy section. JSON keys always stay in English.`
 
     case 'ar':
     default:
