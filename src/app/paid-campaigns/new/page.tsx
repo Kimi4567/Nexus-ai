@@ -53,6 +53,7 @@ interface WizardData {
   currency: string
   startDate: string
   endDate: string
+  language: string
   // Step 3 — AI output
   aiStrategy: Record<string, unknown> | null
   // Step 4 — AI copy
@@ -61,6 +62,9 @@ interface WizardData {
   // Step 5
   destinationUrl: string
   utmCampaign: string
+  // AI Assist
+  aiSuggested: boolean
+  aiSuggestionRationale: string
 }
 
 // ── Platform data ──────────────────────────────────────────────────────────
@@ -130,6 +134,9 @@ export default function NewPaidCampaignPage() {
   const [accounts, setAccounts] = useState<AdAccount[]>([])
   const [campaignId, setCampaignId] = useState<string | null>(null)
 
+  const [previewVariantId, setPreviewVariantId] = useState<string | null>(null)
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false)
+
   const [data, setData] = useState<WizardData>({
     platform: '',
     adAccountId: '',
@@ -141,11 +148,14 @@ export default function NewPaidCampaignPage() {
     currency: 'USD',
     startDate: '',
     endDate: '',
+    language: 'en',
     aiStrategy: null,
     copyVariants: [],
     selectedVariantIds: [],
     destinationUrl: '',
     utmCampaign: '',
+    aiSuggested: false,
+    aiSuggestionRationale: '',
   })
 
   const set = (k: keyof WizardData, v: unknown) =>
@@ -211,6 +221,34 @@ export default function NewPaidCampaignPage() {
     }
   }
 
+  // ── AI Assist: let AI plan the campaign from Brand Brain ──────────────────
+  const handleAiSuggest = async () => {
+    setAiSuggestLoading(true)
+    setError('')
+    try {
+      const token = await getToken()
+      const res = await fetch('/api/ad-campaigns/ai-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'AI suggestion failed')
+      set('platform', result.platform || 'META')
+      set('objective', result.objective || 'LEAD_GENERATION')
+      set('dailyBudget', String(result.dailyBudget || '50'))
+      set('currency', result.currency || 'USD')
+      set('name', result.name || '')
+      set('language', result.language || 'en')
+      set('aiSuggested', true)
+      set('aiSuggestionRationale', result.rationale || '')
+      setStep(2)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'AI suggestion failed')
+    } finally {
+      setAiSuggestLoading(false)
+    }
+  }
+
   const handleGenerateStrategy = async () => {
     if (!campaignId) return
     setLoading(true)
@@ -219,7 +257,8 @@ export default function NewPaidCampaignPage() {
       const token = await getToken()
       const res = await fetch(`/api/ad-campaigns/${campaignId}/generate-strategy`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ language: data.language }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Strategy generation failed')
@@ -240,7 +279,8 @@ export default function NewPaidCampaignPage() {
       const token = await getToken()
       const res = await fetch(`/api/ad-campaigns/${campaignId}/generate-copy`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ language: data.language }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Copy generation failed')
@@ -285,6 +325,46 @@ export default function NewPaidCampaignPage() {
           <div>
             <h2 className="text-[18px] font-bold text-white mb-1">Choose Platform</h2>
             <p className="text-text-muted text-[13px] mb-6">Select the advertising platform for this campaign</p>
+
+            {/* AI Assist Card */}
+            <div className="mb-5 p-4 rounded-[14px] relative overflow-hidden"
+              style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08))', border: '1px solid rgba(139,92,246,0.3)' }}>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[14px]">⚡</span>
+                    <span className="text-[13px] font-bold text-white">Let AI Plan This</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      style={{ background: 'rgba(139,92,246,0.3)', color: '#A78BFA' }}>FREE</span>
+                  </div>
+                  <p className="text-[11px] text-text-muted leading-relaxed">
+                    AI reads your Brand Brain and recommends the ideal platform, objective, budget, and campaign name.
+                  </p>
+                </div>
+                <button
+                  onClick={handleAiSuggest}
+                  disabled={aiSuggestLoading}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl text-[12px] font-bold text-white transition-all"
+                  style={{
+                    background: aiSuggestLoading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #8B5CF6, #6366F1)',
+                    cursor: aiSuggestLoading ? 'wait' : 'pointer',
+                  }}
+                >
+                  {aiSuggestLoading ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                      Planning...
+                    </span>
+                  ) : 'AI Suggest →'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <span className="text-[11px] text-text-muted">or choose manually</span>
+              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+            </div>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
               {PLATFORMS.map(p => (
@@ -391,11 +471,33 @@ export default function NewPaidCampaignPage() {
         )
 
       // ── STEP 2: Budget + Objective ─────────────────────────────────────
-      case 2:
+      case 2: {
+        // Client-side budget estimate (MENA CPM benchmarks)
+        const CPM_BENCH: Record<string, { min: number; max: number }> = {
+          META: { min: 1.5, max: 5 }, GOOGLE: { min: 0.8, max: 3.5 },
+          TIKTOK: { min: 2, max: 7 }, LINKEDIN: { min: 20, max: 55 },
+        }
+        const bench = CPM_BENCH[data.platform] || { min: 3, max: 8 }
+        const bud = parseFloat(data.dailyBudget) || 50
+        const totalEst = bud * 14
+        const impMin = Math.round((totalEst / bench.max) * 1000)
+        const impMax = Math.round((totalEst / bench.min) * 1000)
+        const reachMin = Math.round(impMin / 2.5)
+        const reachMax = Math.round(impMax / 1.5)
+
         return (
           <div>
             <h2 className="text-[18px] font-bold text-white mb-1">Campaign Details</h2>
             <p className="text-text-muted text-[13px] mb-6">Name your campaign, set the objective and budget</p>
+
+            {/* AI Suggestion banner */}
+            {data.aiSuggested && data.aiSuggestionRationale && (
+              <div className="mb-4 p-3 rounded-xl text-[11px]"
+                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                <span className="font-bold" style={{ color: '#A78BFA' }}>⚡ AI Suggestion: </span>
+                <span className="text-text-muted">{data.aiSuggestionRationale}</span>
+              </div>
+            )}
 
             <div className="space-y-4">
               {/* Campaign name */}
@@ -482,6 +584,30 @@ export default function NewPaidCampaignPage() {
                 </select>
               </div>
 
+              {/* Budget estimate */}
+              {data.dailyBudget && parseFloat(data.dailyBudget) > 0 && (
+                <div className="p-3 rounded-xl"
+                  style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#F97316' }}>
+                    Estimated Results (14 days · MENA benchmarks)
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-[11px] text-text-muted">Reach</p>
+                      <p className="text-[12px] font-bold text-white">{(reachMin/1000).toFixed(0)}K–{(reachMax/1000).toFixed(0)}K</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-text-muted">Impressions</p>
+                      <p className="text-[12px] font-bold text-white">{(impMin/1000).toFixed(0)}K–{(impMax/1000).toFixed(0)}K</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-text-muted">CPM</p>
+                      <p className="text-[12px] font-bold text-white">${bench.min}–${bench.max}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -503,6 +629,34 @@ export default function NewPaidCampaignPage() {
                     className="w-full px-3 py-2.5 rounded-xl text-[13px] text-white focus:outline-none"
                     style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
                   />
+                </div>
+              </div>
+
+              {/* AI Output Language */}
+              <div>
+                <label className="block text-[12px] font-medium text-text-muted mb-2">
+                  AI Output Language
+                  <span className="ml-1 text-[10px]" style={{ color: '#6B7280' }}>— strategy + ad copy will be written in this language</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'en', label: '🇺🇸 English', desc: 'Global / EN market' },
+                    { id: 'ar', label: '🇸🇦 Arabic', desc: 'MENA / Gulf market' },
+                    { id: 'bilingual', label: '⚡ Bilingual', desc: 'AI decides per post' },
+                  ].map(lang => (
+                    <button
+                      key={lang.id}
+                      onClick={() => set('language', lang.id)}
+                      className="flex flex-col items-start gap-0.5 p-3 rounded-xl text-left transition-all"
+                      style={{
+                        background: data.language === lang.id ? 'rgba(16,185,129,0.1)' : 'var(--nx-surface-2)',
+                        border: data.language === lang.id ? '1px solid #10B981' : '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <span className="text-[12px] font-semibold text-white">{lang.label}</span>
+                      <span className="text-[10px] text-text-muted">{lang.desc}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -527,6 +681,7 @@ export default function NewPaidCampaignPage() {
             </div>
           </div>
         )
+      }
 
       // ── STEP 3: AI Strategy ─────────────────────────────────────────────
       case 3: {
@@ -660,42 +815,138 @@ export default function NewPaidCampaignPage() {
               AI generated {data.copyVariants.length} variants. Select the ones you want to run.
             </p>
 
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {data.copyVariants.map(variant => {
                 const isSelected = data.selectedVariantIds.includes(variant.id)
+                const isPreviewing = previewVariantId === variant.id
                 return (
-                  <button
-                    key={variant.id}
-                    onClick={() => toggleVariant(variant.id)}
-                    className="w-full text-left p-4 rounded-[12px] transition-all"
-                    style={{
-                      background: isSelected ? 'rgba(249,115,22,0.08)' : 'var(--nx-surface-2)',
-                      border: isSelected ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.08)',
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider"
-                        style={{ color: isSelected ? '#F97316' : '#6B7280' }}>
-                        {variant.label}
-                      </span>
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{
-                          background: isSelected ? '#F97316' : 'transparent',
-                          border: isSelected ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.2)',
-                        }}>
-                        {isSelected && <span className="text-[10px] text-white">✓</span>}
+                  <div key={variant.id} className="rounded-[12px] overflow-hidden transition-all"
+                    style={{ border: isSelected ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.08)' }}>
+
+                    {/* ── Selection card ─────────────────────────────────────── */}
+                    <div
+                      onClick={() => toggleVariant(variant.id)}
+                      className="w-full text-left p-4 transition-all"
+                      style={{
+                        background: isSelected ? 'rgba(249,115,22,0.08)' : 'var(--nx-surface-2)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider"
+                          style={{ color: isSelected ? '#F97316' : '#6B7280' }}>
+                          {variant.label}
+                        </span>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{
+                            background: isSelected ? '#F97316' : 'transparent',
+                            border: isSelected ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.2)',
+                          }}>
+                          {isSelected && <span className="text-[10px] text-white">✓</span>}
+                        </div>
+                      </div>
+                      <p className="text-[13px] font-semibold text-white mb-1">{variant.headline}</p>
+                      <p className="text-[12px] text-text-muted line-clamp-2 leading-relaxed">{variant.primaryText}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(139,92,246,0.15)', color: '#8B5CF6' }}>
+                          {variant.angle.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[10px] text-text-muted">{variant.callToAction}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); setPreviewVariantId(isPreviewing ? null : variant.id) }}
+                          className="ml-auto text-[10px] px-2 py-0.5 rounded-full transition-all"
+                          style={{
+                            background: isPreviewing ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
+                            color: isPreviewing ? '#60A5FA' : '#9CA3AF',
+                            border: isPreviewing ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                          }}
+                        >
+                          {isPreviewing ? '✕ Hide' : '👁 Preview'}
+                        </button>
                       </div>
                     </div>
-                    <p className="text-[13px] font-semibold text-white mb-1">{variant.headline}</p>
-                    <p className="text-[12px] text-text-muted line-clamp-2 leading-relaxed">{variant.primaryText}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(139,92,246,0.15)', color: '#8B5CF6' }}>
-                        {variant.angle.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-[10px] text-text-muted">{variant.callToAction}</span>
-                    </div>
-                  </button>
+
+                    {/* ── Facebook Feed Preview Mockup ──────────────────────── */}
+                    {isPreviewing && (
+                      <div style={{ background: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 12px 16px' }}>
+                        <p className="text-center text-[9px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B7280' }}>
+                          {data.platform === 'GOOGLE' ? 'Google Search Preview' : data.platform === 'LINKEDIN' ? 'LinkedIn Feed Preview' : 'Facebook Feed Preview'}
+                        </p>
+
+                        {/* Google Search mockup */}
+                        {data.platform === 'GOOGLE' ? (
+                          <div style={{ background: '#fff', borderRadius: 8, padding: '12px 14px', maxWidth: 320, margin: '0 auto' }}>
+                            <p style={{ fontSize: 10, color: '#006621', margin: '0 0 1px' }}>Ad · yourbrand.com</p>
+                            <p style={{ fontSize: 14, color: '#1a0dab', margin: '0 0 2px', fontWeight: 400, textDecoration: 'underline', cursor: 'default' }}>
+                              {variant.headline}
+                            </p>
+                            <p style={{ fontSize: 12, color: '#545454', margin: 0, lineHeight: 1.4 }}>
+                              {variant.description || variant.primaryText.slice(0, 100)}
+                            </p>
+                          </div>
+                        ) : data.platform === 'LINKEDIN' ? (
+                          /* LinkedIn mockup */
+                          <div style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', maxWidth: 320, margin: '0 auto' }}>
+                            <div style={{ padding: '10px 12px 8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 8, background: 'linear-gradient(135deg, #0A66C2, #004182)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>N</div>
+                                <div>
+                                  <p style={{ fontSize: 12, fontWeight: 600, color: '#1a1a1a', margin: 0 }}>Your Brand</p>
+                                  <p style={{ fontSize: 10, color: '#666', margin: 0 }}>Promoted · 🌐</p>
+                                </div>
+                              </div>
+                              <p style={{ fontSize: 12, color: '#1a1a1a', margin: '0 0 8px', lineHeight: 1.4 }}>
+                                {variant.primaryText.length > 140 ? variant.primaryText.slice(0, 140) + '…' : variant.primaryText}
+                              </p>
+                            </div>
+                            <div style={{ height: 130, background: 'linear-gradient(135deg, #e5e7eb, #d1d5db)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                              <span style={{ fontSize: 18 }}>🖼</span>
+                              <span style={{ fontSize: 10, color: '#6b7280' }}>1200×627</span>
+                            </div>
+                            <div style={{ background: '#f3f2ef', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <p style={{ fontSize: 11, fontWeight: 600, color: '#1a1a1a', margin: '0 0 1px' }}>{variant.headline}</p>
+                                {variant.description && <p style={{ fontSize: 10, color: '#666', margin: 0 }}>{variant.description}</p>}
+                              </div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: '#0A66C2', background: '#fff', border: '1px solid #0A66C2', borderRadius: 20, padding: '4px 10px', flexShrink: 0 }}>
+                                {variant.callToAction.replace(/_/g, ' ')}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          /* Facebook / Instagram Feed mockup */
+                          <div style={{ background: '#fff', borderRadius: 8, overflow: 'hidden', maxWidth: 320, margin: '0 auto' }}>
+                            <div style={{ padding: '10px 12px 6px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #F97316, #EF4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>N</div>
+                                <div>
+                                  <p style={{ fontSize: 12, fontWeight: 700, color: '#1a1a1a', margin: 0 }}>Your Brand</p>
+                                  <p style={{ fontSize: 10, color: '#65676b', margin: 0 }}>Sponsored · 🌐</p>
+                                </div>
+                              </div>
+                              <p style={{ fontSize: 12, color: '#1a1a1a', margin: 0, lineHeight: 1.4 }}>
+                                {variant.primaryText.length > 150 ? variant.primaryText.slice(0, 150) + '…' : variant.primaryText}
+                              </p>
+                            </div>
+                            <div style={{ height: 160, background: 'linear-gradient(135deg, #e5e7eb, #d1d5db)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                              <span style={{ fontSize: 22 }}>🖼</span>
+                              <span style={{ fontSize: 10, color: '#6b7280' }}>Ad Creative (1080×1080)</span>
+                            </div>
+                            <div style={{ background: '#f0f2f5', padding: '8px 12px' }}>
+                              <p style={{ fontSize: 11, fontWeight: 700, color: '#1a1a1a', margin: '0 0 2px' }}>{variant.headline}</p>
+                              {variant.description && <p style={{ fontSize: 10, color: '#65676b', margin: 0 }}>{variant.description}</p>}
+                            </div>
+                            <div style={{ background: '#fff', padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e4e6ea' }}>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: '#1877F2', background: '#e7f3ff', border: '1px solid #b0c4de', borderRadius: 6, padding: '4px 12px' }}>
+                                {variant.callToAction.replace(/_/g, ' ')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>

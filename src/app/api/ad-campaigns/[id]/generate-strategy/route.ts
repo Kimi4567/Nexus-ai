@@ -96,6 +96,10 @@ export async function POST(
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    // Accept optional language override from client
+    const body = await req.json().catch(() => ({}))
+    const requestedLang = (body.language as string) || null
+
     const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
@@ -136,8 +140,12 @@ export async function POST(
       kw => locationHint.includes(kw)
     )
 
-    // Language preference
-    const langInstruction = getLanguageInstruction(brandProfile?.writingStyle?.includes('ar') ? 'ar' : 'en')
+    // Language preference — client override takes priority, then brand detection
+    const detectedLang = brandProfile?.audienceLocation &&
+      ['saudi', 'uae', 'egypt', 'mena', 'gulf', 'كويت', 'إمارات', 'السعودية', 'مصر', 'خليج'].some(
+        kw => (brandProfile.audienceLocation || '').toLowerCase().includes(kw)
+      ) ? 'ar' : 'en'
+    const langInstruction = getLanguageInstruction(requestedLang || detectedLang)
 
     const platformLabel = campaign.platform
     const objective = campaign.objective

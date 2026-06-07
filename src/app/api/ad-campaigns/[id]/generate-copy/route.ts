@@ -69,6 +69,10 @@ export async function POST(
       return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
     }
 
+    // Accept optional language override from client
+    const body = await req.json().catch(() => ({}))
+    const requestedLang = (body.language as string) || null
+
     const campaign = await db.adCampaign.findFirst({
       where: { id: params.id, workspace: { ownerId: user.id } },
       include: { workspace: true },
@@ -101,8 +105,12 @@ export async function POST(
       })
     } catch { /* ok */ }
 
-    // Language
-    const lang = brandProfile?.writingStyle?.includes('ar') ? 'ar' : 'en'
+    // Language — client override takes priority, then location-based detection
+    const detectedLang = brandProfile?.audienceLocation &&
+      ['saudi', 'uae', 'egypt', 'mena', 'gulf', 'كويت', 'إمارات', 'السعودية', 'مصر', 'خليج'].some(
+        kw => (brandProfile.audienceLocation || '').toLowerCase().includes(kw)
+      ) ? 'ar' : 'en'
+    const lang = requestedLang || detectedLang
     const langInstruction = getLanguageInstruction(lang)
 
     const platform = campaign.platform
