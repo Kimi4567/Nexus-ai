@@ -12,9 +12,9 @@
  */
 
 export type FluxImageSize =
-  | 'square_hd'       // 1024×1024 — Instagram feed, Facebook, TikTok
-  | 'portrait_16_9'   // 1024×1820 — Instagram Stories, TikTok vertical
-  | 'landscape_4_3'   // 1365×1024 — LinkedIn, Facebook, Twitter
+  | 'square_hd'       // 1024×1024 — Instagram feed (1:1 square)
+  | 'portrait_16_9'   // 576×1024 — TikTok vertical (9:16 portrait)
+  | 'landscape_4_3'   // 1024×768 — LinkedIn, Facebook, Twitter (landscape)
 
 export interface FluxGenerateOptions {
   prompt: string
@@ -32,23 +32,31 @@ export interface FluxGenerateResult {
 }
 
 /**
- * Map platform string to best Flux image size
+ * Map platform string to best Flux image size.
+ * Platform-native sizing:
+ *   TIKTOK      → portrait_16_9  (9:16 vertical video)
+ *   INSTAGRAM   → square_hd      (1:1 feed square)
+ *   All others  → landscape_4_3  (LinkedIn/Facebook/Twitter landscape)
  */
 export function platformToFluxSize(platform: string): FluxImageSize {
   const p = platform.toUpperCase()
-  if (p === 'TIKTOK') return 'portrait_16_9'
-  if (p === 'LINKEDIN') return 'landscape_4_3'
-  return 'square_hd'  // META/Instagram/Facebook/default
+  if (p === 'TIKTOK') return 'portrait_16_9'      // 9:16 portrait for TikTok
+  if (p === 'INSTAGRAM') return 'square_hd'        // 1:1 square for Instagram feed
+  return 'landscape_4_3'                           // landscape for LinkedIn/META/X/Twitter
 }
 
 /**
- * Map platform string to gpt-image-1 size string
+ * Map platform string to gpt-image-1 size string.
+ * Platform-native sizing:
+ *   TIKTOK      → 1024×1536 (portrait 2:3)
+ *   INSTAGRAM   → 1024×1024 (square 1:1)
+ *   All others  → 1536×1024 (landscape 3:2 — LinkedIn, Facebook, Twitter/X)
  */
 export function platformToOpenAISize(platform: string): '1024x1024' | '1024x1536' | '1536x1024' {
   const p = platform.toUpperCase()
-  if (p === 'TIKTOK') return '1024x1536'       // portrait for vertical video platforms
-  if (p === 'LINKEDIN') return '1536x1024'      // landscape for LinkedIn
-  return '1024x1024'                             // square for Instagram/Facebook/default
+  if (p === 'TIKTOK') return '1024x1536'       // portrait
+  if (p === 'INSTAGRAM') return '1024x1024'    // square
+  return '1536x1024'                            // landscape for LinkedIn/META/X/Twitter/default
 }
 
 /**

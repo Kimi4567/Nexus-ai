@@ -42,7 +42,7 @@ interface RunResult {
   currentCredits?: number
 }
 
-type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'media_check'
+type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'media_check' | 'lang_select'
 
 interface Props {
   isOpen: boolean
@@ -116,9 +116,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   const startStrategyFnRef = useRef<(() => void) | null>(null)
   // Skip media check on retry (we already showed it once)
   const skipMediaCheckRef = useRef(false)
+  // Language selection — user picks before running strategy
+  const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
+  const [langConfirmed, setLangConfirmed] = useState(false)
 
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
+
+  // Reset language gate when modal closes — picker shows again on next open
+  useEffect(() => {
+    if (!isOpen) {
+      setLangConfirmed(false)
+    }
+  }, [isOpen])
 
   // -- Core effect -----------------------------------------------------------
   useEffect(() => {
@@ -130,6 +140,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     if (cached?.campaignId) {
       setResult(cached)
       setPhase('success')
+      return
+    }
+
+    // ── Language not yet confirmed — show picker first ────────────────────────
+    if (!langConfirmed) {
+      setPhase('lang_select')
       return
     }
 
@@ -164,7 +180,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           'Content-Type': 'application/json',
           Authorization: authHeaderRef.current(),
         },
-        body: JSON.stringify({ language: locale }),
+        body: JSON.stringify({ language: selectedLanguage }),
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
         .then(({ ok, data: d }) => {
@@ -271,14 +287,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       timers.forEach(clearTimeout)
       startStrategyFnRef.current = null
     }
-  }, [isOpen, runKey]) // runKey increments on retry
+  }, [isOpen, runKey, langConfirmed]) // runKey increments on retry; langConfirmed gates lang_select → running
 
   if (!isOpen) return null
 
   const rs = t('runStrategy') as Record<string, string>
   const bg = t('brandGate')   as Record<string, string>
 
-  const langLabel = locale === 'ar' ? rs.chipLangAr : rs.chipLangEn
+  const langLabel =
+    selectedLanguage === 'ar' ? rs.chipLangAr
+    : selectedLanguage === 'en' ? rs.chipLangEn
+    : rs.chipLangMix
 
   const creditsLeftDisplay =
     result?.creditsRemaining === -1
@@ -307,6 +326,66 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="w-full max-w-md rounded-2xl overflow-hidden relative" style={CARD_STYLE}>
+
+        {/* ========== LANGUAGE PICKER PHASE ========== */}
+        {phase === 'lang_select' && (
+          <div className="p-6">
+            <button onClick={onClose}
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Icon + title */}
+            <div className="text-center mb-6">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                <Globe className="w-7 h-7" style={{ color: '#8B5CF6' }} />
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">{rs.langSelectTitle}</h2>
+              <p className="text-xs text-text-muted">{rs.langSelectDesc}</p>
+            </div>
+
+            {/* Language options */}
+            <div className="space-y-2 mb-5">
+              {([
+                { id: 'ar' as const, flag: '🇸🇦', label: rs.langOptAr, desc: rs.langOptArDesc },
+                { id: 'en' as const, flag: '🇬🇧', label: rs.langOptEn, desc: rs.langOptEnDesc },
+                { id: 'bilingual' as const, flag: '🌐', label: rs.langOptMix, desc: rs.langOptMixDesc },
+              ]).map(opt => {
+                const isSelected = selectedLanguage === opt.id
+                return (
+                  <button key={opt.id} onClick={() => setSelectedLanguage(opt.id)}
+                    className="w-full text-start flex items-center gap-3 p-3 rounded-xl transition-all duration-200"
+                    style={{
+                      background: isSelected ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${isSelected ? 'rgba(139,92,246,0.45)' : 'rgba(139,92,246,0.1)'}`,
+                    }}>
+                    <span className="text-2xl leading-none flex-shrink-0">{opt.flag}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white">{opt.label}</div>
+                      <div className="text-xs text-text-muted truncate">{opt.desc}</div>
+                    </div>
+                    {isSelected && (
+                      <div className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center"
+                        style={{ background: '#8B5CF6' }}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Start button */}
+            <button
+              onClick={() => setLangConfirmed(true)}
+              className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' }}>
+              <Rocket className="w-4 h-4" />
+              {rs.langStartBtn}
+            </button>
+          </div>
+        )}
 
         {/* ========== RUNNING PHASE ========== */}
         {phase === 'running' && (
