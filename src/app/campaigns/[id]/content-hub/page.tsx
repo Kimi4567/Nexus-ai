@@ -17,6 +17,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
+import { generateBrandedImage } from '@/lib/canvasTemplate'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -422,7 +423,7 @@ export default function ContentHubPage() {
   }
 
   // ── Generate branded template image for a single post ────────────────────────
-  // Uses /api/visuals/template (next/og ImageResponse — zero AI cost, Canva quality)
+  // Uses client-side Canvas API → full Arabic/RTL support → uploads to Cloudinary
 
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
@@ -449,29 +450,28 @@ export default function ContentHubPage() {
       const isTipPost  = /^(how to|tip:|pro tip|step \d|rule #|\d+\s+(ways|tips|steps|reasons|mistakes))/i.test(caption.toLowerCase())
       const hasPromo   = post.imagePrompt?.toLowerCase().includes('promo') || caption.toLowerCase().includes('sale') || caption.toLowerCase().includes('offer') || caption.toLowerCase().includes('launch')
 
-      let type = 'quote'
-      if (isStatPost)  type = 'stat'
-      else if (isTipPost) type = 'tip'
-      else if (hasPromo)  type = 'promo'
+      let type: 'quote' | 'stat' | 'tip' | 'promo' = 'quote'
+      if (isStatPost)       type = 'stat'
+      else if (isTipPost)   type = 'tip'
+      else if (hasPromo)    type = 'promo'
 
       // For A/B variants, use different template types to create visual contrast
       if (post.variantLabel === 'B') {
-        const variants: Record<string, string> = { quote: 'stat', stat: 'tip', tip: 'promo', promo: 'quote' }
+        const variants: Record<string, 'quote' | 'stat' | 'tip' | 'promo'> = {
+          quote: 'stat', stat: 'tip', tip: 'promo', promo: 'quote'
+        }
         type = variants[type] || 'tip'
       }
 
       // Platform mapping
-      const platformMap: Record<string, string> = {
+      const platformMap: Record<string, 'instagram' | 'facebook' | 'linkedin' | 'tiktok'> = {
         META: 'instagram', INSTAGRAM: 'instagram', FACEBOOK: 'facebook',
         LINKEDIN: 'linkedin', TIKTOK: 'tiktok',
       }
       const mappedPlatform = platformMap[platform.toUpperCase()] || 'instagram'
 
-      // Brand colors — strip # for URL encoding
-      const rawPrimary = (brandProfile.colorPalette[0] || '#7c3aed').replace('#', '')
-      const rawAccent  = (brandProfile.colorPalette[1] || '#1a1b2e').replace('#', '')
-
-      const params = new URLSearchParams({
+      // Draw branded template on client-side Canvas (full Arabic support)
+      const dataUrl = await generateBrandedImage({
         type,
         headline,
         subtext,
@@ -479,17 +479,29 @@ export default function ContentHubPage() {
         statLabel: isStatPost ? subtext  : '',
         cta:       caption.match(/👇[^\n]*/)?.[0]?.slice(2, 50) || '',
         brandName: brandProfile.brandName || campaign?.name || 'Brand',
-        primaryColor:  rawPrimary,
-        accentColor:   rawAccent,
+        primaryColor: brandProfile.colorPalette[0] || '#7c3aed',
+        accentColor:  brandProfile.colorPalette[1] || '#1a1b2e',
         logoUrl:    brandProfile.logoUrl || '',
         platform:   mappedPlatform,
       })
 
-      // The template URL is the image — it's rendered on-demand by the edge function
-      const templateUrl = `/api/visuals/template?${params.toString()}`
+      // Upload the PNG to Cloudinary for a permanent URL
+      const uploadRes = await fetch('/api/visuals/canvas-upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader(),
+        },
+        body: JSON.stringify({ dataUrl }),
+      })
 
-      // Save to post — no credits consumed, instant render
-      await savePostEdit(postId, { imageUrl: templateUrl, generationStatus: 'DONE' })
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json().catch(() => ({}))
+        throw new Error(err.error || 'Image upload failed')
+      }
+
+      const { imageUrl } = await uploadRes.json()
+      await savePostEdit(postId, { imageUrl, generationStatus: 'DONE' })
     } catch (err: any) {
       setError(err.message)
     } finally {
