@@ -14,6 +14,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/lib/auth-context'
 
 interface Proposal {
   id: string
@@ -38,14 +39,17 @@ interface BrainLearningPanelProps {
 }
 
 export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: BrainLearningPanelProps) {
+  const { authHeader } = useAuth()
   const [proposals, setProposals]   = useState<Proposal[]>([])
   const [loading, setLoading]       = useState(true)
   const [acting, setActing]         = useState<string | null>(null) // proposalId being acted on
 
   const load = useCallback(async () => {
     try {
+      const token = authHeader()
+      if (!token) { setLoading(false); return }
       const res = await fetch('/api/brain/proposals?status=pending', {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { Authorization: token },
       })
       if (!res.ok) return
       const data = await res.json()
@@ -58,16 +62,18 @@ export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: Br
     } finally {
       setLoading(false)
     }
-  }, [campaignId, compact])
+  }, [campaignId, compact, authHeader])
 
   useEffect(() => { load() }, [load])
 
   const act = async (proposalId: string, action: 'accept' | 'dismiss') => {
     setActing(proposalId)
     try {
+      const token = authHeader()
+      if (!token) { setActing(null); return }
       const res = await fetch('/api/brain/proposals', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ proposalId, action }),
       })
       if (res.ok) {
