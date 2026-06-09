@@ -112,6 +112,53 @@ Extract patterns from these approved posts:
 - winningAngles: content formats/approaches that appear repeatedly
 - winningHooks: opening line structures used
 `
+    } else if (trigger === 'post_performance') {
+      // Real engagement data from Meta/LinkedIn — this is the richest signal
+      const posts = Array.isArray(payload.posts) ? payload.posts : []
+      const avgRate = typeof payload.avgEngagementRate === 'number'
+        ? payload.avgEngagementRate.toFixed(2)
+        : null
+      const threshold = typeof payload.threshold === 'number'
+        ? payload.threshold.toFixed(2)
+        : null
+
+      const aboveAvgPosts = posts.filter(
+        (p: any) => p.performance === 'above_average',
+      )
+      const avgPosts = posts.filter(
+        (p: any) => p.performance !== 'above_average',
+      )
+
+      extractionContext = `
+Real engagement performance data for ${posts.length} published posts.
+${avgRate ? `Workspace average engagement rate: ${avgRate}%` : ''}
+${threshold ? `Above-average threshold: ${threshold}% (posts beating 1.2× the average)` : ''}
+
+ABOVE-AVERAGE POSTS (${aboveAvgPosts.length} posts that outperformed the workspace average):
+${JSON.stringify(aboveAvgPosts.slice(0, 8), null, 2).slice(0, 3000)}
+
+AVERAGE POSTS (for contrast — what didn't outperform):
+${JSON.stringify(avgPosts.slice(0, 4), null, 2).slice(0, 1500)}
+
+${brainSummary}
+
+Analyse WHY the above-average posts outperformed. What made them resonate with the audience?
+Compare them to the average posts — what's different?
+
+Extract specific, evidence-backed learnings:
+- winningHooks: exact hook patterns or opening structures from high-performing posts (e.g. "Posts opening with a bold claim outperform — use 'X people don't know...' style")
+- winningAngles: content angles/themes that correlated with above-average engagement
+- toneKeywords: voice/style traits present in top posts but absent in average ones
+- audiencePainPoints: pain points that the top posts addressed (that drove strong engagement)
+- audienceDesires: aspirations or desires that top posts tapped into
+- strategicNotes: 1-2 sentence strategic insight about what drives performance for this brand/audience
+
+CRITICAL:
+- Only extract insights grounded in the actual post data above
+- Be specific — quote or closely paraphrase from the actual captions
+- No generic advice like "use engaging content" — every insight must trace to a specific post
+- If fewer than 3 above-average posts exist, return [] (not enough signal)
+`
     }
 
     const raw = await callOpenAI([

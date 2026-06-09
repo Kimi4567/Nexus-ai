@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
+import { runBrainLearning } from '@/lib/brain-learning'
 
 export const dynamic = 'force-dynamic'
 
@@ -215,8 +216,8 @@ export async function GET(req: NextRequest) {
               analyticsFetched: true,
               analyticsData: { not: null },
             },
-            select: { id: true, caption: true, analyticsData: true },
-          }) as Array<{ id: string; caption: string; analyticsData: any }>
+            select: { id: true, caption: true, platform: true, analyticsData: true },
+          }) as Array<{ id: string; caption: string; platform: string; analyticsData: any }>
 
           if (wsPosts.length < 2) continue // need at least 2 posts to compute average
 
@@ -237,7 +238,8 @@ export async function GET(req: NextRequest) {
 
           if (winningHooks.length === 0) continue
 
-          // Merge into Brand Brain
+          // ── Direct fast-path update: merge winning hooks into Brand Brain ──────
+          // This is the silent fast path — always runs, no user review needed.
           const brand = await prisma.brandProfile.findUnique({
             where: { workspaceId: wsId },
             select: { winningHooks: true },
@@ -253,6 +255,31 @@ export async function GET(req: NextRequest) {
           results.aboveAveragePosts += winningHooks.length
 
           workspaceBrainUpdates.set(wsId, winningHooks)
+
+          // ── PL4: Rich Performance Intelligence Loop via proposal system ────────
+          // Runs alongside the fast path — uses GPT-4o to analyse WHICH patterns
+          // correlated with above-average engagement and propose specific Brand Brain
+          // updates across ALL fields (not just hooks). User reviews in BrainLearningPanel.
+          const allPostsForAnalysis = wsPosts.map(p => ({
+            caption: typeof p.caption === 'string' ? p.caption.slice(0, 400) : '',
+            platform: String(p.platform),
+            metrics: p.analyticsData ?? {},
+            performance: ((p.analyticsData as any)?.engagementRate ?? 0) >= threshold
+              ? 'above_average'
+              : 'average',
+          })).filter(p => p.caption.length > 10)
+
+          if (allPostsForAnalysis.length >= 2) {
+            runBrainLearning({
+              workspaceId: wsId,
+              trigger: 'post_performance',
+              payload: {
+                posts: allPostsForAnalysis,
+                avgEngagementRate: avgRate,
+                threshold,
+              },
+            }).catch(() => null) // fire-and-forget — never block the cron
+          }
         } catch (err: any) {
           results.errors.push(`Workspace ${wsId}: ${err.message}`)
         }
