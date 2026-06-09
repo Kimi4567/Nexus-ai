@@ -50,6 +50,8 @@ export interface VisualContext {
   visualDirection?: string
   differentiation?: string
   keyMessage?: string
+  // Post-level creative brief (Content Hub per-card generation)
+  postCaption?: string
 }
 
 // ─── Brand category detection ─────────────────────────────────────────────────
@@ -377,6 +379,22 @@ export function buildImagePrompt(ctx: VisualContext): string {
     ? `Unique advantages: ${ctx.uniqueAdvantages}.`
     : ''
 
+  // Post caption — translate the post's message into a visual scene
+  // Strip Arabic/hashtags/emojis from caption for cleaner prompt injection
+  const captionScene = ctx.postCaption
+    ? (() => {
+        const cleaned = ctx.postCaption
+          .replace(/[#@]\S+/g, '')           // remove hashtags & mentions
+          .replace(/[\u{1F300}-\u{1FFFF}]/gu, '') // remove emojis
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 200)
+        return cleaned
+          ? `Post message to visualize: "${cleaned}". Create a scene that communicates this message visually — no text in the image.`
+          : ''
+      })()
+    : ''
+
   // People rule — lifestyle categories can have contextual human presence
   const peopleRule = LIFESTYLE_CATEGORIES.includes(category) ? '' : NO_GENERIC_PEOPLE
 
@@ -386,10 +404,10 @@ export function buildImagePrompt(ctx: VisualContext): string {
   }
 
   const parts = [
-    composition,
+    captionScene || composition,   // caption scene takes priority over generic composition
     `Style: ${ctx.visualStyle} — ${styleDesc}`,
     goalMood ? `Mood: ${goalMood}` : '',
-    strategyVisual,
+    captionScene ? '' : strategyVisual, // avoid redundancy when caption drives the scene
     colorHint,
     ctx.brandName    ? `Brand: ${ctx.brandName}`                  : '',
     ctx.primaryOffer ? `Product/service: ${ctx.primaryOffer}`     : '',

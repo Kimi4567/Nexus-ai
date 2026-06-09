@@ -17,7 +17,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
-import { generateBrandedImage } from '@/lib/canvasTemplate'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -422,8 +421,8 @@ export default function ContentHubPage() {
     }
   }
 
-  // ── Generate branded template image for a single post ────────────────────────
-  // Uses client-side Canvas API → full Arabic/RTL support → uploads to Cloudinary
+  // ── Generate real AI image for a single post ─────────────────────────────────
+  // Calls /api/visuals/generate → gpt-image-1 or Flux → Cloudinary + brand overlay
 
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
@@ -433,74 +432,39 @@ export default function ContentHubPage() {
     setGeneratingImageId(postId)
     setError(null)
     try {
-      const caption = post.caption || ''
-
-      // Extract headline (first non-empty line, max 90 chars)
-      const firstLine = caption.split('\n').find(l => l.trim().length > 0) || caption.slice(0, 90)
-      const headline = firstLine.slice(0, 90)
-
-      // Subtext: rest of caption after first line, max 160 chars
-      const afterFirst = caption.indexOf('\n') > -1
-        ? caption.slice(caption.indexOf('\n') + 1).trim()
-        : ''
-      const subtext = afterFirst.slice(0, 160)
-
-      // Smart template type detection
-      const isStatPost = /^\s*[\d,.]+\s*[%x×+]|[\d,]{3,}\s*(clients|users|leads|sales|revenue|downloads|brands|businesses)/i.test(caption)
-      const isTipPost  = /^(how to|tip:|pro tip|step \d|rule #|\d+\s+(ways|tips|steps|reasons|mistakes))/i.test(caption.toLowerCase())
-      const hasPromo   = post.imagePrompt?.toLowerCase().includes('promo') || caption.toLowerCase().includes('sale') || caption.toLowerCase().includes('offer') || caption.toLowerCase().includes('launch')
-
-      let type: 'quote' | 'stat' | 'tip' | 'promo' = 'quote'
-      if (isStatPost)       type = 'stat'
-      else if (isTipPost)   type = 'tip'
-      else if (hasPromo)    type = 'promo'
-
-      // For A/B variants, use different template types to create visual contrast
-      if (post.variantLabel === 'B') {
-        const variants: Record<string, 'quote' | 'stat' | 'tip' | 'promo'> = {
-          quote: 'stat', stat: 'tip', tip: 'promo', promo: 'quote'
-        }
-        type = variants[type] || 'tip'
+      // Platform mapping (API expects META/INSTAGRAM/FACEBOOK/LINKEDIN/TIKTOK)
+      const platformMap: Record<string, string> = {
+        META: 'META', INSTAGRAM: 'INSTAGRAM', FACEBOOK: 'FACEBOOK',
+        LINKEDIN: 'LINKEDIN', TIKTOK: 'TIKTOK',
       }
+      const mappedPlatform = platformMap[platform.toUpperCase()] || 'META'
 
-      // Platform mapping
-      const platformMap: Record<string, 'instagram' | 'facebook' | 'linkedin' | 'tiktok'> = {
-        META: 'instagram', INSTAGRAM: 'instagram', FACEBOOK: 'facebook',
-        LINKEDIN: 'linkedin', TIKTOK: 'tiktok',
-      }
-      const mappedPlatform = platformMap[platform.toUpperCase()] || 'instagram'
-
-      // Draw branded template on client-side Canvas (full Arabic support)
-      const dataUrl = await generateBrandedImage({
-        type,
-        headline,
-        subtext,
-        stat:      isStatPost ? headline : '',
-        statLabel: isStatPost ? subtext  : '',
-        cta:       caption.match(/👇[^\n]*/)?.[0]?.slice(2, 50) || '',
-        brandName: brandProfile.brandName || campaign?.name || 'Brand',
-        primaryColor: brandProfile.colorPalette[0] || '#7c3aed',
-        accentColor:  brandProfile.colorPalette[1] || '#1a1b2e',
-        logoUrl:    brandProfile.logoUrl || '',
-        platform:   mappedPlatform,
-      })
-
-      // Upload the PNG to Cloudinary for a permanent URL
-      const uploadRes = await fetch('/api/visuals/canvas-upload', {
+      // Call the existing brand-aware image generation route
+      // postCaption drives the scene; brand colors + logo overlay applied server-side
+      const res = await fetch('/api/visuals/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: authHeader(),
         },
-        body: JSON.stringify({ dataUrl }),
+        body: JSON.stringify({
+          campaignId:  campaign?.id,
+          platform:    mappedPlatform,
+          visualType:  'SOCIAL_PREVIEW',
+          visualStyle: 'Premium',
+          postCaption: post.caption || post.imagePrompt || '',
+        }),
       })
 
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json().catch(() => ({}))
-        throw new Error(err.error || 'Image upload failed')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || 'Image generation failed')
       }
 
-      const { imageUrl } = await uploadRes.json()
+      const data = await res.json()
+      const imageUrl = data?.visual?.imageUrl
+      if (!imageUrl) throw new Error('No image URL returned')
+
       await savePostEdit(postId, { imageUrl, generationStatus: 'DONE' })
     } catch (err: any) {
       setError(err.message)

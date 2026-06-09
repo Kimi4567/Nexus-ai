@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
     brandToneWords,
     primaryOffer,
     industry,
+    // Post-level caption — when set, image is generated FOR this specific post
+    postCaption,
     // Regeneration
     parentId,
   } = body
@@ -121,6 +123,8 @@ export async function POST(req: NextRequest) {
     visualDirection: strategy.visualDirection || undefined,
     differentiation: strategy.differentiation || undefined,
     keyMessage:      strategy.keyMessage      || undefined,
+    // Post caption — drives the image subject when generating per-post
+    postCaption:     postCaption              || undefined,
   }
 
   // ── Build the strategy-driven prompt ─────────────────────────────────────
