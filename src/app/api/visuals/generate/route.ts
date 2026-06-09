@@ -25,7 +25,8 @@ import {
   VisualType,
 } from '@/lib/ai/imageGen'
 import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
-import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
+import { platformToOverlay } from '@/lib/cloudinaryOverlay'
+import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -196,15 +197,39 @@ export async function POST(req: NextRequest) {
       rawImageUrl = await generateWithDallE(prompt, platformToOpenAISize(platform))
     }
 
-    // Persist to Cloudinary
-    const publicId     = `visual_${visual.id}`
-    const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, publicId)
+    // ── Persist raw AI image to Cloudinary (needed for Sharp to fetch it) ──
+    const rawPublicId   = `visual_raw_${visual.id}`
+    const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, rawPublicId)
 
-    // Apply brand overlay — use correct crop dimensions for each platform
+    // ── Apply professional Sharp brand composite ─────────────────────────
+    // Sharp compositor: platform crop → gradient strip → logo → brand name → accent bar
+    // Falls back to plain Cloudinary URL if brand name is missing or Sharp fails
+    let permanentUrl = cloudinaryUrl
     const overlayPlatform = platformToOverlay(platform)
-    const permanentUrl = applyBrandOverlayFromProfile(cloudinaryUrl, brand, overlayPlatform)
-    if (permanentUrl !== cloudinaryUrl) {
-      console.log(`[visuals/generate] Brand overlay applied for ${ctx.brandName}`)
+
+    if (brand?.brandName) {
+      try {
+        const compositeBuffer = await composeBrandedPost(cloudinaryUrl, {
+          brandName:   brand.brandName,
+          logoUrl:     brand.logoUrl    || null,
+          accentColor: brand.colorPalette
+            ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
+            : null,
+          platform: overlayPlatform,
+        })
+
+        // Upload the composite as the final visual (replace raw)
+        const finalPublicId = `visual_${visual.id}`
+        permanentUrl = await uploadToCloudinary(
+          bufferToDataUri(compositeBuffer),
+          finalPublicId
+        )
+        console.log(`[visuals/generate] Sharp composite applied for "${ctx.brandName}" on ${overlayPlatform}`)
+      } catch (compositeErr) {
+        // Graceful degradation — return the raw Cloudinary URL without overlay
+        console.warn('[visuals/generate] Sharp composite failed — returning plain image:', compositeErr)
+        permanentUrl = cloudinaryUrl
+      }
     }
 
     // Update DB to COMPLETED

@@ -415,7 +415,8 @@ export function buildImagePrompt(ctx: VisualContext): string {
     differentiator,
     peopleRule,
     NO_TEXT_RULE,
-    'Shot on Phase One XF IQ4, 100MP medium format. Ultra-sharp, studio-grade lighting, 8K resolution, deep color depth, zero compression artifacts. Photorealistic or premium 3D render — indistinguishable from a professional commercial shoot. No watermarks, no logos, no artifacts.',
+    // Ad-grade composition guidance — makes the AI produce agency-quality ad imagery
+    'Advertising photography standard: premium commercial production value. Cinematic lighting with a clear primary focal point and intentional negative space. The bottom 20–25% of the frame has a natural photographic vignette — slightly darker at the lower edges, as if lit from above — allowing for brand overlay. Visual hierarchy: one dominant hero element, supporting context, depth. Shot on Phase One XF IQ4, 100MP. Ultra-sharp, 8K, zero compression artifacts. Photorealistic or premium 3D render — indistinguishable from a professional agency campaign shoot. No watermarks, no logos, no text, no artifacts.',
   ].filter(Boolean)
 
   return parts.join(' ')
