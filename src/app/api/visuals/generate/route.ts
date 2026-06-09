@@ -216,8 +216,9 @@ export async function POST(req: NextRequest) {
             ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
             : null,
           platform:    overlayPlatform,
-          // Pass Arabic post caption as the ad headline — renders via Sharp SVG (RTL)
-          adHeadline:  postCaption || null,
+          // NOTE: adHeadline intentionally omitted — Arabic text cannot be rendered
+          // by Sharp/librsvg on Vercel (no Arabic fonts installed).
+          // The caption is already displayed as text in the Content Hub card UI.
         })
 
         // Upload the composite as the final visual (replace raw)
