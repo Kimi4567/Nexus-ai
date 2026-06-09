@@ -60,6 +60,7 @@ interface Campaign {
 interface BrandProfile {
   brandName: string | null
   logoUrl: string | null
+  colorPalette: string[]
 }
 
 // ── Platform config ────────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ export default function ContentHubPage() {
   const { t } = useI18n()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [brandProfile, setBrandProfile] = useState<BrandProfile>({ brandName: null, logoUrl: null })
+  const [brandProfile, setBrandProfile] = useState<BrandProfile>({ brandName: null, logoUrl: null, colorPalette: [] })
   const [posts, setPosts] = useState<ContentPost[]>([])
   const [mediaLibrary, setMediaLibrary] = useState<MediaItem[]>([])
   const [activePlatform, setActivePlatform] = useState<Platform>('ALL')
@@ -209,6 +210,7 @@ export default function ContentHubPage() {
           setBrandProfile({
             brandName: bData.brandProfile.brandName ?? null,
             logoUrl: bData.brandProfile.logoUrl ?? null,
+            colorPalette: bData.brandProfile.colorPalette ?? [],
           })
         }
       }
@@ -419,31 +421,75 @@ export default function ContentHubPage() {
     }
   }
 
-  // ── Generate image for a single post ──────────────────────────────────────────
+  // ── Generate branded template image for a single post ────────────────────────
+  // Uses /api/visuals/template (next/og ImageResponse — zero AI cost, Canva quality)
 
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
+    const post = posts.find(p => p.id === postId)
+    if (!post) return
+
     setGeneratingImageId(postId)
     setError(null)
     try {
-      const res = await fetch('/api/visuals/generate', {
-        method: 'POST',
-        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId, platform: platform.toUpperCase() }),
+      const caption = post.caption || ''
+
+      // Extract headline (first non-empty line, max 90 chars)
+      const firstLine = caption.split('\n').find(l => l.trim().length > 0) || caption.slice(0, 90)
+      const headline = firstLine.slice(0, 90)
+
+      // Subtext: rest of caption after first line, max 160 chars
+      const afterFirst = caption.indexOf('\n') > -1
+        ? caption.slice(caption.indexOf('\n') + 1).trim()
+        : ''
+      const subtext = afterFirst.slice(0, 160)
+
+      // Smart template type detection
+      const isStatPost = /^\s*[\d,.]+\s*[%x×+]|[\d,]{3,}\s*(clients|users|leads|sales|revenue|downloads|brands|businesses)/i.test(caption)
+      const isTipPost  = /^(how to|tip:|pro tip|step \d|rule #|\d+\s+(ways|tips|steps|reasons|mistakes))/i.test(caption.toLowerCase())
+      const hasPromo   = post.imagePrompt?.toLowerCase().includes('promo') || caption.toLowerCase().includes('sale') || caption.toLowerCase().includes('offer') || caption.toLowerCase().includes('launch')
+
+      let type = 'quote'
+      if (isStatPost)  type = 'stat'
+      else if (isTipPost) type = 'tip'
+      else if (hasPromo)  type = 'promo'
+
+      // For A/B variants, use different template types to create visual contrast
+      if (post.variantLabel === 'B') {
+        const variants: Record<string, string> = { quote: 'stat', stat: 'tip', tip: 'promo', promo: 'quote' }
+        type = variants[type] || 'tip'
+      }
+
+      // Platform mapping
+      const platformMap: Record<string, string> = {
+        META: 'instagram', INSTAGRAM: 'instagram', FACEBOOK: 'facebook',
+        LINKEDIN: 'linkedin', TIKTOK: 'tiktok',
+      }
+      const mappedPlatform = platformMap[platform.toUpperCase()] || 'instagram'
+
+      // Brand colors — strip # for URL encoding
+      const rawPrimary = (brandProfile.colorPalette[0] || '#7c3aed').replace('#', '')
+      const rawAccent  = (brandProfile.colorPalette[1] || '#1a1b2e').replace('#', '')
+
+      const params = new URLSearchParams({
+        type,
+        headline,
+        subtext,
+        stat:      isStatPost ? headline : '',
+        statLabel: isStatPost ? subtext  : '',
+        cta:       caption.match(/👇[^\n]*/)?.[0]?.slice(2, 50) || '',
+        brandName: brandProfile.brandName || campaign?.name || 'Brand',
+        primaryColor:  rawPrimary,
+        accentColor:   rawAccent,
+        logoUrl:    brandProfile.logoUrl || '',
+        platform:   mappedPlatform,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        if (data.code === 'INSUFFICIENT_CREDITS') {
-          setError('Not enough credits to generate an image. Upgrade your plan.')
-        } else {
-          throw new Error(data.error ?? 'Image generation failed')
-        }
-        return
-      }
-      const imageUrl = data.visual?.imageUrl
-      if (imageUrl) {
-        await savePostEdit(postId, { imageUrl, generationStatus: 'DONE' })
-      }
+
+      // The template URL is the image — it's rendered on-demand by the edge function
+      const templateUrl = `/api/visuals/template?${params.toString()}`
+
+      // Save to post — no credits consumed, instant render
+      await savePostEdit(postId, { imageUrl: templateUrl, generationStatus: 'DONE' })
     } catch (err: any) {
       setError(err.message)
     } finally {
