@@ -118,20 +118,58 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ brandProfile: profileData, success: true, pending: true })
     }
 
-    // Record a Brain Score snapshot for growth visualization
+    // ── Brain Score Snapshot (3-dimension intelligence formula) ─────────────────
+    // Score grows as the brand brain gets RICHER, not just "filled".
+    //   Completeness  (30 pts) — are the core fields set?
+    //   Array Depth   (50 pts) — how many hooks / angles / pain-points are stored?
+    //   Learning      (20 pts) — how many AI proposals has the user accepted?
+    // Max 100. A perfectly filled new brain ≈ 30. 100 requires real training.
     try {
-      const scoreChecks = [
-        'brandName', 'industry', 'description', 'primaryOffer',
-        'targetAudience', 'audienceAge', 'audienceLocation',
-        'toneKeywords', 'topPlatforms', 'uniqueAdvantages',
-      ]
-      let filled = 0
       const saved = brandProfile as Record<string, unknown>
-      for (const key of scoreChecks) {
-        const val = saved[key]
-        if (Array.isArray(val) ? val.length > 0 : !!val) filled++
+
+      // 1. Completeness (max 30)
+      const completenessMap: Record<string, number> = {
+        brandName: 5, industry: 5, description: 5, primaryOffer: 5,
+        targetAudience: 3, audienceAge: 2, audienceLocation: 2, topPlatforms: 3,
       }
-      const score = Math.round((filled / scoreChecks.length) * 100)
+      let completeness = 0
+      for (const [key, pts] of Object.entries(completenessMap)) {
+        const val = saved[key]
+        if (Array.isArray(val) ? val.length > 0 : !!val) completeness += pts
+      }
+
+      // 2. Array Depth (max 50)
+      function depth(arr: unknown[], brackets: [number, number][]): number {
+        const len = Array.isArray(arr) ? arr.length : 0
+        let pts = 0
+        for (const [threshold, score] of brackets) {
+          if (len >= threshold) pts = score; else break
+        }
+        return pts
+      }
+      const arrayDepth =
+        depth(saved.winningHooks      as unknown[], [[1,4],[3,8],[6,12],[10,16],[15,20]]) + // max 20
+        depth(saved.winningAngles     as unknown[], [[1,2],[3,5],[6,8],[10,10]])           + // max 10
+        depth(saved.audiencePainPoints as unknown[], [[1,2],[3,5],[6,8],[10,10]])          + // max 10
+        depth(saved.toneKeywords      as unknown[], [[1,2],[3,3],[5,5]])                  + // max 5
+        depth(saved.uniqueAdvantages  as unknown[], [[1,2],[3,3],[5,5]])                    // max 5
+      // Total max: 50
+
+      // 3. Learning Activity (max 20)
+      let acceptedCount = 0
+      try {
+        acceptedCount = await db.brainLearning.count({
+          where: { workspaceId: workspace.id, status: 'accepted' },
+        })
+      } catch { /* table may not exist yet */ }
+      const learning =
+        acceptedCount >= 13 ? 20 :
+        acceptedCount >= 8  ? 15 :
+        acceptedCount >= 4  ? 10 :
+        acceptedCount >= 1  ?  5 : 0
+
+      const score = Math.min(100, completeness + arrayDepth + learning)
+
       await db.brainScoreSnapshot.create({
         data: { workspaceId: workspace.id, score },
       })
