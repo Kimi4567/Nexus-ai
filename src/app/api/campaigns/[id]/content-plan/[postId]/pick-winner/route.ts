@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { runBrainLearning } from '@/lib/brain-learning'
 
 type Params = { params: { id: string; postId: string } }
 
@@ -54,6 +55,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       select: {
         id: true,
         caption: true,
+        platform: true,
         variantGroup: true,
         variantLabel: true,
         variantWinner: true,
@@ -61,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }) as {
       id: string
       caption: string
+      platform: string
       variantGroup: string | null
       variantLabel: string | null
       variantWinner: boolean
@@ -71,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'This post is not part of an A/B test' }, { status: 400 })
     }
 
-    // ── 3. Find the losing sibling ───────────────────────────────────────
+    // ── 3. Find the losing sibling (fetch full details BEFORE deletion) ─────
     const loser = await (prisma.socialPost as any).findFirst({
       where: {
         variantGroup: winner.variantGroup,
@@ -79,8 +82,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         workspaceId: campaign.workspaceId,
         id: { not: winner.id },
       },
-      select: { id: true },
-    }) as { id: string } | null
+      select: { id: true, caption: true, platform: true, variantLabel: true },
+    }) as { id: string; caption: string; platform: string; variantLabel: string | null } | null
 
     // ── 4. Mark winner + delete loser in parallel ────────────────────────
     const [, deleteResult] = await Promise.all([
@@ -96,7 +99,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         : Promise.resolve(null),
     ])
 
-    // ── 5. Feed winner hook into Brand Brain ────────────────────────────
+    // ── 5. Fast path: feed winner hook into Brand Brain directly ────────────
+    // Silent, always runs — keeps Brand Brain current even if user never reviews proposals.
     let hookLearned = false
     try {
       const hook = extractHook(winner.caption)
@@ -116,8 +120,31 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         }
       }
     } catch (brandErr) {
-      // Non-fatal — Brand Brain update failure doesn't fail the whole pick
-      console.warn('[pick-winner] Brand Brain update failed:', brandErr)
+      console.warn('[pick-winner] Brand Brain fast-path update failed:', brandErr)
+    }
+
+    // ── 6. Rich path: GPT-4o A/B analysis → Brain Brain proposals ──────────
+    // Compares winner vs loser to extract WHY the winner resonated.
+    // Creates pending proposals the user reviews in BrainLearningPanel.
+    // Requires loser data — only runs if we captured it before deletion.
+    if (loser && loser.caption && loser.caption.trim().length > 10) {
+      runBrainLearning({
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        trigger: 'ab_winner',
+        payload: {
+          winner: {
+            caption: winner.caption,
+            platform: String(winner.platform),
+            variantLabel: winner.variantLabel ?? 'A',
+          },
+          loser: {
+            caption: loser.caption,
+            platform: String(loser.platform),
+            variantLabel: loser.variantLabel ?? 'B',
+          },
+        },
+      }).catch(() => null) // fire-and-forget — never block the pick action
     }
 
     return NextResponse.json({

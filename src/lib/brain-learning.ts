@@ -50,7 +50,7 @@ const FIELD_META: Record<string, { displayName: string; icon: string }> = {
 interface BrainLearningParams {
   workspaceId: string
   campaignId?: string
-  trigger: 'strategy' | 'approved_content' | 'post_performance'
+  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner'
   payload: Record<string, unknown>
 }
 
@@ -130,7 +130,7 @@ Extract patterns from these approved posts:
       )
 
       extractionContext = `
-Real engagement performance data for ${posts.length} published posts.
+Real performance data for ${posts.length} published posts.
 ${avgRate ? `Workspace average engagement rate: ${avgRate}%` : ''}
 ${threshold ? `Above-average threshold: ${threshold}% (posts beating 1.2× the average)` : ''}
 
@@ -158,6 +158,51 @@ CRITICAL:
 - Be specific — quote or closely paraphrase from the actual captions
 - No generic advice like "use engaging content" — every insight must trace to a specific post
 - If fewer than 3 above-average posts exist, return [] (not enough signal)
+`
+    } else if (trigger === 'ab_winner') {
+      // User manually chose between two variants — this is the highest-quality signal.
+      // Their choice reveals exactly what resonates with their audience/brand intuition.
+      const winner = payload.winner as { caption: string; platform: string; variantLabel?: string } | undefined
+      const loser  = payload.loser  as { caption: string; platform: string; variantLabel?: string } | undefined
+
+      if (!winner || !loser) {
+        return 0 // nothing to learn without both sides
+      }
+
+      extractionContext = `
+The user ran an A/B test between two versions of a social media post and picked the winner.
+This is a HIGH-CONFIDENCE signal — the user explicitly chose one over the other.
+
+WINNER (chosen by user):
+Platform: ${winner.platform}
+Variant: ${winner.variantLabel || 'A'}
+Caption:
+"${winner.caption.slice(0, 600)}"
+
+LOSER (rejected by user):
+Platform: ${loser.platform}
+Variant: ${loser.variantLabel || 'B'}
+Caption:
+"${loser.caption.slice(0, 600)}"
+
+${brainSummary}
+
+Analyze WHY the user chose the winner over the loser.
+What is SPECIFICALLY different between them?
+
+Compare: opening hook, content angle, tone/voice, length, structure, emotional appeal, CTA style.
+
+Extract concrete learnings:
+- winningHooks: the specific hook formula/pattern used in the winner (e.g. "Opens with a surprising statistic + 'Here is what...' bridge")
+- winningAngles: the content angle that made the winner stronger (e.g. "Contrarian take beats listicle for this brand")
+- toneKeywords: tone/style traits present in the winner but absent or weaker in the loser
+- strategicNotes: 1-sentence insight about what this A/B result reveals about this audience
+
+RULES:
+- Be hyper-specific — reference the actual text of the captions
+- The loser is equally important: note what the winner AVOIDED that the loser used
+- Maximum 3 proposals — quality over quantity
+- If the difference is trivial (just emoji or punctuation), return []
 `
     }
 
