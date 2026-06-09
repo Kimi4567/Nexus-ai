@@ -145,7 +145,7 @@ export default function ContentHubPage() {
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105"
               style={{ background: 'linear-gradient(135deg,#8B5CF6,#6366f1)', color: 'white', boxShadow: '0 4px 15px rgba(139,92,246,0.3)' }}>
               <Plus className="w-4 h-4" />
-              {isAr ? 'كامبين جديد' : 'New Campaign'}
+              {isAr ? 'خطة جديدة' : 'New Content Plan'}
             </Link>
           </div>
 

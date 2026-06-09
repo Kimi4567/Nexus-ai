@@ -282,7 +282,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* Organic Content */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'محتوى عضوي' : 'Organic Content'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
-        <NavItem href="/campaigns" label={locale === 'ar' ? 'توليد محتوى' : 'Generate Content'}
+        <NavItem href="/campaigns" label={locale === 'ar' ? 'خطط المحتوى' : 'Content Plans'}
           icon={Icons.campaigns} {...sharedProps} />
         <NavItem href="/templates" label={locale === 'ar' ? 'القوالب' : 'Templates'}
           icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>}
