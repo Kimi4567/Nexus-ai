@@ -701,6 +701,14 @@ export default function BrandBrainPage() {
                     {saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>}
                     {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
                   </button>
+                  {scoreHistory.length >= 2 && (
+                    <button onClick={() => router.push('/brand/score-history')}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+                      style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                      <BarChart2 size={13} />
+                      {locale === 'ar' ? 'سجل النمو' : 'Score History'}
+                    </button>
+                  )}
                 </div>
               </div>
 
