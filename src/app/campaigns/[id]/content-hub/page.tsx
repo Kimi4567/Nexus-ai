@@ -432,12 +432,19 @@ export default function ContentHubPage() {
     setGeneratingImageId(postId)
     setError(null)
     try {
-      // Platform mapping (API expects META/INSTAGRAM/FACEBOOK/LINKEDIN/TIKTOK)
+      // Platform mapping — drives both image dimensions and Cloudinary crop.
+      // META feed posts are square (1:1) same as INSTAGRAM; FACEBOOK is landscape.
+      // TIKTOK is portrait 4:5. LINKEDIN is landscape 1.91:1.
       const platformMap: Record<string, string> = {
-        META: 'META', INSTAGRAM: 'INSTAGRAM', FACEBOOK: 'FACEBOOK',
-        LINKEDIN: 'LINKEDIN', TIKTOK: 'TIKTOK',
+        META:      'INSTAGRAM',  // Meta feed → square 1024×1024
+        INSTAGRAM: 'INSTAGRAM',  // Instagram → square 1024×1024
+        FACEBOOK:  'FACEBOOK',   // Facebook  → landscape 1536×1024
+        LINKEDIN:  'LINKEDIN',   // LinkedIn  → landscape 1536×1024
+        TIKTOK:    'TIKTOK',     // TikTok    → portrait  1024×1536
+        X:         'FACEBOOK',   // X/Twitter → landscape
+        TWITTER:   'FACEBOOK',   // X/Twitter → landscape
       }
-      const mappedPlatform = platformMap[platform.toUpperCase()] || 'META'
+      const mappedPlatform = platformMap[platform.toUpperCase()] || 'INSTAGRAM'
 
       // Call the existing brand-aware image generation route
       // postCaption drives the scene; brand colors + logo overlay applied server-side

@@ -25,7 +25,7 @@ import {
   VisualType,
 } from '@/lib/ai/imageGen'
 import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
-import { applyBrandOverlayFromProfile } from '@/lib/cloudinaryOverlay'
+import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -200,8 +200,9 @@ export async function POST(req: NextRequest) {
     const publicId     = `visual_${visual.id}`
     const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, publicId)
 
-    // Apply brand overlay (Cloudinary URL transformation — no extra API call)
-    const permanentUrl = applyBrandOverlayFromProfile(cloudinaryUrl, brand, 'square')
+    // Apply brand overlay — use correct crop dimensions for each platform
+    const overlayPlatform = platformToOverlay(platform)
+    const permanentUrl = applyBrandOverlayFromProfile(cloudinaryUrl, brand, overlayPlatform)
     if (permanentUrl !== cloudinaryUrl) {
       console.log(`[visuals/generate] Brand overlay applied for ${ctx.brandName}`)
     }

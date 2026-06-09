@@ -37,9 +37,13 @@ const PLATFORM_CROP: Record<OverlayPlatform, string> = {
 
 export function platformToOverlay(platform: string): OverlayPlatform {
   const map: Record<string, OverlayPlatform> = {
-    META:      'square',    // Instagram + Facebook feed — 1:1 works for both
-    LINKEDIN:  'linkedin',
-    TIKTOK:    'tiktok',
+    META:      'square',     // Meta feed — 1:1 safe for both IG + FB stories
+    INSTAGRAM: 'instagram',  // Instagram — 1080×1080 square
+    FACEBOOK:  'facebook',   // Facebook  — 1200×630 landscape
+    LINKEDIN:  'linkedin',   // LinkedIn  — 1200×628 landscape
+    TIKTOK:    'tiktok',     // TikTok    — 1080×1350 portrait 4:5
+    X:         'facebook',   // X/Twitter — landscape same as FB
+    TWITTER:   'facebook',   // legacy alias
   }
   return map[platform?.toUpperCase()] || 'square'
 }
@@ -128,21 +132,25 @@ export function applyBrandOverlay(
   // ── 1. Platform crop ──────────────────────────────────────────────────────
   transforms.push(PLATFORM_CROP[platform])
 
-  // ── 2. Brand name text — white bold, bottom-left, drop shadow ────────────
-  // Cloudinary font format: FontFamily_Size_style (e.g. Arial_34_bold)
+  // ── 2. Brand name text — white bold, bottom-left, strong shadow ─────────
+  // Layout: brand name anchored bottom-left, logo anchored bottom-right.
+  // This mirrors the professional "split badge" layout used in premium social ads.
+  // Cloudinary font format: FontFamily_Size_style (e.g. Arial_44_bold)
   const safeText = encodeOverlayText(brandName)
   if (safeText) {
     transforms.push(
-      `l_text:Arial_34_bold:${safeText},co_white,g_south_west,x_28,y_28,e_shadow:40`
+      `l_text:Arial_44_bold:${safeText},co_white,g_south_west,x_28,y_32,e_shadow:80`
     )
   }
 
-  // ── 3. Logo — top-right corner (only if Cloudinary public_id is available) ─
-  // Cloudinary image layers require 3 steps: define layer / transform it / apply it
+  // ── 3. Logo — bottom-right corner, 120×120, strong shadow ────────────────
+  // Cloudinary image layers require 3 steps: define layer / transform it / apply it.
+  // Larger logo (120px) is clearly visible on all platforms.
+  // Drop shadow added via e_shadow:60 for readability against any background.
   if (logoPublicId) {
     transforms.push(`l_${logoPublicId}`)
-    transforms.push('c_fit,w_70,h_70')
-    transforms.push('fl_layer_apply,g_north_east,x_20,y_20')
+    transforms.push('c_fit,w_120,h_120,e_shadow:60')
+    transforms.push('fl_layer_apply,g_south_east,x_24,y_24')
   }
 
   return `${base}${transforms.join('/')}/${rest}`
