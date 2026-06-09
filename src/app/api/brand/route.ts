@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       visualStyle, colorPalette, logoUrl,
       winningHooks, winningAngles, failedAngles, topPlatforms,
       strategicNotes, competitorNotes, competitors,
+      websiteUrl, contentSamples,
     } = body
 
     const profileData = {
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
       strategicNotes: strategicNotes || null,
       competitorNotes: competitorNotes || null,
       competitors: toStringArray(competitors),
+      websiteUrl: websiteUrl || null,
+      contentSamples: toStringArray(contentSamples),
     }
 
     let brandProfile = null

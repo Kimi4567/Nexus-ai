@@ -11,7 +11,7 @@ import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
   CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X, Rocket,
-  Upload, ImageIcon
+  Upload, ImageIcon, Link2, FileText, ScanSearch, ChevronRight
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -430,10 +430,25 @@ export default function BrandBrainPage() {
     topPlatforms: [], visualStyle: '',
     winningHooks: [], winningAngles: [], failedAngles: [],
     competitors: [], competitorNotes: '', strategicNotes: '',
+    websiteUrl: '', contentSamples: [],
   })
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
   const [scoreHistory, setScoreHistory]   = useState<number[]>([])
+
+  // ── Website Scanner state ─────────────────────────────────────
+  const [websiteUrl, setWebsiteUrl]           = useState('')
+  const [scanning, setScanning]               = useState(false)
+  const [scanError, setScanError]             = useState<string | null>(null)
+  const [scanResult, setScanResult]           = useState<Record<string, unknown> | null>(null)
+  const [showScanPreview, setShowScanPreview] = useState(false)
+
+  // ── Content Samples state ─────────────────────────────────────
+  const [contentSamples, setContentSamples]     = useState(['', '', ''])
+  const [analyzing, setAnalyzing]               = useState(false)
+  const [analyzeError, setAnalyzeError]         = useState<string | null>(null)
+  const [analyzeResult, setAnalyzeResult]       = useState<Record<string, unknown> | null>(null)
+  const [showAnalyzePreview, setShowAnalyzePreview] = useState(false)
 
   useEffect(() => {
     try {
@@ -588,6 +603,114 @@ export default function BrandBrainPage() {
     } finally {
       setLogoUploading(false)
     }
+  }
+
+  // ── handleScanWebsite ─────────────────────────────────────────
+  const handleScanWebsite = async () => {
+    if (!websiteUrl.trim()) return
+    setScanning(true)
+    setScanError(null)
+    setScanResult(null)
+    setShowScanPreview(false)
+    try {
+      const res = await fetch('/api/brand/scan-website', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({ url: websiteUrl }),
+      })
+      const data = await res.json()
+      if (res.status === 402) {
+        setScanError(locale === 'ar' ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
+        return
+      }
+      if (res.status === 422) {
+        setScanError(locale === 'ar' ? 'تعذّر قراءة المحتوى — قد يحتاج الموقع إلى JavaScript' : 'Could not read website content — the site may require JavaScript')
+        return
+      }
+      if (!res.ok) {
+        setScanError(data.error || (locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong'))
+        return
+      }
+      setScanResult(data.extracted)
+      setShowScanPreview(true)
+    } catch {
+      setScanError(locale === 'ar' ? 'تعذّر الاتصال، حاول مرة أخرى' : 'Connection failed, please try again')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const applyScanResult = () => {
+    if (!scanResult) return
+    const r = scanResult as Record<string, unknown>
+    setForm(f => ({
+      ...f,
+      brandName:         r.brandName         ? String(r.brandName)         : f.brandName,
+      industry:          r.industry          ? String(r.industry)          : f.industry,
+      description:       r.description       ? String(r.description)       : f.description,
+      targetAudience:    r.targetAudience    ? String(r.targetAudience)    : f.targetAudience,
+      primaryOffer:      r.primaryOffer      ? String(r.primaryOffer)      : f.primaryOffer,
+      writingStyle:      r.writingStyle      ? String(r.writingStyle)      : f.writingStyle,
+      pricePoint:        r.pricePoint        ? String(r.pricePoint)        : f.pricePoint,
+      strategicNotes:    r.strategicNotes    ? String(r.strategicNotes)    : f.strategicNotes,
+      uniqueAdvantages:  Array.isArray(r.uniqueAdvantages)  ? [...new Set([...(f.uniqueAdvantages||[]), ...(r.uniqueAdvantages as string[])])]  : f.uniqueAdvantages,
+      toneKeywords:      Array.isArray(r.toneKeywords)      ? [...new Set([...(f.toneKeywords||[]),     ...(r.toneKeywords      as string[])])]  : f.toneKeywords,
+      audiencePainPoints:Array.isArray(r.audiencePainPoints)? [...new Set([...(f.audiencePainPoints||[]),...(r.audiencePainPoints as string[])])]  : f.audiencePainPoints,
+      competitors:       Array.isArray(r.competitors)       ? [...new Set([...(f.competitors||[]),      ...(r.competitors       as string[])])]  : f.competitors,
+      websiteUrl:        websiteUrl,
+    }))
+    setShowScanPreview(false)
+    setScanResult(null)
+  }
+
+  // ── handleAnalyzeContent ──────────────────────────────────────
+  const handleAnalyzeContent = async () => {
+    const valid = contentSamples.filter(s => s.trim())
+    if (valid.length === 0) return
+    setAnalyzing(true)
+    setAnalyzeError(null)
+    setAnalyzeResult(null)
+    setShowAnalyzePreview(false)
+    try {
+      const res = await fetch('/api/brand/analyze-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({ samples: valid }),
+      })
+      const data = await res.json()
+      if (res.status === 402) {
+        setAnalyzeError(locale === 'ar' ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
+        return
+      }
+      if (!res.ok) {
+        setAnalyzeError(data.error || (locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong'))
+        return
+      }
+      setAnalyzeResult(data.extracted)
+      setShowAnalyzePreview(true)
+    } catch {
+      setAnalyzeError(locale === 'ar' ? 'تعذّر الاتصال، حاول مرة أخرى' : 'Connection failed, please try again')
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  const applyAnalyzeResult = () => {
+    if (!analyzeResult) return
+    const r = analyzeResult as Record<string, unknown>
+    setForm(f => ({
+      ...f,
+      writingStyle:      r.writingStyle      ? String(r.writingStyle)      : f.writingStyle,
+      strategicNotes:    r.strategicNotes    ? (f.strategicNotes ? `${f.strategicNotes}\n\n${String(r.strategicNotes)}` : String(r.strategicNotes)) : f.strategicNotes,
+      winningHooks:      Array.isArray(r.winningHooks)       ? [...new Set([...(f.winningHooks||[]),       ...(r.winningHooks       as string[])])] : f.winningHooks,
+      winningAngles:     Array.isArray(r.winningAngles)      ? [...new Set([...(f.winningAngles||[]),      ...(r.winningAngles      as string[])])] : f.winningAngles,
+      toneKeywords:      Array.isArray(r.toneKeywords)       ? [...new Set([...(f.toneKeywords||[]),       ...(r.toneKeywords       as string[])])] : f.toneKeywords,
+      audiencePainPoints:Array.isArray(r.audiencePainPoints) ? [...new Set([...(f.audiencePainPoints||[]),...(r.audiencePainPoints  as string[])])] : f.audiencePainPoints,
+      audienceDesires:   Array.isArray(r.audienceDesires)    ? [...new Set([...(f.audienceDesires||[]),   ...(r.audienceDesires    as string[])])] : f.audienceDesires,
+      contentSamples:    contentSamples.filter(s => s.trim()),
+    }))
+    setShowAnalyzePreview(false)
+    setAnalyzeResult(null)
   }
 
   const { score, missing } = getBrandCompleteness(form, locale)
@@ -745,6 +868,304 @@ export default function BrandBrainPage() {
               BRAIN LEARNING PROPOSALS
               ══════════════════════════════════════════════════════ */}
           <BrainLearningPanel />
+
+          {/* ══════════════════════════════════════════════════════
+              WEBSITE INTELLIGENCE SCANNER
+              ══════════════════════════════════════════════════════ */}
+          <div className="rounded-2xl overflow-hidden"
+            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(6,182,212,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.3)' }}>
+            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #8b5cf6 100%)' }} />
+            <div className="p-5">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)' }}>
+                  <ScanSearch size={17} style={{ color: '#06b6d4' }} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">
+                      {locale === 'ar' ? 'مسح الموقع الإلكتروني' : 'Website Intelligence Scanner'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(6,182,212,0.12)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' }}>
+                      3 {locale === 'ar' ? 'كردت' : 'credits'}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                    {locale === 'ar'
+                      ? 'أدخل رابط موقعك — سيحلله الذكاء الاصطناعي ويملأ Brand Brain تلقائياً'
+                      : 'Enter your website URL — AI reads your pages and auto-fills Brand Brain fields'}
+                  </p>
+                </div>
+              </div>
+
+              {/* URL input + scan button */}
+              <div className="flex gap-2">
+                <div className="flex-1 flex items-center gap-2 px-3 rounded-xl"
+                  style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)', height: 42 }}>
+                  <Link2 size={14} style={{ color: '#475569', flexShrink: 0 }} />
+                  <input
+                    type="url"
+                    value={websiteUrl}
+                    onChange={e => setWebsiteUrl(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && !scanning && handleScanWebsite()}
+                    placeholder={locale === 'ar' ? 'https://your-brand.com' : 'https://your-brand.com'}
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-600"
+                    style={{ color: 'rgba(255,255,255,0.85)', direction: 'ltr' }}
+                  />
+                </div>
+                <button
+                  onClick={handleScanWebsite}
+                  disabled={scanning || !websiteUrl.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-50 flex-shrink-0"
+                  style={{
+                    background: scanning ? 'rgba(6,182,212,0.1)' : 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                    color: scanning ? '#67e8f9' : '#0a0a0a',
+                    boxShadow: scanning ? 'none' : '0 0 20px rgba(6,182,212,0.25)',
+                  }}>
+                  {scanning
+                    ? <><Loader2 size={14} className="animate-spin" /> {locale === 'ar' ? 'جاري المسح...' : 'Scanning...'}</>
+                    : <><ScanSearch size={14} /> {locale === 'ar' ? 'مسح' : 'Scan'}</>
+                  }
+                </button>
+              </div>
+
+              {/* Error */}
+              {scanError && (
+                <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertTriangle size={13} className="text-red-400 flex-shrink-0" />
+                  <span className="text-xs" style={{ color: '#fca5a5' }}>{scanError}</span>
+                </div>
+              )}
+
+              {/* Scan preview */}
+              {showScanPreview && scanResult && (
+                <div className="mt-4 rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                  <div className="px-4 py-3 flex items-center justify-between"
+                    style={{ borderBottom: '1px solid rgba(6,182,212,0.1)' }}>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} style={{ color: '#06b6d4' }} />
+                      <span className="text-xs font-bold" style={{ color: '#67e8f9' }}>
+                        {locale === 'ar' ? 'تم استخراج بيانات الموقع' : 'Website data extracted'}
+                      </span>
+                    </div>
+                    <button onClick={() => setShowScanPreview(false)}>
+                      <X size={14} style={{ color: '#475569' }} />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-2">
+                    {[
+                      { k: 'brandName',      label: locale === 'ar' ? 'اسم العلامة' : 'Brand Name' },
+                      { k: 'industry',       label: locale === 'ar' ? 'المجال'       : 'Industry' },
+                      { k: 'primaryOffer',   label: locale === 'ar' ? 'المنتج الرئيسي' : 'Primary Offer' },
+                      { k: 'targetAudience', label: locale === 'ar' ? 'الجمهور المستهدف' : 'Target Audience' },
+                      { k: 'writingStyle',   label: locale === 'ar' ? 'أسلوب الكتابة'   : 'Writing Style' },
+                    ].map(({ k, label }) => scanResult[k] ? (
+                      <div key={k} className="flex gap-2 text-xs">
+                        <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>{label}</span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{String(scanResult[k])}</span>
+                      </div>
+                    ) : null)}
+                    {Array.isArray(scanResult.uniqueAdvantages) && (scanResult.uniqueAdvantages as string[]).length > 0 && (
+                      <div className="flex gap-2 text-xs">
+                        <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
+                          {locale === 'ar' ? 'مزايا فريدة' : 'Unique Advantages'}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(scanResult.uniqueAdvantages as string[]).slice(0,3).join(' · ')}</span>
+                      </div>
+                    )}
+                    {Array.isArray(scanResult.toneKeywords) && (scanResult.toneKeywords as string[]).length > 0 && (
+                      <div className="flex gap-2 text-xs">
+                        <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
+                          {locale === 'ar' ? 'نبرة الصوت' : 'Tone Keywords'}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(scanResult.toneKeywords as string[]).join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-4 pb-4 flex gap-2">
+                    <button
+                      onClick={applyScanResult}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                      style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: '#0a0a0a', boxShadow: '0 0 16px rgba(6,182,212,0.2)' }}>
+                      <Check size={12} strokeWidth={3} />
+                      {locale === 'ar' ? 'تطبيق على Brand Brain' : 'Apply to Brand Brain'}
+                    </button>
+                    <button
+                      onClick={() => setShowScanPreview(false)}
+                      className="px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={{ background: 'rgba(139,92,246,0.08)', color: '#64748b', border: '1px solid rgba(139,92,246,0.12)' }}>
+                      {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ══════════════════════════════════════════════════════
+              CONTENT SAMPLES ANALYZER
+              ══════════════════════════════════════════════════════ */}
+          <div className="rounded-2xl overflow-hidden"
+            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.3)' }}>
+            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)' }} />
+            <div className="p-5">
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                  <FileText size={17} style={{ color: '#a78bfa' }} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-white">
+                      {locale === 'ar' ? 'تحليل المحتوى الناجح' : 'Content Samples Analyzer'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(139,92,246,0.12)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.2)' }}>
+                      2 {locale === 'ar' ? 'كردت' : 'credits'}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                    {locale === 'ar'
+                      ? 'الصق أفضل محتواك — سيستخرج الذكاء أنماط الـ hooks والأسلوب والزوايا الناجحة'
+                      : 'Paste your best-performing content — AI extracts hooks, angles, and tone patterns'}
+                  </p>
+                </div>
+              </div>
+
+              {/* 3 text areas */}
+              <div className="space-y-2 mb-3">
+                {contentSamples.map((sample, i) => (
+                  <div key={i}>
+                    <div className="text-[10px] font-mono mb-1" style={{ color: '#334155' }}>
+                      {locale === 'ar' ? `نموذج ${i + 1}` : `Sample ${i + 1}`}
+                    </div>
+                    <textarea
+                      value={sample}
+                      onChange={e => {
+                        const next = [...contentSamples]
+                        next[i] = e.target.value
+                        setContentSamples(next)
+                      }}
+                      rows={3}
+                      placeholder={locale === 'ar'
+                        ? 'الصق هنا caption أو إعلان أو سكريبت أثبت نجاحه...'
+                        : 'Paste a caption, ad, email, or script that performed well...'}
+                      className="w-full px-3 py-2.5 rounded-xl text-xs outline-none resize-none"
+                      style={{
+                        background: 'rgba(139,92,246,0.05)',
+                        border: '1px solid rgba(139,92,246,0.15)',
+                        color: 'rgba(255,255,255,0.8)',
+                        caretColor: '#a78bfa',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Analyze button */}
+              <button
+                onClick={handleAnalyzeContent}
+                disabled={analyzing || contentSamples.every(s => !s.trim())}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-50"
+                style={{
+                  background: analyzing ? 'rgba(139,92,246,0.1)' : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                  color: analyzing ? '#c4b5fd' : '#ffffff',
+                  boxShadow: analyzing ? 'none' : '0 0 20px rgba(139,92,246,0.25)',
+                }}>
+                {analyzing
+                  ? <><Loader2 size={14} className="animate-spin" /> {locale === 'ar' ? 'جاري التحليل...' : 'Analyzing...'}</>
+                  : <><Sparkles size={14} /> {locale === 'ar' ? 'تحليل المحتوى' : 'Analyze Content'}</>
+                }
+              </button>
+
+              {/* Error */}
+              {analyzeError && (
+                <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-xl"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <AlertTriangle size={13} className="text-red-400 flex-shrink-0" />
+                  <span className="text-xs" style={{ color: '#fca5a5' }}>{analyzeError}</span>
+                </div>
+              )}
+
+              {/* Analyze preview */}
+              {showAnalyzePreview && analyzeResult && (
+                <div className="mt-4 rounded-xl overflow-hidden"
+                  style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                  <div className="px-4 py-3 flex items-center justify-between"
+                    style={{ borderBottom: '1px solid rgba(139,92,246,0.1)' }}>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={14} style={{ color: '#a78bfa' }} />
+                      <span className="text-xs font-bold" style={{ color: '#c4b5fd' }}>
+                        {locale === 'ar' ? 'تم استخراج أنماط المحتوى' : 'Content patterns extracted'}
+                      </span>
+                    </div>
+                    <button onClick={() => setShowAnalyzePreview(false)}>
+                      <X size={14} style={{ color: '#475569' }} />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-2.5">
+                    {Array.isArray(analyzeResult.winningHooks) && (analyzeResult.winningHooks as string[]).length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-mono font-bold mb-1.5" style={{ color: '#a78bfa' }}>
+                          {locale === 'ar' ? 'الـ HOOKS الناجحة' : 'WINNING HOOKS'}
+                        </div>
+                        <div className="space-y-1">
+                          {(analyzeResult.winningHooks as string[]).slice(0, 3).map((h, i) => (
+                            <div key={i} className="flex items-start gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                              <ChevronRight size={11} style={{ color: '#a78bfa', flexShrink: 0, marginTop: 2 }} />
+                              <span>{h}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {!!analyzeResult.writingStyle && (
+                      <div className="flex gap-2 text-xs">
+                        <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
+                          {locale === 'ar' ? 'أسلوب الكتابة' : 'Writing Style'}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{String(analyzeResult.writingStyle)}</span>
+                      </div>
+                    )}
+                    {Array.isArray(analyzeResult.toneKeywords) && (analyzeResult.toneKeywords as string[]).length > 0 && (
+                      <div className="flex gap-2 text-xs">
+                        <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
+                          {locale === 'ar' ? 'نبرة الصوت' : 'Tone Keywords'}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(analyzeResult.toneKeywords as string[]).join(', ')}</span>
+                      </div>
+                    )}
+                    {Array.isArray(analyzeResult.winningAngles) && (analyzeResult.winningAngles as string[]).length > 0 && (
+                      <div className="flex gap-2 text-xs">
+                        <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
+                          {locale === 'ar' ? 'زوايا المحتوى' : 'Content Angles'}
+                        </span>
+                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(analyzeResult.winningAngles as string[]).slice(0,3).join(' · ')}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-4 pb-4 flex gap-2">
+                    <button
+                      onClick={applyAnalyzeResult}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                      style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#ffffff', boxShadow: '0 0 16px rgba(139,92,246,0.2)' }}>
+                      <Check size={12} strokeWidth={3} />
+                      {locale === 'ar' ? 'تطبيق على Brand Brain' : 'Apply to Brand Brain'}
+                    </button>
+                    <button
+                      onClick={() => setShowAnalyzePreview(false)}
+                      className="px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={{ background: 'rgba(139,92,246,0.08)', color: '#64748b', border: '1px solid rgba(139,92,246,0.12)' }}>
+                      {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* ══════════════════════════════════════════════════════
               STEP STEPPER

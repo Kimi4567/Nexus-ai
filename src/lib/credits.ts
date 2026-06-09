@@ -87,6 +87,20 @@ export const CREDIT_COSTS = {
    */
   PAID_PACK_GENERATE: 6,
 
+  /**
+   * Website Intelligence Scanner — fetch + GPT-4o analysis of brand website pages
+   * Route: /api/brand/scan-website
+   * API cost: ~$0.04 (GPT-4o, ~5,000 tokens). Margin @ Pro: 93%
+   */
+  WEBSITE_SCAN: 3,
+
+  /**
+   * Content Samples Analyzer — GPT-4o extracts hooks/angles/tone from pasted samples
+   * Route: /api/brand/analyze-content
+   * API cost: ~$0.015 (GPT-4o, ~2,000 tokens). Margin @ Pro: 95%
+   */
+  CONTENT_ANALYSIS: 2,
+
 } as const
 
 export type CreditAction = keyof typeof CREDIT_COSTS

@@ -36,6 +36,8 @@ export interface BrandProfile {
   competitors?: string[]
   competitorNotes?: string | null
   strategicNotes?: string | null
+  websiteUrl?: string | null
+  contentSamples?: string[]
 }
 
 const ARRAY_FIELDS: (keyof BrandProfile)[] = [
@@ -51,6 +53,7 @@ const ARRAY_FIELDS: (keyof BrandProfile)[] = [
   'winningAngles',
   'failedAngles',
   'competitors',
+  'contentSamples',
 ]
 
 function toStringArray(value: unknown): string[] {

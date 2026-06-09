@@ -593,6 +593,10 @@ model BrandProfile {
   // Strategic notes (freeform memory)
   strategicNotes String?   @db.Text
 
+  // Website & content intelligence (auto-scanned)
+  websiteUrl    String?                          // brand's main website URL
+  contentSamples String[]  @default([])          // up to 3 pasted best-performing content pieces
+
   // AI-generated insights (auto-populated)
   aiInsights    Json?      // { summary, recommendations, lastUpdated }
 
