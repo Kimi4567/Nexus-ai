@@ -38,6 +38,7 @@ export interface BrandCompositeOptions {
   logoUrl?: string | null          // Cloudinary URL of the brand logo
   accentColor?: string | null      // Brand primary color e.g. '#6366f1'
   platform?: string                // instagram | square | facebook | linkedin | tiktok
+  adHeadline?: string | null       // Arabic (or any) ad copy headline — composited via SVG
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,6 +72,31 @@ function extractFirstColor(palette?: string | null): string | null {
   return match ? match[0] : null
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Extract the headline from a social media caption.
+ * Takes the first sentence/line, strips hashtags + mentions, caps at maxChars.
+ * Handles Arabic, English, and mixed captions.
+ */
+function extractAdHeadline(caption: string, maxChars = 42): string {
+  if (!caption?.trim()) return ''
+  const firstLine = caption
+    .split(/\n|!|؟|\?/)[0]           // first sentence or line
+    .replace(/[#@]\S+/g, '')          // strip hashtags + mentions
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '') // strip emojis
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!firstLine) return ''
+  if (firstLine.length <= maxChars) return firstLine
+  // Break at word boundary nearest to maxChars
+  const truncated = firstLine.slice(0, maxChars)
+  const lastSpace  = truncated.lastIndexOf(' ')
+  return lastSpace > Math.floor(maxChars * 0.5)
+    ? truncated.slice(0, lastSpace).trim()
+    : truncated.trim()
+}
+
 // ─── SVG layer builders ───────────────────────────────────────────────────────
 
 /**
@@ -89,6 +115,70 @@ function buildGradientSvg(w: number, h: number): Buffer {
     </linearGradient>
   </defs>
   <rect x="0" y="${startY}" width="${w}" height="${gradH}" fill="url(#g)"/>
+</svg>`)
+}
+
+/**
+ * Arabic ad headline — centered, bold, rendered via RTL SVG text.
+ * Positioned in the gradient zone (mid-lower area) so it sits clearly
+ * above the brand name bar. Renders beautifully in Arabic or any script.
+ *
+ * For long text: splits into 2 lines at the midpoint nearest a word boundary.
+ */
+function buildAdHeadlineSvg(w: number, h: number, text: string): Buffer {
+  const MAX_PER_LINE = 22  // Arabic chars (wider than Latin)
+  const fontSize    = w >= 1080 ? 62 : w >= 800 ? 50 : 40
+  const lineHeight  = Math.round(fontSize * 1.35)
+  const centerX     = Math.round(w / 2)
+
+  // Split into up to 2 lines if needed
+  let lines: string[]
+  if (text.length <= MAX_PER_LINE) {
+    lines = [text]
+  } else {
+    // Find split point nearest to middle at a space boundary
+    const mid = Math.floor(text.length / 2)
+    let splitAt = text.lastIndexOf(' ', mid)
+    if (splitAt < 4) splitAt = text.indexOf(' ', mid)
+    if (splitAt < 0) splitAt = mid
+    lines = [text.slice(0, splitAt).trim(), text.slice(splitAt).trim()]
+  }
+
+  // Vertical position: center block at ~73% of image height (within gradient zone)
+  const totalH  = lines.length * lineHeight
+  const blockY  = Math.round(h * 0.73) - Math.round(totalH / 2)
+
+  // Semi-transparent background pill for max legibility
+  const bgPad  = 18
+  const bgX    = Math.round(w * 0.04)
+  const bgW    = w - 2 * bgX
+  const bgY    = blockY - bgPad
+  const bgH    = totalH + bgPad * 2
+
+  const textEls = lines.map((line, i) => {
+    const y = blockY + fontSize + i * lineHeight
+    return `  <text
+    x="${centerX}"
+    y="${y}"
+    text-anchor="middle"
+    direction="rtl"
+    unicode-bidi="embed"
+    font-family="Arial, Helvetica, sans-serif"
+    font-weight="bold"
+    font-size="${fontSize}px"
+    fill="white"
+    filter="url(#headlineShadow)"
+  >${escXml(line)}</text>`
+  }).join('\n')
+
+  return Buffer.from(`<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="headlineShadow" x="-20%" y="-30%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="12" flood-color="rgba(0,0,0,0.92)"/>
+    </filter>
+  </defs>
+  <rect x="${bgX}" y="${bgY}" width="${bgW}" height="${bgH}" rx="12" fill="rgba(0,0,0,0.30)"/>
+${textEls}
 </svg>`)
 }
 
@@ -193,6 +283,10 @@ export async function composeBrandedPost(
   const brandTextSvg = buildBrandTextSvg(w, h, opts.brandName)
   const accentBarSvg = buildAccentBarSvg(w, h, `rgb(${r},${g},${b})`)
 
+  // Arabic ad headline — extract + build SVG if caption provided
+  const rawHeadline = opts.adHeadline ? extractAdHeadline(opts.adHeadline) : null
+  const headlineSvg = rawHeadline ? buildAdHeadlineSvg(w, h, rawHeadline) : null
+
   // ── 3. Fetch + resize logo (optional) ────────────────────────────────────
   const logoSize = Math.round(w * 0.1)  // 10% of width: 108px at 1080
   const logoPaddingX = Math.round(w * 0.025)
@@ -204,9 +298,14 @@ export async function composeBrandedPost(
 
   // ── 4. Composite everything using Sharp ───────────────────────────────────
   const compositeInputs: sharp.OverlayOptions[] = [
-    // Gradient strip (must come before text/logo so they sit on top)
+    // Gradient strip — must come first so all text/logo sit above it
     { input: gradientSvg, top: 0, left: 0 },
   ]
+
+  // Arabic ad headline — middle of image, above brand strip
+  if (headlineSvg) {
+    compositeInputs.push({ input: headlineSvg, top: 0, left: 0 })
+  }
 
   // Logo — bottom-right, with padding
   if (logoBuffer) {
@@ -215,7 +314,7 @@ export async function composeBrandedPost(
     compositeInputs.push({ input: logoBuffer, top: logoTop, left: logoLeft })
   }
 
-  // Brand name text
+  // Brand name text (English) — bottom-left
   compositeInputs.push({ input: brandTextSvg, top: 0, left: 0 })
 
   // Accent bar (on top of everything — always fully visible)

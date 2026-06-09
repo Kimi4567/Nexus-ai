@@ -191,16 +191,21 @@ export const PLAN_VIDEO_QUOTA: Record<string, number> = {
 // Growth: 5 (3 brands × 1-2 campaigns each). Agency: unlimited (10 clients).
 
 export const PLAN_CAMPAIGN_LIMIT: Record<string, number> = {
-  FREE:     1,
-  STARTER:  2,
-  PRO:      5,
+  FREE:     3,    // Raised to 3 — users need room to test the product
+  STARTER:  5,
+  PRO:      10,
+  GROWTH:   10,   // Alias for PRO display name
   BUSINESS: 999,
-  free:     1,
-  starter:  2,
-  pro:      5,
+  AGENCY:   999,
+  ADMIN:    999,  // Admin / founder — unlimited
+  free:     3,
+  starter:  5,
+  pro:      10,
+  growth:   10,
   business: 999,
   agency:   999,
-  ACTIVE:   5,
+  admin:    999,
+  ACTIVE:   10,   // Fallback for active subscriptions without explicit plan
 }
 
 // ── Stripe Price ID mapping ────────────────────────────────────────────────────

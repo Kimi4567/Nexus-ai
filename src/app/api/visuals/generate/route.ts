@@ -215,7 +215,9 @@ export async function POST(req: NextRequest) {
           accentColor: brand.colorPalette
             ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
             : null,
-          platform: overlayPlatform,
+          platform:    overlayPlatform,
+          // Pass Arabic post caption as the ad headline — renders via Sharp SVG (RTL)
+          adHeadline:  postCaption || null,
         })
 
         // Upload the composite as the final visual (replace raw)
