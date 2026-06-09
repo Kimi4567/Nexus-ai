@@ -871,28 +871,34 @@ export default function LandingPage() {
                 className="text-[42px] sm:text-[58px] lg:text-[70px] font-extrabold leading-[1.04] tracking-[-3px] mb-6">
                 {ar ? (
                   <>
-                    أخيراً —<br />
+                    فريق التسويق<br />
                     <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                      ذكاء يعرف علامتك
+                      الذي لا تقدر عليه —
                     </span>
-                    <br />ويسوّق عنك.
+                    <br />حتى الآن.
                   </>
                 ) : (
                   <>
-                    Finally —<br />
+                    The marketing team<br />
                     <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-                      an AI that knows your brand
+                      you couldn&apos;t afford —
                     </span>
-                    <br />and markets for you.
+                    <br />until now.
                   </>
                 )}
               </motion.h1>
 
               <motion.p initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.45, duration:0.6 }}
-                className="text-[17px] sm:text-[20px] text-slate-400 leading-relaxed max-w-[620px] mb-9">
+                className="text-[17px] sm:text-[20px] text-slate-400 leading-relaxed max-w-[620px] mb-3">
                 {ar
-                  ? 'NEXUS يحفظ هوية علامتك التجارية، يضع الاستراتيجية، ويُنتج المحتوى — وينشره تلقائياً على Facebook وLinkedIn وTikTok.'
-                  : 'NEXUS learns your brand identity, builds your strategy, and produces your content — then publishes it automatically to Facebook, LinkedIn, and TikTok.'}
+                  ? 'NEXUS يبني استراتيجيتك، يكتب ٣٠ بوست مخصص لكل منصة، وينشرها تلقائياً — بدل $٥٠٠٠/شهر لوكالة.'
+                  : 'NEXUS builds your strategy, writes 30 posts tailored to every platform, and publishes them automatically — instead of $5,000/month for an agency.'}
+              </motion.p>
+              <motion.p initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5, duration:0.6 }}
+                className="text-[14px] text-slate-500 leading-relaxed max-w-[520px] mb-9">
+                {ar
+                  ? '⚡ من الفكرة إلى ٣٠ بوست مجدول في ٢٠ دقيقة.'
+                  : '⚡ From idea to 30 scheduled posts in 20 minutes.'}
               </motion.p>
 
               <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} transition={{ delay:0.65, duration:0.5 }}
@@ -928,20 +934,111 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════
-          TECH BAR
+          CAPABILITIES BAR (honest product specs)
       ══════════════════════════════════ */}
       <div className="border-y border-[rgba(255,255,255,0.05)]" style={{ background:'rgba(255,255,255,0.015)' }}>
-        <div className="max-w-[1100px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-center gap-6 flex-wrap text-[11px] font-mono font-semibold uppercase tracking-[2px] text-slate-500">
-            {'GPT-4o · Flux 1.1 Pro · Meta API · LinkedIn API · TikTok API · Arabic · English · Stripe · Supabase'.split(' · ').map(t => (
-              <span key={t} className="flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-purple-500 opacity-60" />
-                {t}
-              </span>
+        <div className="max-w-[1100px] mx-auto px-6 py-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+            {[
+              { num: '30+', labelAr: 'بوست / حملة', labelEn: 'posts per campaign' },
+              { num: '4', labelAr: 'وكلاء AI متخصصون', labelEn: 'specialized AI agents' },
+              { num: '10×', labelAr: 'أقل تكلفة من أي وكالة', labelEn: 'cheaper than an agency' },
+              { num: '< 20 min', labelAr: 'من الفكرة لأول بوست منشور', labelEn: 'from idea to first published post' },
+            ].map(stat => (
+              <div key={stat.num} className="flex flex-col items-center gap-1">
+                <span className="text-[22px] sm:text-[28px] font-extrabold text-white tracking-tight">{stat.num}</span>
+                <span className="text-[11px] text-slate-500">{ar ? stat.labelAr : stat.labelEn}</span>
+              </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* ══════════════════════════════════
+          PAIN SECTION
+      ══════════════════════════════════ */}
+      <section className="py-16 lg:py-24 relative overflow-hidden">
+        <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-12">
+            <Label text={ar ? 'المشكلة' : 'THE PROBLEM'} />
+            <h2 className="text-[28px] sm:text-[38px] lg:text-[46px] font-extrabold text-white leading-[1.1] tracking-[-2px] mb-3">
+              {ar ? 'التسويق مكسور للمؤسسين.' : 'Marketing is broken for founders.'}
+            </h2>
+            <p className="text-[15px] text-slate-400 max-w-[520px] mx-auto">
+              {ar ? 'عندك ٣ خيارات. كل واحد له ثمنه.' : 'You have 3 options. Each one costs you something.'}
+            </p>
+          </Reveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+            {[
+              {
+                icon: '🏢',
+                titleAr: 'وكالة تسويق',
+                titleEn: 'Marketing Agency',
+                costAr: '$3,000 – $10,000+ / شهر',
+                costEn: '$3,000 – $10,000+ / month',
+                problemsAr: ['تكلفة ثابتة حتى لو البيزنس صغير', '٢-٤ أسابيع للبوست الأول', 'تشرح علامتك من جديد كل شهر', 'بعيدة عن نبض علامتك اليومي'],
+                problemsEn: ['Fixed overhead even in slow months', '2-4 weeks to see first post', 'Re-brief them on your brand every month', 'Never as close to your brand as you are'],
+                accent: '#F43F5E',
+              },
+              {
+                icon: '🤖',
+                titleAr: 'ChatGPT / أدوات AI عشوائية',
+                titleEn: 'ChatGPT / Generic AI',
+                costAr: 'بدون ذاكرة، بدون استراتيجية',
+                costEn: 'No memory, no strategy',
+                problemsAr: ['ينسى علامتك في كل جلسة', 'محتوى عام بدون هوية', 'لا يستطيع النشر تلقائياً', 'أنت من يكتب كل الـ prompts بنفسك'],
+                problemsEn: ['Forgets your brand every session', 'Generic output with no identity', 'Cannot publish anything for you', 'You write every single prompt yourself'],
+                accent: '#F97316',
+              },
+              {
+                icon: '😰',
+                titleAr: 'بنفسك',
+                titleEn: 'Do It Yourself',
+                costAr: '٢٠+ ساعة / أسبوع من وقتك',
+                costEn: '20+ hours / week of your time',
+                problemsAr: ['يتوقف حين تنشغل', 'لست متخصصاً في التسويق', 'لا وقت لبيزنسك الفعلي', 'بدون استراتيجية — مجرد تخمين'],
+                problemsEn: ['Stops the moment you get busy', 'You\'re a founder, not a marketer', 'No time left for your actual product', 'No strategy — just guessing'],
+                accent: '#EAB308',
+              },
+            ].map((opt, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="rounded-2xl p-5 h-full"
+                  style={{ background:`${opt.accent}06`, border:`1px solid ${opt.accent}18` }}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="text-2xl">{opt.icon}</span>
+                    <div>
+                      <h3 className="font-bold text-[15px] text-white">{ar ? opt.titleAr : opt.titleEn}</h3>
+                      <span className="text-[11px] font-mono" style={{ color: opt.accent }}>{ar ? opt.costAr : opt.costEn}</span>
+                    </div>
+                  </div>
+                  <ul className="space-y-2">
+                    {(ar ? opt.problemsAr : opt.problemsEn).map(p => (
+                      <li key={p} className="flex items-start gap-2 text-[12px] text-slate-400">
+                        <AlertCircle size={12} className="flex-shrink-0 mt-0.5" style={{ color: opt.accent }} />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal className="text-center">
+            <div className="inline-flex items-center gap-3 px-5 py-3.5 rounded-2xl"
+              style={{ background:'rgba(139,92,246,0.08)', border:'1px solid rgba(139,92,246,0.25)' }}>
+              <Sparkles size={18} style={{ color:'#8B5CF6' }} />
+              <p className="text-[14px] font-semibold text-white">
+                {ar
+                  ? 'الخيار الرابع: قسم تسويق AI كامل بأقل من $30/شهر.'
+                  : 'The fourth option: a full AI marketing department for under $30/month.'}
+              </p>
+              <ArrowRight size={16} style={{ color:'#8B5CF6' }} />
+            </div>
+          </Reveal>
+        </div>
+      </section>
 
       {/* ══════════════════════════════════
           BRAND BRAIN
@@ -1122,6 +1219,113 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════
+          SESSION DEMO (product capabilities — no fake metrics)
+      ══════════════════════════════════ */}
+      <section className="py-16 lg:py-24 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{ background:'radial-gradient(ellipse 60% 40% at 50% 50%, rgba(16,185,129,0.05) 0%, transparent 70%)' }} />
+        <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal className="text-center mb-10">
+            <Label text={ar ? 'كيف يبدو النظام فعلياً' : 'WHAT A SESSION LOOKS LIKE'} />
+            <h2 className="text-[28px] sm:text-[38px] lg:text-[46px] font-extrabold text-white leading-[1.1] tracking-[-2px] mb-3">
+              {ar ? 'من فكرة إلى ٣٠ بوست مجدول في ٢٠ دقيقة.' : 'From idea to 30 scheduled posts in 20 minutes.'}
+            </h2>
+            <p className="text-[14px] text-slate-500">
+              {ar ? 'هذه هي الخطوات الفعلية داخل NEXUS — بدون مبالغة.' : 'These are the real steps inside NEXUS — no exaggeration.'}
+            </p>
+          </Reveal>
+
+          <Reveal>
+            <div className="rounded-2xl overflow-hidden" style={{ background:'rgba(255,255,255,0.025)', border:'1px solid rgba(255,255,255,0.08)' }}>
+              {/* Timeline steps */}
+              <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-4 border-b border-white/5">
+                {[
+                  { time: ar ? 'الدقيقة ١' : 'Min 1', action: ar ? 'تملأ Brand Brain — اسم، أسلوب، جمهور' : 'Fill Brand Brain — name, tone, audience', color:'#8B5CF6' },
+                  { time: ar ? 'الدقيقة ٢' : 'Min 2', action: ar ? 'تنشئ حملة — عنوان + هدف' : 'Create campaign — title + goal', color:'#22D3EE' },
+                  { time: ar ? 'الدقيقة ٥' : 'Min 5', action: ar ? 'NEXUS يولد استراتيجية كاملة + خطة محتوى ٣٠ بوست' : 'NEXUS generates full strategy + 30-post content plan', color:'#10B981' },
+                  { time: ar ? 'الدقيقة ٢٠' : 'Min 20', action: ar ? 'تراجع، تعدّل، توافق، وتجدول الكل تلقائياً' : 'Review, edit, approve, and auto-schedule everything', color:'#F97316' },
+                ].map((t, i) => (
+                  <div key={i} className="flex flex-col gap-2 rounded-xl p-4"
+                    style={{ background:`${t.color}06`, border:`1px solid ${t.color}15` }}>
+                    <span className="text-[11px] font-mono font-bold" style={{ color: t.color }}>{t.time}</span>
+                    <p className="text-[12px] text-slate-300 leading-snug">{t.action}</p>
+                  </div>
+                ))}
+              </div>
+              {/* What you get */}
+              <div className="p-6">
+                <p className="text-[11px] font-mono uppercase tracking-widest text-slate-500 mb-4">
+                  {ar ? 'ماذا تحصل في نهاية الجلسة' : 'What you get at the end of the session'}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[
+                    { icon:'📋', label: ar ? 'استراتيجية تسويق كاملة' : 'Full marketing strategy', color:'#8B5CF6' },
+                    { icon:'📝', label: ar ? '٣٠ بوست مكتوب ومصنّف' : '30 written & categorized posts', color:'#22D3EE' },
+                    { icon:'🖼️', label: ar ? 'صور AI لكل بوست' : 'AI-generated images per post', color:'#10B981' },
+                    { icon:'📅', label: ar ? 'جدولة تلقائية للنشر' : 'Auto-scheduled publishing', color:'#F97316' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-2.5 rounded-xl px-4 py-3"
+                      style={{ background:`${item.color}07`, border:`1px solid ${item.color}15` }}>
+                      <span className="text-lg">{item.icon}</span>
+                      <p className="text-[11px] text-slate-300 leading-snug">{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════
+          COMPARISON TABLE (honest pricing comparisons)
+      ══════════════════════════════════ */}
+      <section className="py-8 lg:py-12">
+        <div className="max-w-[900px] mx-auto px-4 sm:px-6 lg:px-8">
+          <Reveal>
+            <div className="rounded-2xl overflow-hidden" style={{ border:'1px solid rgba(255,255,255,0.08)' }}>
+              <div className="px-6 py-4 text-center" style={{ background:'rgba(139,92,246,0.06)', borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+                <p className="font-bold text-white text-[15px]">
+                  {ar ? 'NEXUS مقابل البدائل — مقارنة واضحة' : 'NEXUS vs the alternatives — an honest comparison'}
+                </p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.015)' }}>
+                      <th className="px-5 py-3 text-left text-slate-500 font-semibold">{ar ? 'المقارنة' : 'Feature'}</th>
+                      <th className="px-5 py-3 text-center font-bold" style={{ color:'#8B5CF6' }}>NEXUS Growth ($29)</th>
+                      <th className="px-5 py-3 text-center text-slate-500 font-medium">{ar ? 'وكالة تسويق' : 'Agency'}</th>
+                      <th className="px-5 py-3 text-center text-slate-500 font-medium">{ar ? 'ChatGPT' : 'ChatGPT'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { feature: ar ? 'التكلفة الشهرية' : 'Monthly cost', nexus: '$29', agency: ar ? '$3,000 – $10,000' : '$3,000 – $10,000', diy: ar ? 'مجاني لكن وقتك ثمين' : 'Free but your time has value' },
+                      { feature: ar ? 'الوقت للبوست الأول' : 'Time to first post', nexus: ar ? '< ٢٠ دقيقة' : '< 20 min', agency: ar ? '٢–٤ أسابيع' : '2–4 weeks', diy: ar ? 'فوري لكن بدون استراتيجية' : 'Instant but no strategy' },
+                      { feature: ar ? 'ذاكرة علامتك (Brand Brain)' : 'Brand memory (Brand Brain)', nexus: '✅ دائمة', agency: ar ? '⚠️ تحتاج re-brief كل شهر' : '⚠️ Re-brief every month', diy: ar ? '❌ تنسى بعد كل جلسة' : '❌ Resets every session' },
+                      { feature: ar ? 'النشر التلقائي' : 'Auto-publishing', nexus: '✅', agency: ar ? '❌ يرسلون لك الملفات' : '❌ They send you files', diy: '❌' },
+                      { feature: ar ? 'دعم العربية' : 'Arabic support', nexus: ar ? '✅ أصيل' : '✅ Native', agency: ar ? '⚠️ حسب الوكالة' : '⚠️ Varies', diy: ar ? '⚠️ جزئي' : '⚠️ Partial' },
+                      { feature: ar ? 'عدد البوستات/شهر' : 'Posts/month', nexus: ar ? '٣٠+ لكل حملة' : '30+ per campaign', agency: ar ? '٨–١٢ عادةً' : '8–12 typically', diy: ar ? 'حسب وقتك' : 'Depends on your time' },
+                    ].map((row, i) => (
+                      <tr key={i} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                        <td className="px-5 py-3 text-slate-400">{row.feature}</td>
+                        <td className="px-5 py-3 text-center font-semibold" style={{ color:'#8B5CF6' }}>{row.nexus}</td>
+                        <td className="px-5 py-3 text-center text-slate-500">{row.agency}</td>
+                        <td className="px-5 py-3 text-center text-slate-500">{row.diy}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-5 py-3 text-center border-t border-white/5">
+                <p className="text-[10px] text-slate-600">{ar ? '* أسعار الوكالات استناداً لمتوسطات السوق العالمية — تختلف حسب المنطقة والتخصص' : '* Agency costs based on global market averages — vary by region and scope'}</p>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════
           PRICING
       ══════════════════════════════════ */}
       <section id="pricing" className="py-24 lg:py-32 relative overflow-hidden">
@@ -1225,6 +1429,67 @@ export default function LandingPage() {
       </section>
 
       {/* ══════════════════════════════════
+          FINAL CTA
+      ══════════════════════════════════ */}
+      <section className="py-24 lg:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{ background:'radial-gradient(ellipse 70% 50% at 50% 50%, rgba(139,92,246,0.1) 0%, transparent 65%)' }} />
+        <div className="relative z-10 max-w-[720px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Reveal>
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-[rgba(139,92,246,0.25)] bg-[rgba(139,92,246,0.08)] mb-7">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[2.5px] text-emerald-400">
+                {ar ? 'ابدأ مجاناً — لا بطاقة ائتمان' : 'START FREE — NO CREDIT CARD'}
+              </span>
+            </div>
+            <h2 className="text-[32px] sm:text-[48px] lg:text-[56px] font-extrabold text-white leading-[1.08] tracking-[-2.5px] mb-5">
+              {ar ? (
+                <>
+                  جاهز لبناء قسم<br />
+                  <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+                    تسويقك الذكي؟
+                  </span>
+                </>
+              ) : (
+                <>
+                  Ready to build your<br />
+                  <span style={{ backgroundImage:'linear-gradient(135deg,#8B5CF6 0%,#22D3EE 50%,#10B981 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
+                    AI marketing department?
+                  </span>
+                </>
+              )}
+            </h2>
+            <p className="text-[16px] sm:text-[18px] text-slate-400 mb-10 max-w-[540px] mx-auto leading-relaxed">
+              {ar
+                ? 'ابدأ مجاناً — لا تحتاج بطاقة ائتمان. جرّب NEXUS على حملتك الأولى بالكامل.'
+                : 'Start free — no credit card needed. Try NEXUS on your first full campaign.'}
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+              <Link href="/auth/register"
+                className="inline-flex items-center gap-2 text-[15px] font-bold text-white px-9 py-4 rounded-xl transition-all hover:opacity-90 hover:scale-[1.02]"
+                style={{ background:'linear-gradient(135deg,#7C3AED,#8B5CF6,#06B6D4)', boxShadow:'0 0 50px rgba(139,92,246,0.4), 0 4px 24px rgba(6,182,212,0.2)' }}>
+                {ar ? 'ابدأ مجاناً الآن' : 'Start Free Now'} <ArrowRight size={17} />
+              </Link>
+              <a href="#pipeline" className="text-[13px] font-medium text-slate-400 hover:text-white transition-colors">
+                {ar ? 'شاهد كيف يعمل ↓' : 'See how it works ↓'}
+              </a>
+            </div>
+            <div className="flex items-center justify-center gap-5 text-[11px] text-slate-500 flex-wrap">
+              {[
+                { icon: CheckCircle, text: ar ? '٢٠ رصيد AI في الخطة المجانية' : '20 AI credits on free plan' },
+                { icon: CheckCircle, text: ar ? 'لا بطاقة ائتمان مطلوبة' : 'No credit card required' },
+                { icon: CheckCircle, text: ar ? 'إلغاء في أي وقت' : 'Cancel anytime' },
+                { icon: CheckCircle, text: ar ? 'عربي وإنجليزي' : 'Arabic & English' },
+              ].map(({ icon: Icon, text }) => (
+                <span key={text} className="flex items-center gap-1.5">
+                  <Icon size={11} className="text-emerald-500" />{text}
+                </span>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════
           FOOTER
       ══════════════════════════════════ */}
       <footer className="border-t border-[rgba(255,255,255,0.06)] py-10">
@@ -1246,7 +1511,7 @@ export default function LandingPage() {
               </button>
             </div>
             <p className="text-[11px] text-slate-600">
-              © 2025 NEXUS AI. All rights reserved.
+              © 2026 NEXUS AI. All rights reserved.
             </p>
           </div>
         </div>
