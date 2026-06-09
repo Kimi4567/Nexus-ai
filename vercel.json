@@ -60,6 +60,10 @@
     {
       "path": "/api/cron/competitor-monitor",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/trend-monitor",
+      "schedule": "30 8 * * 1"
     }
   ],
   "functions": {
@@ -115,6 +119,9 @@
       "maxDuration": 60
     },
     "src/app/api/cron/competitor-monitor/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/trend-monitor/route.ts": {
       "maxDuration": 60
     }
   }

@@ -128,6 +128,7 @@ model Workspace {
   paidPacks     PaidCampaignPack[]
   campaignMemories CampaignMemory[]
   brainLearnings   BrainLearning[]
+  brainScoreSnapshots BrainScoreSnapshot[]
   adAccounts    AdAccount[]
   adCampaigns   AdCampaign[]
 
@@ -1203,6 +1204,19 @@ model BrainLearning {
   updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId, status])
+  @@index([workspaceId, createdAt])
+}
+
+model BrainScoreSnapshot {
+  id          String    @id @default(cuid())
+
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  score       Int       // 0–100 completeness score at time of save
+
+  createdAt   DateTime  @default(now())
+
   @@index([workspaceId, createdAt])
 }
 

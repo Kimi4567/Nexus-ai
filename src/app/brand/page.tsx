@@ -77,6 +77,34 @@ function ScoreRing({ score }: { score: number }) {
   )
 }
 
+/* ── Score Sparkline SVG ──────────────────────────────────────── */
+function ScoreSparkline({ history }: { history: number[] }) {
+  if (history.length < 2) return null
+  const W = 90; const H = 32; const pad = 4
+  const min = Math.min(...history); const max = Math.max(...history)
+  const range = Math.max(max - min, 10)
+  const pts = history.map((v, i) => {
+    const x = pad + (i / (history.length - 1)) * (W - pad * 2)
+    const y = H - pad - ((v - min) / range) * (H - pad * 2)
+    return `${x},${y}`
+  })
+  const last = pts[pts.length - 1].split(',')
+  const trend = history[history.length - 1] >= history[0]
+  const color = trend ? '#10b981' : '#f97316'
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <svg width={W} height={H} className="overflow-visible">
+        <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5"
+          strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
+        <circle cx={last[0]} cy={last[1]} r="3" fill={color} />
+      </svg>
+      <span className="text-[9px] font-semibold" style={{ color: 'rgba(148,163,184,0.4)' }}>
+        {trend ? '▲' : '▼'} {history.length}d
+      </span>
+    </div>
+  )
+}
+
 /* ── Sub-components ───────────────────────────────────────────── */
 function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest, suggesting, locale }: {
   label: string; placeholder: string; values: string[]; onChange: (v: string[]) => void;
@@ -405,6 +433,7 @@ export default function BrandBrainPage() {
   })
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
+  const [scoreHistory, setScoreHistory]   = useState<number[]>([])
 
   useEffect(() => {
     try {
@@ -427,6 +456,19 @@ export default function BrandBrainPage() {
   }
 
   const { authHeader } = useAuth()
+
+  // ── Fetch score history for sparkline ────────────────────────
+  useEffect(() => {
+    fetch('/api/brain/score-history', { headers: { Authorization: authHeader() } })
+      .then(r => r.ok ? r.json() : { snapshots: [] })
+      .then(d => {
+        if (Array.isArray(d.snapshots) && d.snapshots.length > 0) {
+          setScoreHistory(d.snapshots.map((s: { score: number }) => s.score))
+        }
+      })
+      .catch(() => null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saved]) // re-fetch after each save so the sparkline updates live
 
   // ── handleSuggestText: for plain text fields ──────────────────
   const handleSuggestText = async (field: keyof BrandProfile) => {
@@ -637,13 +679,16 @@ export default function BrandBrainPage() {
 
                 {/* Score ring + save */}
                 <div className="flex items-center gap-6">
-                  <div className="flex flex-col items-center gap-1.5">
+                  <div className="flex items-end gap-3">
+                    <div className="flex flex-col items-center gap-1.5">
                     <ScoreRing score={score} />
                     <span className="text-xs font-bold" style={{ color: scoreColor }}>
                       {score >= 80 ? t('brand.scoreActiveBrain') :
                        score >= 50 ? t('brand.scoreBuilding') :
                        t('brand.scoreNeedsData')}
                     </span>
+                  </div>
+                  <ScoreSparkline history={scoreHistory} />
                   </div>
                   <button onClick={handleSave} disabled={saving}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-60"

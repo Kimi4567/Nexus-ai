@@ -118,6 +118,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ brandProfile: profileData, success: true, pending: true })
     }
 
+    // Record a Brain Score snapshot for growth visualization
+    try {
+      const scoreChecks = [
+        'brandName', 'industry', 'description', 'primaryOffer',
+        'targetAudience', 'audienceAge', 'audienceLocation',
+        'toneKeywords', 'topPlatforms', 'uniqueAdvantages',
+      ]
+      let filled = 0
+      const saved = brandProfile as Record<string, unknown>
+      for (const key of scoreChecks) {
+        const val = saved[key]
+        if (Array.isArray(val) ? val.length > 0 : !!val) filled++
+      }
+      const score = Math.round((filled / scoreChecks.length) * 100)
+      await db.brainScoreSnapshot.create({
+        data: { workspaceId: workspace.id, score },
+      })
+    } catch { /* snapshot failure is non-critical */ }
+
     return NextResponse.json({ brandProfile, success: true })
   } catch (error) {
     console.error('POST /api/brand error:', error)

@@ -50,7 +50,7 @@ const FIELD_META: Record<string, { displayName: string; icon: string }> = {
 interface BrainLearningParams {
   workspaceId: string
   campaignId?: string
-  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner' | 'sentinel_insight' | 'competitor_monitor'
+  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner' | 'sentinel_insight' | 'competitor_monitor' | 'industry_trend'
   payload: Record<string, unknown>
 }
 
@@ -228,6 +228,35 @@ RULES:
 - If competitors are all doing the same thing, that is a market saturation signal — note it
 - If a competitor announced something new (product, feature, promotion), that is HIGH signal
 - Return [] if competitor activity is too generic to produce meaningful learnings
+`
+    } else if (trigger === 'industry_trend') {
+      // Weekly industry trend scan: what's trending in the brand's sector?
+      // Extract positioning opportunities + audience pain shifts for Brand Brain.
+      const industry = payload.industry as string | undefined
+      const trendFindings = Array.isArray(payload.findings) ? payload.findings : []
+
+      if (trendFindings.length === 0) return 0
+
+      extractionContext = `
+Weekly industry trend monitoring for the brand's sector: "${industry || 'General Marketing'}".
+
+TRENDING TOPICS & NEWS IN THIS INDUSTRY (last 7 days):
+${JSON.stringify(trendFindings.slice(0, 15), null, 2).slice(0, 4000)}
+
+${brainSummary}
+
+Analyze the industry trends and extract Brand Brain learnings:
+- audiencePainPoints: new pain points emerging in this industry that the audience is experiencing
+- audienceDesires: new aspirations or desires surfacing in this sector
+- winningAngles: content angles that are trending strongly in this industry right now
+- uniqueAdvantages: market gaps or underserved needs this brand could address
+- strategicNotes: 1-2 sentence insight about where this industry is heading this week
+
+RULES:
+- Focus on SIGNALS, not noise — trending topics that suggest audience behavior shifts
+- If a trend is a major industry movement (new regulation, major product launch, consumer shift), that is HIGH signal
+- Return [] if industry trends are too generic to produce meaningful learnings
+- Be specific: reference actual topics from the findings, not generic marketing advice
 `
     } else if (trigger === 'ab_winner') {
       // User manually chose between two variants — this is the highest-quality signal.
