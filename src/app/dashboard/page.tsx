@@ -4,6 +4,7 @@ import AppShell from '@/components/AppShell'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
 import OnboardingChecklist from '@/components/OnboardingChecklist'
+import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -661,6 +662,9 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+
+          {/* ── Brand Brain Learning Proposals ── */}
+          <BrainLearningPanel compact={true} />
 
           {/* ── Sprint B: AI Suggestions Feed ── */}
           <SuggestionsWidget refreshKey={suggestionsKey} />

@@ -209,16 +209,40 @@ const Icons = {
 export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, authHeader } = useAuth()
   const { locale, setLocale, t, dir } = useI18n()
   // locale is used for language toggle button logic
   const [userMenuOpen, setUserMenuOpen] = React.useState(false)
+  const [pendingProposals, setPendingProposals] = React.useState(0)
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Account'
   const email = user?.email || ''
   const initial = displayName.charAt(0).toUpperCase()
 
   const { creditsRemaining, creditsMax, isUnlimited, isPaid, isLow, isEmpty } = useBillingStatus()
+
+  // Fetch pending Brain proposals count for sidebar dot
+  React.useEffect(() => {
+    const fetchPending = async () => {
+      try {
+        const token = authHeader()
+        if (!token) return
+        const res = await fetch('/api/brain/proposals?status=pending', {
+          headers: { Authorization: token },
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        const count = Array.isArray(data.proposals) ? data.proposals.length : 0
+        setPendingProposals(count)
+      } catch {
+        // non-critical
+      }
+    }
+    fetchPending()
+    // Refresh every 60s so the dot appears without a page reload
+    const interval = setInterval(fetchPending, 60_000)
+    return () => clearInterval(interval)
+  }, [authHeader])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -253,7 +277,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         <NavItem href="/dashboard" label={t('sidebar.home')}
           icon={Icons.dashboard} {...sharedProps} />
         <NavItem href="/brand" label={t('sidebar.brand')}
-          icon={Icons.brain} dot="#10B981" {...sharedProps} />
+          icon={Icons.brain} dot={pendingProposals > 0 ? '#f59e0b' : undefined} {...sharedProps} />
 
         {/* Organic Content */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'محتوى عضوي' : 'Organic Content'}</SectionLabel>}
