@@ -11,6 +11,7 @@ import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
   BookOpen, Users, Calendar, Globe, BarChart3, ArrowUpRight, Layers,
+  ImageIcon, Film, CheckCircle2, Library,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
@@ -152,6 +153,30 @@ export default function NewCampaignPage() {
   )
   const [mixPreset, setMixPreset] = useState('balanced')
 
+  // Media Intelligence state
+  const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([])
+  const [mediaItems, setMediaItems] = useState<Array<{id: string; url: string; type: string; fileName: string}>>([])
+  const [loadingMedia, setLoadingMedia] = useState(false)
+
+  // Fetch media when entering step 4
+  useEffect(() => {
+    if (step !== 4 || mediaItems.length > 0) return
+    setLoadingMedia(true)
+    fetch('/api/media', { headers: { Authorization: authHeader() } })
+      .then(r => r.ok ? r.json() : { media: [] })
+      .then(data => {
+        const items = data.media ?? data ?? []
+        setMediaItems(Array.isArray(items) ? items.slice(0, 20) : [])
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMedia(false))
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleMedia = (id: string) =>
+    setSelectedMediaIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
+    )
+
   const selectedMix = CONTENT_MIX_PRESETS.find(m => m.id === mixPreset) ?? CONTENT_MIX_PRESETS[0]
   const postDistribution = distributePosts(planPostQuota, platforms)
 
@@ -218,7 +243,7 @@ export default function NewCampaignPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
           body: JSON.stringify({
-            language: contentLanguage === 'bilingual' ? 'ar' : contentLanguage,
+            language: contentLanguage,
             contentFocus,
           }),
         })
@@ -227,7 +252,7 @@ export default function NewCampaignPage() {
           if (engineRes.status === 402) {
             setGeneratingStrategy(false)
             setShowUpgrade(true)
-            router.push(`/campaigns/${campaignId}`)
+            router.push(`/campaigns/${campaignId}/content-hub`)
             return
           }
           throw new Error('Strategy generation failed')
@@ -240,8 +265,9 @@ export default function NewCampaignPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
             body: JSON.stringify({
-              mediaSource: 'GENERATE',
+              mediaSource: selectedMediaIds.length > 0 ? 'UPLOADED' : 'GENERATE',
               language: contentLanguage,
+              selectedMediaIds,
               contentMix: {
                 educational: selectedMix.educational,
                 promotional: selectedMix.promotional,
@@ -252,7 +278,7 @@ export default function NewCampaignPage() {
         } catch { /* non-fatal — generatable from campaign page */ }
       } catch { /* non-fatal */ }
 
-      router.push(`/campaigns/${campaignId}`)
+      router.push(`/campaigns/${campaignId}/content-hub`)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : (cnT?.errorUnexpected as string)
       setError(msg)
@@ -825,6 +851,93 @@ export default function NewCampaignPage() {
                     <span><span style={{ color: '#FB923C' }}>■</span> {locale === 'ar' ? 'ترويجي' : 'Promotional'}</span>
                     <span><span style={{ color: '#34D399' }}>■</span> {locale === 'ar' ? 'تفاعلي' : 'Engagement'}</span>
                   </div>
+                </div>
+
+                {/* Media Intelligence — select assets for content */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium">
+                      <Library className="w-3.5 h-3.5 inline me-1.5 text-violet-400" />
+                      {locale === 'ar' ? 'استخدم صورك وفيديوهاتك' : 'Use Your Media Assets'}
+                    </label>
+                    {selectedMediaIds.length > 0 && (
+                      <span className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                        {selectedMediaIds.length} {locale === 'ar' ? 'محدد' : 'selected'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-text-muted mb-3">
+                    {locale === 'ar'
+                      ? 'اختر صورًا أو فيديوهات من مكتبتك — سيحللها الـ AI ويوظفها في البوستات'
+                      : 'Pick images or videos from your library — AI will analyze and assign them to posts'}
+                  </p>
+
+                  {loadingMedia ? (
+                    <div className="flex items-center gap-2 text-xs text-text-muted py-4">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      {locale === 'ar' ? 'جاري تحميل الميديا...' : 'Loading media...'}
+                    </div>
+                  ) : mediaItems.length === 0 ? (
+                    <div className="rounded-xl p-4 text-center text-sm text-text-muted"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                      <ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                      {locale === 'ar'
+                        ? 'لا يوجد ميديا مرفوع — ارفع صورًا أو فيديوهات في مكتبة الميديا أولًا'
+                        : 'No media uploaded yet — upload images or videos in the Media Library first'}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2">
+                      {mediaItems.map(item => {
+                        const isSelected = selectedMediaIds.includes(item.id)
+                        const isVideo = item.type === 'VIDEO'
+                        // Cloudinary video thumbnail: replace extension with .jpg
+                        const thumbUrl = isVideo
+                          ? item.url.replace(/\.(mp4|mov|webm|avi)(\?.*)?$/i, '.jpg')
+                          : item.url
+                        return (
+                          <button key={item.id} type="button" onClick={() => toggleMedia(item.id)}
+                            className="relative rounded-xl overflow-hidden transition-all"
+                            style={{
+                              aspectRatio: '1',
+                              border: isSelected
+                                ? '2px solid rgba(139,92,246,0.8)'
+                                : '2px solid rgba(255,255,255,0.08)',
+                              boxShadow: isSelected ? '0 0 12px rgba(139,92,246,0.3)' : 'none',
+                            }}>
+                            {/* Thumbnail */}
+                            <img
+                              src={thumbUrl}
+                              alt={item.fileName}
+                              className="w-full h-full object-cover"
+                              style={{ opacity: isSelected ? 1 : 0.7 }}
+                            />
+                            {/* Video overlay */}
+                            {isVideo && (
+                              <div className="absolute inset-0 flex items-center justify-center"
+                                style={{ background: 'rgba(0,0,0,0.35)' }}>
+                                <Film className="w-4 h-4 text-white opacity-80" />
+                              </div>
+                            )}
+                            {/* Selected checkmark */}
+                            {isSelected && (
+                              <div className="absolute top-1 right-1">
+                                <CheckCircle2 className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                              </div>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {selectedMediaIds.length > 0 && (
+                    <p className="text-xs mt-2" style={{ color: '#6366f1' }}>
+                      ✨ {locale === 'ar'
+                        ? `سيحلل الـ AI الـ ${selectedMediaIds.length} أصل محددة ويوزعها على البوستات`
+                        : `AI will analyze ${selectedMediaIds.length} selected asset${selectedMediaIds.length > 1 ? 's' : ''} and assign them to posts`}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

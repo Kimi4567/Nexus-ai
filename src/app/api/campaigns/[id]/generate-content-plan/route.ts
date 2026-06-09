@@ -20,6 +20,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
+import { getLanguageInstruction } from '@/lib/ai/langHelper'
 
 type Params = { params: { id: string } }
 
@@ -191,17 +192,67 @@ export async function POST(req: NextRequest, { params }: Params) {
     const promotionalPct  = contentMix.promotional  ?? 30
     const engagementPct   = contentMix.engagement   ?? 35
 
-    let userMedia: Array<{ id: string; url: string; type: string; fileName: string }> = []
-    if (mediaSource !== 'GENERATE') {
+    let userMedia: Array<{ id: string; url: string; type: string; fileName: string; aiDescription?: string }> = []
+    if (mediaSource !== 'GENERATE' || selectedMediaIds.length > 0) {
       userMedia = await prisma.media.findMany({
         where: {
           workspaceId,
           ...(selectedMediaIds.length ? { id: { in: selectedMediaIds } } : {}),
-          type: { in: ['IMAGE' as any, 'LOGO' as any] },
+          type: { in: ['IMAGE' as any, 'LOGO' as any, 'VIDEO' as any] },
         },
         select: { id: true, url: true, type: true, fileName: true },
-        take: 30,
+        take: 20,
       })
+
+      // AI Vision analysis — analyze each selected image/video so GPT knows what's in the asset
+      if (userMedia.length > 0 && process.env.OPENAI_API_KEY) {
+        const analyzed = await Promise.allSettled(
+          userMedia.map(async (m) => {
+            try {
+              // For videos: Cloudinary serves a thumbnail by replacing .mp4/.mov with .jpg
+              const analyzeUrl = m.type === 'VIDEO'
+                ? m.url.replace(/\.(mp4|mov|webm|avi)(\?.*)?$/i, '.jpg')
+                : m.url
+
+              const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o',
+                  max_tokens: 150,
+                  messages: [{
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'image_url',
+                        image_url: { url: analyzeUrl, detail: 'low' },
+                      },
+                      {
+                        type: 'text',
+                        text: `Describe this ${m.type === 'VIDEO' ? 'video thumbnail' : 'image'} in 2-3 sentences for a social media content planner. Focus on: main subject, mood, colors, and how it could be used in marketing. Be concise and practical.`,
+                      },
+                    ],
+                  }],
+                }),
+              })
+              const vData = await visionRes.json()
+              return { id: m.id, description: vData.choices?.[0]?.message?.content ?? '' }
+            } catch {
+              return { id: m.id, description: '' }
+            }
+          }),
+        )
+        // Merge AI descriptions back into userMedia
+        analyzed.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value.description) {
+            const item = userMedia.find(m => m.id === result.value.id)
+            if (item) item.aiDescription = result.value.description
+          }
+        })
+      }
     }
 
     // ── 6. Clear any existing DRAFT content plan posts ────────────────────
@@ -226,14 +277,20 @@ export async function POST(req: NextRequest, { params }: Params) {
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
 
-    // Build language instruction for GPT
-    const languageInstruction = bodyLanguage === 'bilingual'
-      ? 'Write every post in BOTH Arabic and English — Arabic first, then English below it, separated by a line break.'
-      : bodyLanguage === 'ar'
-      ? 'Write all posts in Arabic only.'
-      : bodyLanguage === 'en'
-      ? 'Write all posts in English only.'
-      : 'Write posts in the same language as the campaign description.'
+    // Build language instruction — use the smart helper (bilingual = per-platform smart assignment, never mixed)
+    const languageInstruction = getLanguageInstruction(bodyLanguage || undefined)
+
+    // Build media context for GPT if user selected real assets
+    const mediaContext = userMedia.length > 0
+      ? `\nAVAILABLE MEDIA ASSETS (user's real uploaded content — assign to posts):
+${userMedia.map((m, idx) => {
+  const label = m.type === 'VIDEO' ? '🎬 Video' : '🖼 Image'
+  const desc = m.aiDescription ? `: ${m.aiDescription}` : ` (${m.fileName})`
+  return `[MEDIA_${idx}] ${label}${desc}`
+}).join('\n')}
+
+When assigning media to a post, set "assignedMediaIndex" to the [MEDIA_X] index (0-based). If no media fits a post, set "assignedMediaIndex" to -1 and use "imagePrompt" instead.`
+      : ''
 
     const systemPrompt = `You are an expert social media content strategist for ${brandName}.
 
@@ -243,8 +300,8 @@ Target audience: ${targetAudience}
 Content pillars: ${pillarText}
 Tone: ${tone}
 Offer/CTA: ${offer}
-
-LANGUAGE RULE: ${languageInstruction}
+${mediaContext}
+${languageInstruction}
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):
 - Educational/informational posts: ${educationalPct}% (teach, explain, share tips)
@@ -264,15 +321,18 @@ Return a JSON array of exactly ${slots.length} post objects:
     "index": 0,
     "platform": "META",
     "isVideoPost": false,
-    "caption": "full post caption text with hashtags",
-    "imagePrompt": "detailed DALL-E prompt describing the image: style, colors, composition, brand feel. Never include text/words in the image.",
+    "caption": "full post caption text with hashtags — written to complement the assigned media if any",
+    "imagePrompt": "detailed DALL-E prompt describing the image (only if assignedMediaIndex is -1)",
+    "assignedMediaIndex": -1,
     "scheduledDayOffset": 1
   }
 ]
 
 Rules:
 - caption: platform-appropriate length (Instagram ≤ 2200 chars, Twitter/X ≤ 280 chars, LinkedIn ≤ 1300 chars, Facebook ≤ 500 chars)
-- imagePrompt: vivid, specific, brand-consistent visual description. No text overlays.
+- assignedMediaIndex: 0-based index into the AVAILABLE MEDIA ASSETS list above. Set to -1 if no media is available or none fits this post.
+- imagePrompt: only needed when assignedMediaIndex is -1. Vivid, specific, brand-consistent visual description. No text overlays.
+- If media assets are provided, try to assign each one to at least one post — spread them across posts.
 - isVideoPost=true slots: write a videoCaption and videoScript field instead of imagePrompt
 - scheduledDayOffset: spread posts across 30 days (1–30), roughly 1 per day`
 
@@ -335,12 +395,34 @@ Rules:
       // FLC3: Platform-native best posting hour instead of naive stagger
       scheduledAt.setHours(bestHourForPlatform(slot.platform, i), 0, 0, 0)
 
-      // Pick an uploaded media image if UPLOAD or MIXED mode
+      // Resolve media assignment:
+      // 1. GPT may have assigned a specific media asset via assignedMediaIndex
+      // 2. Fall back to round-robin assignment if mediaSource is UPLOAD/MIXED
+      // 3. Fall back to image generation if no media
       let uploadedMediaId: string | null = null
+      let assignedImageUrl: string | null = null
       let effectiveMediaSource = mediaSource
-      if (mediaSource !== 'GENERATE' && userMedia.length > 0 && !slot.isVideoPost) {
-        uploadedMediaId = userMedia[i % userMedia.length].id
-      } else if (slot.isVideoPost) {
+      let effectiveGenerationStatus = slot.isVideoPost ? 'AWAITING_UPLOAD' : 'PENDING'
+
+      const gptAssignedIdx: number = gen.assignedMediaIndex ?? -1
+
+      if (!slot.isVideoPost) {
+        if (gptAssignedIdx >= 0 && gptAssignedIdx < userMedia.length) {
+          // GPT assigned a specific media asset to this post
+          const assignedMedia = userMedia[gptAssignedIdx]
+          uploadedMediaId = assignedMedia.id
+          assignedImageUrl = assignedMedia.url
+          effectiveMediaSource = 'UPLOAD'
+          effectiveGenerationStatus = 'COMPLETED' // no generation needed — real image assigned
+        } else if (mediaSource !== 'GENERATE' && userMedia.length > 0) {
+          // Fallback: round-robin assignment
+          const media = userMedia[i % userMedia.length]
+          uploadedMediaId = media.id
+          assignedImageUrl = media.url
+          effectiveMediaSource = 'UPLOAD'
+          effectiveGenerationStatus = 'COMPLETED'
+        }
+      } else {
         effectiveMediaSource = 'UPLOAD' // videos always user-uploaded
       }
 
@@ -351,8 +433,9 @@ Rules:
         caption,
         imagePrompt: slot.isVideoPost ? null : imagePrompt,
         videoPrompt: slot.isVideoPost ? videoPrompt : null,
+        imageUrl: assignedImageUrl,
         isVideoPost: slot.isVideoPost,
-        generationStatus: slot.isVideoPost ? 'AWAITING_UPLOAD' : 'PENDING',
+        generationStatus: effectiveGenerationStatus,
         mediaSource: effectiveMediaSource,
         uploadedMediaId,
         contentPlanIndex: slot.index + 1,
