@@ -287,7 +287,7 @@ Rules:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',  // Content plan posts — user publishes these directly
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMsg },
@@ -415,7 +415,7 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4o',  // A/B variant captions — same quality standard as primary
             messages: [
               { role: 'system', content: bSystemPrompt },
               { role: 'user', content: bUserMsg },

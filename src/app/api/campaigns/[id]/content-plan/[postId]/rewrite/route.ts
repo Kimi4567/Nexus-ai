@@ -139,7 +139,7 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',  // Post rewrite — user-facing output, needs full quality
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMsg },
