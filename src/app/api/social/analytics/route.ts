@@ -18,6 +18,7 @@ import { decryptToken } from '@/lib/tokenCrypto'
 export const revalidate = 0 // always fresh
 
 export async function GET(req: NextRequest) {
+  try {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -131,4 +132,8 @@ export async function GET(req: NextRequest) {
   )
 
   return NextResponse.json({ posts: postsWithInsights, totals })
+  } catch (err: any) {
+    console.error('[social/analytics]', err?.message)
+    return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 })
+  }
 }

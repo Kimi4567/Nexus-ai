@@ -36,19 +36,24 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid delta value' }, { status: 400 })
   }
 
-  const target = await prisma.user.findUnique({
-    where: { id },
-    select: { aiCredits: true, email: true },
-  })
-  if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  try {
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { aiCredits: true, email: true },
+    })
+    if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-  const newCredits = Math.max(0, target.aiCredits + delta)
+    const newCredits = Math.max(0, target.aiCredits + delta)
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data: { aiCredits: newCredits },
-    select: { id: true, email: true, aiCredits: true },
-  })
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { aiCredits: newCredits },
+      select: { id: true, email: true, aiCredits: true },
+    })
 
-  return NextResponse.json({ ok: true, user: updated })
+    return NextResponse.json({ ok: true, user: updated })
+  } catch (err: any) {
+    console.error('[admin/credits]', err?.message)
+    return NextResponse.json({ error: 'Failed to update credits' }, { status: 500 })
+  }
 }

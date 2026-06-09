@@ -10,6 +10,7 @@ import { prisma } from '@/lib/prisma'
 const db = prisma as any
 
 export async function GET(req: NextRequest) {
+  try {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -42,5 +43,9 @@ export async function GET(req: NextRequest) {
   } catch {
     // Table may not exist yet
     return NextResponse.json({ visuals: [] })
+  }
+  } catch (err: any) {
+    console.error('[visuals/GET]', err?.message)
+    return NextResponse.json({ error: 'Failed to fetch visuals' }, { status: 500 })
   }
 }

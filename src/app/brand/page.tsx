@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -685,6 +686,11 @@ export default function BrandBrainPage() {
               )}
             </div>
           </div>
+
+          {/* ══════════════════════════════════════════════════════
+              BRAIN LEARNING PROPOSALS
+              ══════════════════════════════════════════════════════ */}
+          <BrainLearningPanel />
 
           {/* ══════════════════════════════════════════════════════
               STEP STEPPER

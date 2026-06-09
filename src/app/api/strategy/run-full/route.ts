@@ -15,11 +15,21 @@ import { runFullAgency } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
+import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Rate limit: max 20 full-strategy runs per hour per user (most expensive AI operation)
+    const rateLimit = await aiRateLimitDb(user.id)
+    if (!rateLimit.ok) {
+      return NextResponse.json(
+        { error: 'RATE_LIMITED', message: rateLimit.message },
+        { status: 429 }
+      )
+    }
 
     const body = await req.json().catch(() => ({}))
     const goalOverride = (body?.goal as string | undefined) || 'leads'

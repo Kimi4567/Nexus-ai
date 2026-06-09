@@ -6,13 +6,13 @@ import { encryptToken } from '@/lib/tokenCrypto'
 export const maxDuration = 30
 
 export async function GET(req: NextRequest) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  try {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const errorParam = searchParams.get('error')
   const errorDescription = searchParams.get('error_description')
-
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   // Handle user denial or Meta-side error
   if (errorParam) {
@@ -183,4 +183,8 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.redirect(`${baseUrl}/connections?social=connected&platform=meta`)
+  } catch (err: any) {
+    console.error('[Meta OAuth] Unexpected error:', err?.message)
+    return NextResponse.redirect(`${baseUrl}/connections?social=error&msg=unexpected_error`)
+  }
 }

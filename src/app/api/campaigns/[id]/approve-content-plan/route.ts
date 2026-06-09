@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { runBrainLearning } from '@/lib/brain-learning'
 
 type Params = { params: { id: string } }
 
@@ -178,6 +179,22 @@ export async function POST(req: NextRequest, { params }: Params) {
           learnedAngles = learnings.angles.length
         }
       }
+    }
+
+    // ── BL3: Full Brain Learning via proposal system (non-blocking) ──────────────
+    // Runs alongside FLC — creates rich pending proposals (tone, pain points, desires)
+    // that the user reviews in BrainLearningPanel (accept/dismiss).
+    if (captions.length >= 3) {
+      const allPosts = draftPosts
+        .filter((p: any) => typeof p.caption === 'string' && p.caption.trim().length > 10)
+        .map((p: any) => ({ platform: String(p.platform), caption: p.caption }))
+
+      runBrainLearning({
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        trigger: 'approved_content',
+        payload: { posts: allPosts },
+      }).catch(() => null) // fire-and-forget — never block approval
     }
 
     // Build human-readable message

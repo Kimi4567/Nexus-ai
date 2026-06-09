@@ -3,6 +3,7 @@ import * as ai from '@/lib/ai/adapter'
 import { type CampaignContext } from '@/lib/agents/visual-director'
 import { type SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
+import { runBrainLearning } from '@/lib/brain-learning'
 
 const db = prisma as any
 
@@ -479,6 +480,23 @@ export async function runCampaignEngine(params: {
           },
         },
       }).catch(() => null)
+    }
+
+    // ── Brain Learning: fire-and-forget after strategy generation ──────────────
+    // Non-blocking — never delays the engine response. Extracts brand learnings
+    // from the strategy and saves them as pending proposals for the user to review.
+    if (needsStrategy && aiOutput.strategy) {
+      runBrainLearning({
+        workspaceId: campaign.workspaceId,
+        campaignId: campaign.id,
+        trigger: 'strategy',
+        payload: {
+          strategy: aiOutput.strategy,
+          topHooks: aiOutput.topHooks || [],
+          ctaVariations: aiOutput.ctaVariations || [],
+          concepts: aiOutput.concepts || [],
+        },
+      }).catch(() => null) // fire-and-forget — never throw
     }
 
     return { campaign: updatedCampaign, engine, creditsRecommended: true }

@@ -31,6 +31,7 @@ interface PlatformDef {
   color: string
   gradient: string
   available: boolean
+  eta?: string            // e.g. "Q3 2026" — shown instead of generic "Coming Soon"
   featuresAr: string[]
   featuresEn: string[]
 }
@@ -118,6 +119,7 @@ const PLATFORMS: PlatformDef[] = [
     color: '#4285F4',
     gradient: 'from-blue-500/20 to-green-500/10',
     available: false,
+    eta: 'Q3 2026',
     featuresAr: ['Search Ads', 'YouTube Ads', 'تقارير الأداء', 'ربط Google Analytics'],
     featuresEn: ['Search Ads', 'YouTube Ads', 'Performance reports', 'Google Analytics link'],
   },
@@ -442,7 +444,7 @@ export default function ConnectionsPage() {
                         </span>
                       ) : !platform.available ? (
                         <span className="text-xs px-3 py-1 rounded-full font-semibold bg-white/5 text-gray-500 border border-white/8">
-                          {t('connections.comingSoon')}
+                          {platform.eta ? `Coming ${platform.eta}` : t('connections.comingSoon')}
                         </span>
                       ) : null}
                     </div>
