@@ -585,9 +585,12 @@ model BrandProfile {
   failedAngles  String[]   @default([])  // what didn't work
   topPlatforms  String[]   @default([])  // best-performing platforms
 
+  // Competitor intelligence
+  competitors     String[]  @default([])   // list of competitor names for daily monitoring
+  competitorNotes String?   @db.Text       // freeform notes about competitive landscape
+
   // Strategic notes (freeform memory)
   strategicNotes String?   @db.Text
-  competitorNotes String?  @db.Text
 
   // AI-generated insights (auto-populated)
   aiInsights    Json?      // { summary, recommendations, lastUpdated }

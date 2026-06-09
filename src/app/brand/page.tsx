@@ -400,7 +400,8 @@ export default function BrandBrainPage() {
     targetAudience: '', audienceAge: '', audienceLocation: '', audiencePainPoints: [], audienceDesires: [],
     toneKeywords: [], avoidKeywords: [], writingStyle: '',
     topPlatforms: [], visualStyle: '',
-    winningHooks: [], winningAngles: [], failedAngles: [], competitorNotes: '', strategicNotes: '',
+    winningHooks: [], winningAngles: [], failedAngles: [],
+    competitors: [], competitorNotes: '', strategicNotes: '',
   })
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
@@ -1018,6 +1019,25 @@ export default function BrandBrainPage() {
 
               {step === 'competitors' && (
                 <div className="space-y-5">
+
+                  {/* ── Competitor Names (monitored daily) ──────────── */}
+                  <div>
+                    <TagInput
+                      label={locale === 'ar' ? 'أسماء المنافسين للمتابعة اليومية' : 'Competitor Names — Daily Monitoring'}
+                      placeholder={locale === 'ar' ? 'اكتب اسم المنافس ثم Enter' : 'Type competitor name, then Enter'}
+                      values={form.competitors||[]}
+                      onChange={v => set('competitors', v)}
+                      accentColor={currentStep.color}
+                      locale={locale}
+                    />
+                    <p className="mt-1.5 text-[11px]" style={{ color: '#334155' }}>
+                      {locale === 'ar'
+                        ? '🔍 سيراقب NEXUS هؤلاء المنافسين يومياً عبر الأخبار ويرفع تقارير ذكاء مباشر لـ Brand Brain'
+                        : '🔍 NEXUS will monitor these competitors daily via news feeds and surface intelligence proposals to Brand Brain'}
+                    </p>
+                  </div>
+
+                  {/* ── Competitor Notes (freeform context) ─────────── */}
                   <Field label={t('brand.competitorsNotesLabel')}
                     onSuggest={() => handleSuggestText('competitorNotes')}
                     suggesting={suggesting === 'competitorNotes'} accentColor={currentStep.color}>

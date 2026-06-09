@@ -33,6 +33,7 @@ export interface BrandProfile {
   winningHooks?: string[]
   winningAngles?: string[]
   failedAngles?: string[]
+  competitors?: string[]
   competitorNotes?: string | null
   strategicNotes?: string | null
 }
@@ -49,6 +50,7 @@ const ARRAY_FIELDS: (keyof BrandProfile)[] = [
   'winningHooks',
   'winningAngles',
   'failedAngles',
+  'competitors',
 ]
 
 function toStringArray(value: unknown): string[] {
@@ -111,6 +113,8 @@ export function buildBrandContext(brand: BrandProfile | null): string {
     lines.push(`• المنصات الرئيسية: ${brand.topPlatforms.join('، ')}`)
   if (brand.winningHooks?.length)
     lines.push(`• هوكس ناجحة سابقاً: ${brand.winningHooks.join(' | ')}`)
+  if (brand.competitors?.length)
+    lines.push(`• المنافسون المرصودون: ${brand.competitors.join('، ')}`)
   if (brand.competitorNotes)
     lines.push(`• ملاحظات المنافسين: ${brand.competitorNotes}`)
   if (brand.strategicNotes)

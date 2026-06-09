@@ -50,7 +50,7 @@ const FIELD_META: Record<string, { displayName: string; icon: string }> = {
 interface BrainLearningParams {
   workspaceId: string
   campaignId?: string
-  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner'
+  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner' | 'sentinel_insight' | 'competitor_monitor'
   payload: Record<string, unknown>
 }
 
@@ -158,6 +158,76 @@ CRITICAL:
 - Be specific — quote or closely paraphrase from the actual captions
 - No generic advice like "use engaging content" — every insight must trace to a specific post
 - If fewer than 3 above-average posts exist, return [] (not enough signal)
+`
+    } else if (trigger === 'sentinel_insight') {
+      // Sentinel just reviewed the campaign against the competitive landscape.
+      // Extract positioning gaps + strategic opportunities for Brand Brain.
+      const review = payload.sentinelReview as Record<string, unknown> | undefined
+      const competitors = Array.isArray(payload.competitors) ? payload.competitors : []
+
+      if (!review) return 0
+
+      extractionContext = `
+Sentinel (competitive intelligence agent) just reviewed a campaign against the market landscape.
+
+SENTINEL REVIEW FINDINGS:
+Risk Score: ${review.riskScore ?? 'N/A'}/100
+Brand Consistency Score: ${review.brandConsistencyScore ?? 'N/A'}/100
+Status: ${review.status ?? 'N/A'}
+
+Recommended Fixes:
+${JSON.stringify(review.recommendedFixes ?? [], null, 2).slice(0, 1500)}
+
+Strategic Opportunities Identified:
+${JSON.stringify(review.strategicOpportunities ?? review.opportunities ?? [], null, 2).slice(0, 1500)}
+
+Risk Notes:
+${JSON.stringify(review.riskNotes ?? [], null, 2).slice(0, 800)}
+
+${competitors.length > 0 ? `Known Competitors: ${competitors.join(', ')}` : ''}
+
+${brainSummary}
+
+From the Sentinel findings, extract Brand Brain learnings:
+- uniqueAdvantages: competitive edges the review highlighted that should be in Brand Brain
+- winningAngles: positioning angles the review validated or recommended
+- audiencePainPoints: pain points the review flagged as underserved by competitors
+- strategicNotes: 1-2 sentence strategic insight about competitive positioning
+- failingAngles: approaches the review flagged as risky or overdone in the market (to avoid)
+
+IMPORTANT: Only extract if Sentinel identified something genuinely new vs current Brand Brain.
+If the review was mostly positive (status: passed), focus on the validated strengths.
+If flagged issues, focus on what to change/avoid.
+`
+    } else if (trigger === 'competitor_monitor') {
+      // Daily cron found recent news/content from competitors.
+      // Extract market intelligence signals for Brand Brain.
+      const competitors = Array.isArray(payload.competitors) ? payload.competitors : []
+      const findings = Array.isArray(payload.findings) ? payload.findings : []
+
+      if (findings.length === 0) return 0
+
+      extractionContext = `
+Daily competitor monitoring found recent activity from competitors.
+Monitored competitors: ${competitors.join(', ')}
+
+RECENT COMPETITOR ACTIVITY (last 24-48h):
+${JSON.stringify(findings.slice(0, 12), null, 2).slice(0, 4000)}
+
+${brainSummary}
+
+Analyze the competitor activity and extract Brand Brain learnings:
+- winningAngles: content angles or messaging approaches competitors are using successfully —
+  that this brand should adopt or respond to
+- audiencePainPoints: problems competitors are addressing that this brand should also address
+- uniqueAdvantages: gaps in competitor messaging where this brand has an advantage
+- strategicNotes: 1-2 sentence insight about what the competitive landscape reveals this week
+
+RULES:
+- Focus on ACTIONABLE intelligence, not just "competitor posted about X"
+- If competitors are all doing the same thing, that is a market saturation signal — note it
+- If a competitor announced something new (product, feature, promotion), that is HIGH signal
+- Return [] if competitor activity is too generic to produce meaningful learnings
 `
     } else if (trigger === 'ab_winner') {
       // User manually chose between two variants — this is the highest-quality signal.
