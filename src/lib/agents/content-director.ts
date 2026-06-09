@@ -21,7 +21,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',  // Content direction — gpt-4o for strategy-level quality
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

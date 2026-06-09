@@ -155,7 +155,7 @@ async function callOpenAI(
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',  // Visual direction — gpt-4o for creative nuance
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

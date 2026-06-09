@@ -84,7 +84,7 @@ async function callOpenAI(
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',  // Quality gate — needs full reasoning capability
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
