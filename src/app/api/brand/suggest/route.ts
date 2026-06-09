@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
+import { suggestRateLimitDb } from '@/lib/dbRateLimit'
 import {
   BANNED_PHRASES,
   SPECIFICITY_RULES,
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rl = await suggestRateLimitDb(user.id)
+    if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
     const body = await req.json()
     const {

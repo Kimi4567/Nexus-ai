@@ -145,6 +145,11 @@ export async function publishRateLimitDb(userId: string) {
   return dbRateLimit(`publish:${userId}`, { limit: 50, windowMs: 60 * 60_000 })
 }
 
+/** AI suggest (free ops: ad-suggest, campaign-suggest, brand-suggest) — 30 per hour per user */
+export async function suggestRateLimitDb(userId: string) {
+  return dbRateLimit(`suggest:${userId}`, { limit: 30, windowMs: 60 * 60_000 })
+}
+
 // ── Sync in-memory presets (backward-compat aliases) ─────────────────────────
 // Used by routes that need synchronous rate limiting without DB overhead.
 
