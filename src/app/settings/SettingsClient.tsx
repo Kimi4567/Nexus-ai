@@ -31,6 +31,74 @@ interface SocialAccount {
   connectedAt: string
 }
 
+// ── Stable sub-components (must live at MODULE level, not inside SettingsPage)  ──
+// If defined inside SettingsPage, React treats them as new component types on
+// every render and unmounts/remounts the DOM — causing inputs to lose focus
+// after every keystroke.
+
+function NebulaOrbs() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
+      <div
+        className="absolute w-[500px] h-[500px] rounded-full opacity-10 blur-[100px]"
+        style={{
+          background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)',
+          top: '5%',
+          right: '10%',
+          animation: 'float 10s ease-in-out infinite',
+        }}
+      />
+      <div
+        className="absolute w-[350px] h-[350px] rounded-full opacity-8 blur-[80px]"
+        style={{
+          background: 'radial-gradient(circle, rgba(6,182,212,0.10), transparent 70%)',
+          bottom: '15%',
+          left: '5%',
+          animation: 'float 12s ease-in-out infinite reverse',
+        }}
+      />
+    </div>
+  )
+}
+
+function GlassCard({
+  children,
+  className = '',
+  accent = false,
+  style = {},
+}: {
+  children: React.ReactNode
+  className?: string
+  accent?: boolean
+  style?: React.CSSProperties
+}) {
+  return (
+    <div
+      className={`page-enter ${className}`}
+      style={{
+        background: accent ? 'rgba(139,92,246,0.05)' : 'rgba(12,13,36,0.6)',
+        border: accent ? '1px solid rgba(139,92,246,0.2)' : '1px solid rgba(139,92,246,0.1)',
+        borderRadius: '16px',
+        boxShadow: accent
+          ? '0 8px 32px rgba(139,92,246,0.08), inset 0 1px 0 rgba(139,92,246,0.08)'
+          : '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(139,92,246,0.04)',
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SectionBadge({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+      <span className="text-label" style={{ color, letterSpacing: '0.08em' }}>{label}</span>
+    </div>
+  )
+}
+
 // Static section config — uses translation keys
 const SECTION_DEFS: { id: string; labelKey: string; icon: React.ElementType; color: string }[] = [
   { id: 'profile',   labelKey: 'settings.profile',          icon: User,          color: '#06b6d4' },
@@ -234,7 +302,7 @@ export default function SettingsPage() {
     try {
       const res = await fetch('/api/workspace/reset', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader },
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ confirm: 'RESET' }),
       })
       const data = await res.json()
@@ -273,62 +341,6 @@ export default function SettingsPage() {
 
   // Resolve section labels
   const SECTIONS = SECTION_DEFS.map(s => ({ ...s, label: t(s.labelKey) as string }))
-
-  // ── Floating nebula orbs (same as dashboard) ─────────────────
-  function NebulaOrbs() {
-    return (
-      <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-        <div
-          className="absolute w-[500px] h-[500px] rounded-full opacity-10 blur-[100px]"
-          style={{
-            background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)',
-            top: '5%',
-            right: '10%',
-            animation: 'float 10s ease-in-out infinite',
-          }}
-        />
-        <div
-          className="absolute w-[350px] h-[350px] rounded-full opacity-8 blur-[80px]"
-          style={{
-            background: 'radial-gradient(circle, rgba(6,182,212,0.10), transparent 70%)',
-            bottom: '15%',
-            left: '5%',
-            animation: 'float 12s ease-in-out infinite reverse',
-          }}
-        />
-      </div>
-    )
-  }
-
-  // ── Glass Card Component ─────────────────────────────────────
-  function GlassCard({ children, className = '', accent = false, style = {} }: { children: React.ReactNode; className?: string; accent?: boolean; style?: React.CSSProperties }) {
-    return (
-      <div
-        className={`page-enter ${className}`}
-        style={{
-          background: accent ? 'rgba(139,92,246,0.05)' : 'rgba(12,13,36,0.6)',
-          border: accent ? '1px solid rgba(139,92,246,0.2)' : '1px solid rgba(139,92,246,0.1)',
-          borderRadius: '16px',
-          boxShadow: accent
-            ? '0 8px 32px rgba(139,92,246,0.08), inset 0 1px 0 rgba(139,92,246,0.08)'
-            : '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(139,92,246,0.04)',
-          ...style,
-        }}
-      >
-        {children}
-      </div>
-    )
-  }
-
-  // ── Section Badge ────────────────────────────────────────────
-  function SectionBadge({ color, label }: { color: string; label: string }) {
-    return (
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-        <span className="text-label" style={{ color, letterSpacing: '0.08em' }}>{label}</span>
-      </div>
-    )
-  }
 
   return (
     <AppShell>
