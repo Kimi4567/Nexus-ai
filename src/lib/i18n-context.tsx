@@ -1119,6 +1119,10 @@ const translations: Record<Locale, Record<string, any>> = {
       goalEngagement: 'تفاعل',
       goalLeads: 'Leads',
       goalTraffic: 'زيارات',
+      menuOpen: 'فتح',
+      menuArchive: 'أرشفة',
+      menuDelete: 'حذف',
+      menuDeleteConfirm: 'هل أنت متأكد من حذف هذه الحملة؟',
     },
     campaignNew: {
       pageTitle: 'خطة محتوى جديدة',
@@ -2918,6 +2922,10 @@ const translations: Record<Locale, Record<string, any>> = {
       goalEngagement: 'Engagement',
       goalLeads: 'Leads',
       goalTraffic: 'Traffic',
+      menuOpen: 'Open',
+      menuArchive: 'Archive',
+      menuDelete: 'Delete',
+      menuDeleteConfirm: 'Delete this campaign permanently?',
     },
     campaignNew: {
       pageTitle: 'New Content Plan',

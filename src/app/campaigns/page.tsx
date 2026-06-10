@@ -2,13 +2,15 @@
 
 import AppShell from '@/components/AppShell'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
   FolderKanban, Plus, Megaphone, Search, Filter,
-  Loader2, Star, MoreHorizontal, RefreshCw, Wand2
+  Loader2, Star, MoreHorizontal, RefreshCw, Wand2,
+  ExternalLink, Archive, Trash2,
 } from 'lucide-react'
 
 interface Campaign {
@@ -28,6 +30,7 @@ interface Campaign {
 export default function CampaignsPage() {
   const { authHeader } = useAuth()
   const { t, locale } = useI18n()
+  const router = useRouter()
   const cT = t('campaigns')
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
@@ -37,6 +40,9 @@ export default function CampaignsPage() {
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'name'>('updatedAt')
   const [favoriteOnly, setFavoriteOnly] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   // Status config — labels from i18n, colors/badges stay static
   const STATUS_MAP: Record<string, { label: string; dot: string; badge: string }> = {
@@ -90,6 +96,44 @@ export default function CampaignsPage() {
     } catch { /* silent */ }
     finally { setTogglingId(null) }
   }
+
+  const deleteCampaign = async (id: string) => {
+    if (!window.confirm((cT as Record<string, string>)?.menuDeleteConfirm || 'Delete this campaign permanently?')) return
+    setDeletingId(id)
+    setOpenMenuId(null)
+    try {
+      await fetch(`/api/campaigns/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+      setCampaigns(prev => prev.filter(c => c.id !== id))
+    } catch { /* silent */ }
+    finally { setDeletingId(null) }
+  }
+
+  const archiveCampaign = async (id: string) => {
+    setOpenMenuId(null)
+    try {
+      await fetch(`/api/campaigns/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({ status: 'ARCHIVED' }),
+      })
+      setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: 'ARCHIVED' } : c))
+    } catch { /* silent */ }
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!openMenuId) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [openMenuId])
 
   const activeCount  = campaigns.filter(c => c.status === 'ACTIVE').length
   const draftCount   = campaigns.filter(c => c.status === 'DRAFT').length
@@ -280,9 +324,47 @@ export default function CampaignsPage() {
                           >
                             <Star className={`w-4 h-4 ${c.favorite ? 'fill-amber' : ''}`} />
                           </button>
-                          <Link href={`/campaigns/${c.id}`} className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Link>
+                          {/* 3-dot menu */}
+                          <div className="relative" ref={openMenuId === c.id ? menuRef : undefined}>
+                            <button
+                              onClick={e => { e.stopPropagation(); setOpenMenuId(prev => prev === c.id ? null : c.id) }}
+                              disabled={deletingId === c.id}
+                              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors disabled:opacity-40"
+                            >
+                              {deletingId === c.id
+                                ? <span className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                                : <MoreHorizontal className="w-4 h-4" />
+                              }
+                            </button>
+                            {openMenuId === c.id && (
+                              <div
+                                className="absolute end-0 top-full mt-1 w-36 rounded-xl overflow-hidden z-50 shadow-xl"
+                                style={{ background: 'rgba(15,16,40,0.97)', border: '1px solid rgba(139,92,246,0.2)' }}
+                              >
+                                <button
+                                  onClick={() => { setOpenMenuId(null); router.push(`/campaigns/${c.id}`) }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-colors"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  {(cT as Record<string, string>)?.menuOpen || 'Open'}
+                                </button>
+                                <button
+                                  onClick={() => archiveCampaign(c.id)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-colors"
+                                >
+                                  <Archive className="w-3.5 h-3.5" />
+                                  {(cT as Record<string, string>)?.menuArchive || 'Archive'}
+                                </button>
+                                <button
+                                  onClick={() => deleteCampaign(c.id)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  {(cT as Record<string, string>)?.menuDelete || 'Delete'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>
