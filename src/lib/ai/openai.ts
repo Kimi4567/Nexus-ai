@@ -55,12 +55,23 @@ async function callOpenAI(
   if (!content) throw new Error('OpenAI returned empty response')
 
   if (jsonMode) {
-    try {
-      return JSON.parse(content)
-    } catch {
-      console.error('[OpenAI] JSON parse failed:', content)
-      throw new Error('OpenAI returned invalid JSON')
-    }
+    // 1. Direct parse (happy path)
+    try { return JSON.parse(content) } catch {}
+
+    // 2. Strip markdown code fences and retry (model sometimes wraps JSON despite json_object mode)
+    const stripped = content
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```\s*$/i, '')
+      .trim()
+    try { return JSON.parse(stripped) } catch {}
+
+    // 3. Extract first {...} block from the content
+    const match = content.match(/\{[\s\S]*\}/)
+    if (match) { try { return JSON.parse(match[0]) } catch {} }
+
+    console.error('[OpenAI] JSON parse failed after all attempts:', content.slice(0, 300))
+    throw new Error('OpenAI returned invalid JSON')
   }
   return content
 }

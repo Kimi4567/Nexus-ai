@@ -231,6 +231,10 @@ export default function CampaignDetailPage() {
       const d = await res.json()
       if (d.campaign) {
         setCampaign(d.campaign)
+        // Restore sentinel state from stored review so we never show stale errors
+        // when the user navigates back to a campaign that already passed
+        const storedReview = (d.campaign?.aiOutput as any)?.sentinelReview
+        if (storedReview?.status === 'passed') setSentinelState('done')
         return d.campaign
       }
     } catch {}
