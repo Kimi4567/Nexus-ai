@@ -354,7 +354,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         // 2. Get signature
         const sigRes = await fetch('/api/uploads/cloudinary/signature', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: authHeaderRef.current() },
           body: JSON.stringify({ sessionToken }),
         })
         const sigData = await sigRes.json()
@@ -388,7 +388,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         // 4. Notify backend
         const notifyRes = await fetch('/api/uploads/cloudinary/notify', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: authHeaderRef.current() },
           body: JSON.stringify({
             fileName: cloudinaryData.original_filename || cloudinaryData.public_id,
             mimeType: cloudinaryData.resource_type === 'video' ? `video/${cloudinaryData.format}` : `image/${cloudinaryData.format}`,
