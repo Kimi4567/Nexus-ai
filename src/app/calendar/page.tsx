@@ -25,7 +25,9 @@ type CalendarPost = {
   caption?: string
   cta?: string
   visualNote?: string
-  source?: 'campaign_ai_output' | 'legacy'
+  source?: 'campaign_ai_output' | 'legacy' | 'scheduled' | 'published'
+  scheduledAt?: string  // ISO string for scheduled posts
+  publishStatus?: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT'
 }
 
 type ScheduledPost = {
@@ -261,6 +263,51 @@ function normaliseplatform(raw: string | undefined): string {
   return map[raw.toLowerCase()] || raw
 }
 
+function normalisePlatformQueue(raw: string | undefined): string {
+  if (!raw) return 'Instagram'
+  const map: Record<string, string> = {
+    FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', LINKEDIN: 'LinkedIn',
+    TIKTOK: 'TikTok', TWITTER: 'Twitter', YOUTUBE: 'YouTube',
+    META: 'Facebook', SNAPCHAT: 'Snapchat',
+  }
+  return map[raw.toUpperCase()] || normaliseplatform(raw)
+}
+
+function convertScheduledToCalendarPosts(
+  scheduledPosts: ScheduledPost[],
+  campaigns: any[]
+): CalendarPost[] {
+  return scheduledPosts
+    .filter(p => p.scheduledAt && p.status !== 'FAILED')
+    .map(p => {
+      const d = new Date(p.scheduledAt)
+      if (isNaN(d.getTime())) return null
+      const campaign = campaigns.find(c => c.id === p.campaignId)
+      const campaignIdx = campaigns.findIndex(c => c.id === p.campaignId)
+      const color = campaignIdx >= 0
+        ? CAMPAIGN_COLORS[campaignIdx % CAMPAIGN_COLORS.length]
+        : null
+      const isPublished = p.status === 'PUBLISHED'
+      return {
+        id:            `sched-${p.id}`,
+        campaignId:    p.campaignId || 'queue',
+        campaignName:  campaign?.title || campaign?.name || p.pageName || 'Scheduled',
+        campaignColor: isPublished ? '#10b981' : '#34d399',
+        date:          d.toISOString().slice(0, 10),
+        day:           d.getDate(),
+        month:         d.getMonth(),
+        year:          d.getFullYear(),
+        platform:      normalisePlatformQueue(p.platform),
+        type:          isPublished ? 'Published' : 'Scheduled',
+        topic:         p.caption?.slice(0, 70) || 'Scheduled Post',
+        scheduledAt:   p.scheduledAt,
+        publishStatus: p.status,
+        source:        (isPublished ? 'published' : 'scheduled') as 'published' | 'scheduled',
+      }
+    })
+    .filter(Boolean) as CalendarPost[]
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
@@ -336,9 +383,23 @@ export default function CalendarPage() {
   // ── Calendar derived state ─────────────────────────────────────────────────
   const allPosts = useMemo(() => {
     const out: CalendarPost[] = []
+    // 1. AI-planned posts from campaign aiOutput
     campaigns.forEach((c, i) => out.push(...extractPostsFromCampaign(c, i)))
+    // 2. Approved + scheduled SocialPost records — overlay on calendar grid
+    const scheduledCalPosts = convertScheduledToCalendarPosts(posts, campaigns)
+    // Avoid exact duplicates: skip if same campaignId + date + platform already exists from aiOutput
+    scheduledCalPosts.forEach(sp => {
+      const isDuplicate = out.some(
+        p =>
+          p.source === 'campaign_ai_output' &&
+          p.date === sp.date &&
+          p.platform.toLowerCase() === sp.platform.toLowerCase() &&
+          p.campaignId === sp.campaignId
+      )
+      if (!isDuplicate) out.push(sp)
+    })
     return out
-  }, [campaigns])
+  }, [campaigns, posts])
 
   const monthPosts = useMemo(
     () => allPosts.filter(p => p.month === viewMonth && p.year === viewYear),
@@ -348,7 +409,9 @@ export default function CalendarPage() {
   useEffect(() => {
     if (loadingCal) return
     if (hasAutoJumpedRef.current) return
-    const pushedPosts = allPosts.filter(p => p.source === 'campaign_ai_output')
+    const pushedPosts = allPosts.filter(
+      p => p.source === 'campaign_ai_output' || p.source === 'scheduled' || p.source === 'published'
+    )
     if (pushedPosts.length === 0) return
     const curMonth = now.getMonth()
     const curYear  = now.getFullYear()
@@ -574,7 +637,7 @@ export default function CalendarPage() {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="grid grid-cols-3 gap-3 mb-3">
               {[
                 { label: 'Posts This Month', value: calStats.total,     color: 'text-white'      },
                 { label: 'Active Campaigns', value: calStats.campaigns,  color: 'text-indigo-400' },
@@ -585,6 +648,22 @@ export default function CalendarPage() {
                   <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
                 </div>
               ))}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 mb-5 px-1">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500/60" />
+                <span className="text-[11px] text-gray-500">✦ AI Planned</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+                <span className="text-[11px] text-gray-500">🕐 Scheduled</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500/60" />
+                <span className="text-[11px] text-gray-500">✅ Published</span>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -642,13 +721,26 @@ export default function CalendarPage() {
                           {day}
                         </div>
                         <div className="space-y-0.5">
-                          {dayPosts.slice(0, 2).map((post, pi) => (
-                            <div key={pi}
-                              className="text-[9px] px-1 py-0.5 rounded truncate font-medium"
-                              style={{ background: post.campaignColor + '30', color: post.campaignColor }}>
-                              {PLATFORM_ICONS_CAL[post.platform] || '📱'} {post.topic}
-                            </div>
-                          ))}
+                          {dayPosts.slice(0, 2).map((post, pi) => {
+                            const isScheduled = post.source === 'scheduled'
+                            const isPublished = post.source === 'published'
+                            return (
+                              <div key={pi}
+                                className="text-[9px] px-1 py-0.5 rounded truncate font-medium flex items-center gap-0.5"
+                                style={
+                                  isPublished
+                                    ? { background: 'rgba(16,185,129,0.22)', color: '#6ee7b7' }
+                                    : isScheduled
+                                      ? { background: 'rgba(52,211,153,0.18)', color: '#34d399' }
+                                      : { background: post.campaignColor + '30', color: post.campaignColor }
+                                }>
+                                <span className="flex-shrink-0">
+                                  {isPublished ? '✅' : isScheduled ? '🕐' : (PLATFORM_ICONS_CAL[post.platform] || '📱')}
+                                </span>
+                                <span className="truncate">{post.topic}</span>
+                              </div>
+                            )
+                          })}
                           {dayPosts.length > 2 && (
                             <div className="text-[9px] text-gray-600">+{dayPosts.length - 2} more</div>
                           )}
@@ -683,52 +775,97 @@ export default function CalendarPage() {
                       </div>
                     ) : (
                       <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-                        {selectedDayPosts.map(post => (
-                          <div key={post.id} className="p-3 rounded-xl bg-dark border border-dark-tertiary">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-sm">{PLATFORM_ICONS_CAL[post.platform] || '📱'}</span>
-                              <span className="text-xs font-bold"
-                                style={{ color: PLATFORM_COLORS[post.platform] || '#FF9500' }}>
-                                {post.platform}
-                              </span>
-                              <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
-                                {post.type}
-                              </span>
-                            </div>
-                            <p className="text-sm font-semibold text-white leading-snug mb-1">{post.topic}</p>
-                            {post.hook && (
-                              <p className="text-[11px] text-gray-400 italic leading-relaxed mb-1">
-                                &ldquo;{post.hook}&rdquo;
-                              </p>
-                            )}
-                            {post.caption && (
-                              <p className="text-[11px] text-gray-500 leading-relaxed mb-1 line-clamp-2">
-                                {post.caption}
-                              </p>
-                            )}
-                            {post.cta && (
-                              <p className="text-[11px] text-accent font-medium">CTA: {post.cta}</p>
-                            )}
-                            {post.visualNote && (
-                              <p className="text-[10px] text-purple-400/70 mt-1">🎨 {post.visualNote}</p>
-                            )}
-                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-dark-tertiary">
-                              <span className="text-[10px] text-gray-600 flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full inline-block" style={{ background: post.campaignColor }} />
-                                {post.campaignName}
-                                {post.source === 'campaign_ai_output' && (
-                                  <span className="ml-1 px-1 rounded bg-cyan-500/15 text-cyan-500 text-[9px] font-semibold">
-                                    {calT?.calendarCampaignBadge as string || 'Campaign'}
+                        {selectedDayPosts.map(post => {
+                          const isScheduled = post.source === 'scheduled'
+                          const isPublished = post.source === 'published'
+                          const isAiPlanned = post.source === 'campaign_ai_output'
+                          return (
+                            <div key={post.id}
+                              className="p-3 rounded-xl bg-dark border transition-all"
+                              style={{
+                                borderColor: isPublished
+                                  ? 'rgba(16,185,129,0.25)'
+                                  : isScheduled
+                                    ? 'rgba(52,211,153,0.20)'
+                                    : '#1e1e2e',
+                              }}>
+                              {/* Header row */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm">{PLATFORM_ICONS_CAL[post.platform] || '📱'}</span>
+                                <span className="text-xs font-bold"
+                                  style={{ color: PLATFORM_COLORS[post.platform] || '#FF9500' }}>
+                                  {post.platform}
+                                </span>
+                                {/* Status badge */}
+                                {isPublished && (
+                                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-green-500/15 text-green-400 flex items-center gap-0.5">
+                                    ✅ Published
                                   </span>
                                 )}
-                              </span>
-                              <Link href={`/campaigns/${post.campaignId}`}
-                                className="text-[10px] text-accent hover:underline">
-                                {calT?.calendarViewCampaign as string || 'View'} →
-                              </Link>
+                                {isScheduled && (
+                                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-400 flex items-center gap-0.5">
+                                    🕐 Scheduled
+                                  </span>
+                                )}
+                                {isAiPlanned && (
+                                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-cyan-500/15 text-cyan-400">
+                                    ✦ AI Planned
+                                  </span>
+                                )}
+                                {!isPublished && !isScheduled && !isAiPlanned && (
+                                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
+                                    {post.type}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Content */}
+                              <p className="text-sm font-semibold text-white leading-snug mb-1">{post.topic}</p>
+
+                              {post.hook && (
+                                <p className="text-[11px] text-gray-400 italic leading-relaxed mb-1">
+                                  &ldquo;{post.hook}&rdquo;
+                                </p>
+                              )}
+                              {post.caption && !isScheduled && !isPublished && (
+                                <p className="text-[11px] text-gray-500 leading-relaxed mb-1 line-clamp-2">
+                                  {post.caption}
+                                </p>
+                              )}
+                              {post.cta && (
+                                <p className="text-[11px] text-accent font-medium">CTA: {post.cta}</p>
+                              )}
+                              {post.visualNote && (
+                                <p className="text-[10px] text-purple-400/70 mt-1">🎨 {post.visualNote}</p>
+                              )}
+
+                              {/* Scheduled time */}
+                              {(isScheduled || isPublished) && post.scheduledAt && (
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                  🕐 {new Date(post.scheduledAt).toLocaleTimeString(
+                                    locale === 'ar' ? 'ar-SA' : 'en-US',
+                                    { hour: '2-digit', minute: '2-digit' }
+                                  )}
+                                </p>
+                              )}
+
+                              {/* Footer */}
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-dark-tertiary">
+                                <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full inline-block flex-shrink-0"
+                                    style={{ background: isPublished ? '#10b981' : isScheduled ? '#34d399' : post.campaignColor }} />
+                                  <span className="truncate max-w-[100px]">{post.campaignName}</span>
+                                </span>
+                                {post.campaignId && post.campaignId !== 'queue' && (
+                                  <Link href={`/campaigns/${post.campaignId}`}
+                                    className="text-[10px] text-accent hover:underline flex-shrink-0">
+                                    {calT?.calendarViewCampaign as string || 'View'} →
+                                  </Link>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>
