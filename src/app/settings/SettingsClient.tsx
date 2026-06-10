@@ -68,6 +68,12 @@ export default function SettingsPage() {
 
   const [signingOut, setSigningOut] = useState(false)
 
+  // Reset workspace
+  const [resetConfirmOpen,  setResetConfirmOpen]  = useState(false)
+  const [resetConfirmInput, setResetConfirmInput] = useState('')
+  const [resetting,         setResetting]         = useState(false)
+  const [resetMessage,      setResetMessage]      = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   const [billingStatus, setBillingStatus] = useState<{
     plan: string
     hasActiveSubscription: boolean
@@ -219,6 +225,30 @@ export default function SettingsPage() {
     setSigningOut(true)
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const handleResetWorkspace = async () => {
+    if (resetConfirmInput.trim() !== 'RESET') return
+    setResetting(true)
+    setResetMessage(null)
+    try {
+      const res = await fetch('/api/workspace/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({ confirm: 'RESET' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Reset failed')
+      setResetMessage({ type: 'success', text: t('settings.resetWorkspaceSuccess') as string })
+      setResetConfirmOpen(false)
+      setResetConfirmInput('')
+      // Give user a moment to see the success toast, then redirect
+      setTimeout(() => router.push('/dashboard'), 1500)
+    } catch (err: any) {
+      setResetMessage({ type: 'error', text: t('settings.resetWorkspaceError') as string })
+    } finally {
+      setResetting(false)
+    }
   }
 
   if (loading) {
@@ -825,7 +855,22 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
+                  {/* Reset success/error toast */}
+                  {resetMessage && (
+                    <div
+                      className={`mt-4 p-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
+                        resetMessage.type === 'success'
+                          ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                          : 'text-red-400 bg-red-500/10 border border-red-500/20'
+                      }`}
+                    >
+                      {resetMessage.type === 'success' ? <Check className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                      {resetMessage.text}
+                    </div>
+                  )}
+
                   <div className="mt-6 space-y-4">
+                    {/* Sign out all devices */}
                     <div
                       className="flex items-center justify-between p-4"
                       style={{
@@ -850,6 +895,73 @@ export default function SettingsPage() {
                         )}
                         {signingOut ? t('settings.signingOutVerb') : t('settings.signOut')}
                       </button>
+                    </div>
+
+                    {/* Reset workspace */}
+                    <div
+                      className="p-4"
+                      style={{
+                        background: 'rgba(12,13,36,0.55)',
+                        border: '1px solid rgba(239,68,68,0.15)',
+                        borderRadius: '12px',
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-sm text-red-400">{t('settings.resetWorkspace')}</div>
+                          <div className="text-xs text-text-muted mt-1 max-w-xs">{t('settings.resetWorkspaceDesc')}</div>
+                        </div>
+                        <button
+                          onClick={() => { setResetConfirmOpen(true); setResetMessage(null) }}
+                          className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl transition text-red-400 hover:bg-red-500/10 border border-red-500/20 hover:border-red-500/40 flex items-center gap-2 ms-4"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {t('settings.resetWorkspaceBtn')}
+                        </button>
+                      </div>
+
+                      {/* Inline confirmation form */}
+                      {resetConfirmOpen && (
+                        <div
+                          className="mt-4 p-4 rounded-xl space-y-3"
+                          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
+                        >
+                          <p className="text-sm text-red-300 font-medium">{t('settings.resetWorkspaceConfirmMsg')}</p>
+                          <p className="text-xs text-text-muted">{t('settings.resetWorkspaceTypeHint')}</p>
+                          <input
+                            type="text"
+                            value={resetConfirmInput}
+                            onChange={e => setResetConfirmInput(e.target.value)}
+                            placeholder={t('settings.resetWorkspacePlaceholder') as string}
+                            className="w-full px-3 py-2 text-sm rounded-lg bg-transparent text-red-300 placeholder-red-400/40 outline-none"
+                            style={{ border: '1px solid rgba(239,68,68,0.3)' }}
+                            disabled={resetting}
+                          />
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => { setResetConfirmOpen(false); setResetConfirmInput('') }}
+                              disabled={resetting}
+                              className="px-4 py-2 text-xs font-semibold rounded-lg text-text-muted hover:text-text-primary transition"
+                            >
+                              {t('common.cancel')}
+                            </button>
+                            <button
+                              onClick={handleResetWorkspace}
+                              disabled={resetting || resetConfirmInput.trim() !== 'RESET'}
+                              className="px-4 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-2 text-white"
+                              style={{
+                                background: resetConfirmInput.trim() === 'RESET'
+                                  ? 'rgba(239,68,68,0.8)'
+                                  : 'rgba(239,68,68,0.2)',
+                                cursor: resetConfirmInput.trim() === 'RESET' ? 'pointer' : 'not-allowed',
+                              }}
+                            >
+                              {resetting && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                              {resetting ? t('settings.resetWorkspaceResetting') : t('settings.resetWorkspaceConfirmBtn')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </GlassCard>
