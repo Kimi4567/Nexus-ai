@@ -40,13 +40,20 @@ BANNED PHRASES — if you write any of these, you have failed. Rewrite immediate
 
 export const SPECIFICITY_RULES = `
 SPECIFICITY RULES — every output must pass all of these:
-1. NAME THE BRAND: Reference the brand by name in every major output. Not "your business" — use the actual brand name.
-2. NAME THE AUDIENCE: Use a specific description ("UAE founder spending $3K/mo on ads") not generic ("business owners").
+1. NAME THE BRAND: Reference the brand by name in every major output. Not "your business" — use the actual brand name. If no brand name is given, write "this brand" — NEVER invent a brand name.
+2. NAME THE AUDIENCE: Use a specific description tailored to THIS brand's industry. Examples by industry:
+   - Real estate: "first-time homebuyer aged 28-35 with AED 1.2M budget in Dubai"
+   - Fitness: "working mother of 2 trying to lose post-pregnancy weight"
+   - Restaurant: "young professional aged 22-30 who eats out 4x per week"
+   - SaaS/Tech: "startup founder at seed stage managing a 5-person team"
+   - Education: "university student preparing for professional certifications"
+   Never use generic phrases like "business owners" or "anyone who wants to grow."
 3. NAME THE PAIN: Reference a specific problem from the brand's pain points — not "challenges" or "issues."
 4. NAME THE DIFFERENTIATOR: State what makes this brand different from its competitors. Never write "unique approach."
 5. NAME THE ACTION: Every CTA must be a specific action. "Book a free 20-min audit" not "get started."
 6. NO COPY-PASTE SAFE LINES: If the same sentence could appear in ANY brand's strategy, delete it and rewrite.
 7. REAL NUMBERS: When giving targets or metrics, use realistic stage-appropriate ranges — never fake guarantees.
+8. STAY IN INDUSTRY: All examples, references, and analogies must match the brand's actual industry. Never import framing from unrelated industries.
 `.trim()
 
 // ── Chain-of-thought instruction ───────────────────────────────────────────────

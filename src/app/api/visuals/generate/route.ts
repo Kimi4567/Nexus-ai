@@ -131,7 +131,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Build the caption-driven, brand-adaptive ad prompt (async) ───────────
-  const { prompt } = await buildImagePrompt(ctx)
+  // For Arabic posts: prompt is background-only; concept.headline is composited
+  // as a separate Satori layer in composeBrandedPost() below.
+  const { prompt, language, concept } = await buildImagePrompt(ctx)
 
   // ── Deduct credits before expensive DALL-E call ───────────────────────────
   const credit = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
@@ -213,15 +215,16 @@ export async function POST(req: NextRequest) {
 
     try {
       const compositeBuffer = await composeBrandedPost(cloudinaryUrl, {
-        // Pass brand name for the accent bar color extraction (not rendered as text)
         brandName:   brand?.brandName || ctx.brandName || 'Brand',
         logoUrl:     brand?.logoUrl   || null,
         accentColor: brand?.colorPalette
           ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
           : null,
         platform:    overlayPlatform,
-        // adHeadline omitted: AI already rendered text in the image.
-        // Sharp handles: platform dimensions, logo placement, accent bar only.
+        // For Arabic posts: the background is text-free; we composite the concept headline
+        // here using Satori + Noto Naskh Arabic for pixel-perfect RTL typography.
+        // For English posts: AI already rendered text in the image, so no adHeadline needed.
+        adHeadline: language === 'ar' && concept?.headline ? concept.headline : undefined,
       })
 
       const finalPublicId = `visual_${visual.id}`

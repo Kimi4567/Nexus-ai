@@ -487,6 +487,10 @@ export default function BrandBrainPage() {
 
   // ── handleSuggestText: for plain text fields ──────────────────
   const handleSuggestText = async (field: keyof BrandProfile) => {
+    if (!form.brandName && !form.industry) {
+      setSuggestError(locale === 'ar' ? 'أدخل اسم العلامة أو المجال أولاً' : 'Enter brand name or industry first')
+      return
+    }
     setSuggesting(field)
     setSuggestError(null)
     setTextSuggestion(null)
@@ -1037,7 +1041,7 @@ export default function BrandBrainPage() {
 
               {/* 3 text areas */}
               <div className="space-y-2 mb-3">
-                {contentSamples.map((sample, i) => (
+                {(Array.isArray(contentSamples) ? contentSamples : ['', '', '']).map((sample, i) => (
                   <div key={i}>
                     <div className="text-[10px] font-mono mb-1" style={{ color: '#334155' }}>
                       {locale === 'ar' ? `نموذج ${i + 1}` : `Sample ${i + 1}`}

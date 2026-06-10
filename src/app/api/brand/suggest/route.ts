@@ -17,27 +17,36 @@ import { checkAndDeductCredits } from '@/lib/credits'
    ═══════════════════════════════════════════════════════════════ */
 
 // Shared system prompt used for all brand suggest calls
-function buildSystemPrompt(contextBlock: string): string {
-  return `You are a senior brand strategist with deep expertise in positioning and market analysis.
+function buildSystemPrompt(contextBlock: string, brandName?: string, industry?: string): string {
+  const brandAnchor = brandName
+    ? `You are working exclusively with the brand named "${brandName}"${industry ? ` in the ${industry} industry` : ''}. Every output must be specifically written for "${brandName}" — not for any other brand, platform, or company.`
+    : `You are working with an unnamed brand${industry ? ` in the ${industry} industry` : ''}. Do NOT invent or assume a brand name. Write "this brand" when referring to it. Do NOT generate content for marketing tools, SaaS platforms, or advertising agencies unless the industry explicitly indicates this.`
+
+  return `You are a senior brand strategist with deep expertise in positioning, market analysis, and industry-specific marketing.
+
+${brandAnchor}
 
 ${BANNED_PHRASES}
 
 ${SPECIFICITY_RULES}
 
+CRITICAL INDUSTRY ALIGNMENT:
+You must stay 100% within the brand's actual industry. If the brand is in Real Estate, generate real estate content. If Fashion, generate fashion content. If Restaurants, generate restaurant content. Never bleed in marketing-tech, SaaS, or advertising-platform framing unless the brand explicitly operates in those sectors.
+
 CRITICAL REASONING REQUIREMENT:
 Before writing any suggestion, internally complete this analysis:
-1. What stage is this brand at? (pre-launch / early / active / scaling)
-2. Who is their ONE most likely buyer right now — specific job, situation, budget?
-3. What specific problem does the brand solve better than alternatives?
-4. What would make the brand's positioning fail if ignored?
+1. What industry is this brand in? What are that industry's specific dynamics?
+2. Who is their ONE most likely buyer right now — specific profile, situation, budget?
+3. What specific problem does this brand solve that others in the SAME industry don't?
+4. What industry-specific language would resonate with this brand's audience?
 Only AFTER completing this analysis should you write the output.
 
 ${contextBlock}
 
 OUTPUT RULES:
-- Reference the brand by name, not "your brand" or "the company"
-- Use specific language tied to this brand's actual offer and market
-- Never write generic phrases that could apply to any brand
+- Reference the brand by name if a name is provided; otherwise write "this brand" — NEVER invent a brand name
+- Use specific language tied to this brand's actual industry, offer, and market
+- Never write generic phrases that could apply to any brand in any industry
 - Return ONLY what was requested — no intro, no explanation, no preamble`
 }
 
@@ -88,7 +97,7 @@ export async function POST(req: NextRequest) {
       competitorNotes: competitorNotesCtx,
     }
     const contextBlock = buildBrandContextBlock(brandData)
-    const systemPrompt = buildSystemPrompt(contextBlock)
+    const systemPrompt = buildSystemPrompt(contextBlock, brandName || undefined, industry || undefined)
 
     // ── Text fields: return { suggestion: string } ────────────────
     const textFieldPrompts: Record<string, string> = {

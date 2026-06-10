@@ -20,6 +20,7 @@
  */
 
 import sharp from 'sharp'
+import { renderArabicTextLayer } from '@/lib/arabicText'
 
 // ─── Platform dimension map ───────────────────────────────────────────────────
 
@@ -283,9 +284,18 @@ export async function composeBrandedPost(
   const brandTextSvg = buildBrandTextSvg(w, h, opts.brandName)
   const accentBarSvg = buildAccentBarSvg(w, h, `rgb(${r},${g},${b})`)
 
-  // Arabic ad headline — extract + build SVG if caption provided
+  // Headline text handling — Satori for Arabic (correct shaping), SVG for Latin
   const rawHeadline = opts.adHeadline ? extractAdHeadline(opts.adHeadline) : null
-  const headlineSvg = rawHeadline ? buildAdHeadlineSvg(w, h, rawHeadline) : null
+  const isArabicHeadline = rawHeadline ? /[؀-ۿ]/.test(rawHeadline) : false
+
+  // For Arabic: use Satori + Noto Naskh Arabic (correct RTL + letter joining)
+  // For English/Latin: use SVG headline layer (Sharp handles it fine)
+  const arabicLayer = (rawHeadline && isArabicHeadline)
+    ? await renderArabicTextLayer(rawHeadline, w, h).catch(() => null)
+    : null
+  const headlineSvg = (rawHeadline && !isArabicHeadline)
+    ? buildAdHeadlineSvg(w, h, rawHeadline)
+    : null
 
   // ── 3. Fetch + resize logo (optional) ────────────────────────────────────
   const logoSize = Math.round(w * 0.1)  // 10% of width: 108px at 1080
@@ -302,7 +312,12 @@ export async function composeBrandedPost(
     { input: gradientSvg, top: 0, left: 0 },
   ]
 
-  // Arabic ad headline — middle of image, above brand strip
+  // Arabic headline via Satori (correct shaping + proper font)
+  if (arabicLayer) {
+    compositeInputs.push({ input: arabicLayer, top: 0, left: 0 })
+  }
+
+  // Latin/English ad headline via SVG (Sharp handles it well)
   if (headlineSvg) {
     compositeInputs.push({ input: headlineSvg, top: 0, left: 0 })
   }

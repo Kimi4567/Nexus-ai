@@ -185,11 +185,11 @@ const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
     benchmark:   "Sotheby's International Realty, Emaar Properties, Airbnb Luxe advertising",
   },
   saas_ai_tech: {
-    photography: 'premium dark tech aesthetic, deep navy-black with luminous floating elements',
-    lighting:    'violet-blue and teal light halos, glowing data flows, cinematic depth haze',
-    mood:        'powerful, innovative, empowering, intelligent, premium, transformative',
-    atmosphere:  'dark cinematic tech with floating UI or glowing data visualization, glassmorphism panels',
-    benchmark:   'Apple WWDC, Linear, Vercel, Notion, Stripe premium advertising',
+    photography: 'clean minimal premium tech brand advertising, abstract soft gradient background — NO complex dashboard UI, NO floating widgets, NO data charts, NO computer screens',
+    lighting:    'cinematic soft gradient light with brand color depth, subtle atmospheric glow, generous negative space',
+    mood:        'powerful, innovative, empowering, intelligent, premium, elegant',
+    atmosphere:  'clean dark gradient background with subtle abstract geometric light shapes, professional open space for text — pure premium brand visual, not a technology screenshot',
+    benchmark:   'Stripe, Linear, Notion, Figma, Vercel — clean minimal premium campaign advertising quality',
   },
   retail_fashion: {
     photography: 'editorial fashion photography or luxury product hero shot',
@@ -199,11 +199,11 @@ const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
     benchmark:   'Vogue editorial, Gucci, Balenciaga, Zara premium campaign advertising',
   },
   agency_consultancy: {
-    photography: 'premium creative agency or business strategy photography with dynamic energy',
-    lighting:    'dramatic contrast lighting — bright ideas against creative dark background',
-    mood:        'intelligent, results-driven, creative, premium professional, bold',
-    atmosphere:  'dynamic strategic process, creative thinking, premium agency environment',
-    benchmark:   'McKinsey, IDEO, Ogilvy, Wieden+Kennedy brand advertising',
+    photography: 'clean minimal premium brand advertising with abstract editorial depth — NO stock office photos, NO generic workspace imagery',
+    lighting:    'dramatic soft directional light, creative depth, bold contrast with generous negative space',
+    mood:        'intelligent, results-driven, creative, confident, premium',
+    atmosphere:  'clean minimal abstract background with strategic visual metaphors, premium editorial negative space for bold typography',
+    benchmark:   'Wieden+Kennedy, Ogilvy, BBDO, Apple — premium agency campaign advertising',
   },
   education: {
     photography: 'inspiring learning environment or knowledge journey editorial photography',
@@ -220,10 +220,10 @@ const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
     benchmark:   'Goldman Sachs, American Express Platinum, Bloomberg premium ads',
   },
   general: {
-    photography: 'premium commercial photography with professional production value',
-    lighting:    'dramatic studio lighting with clear focal point and atmospheric depth',
+    photography: 'clean premium commercial photography with professional production value and open negative space',
+    lighting:    'dramatic soft studio lighting with clear focal point and atmospheric depth',
     mood:        'professional, premium, trustworthy, aspirational',
-    atmosphere:  'polished brand environment with clear visual hierarchy and premium feel',
+    atmosphere:  'polished brand environment with clear visual hierarchy, premium feel, and clean negative space for typography',
     benchmark:   'Fortune 500 brand advertising quality',
   },
 }
@@ -321,6 +321,16 @@ NOT acceptable: stock photography feel, generic backgrounds, flat composition, a
 
 // ─── Arabic prompt builder ────────────────────────────────────────────────────
 
+/**
+ * Arabic ad background generator.
+ *
+ * Strategy: gpt-image-1 is UNRELIABLE at rendering Arabic text (produces garbled
+ * characters). We therefore generate a BACKGROUND-ONLY scene here, then composite
+ * perfectly-shaped Arabic text as a separate layer using Satori + Noto Naskh Arabic.
+ *
+ * This two-step approach guarantees pixel-perfect Arabic typography regardless of
+ * which image model is used.
+ */
 function buildArabicAdPrompt(
   ctx: VisualContext,
   concept: VisualConcept,
@@ -331,44 +341,37 @@ function buildArabicAdPrompt(
   const platformHint = getPlatformHint(ctx.platform)
   const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
 
-  return `Create a world-class professional advertising campaign image for ${brandName}.
-This advertisement is for an Arabic-speaking audience.
+  return `Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
+This image is for an Arabic-language advertisement targeting Arabic-speaking audiences.
+Typography and Arabic text will be composited as a separate layer — DO NOT include any text,
+words, letters, or typography anywhere in the image.
 
-ADVERTISEMENT QUALITY: ${style.benchmark} level — top-tier Middle Eastern advertising (Emaar, Emirates Airline, Saudi Aramco standard).
+ADVERTISEMENT QUALITY: ${style.benchmark} standard.
 
 CENTRAL VISUAL SCENE:
 ${concept.centralElement}
 
-ATMOSPHERE & BACKGROUND:
-${colorMood} as the dominant atmospheric color tone.
+VISUAL STYLE & ATMOSPHERE:
+${colorMood} as the dominant atmospheric color.
 ${style.photography}.
 Lighting: ${style.lighting}.
-Mood: ${concept.visualMood}.
+Overall mood: ${concept.visualMood}.
 ${style.atmosphere}.
 
-ARABIC TYPOGRAPHY — CRITICAL REQUIREMENT:
-This ad must display beautifully rendered Arabic calligraphy:
-• Brand name: "${brandName}" — top area, modern Arabic or stylized typography
-• Arabic headline: "${concept.headline}" — LARGE, ultra-bold, centered horizontally, right-to-left direction
-• Arabic CTA: "${concept.cta}" — clean button or badge at bottom
+COMPOSITION:
+• ${platformHint}
+• Leave clean open negative space in the lower 35–45% of the image for text overlay
+• Upper portion: hero visual scene with atmospheric depth
+• Soft gradient fade toward bottom to ensure text legibility
 
-ARABIC TEXT QUALITY REQUIREMENTS:
-• All Arabic characters must be correctly connected and shaped (no isolated letters)
-• Modern professional Arabic typography style (like premium UAE/Saudi brand advertising)
-• Headline must be legible, bold, dominant — white or high-contrast against background
-• Strict right-to-left text direction
+CRITICAL REQUIREMENT:
+Absolutely NO text, NO words, NO Arabic calligraphy, NO numbers, NO letters anywhere.
+This must be a pure photographic / illustrative background.
 
 EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : ''}.
 
-VISUAL COMPOSITION:
-• ${platformHint}
-• Clear hierarchy: hero visual scene + beautiful Arabic text overlay
-• Layout typical of premium Arabic social media advertising
-
-QUALITY BAR:
-The Arabic typography must be pixel-perfect, beautiful, and professionally rendered.
-Reference aesthetic: Emirates Airlines, DEWA, Mubadala, Aldar Properties social media ads.
-NOT acceptable: garbled Arabic letters, disconnected characters, or machine-translated feel.`
+QUALITY BAR: ${style.benchmark} background visual.
+Reference aesthetic: Emaar, Emirates Airlines, Aldar Properties — premium Middle Eastern brand advertising backgrounds.`
 }
 
 // ─── Brand-level fallback (no caption) ───────────────────────────────────────
@@ -408,12 +411,16 @@ ${platformHint}. Premium, aspirational, world-class quality.`
  * Build a professional advertising prompt from Brand Brain + post caption.
  *
  * This is the core function that powers ALL image generation in NEXUS.
- * Returns the prompt string AND the detected language so the route can
- * make informed decisions about Sharp text compositing.
+ * Returns the prompt string, detected language, AND the extracted visual concept
+ * so downstream callers (route.ts) can composite Arabic text correctly.
+ *
+ * For Arabic posts: returns a background-only prompt — the concept.headline is
+ * meant to be rendered as a separate typography layer via Satori (see arabicText.ts).
  */
 export async function buildImagePrompt(ctx: VisualContext): Promise<{
   prompt: string
   language: 'ar' | 'en'
+  concept?: VisualConcept
 }> {
   // 1. Determine caption text to analyze
   const captionText = ctx.postCaption
@@ -439,7 +446,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     console.log(`[imageGen] category=${category} language=${language} platform=${ctx.platform || 'META'}`)
   }
 
-  // 5. No text → use brand-level prompt
+  // 5. No text → use brand-level prompt (no concept extraction needed)
   if (!captionText.trim()) {
     const prompt = buildBrandLevelPrompt(ctx, colorMood, style, language)
     return { prompt, language }
@@ -457,12 +464,14 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
     console.log(`[imageGen] headline="${concept.headline}" | scene="${concept.centralElement.slice(0, 80)}..."`)
   }
 
-  // 7. Build the prompt for the correct language
+  // 7. Build the prompt for the correct language.
+  //    Arabic → background-only (text composited separately via Satori)
+  //    English → full ad with AI-rendered text
   const prompt = language === 'ar'
     ? buildArabicAdPrompt(ctx, concept, colorMood, style)
     : buildEnglishAdPrompt(ctx, concept, colorMood, style)
 
-  return { prompt, language }
+  return { prompt, language, concept }
 }
 
 // ─── Image generation ─────────────────────────────────────────────────────────
