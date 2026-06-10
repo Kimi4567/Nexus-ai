@@ -109,13 +109,16 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // runKey increments on retry to re-trigger the effect while modal stays open
   const [runKey, setRunKey]           = useState(0)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  // Media check state
-  const [mediaImages, setMediaImages] = useState(0)
-  const [mediaVideos, setMediaVideos] = useState(0)
+  // Media check state — actual items for selection grid
+  interface MediaItem { id: string; url: string; type: string; fileName: string }
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([])
   // Ref to the "start API call" function — called from Continue button in media_check phase
   const startStrategyFnRef = useRef<(() => void) | null>(null)
   // Skip media check on retry (we already showed it once)
   const skipMediaCheckRef = useRef(false)
+  // Tab hidden during generation — show sticky warning banner
+  const [tabHiddenDuringRun, setTabHiddenDuringRun] = useState(false)
   // Language selection — user picks before running strategy
   const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
   const [langConfirmed, setLangConfirmed] = useState(false)
@@ -127,8 +130,42 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   useEffect(() => {
     if (!isOpen) {
       setLangConfirmed(false)
+      setTabHiddenDuringRun(false)
     }
   }, [isOpen])
+
+  // ── beforeunload + visibility protection during generation ─────────────────
+  useEffect(() => {
+    if (phase !== 'running') {
+      setTabHiddenDuringRun(false)
+      return
+    }
+
+    const warningMsg =
+      locale === 'ar'
+        ? 'الاستراتيجية قيد التوليد. لو خرجت ستحتاج للبدء من جديد.'
+        : 'Strategy generation is in progress. Leaving will require you to start over.'
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = warningMsg
+      return warningMsg
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabHiddenDuringRun(true)
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [phase, locale])
 
   // -- Core effect -----------------------------------------------------------
   useEffect(() => {
@@ -180,7 +217,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           'Content-Type': 'application/json',
           Authorization: authHeaderRef.current(),
         },
-        body: JSON.stringify({ language: selectedLanguage }),
+        body: JSON.stringify({ language: selectedLanguage, mediaIds: selectedMediaIds }),
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
         .then(({ ok, data: d }) => {
@@ -255,18 +292,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           return
         }
 
-        // Fetch media count to show the media awareness step
+        // Fetch media items to show the selectable media grid
         fetch('/api/media?limit=50', {
           headers: { Authorization: authHeaderRef.current() },
         })
-          .then(r => r.ok ? r.json() : { media: [], pagination: { total: 0 } })
-          .then((mediaData: { media?: Array<{type: string}>; pagination?: { total?: number } }) => {
+          .then(r => r.ok ? r.json() : { media: [] })
+          .then((mediaData: { media?: Array<{id: string; url: string; type: string; fileName: string}> }) => {
             if (cancelled) return
             const items = mediaData.media ?? []
-            const imgs = items.filter(m => m.type === 'IMAGE').length
-            const vids = items.filter(m => m.type === 'VIDEO').length
-            setMediaImages(imgs)
-            setMediaVideos(vids)
+            setMediaItems(items)
+            // Pre-select all items by default
+            setSelectedMediaIds(items.map(m => m.id))
             setPhase('media_check')
           })
           .catch(() => {
@@ -441,6 +477,24 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </div>
 
             <p className="text-[10px] text-text-muted mt-4 text-center">{rs.infoUsing}</p>
+
+            {/* Tab-hidden warning — appears if user switched away during generation */}
+            {tabHiddenDuringRun && (
+              <div className="mt-3 rounded-xl px-3 py-2.5 flex items-center gap-2.5 animate-pulse"
+                style={{ background: 'rgba(255,184,0,0.08)', border: '1px solid rgba(255,184,0,0.25)' }}>
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FFB800' }} />
+                <p className="text-[11px] leading-snug" style={{ color: '#FFD47A' }}>
+                  {locale === 'ar'
+                    ? 'التوليد لا يزال يعمل — لا تغلق هذا التاب حتى ينتهي'
+                    : 'Generation is still running — don\'t close this tab'}
+                </p>
+                <button
+                  onClick={() => setTabHiddenDuringRun(false)}
+                  className="ms-auto flex-shrink-0 text-text-muted hover:text-white transition-colors">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -453,44 +507,116 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </button>
 
             {/* Icon + title */}
-            <div className="text-center mb-5">
+            <div className="text-center mb-4">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
                 style={{
-                  background: (mediaImages + mediaVideos) > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.1)',
-                  border: `1px solid ${(mediaImages + mediaVideos) > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
+                  background: mediaItems.length > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.1)',
+                  border: `1px solid ${mediaItems.length > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
                 }}>
-                <ImageIcon className="w-7 h-7" style={{ color: (mediaImages + mediaVideos) > 0 ? '#10B981' : '#8B5CF6' }} />
+                <ImageIcon className="w-7 h-7" style={{ color: mediaItems.length > 0 ? '#10B981' : '#8B5CF6' }} />
               </div>
               <h2 className="text-xl font-bold text-white mb-1">
-                {(mediaImages + mediaVideos) > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
+                {mediaItems.length > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
               </h2>
               <p className="text-sm text-text-muted leading-relaxed">
-                {(mediaImages + mediaVideos) > 0 ? rs.mediaCheckDescHas : rs.mediaCheckDescNone}
+                {mediaItems.length > 0
+                  ? (locale === 'ar' ? 'اختر الصور والفيديوهات التي تريد استخدامها في هذه الحملة' : 'Choose which assets to include in this campaign')
+                  : rs.mediaCheckDescNone}
               </p>
             </div>
 
-            {/* Media asset count chips */}
-            {(mediaImages + mediaVideos) > 0 ? (
-              <div className="flex gap-3 justify-center mb-5">
-                {mediaImages > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                    style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <ImageIcon className="w-3.5 h-3.5 text-accent-teal" />
-                    <span className="text-sm font-bold text-accent-teal">{mediaImages}</span>
-                    <span className="text-xs text-text-muted">{rs.mediaCheckImages}</span>
+            {/* Selectable thumbnail grid */}
+            {mediaItems.length > 0 ? (
+              <>
+                {/* Select All / Deselect All row */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-xs text-text-muted">
+                    {selectedMediaIds.length > 0
+                      ? (locale === 'ar' ? `${selectedMediaIds.length} مختار` : `${selectedMediaIds.length} selected`)
+                      : (locale === 'ar' ? 'لا يوجد مختار' : 'None selected')}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedMediaIds(mediaItems.map(m => m.id))}
+                      className="text-[10px] font-medium px-2 py-1 rounded-lg transition-all"
+                      style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10B981' }}>
+                      {locale === 'ar' ? 'تحديد الكل' : 'Select all'}
+                    </button>
+                    <button
+                      onClick={() => setSelectedMediaIds([])}
+                      className="text-[10px] font-medium px-2 py-1 rounded-lg transition-all"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.15)', color: '#a5a0ff' }}>
+                      {locale === 'ar' ? 'إلغاء الكل' : 'Deselect all'}
+                    </button>
                   </div>
-                )}
-                {mediaVideos > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                    style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                    <Film className="w-3.5 h-3.5 text-accent-purple" />
-                    <span className="text-sm font-bold text-accent-purple">{mediaVideos}</span>
-                    <span className="text-xs text-text-muted">{rs.mediaCheckVideos}</span>
-                  </div>
-                )}
-              </div>
+                </div>
+
+                {/* Thumbnail grid */}
+                <div className="grid grid-cols-4 gap-1.5 mb-4 max-h-44 overflow-y-auto pr-0.5">
+                  {mediaItems.map(item => {
+                    const isSelected = selectedMediaIds.includes(item.id)
+                    const isVideo = item.type === 'VIDEO'
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setSelectedMediaIds(prev =>
+                          isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                        )}
+                        className="relative aspect-square rounded-lg overflow-hidden transition-all duration-150 focus:outline-none"
+                        style={{
+                          border: isSelected
+                            ? '2px solid #10B981'
+                            : '2px solid rgba(255,255,255,0.06)',
+                        }}
+                        title={item.fileName}
+                      >
+                        {/* Thumbnail */}
+                        {isVideo ? (
+                          <div className="w-full h-full flex items-center justify-center"
+                            style={{ background: 'rgba(139,92,246,0.12)' }}>
+                            <Film className="w-5 h-5 text-accent-purple" />
+                          </div>
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt={item.fileName}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        )}
+
+                        {/* Selection overlay */}
+                        <div className="absolute inset-0 transition-opacity duration-150"
+                          style={{
+                            background: isSelected
+                              ? 'rgba(16,185,129,0.18)'
+                              : 'rgba(0,0,0,0.0)',
+                          }} />
+
+                        {/* Checkmark */}
+                        {isSelected && (
+                          <div className="absolute top-1 end-1 w-4 h-4 rounded-full flex items-center justify-center"
+                            style={{ background: '#10B981' }}>
+                            <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                              <path d="M2 5l2.5 2.5 3.5-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        )}
+
+                        {/* Video badge */}
+                        {isVideo && (
+                          <div className="absolute bottom-1 start-1 px-1 rounded text-[8px] font-bold"
+                            style={{ background: 'rgba(139,92,246,0.9)', color: 'white' }}>
+                            VID
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
             ) : (
-              <div className="rounded-xl p-3 mb-5 flex items-start gap-2.5"
+              <div className="rounded-xl p-3 mb-4 flex items-start gap-2.5"
                 style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
                 <p className="text-xs text-text-muted leading-relaxed">
@@ -506,10 +632,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               onClick={() => { startStrategyFnRef.current?.() }}
               className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white btn-gradient mb-2 transition-all hover:brightness-110">
               <Rocket className="w-4 h-4" />
-              {rs.mediaCheckContinue}
+              {selectedMediaIds.length > 0
+                ? (locale === 'ar' ? `ابدأ بـ ${selectedMediaIds.length} أصل` : `Run with ${selectedMediaIds.length} asset${selectedMediaIds.length !== 1 ? 's' : ''}`)
+                : (locale === 'ar' ? 'تابع بدون صور' : 'Continue without assets')}
             </button>
 
-            {(mediaImages + mediaVideos) === 0 && (
+            {mediaItems.length === 0 && (
               <Link href="/media" onClick={onClose}
                 className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-medium transition-all"
                 style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)', color: '#a5a0ff' }}>
