@@ -1,16 +1,30 @@
 /**
- * NEXUS Visual Intelligence — Brand-Aware Image Generation
+ * NEXUS Visual Intelligence — Professional Ad Image Prompt Builder
  *
- * Strategy-driven prompt builder. Brand category is detected from Brand Brain
- * + Strategy fields. Each category has its own style map and composition map.
+ * Generates advertising-agency-grade image prompts by combining:
+ *   1. Caption analysis  → what specific scene to show (via GPT-4o mini)
+ *   2. Brand Brain       → colors, industry, tone, brand name
+ *   3. Language          → Arabic or English (drives text rendering strategy)
+ *   4. Platform          → dimensions and composition format
  *
- * Categories:
- *   saas_ai_tech | real_estate | food_beverage | health_wellness |
- *   retail_fashion | agency_consultancy | education | finance | general
+ * Design philosophy: every generated image must feel like it came from a
+ * world-class advertising agency, not a generic AI image tool.
+ * Each post caption drives a UNIQUE visual concept — two posts from the same
+ * brand should look distinctly different.
  *
- * Users never write prompts — they choose style/type, the system builds the prompt
- * from brand context.
+ * Text strategy:
+ *   English posts → gpt-image-1 renders text in the image (best quality)
+ *   Arabic posts  → gpt-image-1 renders Arabic text natively
+ *   Sharp         → adds logo + brand accent bar on top (both languages)
  */
+
+import {
+  detectLanguage,
+  extractVisualConcept,
+  type VisualConcept,
+} from '@/lib/ai/conceptExtractor'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export type VisualStyle =
   | 'Minimal'
@@ -26,10 +40,8 @@ export type VisualStyle =
 
 export type VisualType = 'HERO' | 'SOCIAL_PREVIEW' | 'AD_CREATIVE' | 'THUMBNAIL' | 'ALTERNATE'
 
-// ─── Extended VisualContext — Brand Brain + Strategy fields ───────────────────
-
 export interface VisualContext {
-  // User-selected layout choices
+  // User-selected layout choices (kept for backward compat)
   visualType: VisualType
   visualStyle: VisualStyle
   // Campaign fields
@@ -37,21 +49,23 @@ export interface VisualContext {
   campaignGoal?: string
   campaignTone?: string
   audience?: string
-  // Brand Brain
+  // Brand Brain — primary drivers of visual quality
   brandName?: string
   brandToneWords?: string[]
   primaryOffer?: string
   industry?: string
-  colorPalette?: string       // e.g. "deep blue, gold, white"
-  visualStylePref?: string    // Brand Brain visualStyle field
-  uniqueAdvantages?: string   // e.g. "AI-powered, real-time, no code"
-  // Strategy fields (Sprint M)
+  colorPalette?: string       // e.g. "deep blue, #4f46e5, gold"
+  visualStylePref?: string
+  uniqueAdvantages?: string
+  // Strategy fields
   positioning?: string
   visualDirection?: string
   differentiation?: string
   keyMessage?: string
-  // Post-level creative brief (Content Hub per-card generation)
+  // Post-level creative brief — THIS is the primary driver
   postCaption?: string
+  // Platform (passed from route for dimension-aware composition)
+  platform?: string           // META | INSTAGRAM | TIKTOK | LINKEDIN
 }
 
 // ─── Brand category detection ─────────────────────────────────────────────────
@@ -138,311 +152,324 @@ export function detectBrandCategory(ctx: BrandDetectionContext): BrandCategory {
   return 'general'
 }
 
-// ─── Style maps — one per category ───────────────────────────────────────────
+// ─── Industry visual styles ───────────────────────────────────────────────────
 
-type StyleMap = Record<VisualStyle, string>
+interface IndustryStyle {
+  photography: string
+  lighting:    string
+  mood:        string
+  atmosphere:  string
+  benchmark:   string
+}
 
-const STYLE_MAPS: Record<BrandCategory, StyleMap> = {
-  saas_ai_tech: {
-    // NOTE: All descriptions are ABSTRACT VISUAL — no UI panels, no screens, no interfaces.
-    // Literal UI descriptions cause gpt-image-1 / Flux to render garbled on-screen text.
-    Minimal:    'deep black background, subtle glowing geometric nodes, delicate luminous connection lines, monochrome with single violet accent glow, minimal abstract tech atmosphere',
-    Luxury:     'deep black background, gold-to-violet gradient light flows, premium abstract geometric crystalline forms, flowing luminous particles, no interfaces or screens',
-    Corporate:  'dark navy background, structured abstract luminous grid, professional glowing data-stream lines, clean abstract geometric tech visualization',
-    Editorial:  'bold dramatic abstract technology visual, dynamic violet light streams, editorial high-contrast geometric composition, striking luminous elements',
-    Cinematic:  'dark cinematic abstract background, dramatic violet-orange light bloom and depth haze, film-grade color treatment, abstract technology atmosphere',
-    Bold:       'high contrast dark background, bold glowing abstract geometric forms, strong accent light beams, punchy luminous tech composition',
-    'Gen Z':    'vibrant gradient dark background, energetic glowing particles and neon light trails, Y2K-inspired abstract luminous energy',
-    Premium:    'deep navy background, violet-blue light halos and flowing abstract streams, orange accent glow, premium glassmorphism atmosphere without any interfaces',
-    Futuristic: 'deep black with neon violet and cyan light halos, floating abstract holographic geometry, sci-fi atmosphere, geometric nodes connected by luminous beams',
-    Elegant:    'dark background with soft violet ambient light, elegant abstract floating crystalline shapes, refined particle field, timeless premium atmosphere',
-  },
-  real_estate: {
-    Minimal:    'clean white architectural photography, neutral palette, open space, natural light, minimalist interior design',
-    Luxury:     'high-end villa or penthouse photography, marble interiors, gold fixtures, twilight exterior shot, aspirational luxury property',
-    Corporate:  'professional architectural render, clean modern building exterior, structured composition, trustworthy real estate brand',
-    Editorial:  'magazine-style interior photography, dramatic architectural composition, lifestyle staging',
-    Cinematic:  'dramatic wide-angle architectural shot, golden-hour property photography, cinematic real estate visual',
-    Bold:       'strong architectural silhouette, high contrast property exterior, bold modern design language',
-    'Gen Z':    'vibrant modern apartment photography, colorful interior accents, fresh contemporary living space',
-    Premium:    'premium coastal or urban luxury property, soft warm lighting, refined interior staging, aspirational lifestyle',
-    Futuristic: 'ultra-modern architectural design, smart home aesthetic, futuristic building visualization',
-    Elegant:    'elegant interior photography, soft neutral tones, refined furniture, timeless residential atmosphere',
-  },
+const INDUSTRY_STYLES: Record<string, IndustryStyle> = {
   food_beverage: {
-    Minimal:    'minimalist food photography, single hero product on clean white surface, studio lighting, refined plating',
-    Luxury:     'fine dining close-up, candlelight ambiance, premium tableware, dark luxurious restaurant atmosphere',
-    Corporate:  'professional food product photography, clean branded packaging, consistent studio composition',
-    Editorial:  'magazine-style food editorial, dramatic overhead shot, artistic food composition with props',
-    Cinematic:  'moody cinematic food photography, dramatic side lighting, rich textures, film-like color grading',
-    Bold:       'vibrant food photography, bold saturated colors, energetic composition, appetite-inducing close-up',
-    'Gen Z':    'trendy food photography, bright colors, social-media-native style, street food energy',
-    Premium:    'premium ingredient close-up, soft warm studio lighting, artisanal quality, elevated food presentation',
-    Futuristic: 'modern food tech visual, sleek packaging design, contemporary food innovation aesthetic',
-    Elegant:    'elegant food styling, soft natural diffused light, refined plating, timeless culinary photography',
+    photography: 'cinematic food photography, Michelin-star presentation quality, appetizing hero close-up',
+    lighting:    'warm golden-hour ambient light, steam effects, shallow depth-of-field bokeh, rich texture',
+    mood:        'indulgent, sensory, warm, authentic, mouth-watering',
+    atmosphere:  'restaurant ambiance, culinary artistry, inviting warmth, rich food textures',
+    benchmark:   'Nobu, Deliveroo Premium, Four Seasons Restaurant advertising',
   },
   health_wellness: {
-    Minimal:    'clean clinical environment, minimal medical aesthetic, white and soft blue palette, precision and sterility',
-    Luxury:     'premium wellness spa, soft warm lighting, luxury treatment room, aspirational health lifestyle photography',
-    Corporate:  'professional healthcare setting, clean medical facility, trustworthy health brand imagery',
-    Editorial:  'lifestyle wellness photography, health journey editorial, aspirational fitness aesthetic',
-    Cinematic:  'dramatic wellness journey, cinematic fitness or health transformation visual',
-    Bold:       'energetic fitness photography, bold health brand colors, motivational composition',
-    'Gen Z':    'vibrant wellness aesthetic, colorful supplement or fitness visual, fresh health brand, relatable tone',
-    Premium:    'premium wellness aesthetic, soft clean light, refined health product or environment',
-    Futuristic: 'health tech aesthetic, digital health innovation, clean futuristic medical visual',
-    Elegant:    'elegant spa or clinic environment, soft warm tones, refined wellness atmosphere, graceful imagery',
-  },
-  retail_fashion: {
-    Minimal:    'minimalist product photography, single item on clean neutral background, refined fashion aesthetic',
-    Luxury:     'high fashion photography, dark dramatic lighting, aspirational luxury fashion editorial',
-    Corporate:  'clean retail product photography, professional brand imagery, consistent visual identity',
-    Editorial:  'high fashion editorial, magazine-style composition, dramatic product or lifestyle photography',
-    Cinematic:  'cinematic fashion photography, dramatic lighting, film-grade color treatment',
-    Bold:       'bold fashion photography, high contrast colors, strong graphic composition, statement pieces',
-    'Gen Z':    'street style photography, vibrant colors, raw authentic fashion, social-native aesthetic',
-    Premium:    'premium fashion product photography, soft natural light, aspirational lifestyle, refined brand image',
-    Futuristic: 'futuristic fashion editorial, neon-lit product shot, avant-garde aesthetic',
-    Elegant:    'elegant fashion photography, soft diffused light, timeless style, sophisticated composition',
-  },
-  agency_consultancy: {
-    Minimal:    'clean creative workspace, minimal design studio aesthetic, refined professional environment',
-    Luxury:     'premium agency environment, high-end creative studio photography, aspirational professional setting',
-    Corporate:  'professional business environment, strategy and process visualization, clean office aesthetic',
-    Editorial:  'creative agency editorial, bold typography zone, design process visualization',
-    Cinematic:  'dramatic creative process visual, cinematic agency aesthetic, powerful process imagery',
-    Bold:       'bold creative agency visual, strong graphic elements, energetic design process composition',
-    'Gen Z':    'vibrant creative studio, colorful agency environment, playful design aesthetic',
-    Premium:    'premium creative agency aesthetic, refined workspace, sophisticated process visualization',
-    Futuristic: 'digital agency visual, tech-forward creative environment, digital transformation aesthetic',
-    Elegant:    'elegant consulting or creative environment, soft professional tones, refined studio aesthetic',
-  },
-  education: {
-    Minimal:    'clean learning environment, minimal classroom aesthetic, bright open study space',
-    Luxury:     'premium educational institution, prestigious campus photography, aspirational learning environment',
-    Corporate:  'professional training environment, clean corporate learning aesthetic',
-    Editorial:  'education editorial photography, inspiring learning journey visual',
-    Cinematic:  'cinematic educational journey, dramatic learning transformation visual',
-    Bold:       'energetic educational visual, bold colors, motivational learning imagery',
-    'Gen Z':    'vibrant modern learning environment, digital education aesthetic, relatable student energy',
-    Premium:    'premium education brand, refined academic environment, aspirational learning pathway',
-    Futuristic: 'edtech aesthetic, digital learning platform visual, futuristic education environment',
-    Elegant:    'elegant educational setting, soft academic tones, timeless learning atmosphere',
-  },
-  finance: {
-    Minimal:    'clean financial aesthetic, minimal data visualization, precision and clarity, neutral professional tones',
-    Luxury:     'premium wealth management visual, dark luxury financial aesthetic, gold accents, exclusive atmosphere',
-    Corporate:  'professional financial institution imagery, clean banking aesthetic, trustworthy visual identity',
-    Editorial:  'financial editorial photography, bold business imagery, magazine-style finance visual',
-    Cinematic:  'dramatic financial visual, cinematic wealth or market imagery, powerful business composition',
-    Bold:       'bold financial brand visual, strong data visualization, high contrast business imagery',
-    'Gen Z':    'modern fintech aesthetic, vibrant financial app visual, fresh money management brand',
-    Premium:    'premium wealth or investment aesthetic, refined financial brand, sophisticated visual identity',
-    Futuristic: 'fintech innovation visual, digital finance aesthetic, futuristic wealth management platform',
-    Elegant:    'elegant financial brand, soft professional tones, refined wealth management aesthetic',
-  },
-  general: {
-    Minimal:    'clean white space, minimalist composition, neutral palette, refined simplicity',
-    Luxury:     'deep blacks and golds, premium textures, aspirational imagery, lavish lighting',
-    Corporate:  'professional tone, clean grid layout, polished and trustworthy',
-    Editorial:  'magazine-style composition, bold visual overlay, editorial aesthetic',
-    Cinematic:  'dramatic lighting, film grain, moody atmosphere, cinematic color grading',
-    Bold:       'high contrast colors, strong graphic elements, energetic composition',
-    'Gen Z':    'vibrant gradients, Y2K elements, playful layouts, raw and authentic feel',
-    Premium:    'subtle gradients, refined color palette, sophisticated layout, understated luxury',
-    Futuristic: 'neon accents, dark backgrounds, geometric shapes, tech-forward aesthetic',
-    Elegant:    'soft neutrals, flowing compositions, graceful composition, timeless sophistication',
-  },
-}
-
-// ─── Composition maps — one per category ─────────────────────────────────────
-
-type CompositionMap = Record<VisualType, string>
-
-const COMPOSITION_MAPS: Record<BrandCategory, CompositionMap> = {
-  saas_ai_tech: {
-    // ABSTRACT VISUAL descriptions only — no UI panels, no screens, no interfaces, no text.
-    HERO:           'Wide 16:9. Deep navy-black background. Abstract technology visualization: multiple glowing geometric nodes interconnected by luminous flow lines, violet-blue light halos, ambient orange accent glow radiating outward. Premium 3D abstract render. No screens, no interfaces, no UI.',
-    SOCIAL_PREVIEW: 'Square 1:1. Abstract premium tech visual: one dominant glowing geometric crystalline form on deep dark background, violet-blue light halo, abstract luminous streams radiating outward. No UI panels, no screens, no dashboards.',
-    AD_CREATIVE:    'Ad composition. Dark background: left side abstract glowing geometric tech nodes and light beams, right side intentional dark negative space. No readable elements.',
-    THUMBNAIL:      'Dark thumbnail. Single bold glowing abstract geometric element as focal point — high contrast, reads clearly at small sizes. No text, no UI, no interfaces.',
-    ALTERNATE:      'Abstract brand visual. Flowing gradient light streams on deep black background. Geometric intelligence nodes and luminous connection lines. Purely abstract, no objects, no text.',
+    photography: 'clean editorial healthcare and wellness photography with human warmth',
+    lighting:    'crisp cool-white clinical light balanced with warm human touches, conveying hope and precision',
+    mood:        'trustworthy, healing, professional, compassionate, innovative',
+    atmosphere:  'modern medical facility, wellness sanctuary, precision and care, clean open spaces',
+    benchmark:   'Mayo Clinic, Apple Health, Headspace, Therabody premium campaigns',
   },
   real_estate: {
-    HERO:           'Wide 16:9 hero. Premium property photography or architectural render. Exterior facade or interior hero shot with dramatic golden-hour or natural lighting.',
-    SOCIAL_PREVIEW: 'Square 1:1. Property highlight — exterior facade or interior lifestyle shot. Clean premium composition, warm lighting.',
-    AD_CREATIVE:    'Ad banner. Property visual on left, headline zone on right. Premium brand color bar. Trust-inducing real estate composition.',
-    THUMBNAIL:      'Property thumbnail. Clear architectural focal point. Premium lighting. Readable at small sizes.',
-    ALTERNATE:      'Abstract luxury real estate brand visual. Architectural detail close-up, premium material texture, or aerial city view.',
+    photography: 'architectural and luxury interior / exterior photography',
+    lighting:    'golden-hour property photography or bright airy natural-light interiors',
+    mood:        'aspirational, premium, lifestyle-defining, investment-grade, exclusive',
+    atmosphere:  'luxury finishes, spacious layouts, prestigious locations, lifestyle imagery',
+    benchmark:   "Sotheby's International Realty, Emaar Properties, Airbnb Luxe advertising",
   },
-  food_beverage: {
-    HERO:           'Wide 16:9 hero. Hero food or beverage product shot. Dramatic styling, rich textures, appetite-inducing lighting and color.',
-    SOCIAL_PREVIEW: 'Square 1:1. Single hero product — overhead or 45° angle. Styled on premium surface with complementary props.',
-    AD_CREATIVE:    'Ad banner. Product hero centered or on left. Bold appetite-inducing composition. Brand color elements.',
-    THUMBNAIL:      'Food thumbnail. Single clear product hero. Bold focal point. Appetite-inducing. Readable at small sizes.',
-    ALTERNATE:      'Brand mood visual. Ingredient flat lay, texture close-up, or atmospheric restaurant/café shot.',
-  },
-  health_wellness: {
-    HERO:           'Wide 16:9 hero. Premium clinic, wellness facility, or health lifestyle photography. Clean, trust-inspiring, professional environment.',
-    SOCIAL_PREVIEW: 'Square 1:1. Wellness or health product/service highlight. Clean, soft, trust-inducing composition.',
-    AD_CREATIVE:    'Ad banner. Service or product visual. Trust-building composition. Clean medical or wellness aesthetic.',
-    THUMBNAIL:      'Health/wellness thumbnail. Clear focal point. Clean and professional. Readable at small sizes.',
-    ALTERNATE:      'Abstract wellness brand visual. Organic shapes, soft light, health journey metaphor.',
+  saas_ai_tech: {
+    photography: 'premium dark tech aesthetic, deep navy-black with luminous floating elements',
+    lighting:    'violet-blue and teal light halos, glowing data flows, cinematic depth haze',
+    mood:        'powerful, innovative, empowering, intelligent, premium, transformative',
+    atmosphere:  'dark cinematic tech with floating UI or glowing data visualization, glassmorphism panels',
+    benchmark:   'Apple WWDC, Linear, Vercel, Notion, Stripe premium advertising',
   },
   retail_fashion: {
-    HERO:           'Wide 16:9 hero. Fashion editorial or product hero shot. Bold composition, strong lighting, aspirational brand feel.',
-    SOCIAL_PREVIEW: 'Square 1:1. Product or lifestyle editorial. Social-native composition. Brand-aligned aesthetic.',
-    AD_CREATIVE:    'Ad banner. Product or lifestyle hero. Bold fashion composition. Strong CTA zone on one side.',
-    THUMBNAIL:      'Fashion thumbnail. Clear product or editorial focal point. Strong visual identity. Readable at small sizes.',
-    ALTERNATE:      'Brand mood visual. Fashion lifestyle, texture close-up, or brand atmosphere shot.',
+    photography: 'editorial fashion photography or luxury product hero shot',
+    lighting:    'dramatic studio lighting with rim highlights or moody editorial side light',
+    mood:        'confident, aspirational, stylish, luxurious, statement-making',
+    atmosphere:  'high-fashion editorial, premium retail aesthetic, aspirational lifestyle',
+    benchmark:   'Vogue editorial, Gucci, Balenciaga, Zara premium campaign advertising',
   },
   agency_consultancy: {
-    HERO:           'Wide 16:9 hero. Creative agency or consulting visual. Process, strategy, or creative work visualization. Premium professional feel.',
-    SOCIAL_PREVIEW: 'Square 1:1. Agency work highlight — creative process, strategy visual, or premium result.',
-    AD_CREATIVE:    'Ad banner. Agency capability visual on one side, headline zone on other. Professional creative aesthetic.',
-    THUMBNAIL:      'Agency thumbnail. Clear professional focal point. Strong brand identity. Readable at small sizes.',
-    ALTERNATE:      'Abstract agency brand visual. Creative process, data flow, or strategy visualization.',
+    photography: 'premium creative agency or business strategy photography with dynamic energy',
+    lighting:    'dramatic contrast lighting — bright ideas against creative dark background',
+    mood:        'intelligent, results-driven, creative, premium professional, bold',
+    atmosphere:  'dynamic strategic process, creative thinking, premium agency environment',
+    benchmark:   'McKinsey, IDEO, Ogilvy, Wieden+Kennedy brand advertising',
   },
   education: {
-    HERO:           'Wide 16:9 hero. Inspiring learning environment or knowledge journey visual. Motivational, premium educational brand feel.',
-    SOCIAL_PREVIEW: 'Square 1:1. Learning milestone or educational highlight. Inspiring, motivational composition.',
-    AD_CREATIVE:    'Ad banner. Education visual. Motivational composition. Clear benefit zone.',
-    THUMBNAIL:      'Education thumbnail. Clear inspiring focal point. Motivational visual. Readable at small sizes.',
-    ALTERNATE:      'Abstract education brand visual. Knowledge journey, growth metaphor, or learning pathway visualization.',
+    photography: 'inspiring learning environment or knowledge journey editorial photography',
+    lighting:    'bright, clean, hopeful — natural or warm studio light with optimism',
+    mood:        'inspiring, empowering, growth-focused, accessible, forward-looking',
+    atmosphere:  'motivational learning spaces, knowledge and possibility, clear path to growth',
+    benchmark:   'Coursera, MasterClass, Harvard Extension, Duolingo premium campaigns',
   },
   finance: {
-    HERO:           'Wide 16:9 hero. Premium financial brand visual. Abstract data visualization, architectural wealth metaphor, or trust-inspiring financial environment.',
-    SOCIAL_PREVIEW: 'Square 1:1. Financial brand highlight. Clean, authoritative composition. Premium data or wealth visual.',
-    AD_CREATIVE:    'Ad banner. Financial visual. Trust-building composition. Clean authoritative aesthetic.',
-    THUMBNAIL:      'Finance thumbnail. Clear premium focal point. Authoritative. Readable at small sizes.',
-    ALTERNATE:      'Abstract financial brand visual. Data visualization, wealth metaphor, or digital finance aesthetic.',
+    photography: 'premium financial brand photography — abstract wealth, growth, or trust imagery',
+    lighting:    'authoritative cool professional tones with warm gold-accent highlights',
+    mood:        'trustworthy, authoritative, premium, growth-focused, stable',
+    atmosphere:  'wealth management precision, financial confidence, exclusive professional club',
+    benchmark:   'Goldman Sachs, American Express Platinum, Bloomberg premium ads',
   },
   general: {
-    HERO:           'Wide 16:9 hero banner, campaign header visual, brand-aligned foreground element, professional composition.',
-    SOCIAL_PREVIEW: 'Square 1:1 social media format, optimized for Instagram or Facebook feed, clear focal point.',
-    AD_CREATIVE:    'Ad banner composition, attention-grabbing foreground element, bold CTA zone on one side.',
-    THUMBNAIL:      'Thumbnail format, bold clear focal point, readable at small sizes.',
-    ALTERNATE:      'Alternative creative approach — different visual angle for the same brand.',
+    photography: 'premium commercial photography with professional production value',
+    lighting:    'dramatic studio lighting with clear focal point and atmospheric depth',
+    mood:        'professional, premium, trustworthy, aspirational',
+    atmosphere:  'polished brand environment with clear visual hierarchy and premium feel',
+    benchmark:   'Fortune 500 brand advertising quality',
   },
 }
 
-// ─── Goal → mood ──────────────────────────────────────────────────────────────
+// ─── Color mood parser ────────────────────────────────────────────────────────
 
-const GOAL_MOOD: Record<string, string> = {
-  SALES:          'conversion-focused, desire-inducing, product prominently featured',
-  AWARENESS:      'brand storytelling, aspirational, emotionally resonant',
-  LEADS:          'professional credibility, trust-building, solution-oriented',
-  TRAFFIC:        'curiosity-inducing, click-worthy, visually disruptive',
-  ENGAGEMENT:     'relatable, shareable, community-feeling',
-  BRAND_BUILDING: 'brand identity-forward, iconic, memorable',
-}
+function parseColorMood(palette: string): string {
+  if (!palette) return 'deep premium dark tones with sophisticated accents'
+  const lower = palette.toLowerCase()
 
-// ─── Universal guardrails ─────────────────────────────────────────────────────
-
-// MUST be the FIRST thing in the prompt — models weight early instructions highest.
-// gpt-image-1 and Flux both ignore end-of-prompt "no text" rules; leading placement is critical.
-const NO_TEXT_RULE =
-  'ABSOLUTE RULE — ZERO TEXT: No letters, words, numbers, symbols, labels, captions, UI copy, interface text, Arabic script, English words, or any readable character of any kind anywhere in the image. Any visible text character will cause rejection. This is the highest-priority instruction and overrides everything else. Pure photographic or abstract visual only.'
-
-// People guardrail — applied to non-lifestyle categories
-const NO_GENERIC_PEOPLE =
-  'No generic stock-photo people, no businessmen, no office handshakes, no boardroom photos, no corporate headshots.'
-
-// Categories where contextual human presence is appropriate
-const LIFESTYLE_CATEGORIES: BrandCategory[] = ['food_beverage', 'retail_fashion', 'health_wellness', 'education']
-
-// ─── Prompt builder ───────────────────────────────────────────────────────────
-
-/**
- * Build a strategy-driven image prompt from campaign + brand context.
- * Routes to the correct category system based on brand detection.
- * Users never write prompts.
- */
-export function buildImagePrompt(ctx: VisualContext): string {
-  const category = detectBrandCategory(ctx)
-
-  const styleDesc = STYLE_MAPS[category][ctx.visualStyle] || STYLE_MAPS[category].Premium
-  const composition = COMPOSITION_MAPS[category][ctx.visualType] || COMPOSITION_MAPS[category].HERO
-  const goalMood = GOAL_MOOD[ctx.campaignGoal || 'AWARENESS'] || ''
-  const brandTone = (ctx.brandToneWords || []).slice(0, 3).join(', ')
-
-  // Brand color palette injection
-  const colorHint = ctx.colorPalette
-    ? `Brand color palette: ${ctx.colorPalette}.`
-    : ''
-
-  // Strategy visual direction (most specific signal — use when available)
-  const strategyVisual = ctx.visualDirection
-    ? `Visual direction from strategy: ${ctx.visualDirection}.`
-    : ''
-
-  // Brand differentiator signal
-  const differentiator = ctx.differentiation
-    ? `Brand differentiation: ${ctx.differentiation}.`
-    : ctx.uniqueAdvantages
-    ? `Unique advantages: ${ctx.uniqueAdvantages}.`
-    : ''
-
-  // Post caption — translate the post's message into a visual scene
-  // Strip Arabic/hashtags/emojis from caption for cleaner prompt injection
-  const captionScene = ctx.postCaption
-    ? (() => {
-        const cleaned = ctx.postCaption
-          .replace(/[#@]\S+/g, '')           // remove hashtags & mentions
-          .replace(/[\u{1F300}-\u{1FFFF}]/gu, '') // remove emojis
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 200)
-        return cleaned
-          ? `Post message to visualize: "${cleaned}". Create a scene that communicates this message visually — no text in the image.`
-          : ''
-      })()
-    : ''
-
-  // People rule — lifestyle categories can have contextual human presence
-  const peopleRule = LIFESTYLE_CATEGORIES.includes(category) ? '' : NO_GENERIC_PEOPLE
-
-  // Debug log in non-production only
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[imageGen] category=${category} style=${ctx.visualStyle} type=${ctx.visualType}`)
+  const hex = palette.match(/#([0-9a-fA-F]{6})/)?.[1]
+  if (hex) {
+    const r = parseInt(hex.slice(0, 2), 16)
+    const g = parseInt(hex.slice(2, 4), 16)
+    const b = parseInt(hex.slice(4, 6), 16)
+    if (r > 160 && r > g * 1.6 && r > b * 1.6) return 'bold passionate crimson-red atmosphere, deep red accents'
+    if (b > 160 && b > r * 1.4 && b > g * 1.2) return 'deep trusted navy-blue atmosphere, cool professional tones'
+    if (g > 160 && g > r * 1.3 && g > b * 1.3) return 'fresh natural emerald-green atmosphere, organic growth tones'
+    if (r > 140 && g > 100 && b < 90)           return 'warm golden-amber luxury atmosphere, rich organic tones'
+    if (r > 110 && b > 110 && g < 90)           return 'premium deep violet-purple atmosphere, creative luminous accents'
+    if (r > 200 && g > 160 && b < 80)           return 'luxury gold and warm amber atmosphere, premium metallic tones'
+    if (r < 60  && g < 60  && b < 60)           return 'premium deep black and charcoal atmosphere, high contrast'
+    if (r > 200 && g > 200 && b > 200)          return 'clean premium white and light atmosphere, airy minimal tones'
   }
 
-  // Strip Arabic characters from caption before injection — prevents the model from
-  // "helpfully" rendering Arabic words it sees in the prompt as visual text in the image.
-  const captionSceneClean = captionScene
-    ? captionScene.replace(/[؀-ۿݐ-ݿࢠ-ࣿ]+/g, '').replace(/\s+/g, ' ').trim()
-    : ''
+  if (lower.match(/purple|violet|indigo/))   return 'premium deep violet-purple atmosphere, creative luminous accents'
+  if (lower.match(/blue|navy|cobalt/))        return 'deep trusted navy-blue atmosphere, cool professional tones'
+  if (lower.match(/red|crimson|scarlet/))     return 'bold passionate crimson atmosphere, high-energy red tones'
+  if (lower.match(/green|emerald|forest/))    return 'fresh natural emerald-green atmosphere, organic growth tones'
+  if (lower.match(/gold|amber|orange/))       return 'warm golden-amber luxury atmosphere, rich premium tones'
+  if (lower.match(/black|dark|charcoal/))     return 'premium deep black and charcoal atmosphere, high contrast'
+  if (lower.match(/white|clean|minimal/))     return 'clean premium white and light atmosphere, airy tones'
+  if (lower.match(/pink|rose/))               return 'soft romantic rose-pink atmosphere, feminine premium tones'
+  if (lower.match(/teal|cyan|mint/))          return 'fresh modern teal-cyan atmosphere, contemporary tones'
 
-  const parts = [
-    // ⚠ NO_TEXT_RULE MUST be FIRST — models weight early instructions highest
-    NO_TEXT_RULE,
-    captionSceneClean || composition,  // caption scene takes priority over generic composition
-    `Style: ${ctx.visualStyle} — ${styleDesc}`,
-    goalMood ? `Mood: ${goalMood}` : '',
-    captionSceneClean ? '' : strategyVisual,
-    colorHint,
-    ctx.brandName    ? `Brand: ${ctx.brandName}`                  : '',
-    ctx.primaryOffer ? `Product/service: ${ctx.primaryOffer}`     : '',
-    brandTone        ? `Brand voice: ${brandTone}`                : '',
-    differentiator,
-    peopleRule,
-    // Ad-grade visual quality — premium photographic standard
-    'Premium commercial production value. Cinematic lighting with a clear primary focal point and intentional negative space. The bottom 20–25% of the frame has a natural photographic vignette allowing for brand overlay. Visual hierarchy: one dominant hero element, supporting context, depth. Shot on Phase One XF IQ4, 100MP. Ultra-sharp, 8K, zero compression artifacts. Photorealistic or premium 3D render. No watermarks, no logos, no text, no interfaces, no screens.',
-  ].filter(Boolean)
-
-  return parts.join(' ')
+  return `${palette.slice(0, 60)} brand color atmosphere with premium depth`
 }
 
+// ─── Platform composition hint ────────────────────────────────────────────────
+
+function getPlatformHint(platform?: string): string {
+  const p = (platform || 'META').toUpperCase()
+  if (p === 'TIKTOK')    return 'vertical portrait format (9:16), tall composition, focal point in upper-center'
+  if (p === 'LINKEDIN')  return 'wide landscape format (16:9), professional horizontal layout, strong visual flow'
+  if (p === 'INSTAGRAM') return 'square format (1:1), balanced centered composition, social-media native hierarchy'
+  return 'versatile square or near-square composition, balanced centered layout'
+}
+
+// ─── English prompt builder ───────────────────────────────────────────────────
+
+function buildEnglishAdPrompt(
+  ctx: VisualContext,
+  concept: VisualConcept,
+  colorMood: string,
+  style: IndustryStyle
+): string {
+  const brandName    = ctx.brandName || 'Brand'
+  const platformHint = getPlatformHint(ctx.platform)
+  const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
+
+  return `Create a world-class professional advertising campaign image for ${brandName}.
+
+ADVERTISEMENT QUALITY: ${style.benchmark} level — advertising agency production, not stock photography.
+
+CENTRAL VISUAL SCENE:
+${concept.centralElement}
+
+ATMOSPHERE & BACKGROUND:
+${colorMood} as the dominant atmospheric color tone.
+${style.photography}.
+Lighting: ${style.lighting}.
+Mood: ${concept.visualMood}.
+${style.atmosphere}.
+
+TYPOGRAPHY & TEXT IN THE IMAGE:
+• Brand name: "${brandName}" — top area, bold modern typography, prominent
+• Main headline: "${concept.headline}" — large, ultra-bold, dominant text, center or lower-center
+• Tagline or supporting benefit text (short, impactful) below the headline
+• CTA button or badge: "${concept.cta}" — clean button design, bottom area
+
+EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : ''}.
+
+VISUAL COMPOSITION:
+• ${platformHint}
+• Clear visual hierarchy: one dominant hero element, supporting context, atmospheric depth
+• Professional negative space around text for legibility
+• Cinematic depth of field — foreground richness with atmospheric background
+• Premium typography integrated naturally into the visual design
+
+QUALITY BAR:
+This image must look like a high-budget advertising campaign.
+Think: premium full-page magazine ad or top-tier social media campaign.
+NOT acceptable: stock photography feel, generic backgrounds, flat composition, amateur layouts.`
+}
+
+// ─── Arabic prompt builder ────────────────────────────────────────────────────
+
+function buildArabicAdPrompt(
+  ctx: VisualContext,
+  concept: VisualConcept,
+  colorMood: string,
+  style: IndustryStyle
+): string {
+  const brandName    = ctx.brandName || 'Brand'
+  const platformHint = getPlatformHint(ctx.platform)
+  const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
+
+  return `Create a world-class professional advertising campaign image for ${brandName}.
+This advertisement is for an Arabic-speaking audience.
+
+ADVERTISEMENT QUALITY: ${style.benchmark} level — top-tier Middle Eastern advertising (Emaar, Emirates Airline, Saudi Aramco standard).
+
+CENTRAL VISUAL SCENE:
+${concept.centralElement}
+
+ATMOSPHERE & BACKGROUND:
+${colorMood} as the dominant atmospheric color tone.
+${style.photography}.
+Lighting: ${style.lighting}.
+Mood: ${concept.visualMood}.
+${style.atmosphere}.
+
+ARABIC TYPOGRAPHY — CRITICAL REQUIREMENT:
+This ad must display beautifully rendered Arabic calligraphy:
+• Brand name: "${brandName}" — top area, modern Arabic or stylized typography
+• Arabic headline: "${concept.headline}" — LARGE, ultra-bold, centered horizontally, right-to-left direction
+• Arabic CTA: "${concept.cta}" — clean button or badge at bottom
+
+ARABIC TEXT QUALITY REQUIREMENTS:
+• All Arabic characters must be correctly connected and shaped (no isolated letters)
+• Modern professional Arabic typography style (like premium UAE/Saudi brand advertising)
+• Headline must be legible, bold, dominant — white or high-contrast against background
+• Strict right-to-left text direction
+
+EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : ''}.
+
+VISUAL COMPOSITION:
+• ${platformHint}
+• Clear hierarchy: hero visual scene + beautiful Arabic text overlay
+• Layout typical of premium Arabic social media advertising
+
+QUALITY BAR:
+The Arabic typography must be pixel-perfect, beautiful, and professionally rendered.
+Reference aesthetic: Emirates Airlines, DEWA, Mubadala, Aldar Properties social media ads.
+NOT acceptable: garbled Arabic letters, disconnected characters, or machine-translated feel.`
+}
+
+// ─── Brand-level fallback (no caption) ───────────────────────────────────────
+
+function buildBrandLevelPrompt(
+  ctx: VisualContext,
+  colorMood: string,
+  style: IndustryStyle,
+  language: 'ar' | 'en'
+): string {
+  const brandName    = ctx.brandName || 'Brand'
+  const platformHint = getPlatformHint(ctx.platform)
+  const offer        = ctx.primaryOffer || ctx.positioning || ctx.keyMessage || ''
+
+  if (language === 'ar') {
+    return `Create a premium brand advertising visual for ${brandName}.
+${offer ? `Brand promise: ${offer}` : ''}
+Style: ${style.photography}. ${style.lighting}.
+Atmosphere: ${colorMood}. ${style.atmosphere}.
+Quality: ${style.benchmark} advertising level.
+Include Arabic brand name "${brandName}" prominently with impactful Arabic headline.
+${platformHint}. Premium, aspirational, world-class quality.`
+  }
+
+  return `Create a premium brand advertising visual for ${brandName}.
+${offer ? `Brand promise: "${offer}"` : ''}
+Style: ${style.photography}. ${style.lighting}.
+Atmosphere: ${colorMood}. ${style.atmosphere}.
+Quality: ${style.benchmark} advertising level.
+Include brand name "${brandName}" prominently with bold headline.
+${platformHint}. Premium, aspirational, world-class quality.`
+}
+
+// ─── Main async prompt builder ────────────────────────────────────────────────
+
 /**
- * Generate image via gpt-image-1 (latest OpenAI model).
- * Returns a data URI (base64 PNG) — gpt-image-1 does not return hosted URLs.
- * Caller should upload the data URI to Cloudinary for permanent storage.
+ * Build a professional advertising prompt from Brand Brain + post caption.
  *
- * @param prompt - Full brand-aware prompt from buildImagePrompt()
- * @param size   - Platform-aware size (default: landscape 1536x1024)
- *                 '1024x1024' → Instagram/Facebook/TikTok square
- *                 '1024x1536' → Instagram Stories / TikTok portrait
- *                 '1536x1024' → LinkedIn / Facebook / Twitter landscape (default)
+ * This is the core function that powers ALL image generation in NEXUS.
+ * Returns the prompt string AND the detected language so the route can
+ * make informed decisions about Sharp text compositing.
+ */
+export async function buildImagePrompt(ctx: VisualContext): Promise<{
+  prompt: string
+  language: 'ar' | 'en'
+}> {
+  // 1. Determine caption text to analyze
+  const captionText = ctx.postCaption
+    || ctx.keyMessage
+    || ctx.primaryOffer
+    || ctx.campaignName
+    || ''
+
+  // 2. Detect language
+  const language = detectLanguage(captionText)
+
+  // 3. Get industry style
+  const category = detectBrandCategory(ctx)
+  const style    = INDUSTRY_STYLES[category] || INDUSTRY_STYLES.general
+
+  // 4. Parse brand color mood
+  const rawPalette = Array.isArray(ctx.colorPalette)
+    ? (ctx.colorPalette as string[]).join(', ')
+    : (ctx.colorPalette || '')
+  const colorMood = parseColorMood(rawPalette)
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[imageGen] category=${category} language=${language} platform=${ctx.platform || 'META'}`)
+  }
+
+  // 5. No text → use brand-level prompt
+  if (!captionText.trim()) {
+    const prompt = buildBrandLevelPrompt(ctx, colorMood, style, language)
+    return { prompt, language }
+  }
+
+  // 6. Extract visual concept from caption via GPT-4o mini
+  const concept = await extractVisualConcept({
+    text:      captionText,
+    industry:  ctx.industry || category,
+    brandName: ctx.brandName || 'Brand',
+    language,
+  })
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[imageGen] headline="${concept.headline}" | scene="${concept.centralElement.slice(0, 80)}..."`)
+  }
+
+  // 7. Build the prompt for the correct language
+  const prompt = language === 'ar'
+    ? buildArabicAdPrompt(ctx, concept, colorMood, style)
+    : buildEnglishAdPrompt(ctx, concept, colorMood, style)
+
+  return { prompt, language }
+}
+
+// ─── Image generation ─────────────────────────────────────────────────────────
+
+/**
+ * Generate image via gpt-image-1 (same model as ChatGPT).
+ * Returns a data URI (base64 PNG).
  */
 export async function generateWithDallE(
   prompt: string,
@@ -452,7 +479,7 @@ export async function generateWithDallE(
   if (!apiKey) throw new Error('OPENAI_API_KEY not configured')
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[imageGen] gpt-image-1 | size:', size, '| prompt preview:', prompt.slice(0, 200) + (prompt.length > 200 ? '…' : ''))
+    console.log('[imageGen] gpt-image-1 | size:', size, '| prompt:', prompt.slice(0, 200) + '…')
   }
 
   const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -462,35 +489,38 @@ export async function generateWithDallE(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'gpt-image-1',
+      model:   'gpt-image-1',
       prompt,
-      n: 1,
-      size,            // platform-aware — caller decides
-      quality: 'high', // always high — production asset
+      n:       1,
+      size,
+      quality: 'high',
     }),
   })
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}))
-    throw new Error(err?.error?.message || `Image generation API error: ${response.status}`)
+    throw new Error(
+      (err as { error?: { message?: string } })?.error?.message
+      || `Image generation API error: ${response.status}`
+    )
   }
 
   const data = await response.json()
-
-  // gpt-image-1 returns b64_json, not a URL
-  const b64 = data?.data?.[0]?.b64_json
+  const b64  = (data as { data?: Array<{ b64_json?: string }> })?.data?.[0]?.b64_json
   if (!b64) throw new Error('Image generation returned no image data')
 
   return `data:image/png;base64,${b64}`
 }
 
+// ─── Cloudinary upload ────────────────────────────────────────────────────────
+
 /**
  * Upload a data URI or URL to Cloudinary for permanent storage.
- * Falls back gracefully if Cloudinary is not configured (local dev).
+ * Falls back gracefully if Cloudinary is not configured.
  */
 export async function uploadToCloudinary(imageUrl: string, publicId: string): Promise<string> {
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  const apiKey   = process.env.CLOUDINARY_API_KEY
+  const apiKey    = process.env.CLOUDINARY_API_KEY
   const apiSecret = process.env.CLOUDINARY_API_SECRET
 
   if (!cloudName || !apiKey || !apiSecret) {
@@ -499,22 +529,18 @@ export async function uploadToCloudinary(imageUrl: string, publicId: string): Pr
   }
 
   const timestamp = Math.round(Date.now() / 1000)
-  const folder = 'nexus/visuals'
+  const folder    = 'nexus/visuals'
 
-  // Signature: only include params that are actually sent in formData
-  const crypto = await import('crypto')
-  const sigStr = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`
-  const signature = crypto
-    .createHash('sha1')
-    .update(sigStr + apiSecret)
-    .digest('hex')
+  const crypto    = await import('crypto')
+  const sigStr    = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`
+  const signature = crypto.createHash('sha1').update(sigStr + apiSecret).digest('hex')
 
   const formData = new FormData()
-  formData.append('file', imageUrl)
+  formData.append('file',      imageUrl)
   formData.append('public_id', publicId)
-  formData.append('folder', folder)
+  formData.append('folder',    folder)
   formData.append('timestamp', String(timestamp))
-  formData.append('api_key', apiKey)
+  formData.append('api_key',   apiKey)
   formData.append('signature', signature)
 
   const uploadRes = await fetch(
@@ -529,5 +555,5 @@ export async function uploadToCloudinary(imageUrl: string, publicId: string): Pr
   }
 
   const uploadData = await uploadRes.json()
-  return uploadData.secure_url || imageUrl
+  return (uploadData as { secure_url?: string }).secure_url || imageUrl
 }
