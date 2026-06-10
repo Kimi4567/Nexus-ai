@@ -4,9 +4,10 @@
  * SuggestionsWidget
  *
  * Displays AgentSuggestion records on the dashboard.
- * Fetches from GET /api/suggestions.
- * Allows APPROVE / REJECT on PENDING items via PATCH /api/suggestions.
- * Self-contained — no props required except auth.
+ * Inbox model: only shows PENDING items. Cards disappear after approve/reject/dismiss.
+ * Fetches from GET /api/suggestions (PENDING only by default).
+ * Approve/Reject via PATCH /api/suggestions.
+ * Dismiss via DELETE /api/suggestions?id=<id>.
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -15,7 +16,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
   Sparkles, CheckCircle2, XCircle, ExternalLink,
-  ChevronRight, Lightbulb, AlertTriangle,
+  ChevronRight, Lightbulb, AlertTriangle, X,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,13 +43,6 @@ interface Suggestion {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const STATUS_STYLE: Record<SuggestionStatus, { bg: string; border: string; color: string }> = {
-  PENDING:  { bg: 'rgba(255,184,0,0.08)',   border: 'rgba(255,184,0,0.25)',   color: '#FFB800' },
-  APPROVED: { bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.25)',   color: '#10B981' },
-  REJECTED: { bg: 'rgba(239,68,68,0.08)',   border: 'rgba(239,68,68,0.2)',    color: '#EF4444' },
-  EXECUTED: { bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.25)',  color: '#8B5CF6' },
-}
 
 const PRIORITY_COLOR: Record<number, string> = {
   1: '#EF4444', // urgent
@@ -82,10 +76,6 @@ function relativeTime(dateStr: string, locale: string): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface SuggestionsWidgetProps {
-  /**
-   * Increment this number to trigger a fresh data load from outside.
-   * Useful after a Run Full Strategy completes to show new suggestions immediately.
-   */
   refreshKey?: number
 }
 
@@ -94,9 +84,11 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
   const { t, locale, dir } = useI18n()
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  // exiting: set of IDs currently fading out
+  const [exiting, setExiting]         = useState<Set<string>>(new Set())
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
-  const [acting, setActing]           = useState<Record<string, 'approving' | 'rejecting'>>({})
+  const [acting, setActing]           = useState<Record<string, 'approving' | 'rejecting' | 'dismissing'>>({})
   const [feedback, setFeedback]       = useState<Record<string, { brandBrainUpdated: boolean }>>({})
 
   const sg = t('suggestions') as Record<string, string>
@@ -105,12 +97,14 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
     setLoading(true)
     setError(null)
     try {
+      // Only fetch PENDING — inbox model
       const res = await fetch('/api/suggestions?limit=6', {
         headers: { Authorization: authHeader() },
       })
       if (!res.ok) throw new Error('Load failed')
       const data = await res.json()
       setSuggestions(data.suggestions || [])
+      setExiting(new Set())
     } catch {
       setError(sg.errorLoad)
     } finally {
@@ -118,8 +112,18 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
     }
   }, [authHeader, sg.errorLoad])
 
-  // Re-load when refreshKey changes (triggered externally after a strategy run)
   useEffect(() => { load() }, [load, refreshKey])
+
+  /** Remove a card from view after a brief delay (for approve/reject visual feedback) */
+  const removeAfterDelay = useCallback((id: string, delayMs = 800) => {
+    setTimeout(() => {
+      setExiting(prev => new Set(prev).add(id))
+      setTimeout(() => {
+        setSuggestions(prev => prev.filter(s => s.id !== id))
+        setExiting(prev => { const n = new Set(prev); n.delete(id); return n })
+      }, 300) // CSS transition duration
+    }, delayMs)
+  }, [])
 
   const act = useCallback(async (id: string, status: 'APPROVED' | 'REJECTED') => {
     setActing(prev => ({ ...prev, [id]: status === 'APPROVED' ? 'approving' : 'rejecting' }))
@@ -131,25 +135,39 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
       })
       if (!res.ok) throw new Error('Update failed')
       const data = await res.json()
-      // Optimistically update local state
-      setSuggestions(prev =>
-        prev.map(s => s.id === id ? { ...s, status } : s)
-      )
-      // Store Brand Brain feedback for APPROVE actions
+
+      // Store Brand Brain feedback for APPROVE
       if (status === 'APPROVED') {
         setFeedback(prev => ({
           ...prev,
           [id]: { brandBrainUpdated: Boolean(data.brandBrainUpdated) },
         }))
       }
+
+      // Remove card after brief visual feedback
+      removeAfterDelay(id, 900)
     } catch {
       // silently keep existing state — user can retry
     } finally {
       setActing(prev => { const n = { ...prev }; delete n[id]; return n })
     }
-  }, [authHeader])
+  }, [authHeader, removeAfterDelay])
 
-  // Glass card shared style
+  const dismiss = useCallback(async (id: string) => {
+    setActing(prev => ({ ...prev, [id]: 'dismissing' }))
+    try {
+      await fetch(`/api/suggestions?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+    } catch {
+      // best-effort; remove from UI regardless
+    } finally {
+      setActing(prev => { const n = { ...prev }; delete n[id]; return n })
+      removeAfterDelay(id, 0)
+    }
+  }, [authHeader, removeAfterDelay])
+
   const glassCard = {
     background: 'rgba(12,13,36,0.6)',
     backdropFilter: 'blur(8px)',
@@ -163,12 +181,12 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
         <div className="flex items-center gap-2">
           <Lightbulb className="w-4 h-4 text-accent-purple" />
           <h3 className="font-bold text-sm text-white">{sg.sectionTitle}</h3>
-          {suggestions.filter(s => s.status === 'PENDING').length > 0 && (
+          {suggestions.length > 0 && (
             <span
               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
               style={{ background: 'rgba(255,184,0,0.15)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.3)' }}
             >
-              {suggestions.filter(s => s.status === 'PENDING').length}
+              {suggestions.length}
             </span>
           )}
         </div>
@@ -220,29 +238,49 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
       {!loading && !error && suggestions.length > 0 && (
         <div className="space-y-2">
           {suggestions.map(s => {
-            const st  = STATUS_STYLE[s.status]
-            const pc  = PRIORITY_COLOR[s.priority] ?? PRIORITY_COLOR[2]
+            const pc       = PRIORITY_COLOR[s.priority] ?? PRIORITY_COLOR[2]
             const isActing = Boolean(acting[s.id])
+            const isExiting = exiting.has(s.id)
+            const justActed = feedback[s.id] !== undefined
 
             return (
               <div
                 key={s.id}
-                className="rounded-xl p-3 transition-all"
-                style={{ background: st.bg, border: `1px solid ${st.border}` }}
+                className="rounded-xl p-3 transition-all duration-300"
+                style={{
+                  background: justActed
+                    ? 'rgba(16,185,129,0.06)'
+                    : 'rgba(255,184,0,0.06)',
+                  border: justActed
+                    ? '1px solid rgba(16,185,129,0.2)'
+                    : '1px solid rgba(255,184,0,0.18)',
+                  opacity: isExiting ? 0 : 1,
+                  transform: isExiting ? 'translateY(-4px) scale(0.98)' : 'none',
+                  pointerEvents: isExiting ? 'none' : 'auto',
+                  overflow: 'hidden',
+                  maxHeight: isExiting ? '0px' : '300px',
+                }}
               >
-                {/* Row 1: priority dot + title + status badge */}
+                {/* Row 1: priority dot + title + dismiss × */}
                 <div className="flex items-start gap-2 mb-1.5">
                   <div
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                     style={{ background: pc, boxShadow: `0 0 4px ${pc}` }}
                   />
                   <p className="text-sm font-semibold text-white flex-1 leading-snug">{s.title}</p>
-                  <span
-                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
-                    style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}
+                  {/* Dismiss × button */}
+                  <button
+                    onClick={() => dismiss(s.id)}
+                    disabled={isActing}
+                    className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded opacity-40 hover:opacity-100 transition-opacity disabled:opacity-20"
+                    title={sg.btnDismiss}
+                    style={{ color: '#94a3b8' }}
                   >
-                    {sg[`status${s.status[0]}${s.status.slice(1).toLowerCase()}`] ?? s.status}
-                  </span>
+                    {acting[s.id] === 'dismissing'
+                      ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                      : <X className="w-3 h-3" />
+                    }
+                  </button>
                 </div>
 
                 {/* Row 2: reasoning (truncated) */}
@@ -250,12 +288,9 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   {s.reasoning}
                 </p>
 
-                {/* Row 2b: approval feedback (shown after the user just approved this item) */}
-                {s.status === 'APPROVED' && feedback[s.id] !== undefined && (
-                  <p
-                    className="text-[10px] font-semibold mb-2"
-                    style={{ color: '#10B981' }}
-                  >
+                {/* Approval feedback */}
+                {justActed && (
+                  <p className="text-[10px] font-semibold mb-2" style={{ color: '#10B981' }}>
                     ✓ {feedback[s.id].brandBrainUpdated ? sg.approvedBrandUpdated : sg.approvedOnly}
                   </p>
                 )}
@@ -285,59 +320,43 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   </span>
                 </div>
 
-                {/* Row 4: actions (PENDING only) */}
-                {s.status === 'PENDING' && (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      disabled={isActing}
-                      onClick={() => act(s.id, 'APPROVED')}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
-                      style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}
-                    >
-                      {acting[s.id] === 'approving'
-                        ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-                        : <CheckCircle2 className="w-3 h-3" />
-                      }
-                      {sg.btnApprove}
-                    </button>
-                    <button
-                      disabled={isActing}
-                      onClick={() => act(s.id, 'REJECTED')}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50"
-                      style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}
-                    >
-                      {acting[s.id] === 'rejecting'
-                        ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-                        : <XCircle className="w-3 h-3" />
-                      }
-                      {sg.btnReject}
-                    </button>
-                    {s.campaignId && (
-                      <Link
-                        href={`/campaigns/${s.campaignId}`}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ms-auto"
-                        style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.2)' }}
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        {sg.btnViewCampaign}
-                      </Link>
-                    )}
-                  </div>
-                )}
-
-                {/* Non-PENDING: show campaign link only */}
-                {s.status !== 'PENDING' && s.campaignId && (
-                  <div className="flex justify-end">
+                {/* Row 4: Approve / Reject buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    disabled={isActing}
+                    onClick={() => act(s.id, 'APPROVED')}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}
+                  >
+                    {acting[s.id] === 'approving'
+                      ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                      : <CheckCircle2 className="w-3 h-3" />
+                    }
+                    {sg.btnApprove}
+                  </button>
+                  <button
+                    disabled={isActing}
+                    onClick={() => act(s.id, 'REJECTED')}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                  >
+                    {acting[s.id] === 'rejecting'
+                      ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                      : <XCircle className="w-3 h-3" />
+                    }
+                    {sg.btnReject}
+                  </button>
+                  {s.campaignId && (
                     <Link
                       href={`/campaigns/${s.campaignId}`}
-                      className="flex items-center gap-1 text-[10px] font-medium transition-all"
-                      style={{ color: '#a5a0ff' }}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ms-auto"
+                      style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.2)' }}
                     >
                       <ExternalLink className="w-3 h-3" />
                       {sg.btnViewCampaign}
                     </Link>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )
           })}

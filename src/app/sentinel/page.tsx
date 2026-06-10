@@ -36,6 +36,80 @@ interface MonitorResult {
   createdAt: Date
 }
 
+// ── Lightweight inline markdown renderer ─────────────────────────────────────
+function MarkdownOutput({ text }: { text: string }) {
+  const lines = text.split('\n')
+  const elements: React.ReactNode[] = []
+  let keyIdx = 0
+
+  const inlineStyle = (raw: string): React.ReactNode => {
+    // Handle **bold** and *italic* inline
+    const parts = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
+    return parts.map((p, i) => {
+      if (p.startsWith('**') && p.endsWith('**'))
+        return <strong key={i} style={{ color: '#f8fafc', fontWeight: 700 }}>{p.slice(2, -2)}</strong>
+      if (p.startsWith('*') && p.endsWith('*'))
+        return <em key={i} style={{ color: '#d1d5db', fontStyle: 'italic' }}>{p.slice(1, -1)}</em>
+      return p
+    })
+  }
+
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+
+    if (line.startsWith('### ')) {
+      elements.push(
+        <h3 key={keyIdx++} className="text-sm font-bold mt-4 mb-1.5" style={{ color: '#EAB308' }}>
+          {inlineStyle(line.slice(4))}
+        </h3>
+      )
+    } else if (line.startsWith('## ')) {
+      elements.push(
+        <h2 key={keyIdx++} className="text-base font-bold mt-5 mb-2" style={{ color: '#EAB308' }}>
+          {inlineStyle(line.slice(3))}
+        </h2>
+      )
+    } else if (line.startsWith('# ')) {
+      elements.push(
+        <h1 key={keyIdx++} className="text-lg font-bold mt-5 mb-2" style={{ color: '#EAB308' }}>
+          {inlineStyle(line.slice(2))}
+        </h1>
+      )
+    } else if (/^[-•–]\s/.test(line)) {
+      elements.push(
+        <div key={keyIdx++} className="flex items-start gap-2 text-sm my-0.5" style={{ color: '#d1d5db' }}>
+          <span style={{ color: '#EAB308', marginTop: 1, flexShrink: 0 }}>•</span>
+          <span>{inlineStyle(line.replace(/^[-•–]\s/, ''))}</span>
+        </div>
+      )
+    } else if (/^\d+\.\s/.test(line)) {
+      const num = line.match(/^(\d+)\.\s/)![1]
+      elements.push(
+        <div key={keyIdx++} className="flex items-start gap-2 text-sm my-0.5" style={{ color: '#d1d5db' }}>
+          <span style={{ color: '#EAB308', fontWeight: 600, flexShrink: 0 }}>{num}.</span>
+          <span>{inlineStyle(line.replace(/^\d+\.\s/, ''))}</span>
+        </div>
+      )
+    } else if (line.trim() === '') {
+      elements.push(<div key={keyIdx++} style={{ height: 8 }} />)
+    } else {
+      elements.push(
+        <p key={keyIdx++} className="text-sm leading-relaxed my-0.5" style={{ color: '#d1d5db' }}>
+          {inlineStyle(line)}
+        </p>
+      )
+    }
+    i++
+  }
+  return (
+    <div className="space-y-0.5" style={{ maxHeight: '500px', overflowY: 'auto' }}>
+      {elements}
+    </div>
+  )
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Static monitor tab config — uses translation keys
 const MONITOR_TABS: { id: MonitorType; labelKey: string; icon: React.ElementType }[] = [
   { id: 'competitors',   labelKey: 'sentinel.tabCompetitors',   icon: Eye },
@@ -579,10 +653,7 @@ export default function SentinelPage() {
                       <p className="text-sm text-gray-400 animate-pulse">{t('sentinel.processing')}</p>
                     </div>
                   ) : (
-                    <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
-                      style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
-                      {result}
-                    </pre>
+                    <MarkdownOutput text={result} />
                   )}
                 </div>
               )}

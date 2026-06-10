@@ -1763,7 +1763,7 @@ const translations: Record<Locale, Record<string, any>> = {
       btnViewCampaign: 'الحملة',
       emptyTitle: 'لا توجد اقتراحات بعد',
       emptyDesc: 'شغّل الاستراتيجية الكاملة لتوليد التوصيات.',
-      agentStrategist: 'المحلل الاستراتيجي',
+      agentStrategist: 'استراتيجية',
       agentContentDirector: 'مدير المحتوى',
       agentCampaignManager: 'مدير الحملات',
       agentReporting: 'التقارير',
@@ -1771,6 +1771,7 @@ const translations: Record<Locale, Record<string, any>> = {
       refresh: 'تحديث',
       approvedBrandUpdated: 'تمت الموافقة — تم تحديث عقل العلامة',
       approvedOnly: 'تمت الموافقة',
+      btnDismiss: 'تجاهل',
     },
     runStrategy: {
       btnDashboard: 'تشغيل الاستراتيجية الكاملة',
@@ -3561,7 +3562,7 @@ const translations: Record<Locale, Record<string, any>> = {
       btnViewCampaign: 'Campaign',
       emptyTitle: 'No AI suggestions yet',
       emptyDesc: 'Run Full Strategy to generate recommendations.',
-      agentStrategist: 'Strategist',
+      agentStrategist: 'Strategy',
       agentContentDirector: 'Content Director',
       agentCampaignManager: 'Campaign Manager',
       agentReporting: 'Reporting',
@@ -3569,6 +3570,7 @@ const translations: Record<Locale, Record<string, any>> = {
       refresh: 'Refresh',
       approvedBrandUpdated: 'Approved — Brand Brain updated',
       approvedOnly: 'Approved',
+      btnDismiss: 'Dismiss',
     },
     runStrategy: {
       btnDashboard: 'Run Full Strategy',

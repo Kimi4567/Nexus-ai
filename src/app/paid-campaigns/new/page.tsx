@@ -296,7 +296,7 @@ export default function NewPaidCampaignPage() {
       }))
       set('copyVariants', variants)
       set('selectedVariantIds', variants.slice(0, 2).map((v: CopyVariant) => v.id))
-      setStep(5)
+      setStep(4)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Error generating copy')
     } finally {

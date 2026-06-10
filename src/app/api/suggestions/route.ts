@@ -31,11 +31,16 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url)
     const limit = Math.min(Number(url.searchParams.get('limit') || '10'), 20)
+    // By default show only PENDING (the inbox model — acted-on items disappear)
+    // Pass ?status=all to see everything
+    const statusFilter = url.searchParams.get('status') === 'all'
+      ? undefined
+      : { status: 'PENDING' }
 
     // Fetch suggestions ordered by priority then date
     // Over-fetch so we can deduplicate before trimming to limit
     const rawAll = await db.agentSuggestion.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId: workspace.id, ...statusFilter },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
       take: limit * 5, // over-fetch for deduplication
     })
@@ -321,5 +326,39 @@ export async function PATCH(req: NextRequest) {
   } catch (err: any) {
     console.error('[PATCH /api/suggestions]', err)
     return NextResponse.json({ error: 'Failed to update suggestion' }, { status: 500 })
+  }
+}
+
+// ── DELETE /api/suggestions?id=<id> ─────────────────────────────────────────
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const user = await getAuthUser(req)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const url = new URL(req.url)
+    const id = url.searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+
+    const workspace = await prisma.workspace.findFirst({
+      where: { ownerId: user.id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })
+    if (!workspace) return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+
+    // Verify ownership before deleting
+    const existing = await db.agentSuggestion.findFirst({
+      where: { id, workspaceId: workspace.id },
+      select: { id: true },
+    })
+    if (!existing) return NextResponse.json({ error: 'Suggestion not found' }, { status: 404 })
+
+    await db.agentSuggestion.delete({ where: { id } })
+
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    console.error('[DELETE /api/suggestions]', err)
+    return NextResponse.json({ error: 'Failed to delete suggestion' }, { status: 500 })
   }
 }

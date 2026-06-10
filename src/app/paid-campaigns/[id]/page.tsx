@@ -322,7 +322,7 @@ export default function CampaignDetailPage() {
                 ▶ Resume
               </button>
             )}
-            <button onClick={() => router.push(`/paid-campaigns/${id}/metrics`)}
+            <button onClick={() => setActiveTab('performance')}
               className="px-3 py-2 rounded-xl text-[12px] font-medium text-text-muted hover:text-white transition-all"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
               + Metrics
