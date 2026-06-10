@@ -62,8 +62,9 @@ export function useBillingStatus() {
   const creditsMax       = status?.credits?.max ?? 15
   const isUnlimited      = creditsMax === -1
   const isPaid           = status?.hasActiveSubscription ?? false
-  const isLow            = !isUnlimited && creditsRemaining <= 3 && creditsRemaining > 0
-  const isEmpty          = !isUnlimited && creditsRemaining <= 0
+  // Guard against loading — don't show warning states while data is still fetching
+  const isLow  = !loading && !isUnlimited && creditsRemaining <= 3 && creditsRemaining > 0
+  const isEmpty = !loading && !isUnlimited && creditsRemaining <= 0
 
   return { status, loading, invalidate, creditsRemaining, creditsMax, isUnlimited, isPaid, isLow, isEmpty }
 }

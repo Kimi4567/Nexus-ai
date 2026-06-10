@@ -359,21 +359,26 @@ export default function ConnectionsPage() {
         <div
           className="flex items-center gap-5 p-5 mb-8 rounded-2xl"
           style={{
-            background: connectedCount > 0 ? 'rgba(16,185,129,0.04)' : 'rgba(245,158,11,0.04)',
-            border: connectedCount > 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(245,158,11,0.15)',
+            background: loadingAccounts ? 'rgba(139,92,246,0.04)' : connectedCount > 0 ? 'rgba(16,185,129,0.04)' : 'rgba(245,158,11,0.04)',
+            border: loadingAccounts ? '1px solid rgba(139,92,246,0.12)' : connectedCount > 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(245,158,11,0.15)',
           }}
         >
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-2xl font-black"
             style={{
-              background: connectedCount > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
-              color: connectedCount > 0 ? '#10b981' : '#f59e0b',
+              background: loadingAccounts ? 'rgba(139,92,246,0.08)' : connectedCount > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+              color: loadingAccounts ? '#8b5cf6' : connectedCount > 0 ? '#10b981' : '#f59e0b',
             }}
           >
-            {connectedCount}/{totalPlatforms}
+            {loadingAccounts ? '…' : `${connectedCount}/${totalPlatforms}`}
           </div>
           <div className="flex-1">
-            {connectedCount === 0 ? (
+            {loadingAccounts ? (
+              <div className="space-y-1.5">
+                <div className="h-3 w-36 rounded animate-pulse" style={{ background: 'rgba(139,92,246,0.15)' }} />
+                <div className="h-2.5 w-52 rounded animate-pulse" style={{ background: 'rgba(139,92,246,0.08)' }} />
+              </div>
+            ) : connectedCount === 0 ? (
               <>
                 <p className="font-bold text-amber-400 mb-0.5">{t('connections.noneConnected')}</p>
                 <p className="text-sm text-gray-400">{t('connections.noneConnectedDesc')}</p>
@@ -389,7 +394,7 @@ export default function ConnectionsPage() {
               </>
             )}
           </div>
-          {connectedCount === 0 && (
+          {!loadingAccounts && connectedCount === 0 && (
             <button
               onClick={() => handleConnect('META')}
               disabled={connecting === 'META'}

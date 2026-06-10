@@ -202,8 +202,8 @@ const CREDIT_ACTIONS = [
     labelAr: 'تشغيل الاستراتيجية الكاملة',
     labelEn: 'Run full strategy',
     cost: 8,
-    noteAr: 'كل الوكلاء: SAGE + MUSE + PULSE + PRISM',
-    noteEn: 'All agents: SAGE + MUSE + PULSE + PRISM',
+    noteAr: 'كل الوكلاء: NEX + VEX + PULSE + SENTINEL',
+    noteEn: 'All agents: NEX + VEX + PULSE + SENTINEL',
   },
   {
     icon: Image,

@@ -811,7 +811,7 @@ export default function CampaignDetailPage() {
                   <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--nx-text-3)' }}>
                     <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
                     <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
-                    <span>{campaign.tone}</span>
+                    <span>{locale === 'ar' ? 'نبرة: ' : 'Tone: '}{campaign.tone}</span>
                     <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
                     <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
                   </div>

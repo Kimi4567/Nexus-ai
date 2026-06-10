@@ -264,13 +264,19 @@ export default function PaidCampaignsPage() {
   const [connectingMeta, setConnectingMeta] = useState(false)
 
   const fetchData = useCallback(async () => {
-    if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const session = await import('@/lib/supabaseClient')
         .then(m => m.supabase.auth.getSession())
       const token = session.data?.session?.access_token
-      if (!token) return
+      if (!token) {
+        setLoading(false)
+        return
+      }
 
       const headers = { Authorization: `Bearer ${token}` }
       const [campaignsRes, accountsRes] = await Promise.all([

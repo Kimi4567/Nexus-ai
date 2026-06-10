@@ -33,13 +33,27 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(Number(url.searchParams.get('limit') || '10'), 20)
 
     // Fetch suggestions ordered by priority then date
-    const raw = await db.agentSuggestion.findMany({
+    // Over-fetch so we can deduplicate before trimming to limit
+    const rawAll = await db.agentSuggestion.findMany({
       where: { workspaceId: workspace.id },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
-      take: limit,
+      take: limit * 5, // over-fetch for deduplication
     })
 
-    if (!raw.length) return NextResponse.json({ suggestions: [] })
+    if (!rawAll.length) return NextResponse.json({ suggestions: [] })
+
+    // Deduplicate: keep only one suggestion per (campaignId + agent) pair.
+    // For suggestions without a campaign, keep only one per (agent + title) pair.
+    // Always keeps the most recent (already sorted by createdAt desc above).
+    const seen = new Set<string>()
+    const raw = rawAll.filter((s: any) => {
+      const dedupeKey = s.campaignId
+        ? `${s.campaignId}:${s.agent}`
+        : `nocamp:${s.agent}:${(s.title || '').slice(0, 40)}`
+      if (seen.has(dedupeKey)) return false
+      seen.add(dedupeKey)
+      return true
+    }).slice(0, limit)
 
     // Batch-fetch campaign names for suggestions that have a campaignId
     const campaignIds = [...new Set(

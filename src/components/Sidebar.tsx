@@ -219,7 +219,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const email = user?.email || ''
   const initial = displayName.charAt(0).toUpperCase()
 
-  const { creditsRemaining, creditsMax, isUnlimited, isPaid, isLow, isEmpty } = useBillingStatus()
+  const { creditsRemaining, creditsMax, isUnlimited, isPaid, isLow, isEmpty, loading: billingLoading } = useBillingStatus()
 
   // Fetch pending Brain proposals count for sidebar dot
   React.useEffect(() => {
@@ -326,7 +326,11 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         style={{ borderTop: '1px solid rgba(139,92,246,0.08)', paddingTop: '12px' }}>
 
         {/* Credits indicator / Upgrade CTA */}
-        {!collapsed && (
+        {!collapsed && billingLoading && (
+          <div className="px-3 py-2.5 rounded-[9px] mb-2 animate-pulse"
+            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', height: '58px' }} />
+        )}
+        {!collapsed && !billingLoading && (
           <Link href="/billing"
             className="flex flex-col gap-1.5 px-3 py-2.5 rounded-[9px] mb-2 transition-all"
             style={{
@@ -343,7 +347,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
               <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${Math.min(100, ((creditsMax - creditsRemaining) / Math.max(creditsMax, 1)) * 100)}%`,
+                    width: `${Math.max(0, Math.min(100, ((creditsMax - creditsRemaining) / Math.max(creditsMax, 1)) * 100))}%`,
                     background: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : '#8B5CF6',
                   }} />
               </div>
