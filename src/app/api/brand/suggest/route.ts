@@ -256,8 +256,23 @@ Rules:
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()
     let suggestions: string[] = []
     try {
-      suggestions = JSON.parse(cleaned)
-      if (!Array.isArray(suggestions)) suggestions = []
+      const parsed = JSON.parse(cleaned)
+      if (Array.isArray(parsed)) {
+        // Filter to STRINGS ONLY — non-string items (objects, numbers, null)
+        // would crash React when rendered as JSX children
+        suggestions = parsed
+          .map((item: unknown) => {
+            if (typeof item === 'string') return item.trim()
+            // Handle {text: "..."} or {value: "..."} shapes GPT sometimes returns
+            if (item && typeof item === 'object') {
+              const obj = item as Record<string, unknown>
+              const str = obj.text ?? obj.value ?? obj.suggestion ?? obj.angle ?? obj.hook ?? obj.item ?? obj.name
+              return typeof str === 'string' ? str.trim() : null
+            }
+            return null
+          })
+          .filter((s): s is string => typeof s === 'string' && s.length > 0)
+      }
     } catch {
       suggestions = []
     }

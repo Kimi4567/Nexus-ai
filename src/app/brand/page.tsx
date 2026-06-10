@@ -113,7 +113,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
   const [input, setInput] = useState('')
   const accent = accentColor || '#f59e0b'
   const isAr = locale === 'ar'
-  const safeValues = Array.isArray(values) ? values : []
+  const safeValues = Array.isArray(values) ? values.filter((v): v is string => typeof v === 'string') : []
   const add = (val: string) => { const v = val.trim(); if (v && !safeValues.includes(v)) onChange([...safeValues, v]); setInput('') }
   const remove = (i: number) => onChange(safeValues.filter((_, idx) => idx !== i))
   return (
@@ -572,9 +572,14 @@ export default function BrandBrainPage() {
         return
       }
       const { suggestions } = await res.json()
-      if (Array.isArray(suggestions) && suggestions.length) {
-        const existing = (form[field] as string[]) || []
-        const merged = [...new Set([...existing, ...suggestions])]
+      // Guard: only accept string items — non-string values (objects, null, numbers)
+      // would crash React when rendered as JSX children in TagInput
+      const safeSuggestions: string[] = Array.isArray(suggestions)
+        ? suggestions.filter((s: unknown): s is string => typeof s === 'string' && s.trim().length > 0)
+        : []
+      if (safeSuggestions.length) {
+        const existing = Array.isArray(form[field]) ? (form[field] as string[]).filter((s): s is string => typeof s === 'string') : []
+        const merged = [...new Set([...existing, ...safeSuggestions])]
         set(field, merged)
       } else {
         setSuggestError(locale === 'ar' ? 'لم يتم إرجاع اقتراحات، حاول مرة أخرى' : 'No suggestions returned, please try again')

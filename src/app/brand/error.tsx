@@ -44,8 +44,8 @@ export default function BrandBrainError({
           Your data is safe — try refreshing the page.
         </p>
 
-        {/* Error detail (dev only) */}
-        {process.env.NODE_ENV === 'development' && error?.message && (
+        {/* Error detail — always visible so crashes can be diagnosed */}
+        {error?.message && (
           <div
             className="text-left rounded-xl p-4 mb-6 font-mono text-xs"
             style={{
