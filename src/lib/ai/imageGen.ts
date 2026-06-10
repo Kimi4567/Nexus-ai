@@ -144,16 +144,18 @@ type StyleMap = Record<VisualStyle, string>
 
 const STYLE_MAPS: Record<BrandCategory, StyleMap> = {
   saas_ai_tech: {
-    Minimal:    'dark background, clean floating UI cards, minimal glassmorphism, monochrome with single accent color, refined spacing',
-    Luxury:     'deep black background, gold-to-violet gradient accents, premium dark UI panels, high-end SaaS aesthetic',
-    Corporate:  'dark navy background, structured grid of dashboard cards, professional data visualization, clean UI layout',
-    Editorial:  'bold typographic UI mockup, editorial-style product screenshot, dramatic dark lighting',
-    Cinematic:  'dark cinematic background, product UI card with dramatic side lighting, film-grade color treatment',
-    Bold:       'high contrast dark background, bold glowing UI elements, strong accent colors, punchy product showcase',
-    'Gen Z':    'vibrant gradient dark background, energetic floating UI cards, Y2K-inspired neon accents',
-    Premium:    'deep navy/black background, violet-blue glow borders on floating dashboard cards, orange accent lines, premium glassmorphism',
-    Futuristic: 'deep black with neon violet and cyan glows, floating holographic UI panels, sci-fi SaaS, geometric data nodes',
-    Elegant:    'dark background with soft violet ambient light, elegant floating UI cards, refined spacing, timeless premium SaaS look',
+    // NOTE: All descriptions are ABSTRACT VISUAL — no UI panels, no screens, no interfaces.
+    // Literal UI descriptions cause gpt-image-1 / Flux to render garbled on-screen text.
+    Minimal:    'deep black background, subtle glowing geometric nodes, delicate luminous connection lines, monochrome with single violet accent glow, minimal abstract tech atmosphere',
+    Luxury:     'deep black background, gold-to-violet gradient light flows, premium abstract geometric crystalline forms, flowing luminous particles, no interfaces or screens',
+    Corporate:  'dark navy background, structured abstract luminous grid, professional glowing data-stream lines, clean abstract geometric tech visualization',
+    Editorial:  'bold dramatic abstract technology visual, dynamic violet light streams, editorial high-contrast geometric composition, striking luminous elements',
+    Cinematic:  'dark cinematic abstract background, dramatic violet-orange light bloom and depth haze, film-grade color treatment, abstract technology atmosphere',
+    Bold:       'high contrast dark background, bold glowing abstract geometric forms, strong accent light beams, punchy luminous tech composition',
+    'Gen Z':    'vibrant gradient dark background, energetic glowing particles and neon light trails, Y2K-inspired abstract luminous energy',
+    Premium:    'deep navy background, violet-blue light halos and flowing abstract streams, orange accent glow, premium glassmorphism atmosphere without any interfaces',
+    Futuristic: 'deep black with neon violet and cyan light halos, floating abstract holographic geometry, sci-fi atmosphere, geometric nodes connected by luminous beams',
+    Elegant:    'dark background with soft violet ambient light, elegant abstract floating crystalline shapes, refined particle field, timeless premium atmosphere',
   },
   real_estate: {
     Minimal:    'clean white architectural photography, neutral palette, open space, natural light, minimalist interior design',
@@ -259,11 +261,12 @@ type CompositionMap = Record<VisualType, string>
 
 const COMPOSITION_MAPS: Record<BrandCategory, CompositionMap> = {
   saas_ai_tech: {
-    HERO:           'Wide 16:9 hero. Deep navy-black background. Multiple floating rounded dashboard cards in a connected pipeline. Violet-blue glow borders, subtle glassmorphism. Orange accent connection lines. Ambient violet light bloom. Premium 3D UI render.',
-    SOCIAL_PREVIEW: 'Square 1:1. Single premium dark UI card — rounded corners, glassmorphism panel, glowing accent border. Abstract analytics or workflow visualization in background.',
-    AD_CREATIVE:    'Ad banner. Dark split: left side shows floating dashboard UI panel with glowing cards, right side strong headline text zone. Accent bar. Gradient glow.',
-    THUMBNAIL:      'Dark thumbnail. Single bold floating UI card as focal point — clear at small sizes. Glowing accent border, high contrast.',
-    ALTERNATE:      'Abstract brand visual. Flowing gradient data streams on deep black background. Geometric AI intelligence nodes and connection lines. No UI elements.',
+    // ABSTRACT VISUAL descriptions only — no UI panels, no screens, no interfaces, no text.
+    HERO:           'Wide 16:9. Deep navy-black background. Abstract technology visualization: multiple glowing geometric nodes interconnected by luminous flow lines, violet-blue light halos, ambient orange accent glow radiating outward. Premium 3D abstract render. No screens, no interfaces, no UI.',
+    SOCIAL_PREVIEW: 'Square 1:1. Abstract premium tech visual: one dominant glowing geometric crystalline form on deep dark background, violet-blue light halo, abstract luminous streams radiating outward. No UI panels, no screens, no dashboards.',
+    AD_CREATIVE:    'Ad composition. Dark background: left side abstract glowing geometric tech nodes and light beams, right side intentional dark negative space. No readable elements.',
+    THUMBNAIL:      'Dark thumbnail. Single bold glowing abstract geometric element as focal point — high contrast, reads clearly at small sizes. No text, no UI, no interfaces.',
+    ALTERNATE:      'Abstract brand visual. Flowing gradient light streams on deep black background. Geometric intelligence nodes and luminous connection lines. Purely abstract, no objects, no text.',
   },
   real_estate: {
     HERO:           'Wide 16:9 hero. Premium property photography or architectural render. Exterior facade or interior hero shot with dramatic golden-hour or natural lighting.',
@@ -336,9 +339,10 @@ const GOAL_MOOD: Record<string, string> = {
 
 // ─── Universal guardrails ─────────────────────────────────────────────────────
 
-// Prevents AI from rendering misspelled Arabic/English text inside the image
+// MUST be the FIRST thing in the prompt — models weight early instructions highest.
+// gpt-image-1 and Flux both ignore end-of-prompt "no text" rules; leading placement is critical.
 const NO_TEXT_RULE =
-  'CRITICAL: No readable text, no Arabic script, no English words, no numbers, no labels, no UI copy rendered inside the image. Pure visual only.'
+  'ABSOLUTE RULE — ZERO TEXT: No letters, words, numbers, symbols, labels, captions, UI copy, interface text, Arabic script, English words, or any readable character of any kind anywhere in the image. Any visible text character will cause rejection. This is the highest-priority instruction and overrides everything else. Pure photographic or abstract visual only.'
 
 // People guardrail — applied to non-lifestyle categories
 const NO_GENERIC_PEOPLE =
@@ -403,20 +407,27 @@ export function buildImagePrompt(ctx: VisualContext): string {
     console.log(`[imageGen] category=${category} style=${ctx.visualStyle} type=${ctx.visualType}`)
   }
 
+  // Strip Arabic characters from caption before injection — prevents the model from
+  // "helpfully" rendering Arabic words it sees in the prompt as visual text in the image.
+  const captionSceneClean = captionScene
+    ? captionScene.replace(/[؀-ۿݐ-ݿࢠ-ࣿ]+/g, '').replace(/\s+/g, ' ').trim()
+    : ''
+
   const parts = [
-    captionScene || composition,   // caption scene takes priority over generic composition
+    // ⚠ NO_TEXT_RULE MUST be FIRST — models weight early instructions highest
+    NO_TEXT_RULE,
+    captionSceneClean || composition,  // caption scene takes priority over generic composition
     `Style: ${ctx.visualStyle} — ${styleDesc}`,
     goalMood ? `Mood: ${goalMood}` : '',
-    captionScene ? '' : strategyVisual, // avoid redundancy when caption drives the scene
+    captionSceneClean ? '' : strategyVisual,
     colorHint,
     ctx.brandName    ? `Brand: ${ctx.brandName}`                  : '',
     ctx.primaryOffer ? `Product/service: ${ctx.primaryOffer}`     : '',
     brandTone        ? `Brand voice: ${brandTone}`                : '',
     differentiator,
     peopleRule,
-    NO_TEXT_RULE,
-    // Ad-grade composition guidance — makes the AI produce agency-quality ad imagery
-    'Advertising photography standard: premium commercial production value. Cinematic lighting with a clear primary focal point and intentional negative space. The bottom 20–25% of the frame has a natural photographic vignette — slightly darker at the lower edges, as if lit from above — allowing for brand overlay. Visual hierarchy: one dominant hero element, supporting context, depth. Shot on Phase One XF IQ4, 100MP. Ultra-sharp, 8K, zero compression artifacts. Photorealistic or premium 3D render — indistinguishable from a professional agency campaign shoot. No watermarks, no logos, no text, no artifacts.',
+    // Ad-grade visual quality — premium photographic standard
+    'Premium commercial production value. Cinematic lighting with a clear primary focal point and intentional negative space. The bottom 20–25% of the frame has a natural photographic vignette allowing for brand overlay. Visual hierarchy: one dominant hero element, supporting context, depth. Shot on Phase One XF IQ4, 100MP. Ultra-sharp, 8K, zero compression artifacts. Photorealistic or premium 3D render. No watermarks, no logos, no text, no interfaces, no screens.',
   ].filter(Boolean)
 
   return parts.join(' ')
