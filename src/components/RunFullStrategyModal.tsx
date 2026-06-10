@@ -119,6 +119,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   const skipMediaCheckRef = useRef(false)
   // Tab hidden during generation — show sticky warning banner
   const [tabHiddenDuringRun, setTabHiddenDuringRun] = useState(false)
+  // Inline media upload state (in media_check phase)
+  const [mediaUploading, setMediaUploading] = useState(false)
+  const [mediaUploadProgress, setMediaUploadProgress] = useState(0)
+  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null)
+  const mediaFileInputRef = useRef<HTMLInputElement | null>(null)
   // Language selection — user picks before running strategy
   const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
   const [langConfirmed, setLangConfirmed] = useState(false)
@@ -325,6 +330,91 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     }
   }, [isOpen, runKey, langConfirmed]) // runKey increments on retry; langConfirmed gates lang_select → running
 
+  // ── Inline media upload (in media_check phase) ────────────────────────────
+  const handleMediaUploadFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setMediaUploadError(null)
+
+    for (const file of Array.from(files)) {
+      setMediaUploading(true)
+      setMediaUploadProgress(0)
+      try {
+        // 1. Create session
+        const sessionRes = await fetch('/api/uploads/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeaderRef.current() },
+          body: JSON.stringify({
+            resourceType: file.type.startsWith('video') ? 'video' : 'auto',
+            fileName: file.name,
+          }),
+        })
+        const { sessionToken } = await sessionRes.json()
+        if (!sessionRes.ok || !sessionToken) throw new Error('Upload session failed')
+
+        // 2. Get signature
+        const sigRes = await fetch('/api/uploads/cloudinary/signature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionToken }),
+        })
+        const sigData = await sigRes.json()
+        if (!sigRes.ok) throw new Error('Signature failed')
+
+        // 3. Upload to Cloudinary
+        const cloudinaryData = await new Promise<Record<string, unknown>>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/auto/upload`)
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) setMediaUploadProgress(Math.round((e.loaded / e.total) * 100))
+          }
+          xhr.onload = () => {
+            try {
+              const data = JSON.parse(xhr.responseText)
+              if (xhr.status >= 200 && xhr.status < 300 && data.secure_url) resolve(data)
+              else reject(new Error(data.error?.message || 'Cloudinary error'))
+            } catch { reject(new Error('Parse error')) }
+          }
+          xhr.onerror = () => reject(new Error('Network error'))
+          const form = new FormData()
+          form.append('file', file)
+          form.append('api_key', String(sigData.api_key))
+          form.append('timestamp', String(sigData.timestamp))
+          form.append('signature', String(sigData.signature))
+          form.append('folder', String(sigData.folder))
+          form.append('resource_type', String(sigData.resource_type))
+          xhr.send(form)
+        })
+
+        // 4. Notify backend
+        const notifyRes = await fetch('/api/uploads/cloudinary/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileName: cloudinaryData.original_filename || cloudinaryData.public_id,
+            mimeType: cloudinaryData.resource_type === 'video' ? `video/${cloudinaryData.format}` : `image/${cloudinaryData.format}`,
+            secureUrl: cloudinaryData.secure_url,
+            publicId: cloudinaryData.public_id,
+            bytes: cloudinaryData.bytes,
+            resourceType: cloudinaryData.resource_type,
+            sessionToken,
+          }),
+        })
+        const { media: newMedia } = await notifyRes.json()
+        if (newMedia?.id) {
+          setMediaItems(prev => [newMedia, ...prev])
+          setSelectedMediaIds(prev => [newMedia.id, ...prev])
+        }
+      } catch (err: unknown) {
+        setMediaUploadError(err instanceof Error ? err.message : 'Upload failed')
+      } finally {
+        setMediaUploading(false)
+        setMediaUploadProgress(0)
+      }
+    }
+    // reset input
+    if (mediaFileInputRef.current) mediaFileInputRef.current.value = ''
+  }
+
   if (!isOpen) return null
 
   const rs = t('runStrategy') as Record<string, string>
@@ -359,7 +449,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       dir={dir}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+      onClick={(e) => { if (e.target === e.currentTarget && phase !== 'running') onClose() }}
     >
       <div className="w-full max-w-md rounded-2xl overflow-hidden relative" style={CARD_STYLE}>
 
@@ -506,24 +596,71 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <X className="w-4 h-4" />
             </button>
 
-            {/* Icon + title */}
-            <div className="text-center mb-4">
-              <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+            {/* Header row: icon+title on left, upload button on right */}
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{
                   background: mediaItems.length > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.1)',
                   border: `1px solid ${mediaItems.length > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
                 }}>
-                <ImageIcon className="w-7 h-7" style={{ color: mediaItems.length > 0 ? '#10B981' : '#8B5CF6' }} />
+                <ImageIcon className="w-5 h-5" style={{ color: mediaItems.length > 0 ? '#10B981' : '#8B5CF6' }} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-1">
-                {mediaItems.length > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
-              </h2>
-              <p className="text-sm text-text-muted leading-relaxed">
-                {mediaItems.length > 0
-                  ? (locale === 'ar' ? 'اختر الصور والفيديوهات التي تريد استخدامها في هذه الحملة' : 'Choose which assets to include in this campaign')
-                  : rs.mediaCheckDescNone}
-              </p>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-bold text-white leading-tight">
+                  {mediaItems.length > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
+                </h2>
+                <p className="text-xs text-text-muted mt-0.5">
+                  {mediaItems.length > 0
+                    ? (locale === 'ar' ? 'اختر الأصول التي تريد استخدامها' : 'Choose which assets to use')
+                    : rs.mediaCheckDescNone}
+                </p>
+              </div>
+              {/* Inline upload button */}
+              <label className="flex-shrink-0 cursor-pointer">
+                <input
+                  ref={mediaFileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
+                  onChange={e => handleMediaUploadFiles(e.target.files)}
+                  disabled={mediaUploading}
+                />
+                <span
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                  style={{
+                    background: mediaUploading ? 'rgba(139,92,246,0.05)' : 'rgba(139,92,246,0.1)',
+                    border: '1px solid rgba(139,92,246,0.25)',
+                    color: mediaUploading ? '#6b6b80' : '#a5a0ff',
+                    cursor: mediaUploading ? 'not-allowed' : 'pointer',
+                  }}>
+                  <Upload className="w-3 h-3" />
+                  {mediaUploading
+                    ? `${mediaUploadProgress}%`
+                    : (locale === 'ar' ? 'رفع' : 'Upload')}
+                </span>
+              </label>
             </div>
+
+            {/* Upload error */}
+            {mediaUploadError && (
+              <div className="rounded-lg px-3 py-2 mb-3 flex items-center gap-2 text-xs"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
+                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
+                <span className="flex-1 truncate">{mediaUploadError}</span>
+                <button onClick={() => setMediaUploadError(null)} className="flex-shrink-0 hover:text-white">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Upload progress bar */}
+            {mediaUploading && (
+              <div className="w-full h-1 rounded-full mb-3" style={{ background: 'rgba(139,92,246,0.15)' }}>
+                <div className="h-full rounded-full transition-all duration-200"
+                  style={{ width: `${mediaUploadProgress}%`, background: 'linear-gradient(90deg, #8B5CF6, #10B981)' }} />
+              </div>
+            )}
 
             {/* Selectable thumbnail grid */}
             {mediaItems.length > 0 ? (
@@ -551,8 +688,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   </div>
                 </div>
 
-                {/* Thumbnail grid */}
-                <div className="grid grid-cols-4 gap-1.5 mb-4 max-h-44 overflow-y-auto pr-0.5">
+                {/* Thumbnail grid — fixed height, scrolls for 50+ items */}
+                <div className="grid grid-cols-5 gap-1.5 mb-4 overflow-y-auto pr-0.5" style={{ maxHeight: '180px' }}>
                   {mediaItems.map(item => {
                     const isSelected = selectedMediaIds.includes(item.id)
                     const isVideo = item.type === 'VIDEO'
@@ -637,13 +774,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 : (locale === 'ar' ? 'تابع بدون صور' : 'Continue without assets')}
             </button>
 
-            {mediaItems.length === 0 && (
-              <Link href="/media" onClick={onClose}
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-medium transition-all"
-                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)', color: '#a5a0ff' }}>
-                <Upload className="w-3.5 h-3.5" />
-                {rs.mediaCheckUpload}
-              </Link>
+            {mediaItems.length === 0 && !mediaUploading && (
+              <p className="text-center text-[11px] text-text-muted mb-1">
+                {locale === 'ar' ? '← اضغط "رفع" أعلاه لإضافة صور أو فيديوهات' : '← Click "Upload" above to add photos or videos'}
+              </p>
             )}
           </div>
         )}
