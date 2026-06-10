@@ -223,6 +223,15 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
     uploadFile(taskId)
   }
 
+  // Handle multiple files at once
+  const handleFiles = (files: FileList | File[]) => {
+    const fileArray = Array.from(files)
+    fileArray.forEach(file => {
+      const taskId = addTask(file)
+      uploadFile(taskId)
+    })
+  }
+
   const handleRetry = async (taskId: string) => {
     const file = pendingFiles.current[taskId]
     if (!file) {
@@ -238,8 +247,8 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
     }
     const onDrop = (event: DragEvent) => {
       event.preventDefault()
-      const droppedFile = event.dataTransfer?.files?.[0]
-      if (droppedFile) handleFileDrop(droppedFile)
+      const droppedFiles = event.dataTransfer?.files
+      if (droppedFiles && droppedFiles.length > 0) handleFiles(droppedFiles)
     }
 
     window.addEventListener('dragover', onDragOver)
@@ -271,10 +280,14 @@ export function UploadPanel({ workspaceId, projectId, campaignId, initialMedia =
         <label className="group block cursor-pointer rounded-3xl border border-dashed border-dark-tertiary bg-dark-tertiary/60 p-8 text-center transition hover:border-accent hover:bg-dark-secondary">
           <input
             type="file"
+            multiple
             className="hidden"
             onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) handleFileDrop(file)
+              if (event.target.files && event.target.files.length > 0) {
+                handleFiles(event.target.files)
+                // Reset input so same files can be re-selected if needed
+                event.target.value = ''
+              }
             }}
           />
           <div className="mx-auto mb-3 inline-flex h-16 w-16 items-center justify-center rounded-full border border-accent/30 bg-accent/5 text-3xl">

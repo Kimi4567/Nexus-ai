@@ -11,7 +11,7 @@ import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
   BookOpen, Users, Calendar, Globe, BarChart3, ArrowUpRight, Layers,
-  ImageIcon, Film, CheckCircle2, Library,
+  ImageIcon, Film, CheckCircle2, Library, Upload, X,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
@@ -157,6 +157,9 @@ export default function NewCampaignPage() {
   const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([])
   const [mediaItems, setMediaItems] = useState<Array<{id: string; url: string; type: string; fileName: string}>>([])
   const [loadingMedia, setLoadingMedia] = useState(false)
+  const [inlineUploading, setInlineUploading] = useState(false)
+  const [inlineUploadProgress, setInlineUploadProgress] = useState(0)
+  const [inlineUploadError, setInlineUploadError] = useState<string | null>(null)
 
   // Fetch media when entering step 4
   useEffect(() => {
@@ -171,6 +174,105 @@ export default function NewCampaignPage() {
       .catch(() => {})
       .finally(() => setLoadingMedia(false))
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Inline upload handler — uploads directly from campaign wizard without leaving the page
+  const handleInlineUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setInlineUploadError(null)
+    setInlineUploading(true)
+    setInlineUploadProgress(0)
+
+    const uploadedItems: Array<{id: string; url: string; type: string; fileName: string}> = []
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      try {
+        // 1. Create upload session
+        const sessionRes = await fetch('/api/uploads/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify({
+            resourceType: file.type.startsWith('video') ? 'video' : 'auto',
+            fileName: file.name,
+          }),
+        })
+        const sessionData = await sessionRes.json()
+        if (!sessionRes.ok) throw new Error(sessionData.error || 'Session error')
+        const sessionToken = sessionData.sessionToken as string
+
+        // 2. Get Cloudinary signature
+        const sigRes = await fetch('/api/uploads/cloudinary/signature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify({ sessionToken }),
+        })
+        const sigData = await sigRes.json()
+        if (!sigRes.ok) throw new Error(sigData.error || 'Signature error')
+
+        // 3. Upload to Cloudinary via XHR
+        const cloudinaryRes = await new Promise<any>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/auto/upload`)
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const fileProgress = Math.round((e.loaded / e.total) * 100)
+              setInlineUploadProgress(
+                Math.round(((i / files.length) * 100) + (fileProgress / files.length))
+              )
+            }
+          }
+          xhr.onload = () => {
+            try {
+              const r = JSON.parse(xhr.responseText)
+              if (xhr.status >= 200 && xhr.status < 300 && r.secure_url) resolve(r)
+              else reject(new Error(r.error?.message || 'Upload failed'))
+            } catch { reject(new Error('Upload failed')) }
+          }
+          xhr.onerror = () => reject(new Error('Network error'))
+          const form = new FormData()
+          form.append('file', file)
+          form.append('api_key', String(sigData.api_key))
+          form.append('timestamp', String(sigData.timestamp))
+          form.append('signature', String(sigData.signature))
+          form.append('folder', String(sigData.folder))
+          form.append('resource_type', String(sigData.resource_type))
+          xhr.send(form)
+        })
+
+        // 4. Notify backend
+        const notifyRes = await fetch('/api/uploads/cloudinary/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify({
+            fileName: cloudinaryRes.original_filename || cloudinaryRes.public_id,
+            mimeType: cloudinaryRes.resource_type === 'video'
+              ? `video/${cloudinaryRes.format}`
+              : `image/${cloudinaryRes.format}`,
+            secureUrl: cloudinaryRes.secure_url,
+            publicId: cloudinaryRes.public_id,
+            bytes: cloudinaryRes.bytes,
+            resourceType: cloudinaryRes.resource_type,
+            sessionToken,
+          }),
+        })
+        const notifyData = await notifyRes.json()
+        if (!notifyRes.ok) throw new Error(notifyData.error || 'Registration failed')
+
+        const media = notifyData.media as {id: string; url: string; type: string; fileName: string}
+        uploadedItems.push(media)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Upload failed'
+        setInlineUploadError(msg)
+      }
+    }
+
+    if (uploadedItems.length > 0) {
+      setMediaItems(prev => [...uploadedItems, ...prev])
+      setSelectedMediaIds(prev => [...prev, ...uploadedItems.map(m => m.id)])
+    }
+    setInlineUploading(false)
+    setInlineUploadProgress(0)
+  }
 
   const toggleMedia = (id: string) =>
     setSelectedMediaIds(prev =>
@@ -860,18 +962,51 @@ export default function NewCampaignPage() {
                       <Library className="w-3.5 h-3.5 inline me-1.5 text-violet-400" />
                       {locale === 'ar' ? 'استخدم صورك وفيديوهاتك' : 'Use Your Media Assets'}
                     </label>
-                    {selectedMediaIds.length > 0 && (
-                      <span className="text-xs px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
-                        {selectedMediaIds.length} {locale === 'ar' ? 'محدد' : 'selected'}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {selectedMediaIds.length > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                          {selectedMediaIds.length} {locale === 'ar' ? 'محدد' : 'selected'}
+                        </span>
+                      )}
+                      {/* Inline upload button — always visible */}
+                      <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all"
+                        style={{
+                          background: 'rgba(139,92,246,0.12)',
+                          border: '1px solid rgba(139,92,246,0.35)',
+                          color: '#a78bfa',
+                          opacity: inlineUploading ? 0.6 : 1,
+                          pointerEvents: inlineUploading ? 'none' : 'auto',
+                        }}>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,video/*"
+                          className="hidden"
+                          onChange={e => handleInlineUpload(e.target.files)}
+                        />
+                        {inlineUploading
+                          ? <><Loader2 className="w-3 h-3 animate-spin" />{inlineUploadProgress}%</>
+                          : <><Upload className="w-3 h-3" />{locale === 'ar' ? 'رفع ملفات' : 'Upload'}</>
+                        }
+                      </label>
+                    </div>
                   </div>
                   <p className="text-xs text-text-muted mb-3">
                     {locale === 'ar'
-                      ? 'اختر صورًا أو فيديوهات من مكتبتك — سيحللها الـ AI ويوظفها في البوستات'
-                      : 'Pick images or videos from your library — AI will analyze and assign them to posts'}
+                      ? 'اختر أو ارفع صورًا وفيديوهات — سيحللها الـ AI ويوظفها في البوستات'
+                      : 'Select or upload images & videos — AI will analyze and assign them to posts'}
                   </p>
+
+                  {/* Inline upload error */}
+                  {inlineUploadError && (
+                    <div className="flex items-center gap-2 mb-3 rounded-lg px-3 py-2 text-xs"
+                      style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
+                      <X className="w-3 h-3 flex-shrink-0" />
+                      {inlineUploadError}
+                      <button className="ms-auto text-xs opacity-60 hover:opacity-100" onClick={() => setInlineUploadError(null)}>✕</button>
+                    </div>
+                  )}
 
                   {loadingMedia ? (
                     <div className="flex items-center gap-2 text-xs text-text-muted py-4">
@@ -879,19 +1014,45 @@ export default function NewCampaignPage() {
                       {locale === 'ar' ? 'جاري تحميل الميديا...' : 'Loading media...'}
                     </div>
                   ) : mediaItems.length === 0 ? (
-                    <div className="rounded-xl p-4 text-center text-sm text-text-muted"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                      <ImageIcon className="w-6 h-6 mx-auto mb-2 opacity-30" />
-                      {locale === 'ar'
-                        ? 'لا يوجد ميديا مرفوع — ارفع صورًا أو فيديوهات في مكتبة الميديا أولًا'
-                        : 'No media uploaded yet — upload images or videos in the Media Library first'}
-                    </div>
+                    /* Empty state — inline upload drop zone */
+                    <label className="flex flex-col items-center gap-3 rounded-xl p-6 text-center cursor-pointer transition-all"
+                      style={{ background: 'rgba(139,92,246,0.04)', border: '1px dashed rgba(139,92,246,0.25)' }}>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,video/*"
+                        className="hidden"
+                        onChange={e => handleInlineUpload(e.target.files)}
+                      />
+                      {inlineUploading ? (
+                        <>
+                          <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+                          <p className="text-sm text-violet-300">
+                            {locale === 'ar' ? `جاري الرفع... ${inlineUploadProgress}%` : `Uploading... ${inlineUploadProgress}%`}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center"
+                            style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                            <Upload className="w-5 h-5 text-violet-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-violet-300">
+                              {locale === 'ar' ? 'ارفع صورًا أو فيديوهات' : 'Upload images or videos'}
+                            </p>
+                            <p className="text-xs text-text-muted mt-1">
+                              {locale === 'ar' ? 'اضغط هنا أو اسحب الملفات — ينفع تختار أكثر من ملف' : 'Click or drag files here — multiple files supported'}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </label>
                   ) : (
                     <div className="grid grid-cols-4 gap-2">
                       {mediaItems.map(item => {
                         const isSelected = selectedMediaIds.includes(item.id)
                         const isVideo = item.type === 'VIDEO'
-                        // Cloudinary video thumbnail: replace extension with .jpg
                         const thumbUrl = isVideo
                           ? item.url.replace(/\.(mp4|mov|webm|avi)(\?.*)?$/i, '.jpg')
                           : item.url
@@ -905,21 +1066,18 @@ export default function NewCampaignPage() {
                                 : '2px solid rgba(255,255,255,0.08)',
                               boxShadow: isSelected ? '0 0 12px rgba(139,92,246,0.3)' : 'none',
                             }}>
-                            {/* Thumbnail */}
                             <img
                               src={thumbUrl}
                               alt={item.fileName}
                               className="w-full h-full object-cover"
                               style={{ opacity: isSelected ? 1 : 0.7 }}
                             />
-                            {/* Video overlay */}
                             {isVideo && (
                               <div className="absolute inset-0 flex items-center justify-center"
                                 style={{ background: 'rgba(0,0,0,0.35)' }}>
                                 <Film className="w-4 h-4 text-white opacity-80" />
                               </div>
                             )}
-                            {/* Selected checkmark */}
                             {isSelected && (
                               <div className="absolute top-1 right-1">
                                 <CheckCircle2 className="w-4 h-4" style={{ color: '#a78bfa' }} />

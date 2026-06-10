@@ -589,6 +589,7 @@ export default function MediaLibraryPage() {
   const [brandItMedia, setBrandItMedia] = useState<MediaRecord | null>(null)
   const [brandProfile, setBrandProfile] = useState<{ brandName?: string | null; logoUrl?: string | null } | null>(null)
   const [uploadInProgress, setUploadInProgress] = useState(false)
+  const uploadInProgressRef = useRef(false) // ref-based guard for sequential multi-file uploads
   const dropRef = useRef<HTMLDivElement | null>(null)
 
   const canUseCloudinary = useMemo(() => Boolean(CLOUD_NAME), [])
@@ -793,7 +794,9 @@ export default function MediaLibraryPage() {
       return
     }
 
-    if (uploadInProgress) return
+    // Use ref for guard so sequential multi-file uploads don't get blocked by stale React state
+    if (uploadInProgressRef.current) return
+    uploadInProgressRef.current = true
     setUploadInProgress(true)
 
     const taskId = createUploadTask(file)
@@ -805,6 +808,7 @@ export default function MediaLibraryPage() {
         await uploadToLocal(file, taskId)
       }
     } finally {
+      uploadInProgressRef.current = false
       setUploadInProgress(false)
     }
   }
@@ -832,7 +836,17 @@ export default function MediaLibraryPage() {
     if (!el) return
     const onDrop = (e: DragEvent) => {
       e.preventDefault()
-      if (e.dataTransfer?.files?.length) handleUpload(e.dataTransfer.files[0])
+      const files = e.dataTransfer?.files
+      if (files && files.length > 0) {
+        // Upload all dropped files sequentially
+        const fileArray = Array.from(files)
+        const uploadSequentially = async () => {
+          for (const file of fileArray) {
+            await handleUpload(file)
+          }
+        }
+        uploadSequentially()
+      }
     }
     const onDragOver = (e: DragEvent) => e.preventDefault()
     el.addEventListener('drop', onDrop as any)
@@ -921,13 +935,21 @@ export default function MediaLibraryPage() {
               <input
                 id="file-input"
                 type="file"
+                multiple
                 className="hidden"
                 disabled={uploadInProgress}
                 accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml,video/mp4,video/webm,video/quicktime,video/x-m4v"
                 onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    handleUpload(e.target.files[0])
-                    e.target.value = '' // reset so same file can be re-selected
+                  if (e.target.files && e.target.files.length > 0) {
+                    // Upload all selected files sequentially
+                    const files = Array.from(e.target.files)
+                    const uploadSequentially = async () => {
+                      for (const file of files) {
+                        await handleUpload(file)
+                      }
+                    }
+                    uploadSequentially()
+                    e.target.value = '' // reset so same files can be re-selected
                   }
                 }}
               />
