@@ -158,6 +158,8 @@ export default function CampaignDetailPage() {
   const [engineRunning, setEngineRunning] = useState(false)
   const [engineError, setEngineError] = useState('')
   const [approvalState, setApprovalState] = useState<'idle' | 'confirming' | 'approving' | 'done'>('idle')
+  const [launchState, setLaunchState] = useState<'idle' | 'approving' | 'generating' | 'done'>('idle')
+  const [launchError, setLaunchError] = useState('')
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
@@ -421,6 +423,53 @@ export default function CampaignDetailPage() {
       }
     } catch {
       setApprovalState('idle')
+    }
+  }
+
+  const handleApproveAndLaunch = async () => {
+    const token = authHeader()
+    if (!token || !campaign) return
+    setApprovalState('approving')
+    setLaunchState('approving')
+    setLaunchError('')
+    try {
+      // Step 1: Approve campaign (set ACTIVE)
+      const approveRes = await fetch(`/api/campaigns/${campaignId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: token },
+        body: JSON.stringify({ status: 'ACTIVE' }),
+      })
+      const approveData = await approveRes.json()
+      if (!approveData.campaign) {
+        setApprovalState('idle')
+        setLaunchState('idle')
+        return
+      }
+      setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)
+
+      // Step 2: Check if content plan already exists
+      setLaunchState('generating')
+      const existingRes = await fetch(`/api/campaigns/${campaignId}/content-plan`, {
+        headers: { Authorization: token },
+      })
+      const existingData = await existingRes.json()
+
+      if (!existingData.posts || existingData.posts.length === 0) {
+        // Generate content plan
+        await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: token },
+        })
+      }
+
+      // Step 3: Navigate to Content Hub
+      setApprovalState('done')
+      setLaunchState('done')
+      router.push(`/campaigns/${campaignId}/content-hub`)
+    } catch {
+      setApprovalState('idle')
+      setLaunchState('idle')
+      setLaunchError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
     }
   }
 
@@ -1017,21 +1066,25 @@ export default function CampaignDetailPage() {
                 {!engineRunning && sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
                   <button
                     onClick={() => setApprovalState('confirming')}
-                    disabled={approvalState === 'approving'}
+                    disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
                     className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: '0 0 16px rgba(16,185,129,0.2)' }}
                   >
-                    {approvalState === 'approving' ? '...' : (locale === 'ar' ? '✅ اعتماد الحملة' : '✅ Approve Campaign')}
+                    {launchState === 'approving'
+                      ? (locale === 'ar' ? '⏳ جارٍ الاعتماد...' : '⏳ Approving...')
+                      : launchState === 'generating'
+                        ? (locale === 'ar' ? '⚙️ جارٍ إنشاء الخطة...' : '⚙️ Generating plan...')
+                        : (locale === 'ar' ? '🚀 اعتماد وإطلاق' : '🚀 Approve & Launch')}
                   </button>
                 )}
 
                 {(campaign.status === 'ACTIVE' || approvalState === 'done') && (
                   <Link
-                    href="/calendar"
+                    href={`/campaigns/${campaignId}/content-hub`}
                     className="px-4 py-2 rounded-xl text-sm font-bold text-white transition"
-                    style={{ background: 'linear-gradient(135deg, #0891b2, #06b6d4)', boxShadow: '0 0 16px rgba(6,182,212,0.18)' }}
+                    style={{ background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', boxShadow: '0 0 16px rgba(139,92,246,0.22)' }}
                   >
-                    {locale === 'ar' ? '📅 التقويم' : '📅 View Calendar'}
+                    {locale === 'ar' ? '📋 Content Hub' : '📋 Content Hub'}
                   </Link>
                 )}
 
@@ -1125,19 +1178,37 @@ export default function CampaignDetailPage() {
               <p className="mt-2 text-xs text-red-400">⚠️ {sentinelError}</p>
             )}
 
-            {/* Approval confirmation dialog */}
+            {/* Approval & Launch confirmation dialog */}
             {approvalState === 'confirming' && (
               <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
-                {sentinelStatus !== 'passed' && (
-                  <p className="text-xs text-amber-400 mb-3">⚠️ {locale === 'ar' ? 'مراجعة Sentinel لم تكتمل بعد.' : 'Sentinel review not complete yet.'}</p>
+                <p className="text-sm font-semibold text-green-400 mb-1">
+                  {locale === 'ar' ? '🚀 هل أنت جاهز للإطلاق؟' : '🚀 Ready to approve and launch?'}
+                </p>
+                <p className="text-xs text-gray-400 mb-3">
+                  {locale === 'ar'
+                    ? 'سيتم اعتماد الحملة وإنشاء خطة المحتوى الكاملة، ثم انتقالك تلقائياً إلى Content Hub.'
+                    : 'This will approve the campaign, generate your full content plan, and take you straight to the Content Hub.'}
+                </p>
+                {launchError && (
+                  <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
                 )}
-                <p className="text-sm font-semibold text-green-400 mb-1">{cdT?.approveConfirmTitle || 'Approve campaign for execution?'}</p>
-                <p className="text-xs text-gray-400 mb-3">{cdT?.approveConfirmBody || 'This marks the campaign as Active. Your team can start executing all deliverables.'}</p>
                 <div className="flex gap-2">
-                  <button onClick={handleApprove} className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition">
-                    {cdT?.approveConfirmBtn || 'Yes, Approve'}
+                  <button
+                    onClick={handleApproveAndLaunch}
+                    disabled={launchState === 'approving' || launchState === 'generating'}
+                    className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition disabled:opacity-60"
+                  >
+                    {launchState === 'approving'
+                      ? (locale === 'ar' ? '⏳ جارٍ الاعتماد...' : '⏳ Approving...')
+                      : launchState === 'generating'
+                        ? (locale === 'ar' ? '⚙️ جارٍ إنشاء الخطة...' : '⚙️ Generating plan...')
+                        : (locale === 'ar' ? '🚀 نعم، اعتماد وإطلاق' : '🚀 Yes, Approve & Launch')}
                   </button>
-                  <button onClick={() => setApprovalState('idle')} className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition">
+                  <button
+                    onClick={() => setApprovalState('idle')}
+                    disabled={launchState === 'approving' || launchState === 'generating'}
+                    className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition disabled:opacity-50"
+                  >
                     {cdT?.approveCancelBtn || 'Cancel'}
                   </button>
                 </div>
