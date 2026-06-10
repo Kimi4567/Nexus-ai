@@ -521,8 +521,13 @@ export default function BrandBrainPage() {
         setSuggestError(locale === 'ar' ? 'يرجى تسجيل الدخول أولاً' : 'Please log in again')
         return
       }
+      if (res.status === 429) {
+        setSuggestError(locale === 'ar' ? 'طلبات كثيرة جداً — انتظر لحظة ثم حاول مرة أخرى' : 'Too many requests — wait a moment and try again')
+        return
+      }
       if (!res.ok) {
-        setSuggestError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
+        const errData = await res.json().catch(() => ({}))
+        setSuggestError(errData.error || (locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again'))
         return
       }
       const data = await res.json()
@@ -567,8 +572,13 @@ export default function BrandBrainPage() {
         setSuggestError(locale === 'ar' ? 'يرجى تسجيل الدخول أولاً' : 'Please log in again')
         return
       }
+      if (res.status === 429) {
+        setSuggestError(locale === 'ar' ? 'طلبات كثيرة جداً — انتظر لحظة ثم حاول مرة أخرى' : 'Too many requests — wait a moment and try again')
+        return
+      }
       if (!res.ok) {
-        setSuggestError(locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again')
+        const errData = await res.json().catch(() => ({}))
+        setSuggestError(errData.error || (locale === 'ar' ? 'حدث خطأ، حاول مرة أخرى' : 'Something went wrong, please try again'))
         return
       }
       const { suggestions } = await res.json()
