@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -11,7 +11,7 @@ import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
   BookOpen, Users, Calendar, Globe, BarChart3, ArrowUpRight, Layers,
-  ImageIcon, Film, CheckCircle2, Library, Upload, X,
+  ImageIcon, Film, CheckCircle2, Library, Upload, X, Sparkles,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
@@ -50,10 +50,13 @@ function distributePosts(total: number, platformList: string[]): string {
 
 export default function NewCampaignPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { authHeader } = useAuth()
   const { t, locale } = useI18n()
   const cnT = t('campaignNew')
   const billingStatus = useBillingStatus()
+
+  const fromBrief = searchParams?.get('from') === 'brief'
 
   const isRTL = locale === 'ar'
   const PrevIcon = isRTL ? ChevronRight : ChevronLeft
@@ -129,6 +132,7 @@ export default function NewCampaignPage() {
   ]
 
   // ── State ─────────────────────────────────────────────────────────────────────
+  const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [generatingStrategy, setGeneratingStrategy] = useState(false)
@@ -531,6 +535,38 @@ export default function NewCampaignPage() {
               </p>
             </div>
           </div>
+
+          {/* ── Brief banner — shown when arriving from Marketing Operating Brief */}
+          {fromBrief && !briefBannerDismissed && (
+            <div className="rounded-2xl overflow-hidden mb-6"
+              style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+              <div className="p-4 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                    <Sparkles className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#C4B5FD' }}>
+                      {locale === 'ar' ? 'NEXUS يقترح إطلاق أول حملة' : 'NEXUS recommends launching your first campaign'}
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                      {locale === 'ar'
+                        ? 'Brand Brain جاهز — أنشئ خطة محتوى الآن لتحريك منظومتك التسويقية.'
+                        : 'Brand Brain is ready — create a content plan now to activate your marketing system.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBriefBannerDismissed(true)}
+                  className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
+                  style={{ color: 'var(--nx-text-3)' }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Stepper ─────────────────────────────────────────────────────── */}
           <div className="flex items-center gap-1 mb-8 overflow-x-auto">

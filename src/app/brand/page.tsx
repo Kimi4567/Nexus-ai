@@ -3,7 +3,7 @@
 import AppShell from '@/components/AppShell'
 import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
@@ -408,6 +408,8 @@ function BrandSummaryCard({
 export default function BrandBrainPage() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromBrief = searchParams?.get('from') === 'brief'
   const { locale, dir, t } = useI18n()
   const { brand, loading, saving, saveBrand } = useBrandBrain()
 
@@ -416,6 +418,7 @@ export default function BrandBrainPage() {
   }, [authLoading, isAuthenticated, router])
 
   const [step, setStep]     = useState<StepId>('identity')
+  const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const [suggesting, setSuggesting]   = useState<string | null>(null)
@@ -458,6 +461,16 @@ export default function BrandBrainPage() {
       console.error('[BrandBrain] normalizeBrandProfile failed:', err)
     }
   }, [brand])
+
+  // When arriving from the Marketing Brief, auto-jump to the first incomplete step
+  useEffect(() => {
+    if (!fromBrief || loading) return
+    const firstIncomplete = STEPS.find(s => {
+      const val = (form as Record<string, unknown>)[s.fieldCheck]
+      return !val || (Array.isArray(val) ? (val as unknown[]).length === 0 : String(val).trim().length === 0)
+    })
+    if (firstIncomplete) setStep(firstIncomplete.id)
+  }, [fromBrief, loading]) // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k: keyof BrandProfile, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSave = async () => {
@@ -773,6 +786,38 @@ export default function BrandBrainPage() {
         </div>
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 space-y-5">
+
+          {/* ── Marketing Brief Focus Banner ───────────────────── */}
+          {fromBrief && !briefBannerDismissed && (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+              <div className="p-4 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                    style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                    <Sparkles className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold mb-0.5" style={{ color: '#C4B5FD' }}>
+                      {locale === 'ar' ? 'NEXUS يقترح إكمال هذه البيانات' : 'NEXUS recommends completing these fields'}
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                      {locale === 'ar'
+                        ? 'اكتمال Brand Brain يرفع نضج نظامك التسويقي ويجعل كل الوكلاء يعملون بشكل أذكى.'
+                        : 'A complete Brand Brain raises your marketing maturity score and makes every agent smarter.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setBriefBannerDismissed(true)}
+                  className="p-1.5 rounded-lg transition-all hover:bg-white/5 flex-shrink-0"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ══════════════════════════════════════════════════════
               HERO HEADER CARD

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -141,6 +142,10 @@ export default function CampaignDetailPage() {
   const isGenerating = searchParams?.get('generating') === 'true'
   // Capture ?new=1 immediately — router.replace() will strip it later
   const isNewCampaign = searchParams?.get('new') === '1'
+  // Capture ?action=generate-plan — from Marketing Brief "Act now" → auto-trigger content plan
+  const actionGeneratePlan = searchParams?.get('action') === 'generate-plan'
+  // Capture ?from=brief — show a contextual banner
+  const fromBrief = searchParams?.get('from') === 'brief' || actionGeneratePlan
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { t, locale } = useI18n()
   const cdT = t('campaignDetail') as Record<string, string>
@@ -163,6 +168,7 @@ export default function CampaignDetailPage() {
   const [sentinelState, setSentinelState] = useState<'idle' | 'reviewing' | 'done'>('idle')
   const [sentinelError, setSentinelError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<'no_credits' | 'first_campaign'>('no_credits')
   // Autopilot
   const [autopilotQueue, setAutopilotQueue] = useState<AutopilotPost[]>([])
@@ -311,6 +317,23 @@ export default function CampaignDetailPage() {
     handleRunEngine()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign, isNewCampaign, generating, engineRunning, loading])
+
+  // Auto-trigger content plan generation when arriving from Marketing Brief
+  const briefPlanTriggeredRef = useRef(false)
+  useEffect(() => {
+    if (!actionGeneratePlan) return
+    if (!campaign) return                    // wait for campaign to load
+    if (!campaign.aiOutput) return           // strategy must exist first
+    if (launchState !== 'idle') return       // already running
+    if (briefPlanTriggeredRef.current) return
+    if (loading) return
+    if (!authHeader()) return
+    briefPlanTriggeredRef.current = true
+    // Strip the query param to keep URL clean, then trigger
+    router.replace(`/campaigns/${campaignId}`, { scroll: false })
+    handleApproveAndLaunch()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaign, actionGeneratePlan, launchState, loading])
 
   // Poll for AI output when generating=true
   // Stops when strategy is populated OR _generatingAt is cleared (done / error) OR max attempts
@@ -876,6 +899,38 @@ export default function CampaignDetailPage() {
             </div>
           )
         })()}
+
+        {/* Brief banner — shown when arriving from Marketing Operating Brief */}
+        {fromBrief && !briefBannerDismissed && (
+          <div className="rounded-2xl overflow-hidden mb-4"
+            style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
+            <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+            <div className="p-4 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                  <Sparkles className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold mb-0.5" style={{ color: '#C4B5FD' }}>
+                    {locale === 'ar' ? 'NEXUS يقترح إنشاء خطة محتوى' : 'NEXUS recommends generating a content plan'}
+                  </p>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                    {locale === 'ar'
+                      ? 'الاستراتيجية جاهزة — ابدأ بإنشاء خطة محتوى كاملة الآن لتحريك الحملة.'
+                      : 'Strategy is ready — generate a full content plan now to activate this campaign.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBriefBannerDismissed(true)}
+                className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
+                style={{ color: 'var(--nx-text-3)' }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header card — NEXUS UI */}
         <div className="rounded-2xl mb-4 overflow-hidden"

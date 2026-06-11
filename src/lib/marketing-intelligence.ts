@@ -147,6 +147,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     select: { id: true },
   })
 
+
   const emptyAction = action(
     'create-workspace',
     'high',
@@ -201,6 +202,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     connectedIntegrations,
     pendingSuggestions,
     urgentSuggestions,
+    mostRecentCampaign,
   ] = await Promise.all([
     prisma.brandProfile.findUnique({
       where: { workspaceId: workspace.id },
@@ -240,6 +242,11 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     db.integration.count({ where: { workspaceId: workspace.id, status: 'CONNECTED' } }),
     db.agentSuggestion.count({ where: { workspaceId: workspace.id, status: 'PENDING' } }),
     db.agentSuggestion.count({ where: { workspaceId: workspace.id, status: 'PENDING', priority: 1 } }),
+    prisma.campaign.findFirst({
+      where: { workspaceId: workspace.id },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true },
+    }),
   ])
 
   const brandScore = scoreBrandReadiness(brand)
@@ -262,12 +269,18 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   const avgEngagement = averageEngagement(recentPosts)
   const hasAbTests = recentPosts.some(post => post.variantGroup)
 
+  // Dynamic hrefs — context-aware routing
+  const mostRecentCampaignId = mostRecentCampaign?.id ?? null
+  const contentPlanHref = mostRecentCampaignId
+    ? `/campaigns/${mostRecentCampaignId}?action=generate-plan`
+    : '/campaigns'
+
   const actions: MarketingAction[] = []
   if (brandScore < 70) {
     actions.push(action(
       'complete-brand-brain',
       'high',
-      '/brand',
+      '/brand?from=brief',
       'Complete Brand Brain',
       'أكمل Brand Brain',
       'The agents need sharper positioning, audience, offer, and learning memory before they can behave like a senior marketing team.',
@@ -278,7 +291,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     actions.push(action(
       'launch-first-campaign',
       'high',
-      '/campaigns/new',
+      '/campaigns/new?from=brief',
       'Launch the first campaign',
       'أطلق أول حملة',
       'A live campaign gives NEXUS the strategy and content surface it needs to start coordinating execution.',
@@ -289,7 +302,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     actions.push(action(
       'generate-content-plan',
       'high',
-      '/campaigns',
+      contentPlanHref,
       'Generate a content plan',
       'ولّد خطة محتوى',
       'The strategy layer exists, but the machine needs planned posts before publishing and learning can start.',
@@ -322,7 +335,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     actions.push(action(
       'capture-learning',
       'medium',
-      '/brand',
+      '/brand?from=brief',
       'Capture winning hooks',
       'سجل الخطافات الرابحة',
       'Published work should feed Brand Brain so future campaigns improve instead of restarting from zero.',
