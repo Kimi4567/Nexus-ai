@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -48,7 +48,16 @@ function distributePosts(total: number, platformList: string[]): string {
   return Object.entries(per).map(([p, n]) => `${n} ${p}`).join(' · ')
 }
 
+// Suspense wrapper required: useSearchParams() is used inside.
 export default function NewCampaignPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewCampaignPageInner />
+    </Suspense>
+  )
+}
+
+function NewCampaignPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { authHeader } = useAuth()

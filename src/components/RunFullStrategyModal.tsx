@@ -241,12 +241,20 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
         .then(({ ok, data: d }) => {
-          if (cancelled) return
           apiDone = true
           timers.forEach(clearTimeout)
 
-          // Check both d.error (string) and d.errors (array) — route returns errors array
+          // Always persist a successful result — even if the modal was closed mid-run.
+          // This means: if the user navigates away while generation is running and the
+          // API finishes in the background, the result is saved to sessionStorage.
+          // Next time they open the modal, loadResultCache() finds it and shows success
+          // immediately without re-running the strategy.
           const errorMsg = d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
+          if (ok && !errorMsg && d.campaignId) {
+            saveResultCache(d)
+          }
+
+          if (cancelled) return
 
           if (!ok || errorMsg) {
             setResult({ ...d, error: errorMsg || d.error })
@@ -270,9 +278,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 } else {
                   setPhase('success')
                   onSuccess?.()
-                  // Cache the result so reopening the modal shows success
-                  // immediately instead of re-running the strategy API
-                  saveResultCache(d)
                 }
               }
             }, 600)

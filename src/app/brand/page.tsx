@@ -2,7 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -34,7 +34,7 @@ const STEPS: Step[] = [
   { id: 'product',     labelKey: 'brand.stepProductLabel',     descKey: 'brand.stepProductDesc',     icon: Package, color: '#06b6d4', fieldCheck: 'primaryOffer'    },
   { id: 'audience',    labelKey: 'brand.stepAudienceLabel',    descKey: 'brand.stepAudienceDesc',    icon: Users,   color: '#8b5cf6', fieldCheck: 'targetAudience'  },
   { id: 'voice',       labelKey: 'brand.stepVoiceLabel',       descKey: 'brand.stepVoiceDesc',       icon: Mic,     color: '#10b981', fieldCheck: 'writingStyle'    },
-  { id: 'platforms',   labelKey: 'brand.stepPlatformsLabel',   descKey: 'brand.stepPlatformsDesc',   icon: Globe,   color: '#ec4899', fieldCheck: 'visualStyle'     },
+  { id: 'platforms',   labelKey: 'brand.stepPlatformsLabel',   descKey: 'brand.stepPlatformsDesc',   icon: Globe,   color: '#ec4899', fieldCheck: 'topPlatforms'    },
   { id: 'competitors', labelKey: 'brand.stepCompetitorsLabel', descKey: 'brand.stepCompetitorsDesc', icon: Target,  color: '#f97316', fieldCheck: 'competitorNotes' },
 ]
 
@@ -405,7 +405,18 @@ function BrandSummaryCard({
 }
 
 /* ── Main Page ────────────────────────────────────────────────── */
+// Suspense wrapper is required because useSearchParams() is used inside.
+// Without it Next.js 14 throws missing-suspense-with-csr-bailout during SSR,
+// which triggers the error boundary and shows "Brand Brain Error".
 export default function BrandBrainPage() {
+  return (
+    <Suspense fallback={null}>
+      <BrandBrainInner />
+    </Suspense>
+  )
+}
+
+function BrandBrainInner() {
   const { isAuthenticated, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()

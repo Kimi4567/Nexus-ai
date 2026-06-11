@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
@@ -310,7 +310,16 @@ function convertScheduledToCalendarPosts(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// Suspense wrapper required: useSearchParams() is used inside.
 export default function CalendarPage() {
+  return (
+    <Suspense fallback={null}>
+      <CalendarPageInner />
+    </Suspense>
+  )
+}
+
+function CalendarPageInner() {
   const { isAuthenticated, loading, authHeader } = useAuth()
   const { t, locale, isRTL, dir } = useI18n()
   const calT = t('calendar')

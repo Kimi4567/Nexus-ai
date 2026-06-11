@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
@@ -134,7 +134,16 @@ function SaveToMemoryBtn({
   )
 }
 
+// Suspense wrapper required: useSearchParams() is used inside.
 export default function CampaignDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <CampaignDetailPageInner />
+    </Suspense>
+  )
+}
+
+function CampaignDetailPageInner() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()

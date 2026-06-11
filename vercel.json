@@ -136,6 +136,36 @@
     },
     "src/app/api/brain/learn/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/brand/suggest/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/chat/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/ai/generate/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/suggest/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/campaigns/[id]/content-plan/[postId]/rewrite/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/ad-campaigns/ai-suggest/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/ad-campaigns/[id]/generate-strategy/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/ad-campaigns/[id]/generate-copy/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/agent-monitor/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/weekly-brief/route.ts": {
+      "maxDuration": 60
     }
   }
 }
