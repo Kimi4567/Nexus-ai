@@ -174,6 +174,7 @@ export default function ContentHubPage() {
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED'>('ALL')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const autoBuildStartedRef = useRef(false)
 
   // ── Load data ────────────────────────────────────────────────────────────────
 
@@ -260,7 +261,7 @@ export default function ContentHubPage() {
 
   // ── Generate content plan ────────────────────────────────────────────────────
 
-  async function generatePlan() {
+  async function generatePlan(mediaSource: 'GENERATE' | 'MIXED' = 'GENERATE') {
     if (!isAuthenticated) return
     setGeneratingPlan(true)
     setError(null)
@@ -268,7 +269,7 @@ export default function ContentHubPage() {
       const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaSource: 'GENERATE', enableABTesting }),
+        body: JSON.stringify({ mediaSource, enableABTesting }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Generation failed')
@@ -283,6 +284,20 @@ export default function ContentHubPage() {
       setGeneratingPlan(false)
     }
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (autoBuildStartedRef.current || authLoading || loading || !isAuthenticated || generatingPlan || posts.length > 0) return
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('buildPlan') !== '1') return
+
+    autoBuildStartedRef.current = true
+    params.delete('buildPlan')
+    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
+    window.history.replaceState(null, '', nextUrl)
+    void generatePlan('MIXED')
+  }, [authLoading, loading, isAuthenticated, generatingPlan, posts.length])
 
   // ── Save inline edits ────────────────────────────────────────────────────────
 
@@ -625,7 +640,7 @@ export default function ContentHubPage() {
                   )}
                 </button>
                 <button
-                  onClick={generatePlan}
+                  onClick={() => generatePlan()}
                   disabled={generatingPlan}
                   className="px-4 py-2 rounded-xl text-sm border transition-all"
                   style={{ borderColor: 'rgba(139,92,246,0.3)', color: '#a78bfa' }}
@@ -654,7 +669,7 @@ export default function ContentHubPage() {
                   </span>
                 </button>
                 <button
-                  onClick={generatePlan}
+                  onClick={() => generatePlan()}
                   disabled={generatingPlan}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                   style={{

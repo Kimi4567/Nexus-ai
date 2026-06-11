@@ -1183,7 +1183,7 @@ function CampaignDetailPageInner() {
 
                 {(campaign.status === 'ACTIVE' || approvalState === 'done') && (
                   <Link
-                    href={`/campaigns/${campaignId}/content-hub`}
+                    href={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
                     className="px-4 py-2 rounded-xl text-sm font-bold text-white transition"
                     style={{ background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', boxShadow: '0 0 16px rgba(139,92,246,0.22)' }}
                   >
