@@ -18,9 +18,18 @@ import { checkAndDeductCredits } from '@/lib/credits'
 
 // Shared system prompt used for all brand suggest calls
 function buildSystemPrompt(contextBlock: string, brandName?: string, industry?: string): string {
+  const industryClause = industry ? ` in the ${industry} industry` : ''
+
+  // When no industry is set, explicitly prevent the model from guessing based on brand name.
+  // Without this guard, GPT infers industry from the brand name (e.g., "NEXUS AI" → SaaS) and
+  // generates wrong-industry content — Bug #713.
+  const noIndustryGuard = !industry
+    ? `\n\nCRITICAL — INDUSTRY UNKNOWN: The user has NOT yet specified an industry. You MUST NOT assume, infer, or guess the industry from the brand name or any other signal. Do not anchor your output to any industry category. Base your suggestions ONLY on the explicit brand data provided (name, description, offer, audience). If you cannot generate meaningful output without knowing the industry, produce the most industry-neutral, broadly applicable version possible.`
+    : ''
+
   const brandAnchor = brandName
-    ? `You are working exclusively with the brand named "${brandName}"${industry ? ` in the ${industry} industry` : ''}. Every output must be specifically written for "${brandName}" — not for any other brand, platform, or company.`
-    : `You are working with an unnamed brand${industry ? ` in the ${industry} industry` : ''}. Do NOT invent or assume a brand name. Write "this brand" when referring to it. Do NOT generate content for marketing tools, SaaS platforms, or advertising agencies unless the industry explicitly indicates this.`
+    ? `You are working exclusively with the brand named "${brandName}"${industryClause}. Every output must be specifically written for "${brandName}" — not for any other brand, platform, or company.${noIndustryGuard}`
+    : `You are working with an unnamed brand${industryClause}. Do NOT invent or assume a brand name. Write "this brand" when referring to it. Do NOT generate content for marketing tools, SaaS platforms, or advertising agencies unless the industry explicitly indicates this.${noIndustryGuard}`
 
   return `You are a senior brand strategist with deep expertise in positioning, market analysis, and industry-specific marketing.
 

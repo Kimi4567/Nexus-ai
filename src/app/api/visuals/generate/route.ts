@@ -206,9 +206,10 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, rawPublicId)
 
     // ── Apply Sharp brand composite ───────────────────────────────────────
-    // The AI now renders brand name + headline + CTA directly in the image.
-    // Sharp's role is minimal: platform crop + logo overlay + brand accent bar.
-    // We do NOT re-add brand text (would double-render on top of AI text).
+    // Both Arabic and English prompts now generate background-only scenes.
+    // brandComposite handles all text: brand name bar, ad headline overlay.
+    //   Arabic headline → Satori + Noto Naskh Arabic (pixel-perfect RTL)
+    //   English headline → SVG text layer (Sharp handles Latin well)
     // Falls back gracefully if Sharp fails.
     let permanentUrl = cloudinaryUrl
     const overlayPlatform = platformToOverlay(platform)
@@ -221,10 +222,10 @@ export async function POST(req: NextRequest) {
           ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
           : null,
         platform:    overlayPlatform,
-        // For Arabic posts: the background is text-free; we composite the concept headline
-        // here using Satori + Noto Naskh Arabic for pixel-perfect RTL typography.
-        // For English posts: AI already rendered text in the image, so no adHeadline needed.
-        adHeadline: language === 'ar' && concept?.headline ? concept.headline : undefined,
+        // Pass the concept headline for ALL languages — compositor routes Arabic through
+        // Satori and English/Latin through SVG, both producing clean text overlays on
+        // the text-free AI background.
+        adHeadline: concept?.headline || undefined,
       })
 
       const finalPublicId = `visual_${visual.id}`

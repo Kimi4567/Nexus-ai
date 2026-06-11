@@ -264,9 +264,13 @@ export default function PulsePage() {
     ]).then(([ov, ins]) => {
       if (ov && !ov.error) setOverview(ov)
       if (ins?.insights) setInsights(ins.insights)
+    }).catch(() => {
+      // never leave skeletons stuck — swallow any unexpected throws
+    }).finally(() => {
       setDataLoading(false)
     })
-  }, [isAuthenticated, authHeader])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>

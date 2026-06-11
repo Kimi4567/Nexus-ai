@@ -12,10 +12,12 @@
  * Each post caption drives a UNIQUE visual concept — two posts from the same
  * brand should look distinctly different.
  *
- * Text strategy:
- *   English posts → gpt-image-1 renders text in the image (best quality)
- *   Arabic posts  → gpt-image-1 renders Arabic text natively
- *   Sharp         → adds logo + brand accent bar on top (both languages)
+ * Text strategy (both languages — background-only approach):
+ *   AI model      → generates a text-free background scene (explicit NO_TEXT instruction)
+ *   English posts → brandComposite adds headline as SVG text layer via Sharp
+ *   Arabic posts  → brandComposite adds headline via Satori + Noto Naskh Arabic (RTL)
+ *   Sharp         → platform crop + logo overlay + brand accent bar (both languages)
+ *   This ensures zero garbled/wrong AI text in any generated image.
  */
 
 import {
@@ -284,7 +286,9 @@ function buildEnglishAdPrompt(
   const platformHint = getPlatformHint(ctx.platform)
   const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
 
-  return `Create a world-class professional advertising campaign image for ${brandName}.
+  return `Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
+Text, headlines, and brand copy will be composited as a separate layer — DO NOT include any
+text, words, letters, numbers, logos, or typography anywhere in the image.
 
 ADVERTISEMENT QUALITY: ${style.benchmark} level — advertising agency production, not stock photography.
 
@@ -298,24 +302,23 @@ Lighting: ${style.lighting}.
 Mood: ${concept.visualMood}.
 ${style.atmosphere}.
 
-TYPOGRAPHY & TEXT IN THE IMAGE:
-• Brand name: "${brandName}" — top area, bold modern typography, prominent
-• Main headline: "${concept.headline}" — large, ultra-bold, dominant text, center or lower-center
-• Tagline or supporting benefit text (short, impactful) below the headline
-• CTA button or badge: "${concept.cta}" — clean button design, bottom area
-
 EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : ''}.
 
 VISUAL COMPOSITION:
 • ${platformHint}
 • Clear visual hierarchy: one dominant hero element, supporting context, atmospheric depth
-• Professional negative space around text for legibility
+• Leave clean open negative space (lower 35–45% of the frame) for text overlay
+• Soft gradient fade toward the bottom for text legibility
 • Cinematic depth of field — foreground richness with atmospheric background
-• Premium typography integrated naturally into the visual design
+• Premium feel throughout — high-budget campaign aesthetic
+
+CRITICAL: Absolutely NO text, NO words, NO letters, NO numbers, NO watermarks, NO logos,
+NO typography of any kind anywhere in the image. The scene must be 100% visual, zero text.
+This is background art — all copy will be added programmatically on top.
 
 QUALITY BAR:
-This image must look like a high-budget advertising campaign.
-Think: premium full-page magazine ad or top-tier social media campaign.
+This image must look like a high-budget advertising campaign background.
+Think: premium full-page magazine photo or top-tier social media visual without any overlaid text.
 NOT acceptable: stock photography feel, generic backgrounds, flat composition, amateur layouts.`
 }
 
