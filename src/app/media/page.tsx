@@ -134,22 +134,23 @@ function PreviewModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(15,23,42,0.28)', backdropFilter: 'blur(12px)' }}
       onClick={onClose}
     >
       <div
-        className="rounded-2xl shadow-2xl max-w-4xl w-full mx-4 overflow-hidden" style={{ background: 'rgba(6,7,26,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(20px)' }}
+        className="rounded-2xl shadow-2xl max-w-4xl w-full mx-4 overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-sm truncate max-w-xs">{media.fileName}</span>
+            <span className="font-semibold text-sm text-slate-950 truncate max-w-xs">{media.fileName}</span>
             <TypeBadge type={media.type} mT={mT} />
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition text-xl leading-none"
+            className="text-slate-400 hover:text-slate-700 transition text-xl leading-none"
             title={mT.btnClose}
           >
             ✕
@@ -157,7 +158,7 @@ function PreviewModal({
         </div>
 
         {/* Media area */}
-        <div className="flex items-center justify-center min-h-[300px] max-h-[70vh]" style={{ background: 'rgba(6,7,26,0.6)' }}>
+        <div className="flex items-center justify-center min-h-[300px] max-h-[70vh]" style={{ background: '#F8FAFC' }}>
           {isImage && (
             <img
               src={media.url}
@@ -184,15 +185,15 @@ function PreviewModal({
             )
           })()}
           {!isImage && !isVideo && (
-            <div className="text-gray-400 text-sm p-8">{media.fileName}</div>
+            <div className="text-slate-500 text-sm p-8">{media.fileName}</div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 px-5 py-4" style={{ borderTop: '1px solid rgba(139,92,246,0.12)' }}>
+        <div className="flex items-center gap-3 px-5 py-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <button
             onClick={() => navigator.clipboard.writeText(media.url).catch(() => {})}
-            className="rounded-lg px-3 py-1.5 text-sm transition-all" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#8B5CF6' }}
+            className="rounded-lg px-3 py-1.5 text-sm transition-all" style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}
           >
             {mT.btnCopyUrl}
           </button>
@@ -200,11 +201,11 @@ function PreviewModal({
             href={media.url}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg px-3 py-1.5 text-sm text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            className="rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:text-slate-950 transition-all" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
           >
             {mT.btnOpen}
           </a>
-          <div className="ml-auto text-xs text-gray-500">{media.mimeType}</div>
+          <div className="ml-auto text-xs text-slate-500">{media.mimeType}</div>
         </div>
       </div>
     </div>
@@ -256,10 +257,10 @@ function BrandItModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(6,7,26,0.9)', backdropFilter: 'blur(20px)' }}
+      style={{ background: 'rgba(15,23,42,0.28)', backdropFilter: 'blur(12px)' }}
       onClick={onClose}>
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden"
-        style={{ background: 'rgba(10,11,28,0.97)', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 80px rgba(139,92,246,0.15)' }}
+        style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', boxShadow: '0 24px 80px rgba(15,23,42,0.16)' }}
         onClick={e => e.stopPropagation()}>
 
         {/* Top accent bar */}
@@ -267,17 +268,17 @@ function BrandItModal({
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+          style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+              style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
               🎨
             </div>
-            <span className="font-bold text-sm text-white">
+            <span className="font-bold text-sm text-slate-950">
               {isAr ? 'إضافة هوية البراند' : 'Brand This Image'}
             </span>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white transition text-lg leading-none">✕</button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 transition text-lg leading-none">✕</button>
         </div>
 
         <div className="p-5 space-y-4">
@@ -285,13 +286,13 @@ function BrandItModal({
           {/* No brand warning */}
           {!hasBrand && (
             <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
-              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-              <span className="text-amber-400 mt-0.5">⚠</span>
+              style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}>
+              <span className="text-amber-700 mt-0.5">⚠</span>
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#fbbf24' }}>
+                <p className="text-sm font-semibold" style={{ color: '#92400E' }}>
                   {isAr ? 'لا يوجد اسم براند' : 'No brand name set'}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: 'rgba(251,191,36,0.7)' }}>
+                <p className="text-xs mt-0.5" style={{ color: '#B45309' }}>
                   {isAr ? 'أضف اسم البراند في Brand Brain أولاً' : 'Add your brand name in Brand Brain first'}
                 </p>
               </div>
@@ -301,9 +302,9 @@ function BrandItModal({
           {/* Not Cloudinary warning */}
           {!isCloudinary && hasBrand && (
             <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <span className="text-red-400 mt-0.5">⚠</span>
-              <p className="text-xs" style={{ color: '#fca5a5' }}>
+              style={{ background: '#FEF2F2', border: '1px solid rgba(220,38,38,0.18)' }}>
+              <span className="text-red-600 mt-0.5">⚠</span>
+              <p className="text-xs" style={{ color: '#B91C1C' }}>
                 {isAr
                   ? 'هذه الصورة مش على Cloudinary — الـ overlay بيحتاج صورة مرفوعة عبر المنصة'
                   : 'This image is not on Cloudinary — overlay requires an image uploaded through the platform'}
@@ -315,7 +316,7 @@ function BrandItModal({
           {isCloudinary && (
             <div>
               <label className="text-xs font-semibold uppercase tracking-wider mb-2 block"
-                style={{ color: 'rgba(148,163,184,0.6)' }}>
+                style={{ color: '#64748B' }}>
                 {isAr ? 'المنصة' : 'Platform'}
               </label>
               <div className="flex flex-wrap gap-1.5">
@@ -323,9 +324,9 @@ function BrandItModal({
                   <button key={opt.value} onClick={() => setPlatform(opt.value)}
                     className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                     style={{
-                      background: platform === opt.value ? 'rgba(139,92,246,0.2)' : 'rgba(12,13,36,0.6)',
-                      border: `1px solid ${platform === opt.value ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.15)'}`,
-                      color: platform === opt.value ? '#a78bfa' : '#64748b',
+                      background: platform === opt.value ? '#F5F3FF' : '#FFFFFF',
+                      border: `1px solid ${platform === opt.value ? 'rgba(94,92,230,0.35)' : 'rgba(15,23,42,0.10)'}`,
+                      color: platform === opt.value ? '#5E5CE6' : '#64748B',
                     }}>
                     {opt.icon} {isAr ? opt.labelAr : opt.label}
                   </button>
@@ -336,7 +337,7 @@ function BrandItModal({
 
           {/* Image preview */}
           <div className="rounded-xl overflow-hidden flex items-center justify-center"
-            style={{ background: 'rgba(6,7,26,0.6)', border: '1px solid rgba(139,92,246,0.1)', minHeight: 280 }}>
+            style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)', minHeight: 280 }}>
             <img
               key={brandedUrl}
               src={brandedUrl}
@@ -351,13 +352,13 @@ function BrandItModal({
             <div className="flex flex-wrap gap-2 text-xs">
               {brand?.brandName && (
                 <span className="px-2.5 py-1 rounded-full font-semibold"
-                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }}>
+                  style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
                   ✦ {isAr ? 'الاسم:' : 'Name:'} {brand.brandName}
                 </span>
               )}
               {brand?.logoUrl && (
                 <span className="px-2.5 py-1 rounded-full font-semibold"
-                  style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#34d399' }}>
+                  style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)', color: '#047857' }}>
                   ✦ {isAr ? 'اللوجو مضاف' : 'Logo applied'}
                 </span>
               )}
@@ -369,21 +370,21 @@ function BrandItModal({
             <a href={brandedUrl} download target="_blank" rel="noreferrer"
               className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
               style={{
-                background: hasBrand && isCloudinary ? 'linear-gradient(135deg,#8b5cf6,#6d28d9)' : 'rgba(30,30,60,0.5)',
-                color: hasBrand && isCloudinary ? '#fff' : '#475569',
-                boxShadow: hasBrand && isCloudinary ? '0 0 24px rgba(139,92,246,0.3)' : 'none',
+                background: hasBrand && isCloudinary ? '#111827' : '#F1F5F9',
+                color: hasBrand && isCloudinary ? '#fff' : '#64748B',
+                boxShadow: 'none',
                 pointerEvents: (!hasBrand || !isCloudinary) ? 'none' : 'auto',
               }}>
               ⬇ {isAr ? 'تحميل' : 'Download'}
             </a>
             <button onClick={handleCopy}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
-              style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)', color: copyFlash ? '#34d399' : '#94a3b8' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: copyFlash ? '#047857' : '#475569' }}>
               {copyFlash ? '✓ ' : ''}{isAr ? 'نسخ الرابط' : 'Copy URL'}
             </button>
             <button onClick={onClose}
               className="px-4 py-2.5 rounded-xl text-sm transition-all"
-              style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(255,255,255,0.06)', color: '#475569' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: '#475569' }}>
               {isAr ? 'إغلاق' : 'Close'}
             </button>
           </div>
@@ -465,10 +466,10 @@ function MediaCard({
   }
 
   return (
-    <div className="rounded-xl overflow-hidden flex flex-col transition-all hover:shadow-nx-card" style={{ background: 'rgba(12,13,36,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
+    <div className="rounded-xl overflow-hidden flex flex-col transition-all hover:shadow-nx-card" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
       {/* Thumbnail */}
       <div
-        className="relative w-full h-40 cursor-pointer overflow-hidden group" style={{ background: 'rgba(17,20,45,0.8)' }}
+        className="relative w-full h-40 cursor-pointer overflow-hidden group" style={{ background: '#F8FAFC' }}
         onClick={() => onPreview(media)}
       >
         {isVideo ? (
@@ -504,8 +505,8 @@ function MediaCard({
 
       {/* Info + Actions */}
       <div className="p-3 flex-1 flex flex-col gap-2">
-        <div className="font-semibold text-sm truncate" title={media.fileName}>{media.fileName}</div>
-        <div className="text-xs text-gray-500 truncate">{media.mimeType}</div>
+        <div className="font-semibold text-sm text-slate-950 truncate" title={media.fileName}>{media.fileName}</div>
+        <div className="text-xs text-slate-500 truncate">{media.mimeType}</div>
 
         {confirmDelete ? (
           <div className="mt-1">
@@ -520,7 +521,7 @@ function MediaCard({
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="flex-1 rounded-lg text-xs py-1.5 text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                className="flex-1 rounded-lg text-xs py-1.5 text-slate-600 hover:text-slate-950 transition-all" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               >
                 {mT.confirmNo}
               </button>
@@ -530,7 +531,7 @@ function MediaCard({
           <div className="flex gap-1.5 mt-auto pt-1">
             <button
               onClick={() => onPreview(media)}
-              className="flex-1 rounded-lg text-xs py-1.5 transition-all" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#8B5CF6' }}
+              className="flex-1 rounded-lg text-xs py-1.5 transition-all" style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}
             >
               {mT.btnPreview}
             </button>
@@ -538,14 +539,14 @@ function MediaCard({
               <button
                 onClick={(e) => { e.stopPropagation(); onBrandIt(media) }}
                 className="flex-1 rounded-lg text-xs py-1.5 font-semibold transition-all"
-                style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.25)', color: '#22d3ee' }}
+                style={{ background: '#ECFEFF', border: '1px solid rgba(8,145,178,0.18)', color: '#0891B2' }}
                 title="Brand It">
                 🎨 Brand
               </button>
             )}
             <button
               onClick={handleCopyUrl}
-              className="rounded-lg text-xs py-1.5 px-2 text-gray-300 hover:text-white transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              className="rounded-lg text-xs py-1.5 px-2 text-slate-500 hover:text-slate-950 transition-all" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
             >
               {copyFlash ? '✓' : '⎘'}
             </button>
@@ -884,19 +885,17 @@ export default function MediaLibraryPage() {
       )}
 
       <div className="relative min-h-screen">
-          {/* Background grid */}
-          <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-40" />
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8">
             <div>
 
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-mono tracking-wider" style={{ color: 'rgba(139,92,246,0.7)' }}>NEXUS MEDIA</span>
+                <span className="text-xs font-semibold tracking-wider text-slate-500">NEXUS MEDIA</span>
               </div>
-              <h1 className="text-3xl font-bold text-white">{mT?.pageTitle}</h1>
-              <p className="text-gray-400 mt-1 text-sm">{mT?.pageSubtitle}</p>
+              <h1 className="text-3xl font-bold text-slate-950">{mT?.pageTitle}</h1>
+              <p className="text-slate-500 mt-1 text-sm">{mT?.pageSubtitle}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -904,12 +903,12 @@ export default function MediaLibraryPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={mT?.searchPlaceholder}
-                className="rounded-xl px-3 py-2 text-sm text-white outline-none transition-all" style={{ background: 'rgba(12,13,36,0.8)', border: '1px solid rgba(139,92,246,0.2)' }}
+                className="rounded-xl px-3 py-2 text-sm text-slate-950 outline-none transition-all placeholder:text-slate-400" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               />
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="rounded-xl px-3 py-2 text-sm text-white outline-none transition-all" style={{ background: 'rgba(12,13,36,0.8)', border: '1px solid rgba(139,92,246,0.2)' }}
+                className="rounded-xl px-3 py-2 text-sm text-slate-950 outline-none transition-all" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               >
                 <option value="ALL">{mT?.filterAll}</option>
                 <option value="IMAGE">{mT?.filterImages}</option>
@@ -920,16 +919,15 @@ export default function MediaLibraryPage() {
 
           {/* Upload zone */}
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">{mT?.uploadLabel}</label>
+            <label className="block text-sm font-medium text-slate-700 mb-2">{mT?.uploadLabel}</label>
             <div
               ref={dropRef}
               className="rounded-xl p-8 text-center transition-all"
               style={{
-                background: 'rgba(12,13,36,0.6)',
-                border: uploadInProgress ? '2px dashed rgba(139,92,246,0.15)' : '2px dashed rgba(139,92,246,0.3)',
+                background: '#FFFFFF',
+                border: uploadInProgress ? '2px dashed rgba(148,163,184,0.30)' : '2px dashed rgba(94,92,230,0.24)',
                 opacity: uploadInProgress ? 0.6 : 1,
                 cursor: uploadInProgress ? 'not-allowed' : 'pointer',
-                backdropFilter: 'blur(12px)',
               }}
             >
               <input
@@ -955,21 +953,21 @@ export default function MediaLibraryPage() {
               />
               <label
                 htmlFor="file-input"
-                className={`text-base font-semibold ${uploadInProgress ? 'text-gray-500 cursor-not-allowed' : 'cursor-pointer'}`} style={{ color: uploadInProgress ? undefined : '#8B5CF6' }}
+                className={`text-base font-semibold ${uploadInProgress ? 'text-slate-400 cursor-not-allowed' : 'cursor-pointer'}`} style={{ color: uploadInProgress ? undefined : '#5E5CE6' }}
               >
                 {uploadInProgress ? (mT?.uploadingInProgress || 'Upload in progress…') : mT?.uploadClick}
               </label>
-              <div className="text-sm text-gray-400 mt-2">{mT?.uploadDrop}</div>
+              <div className="text-sm text-slate-500 mt-2">{mT?.uploadDrop}</div>
 
               {/* Limits note */}
-              <div className="text-xs text-gray-500 mt-2">
+              <div className="text-xs text-slate-400 mt-2">
                 {canUseCloudinary
                   ? (mT?.uploadLimitsCloud || 'Images up to 10 MB · Videos up to 100 MB (MP4, MOV, WEBM)')
                   : (mT?.uploadLimitsLocal || 'Images up to 3 MB (local) · Video uploads require Cloudinary')}
               </div>
 
               {!canUseCloudinary && (
-                <div className="text-xs text-yellow-300 mt-1">{mT?.cloudinaryUnavailable}</div>
+                <div className="text-xs text-amber-700 mt-1">{mT?.cloudinaryUnavailable}</div>
               )}
             </div>
           </div>
@@ -978,14 +976,14 @@ export default function MediaLibraryPage() {
           {uploadTasks.length > 0 && (
             <div className="mb-6 space-y-3">
               {uploadTasks.map((task) => (
-                <div key={task.id} className="rounded-xl p-4" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                <div key={task.id} className="rounded-xl p-4" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-sm truncate">{task.fileName}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">
+                      <div className="font-semibold text-sm text-slate-950 truncate">{task.fileName}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">
                         {STATUS_LABELS[task.status] || task.status}
                         {task.status === 'UPLOADING' && task.mimeType.startsWith('video') && (
-                          <span className="ml-1 text-gray-500">— {mT?.uploadVideoProgress || 'uploading video, this may take a moment'}</span>
+                          <span className="ml-1 text-slate-400">— {mT?.uploadVideoProgress || 'uploading video, this may take a moment'}</span>
                         )}
                       </div>
                     </div>
@@ -1005,7 +1003,7 @@ export default function MediaLibraryPage() {
                     <div className="mt-2 text-xs text-red-400 leading-relaxed">{task.error}</div>
                   )}
 
-                  <div className="mt-3 h-2 rounded-full bg-dark-tertiary overflow-hidden">
+                  <div className="mt-3 h-2 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className={`h-full transition-all ${task.status === 'FAILED' ? 'bg-red-500' : task.status === 'SUCCESS' ? 'bg-green-500' : 'bg-accent'}`}
                       style={{ width: `${task.status === 'FAILED' ? 100 : task.progress}%` }}
@@ -1017,20 +1015,20 @@ export default function MediaLibraryPage() {
           )}
 
           {errorMessage && (
-            <div className="mb-4 text-sm text-red-400">{errorMessage}</div>
+            <div className="mb-4 text-sm text-red-600">{errorMessage}</div>
           )}
 
           {/* Media grid */}
           {isLoadingMedia ? (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="rounded-xl animate-pulse h-52" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.08)' }} />
+                <div key={i} className="rounded-xl animate-pulse h-52" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)' }} />
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {media.length === 0 ? (
-                <div className="col-span-full rounded-2xl p-12 text-center text-gray-400" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                <div className="col-span-full rounded-2xl p-12 text-center text-slate-500" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)' }}>
                   {mT?.noMedia}
                 </div>
               ) : (
@@ -1049,7 +1047,7 @@ export default function MediaLibraryPage() {
           )}
 
           {/* Pagination */}
-          <div className="mt-6 flex items-center justify-between text-sm text-gray-400">
+          <div className="mt-6 flex items-center justify-between text-sm text-slate-500">
             <div>
               {mT?.paginationLabel
                 ?.replace('{page}', String(page))
@@ -1059,14 +1057,14 @@ export default function MediaLibraryPage() {
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                className="rounded-xl px-4 py-2 text-sm text-gray-300 hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-30" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                className="rounded-xl px-4 py-2 text-sm text-slate-600 hover:text-slate-950 transition-all disabled:cursor-not-allowed disabled:opacity-30" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               >
                 {mT?.btnPrevious}
               </button>
               <button
                 disabled={page >= totalPages}
                 onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-                className="rounded-xl px-4 py-2 text-sm text-gray-300 hover:text-white transition-all disabled:cursor-not-allowed disabled:opacity-30" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                className="rounded-xl px-4 py-2 text-sm text-slate-600 hover:text-slate-950 transition-all disabled:cursor-not-allowed disabled:opacity-30" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               >
                 {mT?.btnNext}
               </button>

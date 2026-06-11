@@ -16,9 +16,9 @@ const LanguageSwitcher = memo(function LanguageSwitcher() {
       onClick={toggle}
       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
       style={{
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        color: '#94a3b8',
+        background: '#FFFFFF',
+        border: '1px solid rgba(15,23,42,0.10)',
+        color: '#475569',
       }}
       title={locale === 'ar' ? t('language.switchTo') as string : 'Switch to Arabic'}
     >
