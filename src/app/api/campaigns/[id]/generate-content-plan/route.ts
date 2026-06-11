@@ -256,15 +256,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // ── 6. Clear any existing DRAFT content plan posts ────────────────────
-    // Cast to any — generationStatus was added via raw SQL migration; prisma generate
-    // hasn't re-run yet so the typed client doesn't include it. The cast bypasses
-    // both TS compile-time errors AND Prisma's runtime schema validation.
+    // Delete ALL DRAFT posts (not just PENDING/FAILED) so regeneration is clean.
+    // COMPLETED posts with uploaded images would otherwise persist and duplicate.
     await (prisma.socialPost as any).deleteMany({
       where: {
         campaignId: params.id,
         workspaceId,
         status: 'DRAFT',
-        generationStatus: { in: ['PENDING', 'FAILED'] },
         publishedAt: null,
       },
     })
@@ -334,7 +332,7 @@ Rules:
 - caption: platform-appropriate length (Instagram ≤ 2200 chars, Twitter/X ≤ 280 chars, LinkedIn ≤ 1300 chars, Facebook ≤ 500 chars)
 - assignedMediaIndex: 0-based index into the AVAILABLE MEDIA ASSETS list above. Set to -1 if no media is available or none fits this post.
 - imagePrompt: only needed when assignedMediaIndex is -1. Vivid, specific, brand-consistent visual description. No text overlays.
-- If media assets are provided, try to assign each one to at least one post — spread them across posts.
+- If media assets are provided, assign each asset to EXACTLY ONE post (no reuse). Leave all other posts with assignedMediaIndex: -1 so they get AI-generated images.
 - isVideoPost=true slots: write a videoCaption and videoScript field instead of imagePrompt
 - scheduledDayOffset: spread posts across 30 days (1–30). With ${slots.length} posts that's roughly ${Math.ceil(slots.length / 4)} per week — aim for consistent spacing (every 2-3 days). Avoid bunching too many on the same day.`
 
@@ -363,7 +361,13 @@ Rules:
     let generatedPosts: any[] = []
     try {
       const raw = JSON.parse(chatData.choices?.[0]?.message?.content ?? '{}')
-      generatedPosts = Array.isArray(raw) ? raw : (raw.posts ?? raw.content ?? [])
+      if (Array.isArray(raw)) {
+        generatedPosts = raw
+      } else {
+        // GPT with json_object format wraps the array — find it regardless of key name
+        const arrayValue = Object.values(raw).find((v) => Array.isArray(v)) as any[] | undefined
+        generatedPosts = arrayValue ?? []
+      }
     } catch {
       generatedPosts = []
     }
@@ -416,9 +420,10 @@ Rules:
           assignedImageUrl = assignedMedia.url
           effectiveMediaSource = 'UPLOAD'
           effectiveGenerationStatus = 'COMPLETED' // no generation needed — real image assigned
-        } else if (mediaSource !== 'GENERATE' && userMedia.length > 0) {
-          // Fallback: round-robin assignment
-          const media = userMedia[i % userMedia.length]
+        } else if (mediaSource !== 'GENERATE' && userMedia.length > 0 && i < userMedia.length) {
+          // Fallback: 1-to-1 assignment — each uploaded image goes to exactly one post
+          // Posts beyond the uploaded count remain empty (PENDING) for AI image generation
+          const media = userMedia[i]
           uploadedMediaId = media.id
           assignedImageUrl = media.url
           effectiveMediaSource = 'UPLOAD'
@@ -453,7 +458,90 @@ Rules:
 
     await (prisma.socialPost as any).createMany({ data: postsToCreate })
 
-    // ── 9b. Generate and insert B variants (if A/B enabled) ────────────────
+    // ── 9b. Image-matched caption generation for uploaded media posts ────────
+    // For posts that have an uploaded image assigned, use GPT Vision to generate
+    // a caption that specifically describes and complements the real image,
+    // aligned with the campaign strategy. This runs AFTER createMany so we can
+    // update each post individually with its image-specific caption.
+    if (userMedia.length > 0 && process.env.OPENAI_API_KEY) {
+      try {
+        // Find the posts we just created that have an assigned image
+        const createdPosts = await (prisma.socialPost as any).findMany({
+          where: {
+            campaignId: params.id,
+            workspaceId,
+            status: 'DRAFT',
+            publishedAt: null,
+            imageUrl: { not: null },
+          },
+          select: { id: true, imageUrl: true, platform: true, caption: true },
+        })
+
+        // For each image post, generate a vision-driven caption
+        await Promise.allSettled(
+          createdPosts.map(async (post: any) => {
+            try {
+              const visionRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o',
+                  max_tokens: 400,
+                  messages: [{
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'image_url',
+                        image_url: { url: post.imageUrl, detail: 'low' },
+                      },
+                      {
+                        type: 'text',
+                        text: `You are writing a social media caption for a ${post.platform} post.
+
+CAMPAIGN CONTEXT:
+- Brand: ${brandName}
+- Campaign: "${campaignName}"
+- Key message: "${keyMessage}"
+- Target audience: ${targetAudience}
+- Tone: ${tone}
+- CTA/Offer: ${offer}
+${languageInstruction}
+
+TASK: Look at this image carefully. Write a compelling ${post.platform} caption that:
+1. Directly relates to and describes what's in this specific image
+2. Connects the visual content to the campaign message
+3. Includes a clear call-to-action
+4. Uses appropriate hashtags for ${post.platform}
+5. Matches the brand tone: ${tone}
+
+Write ONLY the caption text. No explanations. No prefixes.`,
+                      },
+                    ],
+                  }],
+                }),
+              })
+              const vData = await visionRes.json()
+              const newCaption = vData.choices?.[0]?.message?.content?.trim()
+              if (newCaption && newCaption.length > 20) {
+                await (prisma.socialPost as any).update({
+                  where: { id: post.id },
+                  data: { caption: newCaption },
+                })
+              }
+            } catch {
+              // Non-fatal: keep the strategy-generated caption if vision fails
+            }
+          }),
+        )
+      } catch {
+        // Non-fatal: proceed without image-matched captions
+      }
+    }
+
+    // ── 9c. Generate and insert B variants (if A/B enabled) ────────────────
     let bVariantsCreated = 0
     if (enableABTesting) {
       try {
