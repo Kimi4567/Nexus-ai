@@ -1091,7 +1091,7 @@ export default function CampaignDetailPage() {
 
                 {!engineRunning && sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
                   <button
-                    onClick={() => setApprovalState('confirming')}
+                    onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
                     className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: '0 0 16px rgba(16,185,129,0.2)' }}
