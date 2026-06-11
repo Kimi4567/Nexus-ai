@@ -482,11 +482,23 @@ export default function CampaignDetailPage() {
 
       if (!existingData.posts || existingData.posts.length === 0) {
         // Generate content plan — use MIXED so all workspace media gets assigned to posts
-        await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
+        const genRes = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: token },
           body: JSON.stringify({ mediaSource: 'MIXED' }),
         })
+        const genData = await genRes.json()
+        if (!genRes.ok) {
+          setApprovalState('idle')
+          setLaunchState('idle')
+          if (genData.code === 'INSUFFICIENT_CREDITS') {
+            setUpgradeReason('no_credits')
+            setShowUpgrade(true)
+          } else {
+            setLaunchError(genData.error ?? (locale === 'ar' ? 'فشل توليد خطة المحتوى' : 'Failed to generate content plan'))
+          }
+          return
+        }
       }
 
       // Step 3: Navigate to Content Hub
