@@ -151,6 +151,7 @@ function getBriefExecutionTarget(payload: unknown): { nextHref?: string; executi
   const labelMap: Record<string, string> = {
     'complete-brand-brain': 'Open Brand Brain completion flow',
     'capture-learning': 'Open Brand Brain learning flow',
+    'run-full-strategy': 'Open campaign strategy workflow',
     'launch-first-campaign': 'Open campaign creation flow',
     'generate-content-plan': 'Open content plan workflow',
     'schedule-drafts': 'Open scheduling workflow',

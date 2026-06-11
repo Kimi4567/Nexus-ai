@@ -324,6 +324,12 @@ export default function DashboardPage() {
         headers: { Authorization: authHeader() },
       })
       if (!res.ok) throw new Error('Failed')
+      const data = await res.json().catch(() => ({}))
+      if (data?.skipped) {
+        suggestionsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setBriefActionState('idle')
+        return
+      }
       setBriefActionState('saved')
       setSuggestionsKey(k => k + 1)
       setTimeout(() => {
@@ -772,22 +778,29 @@ export default function DashboardPage() {
                         onClick={actOnBriefNow}
                         className="inline-flex items-center gap-1 text-[11px] font-bold"
                         style={{ color: '#A78BFA' }}>
-                        {ar ? 'تنفيذ الآن' : 'Act now'} <ArrowUpRight className="w-3 h-3" />
+                        {ar ? 'افتح الخطوة' : 'Open next step'} <ArrowUpRight className="w-3 h-3" />
                       </button>
-                      <button
-                        onClick={turnBriefIntoSuggestion}
-                        disabled={briefActionState === 'saving'}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold disabled:opacity-60"
-                        style={{ color: briefActionState === 'saved' ? '#10B981' : '#06B6D4' }}
-                      >
-                        {briefActionState === 'saving'
-                          ? (ar ? 'جار الحفظ...' : 'Saving...')
-                          : briefActionState === 'saved'
-                          ? (ar ? 'تمت إضافتها للتوصيات' : 'Added to recommendations')
-                          : (ar ? 'إضافتها كتوصية' : 'Add as recommendation')}
-                        <Sparkles className="w-3 h-3" />
-                      </button>
+                      {intelligence.nextBestAction.id !== 'review-suggestions' && (
+                        <button
+                          onClick={turnBriefIntoSuggestion}
+                          disabled={briefActionState === 'saving'}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold disabled:opacity-60"
+                          style={{ color: briefActionState === 'saved' ? '#10B981' : '#06B6D4' }}
+                        >
+                          {briefActionState === 'saving'
+                            ? (ar ? 'جار الحفظ...' : 'Saving...')
+                            : briefActionState === 'saved'
+                            ? (ar ? 'تمت إضافتها للتوصيات' : 'Added to recommendations')
+                            : (ar ? 'حوّلها لموافقة' : 'Queue for approval')}
+                          <Sparkles className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
+                    <p className="mt-3 text-[10px] leading-relaxed" style={{ color: 'var(--nx-text-4)' }}>
+                      {ar
+                        ? 'الزر يفتح مسار العمل المطلوب. التوصيات بالأسفل للموافقة فقط، وليست بديلا عن الخطوة الأساسية.'
+                        : 'This opens the required workflow. Suggestions below are approvals, not the primary operating step.'}
+                    </p>
                     {briefActionState === 'saved' && (
                       <div className="mt-3 rounded-xl px-3 py-2"
                         style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>

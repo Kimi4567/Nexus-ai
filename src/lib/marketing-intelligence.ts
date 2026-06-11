@@ -262,9 +262,12 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       hasAiInsights(brand.aiInsights))
   )
   const loop = { strategy: hasStrategy, content: hasContent, publishing: hasPublishing, learning: hasLearning }
-  const loopScore = Object.values(loop).filter(Boolean).length * 15
+  const completedLoopCount = Object.values(loop).filter(Boolean).length
+  const loopScore = completedLoopCount * 15
   const volumeScore = Math.min(20, totalCampaigns * 4 + publishedPosts * 2 + scheduledPosts)
-  const maturityScore = Math.min(100, Math.round(brandScore * 0.4 + loopScore + volumeScore))
+  const rawMaturityScore = Math.round(brandScore * 0.4 + loopScore + volumeScore)
+  const loopCap = completedLoopCount === 4 ? 100 : completedLoopCount === 3 ? 84 : completedLoopCount === 2 ? 64 : completedLoopCount === 1 ? 42 : 24
+  const maturityScore = Math.min(loopCap, rawMaturityScore)
   const stage = stageFor(maturityScore)
   const avgEngagement = averageEngagement(recentPosts)
   const hasAbTests = recentPosts.some(post => post.variantGroup)
@@ -296,6 +299,17 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       'أطلق أول حملة',
       'A live campaign gives NEXUS the strategy and content surface it needs to start coordinating execution.',
       'الحملة الأولى تمنح NEXUS سطح الاستراتيجية والمحتوى اللازم لبدء التنسيق والتنفيذ.'
+    ))
+  }
+  if (totalCampaigns > 0 && !hasStrategy) {
+    actions.push(action(
+      'run-full-strategy',
+      'high',
+      '/campaigns',
+      'Run full strategy',
+      'شغّل الاستراتيجية الكاملة',
+      'Campaigns exist, but the strategy loop is not confirmed yet. Open campaigns and generate or refresh the strategic plan before approving execution.',
+      'توجد حملات، لكن حلقة الاستراتيجية غير مؤكدة بعد. افتح الحملات وولّد أو حدّث الخطة الاستراتيجية قبل الموافقة على التنفيذ.'
     ))
   }
   if (totalCampaigns > 0 && recentPosts.length === 0) {
@@ -342,17 +356,6 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       'المحتوى المنشور يجب أن يغذي Brand Brain حتى تتحسن الحملات القادمة بدل البدء من الصفر.'
     ))
   }
-  if (pendingSuggestions > 0) {
-    actions.push(action(
-      'review-suggestions',
-      urgentSuggestions > 0 ? 'high' : 'low',
-      '/dashboard',
-      'Review agent recommendations',
-      'راجع توصيات الوكلاء',
-      'Pending recommendations are the approval queue between analysis and execution.',
-      'التوصيات المعلقة هي قائمة الموافقة بين التحليل والتنفيذ.'
-    ))
-  }
   if (publishedPosts >= 2 && !hasAbTests) {
     actions.push(action(
       'create-ab-test',
@@ -382,8 +385,8 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       id: 'loop',
       label: 'Loop coverage',
       labelAr: 'تغطية الدورة',
-      value: `${Object.values(loop).filter(Boolean).length}/4`,
-      valueAr: `${Object.values(loop).filter(Boolean).length}/4`,
+      value: `${completedLoopCount}/4`,
+      valueAr: `${completedLoopCount}/4`,
       severity: Object.values(loop).every(Boolean) ? 'good' : 'watch',
     },
     {
@@ -422,8 +425,27 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       severity: avgEngagement >= 3 ? 'good' : avgEngagement >= 1 ? 'watch' : 'risk',
     })
   }
+  if (pendingSuggestions > 0) {
+    signals.push({
+      id: 'pending-suggestions',
+      label: 'Pending approvals',
+      labelAr: 'موافقات معلقة',
+      value: urgentSuggestions > 0 ? `${pendingSuggestions} pending · ${urgentSuggestions} urgent` : `${pendingSuggestions} pending`,
+      valueAr: urgentSuggestions > 0 ? `${pendingSuggestions} معلقة · ${urgentSuggestions} عاجلة` : `${pendingSuggestions} معلقة`,
+      severity: urgentSuggestions > 0 ? 'risk' : 'watch',
+    })
+  }
 
   const risks: MarketingRisk[] = []
+  if (pendingSuggestions > 0) {
+    risks.push({
+      id: 'pending-approvals',
+      title: 'Recommendations need decisions',
+      titleAr: 'التوصيات تحتاج قرارا',
+      detail: 'Agent recommendations are useful approvals, but they should not replace the next operating step.',
+      detailAr: 'توصيات الوكلاء مفيدة كموافقات، لكنها لا يجب أن تستبدل خطوة التشغيل التالية.',
+    })
+  }
   if (connectedIntegrations === 0 && recentPosts.length > 0) {
     risks.push({
       id: 'manual-execution',

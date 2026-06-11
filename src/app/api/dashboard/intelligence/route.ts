@@ -24,6 +24,7 @@ function suggestionSpec(actionId: string): {
   switch (actionId) {
     case 'complete-brand-brain':
     case 'capture-learning':
+    case 'run-full-strategy':
       return { agent: 'STRATEGIST', type: 'STRATEGY', priority: 1 }
     case 'launch-first-campaign':
       return { agent: 'STRATEGIST', type: 'CAMPAIGN_LAUNCH', priority: 1 }
@@ -54,6 +55,15 @@ export async function POST(req: NextRequest) {
 
     const brief = await buildMarketingIntelligenceBrief(userId)
     const selected = brief.nextBestAction
+    if (selected.id === 'review-suggestions') {
+      return NextResponse.json({
+        ok: true,
+        created: false,
+        skipped: true,
+        reason: 'Recommendation review is already visible on the dashboard.',
+      })
+    }
+
     const spec = suggestionSpec(selected.id)
     const db = prisma as any
 
