@@ -367,7 +367,16 @@ export async function runCampaignEngine(params: {
       status: 'running',
       lastRunAt: new Date().toISOString(),
     },
+    // Persist a "generating" flag immediately so the client can detect it on reload
+    _generatingAt: new Date().toISOString(),
   }
+
+  // Immediately persist the _generatingAt flag — so if the user navigates away
+  // and comes back, the client can detect the ongoing generation and show the right UI
+  await db.campaign.update({
+    where: { id: campaign.id },
+    data: { aiOutput },
+  })
 
   const agentRun = await db.agentRun.create({
     data: {
@@ -437,6 +446,8 @@ export async function runCampaignEngine(params: {
       lastRunAt: aiOutput.nexusEngine.lastRunAt,
       lastCompletedAt: engine.lastCompletedAt,
     }
+    // Clear the _generatingAt flag — generation is done
+    delete aiOutput._generatingAt
 
     const updatedCampaign = await db.campaign.update({
       where: { id: campaign.id },
@@ -514,6 +525,8 @@ export async function runCampaignEngine(params: {
         status: 'failed',
         error: message,
       },
+      // Clear the generating flag so the client doesn't show a stale "generating" UI
+      _generatingAt: undefined,
     }
     await db.campaign.update({
       where: { id: campaign.id },

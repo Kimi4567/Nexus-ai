@@ -1530,7 +1530,7 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
           </div>
           <div>
             <div className="text-[12px] font-semibold text-gray-900 leading-tight">{handle}</div>
-            <div className="text-[10px] text-gray-500">Sponsored</div>
+            <div className="text-[10px] text-gray-400">Just now</div>
           </div>
         </div>
         <div className="flex items-center gap-2">

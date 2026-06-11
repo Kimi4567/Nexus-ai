@@ -235,6 +235,19 @@ export default function CampaignDetailPage() {
         // when the user navigates back to a campaign that already passed
         const storedReview = (d.campaign?.aiOutput as any)?.sentinelReview
         if (storedReview?.status === 'passed') setSentinelState('done')
+
+        // Fix 4: Background generation persistence
+        // If _generatingAt is set and < 5 minutes old, the engine is still running.
+        // Restore the generating UI and start polling so the user sees progress even
+        // after navigating away and coming back.
+        const generatingAt = (d.campaign?.aiOutput as any)?._generatingAt
+        if (generatingAt && !d.campaign?.aiOutput?.strategy) {
+          const ageMs = Date.now() - new Date(generatingAt).getTime()
+          if (ageMs < 5 * 60 * 1000) { // < 5 minutes = still in-flight
+            setGenerating(true)
+          }
+        }
+
         return d.campaign
       }
     } catch {}
@@ -300,18 +313,26 @@ export default function CampaignDetailPage() {
   }, [campaign, isNewCampaign, generating, engineRunning, loading])
 
   // Poll for AI output when generating=true
+  // Stops when strategy is populated OR _generatingAt is cleared (done / error) OR max attempts
   useEffect(() => {
     if (!generating || !isAuthenticated) return
     let attempts = 0
-    const MAX_ATTEMPTS = 24
+    const MAX_ATTEMPTS = 36  // 36 × 5s = 3 minutes max
 
     pollRef.current = setInterval(async () => {
       attempts++
       const c = await fetchCampaign()
-      if (c?.aiOutput || attempts >= MAX_ATTEMPTS) {
+      const strategyDone = !!(c?.aiOutput as any)?.strategy
+      const flagGone     = !(c?.aiOutput as any)?._generatingAt
+      const timedOut     = attempts >= MAX_ATTEMPTS
+
+      if (strategyDone || flagGone || timedOut) {
         setGenerating(false)
         if (pollRef.current) clearInterval(pollRef.current)
-        router.replace(`/campaigns/${campaignId}`)
+        // If strategy was generated (not just flag cleared by error), navigate to refresh view
+        if (strategyDone) {
+          router.replace(`/campaigns/${campaignId}`)
+        }
       }
     }, 5000)
 
@@ -459,10 +480,11 @@ export default function CampaignDetailPage() {
       const existingData = await existingRes.json()
 
       if (!existingData.posts || existingData.posts.length === 0) {
-        // Generate content plan
+        // Generate content plan — use MIXED so all workspace media gets assigned to posts
         await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: token },
+          body: JSON.stringify({ mediaSource: 'MIXED' }),
         })
       }
 
@@ -1185,37 +1207,76 @@ export default function CampaignDetailPage() {
             {/* Approval & Launch confirmation dialog */}
             {approvalState === 'confirming' && (
               <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
-                <p className="text-sm font-semibold text-green-400 mb-1">
-                  {locale === 'ar' ? '🚀 هل أنت جاهز للإطلاق؟' : '🚀 Ready to approve and launch?'}
-                </p>
-                <p className="text-xs text-gray-400 mb-3">
-                  {locale === 'ar'
-                    ? 'سيتم اعتماد الحملة وإنشاء خطة المحتوى الكاملة، ثم انتقالك تلقائياً إلى Content Hub.'
-                    : 'This will approve the campaign, generate your full content plan, and take you straight to the Content Hub.'}
-                </p>
-                {launchError && (
-                  <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
+                {/* ── Idle: confirm prompt ── */}
+                {launchState === 'idle' && (
+                  <>
+                    <p className="text-sm font-semibold text-green-400 mb-1">
+                      {locale === 'ar' ? '🚀 هل أنت جاهز للإطلاق؟' : '🚀 Ready to approve and launch?'}
+                    </p>
+                    <p className="text-xs text-gray-400 mb-3">
+                      {locale === 'ar'
+                        ? 'سيتم اعتماد الحملة وإنشاء خطة المحتوى الكاملة، ثم انتقالك تلقائياً إلى Content Hub.'
+                        : 'This will approve the campaign, generate your full content plan, and take you straight to the Content Hub.'}
+                    </p>
+                    {launchError && (
+                      <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleApproveAndLaunch}
+                        className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                      >
+                        {locale === 'ar' ? '🚀 نعم، اعتماد وإطلاق' : '🚀 Yes, Approve & Launch'}
+                      </button>
+                      <button
+                        onClick={() => setApprovalState('idle')}
+                        className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition"
+                      >
+                        {cdT?.approveCancelBtn || 'Cancel'}
+                      </button>
+                    </div>
+                  </>
                 )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleApproveAndLaunch}
-                    disabled={launchState === 'approving' || launchState === 'generating'}
-                    className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition disabled:opacity-60"
-                  >
-                    {launchState === 'approving'
-                      ? (locale === 'ar' ? '⏳ جارٍ الاعتماد...' : '⏳ Approving...')
-                      : launchState === 'generating'
-                        ? (locale === 'ar' ? '⚙️ جارٍ إنشاء الخطة...' : '⚙️ Generating plan...')
-                        : (locale === 'ar' ? '🚀 نعم، اعتماد وإطلاق' : '🚀 Yes, Approve & Launch')}
-                  </button>
-                  <button
-                    onClick={() => setApprovalState('idle')}
-                    disabled={launchState === 'approving' || launchState === 'generating'}
-                    className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition disabled:opacity-50"
-                  >
-                    {cdT?.approveCancelBtn || 'Cancel'}
-                  </button>
-                </div>
+
+                {/* ── In-progress: step tracker ── */}
+                {(launchState === 'approving' || launchState === 'generating') && (
+                  <div>
+                    <p className="text-sm font-semibold text-green-400 mb-3">
+                      {locale === 'ar' ? '⏳ جارٍ الإطلاق...' : '⏳ Launching...'}
+                    </p>
+                    <div className="space-y-2">
+                      {/* Step 1 */}
+                      <div className="flex items-center gap-3">
+                        {launchState === 'approving' ? (
+                          <span className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        ) : (
+                          <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-green-400 font-bold text-xs">✓</span>
+                        )}
+                        <p className={`text-xs ${launchState === 'approving' ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>
+                          {locale === 'ar' ? 'اعتماد الحملة' : 'Approving campaign'}
+                        </p>
+                      </div>
+                      {/* Step 2 */}
+                      <div className="flex items-center gap-3">
+                        {launchState === 'generating' ? (
+                          <span className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                        ) : (
+                          <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-gray-600 text-xs">○</span>
+                        )}
+                        <p className={`text-xs ${launchState === 'generating' ? 'text-green-400 font-semibold' : 'text-gray-600'}`}>
+                          {locale === 'ar' ? 'إنشاء خطة المحتوى (قد يستغرق 20-30 ثانية)' : 'Generating content plan (may take 20-30s)'}
+                        </p>
+                      </div>
+                      {/* Step 3 */}
+                      <div className="flex items-center gap-3">
+                        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-gray-600 text-xs">○</span>
+                        <p className="text-xs text-gray-600">
+                          {locale === 'ar' ? 'الانتقال إلى Content Hub' : 'Redirecting to Content Hub'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
