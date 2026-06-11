@@ -22,7 +22,7 @@ import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '
 import {
   Cpu, BarChart3, Film, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
-  Brain, Globe, AlertCircle, AlertTriangle, ImageIcon, Upload,
+  Brain, Globe, AlertCircle, AlertTriangle, ImageIcon, Upload, RefreshCw,
 } from 'lucide-react'
 
 // -- Types -------------------------------------------------------------------
@@ -101,6 +101,21 @@ function clearResultCache() {
 export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Props) {
   const { authHeader } = useAuth()
   const { t, dir, locale } = useI18n()
+
+  // Close from success screen — clear cache so next open starts a fresh run
+  const handleCloseFromSuccess = () => {
+    clearResultCache()
+    onClose()
+  }
+
+  // Start a new strategy run from the success screen
+  const handleRunAgain = () => {
+    clearResultCache()
+    setResult(null)
+    setPhase('running')
+    setCurrentStep(0)
+    setRunKey(k => k + 1)
+  }
 
   const [phase, setPhase]             = useState<Phase>('running')
   const [currentStep, setCurrentStep] = useState(0)
@@ -864,7 +879,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         {/* ========== SUCCESS PHASE ========== */}
         {phase === 'success' && result && (
           <div className="p-6">
-            <button onClick={onClose}
+            <button onClick={handleCloseFromSuccess}
               className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
@@ -915,27 +930,35 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </div>
 
             {result.campaignId ? (
-              <Link href={`/campaigns/${result.campaignId}?tab=strategy`} onClick={onClose}
+              <Link href={`/campaigns/${result.campaignId}?tab=strategy`} onClick={handleCloseFromSuccess}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
                 <Rocket className="w-4 h-4" />
                 {rs.successCampaign}
               </Link>
             ) : (
-              <Link href="/campaigns" onClick={onClose}
+              <Link href="/campaigns" onClick={handleCloseFromSuccess}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
                 <Sparkles className="w-4 h-4" />
                 {rs.successCampaigns}
               </Link>
             )}
 
+            {/* Run Again — clears cache and starts a fresh strategy run */}
+            <button onClick={handleRunAgain}
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-xs font-medium mb-3 transition-all hover:brightness-110"
+              style={{ background: 'rgba(0,212,255,0.07)', border: '1px solid rgba(0,212,255,0.18)', color: '#00D4FF' }}>
+              <RefreshCw className="w-3.5 h-3.5" />
+              {locale === 'ar' ? 'تشغيل استراتيجية جديدة' : 'Run New Strategy'}
+            </button>
+
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={onClose}
+              <button onClick={handleCloseFromSuccess}
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
                 style={{ background: 'rgba(255,184,0,0.08)', border: '1px solid rgba(255,184,0,0.2)', color: '#FFB800' }}>
                 <Sparkles className="w-3.5 h-3.5" />
                 {rs.successSuggestions}
               </button>
-              <Link href="/brand" onClick={onClose}
+              <Link href="/brand" onClick={handleCloseFromSuccess}
                 className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all hover:brightness-110"
                 style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)', color: '#10B981' }}>
                 <Cpu className="w-3.5 h-3.5" />
