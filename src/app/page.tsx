@@ -1293,14 +1293,14 @@ export default function LandingPage() {
                   <thead>
                     <tr style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.015)' }}>
                       <th className="px-5 py-3 text-left text-slate-500 font-semibold">{ar ? 'المقارنة' : 'Feature'}</th>
-                      <th className="px-5 py-3 text-center font-bold" style={{ color:'#8B5CF6' }}>NEXUS Growth ($29)</th>
+                      <th className="px-5 py-3 text-center font-bold" style={{ color:'#8B5CF6' }}>NEXUS Growth ($49)</th>
                       <th className="px-5 py-3 text-center text-slate-500 font-medium">{ar ? 'وكالة تسويق' : 'Agency'}</th>
                       <th className="px-5 py-3 text-center text-slate-500 font-medium">{ar ? 'ChatGPT' : 'ChatGPT'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {[
-                      { feature: ar ? 'التكلفة الشهرية' : 'Monthly cost', nexus: '$29', agency: ar ? '$3,000 – $10,000' : '$3,000 – $10,000', diy: ar ? 'مجاني لكن وقتك ثمين' : 'Free but your time has value' },
+                      { feature: ar ? 'التكلفة الشهرية' : 'Monthly cost', nexus: '$49', agency: ar ? '$3,000 – $10,000' : '$3,000 – $10,000', diy: ar ? 'مجاني لكن وقتك ثمين' : 'Free but your time has value' },
                       { feature: ar ? 'الوقت للبوست الأول' : 'Time to first post', nexus: ar ? '< ٢٠ دقيقة' : '< 20 min', agency: ar ? '٢–٤ أسابيع' : '2–4 weeks', diy: ar ? 'فوري لكن بدون استراتيجية' : 'Instant but no strategy' },
                       { feature: ar ? 'ذاكرة علامتك (Brand Brain)' : 'Brand memory (Brand Brain)', nexus: '✅ دائمة', agency: ar ? '⚠️ تحتاج re-brief كل شهر' : '⚠️ Re-brief every month', diy: ar ? '❌ تنسى بعد كل جلسة' : '❌ Resets every session' },
                       { feature: ar ? 'النشر التلقائي' : 'Auto-publishing', nexus: '✅', agency: ar ? '❌ يرسلون لك الملفات' : '❌ They send you files', diy: '❌' },

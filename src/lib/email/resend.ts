@@ -144,10 +144,10 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
   const content = `
     ${h1('Your AI credits are running low.')}
     ${p(`${firstName}, you have <strong style="color:#f59e0b;">${creditsRemaining} credits left</strong> — that's ${Math.floor(creditsRemaining / 10)} more campaign generation${Math.floor(creditsRemaining / 10) !== 1 ? 's' : ''}.`)}
-    ${p('Upgrade to Pro to keep your momentum going — unlimited credits, unlimited campaigns, and your weekly marketing brief every Monday.')}
+    ${p('Upgrade to Growth to keep your momentum going — 150 credits/month, unlimited campaigns, and your weekly marketing brief every Monday.')}
 
     ${card(`
-      <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What you get with Pro:</div>
+      <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What you get with Growth:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${['200 AI credits every month', 'Unlimited campaigns', 'Weekly strategy brief in your inbox', 'Social publishing to Instagram & Facebook', 'PDF campaign reports'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
@@ -157,7 +157,7 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
       </div>
     `)}
 
-    ${btn('Upgrade to Pro — $79/month →', `${APP_URL}/billing`)}
+    ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
     ${p('7-day money-back guarantee. Cancel anytime.', true)}
   `
 
@@ -413,7 +413,7 @@ export async function sendNurtureDay5(to: string, name: string) {
 
     <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
       <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">After your free campaigns are used:</div>
-      <div style="font-size:13px;color:#9A9080;">Upgrade to Pro for $79/month — unlimited campaigns, your weekly strategy brief, and social publishing. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
+      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — unlimited campaigns, your weekly strategy brief, and social publishing. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
     </div>
 
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
@@ -431,7 +431,7 @@ export async function sendNurtureDay7(to: string, name: string) {
   const firstName = name?.split(' ')[0] || 'there'
 
   const content = `
-    ${h1('Is Nexus worth $79/month?')}
+    ${h1('Is Nexus worth $49/month?')}
     ${p(`${firstName}, you've been on the free plan for a week. I want to be direct with you.`)}
     ${p('Here\'s the honest math:')}
 
@@ -451,16 +451,16 @@ export async function sendNurtureDay7(to: string, name: string) {
           <span style="color:#e8e8f5;font-weight:700;">$2,000–$10,000/month</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;">
-          <span style="color:#FF9500;font-weight:700;">Nexus Pro</span>
-          <span style="color:#FF9500;font-weight:800;">$79/month</span>
+          <span style="color:#FF9500;font-weight:700;">Nexus Growth</span>
+          <span style="color:#FF9500;font-weight:800;">$49/month</span>
         </div>
       </div>
     `)}
 
-    ${p('Nexus Pro gives you unlimited campaigns, your weekly strategy brief every Monday, social publishing, and a brand memory that gets smarter every time you use it.')}
+    ${p('Nexus Growth gives you unlimited campaigns, your weekly strategy brief every Monday, social publishing, and a brand memory that gets smarter every time you use it.')}
     ${p('If you run even one campaign a week that converts — the tool pays for itself in the first sale.')}
 
-    ${btn('Upgrade to Pro — $79/month →', `${APP_URL}/billing`)}
+    ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
 
     <div style="margin-top:16px;text-align:center;">
       ${p('7-day money-back guarantee. No questions asked. <a href="${APP_URL}/billing">See all plans →</a>', true)}
@@ -474,7 +474,7 @@ export async function sendNurtureDay7(to: string, name: string) {
 
   return resend.emails.send({
     from: FROM, replyTo: REPLY_TO, to,
-    subject: `Is Nexus worth $79/month? Here's the honest answer`,
+    subject: `Is Nexus worth $49/month? Here's the honest answer`,
     html: emailShell(content),
   })
 }

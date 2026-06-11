@@ -2,9 +2,9 @@
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 const plans = [
-  {name:'بداية',price:'$99',desc:'للأعمال الصغيرة',featured:false,features:['5 فيديوهات شهرياً','حملة واحدة','تقارير أساسية','دعم بالبريد'],cta:'ابدأ الآن',href:'/auth/register?plan=starter'},
-  {name:'احترافي',price:'$299',desc:'للأعمال النامية',featured:true,badge:'الأكثر شيوعاً',features:['20 فيديو شهرياً','5 حملات متزامنة','تقارير متقدمة + ذكاء','دعم أولوية 24/7','مراقبة المنافسة'],cta:'ابدأ الآن',href:'/auth/register?plan=pro'},
-  {name:'وكالة',price:'$799',desc:'للوكالات والشركات',featured:false,features:['فيديوهات غير محدودة','حملات غير محدودة','وكلاء مخصصون','API كامل','مدير حساب شخصي'],cta:'تواصل معنا',href:'/contact'},
+  {name:'بداية',price:'$19',desc:'للأعمال الصغيرة',featured:false,features:['50 كريديت ذكاء اصطناعي / شهر','5 حملات شهرياً','مساحة عمل واحدة','تصدير PDF'],cta:'ابدأ الآن',href:'/auth/register?plan=starter'},
+  {name:'نمو',price:'$49',desc:'للأعمال النامية',featured:true,badge:'الأكثر شيوعاً',features:['150 كريديت ذكاء اصطناعي / شهر','حملات غير محدودة','3 مساحات عمل','نشر تلقائي على السوشيال','تحليلات الأداء','دعم أولوية'],cta:'ابدأ الآن',href:'/auth/register?plan=growth'},
+  {name:'وكالة',price:'$99',desc:'للوكالات والشركات',featured:false,features:['500 كريديت ذكاء اصطناعي / شهر','حملات غير محدودة','10 مساحات عمل','تقارير بيضاء الملصق','وصول API','مدير حساب شخصي'],cta:'تواصل معنا',href:'/contact'},
 ];
 export default function PricingSection() {
   return (

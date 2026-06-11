@@ -42,7 +42,7 @@ interface RunResult {
   currentCredits?: number
 }
 
-type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'media_check' | 'lang_select'
+type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'media_check' | 'lang_select' | 'cost_confirm'
 
 interface Props {
   isOpen: boolean
@@ -150,14 +150,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // Language selection — user picks before running strategy
   const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
   const [langConfirmed, setLangConfirmed] = useState(false)
+  // Cost confirmation — shown after language selection, before media check
+  const [costConfirmed, setCostConfirmed] = useState(false)
+  const [creditBalance, setCreditBalance] = useState<number | null>(null)
 
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
 
-  // Reset language gate when modal closes — picker shows again on next open
+  // Reset language + cost gates when modal closes — both pickers show again on next open
   useEffect(() => {
     if (!isOpen) {
       setLangConfirmed(false)
+      setCostConfirmed(false)
+      setCreditBalance(null)
       setTabHiddenDuringRun(false)
     }
   }, [isOpen])
@@ -211,6 +216,23 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     // ── Language not yet confirmed — show picker first ────────────────────────
     if (!langConfirmed) {
       setPhase('lang_select')
+      return
+    }
+
+    // ── Cost confirmation — show breakdown before spending credits ─────────────
+    if (!costConfirmed) {
+      setPhase('cost_confirm')
+      // Fetch current credit balance for the breakdown card
+      fetch('/api/user/credits', {
+        headers: { Authorization: authHeaderRef.current() },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((data: { creditsRemaining?: number } | null) => {
+          if (data?.creditsRemaining !== undefined) {
+            setCreditBalance(data.creditsRemaining)
+          }
+        })
+        .catch(() => {})
       return
     }
 
@@ -360,7 +382,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       timers.forEach(clearTimeout)
       startStrategyFnRef.current = null
     }
-  }, [isOpen, runKey, langConfirmed]) // runKey increments on retry; langConfirmed gates lang_select → running
+  }, [isOpen, runKey, langConfirmed, costConfirmed]) // runKey increments on retry; gates: lang_select → cost_confirm → running
 
   // ── Inline media upload (in media_check phase) ────────────────────────────
   const handleMediaUploadFiles = async (files: FileList | null) => {
@@ -544,6 +566,152 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </button>
           </div>
         )}
+
+        {/* ========== COST CONFIRMATION PHASE ========== */}
+        {phase === 'cost_confirm' && (() => {
+          const COST = 8
+          const isUnlimited = creditBalance === -1
+          const balanceAfter = isUnlimited ? -1 : creditBalance !== null ? Math.max(0, creditBalance - COST) : null
+          const canAfford = isUnlimited || (creditBalance !== null && creditBalance >= COST)
+
+          return (
+            <div className="p-6">
+              <button onClick={onClose}
+                className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Header */}
+              <div className="text-center mb-5">
+                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                  <Zap className="w-7 h-7" style={{ color: '#8B5CF6' }} />
+                </div>
+                <h2 className="text-xl font-bold text-white mb-1">
+                  {locale === 'ar' ? 'تأكيد تشغيل الاستراتيجية' : 'Confirm Strategy Run'}
+                </h2>
+                <p className="text-xs text-text-muted">
+                  {locale === 'ar' ? 'راجع التكلفة قبل البدء' : 'Review the cost before starting'}
+                </p>
+              </div>
+
+              {/* Credit breakdown card */}
+              <div className="rounded-2xl p-4 mb-4"
+                style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                {/* Action cost row */}
+                <div className="flex items-center justify-between mb-3 pb-3"
+                  style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: 'rgba(139,92,246,0.12)' }}>
+                      <Rocket className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {locale === 'ar' ? 'تشغيل الاستراتيجية الكاملة' : 'Full Strategy Run'}
+                      </p>
+                      <p className="text-[10px] text-text-muted">
+                        {locale === 'ar' ? '6 وكلاء ذكاء اصطناعي' : '6 AI agents activated'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-end">
+                    <p className="text-lg font-bold" style={{ color: '#FF6B35' }}>
+                      {COST} {locale === 'ar' ? 'كريديت' : 'credits'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Balance rows */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-text-muted text-xs">
+                      {locale === 'ar' ? 'رصيدك الحالي' : 'Current balance'}
+                    </span>
+                    <span className="font-semibold" style={{ color: '#00D4FF' }}>
+                      {creditBalance === null
+                        ? '...'
+                        : isUnlimited
+                        ? (locale === 'ar' ? 'غير محدود ∞' : 'Unlimited ∞')
+                        : `${creditBalance} ${locale === 'ar' ? 'كريديت' : 'credits'}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-text-muted text-xs">
+                      {locale === 'ar' ? 'الرصيد بعد التشغيل' : 'Balance after run'}
+                    </span>
+                    <span className="font-semibold" style={{
+                      color: balanceAfter !== null && !isUnlimited && balanceAfter <= 2 ? '#FF6B35' : '#10B981',
+                    }}>
+                      {balanceAfter === null
+                        ? '...'
+                        : isUnlimited
+                        ? (locale === 'ar' ? 'غير محدود ∞' : 'Unlimited ∞')
+                        : `${balanceAfter} ${locale === 'ar' ? 'كريديت' : 'credits'}`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* What's included */}
+              <div className="rounded-xl p-3 mb-4"
+                style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#10B981' }}>
+                  {locale === 'ar' ? 'ماذا يشمل هذا التشغيل' : "What's included"}
+                </p>
+                <div className="grid grid-cols-2 gap-1">
+                  {(locale === 'ar'
+                    ? ['استراتيجية العلامة', 'خطة الحملة', 'زوايا المحتوى', 'الهوكات والـ CTA', 'القصة المصورة', 'لوحة قيادة ذكية']
+                    : ['Brand Strategy', 'Campaign Plan', 'Content Angles', 'Hooks & CTAs', 'Visual Storyboard', 'Intelligence Brief']
+                  ).map(item => (
+                    <div key={item} className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Not enough credits warning */}
+              {!canAfford && creditBalance !== null && (
+                <div className="rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2"
+                  style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.25)' }}>
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FF6B35' }} />
+                  <p className="text-[11px]" style={{ color: '#FCA5A5' }}>
+                    {locale === 'ar'
+                      ? `تحتاج ${COST} كريديت. رصيدك ${creditBalance} فقط. قم بالترقية للمتابعة.`
+                      : `You need ${COST} credits but have ${creditBalance}. Upgrade to continue.`}
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              {canAfford ? (
+                <button
+                  onClick={() => setCostConfirmed(true)}
+                  className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' }}>
+                  <Rocket className="w-4 h-4" />
+                  {locale === 'ar' ? 'تأكيد وتشغيل الاستراتيجية' : `Confirm & Run — ${COST} credits`}
+                </button>
+              ) : (
+                <button
+                  onClick={() => { onClose(); setShowUpgrade(true) }}
+                  className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%)' }}>
+                  <ArrowUpRight className="w-4 h-4" />
+                  {locale === 'ar' ? 'ترقية الخطة' : 'Upgrade Plan'}
+                </button>
+              )}
+
+              <button onClick={onClose}
+                className="w-full py-2 rounded-xl text-xs text-text-muted hover:text-white transition-all"
+                style={{ border: '1px solid rgba(139,92,246,0.15)' }}>
+                {rs.errorClose}
+              </button>
+            </div>
+          )
+        })()}
 
         {/* ========== RUNNING PHASE ========== */}
         {phase === 'running' && (

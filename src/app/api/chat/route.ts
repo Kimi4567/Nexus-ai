@@ -76,9 +76,9 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Analytics** (/analytics): Track campaign performance and AI-generated insights.
 
-**Billing** (/billing): Manage subscription plan. Plans: FREE (30 credits), Starter ($29/mo, 200 credits), Pro ($79/mo, 600 credits), Agency ($199/mo, unlimited).
+**Billing** (/billing): Manage subscription plan. Plans: FREE (10 credits), Starter ($19/mo, 50 credits), Growth ($49/mo, 150 credits), Agency ($99/mo, 500 credits).
 
-**AI Credits**: Every AI generation costs credits. Campaigns cost 10 credits, images cost 2, full strategy costs 15. Credits reset monthly.
+**AI Credits**: Every AI generation costs credits. Full strategy costs 8 credits, campaign generation costs 5 credits, content plan costs 2 credits, images cost 3 credits each. Credits reset monthly.
 
 **Settings** (/settings): Account preferences, language (Arabic/English), notifications.
 

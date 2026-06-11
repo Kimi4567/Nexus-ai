@@ -274,6 +274,9 @@ export async function checkAndDeductCredits(
   // ── Track usage (non-blocking) ─────────────────────────────────────────────
   await _trackUsage(userId, cost)
 
+  // ── Log transaction (non-blocking) ────────────────────────────────────────
+  _logTransaction(userId, action, -cost).catch(() => {})
+
   // ── Low-credits warning email ──────────────────────────────────────────────
   // Fire when balance drops below threshold (e.g. can't afford another generation).
   if (newCredits < LOW_CREDITS_THRESHOLD && user.email) {
@@ -285,6 +288,100 @@ export async function checkAndDeductCredits(
   }
 
   return { ok: true, creditsRemaining: newCredits, creditsUsed: cost, isUnlimited: false }
+}
+
+// ── Public: add credits (refunds, bonuses, admin top-up) ──────────────────────
+
+/**
+ * Add credits to a user's balance and log the transaction.
+ * Used for refunds, referral bonuses, and admin top-ups.
+ */
+export async function addCredits(
+  userId: string,
+  amount: number,
+  description: string,
+  entityType = 'bonus',
+): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { aiCredits: { increment: amount } },
+  })
+  await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
+}
+
+/**
+ * Fetch the credit transaction history for a user.
+ */
+export async function getCreditHistory(
+  userId: string,
+  limit = 50,
+): Promise<Array<{
+  id: string
+  action: string
+  description: string | null
+  amount: number
+  entityType: string | null
+  createdAt: Date
+}>> {
+  return (prisma as any).creditTransaction
+    .findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        action: true,
+        description: true,
+        amount: true,
+        entityType: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => [])
+}
+
+// ── Internal: credit transaction logger ───────────────────────────────────────
+
+const ACTION_LABELS: Record<string, string> = {
+  RUN_FULL_STRATEGY: 'Run Full Strategy',
+  CAMPAIGN_GENERATION: 'Campaign Generation',
+  CREATIVE_BRIEF: 'Creative Brief',
+  SENTINEL_REVIEW: 'Sentinel Review',
+  IMAGE_GENERATION: 'Image Generation',
+  AD_COPY: 'Ad Copy Generation',
+  CHAT_MESSAGE: 'AI Chat Message',
+  AI_POST_REWRITE: 'AI Post Rewrite',
+  CONTENT_PLAN_GENERATION: 'Content Plan Generation',
+  PAID_PACK_GENERATE: 'Paid Campaign Pack',
+  WEBSITE_SCAN: 'Website Intelligence Scan',
+  CONTENT_ANALYSIS: 'Content Samples Analysis',
+  CREDIT: 'Credits Added',
+  REFUND: 'Refund',
+  BONUS: 'Bonus Credits',
+}
+
+async function _logTransaction(
+  userId: string,
+  action: string,
+  amount: number, // negative = spent, positive = earned
+  description?: string,
+  entityId?: string,
+  entityType?: string,
+): Promise<void> {
+  await (prisma as any).creditTransaction
+    .create({
+      data: {
+        userId,
+        action,
+        description: description || ACTION_LABELS[action] || action,
+        amount,
+        entityId: entityId ?? null,
+        entityType: entityType ?? null,
+      },
+    })
+    .catch(() => {
+      // Non-fatal — transaction log should never block AI generation
+    })
 }
 
 // ── Internal: usage table tracking ────────────────────────────────────────────

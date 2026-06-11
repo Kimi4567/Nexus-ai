@@ -12,11 +12,12 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
+import CreditHistoryModal from '@/components/CreditHistoryModal'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
   Rocket, Brain, BarChart3, Shield, Globe, Image,
-  MessageSquare, FileText, Gift, TrendingUp, Zap,
+  MessageSquare, FileText, Gift, TrendingUp, Zap, History,
 } from 'lucide-react'
 
 // ─── Plan definitions (research-backed June 2025) ─────────────────────────────
@@ -322,6 +323,7 @@ export default function BillingPage() {
   const [upgrading, setUpgrading] = useState<string | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [billingMessage, setBillingMessage] = useState<string | null>(null)
+  const [showCreditHistory, setShowCreditHistory] = useState(false)
 
   useEffect(() => {
     if (!session?.access_token) { setLoading(false); return }
@@ -451,15 +453,24 @@ export default function BillingPage() {
                 </div>
               </div>
 
-              {currentPlan !== 'free' && (
+              <div className="flex items-center gap-2">
+                {currentPlan !== 'free' && (
+                  <button
+                    onClick={handlePortal}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/70 hover:border-violet-500/40 hover:text-white text-sm transition-all"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                    {ar ? 'إدارة الاشتراك' : 'Manage subscription'}
+                  </button>
+                )}
                 <button
-                  onClick={handlePortal}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/70 hover:border-violet-500/40 hover:text-white text-sm transition-all"
+                  onClick={() => setShowCreditHistory(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/50 hover:border-violet-500/30 hover:text-white text-sm transition-all"
                 >
-                  <Settings2 className="w-4 h-4" />
-                  {ar ? 'إدارة الاشتراك' : 'Manage subscription'}
+                  <History className="w-4 h-4" />
+                  {ar ? 'سجل الكريديت' : 'Credit history'}
                 </button>
-              )}
+              </div>
             </div>
           </div>
         )}
@@ -791,6 +802,11 @@ export default function BillingPage() {
         </p>
 
       </div>
+
+      <CreditHistoryModal
+        open={showCreditHistory}
+        onClose={() => setShowCreditHistory(false)}
+      />
     </AppShell>
   )
 }

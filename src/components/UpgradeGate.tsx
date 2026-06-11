@@ -24,9 +24,9 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
         <Link href="/billing"
           className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FF9500] hover:bg-[#5558e8] text-white font-bold rounded-xl text-sm transition-all"
           style={{ boxShadow: '0 0 16px rgba(99,102,241,0.3)' }}>
-          Upgrade to Pro →
+          Upgrade to Growth →
         </Link>
-        <div className="mt-3 text-xs text-gray-600">From $79/month · Cancel anytime</div>
+        <div className="mt-3 text-xs text-gray-600">From $19/month · Cancel anytime</div>
       </div>
     )
   }
@@ -51,7 +51,7 @@ export default function UpgradeGate({ feature, description, onClose, inline = fa
           <Link href="/billing"
             className="block w-full py-3 bg-[#FF9500] hover:bg-[#5558e8] text-white font-bold rounded-xl text-sm transition-all"
             style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}>
-            Upgrade to Pro — $79/month
+            Upgrade to Growth — $49/month
           </Link>
           {onClose && (
             <button onClick={onClose}

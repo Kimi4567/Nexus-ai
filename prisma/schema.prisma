@@ -482,6 +482,32 @@ model Usage {
   @@unique([userId, month, year])
 }
 
+// ── Credit Transaction Log ────────────────────────────────────────────────────
+// Immutable audit trail. Every deduction and refund writes a row here.
+// Negative amount = credits consumed. Positive amount = credits added/refunded.
+model CreditTransaction {
+  id          String   @id @default(cuid())
+
+  userId      String
+
+  // Action key matches CREDIT_COSTS or "REFUND" / "BONUS"
+  action      String
+  // Human-readable label shown in the credit history UI
+  description String?
+
+  // Signed amount: negative = spent, positive = earned/refunded
+  amount      Int
+
+  // Optional link to the entity this credit was spent on
+  entityId    String?   // campaignId, imageId, etc.
+  entityType  String?   // "campaign", "image", "strategy", "refund"
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([userId, createdAt])
+}
+
 // ============================================================================
 // ANALYTICS & EXPORTS
 // ============================================================================
