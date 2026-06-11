@@ -5,7 +5,7 @@ import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
 import OnboardingChecklist from '@/components/OnboardingChecklist'
 import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult } from '@/lib/brandReadiness'
@@ -76,6 +76,47 @@ interface AIInsight {
   href: string
   priority: 'high' | 'medium' | 'low'
 }
+interface MarketingSignal {
+  id: string
+  label: string
+  labelAr: string
+  value: string
+  valueAr: string
+  severity: 'good' | 'watch' | 'risk'
+}
+interface MarketingAction {
+  id: string
+  title: string
+  titleAr: string
+  reason: string
+  reasonAr: string
+  href: string
+  priority: 'high' | 'medium' | 'low'
+}
+interface MarketingRisk {
+  id: string
+  title: string
+  titleAr: string
+  detail: string
+  detailAr: string
+}
+interface MarketingIntelligenceBrief {
+  maturityScore: number
+  stage: string
+  stageAr: string
+  summary: string
+  summaryAr: string
+  nextBestAction: MarketingAction
+  actions: MarketingAction[]
+  signals: MarketingSignal[]
+  risks: MarketingRisk[]
+  loop: {
+    strategy: boolean
+    content: boolean
+    publishing: boolean
+    learning: boolean
+  }
+}
 
 // Agent definitions mapped to new NEXUS UI AgentId system
 const AGENT_DEFS: Array<{
@@ -125,12 +166,15 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [insights, setInsights] = useState<AIInsight[]>([])
+  const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
   const [suggestionsKey, setSuggestionsKey] = useState(0)
+  const [briefActionState, setBriefActionState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const suggestionsSectionRef = useRef<HTMLDivElement | null>(null)
 
   // Auto-open RunFullStrategy modal when redirected from Brand Brain (?runStrategy=1)
   useEffect(() => {
@@ -173,9 +217,10 @@ export default function DashboardPage() {
     if (!silent) setLoading(true)
     else setRefreshing(true)
     try {
-      const [statsRes, campaignsRes] = await Promise.allSettled([
+      const [statsRes, campaignsRes, intelligenceRes] = await Promise.allSettled([
         fetch('/api/dashboard/stats', { headers: { Authorization: authHeader() } }),
         fetch('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: authHeader() } }),
+        fetch('/api/dashboard/intelligence', { headers: { Authorization: authHeader() } }),
       ])
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         const d = await statsRes.value.json()
@@ -211,6 +256,10 @@ export default function DashboardPage() {
       if (campaignsRes.status === 'fulfilled' && campaignsRes.value.ok) {
         const d = await campaignsRes.value.json()
         setCampaigns(d.campaigns || [])
+      }
+      if (intelligenceRes.status === 'fulfilled' && intelligenceRes.value.ok) {
+        const d = await intelligenceRes.value.json()
+        setIntelligence(d.brief || null)
       }
       setLastUpdated(new Date())
     } catch {/* silent */}
@@ -266,6 +315,34 @@ export default function DashboardPage() {
       action: isAr ? 'عرض التقرير' : 'View Report', href: '/sentinel' })
     setInsights(built)
   }, [stats, hasConnections, locale])
+
+  const turnBriefIntoSuggestion = useCallback(async () => {
+    setBriefActionState('saving')
+    try {
+      const res = await fetch('/api/dashboard/intelligence', {
+        method: 'POST',
+        headers: { Authorization: authHeader() },
+      })
+      if (!res.ok) throw new Error('Failed')
+      setBriefActionState('saved')
+      setSuggestionsKey(k => k + 1)
+      setTimeout(() => {
+        suggestionsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 250)
+      setTimeout(() => setBriefActionState('idle'), 4000)
+    } catch {
+      setBriefActionState('idle')
+    }
+  }, [authHeader])
+
+  const actOnBriefNow = useCallback(() => {
+    const href = intelligence?.nextBestAction.href
+    if (!href || href === '/dashboard') {
+      suggestionsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    router.push(href)
+  }, [intelligence?.nextBestAction.href, router])
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const timeStr = lastUpdated.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
@@ -637,6 +714,156 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* ── Marketing Operating Brief ── */}
+          {intelligence && (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: 'rgba(12,13,36,0.72)', border: '1px solid rgba(6,182,212,0.16)', backdropFilter: 'blur(16px)' }}>
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #06b6d4, #8b5cf6, #10b981)' }} />
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
+                  <div className="flex items-start gap-4 flex-1 min-w-[240px]">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.22)' }}>
+                      <BarChart3 className="w-5 h-5" style={{ color: '#06B6D4' }} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="text-sm font-bold" style={{ color: 'var(--nx-text-1)' }}>
+                          {ar ? 'موجز تشغيل التسويق' : 'Marketing Operating Brief'}
+                        </p>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                          style={{ background: 'rgba(16,185,129,0.1)', color: '#6ee7b7', border: '1px solid rgba(16,185,129,0.22)' }}>
+                          {ar ? intelligence.stageAr : intelligence.stage}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed max-w-3xl" style={{ color: 'var(--nx-text-3)' }}>
+                        {ar ? intelligence.summaryAr : intelligence.summary}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="w-full sm:w-auto sm:min-w-[170px]">
+                    <div className="flex items-end justify-between gap-3 mb-2">
+                      <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
+                        {ar ? 'نضج النظام' : 'System maturity'}
+                      </span>
+                      <span className="text-2xl font-bold" style={{ color: '#06B6D4' }}>{intelligence.maturityScore}</span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${intelligence.maturityScore}%`, background: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                  <div className="xl:col-span-1 rounded-xl p-4"
+                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.14)' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#A78BFA' }}>
+                      {ar ? 'الخطوة التالية' : 'Next best action'}
+                    </p>
+                    <p className="text-sm font-bold mb-1" style={{ color: 'var(--nx-text-1)' }}>
+                      {ar ? intelligence.nextBestAction.titleAr : intelligence.nextBestAction.title}
+                    </p>
+                    <p className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--nx-text-3)' }}>
+                      {ar ? intelligence.nextBestAction.reasonAr : intelligence.nextBestAction.reason}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={actOnBriefNow}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold"
+                        style={{ color: '#A78BFA' }}>
+                        {ar ? 'تنفيذ الآن' : 'Act now'} <ArrowUpRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={turnBriefIntoSuggestion}
+                        disabled={briefActionState === 'saving'}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold disabled:opacity-60"
+                        style={{ color: briefActionState === 'saved' ? '#10B981' : '#06B6D4' }}
+                      >
+                        {briefActionState === 'saving'
+                          ? (ar ? 'جار الحفظ...' : 'Saving...')
+                          : briefActionState === 'saved'
+                          ? (ar ? 'تمت إضافتها للتوصيات' : 'Added to recommendations')
+                          : (ar ? 'إضافتها كتوصية' : 'Add as recommendation')}
+                        <Sparkles className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {briefActionState === 'saved' && (
+                      <div className="mt-3 rounded-xl px-3 py-2"
+                        style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
+                        <p className="text-[11px] font-bold" style={{ color: '#6EE7B7' }}>
+                          {ar ? 'تم إنشاء توصية جديدة في صندوق توصيات الوكلاء بالأسفل.' : 'A new agent recommendation was added below.'}
+                        </p>
+                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--nx-text-4)' }}>
+                          {ar ? 'راجعها هناك ثم وافق عليها أو ارفضها.' : 'Review it there, then approve or reject it.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--nx-text-4)' }}>
+                        {ar ? 'دورة التشغيل' : 'Operating loop'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { key: 'strategy', en: 'Strategy', ar: 'استراتيجية' },
+                          { key: 'content', en: 'Content', ar: 'محتوى' },
+                          { key: 'publishing', en: 'Publishing', ar: 'نشر' },
+                          { key: 'learning', en: 'Learning', ar: 'تعلم' },
+                        ].map(step => {
+                          const active = intelligence.loop[step.key as keyof MarketingIntelligenceBrief['loop']]
+                          return (
+                            <div key={step.key} className="rounded-xl px-3 py-2 flex items-center gap-2"
+                              style={{ background: active ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.035)', border: `1px solid ${active ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)'}` }}>
+                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: active ? '#10B981' : 'rgba(255,255,255,0.24)' }} />
+                              <span className="text-[11px]" style={{ color: active ? 'var(--nx-text-2)' : 'var(--nx-text-4)' }}>
+                                {ar ? step.ar : step.en}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--nx-text-4)' }}>
+                        {ar ? 'إشارات النظام' : 'System signals'}
+                      </p>
+                      <div className="space-y-2">
+                        {intelligence.signals.slice(0, 4).map(signal => {
+                          const color = signal.severity === 'good' ? '#10B981' : signal.severity === 'watch' ? '#EAB308' : '#F43F5E'
+                          return (
+                            <div key={signal.id} className="flex items-center justify-between gap-3 text-[11px]">
+                              <span className="truncate" style={{ color: 'var(--nx-text-4)' }}>{ar ? signal.labelAr : signal.label}</span>
+                              <span className="font-bold shrink-0" style={{ color }}>{ar ? signal.valueAr : signal.value}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {intelligence.risks.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {intelligence.risks.map(risk => (
+                      <div key={risk.id} className="inline-flex items-start gap-2 rounded-xl px-3 py-2 max-w-full md:max-w-[360px]"
+                        style={{ background: 'rgba(249,115,22,0.055)', border: '1px solid rgba(249,115,22,0.14)' }}>
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#F97316' }} />
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold" style={{ color: '#FDBA74' }}>{ar ? risk.titleAr : risk.title}</p>
+                          <p className="text-[10px] leading-relaxed" style={{ color: 'var(--nx-text-4)' }}>{ar ? risk.detailAr : risk.detail}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ── AI Agents Status ── */}
           <div>
             <NexusSectionHeader
@@ -667,7 +894,9 @@ export default function DashboardPage() {
           <BrainLearningPanel compact={true} />
 
           {/* ── Sprint B: AI Suggestions Feed ── */}
-          <SuggestionsWidget refreshKey={suggestionsKey} />
+          <div ref={suggestionsSectionRef} className="scroll-mt-6">
+            <SuggestionsWidget refreshKey={suggestionsKey} />
+          </div>
 
           {/* ── Main Grid ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

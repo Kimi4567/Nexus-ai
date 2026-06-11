@@ -140,6 +140,20 @@ export async function GET(req: NextRequest) {
     // Non-fatal: save the connection anyway with no accounts yet
   }
 
+  // Step 4b: Fetch Facebook Pages managed by this user
+  // Page ID is required for creating ad creatives
+  let pages: Array<{ id: string; name: string; access_token?: string }> = []
+  try {
+    const pagesRes = await fetch(
+      `https://graph.facebook.com/v21.0/me/accounts` +
+      `?fields=id,name,access_token,category` +
+      `&access_token=${longToken}`
+    )
+    const pagesData = await pagesRes.json()
+    pages = pagesData.data || []
+    console.log(`[Meta Ads OAuth] Found ${pages.length} Facebook Pages for user ${userId}`)
+  } catch { /* non-fatal */ }
+
   // Step 5: Ensure Prisma user + workspace exist
   let realEmail: string | undefined
   try {
@@ -177,6 +191,9 @@ export async function GET(req: NextRequest) {
   const encryptedToken = encryptToken(longToken)
   const tokenExpiry = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 days
 
+  // Use the first active page as the default page for ad creatives
+  const primaryPage = pages.find(p => p.id) || null
+
   let savedCount = 0
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = prisma as any
@@ -206,6 +223,9 @@ export async function GET(req: NextRequest) {
           timeZone: account.timezone_name || 'UTC',
           status: isActive ? 'ACTIVE' : 'DISCONNECTED',
           hasApiAccess: false, // set to true once Meta App Review is approved
+          // Save primary page ID for ad creative creation
+          pageId: primaryPage?.id || null,
+          pageName: primaryPage?.name || null,
         },
         update: {
           platformAccountName: account.name,
@@ -217,6 +237,8 @@ export async function GET(req: NextRequest) {
           timeZone: account.timezone_name || 'UTC',
           status: isActive ? 'ACTIVE' : 'DISCONNECTED',
           lastSyncAt: new Date(),
+          // Update page ID if not yet set
+          ...(primaryPage?.id ? { pageId: primaryPage.id, pageName: primaryPage.name } : {}),
         },
       })
       savedCount++

@@ -437,13 +437,30 @@ export function nexusToMetaTargeting(aiTargeting: Record<string, unknown>): Meta
   }
 
   if (aiTargeting.meta_interests && Array.isArray(aiTargeting.meta_interests)) {
-    // Note: In production, you'd resolve these interest names to Meta IDs
-    // via /search?type=adinterest&q=<name>
-    // For now, mark as pending resolution
-    targeting.interests = (aiTargeting.meta_interests as string[]).map(name => ({
-      id: `_pending_${name.replace(/\s+/g, '_').toLowerCase()}`,
-      name,
-    }))
+    // Meta interests require numeric IDs from the Targeting Search API.
+    // If pre-resolved IDs are provided (format: "12345:Interest Name"), use them.
+    // Otherwise skip interests — campaigns will use broad targeting which is
+    // often more effective for cold audiences anyway.
+    const resolvedInterests: Array<{ id: string; name: string }> = []
+
+    for (const item of aiTargeting.meta_interests as string[]) {
+      if (typeof item === 'string' && item.includes(':')) {
+        // Pre-resolved format: "6003139266461:Entrepreneurship"
+        const colonIdx = item.indexOf(':')
+        const id = item.slice(0, colonIdx).trim()
+        const name = item.slice(colonIdx + 1).trim()
+        if (id && !isNaN(Number(id))) {
+          resolvedInterests.push({ id, name })
+        }
+      }
+      // Skip unresolved names — don't add _pending_ IDs which cause API errors
+    }
+
+    if (resolvedInterests.length > 0) {
+      targeting.interests = resolvedInterests
+    }
+    // If no resolved interests, targeting falls back to broad (no interests filter)
+    // This is intentional — broad targeting is valid and often better for awareness campaigns
   }
 
   if (aiTargeting.meta_placements && Array.isArray(aiTargeting.meta_placements)) {

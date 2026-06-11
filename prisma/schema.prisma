@@ -1698,6 +1698,39 @@ model AdPerformanceSnapshot {
 }
 
 // ============================================================================
+// META APP REVIEW COMPLIANCE
+// ============================================================================
+
+// Tracks Meta Data Deletion Requests (required by Meta Platform Policy)
+// Endpoint: POST /api/social/callback/meta-data-deletion
+model DataDeletionRequest {
+  id              String   @id @default(cuid())
+
+  // Meta's Facebook user ID (from signed_request payload)
+  fbUserId        String
+
+  // Our internal user ID (if we can match it)
+  userId          String?
+
+  // Deletion status
+  status          String   @default("pending")   // "pending" | "completed" | "not_found"
+
+  // Confirmation code returned to Meta
+  confirmationCode String  @unique
+
+  // Timestamp when Meta sent the request
+  requestedAt     DateTime @default(now())
+
+  // Timestamp when we completed the deletion
+  completedAt     DateTime?
+
+  @@index([fbUserId])
+  @@index([userId])
+  @@index([confirmationCode])
+  @@index([status])
+}
+
+// ============================================================================
 // RATE LIMITING (production-grade, cross-instance)
 // ============================================================================
 

@@ -64,6 +64,10 @@
     {
       "path": "/api/cron/trend-monitor",
       "schedule": "30 8 * * 1"
+    },
+    {
+      "path": "/api/cron/refresh-ad-tokens",
+      "schedule": "0 5 * * *"
     }
   ],
   "functions": {
