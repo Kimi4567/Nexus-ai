@@ -270,7 +270,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
 
     // ── 7. Build slot distribution ─────────────────────────────────────────
-    const slots = distributePosts(quota.postsPerMonth, quota.videoSlotsPerMonth, platforms)
+    // Use postsPerCampaign (per-run count) instead of the monthly billing quota
+    const campaignPostCount = quota.postsPerCampaign ?? 12
+    const slots = distributePosts(campaignPostCount, quota.videoSlotsPerMonth, platforms)
 
     // ── 8. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length
@@ -334,7 +336,7 @@ Rules:
 - imagePrompt: only needed when assignedMediaIndex is -1. Vivid, specific, brand-consistent visual description. No text overlays.
 - If media assets are provided, try to assign each one to at least one post — spread them across posts.
 - isVideoPost=true slots: write a videoCaption and videoScript field instead of imagePrompt
-- scheduledDayOffset: spread posts across 30 days (1–30), roughly 1 per day`
+- scheduledDayOffset: spread posts across 30 days (1–30). With ${slots.length} posts that's roughly ${Math.ceil(slots.length / 4)} per week — aim for consistent spacing (every 2-3 days). Avoid bunching too many on the same day.`
 
     const userMsg = `Generate content plan for ${slots.length} posts. Slots: ${JSON.stringify(
       slots.map(s => ({ index: s.index, platform: s.platform, isVideoPost: s.isVideoPost })),

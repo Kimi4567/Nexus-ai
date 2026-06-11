@@ -248,21 +248,22 @@ export const PLAN_CREDITS: Record<string, number> = {
 export interface PlanQuota {
   postsPerMonth: number        // AI-generated image/caption posts (~$0.05 each)
   videoSlotsPerMonth: number   // scheduled video post slots (user uploads own video — $0 COGS)
+  postsPerCampaign: number     // how many posts to generate per content plan run
 }
 
 export const PLAN_QUOTAS: Record<string, PlanQuota> = {
-  FREE:     { postsPerMonth: 3,   videoSlotsPerMonth: 0  },
-  STARTER:  { postsPerMonth: 10,  videoSlotsPerMonth: 0  },
-  PRO:      { postsPerMonth: 25,  videoSlotsPerMonth: 2  },
-  BUSINESS: { postsPerMonth: 60,  videoSlotsPerMonth: 5  },
-  free:     { postsPerMonth: 3,   videoSlotsPerMonth: 0  },
-  starter:  { postsPerMonth: 10,  videoSlotsPerMonth: 0  },
-  pro:      { postsPerMonth: 25,  videoSlotsPerMonth: 2  },
-  business: { postsPerMonth: 60,  videoSlotsPerMonth: 5  },
-  agency:   { postsPerMonth: 60,  videoSlotsPerMonth: 5  },
-  ACTIVE:   { postsPerMonth: 25,  videoSlotsPerMonth: 2  },
-  ADMIN:    { postsPerMonth: 999, videoSlotsPerMonth: 99 },
-  admin:    { postsPerMonth: 999, videoSlotsPerMonth: 99 },
+  FREE:     { postsPerMonth: 3,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
+  STARTER:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
+  PRO:      { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
+  BUSINESS: { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
+  free:     { postsPerMonth: 3,   videoSlotsPerMonth: 0,  postsPerCampaign: 8  },
+  starter:  { postsPerMonth: 10,  videoSlotsPerMonth: 0,  postsPerCampaign: 12 },
+  pro:      { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
+  business: { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
+  agency:   { postsPerMonth: 60,  videoSlotsPerMonth: 5,  postsPerCampaign: 20 },
+  ACTIVE:   { postsPerMonth: 25,  videoSlotsPerMonth: 2,  postsPerCampaign: 16 },
+  ADMIN:    { postsPerMonth: 999, videoSlotsPerMonth: 99, postsPerCampaign: 16 },
+  admin:    { postsPerMonth: 999, videoSlotsPerMonth: 99, postsPerCampaign: 16 },
 }
 
 // ── Referral bonus credits ─────────────────────────────────────────────────────
