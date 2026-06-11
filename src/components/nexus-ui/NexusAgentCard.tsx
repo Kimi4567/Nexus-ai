@@ -29,21 +29,22 @@ export function NexusAgentCard({
       href={href}
       className="group block rounded-2xl p-4 relative overflow-hidden transition-all duration-300"
       style={{
-        background: 'rgba(12,13,36,0.65)',
-        border: `1px solid ${accentColor}20`,
+        background: '#FFFFFF',
+        border: `1px solid rgba(15,23,42,0.08)`,
+        boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.05)',
       }}
       onMouseEnter={e => {
         const el = e.currentTarget
-        el.style.background = 'rgba(17,19,48,0.85)'
-        el.style.borderColor = `${accentColor}45`
-        el.style.boxShadow = `0 8px 32px rgba(0,0,0,0.4), 0 0 20px ${accentColor}18`
+        el.style.background = '#FFFFFF'
+        el.style.borderColor = `${accentColor}35`
+        el.style.boxShadow = `0 16px 42px rgba(15,23,42,0.09), 0 10px 26px ${accentColor}10`
         el.style.transform = 'translateY(-2px)'
       }}
       onMouseLeave={e => {
         const el = e.currentTarget
-        el.style.background = 'rgba(12,13,36,0.65)'
-        el.style.borderColor = `${accentColor}20`
-        el.style.boxShadow = ''
+        el.style.background = '#FFFFFF'
+        el.style.borderColor = 'rgba(15,23,42,0.08)'
+        el.style.boxShadow = '0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.05)'
         el.style.transform = ''
       }}
     >

@@ -59,12 +59,12 @@ function LoginForm() {
     }
   }
 
-  const inputClass = "w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition text-right"
-  const inputStyle = { background: 'rgba(12,13,36,0.65)', border: '1px solid rgba(139,92,246,0.15)', focusBorderColor: '#8B5CF6' }
+  const inputClass = "w-full px-4 py-3 rounded-xl text-slate-950 placeholder-slate-400 focus:outline-none transition text-right"
+  const inputStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.12)' }
 
   return (
-    <div className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4 py-12"
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}>
+    <div className="min-h-screen bg-bg-base text-slate-950 flex items-center justify-center px-4 py-12"
+      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(94,92,230,0.08), transparent)' }}>
       <div className="w-full max-w-md">
         <div className="flex justify-end mb-4">
           <LanguageSwitcher />
@@ -78,7 +78,7 @@ function LoginForm() {
             <span className="text-2xl font-extrabold tracking-wider font-heading text-gradient">NEXUS AI</span>
           </Link>
 
-          <h2 className="text-2xl font-bold font-heading mb-1">{loginT?.title}</h2>
+          <h2 className="text-2xl font-bold font-heading mb-1 text-slate-950">{loginT?.title}</h2>
           <p className="text-text-secondary text-sm mb-8">{loginT?.subtitle}</p>
 
           {error && (
@@ -93,8 +93,8 @@ function LoginForm() {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com"
                 autoComplete="email" className={inputClass}
                 style={inputStyle}
-                onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
+                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
             </div>
             <div>
               <label className="block text-sm font-semibold mb-2 text-text-secondary">{loginT?.passwordLabel}</label>
@@ -102,10 +102,10 @@ function LoginForm() {
                 <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••"
                   autoComplete="current-password" className={`${inputClass} pr-11`}
                   style={inputStyle}
-                  onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-                  onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')} />
+                  onFocus={e => (e.currentTarget.style.border = '1px solid rgba(94,92,230,0.5)')}
+                  onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')} />
                 <button type="button" onClick={() => setShowPassword(v => !v)}
-                  className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition" tabIndex={-1}>
+                  className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-950 transition" tabIndex={-1}>
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>

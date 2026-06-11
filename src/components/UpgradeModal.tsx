@@ -26,24 +26,24 @@ const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: '$29',
-    color: '#8B5CF6',
-    features: ['50 AI credits / month', '3 campaigns / month', '1 workspace', 'PDF export'],
+    price: '$19',
+    color: '#5E5CE6',
+    features: ['50 AI credits / month', '2 campaigns / month', '1 workspace', '10 AI posts / month'],
   },
   {
     id: 'pro',
-    name: 'Pro',
-    price: '$79',
-    color: '#10B981',
+    name: 'Growth',
+    price: '$49',
+    color: '#2563EB',
     popular: true,
-    features: ['200 AI credits / month', 'Unlimited campaigns', '3 workspaces', 'Auto-publish to social', 'Real performance analytics', 'Priority support'],
+    features: ['150 AI credits / month', '5 campaigns / month', '3 workspaces', '25 AI posts / month', 'Analytics + exports'],
   },
   {
-    id: 'agency',
+    id: 'business',
     name: 'Agency',
-    price: '$199',
-    color: '#F59E0B',
-    features: ['Unlimited AI credits', 'Unlimited campaigns', '10 workspaces', 'White-label export', 'API access', 'Dedicated account manager'],
+    price: '$99',
+    color: '#059669',
+    features: ['500 AI credits / month', 'Unlimited campaigns', '10 workspaces', '60 AI posts / month', 'White-label reports'],
   },
 ]
 
@@ -64,7 +64,7 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
     reason === 'no_credits'      ? "Upgrade now to keep generating campaigns, content, and strategies." :
     reason === 'low_credits'     ? "Don't get interrupted mid-campaign. Upgrade for more credits." :
     reason === 'first_campaign'  ? "You've seen what Nexus AI can do. Upgrade to run unlimited campaigns with deeper AI every month." :
-    "Replace your entire marketing team with one AI platform."
+    "Run strategy, content, images, and reporting with clear monthly credits."
 
   const handleUpgrade = async (planId: string) => {
     setLoading(planId)
@@ -94,24 +94,24 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(15,23,42,0.24)', backdropFilter: 'blur(8px)' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
 
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden"
-        style={{ background: '#0F1430', border: '1px solid rgba(139,92,246,0.25)' }}>
+        style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 24px 70px rgba(15,23,42,0.16)' }}>
 
         {/* Header */}
         <div className="px-6 pt-6 pb-4 text-center"
-          style={{ borderBottom: '1px solid rgba(139,92,246,0.1)' }}>
+          style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
           <div className="text-2xl mb-1">⚡</div>
-          <h2 className="text-xl font-bold text-white mb-1">{headline}</h2>
-          <p className="text-sm text-text-muted">{subline}</p>
+          <h2 className="text-xl font-bold text-slate-950 mb-1">{headline}</h2>
+          <p className="text-sm text-slate-500">{subline}</p>
         </div>
 
         {/* Plans */}
         <div className="p-6 grid grid-cols-3 gap-3">
           {message && (
-            <div className="col-span-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            <div className="col-span-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               {message}
             </div>
           )}
@@ -120,26 +120,27 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
             <div key={plan.id}
               className="rounded-xl p-4 flex flex-col relative"
               style={{
-                background: plan.popular ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${plan.popular ? 'rgba(16,185,129,0.3)' : 'rgba(139,92,246,0.15)'}`,
+                background: plan.popular ? '#F8FAFF' : '#FFFFFF',
+                border: `1px solid ${plan.popular ? 'rgba(37,99,235,0.24)' : 'rgba(15,23,42,0.08)'}`,
+                boxShadow: plan.popular ? '0 14px 34px rgba(37,99,235,0.10)' : '0 1px 2px rgba(15,23,42,0.04)',
               }}>
               {plan.popular && (
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-bold text-white"
-                  style={{ background: '#10B981' }}>
+                  style={{ background: '#2563EB' }}>
                   MOST POPULAR
                 </div>
               )}
 
               <div className="mb-3">
                 <div className="text-xs font-semibold mb-1" style={{ color: plan.color }}>{plan.name}</div>
-                <div className="text-2xl font-black text-white">{plan.price}
-                  <span className="text-xs font-normal text-text-muted">/mo</span>
+                <div className="text-2xl font-black text-slate-950">{plan.price}
+                  <span className="text-xs font-normal text-slate-500">/mo</span>
                 </div>
               </div>
 
               <ul className="space-y-1.5 flex-1 mb-4">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-1.5 text-[11px] text-text-secondary">
+                  <li key={f} className="flex items-start gap-1.5 text-[11px] text-slate-600">
                     <span style={{ color: plan.color }} className="mt-0.5 flex-shrink-0">✓</span>
                     {f}
                   </li>
@@ -151,8 +152,8 @@ export default function UpgradeModal({ open, onClose, reason = 'upgrade_cta' }: 
                 disabled={!!loading}
                 className="w-full py-2 rounded-lg text-sm font-semibold transition-all"
                 style={{
-                  background: plan.popular ? '#10B981' : 'rgba(139,92,246,0.15)',
-                  color: plan.popular ? 'white' : plan.color,
+                  background: plan.popular ? '#111827' : '#F9FAFB',
+                  color: plan.popular ? 'white' : '#111827',
                   border: plan.popular ? 'none' : `1px solid ${plan.color}40`,
                   opacity: loading && loading !== plan.id ? 0.5 : 1,
                 }}>

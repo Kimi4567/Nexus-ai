@@ -13,10 +13,10 @@ interface NexusWorkflowStepProps {
 }
 
 const STATUS_STYLES: Record<StepStatus, { border: string; bg: string; textColor: string; dotColor: string }> = {
-  pending:   { border: 'rgba(100,116,139,0.2)',   bg: 'rgba(12,13,36,0.4)',           textColor: '#64748B', dotColor: '#334155' },
-  active:    { border: 'rgba(139,92,246,0.4)',     bg: 'rgba(139,92,246,0.06)',         textColor: '#A78BFA', dotColor: '#8B5CF6' },
-  completed: { border: 'rgba(16,185,129,0.3)',     bg: 'rgba(16,185,129,0.04)',         textColor: '#34D399', dotColor: '#10B981' },
-  warning:   { border: 'rgba(249,115,22,0.3)',     bg: 'rgba(249,115,22,0.05)',         textColor: '#FB923C', dotColor: '#F97316' },
+  pending:   { border: 'rgba(15,23,42,0.08)',      bg: '#FFFFFF',                       textColor: '#6B7280', dotColor: '#CBD5E1' },
+  active:    { border: 'rgba(94,92,230,0.22)',     bg: '#F5F3FF',                       textColor: '#5E5CE6', dotColor: '#5E5CE6' },
+  completed: { border: 'rgba(16,185,129,0.18)',    bg: '#ECFDF5',                       textColor: '#059669', dotColor: '#059669' },
+  warning:   { border: 'rgba(217,119,6,0.18)',     bg: '#FFFBEB',                       textColor: '#B45309', dotColor: '#D97706' },
 }
 
 export function NexusWorkflowStep({

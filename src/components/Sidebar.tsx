@@ -9,8 +9,8 @@ import { useBillingStatus } from '@/lib/useBillingStatus'
 import React from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
-   NEXUS SIDEBAR — Premium AI Command Center
-   Design: var(--nx-surface) #0C0D24, violet #8B5CF6, orange #F97316
+   NEXUS SIDEBAR — calm SaaS navigation
+   Design: white surfaces, soft borders, restrained Apple-like states
    ═══════════════════════════════════════════════════════════════ */
 
 interface SidebarProps {
@@ -66,8 +66,8 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
     return (
       <Link href={href} title={label} onClick={onClick}
         className={`flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 relative
-          ${isActive ? 'text-white' : 'text-text-muted hover:text-text-secondary hover:bg-white/5'}`}
-        style={isActive ? { background: 'rgba(139,92,246,0.15)', boxShadow: 'inset 0 1px 0 rgba(139,92,246,0.2)' } : {}}
+          ${isActive ? 'text-slate-950' : 'text-slate-500 hover:text-slate-950 hover:bg-slate-100'}`}
+        style={isActive ? { background: '#F2F2F7', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.06)' } : {}}
       >
         {icon}
         {dot && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ background: dot, boxShadow: `0 0 4px ${dot}` }} />}
@@ -78,14 +78,14 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
   return (
     <Link href={href} onClick={onClick}
       className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150
-        ${isActive ? 'text-white' : 'text-text-muted hover:text-white hover:bg-white/5'}`}
-      style={isActive ? { background: 'rgba(139,92,246,0.12)', boxShadow: 'inset 0 1px 0 rgba(139,92,246,0.15)' } : {}}
+        ${isActive ? 'text-slate-950' : 'text-slate-500 hover:text-slate-950 hover:bg-slate-100'}`}
+      style={isActive ? { background: '#F2F2F7', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.06)' } : {}}
     >
       {isActive && (
         <span className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-l-full"
-          style={{ background: '#8B5CF6' }} />
+          style={{ background: '#5E5CE6' }} />
       )}
-      <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-accent-purple' : 'text-text-muted'}`}>
+      <span className={`flex-shrink-0 transition-colors ${isActive ? 'text-[#5E5CE6]' : 'text-slate-400'}`}>
         {icon}
       </span>
       <span className="flex-1 leading-none truncate">{label}</span>
@@ -257,15 +257,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
   return (
     <aside dir={dir} className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
-      style={{ background: 'var(--nx-surface)', borderRight: '1px solid rgba(139,92,246,0.12)' }}>
+      style={{ background: 'var(--nx-panel)', borderRight: '1px solid rgba(15,23,42,0.08)' }}>
 
       {/* Logo */}
       <div className={`flex items-center gap-2.5 px-4 py-5 flex-shrink-0 ${collapsed ? 'justify-center px-0' : ''}`}
-        style={{ borderBottom: '1px solid rgba(139,92,246,0.08)' }}>
+        style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
         <NexusLogo />
         {!collapsed && (
-          <span className="font-bold text-white tracking-tight text-[15px] leading-none font-heading">
-            Nexus<span style={{ color: '#8B5CF6' }}>.</span>
+          <span className="font-bold text-slate-950 tracking-tight text-[15px] leading-none font-heading">
+            Nexus<span style={{ color: '#5E5CE6' }}>.</span>
           </span>
         )}
       </div>
@@ -281,7 +281,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* Organic Content */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'محتوى عضوي' : 'Organic Content'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/campaigns" label={locale === 'ar' ? 'خطط المحتوى' : 'Content Plans'}
           icon={Icons.campaigns} {...sharedProps} />
         <NavItem href="/templates" label={locale === 'ar' ? 'القوالب' : 'Templates'}
@@ -297,7 +297,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* Agents */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'الوكلاء' : 'Agents'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/studio" label={locale === 'ar' ? 'استوديو' : 'Studio'}
           icon={Icons.studio} {...sharedProps} />
         <NavItem href="/sentinel" label="Sentinel"
@@ -309,13 +309,13 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* Paid Ads */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'إعلانات مدفوعة' : 'Paid Ads'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(249,115,22,0.15)' }} />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/paid-campaigns" label={locale === 'ar' ? 'الحملات المدفوعة' : 'Paid Campaigns'}
           icon={Icons.paidAds} badge="NEW" badgeColor="#F97316" {...sharedProps} />
 
         {/* Platform */}
         {!collapsed && <SectionLabel>{t('sidebar.sectionPlatforms')}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(139,92,246,0.1)' }} />}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/connections" label={t('sidebar.connect')}
           icon={Icons.connections} badge={t('sidebar.badgeSetup')} badgeColor="#10B981" {...sharedProps} />
 
@@ -323,32 +323,32 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
       {/* Bottom section */}
       <div className="flex-shrink-0 px-2 pb-3 space-y-0.5"
-        style={{ borderTop: '1px solid rgba(139,92,246,0.08)', paddingTop: '12px' }}>
+        style={{ borderTop: '1px solid rgba(15,23,42,0.08)', paddingTop: '12px' }}>
 
         {/* Credits indicator / Upgrade CTA */}
         {!collapsed && billingLoading && (
           <div className="px-3 py-2.5 rounded-[9px] mb-2 animate-pulse"
-            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', height: '58px' }} />
+            style={{ background: '#F3F4F6', border: '1px solid rgba(15,23,42,0.08)', height: '58px' }} />
         )}
         {!collapsed && !billingLoading && (
           <Link href="/billing"
             className="flex flex-col gap-1.5 px-3 py-2.5 rounded-[9px] mb-2 transition-all"
             style={{
-              background: isEmpty ? 'rgba(239,68,68,0.08)' : isLow ? 'rgba(245,158,11,0.08)' : isPaid ? 'rgba(16,185,129,0.06)' : 'rgba(139,92,246,0.08)',
-              border: isEmpty ? '1px solid rgba(239,68,68,0.3)' : isLow ? '1px solid rgba(245,158,11,0.3)' : isPaid ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(139,92,246,0.2)',
+              background: isEmpty ? '#FEF2F2' : isLow ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF',
+              border: isEmpty ? '1px solid rgba(239,68,68,0.22)' : isLow ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)',
             }}>
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold" style={{ color: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6' }}>
                 {isEmpty ? '⚠ No credits left' : isLow ? `⚠ ${creditsRemaining} credits left` : isPaid ? `✓ ${isUnlimited ? '∞' : creditsRemaining} credits` : `⚡ ${t('sidebar.upgradePro')}`}
               </span>
-              {!isPaid && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#8B5CF6', color: 'white' }}>PRO</span>}
+              {!isPaid && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#111827', color: 'white' }}>PRO</span>}
             </div>
             {!isUnlimited && (
-              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${Math.max(0, Math.min(100, ((creditsMax - creditsRemaining) / Math.max(creditsMax, 1)) * 100))}%`,
-                    background: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : '#8B5CF6',
+                    width: `${Math.max(0, Math.min(100, (creditsRemaining / Math.max(creditsMax, 1)) * 100))}%`,
+                    background: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : '#5E5CE6',
                   }} />
               </div>
             )}
@@ -365,7 +365,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(c => !c)}
-          className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1 text-text-muted hover:text-text-secondary hover:bg-white/5"
+          className="flex items-center justify-center w-full h-9 rounded-[9px] transition-all duration-150 mt-1 text-slate-400 hover:text-slate-900 hover:bg-slate-100"
           title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}>
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
             className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}>
@@ -376,7 +376,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* Language */}
         {!collapsed && (
           <button onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-white/5 text-text-muted hover:text-text-secondary">
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-[9px] text-[11px] font-medium transition-all hover:bg-slate-100 text-slate-500 hover:text-slate-950">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
@@ -387,15 +387,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* User menu */}
         <div className="relative mt-0.5">
           <button onClick={() => setUserMenuOpen(o => !o)}
-            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150 hover:bg-white/5 ${collapsed ? 'justify-center' : ''}`}>
+            className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-[9px] transition-all duration-150 hover:bg-slate-100 ${collapsed ? 'justify-center' : ''}`}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#8B5CF6' }}>
+              style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
               {initial}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <div className="text-[12px] font-semibold truncate text-white">{displayName}</div>
-                <div className="text-[10px] truncate text-text-muted">{email}</div>
+                <div className="text-[12px] font-semibold truncate text-slate-950">{displayName}</div>
+                <div className="text-[10px] truncate text-slate-500">{email}</div>
               </div>
             )}
           </button>
@@ -404,9 +404,9 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             <>
               <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
               <div className="absolute bottom-full left-0 mb-2 w-52 z-50 rounded-[13px] overflow-hidden glass-panel">
-                <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(139,92,246,0.1)' }}>
-                  <div className="text-[12px] font-semibold truncate text-white">{displayName}</div>
-                  <div className="text-[11px] truncate text-text-muted">{email}</div>
+                <div className="px-3 py-3" style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
+                  <div className="text-[12px] font-semibold truncate text-slate-950">{displayName}</div>
+                  <div className="text-[11px] truncate text-slate-500">{email}</div>
                 </div>
                 <div className="py-1.5 px-1">
                   {[
@@ -414,7 +414,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                     { href: '/billing',  label: t('sidebar.billing') },
                   ].map(item => (
                     <Link key={item.href} href={item.href} onClick={() => { setUserMenuOpen(false); click() }}
-                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-text-secondary hover:text-white hover:bg-white/5">
+                      className="flex items-center px-2.5 py-2 rounded-[8px] text-[12px] transition-all text-slate-600 hover:text-slate-950 hover:bg-slate-100">
                       {item.label}
                     </Link>
                   ))}

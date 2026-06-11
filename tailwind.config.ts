@@ -10,52 +10,52 @@ const config: Config = {
     extend: {
       colors: {
         // ── NEXUS Core Palette ────────────────────────────────────────
-        'nx-base':        '#06071A',   // deepest background
-        'nx-surface':     '#0C0D24',   // card surface
-        'nx-elevated':    '#111330',   // elevated / hover surface
-        'nx-panel':       '#0F1028',   // panel / sidebar
-        'nx-border':      'rgba(139,92,246,0.15)',
-        'nx-border-hi':   'rgba(139,92,246,0.35)',
+        'nx-base':        '#F5F5F7',
+        'nx-surface':     '#FFFFFF',
+        'nx-elevated':    '#F9FAFB',
+        'nx-panel':       '#FFFFFF',
+        'nx-border':      'rgba(15,23,42,0.08)',
+        'nx-border-hi':   'rgba(15,23,42,0.16)',
 
         // ── NEXUS Accent — violet-blue ────────────────────────────────
-        'nx-violet':      '#8B5CF6',
-        'nx-violet-dark': '#7C3AED',
-        'nx-violet-dim':  'rgba(139,92,246,0.12)',
-        'nx-blue':        '#3B82F6',
-        'nx-cyan':        '#06B6D4',
+        'nx-violet':      '#5E5CE6',
+        'nx-violet-dark': '#4F46E5',
+        'nx-violet-dim':  'rgba(94,92,230,0.08)',
+        'nx-blue':        '#2563EB',
+        'nx-cyan':        '#0891B2',
 
         // ── NEXUS Orange accent lines ─────────────────────────────────
-        'nx-orange':      '#F97316',
-        'nx-orange-dim':  'rgba(249,115,22,0.12)',
+        'nx-orange':      '#D97706',
+        'nx-orange-dim':  'rgba(217,119,6,0.08)',
 
         // ── NEXUS Text ────────────────────────────────────────────────
-        'nx-text-1':      '#F8FAFC',   // primary
-        'nx-text-2':      '#94A3B8',   // secondary
-        'nx-text-3':      '#64748B',   // muted
-        'nx-text-4':      '#334155',   // disabled
+        'nx-text-1':      '#111827',
+        'nx-text-2':      '#4B5563',
+        'nx-text-3':      '#6B7280',
+        'nx-text-4':      '#9CA3AF',
 
         // ── Agent accent colors ───────────────────────────────────────
-        'agent-brain':      '#8B5CF6',
-        'agent-strategist': '#6366F1',
-        'agent-nex':        '#06B6D4',
-        'agent-vex':        '#F97316',
-        'agent-sentinel':   '#EAB308',
-        'agent-pulse':      '#10B981',
+        'agent-brain':      '#5E5CE6',
+        'agent-strategist': '#2563EB',
+        'agent-nex':        '#0891B2',
+        'agent-vex':        '#D97706',
+        'agent-sentinel':   '#CA8A04',
+        'agent-pulse':      '#059669',
 
         // ── Legacy compatibility ──────────────────────────────────────
-        'bg-base':        '#06071A',
-        'bg-surface':     '#0C0D24',
-        'bg-elevated':    '#111330',
-        'bg-sidebar':     '#0A0B1E',
-        'text-primary':   '#F8FAFC',
-        'text-secondary': '#94A3B8',
-        'text-muted':     '#64748B',
-        'accent-purple':  '#8B5CF6',
-        'accent-teal':    '#06B6D4',
-        'accent-cyan':    '#06B6D4',
+        'bg-base':        '#F5F5F7',
+        'bg-surface':     '#FFFFFF',
+        'bg-elevated':    '#F9FAFB',
+        'bg-sidebar':     '#FFFFFF',
+        'text-primary':   '#111827',
+        'text-secondary': '#4B5563',
+        'text-muted':     '#6B7280',
+        'accent-purple':  '#5E5CE6',
+        'accent-teal':    '#0891B2',
+        'accent-cyan':    '#0891B2',
         'accent-amber':   '#F59E0B',
-        'accent-orange':  '#F97316',
-        'accent-gold':    '#EAB308',
+        'accent-orange':  '#D97706',
+        'accent-gold':    '#CA8A04',
         'status-approved':  '#10B981',
         'status-pending':   '#F59E0B',
         'status-rejected':  '#EF4444',
@@ -68,10 +68,10 @@ const config: Config = {
 
         // ── dark-* aliases (used by legacy page components) ───────────
         // These map to the nx-* palette so all pages render correctly
-        'dark':           '#06071A',   // bg-dark  → nx-base
-        'dark-secondary': '#0C0D24',   // bg-dark-secondary → nx-surface
-        'dark-tertiary':  '#111330',   // bg-dark-tertiary, border-dark-tertiary → nx-elevated
-        'accent':         '#8B5CF6',   // text-accent, bg-accent, border-accent → nx-violet
+        'dark':           '#F5F5F7',
+        'dark-secondary': '#FFFFFF',
+        'dark-tertiary':  '#E5E7EB',
+        'accent':         '#5E5CE6',
       },
 
       fontFamily: {
@@ -101,9 +101,9 @@ const config: Config = {
         'nx-orange-sm': '0 0 12px rgba(249,115,22,0.3)',
         'nx-orange-md': '0 0 24px rgba(249,115,22,0.35)',
         // Card depth
-        'nx-card':      '0 1px 3px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)',
-        'nx-card-hover':'0 2px 8px rgba(0,0,0,0.7), 0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)',
-        'nx-panel':     '0 4px 24px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.35)',
+        'nx-card':      '0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.06)',
+        'nx-card-hover':'0 2px 4px rgba(15,23,42,0.05), 0 16px 42px rgba(15,23,42,0.09)',
+        'nx-panel':     '0 12px 36px rgba(15,23,42,0.08)',
         // Agent glows
         'agent-brain':      '0 0 20px rgba(139,92,246,0.35)',
         'agent-strategist': '0 0 20px rgba(99,102,241,0.35)',
@@ -111,9 +111,9 @@ const config: Config = {
         'agent-vex':        '0 0 20px rgba(249,115,22,0.35)',
         'agent-sentinel':   '0 0 20px rgba(234,179,8,0.35)',
         // Legacy
-        'card':             '0 1px 3px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.3)',
-        'card-hover':       '0 2px 8px rgba(0,0,0,0.6), 0 12px 32px rgba(0,0,0,0.35)',
-        'panel':            '0 4px 24px rgba(0,0,0,0.5), 0 24px 64px rgba(0,0,0,0.32)',
+        'card':             '0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.06)',
+        'card-hover':       '0 2px 4px rgba(15,23,42,0.05), 0 16px 42px rgba(15,23,42,0.09)',
+        'panel':            '0 12px 36px rgba(15,23,42,0.08)',
         'accent-sm':        '0 0 16px rgba(139,92,246,0.25)',
         'accent-md':        '0 0 32px rgba(139,92,246,0.2)',
         'top-edge':         'inset 0 1px 0 rgba(255,255,255,0.04)',
@@ -128,8 +128,8 @@ const config: Config = {
         'nx-violet-orange': 'linear-gradient(135deg, #8B5CF6 0%, #F97316 100%)',
         'nx-cta':           'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
         'nx-orange':        'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
-        'nx-sidebar':       'linear-gradient(180deg, #0A0B1E 0%, #06071A 100%)',
-        'nx-grid':          'linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px)',
+        'nx-sidebar':       'linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%)',
+        'nx-grid':          'none',
         // Agent gradients
         'agent-brain-grad':      'linear-gradient(135deg, rgba(139,92,246,0.2) 0%, rgba(99,102,241,0.1) 100%)',
         'agent-nex-grad':        'linear-gradient(135deg, rgba(6,182,212,0.2) 0%, rgba(59,130,246,0.1) 100%)',
@@ -141,8 +141,8 @@ const config: Config = {
         'gradient-hero':      'radial-gradient(ellipse at 20% 50%, rgba(139,92,246,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(6,182,212,0.1) 0%, transparent 50%)',
         'gradient-card-hover':'linear-gradient(135deg, rgba(139,92,246,0.1) 0%, rgba(6,182,212,0.05) 100%)',
         'gradient-border':    'linear-gradient(135deg, #8B5CF6 0%, #06B6D4 100%)',
-        'gradient-sidebar':   'linear-gradient(180deg, #0A0B1E 0%, #06071A 100%)',
-        'btn-gradient':       'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+        'gradient-sidebar':   'linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%)',
+        'btn-gradient':       'linear-gradient(135deg, #111827 0%, #374151 100%)',
       },
 
       animation: {

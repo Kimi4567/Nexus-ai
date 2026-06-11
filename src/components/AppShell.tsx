@@ -34,7 +34,7 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-20 bg-slate-950/20 backdrop-blur-sm md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -42,8 +42,8 @@ export default function AppShell({ children }: AppShellProps) {
       {/* Mobile top bar */}
       <div
         dir="ltr"
-        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-[rgba(139,92,246,0.15)]"
-        style={{ background: 'rgba(6,7,26,0.97)', backdropFilter: 'blur(20px)' }}
+        className="fixed top-0 left-0 right-0 z-30 md:hidden h-12 flex items-center justify-between px-4 border-b border-slate-200/80"
+        style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)' }}
       >
         <div className="flex items-center gap-2">
           <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
@@ -57,11 +57,11 @@ export default function AppShell({ children }: AppShellProps) {
             <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
-          <span className="font-bold text-white text-[14px]">Nexus</span>
+          <span className="font-bold text-slate-950 text-[14px]">Nexus</span>
         </div>
         <button
           onClick={() => setMobileOpen(true)}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/5"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-950 hover:bg-slate-100"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="round" />

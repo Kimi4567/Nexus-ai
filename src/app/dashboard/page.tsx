@@ -127,9 +127,9 @@ const AGENT_DEFS: Array<{
   href: string
   accentColor: string
 }> = [
-  { agentId: 'nex',       name: 'NEX',      roleKey: 'dashboard.nexRole',      statusKey: 'dashboard.agentReady',      href: '/studio',    accentColor: '#06B6D4' },
-  { agentId: 'vex',       name: 'VEX',      roleKey: 'dashboard.vexRole',      statusKey: 'dashboard.agentActive',     href: '/vex',       accentColor: '#F97316' },
-  { agentId: 'pulse',     name: 'PULSE',    roleKey: 'dashboard.pulseRole',    statusKey: 'dashboard.agentAnalyzing',  href: '/analytics', accentColor: '#10B981' },
+  { agentId: 'nex',       name: 'NEX',      roleKey: 'dashboard.nexRole',      statusKey: 'dashboard.agentReady',      href: '/studio',    accentColor: '#0891B2' },
+  { agentId: 'vex',       name: 'VEX',      roleKey: 'dashboard.vexRole',      statusKey: 'dashboard.agentActive',     href: '/vex',       accentColor: '#D97706' },
+  { agentId: 'pulse',     name: 'PULSE',    roleKey: 'dashboard.pulseRole',    statusKey: 'dashboard.agentAnalyzing',  href: '/analytics', accentColor: '#059669' },
   { agentId: 'sentinel',  name: 'SENTINEL', roleKey: 'dashboard.sentinelRole', statusKey: 'dashboard.agentMonitoring', href: '/sentinel',  accentColor: '#EAB308' },
 ]
 
@@ -438,7 +438,7 @@ export default function DashboardPage() {
           {/* ── First-Login Welcome Banner ── */}
           {!welcomeDismissed && (
             <div className="rounded-2xl overflow-hidden"
-              style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.35)', backdropFilter: 'blur(20px)', boxShadow: '0 0 48px rgba(139,92,246,0.1)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 12px 36px rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4, #10b981, #f59e0b)' }} />
               <div className="p-5 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -447,7 +447,7 @@ export default function DashboardPage() {
                     🚀
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-bold text-white mb-1">
+                    <p className="text-base font-bold text-slate-950 mb-1">
                       {ar
                         ? `مرحباً${displayName ? ` يا ${displayName}` : ''} في NEXUS AI 👋`
                         : `Welcome${displayName ? `, ${displayName}` : ''} to NEXUS AI 👋`}
@@ -490,7 +490,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
                   className="p-1.5 rounded-lg transition-all hover:bg-white/5 flex-shrink-0"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                  style={{ color: '#9CA3AF' }}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -566,7 +566,7 @@ export default function DashboardPage() {
           {/* ── Brand Ready — First Campaign CTA (only when brand complete + no campaigns yet) ── */}
           {brandReadiness?.ready && stats?.campaigns === 0 && brandName && (
             <div className="rounded-2xl overflow-hidden"
-              style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(20px)', boxShadow: '0 0 40px rgba(139,92,246,0.06)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 12px 36px rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #10b981 100%)' }}/>
               <div className="p-5 flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-4">
@@ -576,7 +576,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-bold text-white">
+                      <p className="text-sm font-bold text-slate-950">
                         {ar ? `عقل ${brandName} جاهز ✓` : `${brandName}'s brain is ready ✓`}
                       </p>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
@@ -680,7 +680,7 @@ export default function DashboardPage() {
             >
               {!stats?.isUnlimited && (
                 <>
-                  <div className="w-full h-1.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="w-full h-1.5 rounded-full overflow-hidden mb-1" style={{ background: 'rgba(15,23,42,0.08)' }}>
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -723,7 +723,7 @@ export default function DashboardPage() {
           {/* ── Marketing Operating Brief ── */}
           {intelligence && (
             <div className="rounded-2xl overflow-hidden"
-              style={{ background: 'rgba(12,13,36,0.72)', border: '1px solid rgba(6,182,212,0.16)', backdropFilter: 'blur(16px)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 12px 36px rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #06b6d4, #8b5cf6, #10b981)' }} />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
@@ -754,7 +754,7 @@ export default function DashboardPage() {
                       </span>
                       <span className="text-2xl font-bold" style={{ color: '#06B6D4' }}>{intelligence.maturityScore}</span>
                     </div>
-                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
                       <div className="h-full rounded-full transition-all duration-700"
                         style={{ width: `${intelligence.maturityScore}%`, background: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' }} />
                     </div>
@@ -764,7 +764,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                   <div className="xl:col-span-1 rounded-xl p-4"
                     style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.14)' }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#A78BFA' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#5E5CE6' }}>
                       {ar ? 'الخطوة التالية' : 'Next best action'}
                     </p>
                     <p className="text-sm font-bold mb-1" style={{ color: 'var(--nx-text-1)' }}>
@@ -777,7 +777,7 @@ export default function DashboardPage() {
                       <button
                         onClick={actOnBriefNow}
                         className="inline-flex items-center gap-1 text-[11px] font-bold"
-                        style={{ color: '#A78BFA' }}>
+                        style={{ color: '#5E5CE6' }}>
                         {ar ? 'افتح الخطوة' : 'Open next step'} <ArrowUpRight className="w-3 h-3" />
                       </button>
                       {intelligence.nextBestAction.id !== 'review-suggestions' && (
@@ -804,7 +804,7 @@ export default function DashboardPage() {
                     {briefActionState === 'saved' && (
                       <div className="mt-3 rounded-xl px-3 py-2"
                         style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
-                        <p className="text-[11px] font-bold" style={{ color: '#6EE7B7' }}>
+                        <p className="text-[11px] font-bold" style={{ color: '#059669' }}>
                           {ar ? 'تم إنشاء توصية جديدة في صندوق توصيات الوكلاء بالأسفل.' : 'A new agent recommendation was added below.'}
                         </p>
                         <p className="text-[10px] mt-0.5" style={{ color: 'var(--nx-text-4)' }}>
@@ -829,8 +829,8 @@ export default function DashboardPage() {
                           const active = intelligence.loop[step.key as keyof MarketingIntelligenceBrief['loop']]
                           return (
                             <div key={step.key} className="rounded-xl px-3 py-2 flex items-center gap-2"
-                              style={{ background: active ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.035)', border: `1px solid ${active ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.07)'}` }}>
-                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: active ? '#10B981' : 'rgba(255,255,255,0.24)' }} />
+                              style={{ background: active ? '#ECFDF5' : '#F9FAFB', border: `1px solid ${active ? 'rgba(16,185,129,0.18)' : 'rgba(15,23,42,0.08)'}` }}>
+                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: active ? '#059669' : '#CBD5E1' }} />
                               <span className="text-[11px]" style={{ color: active ? 'var(--nx-text-2)' : 'var(--nx-text-4)' }}>
                                 {ar ? step.ar : step.en}
                               </span>
@@ -866,7 +866,7 @@ export default function DashboardPage() {
                         style={{ background: 'rgba(249,115,22,0.055)', border: '1px solid rgba(249,115,22,0.14)' }}>
                         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#F97316' }} />
                         <div className="min-w-0">
-                          <p className="text-[11px] font-bold" style={{ color: '#FDBA74' }}>{ar ? risk.titleAr : risk.title}</p>
+                          <p className="text-[11px] font-bold" style={{ color: '#B45309' }}>{ar ? risk.titleAr : risk.title}</p>
                           <p className="text-[10px] leading-relaxed" style={{ color: 'var(--nx-text-4)' }}>{ar ? risk.detailAr : risk.detail}</p>
                         </div>
                       </div>
@@ -952,7 +952,7 @@ export default function DashboardPage() {
                       <Link key={c.id} href={`/campaigns/${c.id}`}
                         className="flex items-center gap-3 p-3 rounded-xl transition-all group"
                         style={{ background: 'transparent' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#F9FAFB' }}
                         onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
                       >
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
@@ -973,7 +973,7 @@ export default function DashboardPage() {
                   <Link href="/vex"
                     className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] transition-all"
                     style={{ color: 'var(--nx-text-4)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-2)'; (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.03)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-2)'; (e.currentTarget as HTMLAnchorElement).style.background = '#F9FAFB' }}
                     onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-4)'; (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1063,7 +1063,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── Quick Access ── */}
-          <div className="rounded-2xl p-4" style={{ background: 'rgba(12,13,36,0.5)', border: '1px solid rgba(139,92,246,0.08)' }}>
+          <div className="rounded-2xl p-4" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center gap-2 mb-3">
               <Zap className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />
               <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>

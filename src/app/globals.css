@@ -3,57 +3,57 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════
-   NEXUS AI — Design System v2
-   Deep navy / futuristic SaaS / violet-blue glow / orange accents
+   NEXUS AI — Design System v3
+   Calm Apple-like SaaS / light surfaces / restrained accents
    ═══════════════════════════════════════════════════════════════════ */
 
 @layer base {
   :root {
     /* ── Core surfaces ── */
-    --nx-base:      #06071A;
-    --nx-surface:   #0C0D24;
-    --nx-elevated:  #111330;
-    --nx-panel:     #0A0B1E;
+    --nx-base:      #F5F5F7;
+    --nx-surface:   #FFFFFF;
+    --nx-elevated:  #F9FAFB;
+    --nx-panel:     #FFFFFF;
 
     /* ── Borders ── */
-    --nx-border:    rgba(139, 92, 246, 0.15);
-    --nx-border-hi: rgba(139, 92, 246, 0.35);
-    --nx-border-orange: rgba(249, 115, 22, 0.25);
+    --nx-border:    rgba(15, 23, 42, 0.08);
+    --nx-border-hi: rgba(15, 23, 42, 0.16);
+    --nx-border-orange: rgba(217, 119, 6, 0.18);
 
     /* ── Violet accent ── */
-    --nx-violet:      #8B5CF6;
-    --nx-violet-dark: #7C3AED;
-    --nx-violet-dim:  rgba(139, 92, 246, 0.12);
+    --nx-violet:      #5E5CE6;
+    --nx-violet-dark: #4F46E5;
+    --nx-violet-dim:  rgba(94, 92, 230, 0.08);
 
     /* ── Orange accent ── */
-    --nx-orange:      #F97316;
-    --nx-orange-dim:  rgba(249, 115, 22, 0.12);
+    --nx-orange:      #D97706;
+    --nx-orange-dim:  rgba(217, 119, 6, 0.08);
 
     /* ── Text ── */
-    --nx-text-1: #F8FAFC;
-    --nx-text-2: #94A3B8;
-    --nx-text-3: #64748B;
-    --nx-text-4: #334155;
+    --nx-text-1: #111827;
+    --nx-text-2: #4B5563;
+    --nx-text-3: #6B7280;
+    --nx-text-4: #9CA3AF;
 
     /* ── Glows ── */
-    --glow-violet-sm:  0 0 12px rgba(139, 92, 246, 0.25);
-    --glow-violet-md:  0 0 24px rgba(139, 92, 246, 0.3), 0 0 48px rgba(139, 92, 246, 0.12);
-    --glow-violet-lg:  0 0 40px rgba(139, 92, 246, 0.35), 0 0 80px rgba(139, 92, 246, 0.15);
-    --glow-orange-sm:  0 0 12px rgba(249, 115, 22, 0.3);
-    --glow-orange-md:  0 0 24px rgba(249, 115, 22, 0.35);
+    --glow-violet-sm:  0 8px 24px rgba(94, 92, 230, 0.10);
+    --glow-violet-md:  0 14px 34px rgba(94, 92, 230, 0.12);
+    --glow-violet-lg:  0 20px 50px rgba(94, 92, 230, 0.14);
+    --glow-orange-sm:  0 8px 22px rgba(217, 119, 6, 0.10);
+    --glow-orange-md:  0 14px 34px rgba(217, 119, 6, 0.12);
 
     /* ── Card depth ── */
-    --shadow-card:       0 1px 3px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
-    --shadow-card-hover: 0 2px 8px rgba(0,0,0,0.7), 0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
-    --shadow-panel:      0 4px 24px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.35);
+    --shadow-card:       0 1px 2px rgba(15,23,42,0.04), 0 10px 30px rgba(15,23,42,0.06);
+    --shadow-card-hover: 0 2px 4px rgba(15,23,42,0.05), 0 16px 42px rgba(15,23,42,0.09);
+    --shadow-panel:      0 12px 36px rgba(15,23,42,0.08);
 
     /* ── Agent colors ── */
-    --agent-brain:      #8B5CF6;
-    --agent-strategist: #6366F1;
-    --agent-nex:        #06B6D4;
-    --agent-vex:        #F97316;
-    --agent-sentinel:   #EAB308;
-    --agent-pulse:      #10B981;
+    --agent-brain:      #5E5CE6;
+    --agent-strategist: #2563EB;
+    --agent-nex:        #0891B2;
+    --agent-vex:        #D97706;
+    --agent-sentinel:   #CA8A04;
+    --agent-pulse:      #059669;
   }
 
   html {
@@ -72,20 +72,20 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(139,92,246,0.3) var(--nx-panel);
+    scrollbar-color: rgba(156,163,175,0.55) var(--nx-base);
   }
   *::-webkit-scrollbar { width: 5px; height: 5px; }
   *::-webkit-scrollbar-track { background: var(--nx-panel); }
-  *::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 99px; }
-  *::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.5); }
+  *::-webkit-scrollbar-thumb { background: rgba(156,163,175,0.55); border-radius: 99px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(107,114,128,0.65); }
 }
 
 @layer components {
   /* ── Glass surfaces ──────────────────────────────────────────── */
   .nx-glass {
-    background: rgba(12, 13, 36, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.86);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     border: 1px solid var(--nx-border);
     box-shadow: var(--shadow-card);
   }
@@ -94,13 +94,13 @@
     transition: all 0.25s ease;
   }
   .nx-glass-hover:hover {
-    background: rgba(17, 19, 48, 0.8);
+    background: rgba(255, 255, 255, 0.96);
     border-color: var(--nx-border-hi);
     box-shadow: var(--shadow-card-hover), var(--glow-violet-sm);
   }
 
   .nx-panel {
-    background: rgba(10, 11, 30, 0.85);
+    background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--nx-border);
@@ -109,21 +109,21 @@
 
   /* ── Gradient text ──────────────────────────────────────────── */
   .nx-gradient-text {
-    background: linear-gradient(135deg, #8B5CF6 0%, #F97316 100%);
+    background: linear-gradient(135deg, #111827 0%, #5E5CE6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .nx-violet-text {
-    background: linear-gradient(135deg, #A78BFA 0%, #8B5CF6 100%);
+    background: linear-gradient(135deg, #5E5CE6 0%, #2563EB 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .nx-orange-text {
-    background: linear-gradient(135deg, #FB923C 0%, #F97316 100%);
+    background: linear-gradient(135deg, #D97706 0%, #B45309 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -131,12 +131,12 @@
 
   /* ── Buttons ──────────────────────────────────────────────── */
   .nx-btn-primary {
-    background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+    background: #111827;
     color: #ffffff;
     font-weight: 700;
     font-size: 0.875rem;
     padding: 10px 20px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -144,21 +144,21 @@
     align-items: center;
     gap: 8px;
     text-decoration: none;
-    box-shadow: 0 4px 16px rgba(139,92,246,0.3);
+    box-shadow: 0 8px 20px rgba(17,24,39,0.12);
   }
   .nx-btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(139,92,246,0.45);
+    box-shadow: 0 12px 28px rgba(17,24,39,0.16);
     filter: brightness(1.1);
   }
 
   .nx-btn-orange {
-    background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+    background: #D97706;
     color: #ffffff;
     font-weight: 700;
     font-size: 0.875rem;
     padding: 10px 20px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -166,22 +166,22 @@
     align-items: center;
     gap: 8px;
     text-decoration: none;
-    box-shadow: 0 4px 16px rgba(249,115,22,0.3);
+    box-shadow: 0 8px 20px rgba(217,119,6,0.14);
   }
   .nx-btn-orange:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(249,115,22,0.45);
+    box-shadow: 0 12px 28px rgba(217,119,6,0.18);
     filter: brightness(1.1);
   }
 
   .nx-btn-ghost {
-    background: rgba(139,92,246,0.08);
-    color: #A78BFA;
+    background: #FFFFFF;
+    color: #374151;
     font-weight: 600;
     font-size: 0.875rem;
     padding: 10px 20px;
-    border-radius: 12px;
-    border: 1px solid rgba(139,92,246,0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(15,23,42,0.10);
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
@@ -190,29 +190,29 @@
     text-decoration: none;
   }
   .nx-btn-ghost:hover {
-    background: rgba(139,92,246,0.15);
-    border-color: rgba(139,92,246,0.4);
-    box-shadow: var(--glow-violet-sm);
+    background: #F9FAFB;
+    border-color: rgba(15,23,42,0.18);
+    box-shadow: 0 8px 20px rgba(15,23,42,0.06);
   }
 
   /* ── Cards ────────────────────────────────────────────────── */
   .nx-card {
-    background: rgba(12, 13, 36, 0.6);
+    background: #FFFFFF;
     border: 1px solid var(--nx-border);
-    border-radius: 16px;
+    border-radius: 12px;
     box-shadow: var(--shadow-card);
     transition: all 0.25s ease;
   }
   .nx-card:hover {
     border-color: var(--nx-border-hi);
-    box-shadow: var(--shadow-card-hover), var(--glow-violet-sm);
-    background: rgba(17, 19, 48, 0.7);
+    box-shadow: var(--shadow-card-hover);
+    background: #FFFFFF;
   }
 
   .nx-metric-card {
-    background: rgba(12, 13, 36, 0.6);
+    background: #FFFFFF;
     border: 1px solid var(--nx-border);
-    border-radius: 16px;
+    border-radius: 12px;
     padding: 20px;
     position: relative;
     overflow: hidden;
@@ -223,21 +223,21 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(139,92,246,0.4), transparent);
+    background: linear-gradient(90deg, transparent, rgba(94,92,230,0.25), transparent);
     opacity: 0;
     transition: opacity 0.25s ease;
   }
   .nx-metric-card:hover::before { opacity: 1; }
   .nx-metric-card:hover {
     border-color: rgba(139,92,246,0.3);
-    box-shadow: var(--shadow-card-hover), var(--glow-violet-sm);
+    box-shadow: var(--shadow-card-hover);
   }
 
   /* ── Glow panel ───────────────────────────────────────────── */
   .nx-glow-panel {
-    background: rgba(10, 11, 30, 0.9);
+    background: #FFFFFF;
     border: 1px solid var(--nx-border);
-    border-radius: 20px;
+    border-radius: 14px;
     box-shadow: var(--shadow-panel);
     position: relative;
     overflow: hidden;
@@ -248,7 +248,7 @@
     top: -60px; left: 50%;
     transform: translateX(-50%);
     width: 200px; height: 120px;
-    background: radial-gradient(ellipse, rgba(139,92,246,0.15) 0%, transparent 70%);
+    background: radial-gradient(ellipse, rgba(94,92,230,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -263,8 +263,8 @@
 
   /* ── Agent card ────────────────────────────────────────────── */
   .nx-agent-card {
-    background: rgba(12, 13, 36, 0.6);
-    border-radius: 16px;
+    background: #FFFFFF;
+    border-radius: 12px;
     padding: 16px;
     transition: all 0.25s ease;
     position: relative;
@@ -279,7 +279,7 @@
     inset: 0;
     border-radius: 16px;
     padding: 1px;
-    background: linear-gradient(135deg, var(--agent-color, #8B5CF6) 0%, transparent 50%);
+    background: linear-gradient(135deg, var(--agent-color, #5E5CE6) 0%, transparent 55%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
@@ -289,7 +289,7 @@
   .nx-agent-card:hover::before { opacity: 0.7; }
   .nx-agent-card:hover {
     transform: translateY(-2px);
-    background: rgba(17, 19, 48, 0.8);
+    background: #FFFFFF;
   }
 
   /* ── Workflow step ─────────────────────────────────────────── */
@@ -299,14 +299,14 @@
     gap: 12px;
     padding: 12px 16px;
     border-radius: 12px;
-    background: rgba(12, 13, 36, 0.5);
+    background: #FFFFFF;
     border: 1px solid var(--nx-border);
     transition: all 0.2s ease;
   }
   .nx-workflow-step.active {
     border-color: rgba(139,92,246,0.4);
     background: rgba(139,92,246,0.06);
-    box-shadow: var(--glow-violet-sm);
+    box-shadow: 0 8px 20px rgba(94,92,230,0.08);
   }
   .nx-workflow-step.completed {
     border-color: rgba(16,185,129,0.3);
@@ -337,45 +337,44 @@
 
   /* ── Grid background ───────────────────────────────────────── */
   .nx-bg-grid {
-    background-image: linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px);
+    background-image: none;
     background-size: 40px 40px;
   }
 
   /* ── Legacy compatibility ──────────────────────────────────── */
   .glass-panel {
-    background: rgba(12, 13, 36, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     border: 1px solid var(--nx-border);
     box-shadow: var(--shadow-card);
   }
   .glass-card {
-    background: rgba(12, 13, 36, 0.6);
+    background: #FFFFFF;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--nx-border);
     transition: all 0.25s ease;
   }
   .glass-card:hover {
-    background: rgba(17, 19, 48, 0.75);
+    background: #FFFFFF;
     border-color: var(--nx-border-hi);
-    box-shadow: var(--shadow-card-hover), var(--glow-violet-sm);
+    box-shadow: var(--shadow-card-hover);
   }
   .text-gradient {
-    background: linear-gradient(135deg, #8B5CF6 0%, #F97316 100%);
+    background: linear-gradient(135deg, #111827 0%, #5E5CE6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .btn-gradient {
-    background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+    background: #111827;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 16px rgba(139,92,246,0.3);
+    box-shadow: 0 8px 20px rgba(17,24,39,0.12);
   }
   .btn-gradient:hover {
     transform: translateY(-1px) scale(1.02);
-    box-shadow: 0 6px 24px rgba(139,92,246,0.45);
+    box-shadow: 0 12px 28px rgba(17,24,39,0.16);
   }
   .agent-glow-strategist { box-shadow: 0 0 20px rgba(99,102,241,0.3); }
   .agent-glow-nex        { box-shadow: 0 0 20px rgba(6,182,212,0.3); }
@@ -385,9 +384,9 @@
 
   /* ── Form elements ─────────────────────────────────────────── */
   .input-nexus {
-    background: rgba(12, 13, 36, 0.8);
+    background: #FFFFFF;
     border: 1px solid var(--nx-border);
-    border-radius: 12px;
+    border-radius: 10px;
     color: var(--nx-text-1);
     padding: 10px 14px;
     width: 100%;
@@ -397,19 +396,19 @@
   }
   .input-nexus:focus {
     border-color: rgba(139,92,246,0.5);
-    box-shadow: 0 0 0 3px rgba(139,92,246,0.08);
+    box-shadow: 0 0 0 3px rgba(94,92,230,0.10);
   }
   .input-nexus::placeholder { color: var(--nx-text-3); }
-  .input-nexus option { background: #0C0D24; color: var(--nx-text-1); }
+  .input-nexus option { background: #FFFFFF; color: var(--nx-text-1); }
 
   /* ── Misc ──────────────────────────────────────────────────── */
   .btn-primary {
-    background: linear-gradient(135deg, #F97316, #EA580C);
+    background: #111827;
     color: #ffffff;
     font-weight: 700;
     font-size: 0.875rem;
     padding: 10px 20px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -417,15 +416,15 @@
     align-items: center;
     gap: 8px;
     text-decoration: none;
-    box-shadow: 0 4px 16px rgba(249,115,22,0.3);
+    box-shadow: 0 8px 20px rgba(17,24,39,0.12);
   }
   .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(249,115,22,0.45);
+    box-shadow: 0 12px 28px rgba(17,24,39,0.16);
   }
-  .text-amber    { color: #F97316; }
-  .bg-amber      { background-color: #F97316; }
-  .border-amber  { border-color: #F97316; }
+  .text-amber    { color: #D97706; }
+  .bg-amber      { background-color: #D97706; }
+  .border-amber  { border-color: #D97706; }
   .text-text-primary   { color: var(--nx-text-1); }
   .text-text-secondary { color: var(--nx-text-2); }
   .text-text-muted     { color: var(--nx-text-3); }
