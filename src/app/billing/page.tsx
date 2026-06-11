@@ -385,18 +385,18 @@ export default function BillingPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
         {!loading && !billingEnabled && (
-          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] p-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+              <Shield className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold text-amber-100">
+                <p className="text-sm font-semibold text-amber-900">
                   {ar ? 'وضع البيتا مفعّل' : 'Beta billing mode'}
                 </p>
-                <p className="text-sm text-amber-100/70 mt-1">
+                <p className="text-sm text-amber-800 mt-1">
                   {ar
                     ? 'الدفع الحقيقي غير مفعّل حتى اكتمال الإعدادات القانونية وStripe. الحسابات المجانية والأرصدة التجريبية تعمل بشكل طبيعي.'
                     : 'Live payments are disabled until legal and Stripe setup is complete. Free accounts and trial credits continue to work normally.'
@@ -408,27 +408,27 @@ export default function BillingPage() {
         )}
 
         {billingMessage && (
-          <div className="rounded-2xl border border-violet-400/20 bg-violet-500/[0.07] p-4 text-sm text-violet-100">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
             {billingMessage}
           </div>
         )}
 
         {!loading && billingStatus && (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-1">
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
                   {ar ? 'خطتك الحالية' : 'Current plan'}
                 </p>
                 <div className="flex items-center gap-2">
-                  <span className="text-xl font-bold text-white">
+                  <span className="text-xl font-bold text-slate-950">
                     {ar
                       ? PLANS.find(p => p.id === currentPlan)?.nameAr ?? currentPlan
                       : PLANS.find(p => p.id === currentPlan)?.nameEn ?? currentPlan
                     }
                   </span>
                   {currentPlan !== 'free' && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
                       {ar ? 'نشط' : 'Active'}
                     </span>
                   )}
@@ -436,11 +436,11 @@ export default function BillingPage() {
               </div>
 
               <div className="flex-1 max-w-xs">
-                <div className="flex items-center justify-between text-xs text-white/50 mb-1.5">
+                <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                   <span>{ar ? 'الأرصدة المتبقية' : 'Credits remaining'}</span>
-                  <span className="font-mono text-white/70">{currentCredits} / {!billingStatus?.hasActiveSubscription ? `20 ${ar ? '(مرة واحدة)' : '(one-time)'}` : monthlyCredits === -1 ? (ar ? 'غير محدود' : 'unlimited') : `${monthlyCredits}${ar ? '/شهر' : '/mo'}`}</span>
+                  <span className="font-mono text-slate-700">{currentCredits} / {!billingStatus?.hasActiveSubscription ? `20 ${ar ? '(مرة واحدة)' : '(one-time)'}` : monthlyCredits === -1 ? (ar ? 'غير محدود' : 'unlimited') : `${monthlyCredits}${ar ? '/شهر' : '/mo'}`}</span>
                 </div>
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -457,7 +457,7 @@ export default function BillingPage() {
                 {currentPlan !== 'free' && (
                   <button
                     onClick={handlePortal}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/70 hover:border-violet-500/40 hover:text-white text-sm transition-all"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:border-violet-300 hover:text-slate-950 hover:bg-slate-50 text-sm transition-all"
                   >
                     <Settings2 className="w-4 h-4" />
                     {ar ? 'إدارة الاشتراك' : 'Manage subscription'}
@@ -465,7 +465,7 @@ export default function BillingPage() {
                 )}
                 <button
                   onClick={() => setShowCreditHistory(true)}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/50 hover:border-violet-500/30 hover:text-white text-sm transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:border-violet-300 hover:text-slate-950 hover:bg-slate-50 text-sm transition-all"
                 >
                   <History className="w-4 h-4" />
                   {ar ? 'سجل الكريديت' : 'Credit history'}
@@ -477,10 +477,10 @@ export default function BillingPage() {
 
         {/* ── Plan cards ─────────────────────────────────────────────────── */}
         <div>
-          <h2 className="text-2xl font-bold text-white mb-2">
+          <h2 className="text-2xl font-bold text-slate-950 mb-2">
             {ar ? 'اختر الخطة المناسبة لك' : 'Choose the right plan'}
           </h2>
-          <p className="text-sm text-white/50 mb-8">
+          <p className="text-sm text-slate-500 mb-8">
             {ar
               ? 'جميع الخطط المدفوعة تجدد أرصدتها شهرياً. الفيديو بحصة مستقلة لضمان الاستقرار.'
               : 'All paid plans refresh monthly. Video generation has a separate quota for pricing stability.'
@@ -497,8 +497,8 @@ export default function BillingPage() {
                   key={plan.id}
                   className={`relative rounded-2xl border p-6 flex flex-col transition-all ${
                     isPopular
-                      ? 'border-violet-500/50 bg-violet-500/5 shadow-[0_0_30px_rgba(139,92,246,0.1)]'
-                      : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                      ? 'border-violet-200 bg-violet-50/60 shadow-[0_16px_42px_rgba(94,92,230,0.10)]'
+                      : 'border-slate-200 bg-white hover:border-slate-300 shadow-[0_1px_2px_rgba(15,23,42,0.04)]'
                   }`}
                 >
                   {/* Badge */}
@@ -512,21 +512,21 @@ export default function BillingPage() {
 
                   {/* Name + price */}
                   <div className="mb-4">
-                    <h3 className="text-lg font-bold text-white mb-1">
+                    <h3 className="text-lg font-bold text-slate-950 mb-1">
                       {ar ? plan.nameAr : plan.nameEn}
                     </h3>
-                    <p className="text-xs text-white/40 mb-3">
+                    <p className="text-xs text-slate-500 mb-3">
                       {ar ? plan.descAr : plan.descEn}
                     </p>
                     <div className="flex items-end gap-1">
                       {plan.price === 0 ? (
-                        <span className="text-4xl font-black text-white">
+                        <span className="text-4xl font-black text-slate-950">
                           {ar ? 'مجاني' : 'Free'}
                         </span>
                       ) : (
                         <>
-                          <span className="text-4xl font-black text-white">${plan.price}</span>
-                          <span className="text-white/40 text-sm mb-1">/{ar ? 'شهر' : 'mo'}</span>
+                          <span className="text-4xl font-black text-slate-950">${plan.price}</span>
+                          <span className="text-slate-500 text-sm mb-1">/{ar ? 'شهر' : 'mo'}</span>
                         </>
                       )}
                     </div>
@@ -538,7 +538,7 @@ export default function BillingPage() {
                   {/* Features */}
                   <ul className="space-y-2 mb-6 flex-1">
                     {(ar ? plan.limitsAr : plan.limitsEn).map((feat) => (
-                      <li key={feat} className="flex items-start gap-2 text-sm text-white/70">
+                      <li key={feat} className="flex items-start gap-2 text-sm text-slate-600">
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: plan.accentColor }} />
                         <span>{feat}</span>
                       </li>
@@ -557,13 +557,13 @@ export default function BillingPage() {
 
                   {/* CTA */}
                   {isCurrent ? (
-                    <div className="w-full py-2.5 rounded-xl text-center text-sm font-semibold border border-white/20 text-white/50">
+                    <div className="w-full py-2.5 rounded-xl text-center text-sm font-semibold border border-slate-200 text-slate-500 bg-slate-50">
                       {ar ? 'خطتك الحالية' : 'Current plan'}
                     </div>
                   ) : plan.price === 0 ? (
                     <Link
                       href="/auth/register"
-                      className="w-full py-2.5 rounded-xl text-center text-sm font-semibold border border-white/20 text-white/70 hover:border-white/40 hover:text-white transition-all block"
+                      className="w-full py-2.5 rounded-xl text-center text-sm font-semibold border border-slate-200 text-slate-700 hover:border-slate-300 hover:text-slate-950 hover:bg-slate-50 transition-all block"
                     >
                       {ar ? 'ابدأ مجاناً' : 'Get started free'}
                     </Link>
@@ -573,8 +573,8 @@ export default function BillingPage() {
                       disabled={upgrading === plan.id || !billingEnabled}
                       className={`w-full py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 ${
                         isPopular
-                          ? 'bg-violet-500 hover:bg-violet-600 shadow-[0_0_20px_rgba(139,92,246,0.3)]'
-                          : 'bg-white/10 hover:bg-white/15 border border-white/10'
+                          ? 'bg-slate-950 hover:bg-slate-800 shadow-[0_12px_28px_rgba(15,23,42,0.16)]'
+                          : 'bg-slate-950 hover:bg-slate-800 border border-slate-950'
                       }`}
                     >
                       {upgrading === plan.id
@@ -593,38 +593,38 @@ export default function BillingPage() {
 
         {/* ── Credit cost breakdown ───────────────────────────────────────── */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-1">
+          <h2 className="text-xl font-bold text-slate-950 mb-1">
             {ar ? 'كم يكلف كل إجراء؟' : 'Credit cost per action'}
           </h2>
-          <p className="text-sm text-white/40 mb-6">
+          <p className="text-sm text-slate-500 mb-6">
             {ar
               ? 'قيمة الرصيد: Starter = $0.38/رصيد · Growth = $0.33/رصيد · Agency = $0.20/رصيد (توفر أكثر مع الترقية)'
               : 'Credit value: Starter = $0.38/cr · Growth = $0.33/cr · Agency = $0.20/cr (better value as you scale)'
             }
           </p>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
             {CREDIT_ACTIONS.map((action, i) => {
               const Icon = action.icon
               return (
                 <div
                   key={i}
-                  className={`flex items-center gap-4 px-5 py-3.5 ${i < CREDIT_ACTIONS.length - 1 ? 'border-b border-white/[0.06]' : ''}`}
+                  className={`flex items-center gap-4 px-5 py-3.5 ${i < CREDIT_ACTIONS.length - 1 ? 'border-b border-slate-100' : ''}`}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-white/50" />
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-slate-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-slate-950">
                       {ar ? action.labelAr : action.labelEn}
                     </p>
-                    <p className="text-xs text-white/40 truncate">
+                    <p className="text-xs text-slate-500 truncate">
                       {ar ? action.noteAr : action.noteEn}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-sm font-bold text-white tabular-nums">
-                      {action.cost} <span className="text-white/40 text-xs font-normal">{ar ? 'رصيد' : 'cr'}</span>
+                    <span className="text-sm font-bold text-slate-950 tabular-nums">
+                      {action.cost} <span className="text-slate-500 text-xs font-normal">{ar ? 'رصيد' : 'cr'}</span>
                     </span>
                   </div>
                 </div>
@@ -633,19 +633,19 @@ export default function BillingPage() {
           </div>
 
           {/* Growth capacity note */}
-          <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+          <div className="mt-4 rounded-xl border border-violet-200 bg-violet-50 p-4">
             <div className="flex items-start gap-3">
-              <Sparkles className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
-              <div className="text-sm text-white/60 leading-relaxed">
+              <Sparkles className="w-4 h-4 text-violet-700 mt-0.5 shrink-0" />
+              <div className="text-sm text-slate-600 leading-relaxed">
                 {ar ? (
                   <>
-                    <span className="text-white font-semibold">Growth (150 رصيد)</span> = 30 حملة كاملة · أو 50 صورة · أو 18 استراتيجية كاملة · أو أي مزيج —
-                    {' '}<span className="text-violet-400">بالإضافة إلى 25 بوست/شهر تتجاوز عتبة الـ16+ بوست (+4.5× عملاء)</span>
+                    <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = 30 حملة كاملة · أو 50 صورة · أو 18 استراتيجية كاملة · أو أي مزيج —
+                    {' '}<span className="text-violet-700">بالإضافة إلى 25 بوست/شهر تتجاوز عتبة الـ16+ بوست (+4.5× عملاء)</span>
                   </>
                 ) : (
                   <>
-                    <span className="text-white font-semibold">Growth (150 credits)</span> = 30 campaigns · or 50 images · or 18 full strategies · or any mix —
-                    {' '}<span className="text-violet-400">plus 25 posts/month that cross the 16+ post lead-gen threshold (+4.5× leads)</span>
+                    <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = 30 campaigns · or 50 images · or 18 full strategies · or any mix —
+                    {' '}<span className="text-violet-700">plus 25 posts/month that cross the 16+ post lead-gen threshold (+4.5× leads)</span>
                   </>
                 )}
               </div>
@@ -653,13 +653,13 @@ export default function BillingPage() {
           </div>
 
           {/* Referral bonus */}
-          <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <div className="flex items-start gap-3">
-              <Gift className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-              <p className="text-sm text-white/60">
+              <Gift className="w-4 h-4 text-emerald-700 mt-0.5 shrink-0" />
+              <p className="text-sm text-slate-600">
                 {ar
-                  ? <><span className="text-white font-semibold">اربح أرصدة إضافية!</span> ادعُ صديقاً واحصلا معاً على <span className="text-emerald-400 font-semibold">+20 رصيد</span> مجاناً. <Link href="/settings#referral" className="text-emerald-400 underline">احصل على رابط الإحالة →</Link></>
-                  : <><span className="text-white font-semibold">Earn free credits!</span> Refer a friend and you both get <span className="text-emerald-400 font-semibold">+20 credits</span> free. <Link href="/settings#referral" className="text-emerald-400 underline">Get your referral link →</Link></>
+                  ? <><span className="text-slate-950 font-semibold">اربح أرصدة إضافية!</span> ادعُ صديقاً واحصلا معاً على <span className="text-emerald-700 font-semibold">+20 رصيد</span> مجاناً. <Link href="/settings#referral" className="text-emerald-700 underline">احصل على رابط الإحالة →</Link></>
+                  : <><span className="text-slate-950 font-semibold">Earn free credits!</span> Refer a friend and you both get <span className="text-emerald-700 font-semibold">+20 credits</span> free. <Link href="/settings#referral" className="text-emerald-700 underline">Get your referral link →</Link></>
                 }
               </p>
             </div>
@@ -668,17 +668,17 @@ export default function BillingPage() {
 
         {/* ── Plan comparison table ───────────────────────────────────────── */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-6">
+          <h2 className="text-xl font-bold text-slate-950 mb-6">
             {ar ? 'مقارنة الخطط' : 'Plan comparison'}
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-start pb-3 text-white/40 font-medium w-[30%]">
+                <tr className="border-b border-slate-200">
+                  <th className="text-start pb-3 text-slate-500 font-medium w-[30%]">
                     {ar ? 'الميزة' : 'Feature'}
                   </th>
-                  <th className="text-center pb-3 text-white/50 font-medium">
+                  <th className="text-center pb-3 text-slate-500 font-medium">
                     {ar ? 'مجاني' : 'Free'}
                   </th>
                   <th className="text-center pb-3 text-blue-400 font-medium">
@@ -693,7 +693,7 @@ export default function BillingPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.05]">
+              <tbody className="divide-y divide-slate-100">
                 {[
                   {
                     labelAr: 'أرصدة AI / شهر', labelEn: 'AI credits / month',
@@ -742,11 +742,11 @@ export default function BillingPage() {
                   },
                 ].map(row => (
                   <tr key={ar ? row.labelAr : row.labelEn}>
-                    <td className="py-2.5 text-white/60">{ar ? row.labelAr : row.labelEn}</td>
-                    <td className="py-2.5 text-center text-white/30">{row.free}</td>
-                    <td className="py-2.5 text-center text-blue-300">{row.starter}</td>
-                    <td className="py-2.5 text-center text-violet-300 font-medium">{row.pro}</td>
-                    <td className="py-2.5 text-center text-emerald-300">{row.biz}</td>
+                    <td className="py-2.5 text-slate-700">{ar ? row.labelAr : row.labelEn}</td>
+                    <td className="py-2.5 text-center text-slate-500">{row.free}</td>
+                    <td className="py-2.5 text-center text-blue-700">{row.starter}</td>
+                    <td className="py-2.5 text-center text-violet-700 font-medium">{row.pro}</td>
+                    <td className="py-2.5 text-center text-emerald-700">{row.biz}</td>
                   </tr>
                 ))}
               </tbody>
@@ -754,12 +754,12 @@ export default function BillingPage() {
           </div>
 
           {/* Research footnote */}
-          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
-            <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-            <p className="text-sm text-white/60">
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+            <TrendingUp className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+            <p className="text-sm text-slate-600">
               {ar
-                ? <><span className="text-amber-300 font-semibold">لماذا 16+ بوست/شهر يُغيّر كل شيء؟</span> بحث HubSpot على 13,000+ شركة: الشركات التي تنشر 16+ بوست/شهر تحصل على <span className="text-amber-300 font-semibold">4.5× أضعاف العملاء المحتملين</span> مقارنة بمن ينشرون أقل من ذلك. خطة Growth تُعطيك 25 بوست/شهر — أول خطة تتجاوز هذا الحاجز.</>
-                : <><span className="text-amber-300 font-semibold">Why does 16+ posts/month change everything?</span> HubSpot research across 13,000+ companies: brands publishing 16+ posts/month get <span className="text-amber-300 font-semibold">4.5× more leads</span> than those publishing less. Growth gives you 25 posts/month — the first plan to cross this threshold.</>
+                ? <><span className="text-amber-800 font-semibold">لماذا 16+ بوست/شهر يُغيّر كل شيء؟</span> بحث HubSpot على 13,000+ شركة: الشركات التي تنشر 16+ بوست/شهر تحصل على <span className="text-amber-800 font-semibold">4.5× أضعاف العملاء المحتملين</span> مقارنة بمن ينشرون أقل من ذلك. خطة Growth تُعطيك 25 بوست/شهر — أول خطة تتجاوز هذا الحاجز.</>
+                : <><span className="text-amber-800 font-semibold">Why does 16+ posts/month change everything?</span> HubSpot research across 13,000+ companies: brands publishing 16+ posts/month get <span className="text-amber-800 font-semibold">4.5× more leads</span> than those publishing less. Growth gives you 25 posts/month — the first plan to cross this threshold.</>
               }
             </p>
           </div>
@@ -767,24 +767,24 @@ export default function BillingPage() {
 
         {/* ── FAQ ────────────────────────────────────────────────────────── */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-6">
+          <h2 className="text-xl font-bold text-slate-950 mb-6">
             {ar ? 'الأسئلة الشائعة' : 'Frequently asked questions'}
           </h2>
           <div className="space-y-3">
             {FAQS.map((faq, i) => (
               <div
                 key={i}
-                className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden"
+                className="rounded-xl border border-slate-200 bg-white overflow-hidden"
               >
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left text-sm font-medium text-white hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center justify-between px-5 py-4 text-left text-sm font-medium text-slate-950 hover:bg-slate-50 transition-colors"
                 >
                   <span>{ar ? faq.qAr : faq.qEn}</span>
-                  <span className="text-white/40 ml-4 shrink-0">{openFaq === i ? '−' : '+'}</span>
+                  <span className="text-slate-400 ml-4 shrink-0">{openFaq === i ? '−' : '+'}</span>
                 </button>
                 {openFaq === i && (
-                  <div className="px-5 pb-4 text-sm text-white/50 leading-relaxed border-t border-white/[0.06]">
+                  <div className="px-5 pb-4 text-sm text-slate-600 leading-relaxed border-t border-slate-100">
                     <p className="pt-3">{ar ? faq.aAr : faq.aEn}</p>
                   </div>
                 )}
@@ -794,7 +794,7 @@ export default function BillingPage() {
         </div>
 
         {/* ── Footer note ─────────────────────────────────────────────────── */}
-        <p className="text-center text-xs text-white/25 pb-4">
+        <p className="text-center text-xs text-slate-400 pb-4">
           {ar
             ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
             : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees'

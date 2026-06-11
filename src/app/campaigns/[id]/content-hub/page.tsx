@@ -593,26 +593,26 @@ export default function ContentHubPage() {
   if (!campaign) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center h-64 text-gray-400">Campaign not found</div>
+        <div className="flex items-center justify-center h-64 text-slate-500">Campaign not found</div>
       </AppShell>
     )
   }
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
             <button
               onClick={() => router.push(`/campaigns/${campaignId}`)}
-              className="text-sm text-gray-500 hover:text-purple-400 flex items-center gap-1 mb-2 transition-colors"
+              className="text-sm text-slate-500 hover:text-[#5E5CE6] flex items-center gap-1 mb-2 transition-colors"
             >
               ← {campaign.name}
             </button>
-            <h1 className="text-2xl font-bold text-white">Content Hub</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h1 className="text-2xl font-bold text-slate-950">Content Hub</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
               {posts.length > 0
                 ? `${posts.length} posts · ${doneCount} images ready · ${posts.filter(p => p.isVideoPost).length} video slots`
                 : 'Generate your monthly content plan'}
@@ -629,7 +629,7 @@ export default function ContentHubPage() {
                     disabled={approving}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                     style={{
-                      background: 'linear-gradient(135deg, #059669, #047857)',
+                      background: '#059669',
                       color: 'white',
                       opacity: approving ? 0.6 : 1,
                     }}
@@ -650,7 +650,7 @@ export default function ContentHubPage() {
                   </button>
                 ) : (
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
-                    style={{ background: 'rgba(5,150,105,0.1)', color: '#34d399', border: '1px solid rgba(5,150,105,0.2)' }}>
+                    style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(5,150,105,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
                     All posts scheduled
                   </div>
@@ -661,7 +661,7 @@ export default function ContentHubPage() {
                   disabled={generating || posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length === 0}
                   className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                   style={{
-                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    background: '#111827',
                     color: 'white',
                     opacity: generating ? 0.6 : 1,
                   }}
@@ -686,7 +686,7 @@ export default function ContentHubPage() {
                   onClick={() => generatePlan()}
                   disabled={generatingPlan}
                   className="px-4 py-2 rounded-xl text-sm border transition-all"
-                  style={{ borderColor: 'rgba(139,92,246,0.3)', color: '#a78bfa' }}
+                  style={{ borderColor: 'rgba(15,23,42,0.14)', color: '#374151', background: '#FFFFFF' }}
                 >
                   {generatingPlan ? 'Regenerating...' : '↻ Regenerate Plan'}
                 </button>
@@ -700,14 +700,14 @@ export default function ContentHubPage() {
                   onClick={() => setEnableABTesting(prev => !prev)}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
                   style={{
-                    background: enableABTesting ? 'rgba(234,179,8,0.12)' : 'rgba(255,255,255,0.04)',
-                    border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(255,255,255,0.08)',
-                    color: enableABTesting ? '#fbbf24' : '#6b7280',
+                    background: enableABTesting ? '#FFFBEB' : '#FFFFFF',
+                    border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(15,23,42,0.10)',
+                    color: enableABTesting ? '#B45309' : '#6b7280',
                   }}
                   title="Generate A/B variants for each post — compare two hook styles and pick the winner"
                 >
                   <span>A/B</span>
-                  <span className={`w-6 h-3 rounded-full relative transition-all ${enableABTesting ? 'bg-yellow-500' : 'bg-gray-600'}`}>
+                  <span className={`w-6 h-3 rounded-full relative transition-all ${enableABTesting ? 'bg-yellow-500' : 'bg-gray-300'}`}>
                     <span className={`absolute top-0.5 w-2 h-2 bg-white rounded-full shadow transition-all ${enableABTesting ? 'left-3.5' : 'left-0.5'}`} />
                   </span>
                 </button>
@@ -716,7 +716,7 @@ export default function ContentHubPage() {
                   disabled={generatingPlan}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                   style={{
-                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    background: '#111827',
                     color: 'white',
                     opacity: generatingPlan ? 0.6 : 1,
                   }}
@@ -735,12 +735,12 @@ export default function ContentHubPage() {
 
         {/* ── Messages ─────────────────────────────────────────────── */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl text-sm text-red-400 bg-red-500/10 border border-red-500/20">
+          <div className="mb-4 p-3 rounded-xl text-sm text-red-700 bg-red-50 border border-red-200">
             {error}
           </div>
         )}
         {successMsg && (
-          <div className="mb-4 p-3 rounded-xl text-sm text-green-400 bg-green-500/10 border border-green-500/20 flex items-center justify-between">
+          <div className="mb-4 p-3 rounded-xl text-sm text-green-700 bg-green-50 border border-green-200 flex items-center justify-between">
             {successMsg}
             <button onClick={() => setSuccessMsg(null)} className="text-green-600 hover:text-green-400">×</button>
           </div>
@@ -748,15 +748,15 @@ export default function ContentHubPage() {
 
         {/* ── Progress bar ─────────────────────────────────────────── */}
         {totalImagePosts > 0 && (
-          <div className="mb-5 p-3 rounded-xl" style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+          <div className="mb-5 p-3 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-purple-300 font-medium">Image generation progress</span>
-              <span className="text-gray-400">{doneCount} / {totalImagePosts} images</span>
+              <span className="text-slate-700 font-medium">Image generation progress</span>
+              <span className="text-slate-500">{doneCount} / {totalImagePosts} images</span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.15)' }}>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)' }}
+                style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #111827, #5E5CE6)' }}
               />
             </div>
           </div>
@@ -765,7 +765,7 @@ export default function ContentHubPage() {
         {/* ── Filter bar (sticky) ──────────────────────────────────── */}
         {posts.length > 0 && (
           <div className="sticky top-0 z-10 mb-5 -mx-6 px-6 py-3"
-            style={{ background: 'rgba(13,10,25,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            style={{ background: 'rgba(245,245,247,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
             {/* Platform tabs */}
             <div className="flex gap-2 flex-wrap mb-2.5">
               {platforms.map(p => {
@@ -778,15 +778,15 @@ export default function ContentHubPage() {
                     onClick={() => setActivePlatform(p as Platform)}
                     className="px-3 py-1.5 rounded-xl text-sm font-medium transition-all flex items-center gap-1.5"
                     style={{
-                      background: isActive ? (cfg ? cfg.color : 'rgba(139,92,246,0.8)') : 'rgba(255,255,255,0.05)',
-                      color: isActive ? '#fff' : '#9ca3af',
-                      border: isActive ? `1px solid ${cfg ? cfg.color : '#7c3aed'}` : '1px solid rgba(255,255,255,0.08)',
+                      background: isActive ? (cfg ? cfg.color : '#111827') : '#FFFFFF',
+                      color: isActive ? '#fff' : '#6b7280',
+                      border: isActive ? `1px solid ${cfg ? cfg.color : '#111827'}` : '1px solid rgba(15,23,42,0.10)',
                     }}
                   >
                     {cfg && <span>{cfg.icon}</span>}
                     {p === 'ALL' ? 'All Platforms' : (cfg?.label ?? p)}
                     <span className="text-xs px-1.5 py-0.5 rounded-full"
-                      style={{ background: isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)', color: isActive ? '#fff' : '#6b7280' }}>
+                      style={{ background: isActive ? 'rgba(255,255,255,0.2)' : '#F3F4F6', color: isActive ? '#fff' : '#6b7280' }}>
                       {count}
                     </span>
                   </button>
@@ -795,7 +795,7 @@ export default function ContentHubPage() {
             </div>
             {/* Status filter */}
             <div className="flex gap-1.5 items-center">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-600 mr-1">Status</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Status</span>
               {(['ALL', 'PENDING', 'DONE', 'SCHEDULED'] as const).map(s => {
                 const isActive = statusFilter === s
                 const label = s === 'ALL' ? 'All' : s === 'PENDING' ? 'Pending' : s === 'DONE' ? '✓ Ready' : '🗓 Scheduled'
@@ -804,9 +804,9 @@ export default function ContentHubPage() {
                   <button key={s} onClick={() => setStatusFilter(s)}
                     className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                     style={{
-                      background: isActive ? `${activeColor}22` : 'rgba(255,255,255,0.03)',
+                      background: isActive ? `${activeColor}18` : '#FFFFFF',
                       color: isActive ? activeColor : '#6b7280',
-                      border: isActive ? `1px solid ${activeColor}44` : '1px solid rgba(255,255,255,0.06)',
+                      border: isActive ? `1px solid ${activeColor}44` : '1px solid rgba(15,23,42,0.08)',
                     }}>
                     {label}
                   </button>
@@ -814,8 +814,8 @@ export default function ContentHubPage() {
               })}
               {(activePlatform !== 'ALL' || statusFilter !== 'ALL') && (
                 <button onClick={() => { setActivePlatform('ALL'); setStatusFilter('ALL') }}
-                  className="px-2 py-1 rounded-lg text-xs text-gray-600 hover:text-gray-400 transition-all ml-1"
-                  style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  className="px-2 py-1 rounded-lg text-xs text-slate-500 hover:text-slate-900 transition-all ml-1"
+                  style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   ✕ Clear
                 </button>
               )}
@@ -827,11 +827,11 @@ export default function ContentHubPage() {
         {posts.length === 0 && !generatingPlan && (
           <div className="text-center py-20">
             <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
-              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
               📅
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">No content plan yet</h3>
-            <p className="text-sm text-gray-400 max-w-sm mx-auto mb-6">
+            <h3 className="text-lg font-semibold text-slate-950 mb-2">No content plan yet</h3>
+            <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
               Generate your monthly content plan. The AI will write all post captions and image prompts based on your campaign strategy.
             </p>
           </div>
@@ -840,11 +840,11 @@ export default function ContentHubPage() {
         {generatingPlan && (
           <div className="text-center py-20">
             <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
               <span className="w-8 h-8 border-2 border-purple-500/40 border-t-purple-400 rounded-full animate-spin" />
             </div>
-            <h3 className="text-lg font-semibold text-white mb-2">Building your content plan...</h3>
-            <p className="text-sm text-gray-400">Writing captions and image prompts for all posts</p>
+            <h3 className="text-lg font-semibold text-slate-950 mb-2">Building your content plan...</h3>
+            <p className="text-sm text-slate-500">Writing captions and image prompts for all posts</p>
           </div>
         )}
 
@@ -942,7 +942,7 @@ export default function ContentHubPage() {
                     <div className="flex items-center gap-2 px-4 py-2.5"
                       style={{ background: 'rgba(234,179,8,0.06)', borderBottom: '1px solid rgba(234,179,8,0.15)' }}>
                       <span className="text-sm font-semibold" style={{ color: '#fbbf24' }}>⚡ A/B Test</span>
-                      <span className="text-xs text-gray-500">· Compare both variants and pick the winner</span>
+                      <span className="text-xs text-slate-500">· Compare both variants and pick the winner</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                       {renderCard(group.a)}
@@ -959,30 +959,30 @@ export default function ContentHubPage() {
         {showApproveConfirm && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.75)' }}
+            style={{ background: 'rgba(15,23,42,0.28)', backdropFilter: 'blur(10px)' }}
             onClick={() => setShowApproveConfirm(false)}
           >
             <div
               className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
-              style={{ background: '#1a1625', border: '1px solid rgba(5,150,105,0.3)' }}
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               onClick={e => e.stopPropagation()}
             >
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4"
-                style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.2)' }}>
+                style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)' }}>
                 📅
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Approve &amp; Schedule all posts?</h3>
-              <p className="text-sm text-gray-400 mb-1">
-                This will mark all <span className="text-white font-semibold">{posts.filter(p => p.status === 'DRAFT').length} draft posts</span> as scheduled.
+              <h3 className="text-lg font-bold text-slate-950 mb-2">Approve &amp; Schedule all posts?</h3>
+              <p className="text-sm text-slate-600 mb-1">
+                This will mark all <span className="text-slate-950 font-semibold">{posts.filter(p => p.status === 'DRAFT').length} draft posts</span> as scheduled.
               </p>
-              <p className="text-sm text-gray-500 mb-6">
+              <p className="text-sm text-slate-500 mb-6">
                 Posts will auto-publish at their scheduled times. You can still edit captions before they go live.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowApproveConfirm(false)}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm text-gray-400 hover:text-white border transition-all"
-                  style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm text-slate-600 hover:text-slate-950 border transition-all"
+                  style={{ borderColor: 'rgba(15,23,42,0.12)', background: '#FFFFFF' }}
                 >
                   Cancel
                 </button>
@@ -1002,12 +1002,12 @@ export default function ContentHubPage() {
         {approveResult && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.8)' }}
+            style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }}
             onClick={() => setApproveResult(null)}
           >
             <div
               className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
-              style={{ background: '#1a1625', border: '1px solid rgba(5,150,105,0.35)' }}
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               onClick={e => e.stopPropagation()}
             >
               {/* Top accent bar */}
@@ -1018,51 +1018,51 @@ export default function ContentHubPage() {
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                      style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.25)' }}>
+                      style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)' }}>
                       🚀
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">
+                      <h3 className="text-lg font-bold text-slate-950">
                         {approveResult.approved} posts scheduled!
                       </h3>
-                      <p className="text-sm text-emerald-400">Your content plan is live</p>
+                      <p className="text-sm text-emerald-600">Your content plan is live</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setApproveResult(null)}
-                    className="text-gray-500 hover:text-gray-300 text-xl leading-none"
+                    className="text-slate-400 hover:text-slate-700 text-xl leading-none"
                   >×</button>
                 </div>
 
                 {/* Stats row */}
                 <div className="grid grid-cols-4 gap-3 mb-5">
                   <div className="rounded-xl p-3 text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="text-2xl font-bold text-white">{approveResult.approved}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">Posts</div>
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <div className="text-2xl font-bold text-slate-950">{approveResult.approved}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Posts</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="text-2xl font-bold text-emerald-400">{approveResult.linked}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">Linked</div>
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <div className="text-2xl font-bold text-emerald-600">{approveResult.linked}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Linked</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="text-2xl font-bold text-purple-400">{approveResult.platforms.length}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">Platforms</div>
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <div className="text-2xl font-bold text-[#5E5CE6]">{approveResult.platforms.length}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Platforms</div>
                   </div>
                   <div className="rounded-xl p-3 text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div className="text-2xl font-bold text-cyan-400">{approveResult.pendingImages}</div>
-                    <div className="text-xs text-gray-400 mt-0.5">Images left</div>
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <div className="text-2xl font-bold text-cyan-600">{approveResult.pendingImages}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">Images left</div>
                   </div>
                 </div>
 
                 {/* Platform breakdown */}
                 {approveResult.platforms.length > 0 && (
                   <div className="rounded-xl p-3 mb-4"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                    <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wide">Publishing to</p>
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">Publishing to</p>
                     <div className="flex flex-wrap gap-2">
                       {approveResult.platforms.map(p => {
                         const cfg = getPlatformConfig(p)
@@ -1083,11 +1083,11 @@ export default function ContentHubPage() {
                 {/* Schedule window */}
                 {(approveResult.firstDate || approveResult.lastDate) && (
                   <div className="rounded-xl p-3 mb-4 flex items-center gap-3"
-                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                    style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                     <span className="text-lg">📅</span>
                     <div>
-                      <p className="text-xs text-gray-500 mb-0.5">Publishing window</p>
-                      <p className="text-sm text-purple-300 font-medium">
+                      <p className="text-xs text-slate-500 mb-0.5">Publishing window</p>
+                      <p className="text-sm text-[#5E5CE6] font-medium">
                         {approveResult.firstDate
                           ? new Date(approveResult.firstDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                           : '—'}
@@ -1103,18 +1103,18 @@ export default function ContentHubPage() {
                 {/* Brand Brain learning */}
                 {(approveResult.learned.hooks > 0 || approveResult.learned.angles > 0) && (
                   <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
-                    style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.25)' }}>
+                    style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                     <span className="text-xl mt-0.5">🧠</span>
                     <div>
-                      <p className="text-sm font-semibold text-purple-300 mb-0.5">Brand Brain updated</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-sm font-semibold text-[#5E5CE6] mb-0.5">Brand Brain updated</p>
+                      <p className="text-xs text-slate-600">
                         Learned{' '}
                         {approveResult.learned.hooks > 0 && (
-                          <span className="text-purple-300 font-medium">{approveResult.learned.hooks} winning hooks</span>
+                          <span className="text-[#5E5CE6] font-medium">{approveResult.learned.hooks} winning hooks</span>
                         )}
                         {approveResult.learned.hooks > 0 && approveResult.learned.angles > 0 && ' + '}
                         {approveResult.learned.angles > 0 && (
-                          <span className="text-purple-300 font-medium">{approveResult.learned.angles} content angles</span>
+                          <span className="text-[#5E5CE6] font-medium">{approveResult.learned.angles} content angles</span>
                         )}
                         {' '}from your approved content — future campaigns will feel even more on-brand.
                       </p>
@@ -1126,12 +1126,12 @@ export default function ContentHubPage() {
                 <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
                   style={{
                     background: approveResult.pendingImages > 0
-                      ? 'rgba(124,58,237,0.08)'
+                      ? '#F5F3FF'
                       : approveResult.unlinked > 0
-                      ? 'rgba(245,158,11,0.07)'
-                      : 'rgba(5,150,105,0.08)',
+                      ? '#FFFBEB'
+                      : '#ECFDF5',
                     border: approveResult.pendingImages > 0
-                      ? '1px solid rgba(124,58,237,0.25)'
+                      ? '1px solid rgba(94,92,230,0.18)'
                       : approveResult.unlinked > 0
                       ? '1px solid rgba(245,158,11,0.2)'
                       : '1px solid rgba(5,150,105,0.22)',
@@ -1141,14 +1141,14 @@ export default function ContentHubPage() {
                   </span>
                   <div>
                     <p className="text-sm font-semibold mb-0.5"
-                      style={{ color: approveResult.pendingImages > 0 ? '#c4b5fd' : approveResult.unlinked > 0 ? '#fbbf24' : '#34d399' }}>
+                      style={{ color: approveResult.pendingImages > 0 ? '#5E5CE6' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
                       {approveResult.pendingImages > 0
                         ? 'Next: generate campaign images'
                         : approveResult.unlinked > 0
                         ? 'Next: connect publishing platforms'
                         : 'Next: review your schedule'}
                     </p>
-                    <p className="text-xs text-gray-400 leading-relaxed">
+                    <p className="text-xs text-slate-600 leading-relaxed">
                       {approveResult.pendingImages > 0
                         ? `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need visuals. Generate them now before reviewing the calendar.`
                         : approveResult.unlinked > 0
@@ -1161,10 +1161,10 @@ export default function ContentHubPage() {
                 {/* Unlinked warning */}
                 {approveResult.unlinked > 0 && (
                   <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
-                    style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                    style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}>
                     <span className="text-base mt-0.5">⚠️</span>
                     <div>
-                      <p className="text-xs text-amber-400">
+                      <p className="text-xs text-amber-700">
                         {approveResult.unlinked} post{approveResult.unlinked !== 1 ? 's have' : ' has'} no connected platform yet.
                         Connect your social accounts in{' '}
                         <button
@@ -1186,7 +1186,7 @@ export default function ContentHubPage() {
                         generateAllImages()
                       }}
                       className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-                      style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                      style={{ background: '#111827' }}
                     >
                       ✨ Generate {approveResult.pendingImages} Images
                     </button>
@@ -1194,7 +1194,7 @@ export default function ContentHubPage() {
                     <button
                       onClick={() => { setApproveResult(null); router.push('/connections') }}
                       className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
-                      style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}
+                      style={{ background: '#B45309' }}
                     >
                       🔌 Connect Platforms
                     </button>
@@ -1202,7 +1202,7 @@ export default function ContentHubPage() {
                   <button
                     onClick={() => { setApproveResult(null); router.push('/schedule') }}
                     className={`${approveResult.pendingImages > 0 || approveResult.unlinked > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border`}
-                    style={{ borderColor: 'rgba(5,150,105,0.35)', color: '#34d399' }}
+                    style={{ borderColor: 'rgba(5,150,105,0.24)', color: '#047857', background: '#FFFFFF' }}
                   >
                     📅 View Schedule
                   </button>
@@ -1216,24 +1216,24 @@ export default function ContentHubPage() {
         {mediaPickerOpen && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.7)' }}
+            style={{ background: 'rgba(15,23,42,0.28)', backdropFilter: 'blur(10px)' }}
             onClick={() => setMediaPickerOpen(null)}
           >
             <div
               className="w-full max-w-2xl rounded-2xl p-6 shadow-2xl"
-              style={{ background: '#1a1625', border: '1px solid rgba(139,92,246,0.3)' }}
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-white">Choose from Media Library</h3>
-                <button onClick={() => setMediaPickerOpen(null)} className="text-gray-400 hover:text-white text-xl">×</button>
+                <h3 className="font-semibold text-slate-950">Choose from Media Library</h3>
+                <button onClick={() => setMediaPickerOpen(null)} className="text-slate-400 hover:text-slate-700 text-xl">×</button>
               </div>
               {mediaLibrary.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
+                <div className="text-center py-12 text-slate-500">
                   <p className="mb-3">No images uploaded yet</p>
                   <button
                     onClick={() => router.push('/media')}
-                    className="text-sm text-purple-400 hover:text-purple-300"
+                    className="text-sm text-[#5E5CE6] hover:text-[#4845C7]"
                   >
                     Go to Media Library →
                   </button>
@@ -1399,13 +1399,13 @@ function PostCard({
 
   // Wrapper with status bar on top + action row on bottom
   return (
-    <div className="rounded-2xl overflow-hidden flex flex-col" style={{ background: '#161020', border: '1px solid rgba(255,255,255,0.07)' }}>
+    <div className="rounded-2xl overflow-hidden flex flex-col" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
 
       {/* ── Top meta bar ─────────────────── */}
-      <div className="flex items-center justify-between px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="flex items-center justify-between px-3 py-2" style={{ background: '#F8FAFC', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">#{post.contentPlanIndex}</span>
-          {scheduledDate && <span className="text-[10px] text-gray-600">· {scheduledDate}</span>}
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">#{post.contentPlanIndex}</span>
+          {scheduledDate && <span className="text-[10px] text-slate-400">· {scheduledDate}</span>}
           {/* A/B variant badge */}
           {post.variantLabel && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
@@ -1458,20 +1458,20 @@ function PostCard({
 
       {/* ── Edit caption overlay ─────────── */}
       {isEditingCaption && (
-        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <textarea
             className="w-full rounded-xl text-sm p-3 resize-none focus:outline-none"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.4)', color: '#e5e7eb', minHeight: '90px' }}
+            style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.28)', color: '#0f172a', minHeight: '90px' }}
             value={caption}
             onChange={e => onPendingEdit({ caption: e.target.value })}
             autoFocus
           />
           <div className="flex justify-end gap-2 mt-2">
-            <button onClick={onEditCaption} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-white transition-colors">Cancel</button>
+            <button onClick={onEditCaption} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors">Cancel</button>
             <button
               onClick={() => { onSaveEdit({ caption }); onEditCaption() }}
               className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all"
-              style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)' }}
+              style={{ background: '#111827' }}
             >Save</button>
           </div>
         </div>
@@ -1479,14 +1479,14 @@ function PostCard({
 
       {/* ── AI Rewrite input overlay ──────── */}
       {showRewriteInput && !isEditingCaption && (
-        <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(124,58,237,0.15)', background: 'rgba(124,58,237,0.04)' }}>
-          <p className="text-[10px] text-purple-400 font-medium mb-1.5 flex items-center gap-1">
-            <span>✨</span> Rewrite instruction <span className="text-gray-600">(optional)</span>
+        <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(94,92,230,0.14)', background: '#F5F3FF' }}>
+          <p className="text-[10px] text-[#5E5CE6] font-medium mb-1.5 flex items-center gap-1">
+            <span>✨</span> Rewrite instruction <span className="text-slate-400">(optional)</span>
           </p>
           <input
             type="text"
             className="w-full rounded-xl text-xs px-3 py-2 focus:outline-none"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(124,58,237,0.35)', color: '#e5e7eb' }}
+            style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.24)', color: '#0f172a' }}
             placeholder='e.g. "make it more casual" or "add urgency"'
             value={rewriteInstruction}
             onChange={e => setRewriteInstruction(e.target.value)}
@@ -1508,7 +1508,7 @@ function PostCard({
           <div className="flex justify-end gap-2 mt-2">
             <button
               onClick={() => { setShowRewriteInput(false); setRewriteInstruction('') }}
-              className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-white transition-colors"
+              className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors"
             >Cancel</button>
             <button
               onClick={() => {
@@ -1519,7 +1519,7 @@ function PostCard({
               }}
               disabled={isRewriting}
               className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg,#7c3aed,#6d28d9)', opacity: isRewriting ? 0.7 : 1 }}
+              style={{ background: '#111827', opacity: isRewriting ? 0.7 : 1 }}
             >
               {isRewriting
                 ? <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Rewriting…</>
@@ -1531,9 +1531,9 @@ function PostCard({
       )}
 
       {/* ── Action row ───────────────────── */}
-      <div className="flex border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+      <div className="flex border-t" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
         <button onClick={onEditCaption}
-          className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-purple-400 hover:bg-purple-500/5 transition-all flex items-center justify-center gap-1.5">
+          className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-[#5E5CE6] hover:bg-violet-50 transition-all flex items-center justify-center gap-1.5">
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M11.5 2.5a2.121 2.121 0 013 3L5 15l-4 1 1-4L11.5 2.5z"/></svg>
           Edit
         </button>
@@ -1541,7 +1541,7 @@ function PostCard({
           onClick={() => { setShowRewriteInput(v => !v); setRewriteInstruction('') }}
           disabled={isRewriting}
           className="flex-1 py-2.5 text-xs font-medium hover:bg-purple-500/5 transition-all border-l flex items-center justify-center gap-1"
-          style={{ borderColor: 'rgba(255,255,255,0.06)', color: isRewriting ? '#7c3aed' : '#9b87f5' }}
+          style={{ borderColor: 'rgba(15,23,42,0.08)', color: isRewriting ? '#5E5CE6' : '#5E5CE6' }}
         >
           {isRewriting
             ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Rewriting</>
@@ -1552,7 +1552,7 @@ function PostCard({
         {platform === 'TIKTOK' ? (
           <button onClick={onOpenMediaPicker}
             className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
-            style={{ borderColor: 'rgba(255,255,255,0.06)', color: '#f472b6' }}
+            style={{ borderColor: 'rgba(15,23,42,0.08)', color: '#DB2777' }}
             title="TikTok requires real video — upload yours">
             📹 Vid
           </button>
@@ -1561,7 +1561,7 @@ function PostCard({
             onClick={onGenerateImage}
             disabled={isGeneratingImage}
             className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
-            style={{ borderColor: 'rgba(255,255,255,0.06)', color: isGeneratingImage ? '#a78bfa' : '#8b5cf6' }}
+            style={{ borderColor: 'rgba(15,23,42,0.08)', color: isGeneratingImage ? '#8B5CF6' : '#5E5CE6' }}
           >
             {isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>
@@ -1588,8 +1588,8 @@ function PostCard({
           </button>
         ) : (
           <button onClick={onOpenMediaPicker}
-            className="flex-1 py-2.5 text-xs font-medium text-gray-500 hover:text-blue-400 hover:bg-blue-500/5 transition-all border-l flex items-center justify-center gap-1.5"
-            style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+            className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all border-l flex items-center justify-center gap-1.5"
+            style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
             {isVideo ? 'Vid' : 'Img'}
           </button>

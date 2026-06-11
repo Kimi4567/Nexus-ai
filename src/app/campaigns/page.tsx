@@ -46,11 +46,11 @@ export default function CampaignsPage() {
 
   // Status config — labels from i18n, colors/badges stay static
   const STATUS_MAP: Record<string, { label: string; dot: string; badge: string }> = {
-    DRAFT:     { label: cT?.statusDraft     as string, dot: 'bg-white/30',      badge: 'bg-white/5 text-text-secondary' },
-    ACTIVE:    { label: cT?.statusActive    as string, dot: 'bg-emerald-400',   badge: 'bg-emerald-500/10 text-emerald-400' },
-    PAUSED:    { label: cT?.statusPaused    as string, dot: 'bg-amber-400',     badge: 'bg-amber-500/10 text-amber-400' },
-    COMPLETED: { label: cT?.statusCompleted as string, dot: 'bg-cyan-400',      badge: 'bg-cyan-500/10 text-cyan-400' },
-    ARCHIVED:  { label: cT?.statusArchived  as string, dot: 'bg-white/20',      badge: 'bg-white/5 text-text-muted' },
+    DRAFT:     { label: cT?.statusDraft     as string, dot: 'bg-slate-400',     badge: 'bg-slate-100 text-slate-600 border border-slate-200' },
+    ACTIVE:    { label: cT?.statusActive    as string, dot: 'bg-emerald-500',   badge: 'bg-emerald-50 text-emerald-700 border border-emerald-100' },
+    PAUSED:    { label: cT?.statusPaused    as string, dot: 'bg-amber-500',     badge: 'bg-amber-50 text-amber-700 border border-amber-100' },
+    COMPLETED: { label: cT?.statusCompleted as string, dot: 'bg-cyan-600',      badge: 'bg-cyan-50 text-cyan-700 border border-cyan-100' },
+    ARCHIVED:  { label: cT?.statusArchived  as string, dot: 'bg-slate-300',     badge: 'bg-slate-50 text-slate-500 border border-slate-200' },
   }
 
   const GOAL_MAP: Record<string, string> = {
@@ -143,7 +143,7 @@ export default function CampaignsPage() {
 
   return (
     <AppShell>
-    <div className="space-y-6">
+    <div className="min-h-screen px-4 sm:px-6 py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -151,7 +151,7 @@ export default function CampaignsPage() {
           <p className="text-text-muted text-sm">{cT?.pageSubtitle as string}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+          <button onClick={load} className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 transition-colors">
             <RefreshCw className={`w-4 h-4 text-text-muted ${loading ? 'animate-spin' : ''}`} />
           </button>
           <Link href="/campaigns/new" className="btn-primary flex items-center gap-2 text-sm py-2 px-4">
@@ -164,11 +164,11 @@ export default function CampaignsPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: cT?.statTotal as string,  value: totalCount,  icon: <FolderKanban className="w-5 h-5 text-cyan-400" /> },
-          { label: cT?.statActive as string, value: activeCount, icon: <Megaphone className="w-5 h-5 text-emerald-400" /> },
-          { label: cT?.statDraft as string,  value: draftCount,  icon: <Wand2 className="w-5 h-5 text-amber" /> },
+          { label: cT?.statTotal as string,  value: totalCount,  icon: <FolderKanban className="w-5 h-5 text-cyan-700" /> },
+          { label: cT?.statActive as string, value: activeCount, icon: <Megaphone className="w-5 h-5 text-emerald-700" /> },
+          { label: cT?.statDraft as string,  value: draftCount,  icon: <Wand2 className="w-5 h-5 text-amber-700" /> },
         ].map((s) => (
-          <div key={s.label} className="glass p-5" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+          <div key={s.label} className="p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '14px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center gap-2 mb-2">{s.icon}<span className="text-text-muted text-sm">{s.label}</span></div>
             <p className="text-2xl font-bold">{loading ? '—' : s.value}</p>
           </div>
@@ -213,8 +213,8 @@ export default function CampaignsPage() {
           onClick={() => setFavoriteOnly(f => !f)}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm transition-all ${
             favoriteOnly
-              ? 'border-amber/40 bg-amber/10 text-amber'
-              : 'border-white/10 text-text-secondary hover:border-white/20'
+              ? 'border-amber-200 bg-amber-50 text-amber-700'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
           }`}
         >
           <Star className="w-4 h-4" />
@@ -228,7 +228,7 @@ export default function CampaignsPage() {
           <Loader2 className="w-8 h-8 animate-spin text-amber" />
         </div>
       ) : campaigns.length === 0 ? (
-        <div className="glass p-16 text-center" style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '20px' }}>
+        <div className="p-16 text-center" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '16px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
           <Megaphone className="w-14 h-14 mx-auto mb-4 opacity-20" />
           <h3 className="text-lg font-bold mb-2">
             {search || statusFilter ? cT?.emptyNoResults as string : cT?.emptyNoCampaigns as string}
@@ -244,11 +244,11 @@ export default function CampaignsPage() {
           )}
         </div>
       ) : (
-        <div className="glass overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px' }}>
+        <div className="overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '14px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/10">
+                <tr className="border-b border-slate-200 bg-slate-50/70">
                   <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colCampaign as string}</th>
                   <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colStatus as string}</th>
                   <th className="text-right px-6 py-4 text-xs font-medium text-text-muted uppercase tracking-wider">{cT?.colGoal as string}</th>
@@ -258,18 +258,18 @@ export default function CampaignsPage() {
                   <th className="px-6 py-4" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-slate-100">
                 {campaigns.map((c) => {
                   const st = STATUS_MAP[c.status] || STATUS_MAP.DRAFT
                   return (
-                    <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr key={c.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                         <Link href={`/campaigns/${c.id}`} className="flex items-center gap-3">
-                          <span className="text-2xl w-9 h-9 flex items-center justify-center rounded-xl bg-white/5">
+                          <span className="text-2xl w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100">
                             {c.thumbnail || '🎯'}
                           </span>
                           <div>
-                            <p className="text-sm font-medium group-hover:text-amber transition-colors">{c.name}</p>
+                            <p className="text-sm font-medium text-slate-950 group-hover:text-[#5E5CE6] transition-colors">{c.name}</p>
                             {c.description && (
                               <p className="text-xs text-text-muted mt-0.5 max-w-[200px] truncate">{c.description}</p>
                             )}
@@ -291,7 +291,7 @@ export default function CampaignsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">
                           {(c.platforms || []).slice(0, 3).map((p, i) => (
-                            <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-white/5 text-text-secondary">{p}</span>
+                            <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">{p}</span>
                           ))}
                           {c.platforms?.length > 3 && (
                             <span className="text-xs text-text-muted">+{c.platforms.length - 3}</span>
@@ -339,18 +339,18 @@ export default function CampaignsPage() {
                             {openMenuId === c.id && (
                               <div
                                 className="absolute end-0 top-full mt-1 w-36 rounded-xl overflow-hidden z-50 shadow-xl"
-                                style={{ background: 'rgba(15,16,40,0.97)', border: '1px solid rgba(139,92,246,0.2)' }}
+                            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', boxShadow: '0 16px 42px rgba(15,23,42,0.14)' }}
                               >
                                 <button
                                   onClick={() => { setOpenMenuId(null); router.push(`/campaigns/${c.id}`) }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-950 hover:bg-slate-50 transition-colors"
                                 >
                                   <ExternalLink className="w-3.5 h-3.5" />
                                   {(cT as Record<string, string>)?.menuOpen || 'Open'}
                                 </button>
                                 <button
                                   onClick={() => archiveCampaign(c.id)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-text-secondary hover:text-white hover:bg-white/5 transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-slate-950 hover:bg-slate-50 transition-colors"
                                 >
                                   <Archive className="w-3.5 h-3.5" />
                                   {(cT as Record<string, string>)?.menuArchive || 'Archive'}
