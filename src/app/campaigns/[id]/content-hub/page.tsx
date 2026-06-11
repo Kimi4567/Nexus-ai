@@ -63,6 +63,28 @@ interface BrandProfile {
   colorPalette: string[]
 }
 
+interface StrategyHandoff {
+  campaignId: string
+  language?: string
+  selectedMediaIds?: string[]
+  ts?: number
+}
+
+const STRATEGY_HANDOFF_KEY = 'nexus_strategy_handoff'
+
+function loadStrategyHandoff(campaignId: string): StrategyHandoff | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(`${STRATEGY_HANDOFF_KEY}:${campaignId}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as StrategyHandoff
+    if (parsed.campaignId !== campaignId) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
 // ── Platform config ────────────────────────────────────────────────────────────
 
 const PLATFORM_CONFIG: Record<string, {
@@ -272,10 +294,18 @@ export default function ContentHubPage() {
     setGeneratingPlan(true)
     setError(null)
     try {
+      const handoff = loadStrategyHandoff(campaignId)
       const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaSource, enableABTesting }),
+        body: JSON.stringify({
+          mediaSource,
+          enableABTesting,
+          ...(handoff?.language ? { language: handoff.language } : {}),
+          ...(handoff && Array.isArray(handoff.selectedMediaIds)
+            ? { selectedMediaIds: handoff.selectedMediaIds }
+            : {}),
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Generation failed')

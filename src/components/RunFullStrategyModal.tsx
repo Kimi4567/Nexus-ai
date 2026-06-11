@@ -74,6 +74,7 @@ const FIELD_KEY_MAP: RequiredFieldKey[] = [
 // -- Cache helpers -----------------------------------------------------------
 
 const CACHE_KEY = 'nexus_run_strategy_result'
+const STRATEGY_HANDOFF_KEY = 'nexus_strategy_handoff'
 const CACHE_TTL = 15 * 60 * 1000 // 15 minutes
 
 function saveResultCache(res: RunResult) {
@@ -94,6 +95,13 @@ function loadResultCache(): RunResult | null {
 
 function clearResultCache() {
   try { sessionStorage.removeItem(CACHE_KEY) } catch {}
+}
+
+function saveStrategyHandoff(campaignId: string, data: { language: string; selectedMediaIds: string[] }) {
+  try {
+    const payload = JSON.stringify({ ...data, campaignId, ts: Date.now() })
+    sessionStorage.setItem(`${STRATEGY_HANDOFF_KEY}:${campaignId}`, payload)
+  } catch {}
 }
 
 // -- Component ---------------------------------------------------------------
@@ -252,6 +260,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           const errorMsg = d.error || (Array.isArray(d.errors) && d.errors.length > 0 ? d.errors[0] : null)
           if (ok && !errorMsg && d.campaignId) {
             saveResultCache(d)
+            saveStrategyHandoff(d.campaignId, {
+              language: selectedLanguage,
+              selectedMediaIds,
+            })
           }
 
           if (cancelled) return

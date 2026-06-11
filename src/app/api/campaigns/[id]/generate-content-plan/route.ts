@@ -426,7 +426,7 @@ Rules:
           uploadedMediaId = assignedMedia.id
           assignedImageUrl = assignedMedia.url
           effectiveMediaSource = 'UPLOAD'
-          effectiveGenerationStatus = 'COMPLETED' // no generation needed — real image assigned
+          effectiveGenerationStatus = 'DONE' // no generation needed — real image assigned
         } else if (mediaSource !== 'GENERATE' && userMedia.length > 0 && i < userMedia.length) {
           // Fallback: 1-to-1 assignment — each uploaded image goes to exactly one post
           // Posts beyond the uploaded count remain empty (PENDING) for AI image generation
@@ -434,7 +434,7 @@ Rules:
           uploadedMediaId = media.id
           assignedImageUrl = media.url
           effectiveMediaSource = 'UPLOAD'
-          effectiveGenerationStatus = 'COMPLETED'
+          effectiveGenerationStatus = 'DONE'
         }
       } else {
         effectiveMediaSource = 'UPLOAD' // videos always user-uploaded
