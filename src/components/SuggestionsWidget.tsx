@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
-  Sparkles, CheckCircle2, XCircle, ExternalLink,
+  Sparkles, XCircle, ExternalLink,
   ChevronRight, Lightbulb, AlertTriangle, X,
 } from 'lucide-react'
 
@@ -320,25 +320,23 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   </span>
                 </div>
 
-                {/* Row 4: Approve / Reject buttons */}
+                {/* Row 4: primary action = open campaign, secondary = dismiss */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    disabled={isActing}
-                    onClick={() => act(s.id, 'APPROVED')}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(16,185,129,0.12)', color: '#10B981', border: '1px solid rgba(16,185,129,0.25)' }}
-                  >
-                    {acting[s.id] === 'approving'
-                      ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-                      : <CheckCircle2 className="w-3 h-3" />
-                    }
-                    {sg.btnApprove}
-                  </button>
+                  {s.campaignId && (
+                    <Link
+                      href={`/campaigns/${s.campaignId}`}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
+                      style={{ background: 'rgba(139,92,246,0.15)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.3)' }}
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      {sg.btnViewCampaign}
+                    </Link>
+                  )}
                   <button
                     disabled={isActing}
                     onClick={() => act(s.id, 'REJECTED')}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(239,68,68,0.08)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)' }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50 ms-auto"
+                    style={{ background: 'rgba(239,68,68,0.06)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.15)' }}
                   >
                     {acting[s.id] === 'rejecting'
                       ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
@@ -346,16 +344,6 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                     }
                     {sg.btnReject}
                   </button>
-                  {s.campaignId && (
-                    <Link
-                      href={`/campaigns/${s.campaignId}`}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ms-auto"
-                      style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.2)' }}
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      {sg.btnViewCampaign}
-                    </Link>
-                  )}
                 </div>
               </div>
             )
