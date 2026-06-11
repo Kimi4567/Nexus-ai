@@ -3,23 +3,29 @@ import { PrismaClient } from '@prisma/client'
 const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
 /**
- * Build a connection URL with `statement_timeout=0` appended.
+ * Strip `statement_timeout` from the DATABASE_URL before passing to Prisma.
  *
- * Why: Supabase's connection pooler (PgBouncer) enforces a default statement_timeout
- * (typically 8–30 s). NEXUS campaign generation calls GPT-4o, which can take 30–60 s.
- * When the engine tries to write the result back to the DB, the pooler may have already
- * marked the session as timed-out — causing PostgreSQL error code 57014.
+ * Why: Supabase's PgBouncer (port 6543, transaction mode) does NOT support
+ * arbitrary startup options like statement_timeout in the connection URL.
+ * Passing it causes PgBouncer to reject the connection entirely, which makes
+ * every Prisma query silently fail (credits = 0, role = USER, etc.)
  *
- * Setting statement_timeout=0 disables the per-statement timeout for this client.
- * We rely on Vercel's function timeout (maxDuration) as the outer safety net.
+ * Long-running routes (campaign generation, scan-website) are protected by
+ * maxDuration in vercel.json — we don't need statement_timeout here.
  */
 function buildConnectionUrl(): string | undefined {
   const url = process.env.DATABASE_URL
   if (!url) return undefined
-  // Don't add twice
-  if (url.includes('statement_timeout')) return url
-  const sep = url.includes('?') ? '&' : '?'
-  return `${url}${sep}statement_timeout=0`
+
+  // Remove statement_timeout=<value> from the URL query string
+  const clean = url
+    .replace(/&statement_timeout=[^&]*/g, '')   // &statement_timeout=0
+    .replace(/\?statement_timeout=[^&]*&/, '?') // ?statement_timeout=0&rest → ?rest
+    .replace(/\?statement_timeout=[^&]*$/, '')  // ?statement_timeout=0 (only param)
+    .replace(/\?&/, '?')                        // clean up ?& edge case
+    .replace(/[?&]$/, '')                       // remove trailing ? or &
+
+  return clean
 }
 
 export const prisma: PrismaClient =
