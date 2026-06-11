@@ -167,6 +167,9 @@ export default function ContentHubPage() {
     platforms: string[]
     firstDate: string | null
     lastDate: string | null
+    pendingImages: number
+    totalImages: number
+    videoSlots: number
   } | null>(null)
   const [rewritingPost, setRewritingPost] = useState<string | null>(null)
   const [enableABTesting, setEnableABTesting] = useState(false)
@@ -178,8 +181,9 @@ export default function ContentHubPage() {
 
   // ── Load data ────────────────────────────────────────────────────────────────
 
-  const loadData = useCallback(async () => {
-    if (!isAuthenticated) return
+  const loadData = useCallback(async (): Promise<ContentPost[]> => {
+    if (!isAuthenticated) return []
+    let loadedPosts: ContentPost[] = []
     try {
       // Load campaign
       const cRes = await fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: authHeader() } })
@@ -193,7 +197,8 @@ export default function ContentHubPage() {
       })
       if (pRes.ok) {
         const { posts: rawPosts } = await pRes.json()
-        setPosts(rawPosts ?? [])
+        loadedPosts = rawPosts ?? []
+        setPosts(loadedPosts)
       }
 
       // Load media library
@@ -220,6 +225,7 @@ export default function ContentHubPage() {
     } finally {
       setLoading(false)
     }
+    return loadedPosts
   }, [authHeader, campaignId])
 
   useEffect(() => {
@@ -370,16 +376,20 @@ export default function ContentHubPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Approval failed')
 
-      // Reload posts so we can compute schedule window from updated state
-      await loadData()
+      // Reload posts and compute the summary from fresh data, not stale React state.
+      const freshPosts = await loadData()
 
       // Build approval result for the summary modal
-      // (posts state is now updated after loadData)
-      const scheduledPosts = posts.filter(p => p.status === 'SCHEDULED' && p.scheduledAt)
+      const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && p.scheduledAt)
       const scheduledDates = scheduledPosts
         .map(p => p.scheduledAt!)
         .sort()
       const platformsUsed = [...new Set(scheduledPosts.map(p => p.platform.toUpperCase()))]
+      const totalFreshImagePosts = freshPosts.filter(p => !p.isVideoPost).length
+      const pendingFreshImages = freshPosts.filter(p =>
+        !p.isVideoPost &&
+        (p.generationStatus === 'PENDING' || p.generationStatus === 'AWAITING_UPLOAD' || p.generationStatus === 'FAILED')
+      ).length
 
       setApproveResult({
         approved:  data.approved  ?? 0,
@@ -392,6 +402,9 @@ export default function ContentHubPage() {
         platforms: platformsUsed.length > 0 ? platformsUsed : (data.summary?.platforms ?? []),
         firstDate: scheduledDates[0] ?? null,
         lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
+        pendingImages: pendingFreshImages,
+        totalImages: totalFreshImagePosts,
+        videoSlots: freshPosts.filter(p => p.isVideoPost).length,
       })
     } catch (err: any) {
       setError(err.message)
@@ -992,7 +1005,7 @@ export default function ContentHubPage() {
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-3 mb-5">
+                <div className="grid grid-cols-4 gap-3 mb-5">
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div className="text-2xl font-bold text-white">{approveResult.approved}</div>
@@ -1007,6 +1020,11 @@ export default function ContentHubPage() {
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div className="text-2xl font-bold text-purple-400">{approveResult.platforms.length}</div>
                     <div className="text-xs text-gray-400 mt-0.5">Platforms</div>
+                  </div>
+                  <div className="rounded-xl p-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div className="text-2xl font-bold text-cyan-400">{approveResult.pendingImages}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">Images left</div>
                   </div>
                 </div>
 
@@ -1074,6 +1092,42 @@ export default function ContentHubPage() {
                   </div>
                 )}
 
+                {/* Next best action */}
+                <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
+                  style={{
+                    background: approveResult.pendingImages > 0
+                      ? 'rgba(124,58,237,0.08)'
+                      : approveResult.unlinked > 0
+                      ? 'rgba(245,158,11,0.07)'
+                      : 'rgba(5,150,105,0.08)',
+                    border: approveResult.pendingImages > 0
+                      ? '1px solid rgba(124,58,237,0.25)'
+                      : approveResult.unlinked > 0
+                      ? '1px solid rgba(245,158,11,0.2)'
+                      : '1px solid rgba(5,150,105,0.22)',
+                  }}>
+                  <span className="text-lg mt-0.5">
+                    {approveResult.pendingImages > 0 ? '✨' : approveResult.unlinked > 0 ? '🔌' : '📅'}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold mb-0.5"
+                      style={{ color: approveResult.pendingImages > 0 ? '#c4b5fd' : approveResult.unlinked > 0 ? '#fbbf24' : '#34d399' }}>
+                      {approveResult.pendingImages > 0
+                        ? 'Next: generate campaign images'
+                        : approveResult.unlinked > 0
+                        ? 'Next: connect publishing platforms'
+                        : 'Next: review your schedule'}
+                    </p>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      {approveResult.pendingImages > 0
+                        ? `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need visuals. Generate them now before reviewing the calendar.`
+                        : approveResult.unlinked > 0
+                        ? `${approveResult.unlinked} scheduled posts are not linked to a publishing account yet. Connect platforms to enable auto-publishing.`
+                        : `Your posts are scheduled. Review the calendar window and make any final edits before publishing starts.`}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Unlinked warning */}
                 {approveResult.unlinked > 0 && (
                   <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
@@ -1095,20 +1149,29 @@ export default function ContentHubPage() {
 
                 {/* CTA buttons */}
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setApproveResult(null)
-                      generateAllImages()
-                    }}
-                    disabled={posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length === 0}
-                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40"
-                    style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
-                  >
-                    ✨ Generate Images
-                  </button>
+                  {approveResult.pendingImages > 0 ? (
+                    <button
+                      onClick={() => {
+                        setApproveResult(null)
+                        generateAllImages()
+                      }}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                      style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}
+                    >
+                      ✨ Generate {approveResult.pendingImages} Images
+                    </button>
+                  ) : approveResult.unlinked > 0 ? (
+                    <button
+                      onClick={() => { setApproveResult(null); router.push('/connections') }}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                      style={{ background: 'linear-gradient(135deg, #d97706, #f59e0b)' }}
+                    >
+                      🔌 Connect Platforms
+                    </button>
+                  ) : null}
                   <button
                     onClick={() => { setApproveResult(null); router.push('/schedule') }}
-                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border"
+                    className={`${approveResult.pendingImages > 0 || approveResult.unlinked > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border`}
                     style={{ borderColor: 'rgba(5,150,105,0.35)', color: '#34d399' }}
                   >
                     📅 View Schedule
