@@ -468,6 +468,7 @@ export default function CampaignDetailPage() {
       if (!approveData.campaign) {
         setApprovalState('idle')
         setLaunchState('idle')
+        setLaunchError(approveData.message || approveData.error || (locale === 'ar' ? 'فشل الاعتماد، حاول مرة أخرى' : 'Approval failed, please try again'))
         return
       }
       setCampaign(prev => prev ? { ...prev, status: 'ACTIVE' } : prev)

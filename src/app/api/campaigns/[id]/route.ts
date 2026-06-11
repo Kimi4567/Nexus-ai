@@ -69,11 +69,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (body.status === 'ACTIVE') {
       const aiOutput = (existing.aiOutput as any) || {}
       const sentinelPassed = aiOutput.sentinelReview?.status === 'passed'
-      const calendarReady = Array.isArray(aiOutput.calendarItems) && aiOutput.calendarItems.length > 0
-      if (!sentinelPassed || !calendarReady) {
+      if (!sentinelPassed) {
         return NextResponse.json({
           error: 'ENGINE_NOT_READY',
-          message: 'Run NEXUS Engine, pass Sentinel, and build the calendar before approval.',
+          message: 'Run NEXUS Engine and pass Sentinel review before approval.',
         }, { status: 409 })
       }
     }
