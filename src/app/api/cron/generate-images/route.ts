@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
+import { checkAndDeductCredits } from '@/lib/credits'
 
 export const dynamic = 'force-dynamic'
 
@@ -138,7 +139,10 @@ export async function GET(req: NextRequest) {
     },
     include: {
       workspace: {
-        include: { brandProfile: true },
+        select: {
+          ownerId: true,
+          brandProfile: true,
+        },
       },
     },
     take: 10, // process up to 10 per run to stay within cron timeout
@@ -151,6 +155,22 @@ export async function GET(req: NextRequest) {
       try {
         const prompt = post.imagePrompt!
         const platform: string = post.platform || 'META'
+        const ownerId: string | undefined = post.workspace?.ownerId
+
+        // ── Credit gate: deduct IMAGE_GENERATION from workspace owner ───────
+        // Autopilot images cost the same as manual image generation.
+        // If the user is out of credits, skip this image and log the failure.
+        if (ownerId) {
+          const creditResult = await checkAndDeductCredits(ownerId, 'IMAGE_GENERATION')
+          if (!creditResult.ok) {
+            console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
+            return { postId: post.id, status: 'skipped_no_credits', creditsRemaining: creditResult.currentCredits }
+          }
+          console.log(`[Cron generate-images] Deducted IMAGE_GENERATION credits from ${ownerId} — ${creditResult.creditsRemaining} remaining`)
+        } else {
+          console.warn(`[Cron generate-images] No ownerId found for post ${post.id} — generating without credit deduction`)
+        }
+        // ────────────────────────────────────────────────────────────────────
 
         // 1. Generate image — auto-routes to Flux Pro Ultra if FAL_KEY set, else gpt-image-1 high
         console.log(`[Cron generate-images] Generating for ${post.id} — platform: ${platform}, provider: ${process.env.FAL_KEY ? 'flux' : 'gpt-image-1'}`)

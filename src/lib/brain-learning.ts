@@ -6,6 +6,18 @@
  *
  * Uses GPT-4o to analyse AI outputs and propose specific Brand Brain field updates.
  * Proposals are stored in DB and surfaced to the user via BrainLearningPanel.
+ *
+ * ⚠️  COST TRACKING NOTE (not user-billed):
+ * Brain learning calls are background system operations — not charged to user credits.
+ * Each call uses gpt-4o with max_tokens=800 output.
+ * Estimated cost per call: ~$0.013–$0.020 (gpt-4o @ $2.50/M in, $10/M out)
+ * At scale (1,000 users × 5 triggers/day): ~$65-$100/day in uncovered COGS.
+ *
+ * Search Vercel logs for "[brain-learning] COST" to monitor background spend.
+ * If monthly uncovered cost exceeds $500, consider:
+ *   1. Rate-limiting triggers per workspace per day
+ *   2. Switching to gpt-4o-mini for lower-signal triggers (approved_content, ab_winner)
+ *   3. Adding a system-level credit pool for background AI operations
  */
 
 import { prisma } from '@/lib/prisma'
@@ -64,6 +76,14 @@ interface Proposal {
 
 export async function runBrainLearning(params: BrainLearningParams): Promise<number> {
   const { workspaceId, campaignId, trigger, payload } = params
+  const startMs = Date.now()
+
+  // ── Cost tracking (non-blocking) ─────────────────────────────────────────────
+  // These calls are background system operations — not billed to user credits.
+  // Log estimated cost to Vercel for operational monitoring at scale.
+  // Estimated: $0.013–$0.020 per call (gpt-4o, ~2–4k input + ~800 output tokens).
+  console.log(`[brain-learning] COST trigger=${trigger} workspace=${workspaceId} estimated=$0.015`)
+  // ─────────────────────────────────────────────────────────────────────────────
 
   try {
     // Get current Brand Brain
@@ -356,6 +376,9 @@ Rules:
         console.error('[brain-learning] save failed:', dbErr)
       }
     }
+
+    const durationMs = Date.now() - startMs
+    console.log(`[brain-learning] COST trigger=${trigger} workspace=${workspaceId} proposals=${saved} duration=${durationMs}ms`)
 
     return saved
   } catch (err) {

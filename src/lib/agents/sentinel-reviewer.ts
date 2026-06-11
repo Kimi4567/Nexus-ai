@@ -8,6 +8,11 @@
  *
  * Internally powered by the Sentinel system. Positioned in the product
  * as part of the campaign preparation flow, not a separate agent.
+ *
+ * Model: gpt-4o (NOT gpt-4o-mini — full reasoning is required for quality + risk analysis)
+ * Credit: SENTINEL_REVIEW (2 credits) via /api/campaigns/[id]/sentinel-review
+ * max_tokens: 2,000 | API cost: ~$0.025 (gpt-4o @ $2.50/M in, $10/M out)
+ * Margin @ Agency ($0.396 revenue): ~94%
  */
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'

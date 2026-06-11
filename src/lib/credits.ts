@@ -17,87 +17,136 @@ import { sendCreditsLowEmail } from '@/lib/email/resend'
 
 export const CREDIT_COSTS = {
   /**
-   * Campaign generation — full strategy + ad concepts
+   * Campaign generation — legacy full-pipeline generation via /api/generate
    * Routes: /api/generate, /api/generate/preview
-   * API cost: ~$0.028 (GPT-4o, ~3,500 tokens). Margin @ Pro: 94%
+   * Model: gpt-4o-mini (via lib/ai/adapter + lib/ai/openai.ts)
+   * Input: ~2,000 tokens | Output: ~4,000 tokens
+   * API cost: ~$0.003 (gpt-4o-mini @ $0.15/M in, $0.60/M out)
+   * Revenue @ Agency: 5 × $0.198 = $0.990 | Margin: ~99%
+   * Revenue @ Starter: 5 × $0.380 = $1.900 | Margin: ~99%
    */
   CAMPAIGN_GENERATION: 5,
 
   /**
-   * Run Full Strategy — triggers full agency orchestration (all agents)
-   * Routes: /api/agents/run, /api/strategy/run-full
-   * API cost: ~$0.053 (GPT-4o, ~6,500 tokens). Margin @ Pro: 93%
+   * Run Full Strategy — fires the Strategist agent (orchestrator, strategy-only path)
+   * Routes: /api/agents/run, /api/strategy/run-full, /api/campaigns/[id]/engine
+   * Model: gpt-4o (strategist.ts — Content Director runs separately via CONTENT_PLAN_GENERATION)
+   * Input: ~3,000–5,000 tokens (brief + brand context) | Output: ~6,500 tokens (max_tokens cap)
+   * API cost: ~$0.075–$0.090 (gpt-4o @ $2.50/M in, $10/M out)
+   * Revenue @ Agency: 8 × $0.198 = $1.584 | Margin: ~94–95%
+   * Revenue @ Starter: 8 × $0.380 = $3.040 | Margin: ~97%
    */
   RUN_FULL_STRATEGY: 8,
 
   /**
-   * Creative Brief — visual direction via asset analysis or concept generation
+   * Creative Brief — visual direction: asset analysis + concept generation
    * Route: /api/campaigns/[id]/creative-brief (POST)
-   * API cost: ~$0.017 (GPT-4o, ~2,000 tokens). Margin @ Pro: 94%
+   * Model: gpt-4o (visual-director.ts — two sequential calls: analyzeAssets + generateVisualConcepts)
+   * Input: ~2,000–3,000 tokens | Output: ~900–2,000 tokens per call
+   * API cost: ~$0.025–$0.045 (two gpt-4o calls)
+   * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~92–96%
+   * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~96–98%
    */
   CREATIVE_BRIEF: 3,
 
   /**
-   * Sentinel Review — AI quality + risk gate for a campaign
+   * Sentinel Review — AI quality + risk + Brand Voice gate for a campaign
    * Route: /api/campaigns/[id]/sentinel-review (POST)
-   * API cost: ~$0.001 (GPT-4o-mini). Margin @ Pro: 99%
+   * Model: gpt-4o (sentinel-reviewer.ts — NOT gpt-4o-mini; uses full reasoning capability)
+   * Input: ~2,000–3,000 tokens | Output: ~2,000 tokens (max_tokens: 2000)
+   * API cost: ~$0.025 (gpt-4o @ $2.50/M in, $10/M out)
+   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~94%
+   * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~97%
    */
   SENTINEL_REVIEW: 2,
 
   /**
-   * Image generation — DALL-E 3 via /api/images/generate
-   * API cost: $0.040 per image (DALL-E 3 standard). Margin @ Pro: 87%
+   * Image generation — gpt-image-1 at high quality (platform-native sizing)
+   * Routes: /api/visuals/generate, /api/campaigns/[id]/generate-content-plan/generate
+   * Model: gpt-image-1, quality: 'high' (upgraded from DALL-E 3 in Sprint IQ)
+   * Sizes: 1024×1024 (square), 1024×1536 (portrait), 1536×1024 (landscape — default)
+   * API cost: verify exact rate at platform.openai.com/usage — estimated $0.040–$0.080/image
+   * ⚠️  NOTE: 1536×1024 landscape (default) costs MORE than 1024×1024. Confirm rate.
+   * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~85–93% (depends on verified rate)
+   * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~93–96%
+   * Fallback: fal.ai Flux 1.1 Pro Ultra when FAL_KEY is set (~$0.06/image)
    */
   IMAGE_GENERATION: 3,
 
   /**
-   * Ad copy generation (VEX) — GPT-4o-mini ad concepts
-   * Route: /api/vex/generate
-   * API cost: ~$0.001 (GPT-4o-mini). Margin @ Pro: 99%
+   * Ad copy generation — gpt-4o-mini ad concepts and copy variants
+   * Routes: /api/campaigns/suggest, /api/brand/suggest, /api/ai/generate,
+   *         /api/ad-campaigns/[id]/generate-strategy, /api/ad-campaigns/[id]/generate-copy,
+   *         /api/campaigns/[id]/paid-pack/learn
+   * Model: gpt-4o-mini (campaign-manager.ts, max_tokens: 1500)
+   * Input: ~800 tokens | Output: ~1,500 tokens
+   * API cost: ~$0.001 (gpt-4o-mini @ $0.15/M in, $0.60/M out)
+   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~99%
    */
   AD_COPY: 2,
 
   /**
-   * Chat message — GPT-4o-mini assistant response
+   * Chat message — streaming assistant with campaign/brand context injection
    * Route: /api/chat
-   * API cost: ~$0.0003. Margin @ Pro: 99%
+   * Model: gpt-4o-mini (context-aware; cost grows with conversation history length)
+   * Estimated cost: ~$0.001–$0.005 (early msg vs long conversation history)
+   * Revenue @ Agency: 1 × $0.198 = $0.198 | Margin: ~97–99%
    */
   CHAT_MESSAGE: 1,
 
   /**
-   * AI Post Rewrite — GPT-4o-mini rewrites a single content hub post
+   * AI Post Rewrite — rewrites a single content hub post with style variation
    * Route: /api/campaigns/[id]/content-plan/[postId]/rewrite
-   * API cost: ~$0.0003. Margin @ Pro: 99%
+   * Model: gpt-4o-mini (via lib/ai/openai.ts helper, max_tokens: ~500)
+   * API cost: ~$0.001 (gpt-4o-mini)
+   * Revenue @ Agency: 1 × $0.198 = $0.198 | Margin: ~99%
    */
   AI_POST_REWRITE: 1,
 
   /**
-   * Content plan generation — GPT-4o-mini writes all post captions + image prompts
+   * Content plan generation — gpt-4o writes all post captions + scheduling for a full month
    * Route: /api/campaigns/[id]/generate-content-plan
-   * API cost: ~$0.002 (GPT-4o-mini, ~3,000 tokens). Charged per-plan not per-post.
-   * Actual charge = max(2, ceil(postsPerMonth / 5)) — scales with plan size.
+   * Model: gpt-4o (content-director.ts — NOT gpt-4o-mini)
+   * Output tokens scale with plan quota (postsPerMonth × 150 + 800, capped at 8,000):
+   *   Starter (10 posts): ~2,500 out → cost ~$0.033
+   *   Growth  (25 posts): ~4,550 out → cost ~$0.053
+   *   Agency  (60 posts): ~8,000 out → cost ~$0.088
+   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~78%   ← lowest margin action
+   * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~96%
+   * ⚠️  Consider raising to 3 credits for Agency plan users if COGS grows.
    */
   CONTENT_PLAN_GENERATION: 2,
 
   /**
-   * Paid campaign pack generation — GPT-4o writes full audience targeting, copy
-   * variants, budget insights, and platform-by-platform launch guides.
+   * Paid campaign pack — gpt-4o writes audience targeting, copy variants, budget plan
    * Route: /api/campaigns/[id]/paid-pack/generate
-   * API cost: ~$0.06 (GPT-4o, ~4,000 tokens). Margin @ Pro: 90%
+   * Model: gpt-4o (max_tokens: ~4,000)
+   * Input: ~2,500 tokens | Output: ~4,000 tokens
+   * API cost: ~$0.046–$0.050 (gpt-4o @ $2.50/M in, $10/M out)
+   * Revenue @ Agency: 6 × $0.198 = $1.188 | Margin: ~96%
+   * Revenue @ Starter: 6 × $0.380 = $2.280 | Margin: ~98%
    */
   PAID_PACK_GENERATE: 6,
 
   /**
-   * Website Intelligence Scanner — fetch + GPT-4o analysis of brand website pages
+   * Website Intelligence Scanner — fetches + parses brand website, gpt-4o extracts brand DNA
    * Route: /api/brand/scan-website
-   * API cost: ~$0.04 (GPT-4o, ~5,000 tokens). Margin @ Pro: 93%
+   * Model: gpt-4o (deep extraction + structured Brand Brain update)
+   * Input: ~3,000 tokens (fetched page text) | Output: ~5,000 tokens
+   * API cost: ~$0.055–$0.065 (gpt-4o @ $2.50/M in, $10/M out)
+   * Revenue @ Agency: 3 × $0.198 = $0.594 | Margin: ~89–91%
+   * Revenue @ Starter: 3 × $0.380 = $1.140 | Margin: ~94–95%
    */
   WEBSITE_SCAN: 3,
 
   /**
-   * Content Samples Analyzer — GPT-4o extracts hooks/angles/tone from pasted samples
+   * Content Samples Analyzer — gpt-4o extracts hooks, angles, and tone from pasted samples
    * Route: /api/brand/analyze-content
-   * API cost: ~$0.015 (GPT-4o, ~2,000 tokens). Margin @ Pro: 95%
+   * Model: gpt-4o (structured extraction → Brand Brain update)
+   * Input: ~2,000 tokens (samples) | Output: ~2,000 tokens
+   * API cost: ~$0.025 (gpt-4o @ $2.50/M in, $10/M out)
+   * Revenue @ Agency: 2 × $0.198 = $0.396 | Margin: ~94%
+   * Revenue @ Starter: 2 × $0.380 = $0.760 | Margin: ~97%
    */
   CONTENT_ANALYSIS: 2,
 

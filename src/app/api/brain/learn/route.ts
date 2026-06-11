@@ -53,6 +53,33 @@ export async function POST(req: NextRequest) {
     })
     if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
 
+    // ── Rate limit: max 25 brain/learn calls per workspace per day ────────────
+    // This is a gpt-4o call (~$0.015 each) — cap it to prevent cost runaway.
+    // Normal usage: 1-3 per day (strategy + content approval + sentinel).
+    // Anything over 25/day is anomalous.
+    try {
+      const dayStart = new Date()
+      dayStart.setHours(0, 0, 0, 0)
+      const todayCallCount = await db.brainLearning.count({
+        where: {
+          workspaceId: workspace.id,
+          createdAt: { gte: dayStart },
+        },
+      })
+      if (todayCallCount >= 25) {
+        console.warn(`[brain/learn] Rate limit hit for workspace ${workspace.id} — ${todayCallCount} calls today`)
+        return NextResponse.json({
+          proposals: [],
+          message: 'Daily brain learning limit reached — resets at midnight UTC',
+        })
+      }
+    } catch { /* non-fatal — proceed if count fails */ }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // ── Cost log (gpt-4o, max_tokens: 1200, ~$0.015/call) ────────────────────
+    console.log(`[brain/learn] COST trigger=${trigger} workspace=${workspace.id} model=gpt-4o estimated=$0.015`)
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Get current Brand Brain
     let brandBrain: Record<string, unknown> | null = null
     try {

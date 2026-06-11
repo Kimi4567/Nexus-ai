@@ -5,6 +5,14 @@
  * - Generate content ideas based on strategy
  * - Create captions, hooks, scripts
  * - Build a 4-week content calendar
+ *
+ * Model: gpt-4o (NOT gpt-4o-mini — full reasoning quality for strategy-level output)
+ * Credit: CONTENT_PLAN_GENERATION (2 credits) via /api/campaigns/[id]/generate-content-plan
+ *
+ * Token scaling by plan (output):
+ *   Starter (10 posts) → max_tokens ~2,500  → API cost ~$0.033
+ *   Growth  (25 posts) → max_tokens ~4,550  → API cost ~$0.053
+ *   Agency  (60 posts) → max_tokens  8,000  → API cost ~$0.088
  */
 
 import { StrategyOutput } from './strategist'

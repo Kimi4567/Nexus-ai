@@ -10,6 +10,16 @@
  *    Note: once we have real Meta/LinkedIn engagement data we'll gate this on above-average
  *    engagement; for now we learn from every published post.
  * 3. Weekly reports — Mondays only
+ *
+ * ⚠️  COST TRACKING NOTE (not user-billed):
+ * This cron uses gpt-4o-mini for extractLearningsFromCaptions (max_tokens: 300).
+ * Estimated cost per workspace with published posts: ~$0.001–$0.002 (gpt-4o-mini)
+ * runCampaignMonitor (orchestrator) may use gpt-4o-mini (campaign-manager.ts, max_tokens: 1500)
+ * Estimated per workspace: ~$0.003
+ *
+ * At 1,000 active workspaces per run: ~$3–5/day = ~$90–150/month uncovered COGS.
+ * Search Vercel logs for "[agent-monitor] COST" to monitor daily spend.
+ * If daily workspaces > 500, consider rate-limiting to workspaces active in last 7 days.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -185,9 +195,22 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Cost summary log — search "[agent-monitor] COST" in Vercel to monitor ─────
+  const estimatedCostUSD = (
+    results.workspacesChecked * 0.003 +   // campaign monitor per workspace
+    results.brandBrainLearned.workspaces * 0.002  // FLP learning per workspace
+  ).toFixed(4)
+  console.log(
+    `[agent-monitor] COST workspaces=${results.workspacesChecked} ` +
+    `learnedWorkspaces=${results.brandBrainLearned.workspaces} ` +
+    `estimatedCostUSD=$${estimatedCostUSD} ts=${new Date().toISOString()}`
+  )
+  // ─────────────────────────────────────────────────────────────────────────────
+
   return NextResponse.json({
     ok: true,
     ...results,
+    estimatedCostUSD: parseFloat(estimatedCostUSD),
     ts: new Date().toISOString(),
   })
 }
