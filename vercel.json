@@ -123,6 +123,15 @@
     },
     "src/app/api/cron/trend-monitor/route.ts": {
       "maxDuration": 60
+    },
+    "src/app/api/brand/scan-website/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/brand/analyze-content/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/brain/learn/route.ts": {
+      "maxDuration": 60
     }
   }
 }
