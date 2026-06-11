@@ -182,6 +182,7 @@ export async function runFullAgency(
           contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
           // Persist language so all downstream agents (content plan, images) use the same language
           language: brief.language || 'ar',
+          selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],
           generatedAt: new Date().toISOString(),
           generatedByAgents: true,
         },

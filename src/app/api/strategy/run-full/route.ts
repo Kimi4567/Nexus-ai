@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const goalOverride = (body?.goal as string | undefined) || 'leads'
     const budgetOverride = Number(body?.budget) || 5000
+    const selectedMediaIds = Array.isArray(body?.mediaIds)
+      ? (body.mediaIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0)
+      : undefined
 
     // -- Unified credit check + deduction ------------------------------------
     const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY')
@@ -134,12 +137,16 @@ export async function POST(req: NextRequest) {
           goal: goalOverride,
         })
       ) || undefined,
+      selectedMediaIds: selectedMediaIds ?? [],
     }
 
-    // Fetch media context — inject asset awareness into strategy brief
+    // Fetch media context — respect the user's explicit media selection.
     try {
       const mediaItems = await prisma.media.findMany({
-        where: { workspace: { ownerId: user.id } },
+        where: {
+          workspace: { ownerId: user.id },
+          ...(selectedMediaIds ? { id: { in: selectedMediaIds } } : {}),
+        },
         select: { type: true, fileName: true },
         take: 100,
       })

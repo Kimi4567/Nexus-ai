@@ -181,11 +181,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     // ── 5. Check for uploaded media the user wants to use ─────────────────
     const body = await req.json().catch(() => ({}))
     const mediaSource: 'GENERATE' | 'UPLOAD' | 'MIXED' = body.mediaSource ?? 'GENERATE'
-    const selectedMediaIds: string[] = body.selectedMediaIds ?? []
+    const hasExplicitMediaSelection = Array.isArray(body.selectedMediaIds) || Array.isArray(aiOutput?.selectedMediaIds)
+    const persistedSelectedMediaIds = Array.isArray(aiOutput?.selectedMediaIds)
+      ? aiOutput.selectedMediaIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+      : []
+    const selectedMediaIds: string[] = Array.isArray(body.selectedMediaIds)
+      ? body.selectedMediaIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0)
+      : persistedSelectedMediaIds
     const enableABTesting: boolean = body.enableABTesting ?? false
 
     // OC3: Accept language + contentMix from organic content wizard
-    const bodyLanguage: string = body.language ?? ''            // 'ar' | 'en' | 'bilingual'
+    const bodyLanguage: string = body.language ?? aiOutput?.language ?? ''            // 'ar' | 'en' | 'bilingual'
     const contentMix: { educational?: number; promotional?: number; engagement?: number } =
       body.contentMix ?? {}
     const educationalPct  = contentMix.educational  ?? 35
@@ -193,7 +199,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     const engagementPct   = contentMix.engagement   ?? 35
 
     let userMedia: Array<{ id: string; url: string; type: string; fileName: string; aiDescription?: string }> = []
-    if (mediaSource !== 'GENERATE' || selectedMediaIds.length > 0) {
+    const shouldLoadMedia = selectedMediaIds.length > 0 || (mediaSource !== 'GENERATE' && !hasExplicitMediaSelection)
+    if (shouldLoadMedia) {
       userMedia = await prisma.media.findMany({
         where: {
           workspaceId,

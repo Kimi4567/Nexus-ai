@@ -32,6 +32,7 @@ DECISION RULES (apply per post/platform):
 - International/expat-focused content → English
 - GCC consumer-facing content (Saudi, UAE, Kuwait, etc.) → Arabic
 - Young GCC professionals (18-35) → Arabic preferred
+- For multi-post content plans, the final set MUST include both Arabic and English posts where there are at least 4 posts. Aim for a practical mix, with at least 30% Arabic and at least 30% English unless the user explicitly requested only one language.
 
 Each post, caption, hook, and CTA must be written ENTIRELY in ONE language — either Arabic OR English — never a hybrid "Arabic | English" mix in the same sentence. The language per item is dictated by who will actually see and engage with that specific content. Document your language allocation rationale in the strategy section. JSON keys always stay in English.`
 
