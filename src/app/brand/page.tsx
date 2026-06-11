@@ -62,7 +62,7 @@ function ScoreRing({ score }: { score: number }) {
   return (
     <div className="relative flex items-center justify-center" style={{ width: 100, height: 100 }}>
       <svg width="100" height="100" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(139,92,246,0.1)" strokeWidth="7"/>
+        <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="7"/>
         <circle cx="50" cy="50" r={r} fill="none" stroke={color}
           strokeWidth="7" strokeLinecap="round"
           strokeDasharray={circ} strokeDashoffset={offset}
@@ -71,7 +71,7 @@ function ScoreRing({ score }: { score: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-black tabular-nums" style={{ color, lineHeight: 1 }}>{score}</span>
-        <span className="text-[10px] font-semibold" style={{ color: 'rgba(255,255,255,0.35)' }}>/ 100</span>
+        <span className="text-[10px] font-semibold" style={{ color: '#94A3B8' }}>/ 100</span>
       </div>
     </div>
   )
@@ -98,7 +98,7 @@ function ScoreSparkline({ history }: { history: number[] }) {
           strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
         <circle cx={last[0]} cy={last[1]} r="3" fill={color} />
       </svg>
-      <span className="text-[9px] font-semibold" style={{ color: 'rgba(148,163,184,0.4)' }}>
+      <span className="text-[9px] font-semibold" style={{ color: '#94A3B8' }}>
         {trend ? '▲' : '▼'} {history.length}d
       </span>
     </div>
@@ -119,7 +119,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>{label}</label>
+        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>{label}</label>
         {onSuggest && (
           <button onClick={onSuggest} disabled={suggesting}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
@@ -137,7 +137,7 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
         )}
       </div>
       <div className="flex flex-wrap gap-1.5 p-3 rounded-xl min-h-[52px]"
-        style={{ background: 'rgba(8,9,28,0.7)', border: `1px solid ${suggesting ? accent+'40' : 'rgba(139,92,246,0.2)'}`, transition: 'border-color 0.3s' }}>
+        style={{ background: '#FFFFFF', border: `1px solid ${suggesting ? accent+'40' : 'rgba(15,23,42,0.10)'}`, transition: 'border-color 0.3s' }}>
         {suggesting && (
           <div className="flex items-center gap-2 px-2 py-1">
             <Wand2 size={12} style={{ color: accent }} className="animate-pulse"/>
@@ -157,8 +157,8 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
           <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key==='Enter'||e.key===','){e.preventDefault();add(input)} }}
             placeholder={safeValues.length ? '' : placeholder}
-            className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder-gray-600"
-            style={{ color: '#e2e8f0' }} />
+            className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-slate-400"
+            style={{ color: '#0F172A' }} />
         )}
       </div>
     </div>
@@ -173,7 +173,7 @@ function Field({ label, children, onSuggest, suggesting, accentColor }: {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>{label}</label>
+        <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>{label}</label>
         {onSuggest && (
           <button onClick={onSuggest} disabled={suggesting}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
@@ -199,8 +199,8 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, accent, locale }: {
   suggestion: string; onAccept: () => void; onDismiss: () => void; accent: string; locale: string
 }) {
   return (
-    <div className="p-3 rounded-xl text-sm" style={{ background: `${accent}08`, border: `1px solid ${accent}28` }}>
-      <p className="mb-2 leading-relaxed" style={{ color: '#c4b5fd' }}>✨ {suggestion}</p>
+    <div className="p-3 rounded-xl text-sm" style={{ background: '#F8FAFC', border: `1px solid ${accent}28` }}>
+      <p className="mb-2 leading-relaxed" style={{ color: '#334155' }}>✨ {suggestion}</p>
       <div className="flex gap-2">
         <button onClick={onAccept}
           className="text-xs px-3 py-1 rounded-lg font-semibold transition-all"
@@ -222,11 +222,11 @@ function NxInput({ value, onChange, placeholder, textarea, accentColor }: {
 }) {
   const accent = accentColor || '#8b5cf6'
   const [focused, setFocused] = useState(false)
-  const cls = "w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all duration-200 placeholder-gray-600"
+  const cls = "w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all duration-200 placeholder:text-slate-400"
   const style = {
-    background: 'rgba(8,9,28,0.7)',
-    border: `1px solid ${focused ? accent + '60' : 'rgba(139,92,246,0.2)'}`,
-    color: '#f1f5f9',
+    background: '#FFFFFF',
+    border: `1px solid ${focused ? accent + '60' : 'rgba(15,23,42,0.10)'}`,
+    color: '#0F172A',
     boxShadow: focused ? `0 0 0 3px ${accent}10` : 'none',
   }
   if (textarea) return (
@@ -255,8 +255,8 @@ function ToggleGrid({ options, selected, onChange, color }: {
           <button key={o} onClick={() => toggle(o)}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150"
             style={{
-              background: active ? `${c}20` : 'rgba(12,13,36,0.6)',
-              border: `1px solid ${active ? c+'55' : 'rgba(139,92,246,0.18)'}`,
+              background: active ? `${c}12` : '#FFFFFF',
+              border: `1px solid ${active ? c+'45' : 'rgba(15,23,42,0.10)'}`,
               color: active ? c : '#64748b',
               boxShadow: active ? `0 0 12px ${c}20` : 'none',
             }}>
@@ -278,8 +278,8 @@ function RadioGroup({ options, value, onChange, color }: {
         <button key={o.v} onClick={() => onChange(o.v)}
           className="px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-150"
           style={{
-            background: value === o.v ? `${c}18` : 'rgba(12,13,36,0.6)',
-            border: `1px solid ${value === o.v ? c+'50' : 'rgba(139,92,246,0.18)'}`,
+            background: value === o.v ? `${c}12` : '#FFFFFF',
+            border: `1px solid ${value === o.v ? c+'45' : 'rgba(15,23,42,0.10)'}`,
             color: value === o.v ? c : '#64748b',
             boxShadow: value === o.v ? `0 0 14px ${c}18` : 'none',
           }}>
@@ -303,12 +303,12 @@ function BrandSummaryCard({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(6,7,26,0.85)', backdropFilter: 'blur(16px)' }}>
+      style={{ background: 'rgba(15,23,42,0.28)', backdropFilter: 'blur(12px)' }}>
       <div className="w-full max-w-lg rounded-3xl overflow-hidden"
         style={{
-          background: 'rgba(10,11,28,0.95)',
-          border: '1px solid rgba(139,92,246,0.35)',
-          boxShadow: '0 0 80px rgba(139,92,246,0.15), 0 8px 60px rgba(0,0,0,0.6)',
+          background: '#FFFFFF',
+          border: '1px solid rgba(15,23,42,0.10)',
+          boxShadow: '0 24px 80px rgba(15,23,42,0.16)',
         }}>
 
         {/* Top gradient bar */}
@@ -319,27 +319,25 @@ function BrandSummaryCard({
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', boxShadow: '0 0 30px rgba(16,185,129,0.15)' }}>
+                style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)' }}>
                 <CheckCircle2 size={24} style={{ color: '#10b981' }}/>
               </div>
               <div>
-                <h2 className="text-lg font-black text-white">{t('brand.summaryTitle')}</h2>
-                <p className="text-xs mt-0.5" style={{ color: '#475569' }}>{t('brand.summarySubtitle')}</p>
+                <h2 className="text-lg font-black text-slate-950">{t('brand.summaryTitle')}</h2>
+                <p className="text-xs mt-0.5 text-slate-500">{t('brand.summarySubtitle')}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg transition-all" style={{ color: '#475569' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = '#475569' }}>
+            <button onClick={onClose} className="p-1.5 rounded-lg transition-all text-slate-400 hover:text-slate-700 hover:bg-slate-100">
               <X size={16}/>
             </button>
           </div>
 
           {/* Score banner */}
           <div className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
-            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+            style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
             <div className="flex items-center gap-2 flex-1">
               <Brain size={16} style={{ color: '#8b5cf6' }}/>
-              <span className="text-sm font-semibold text-white">Brand Brain</span>
+              <span className="text-sm font-semibold text-slate-950">Brand Brain</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-32 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.12)' }}>
@@ -354,21 +352,21 @@ function BrandSummaryCard({
           {/* Brand details grid */}
           <div className="grid grid-cols-2 gap-3">
             {form.brandName && (
-              <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+              <div className="px-4 py-3 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.18)' }}>
                 <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(245,158,11,0.5)' }}>{t('brand.summaryBrand')}</p>
-                <p className="text-sm font-bold text-white truncate">{form.brandName}</p>
+                <p className="text-sm font-bold text-slate-950 truncate">{form.brandName}</p>
               </div>
             )}
             {form.industry && (
-              <div className="px-4 py-3 rounded-xl" style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)' }}>
+              <div className="px-4 py-3 rounded-xl" style={{ background: '#ECFEFF', border: '1px solid rgba(8,145,178,0.18)' }}>
                 <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(6,182,212,0.5)' }}>{t('brand.summaryIndustry')}</p>
-                <p className="text-sm font-bold text-white truncate">{form.industry}</p>
+                <p className="text-sm font-bold text-slate-950 truncate">{form.industry}</p>
               </div>
             )}
             {form.targetAudience && (
-              <div className="px-4 py-3 rounded-xl col-span-2" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+              <div className="px-4 py-3 rounded-xl col-span-2" style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                 <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(139,92,246,0.5)' }}>{t('brand.summaryAudience')}</p>
-                <p className="text-sm font-bold text-white line-clamp-1">{form.targetAudience}</p>
+                <p className="text-sm font-bold text-slate-950 line-clamp-1">{form.targetAudience}</p>
               </div>
             )}
           </div>
@@ -378,7 +376,7 @@ function BrandSummaryCard({
             <div className="flex flex-wrap gap-1.5 mt-3">
               {chips.map((c, i) => (
                 <span key={i} className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                  style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
                   {c}
                 </span>
               ))}
@@ -390,12 +388,12 @@ function BrandSummaryCard({
         <div className="px-6 pb-6 flex items-center gap-3">
           <a href="/dashboard?runStrategy=1"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
-            style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#0a0a0a', boxShadow: '0 0 30px rgba(245,158,11,0.25)' }}>
+            style={{ background: '#111827', color: '#FFFFFF' }}>
             <Rocket size={15}/> {t('brand.summaryCtaLabel')}
           </a>
           <button onClick={onClose}
             className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
-            style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)', color: '#64748b' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', color: '#64748b' }}>
             {t('brand.summaryDismiss')}
           </button>
         </div>
@@ -785,35 +783,24 @@ function BrandBrainInner() {
       )}
       <div className="relative min-h-screen" dir={dir}>
 
-        {/* ── Ambient background ─────────────────────────────── */}
-        <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-25" />
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute rounded-full blur-[200px]"
-            style={{ width: 800, height: 600, background: 'radial-gradient(ellipse, rgba(139,92,246,0.18) 0%, transparent 70%)', top: '-10%', right: '-20%' }} />
-          <div className="absolute rounded-full blur-[160px]"
-            style={{ width: 500, height: 500, background: 'radial-gradient(ellipse, rgba(245,158,11,0.1) 0%, transparent 70%)', bottom: '5%', left: '-10%' }} />
-          <div className="absolute rounded-full blur-[120px] transition-all duration-1000"
-            style={{ width: 400, height: 300, background: `radial-gradient(ellipse, ${currentStep.color}10 0%, transparent 70%)`, top: '30%', left: '35%' }} />
-        </div>
-
-        <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 space-y-5">
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-5">
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
           {fromBrief && !briefBannerDismissed && (
             <div className="rounded-2xl overflow-hidden"
-              style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.18)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
               <div className="p-4 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                    <Sparkles className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                    style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
+                    <Sparkles className="w-4 h-4" style={{ color: '#5E5CE6' }} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold mb-0.5" style={{ color: '#C4B5FD' }}>
+                    <p className="text-sm font-bold mb-0.5 text-slate-950">
                       {locale === 'ar' ? 'NEXUS يقترح إكمال هذه البيانات' : 'NEXUS recommends completing these fields'}
                     </p>
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                    <p className="text-xs leading-relaxed text-slate-500">
                       {locale === 'ar'
                         ? 'اكتمال Brand Brain يرفع نضج نظامك التسويقي ويجعل كل الوكلاء يعملون بشكل أذكى.'
                         : 'A complete Brand Brain raises your marketing maturity score and makes every agent smarter.'}
@@ -822,8 +809,7 @@ function BrandBrainInner() {
                 </div>
                 <button
                   onClick={() => setBriefBannerDismissed(true)}
-                  className="p-1.5 rounded-lg transition-all hover:bg-white/5 flex-shrink-0"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}>
+                  className="p-1.5 rounded-lg transition-all hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex-shrink-0">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -834,7 +820,7 @@ function BrandBrainInner() {
               HERO HEADER CARD
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.4)' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
 
             {/* Gradient top bar */}
             <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #06b6d4 100%)' }} />
@@ -853,7 +839,7 @@ function BrandBrainInner() {
                 <div className="flex items-center gap-5">
                   <div className="relative flex-shrink-0">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.05) 100%)', border: '1px solid rgba(245,158,11,0.3)', boxShadow: '0 0 40px rgba(245,158,11,0.12), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
+                      style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}>
                       <Brain size={30} className="text-amber-400" />
                     </div>
                     {score >= 80 && (
@@ -865,13 +851,13 @@ function BrandBrainInner() {
                   </div>
                   <div>
                     <div className="flex items-center gap-3 mb-1.5">
-                      <h1 className="text-3xl font-black text-white tracking-tight">Brand Brain</h1>
+                      <h1 className="text-3xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-bold"
                         style={{ background: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
                         {t('brand.badgeMemory')}
                       </span>
                     </div>
-                    <p className="text-sm max-w-xs" style={{ color: '#475569' }}>{t('brand.aiInjected')}</p>
+                    <p className="text-sm max-w-xs text-slate-500">{t('brand.aiInjected')}</p>
                   </div>
                 </div>
 
@@ -893,7 +879,7 @@ function BrandBrainInner() {
                     style={{
                       background: saved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                       color: saved ? '#10b981' : '#0a0a0a',
-                      boxShadow: saved ? '0 0 20px rgba(16,185,129,0.2)' : '0 0 32px rgba(245,158,11,0.28), 0 4px 16px rgba(0,0,0,0.4)',
+                      boxShadow: 'none',
                       border: saved ? '1px solid rgba(16,185,129,0.35)' : 'none',
                     }}>
                     {saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>}
@@ -902,7 +888,7 @@ function BrandBrainInner() {
                   {scoreHistory.length >= 2 && (
                     <button onClick={() => router.push('/brand/score-history')}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-                      style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                      style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
                       <BarChart2 size={13} />
                       {locale === 'ar' ? 'سجل النمو' : 'Score History'}
                     </button>
@@ -911,19 +897,19 @@ function BrandBrainInner() {
               </div>
 
               {/* Progress bar + missing */}
-              <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(139,92,246,0.1)' }}>
+              <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={12} className="text-amber-400" />
-                    <span className="text-xs font-semibold" style={{ color: '#94a3b8' }}>{t('brand.completeness')}</span>
+                    <span className="text-xs font-semibold text-slate-600">{t('brand.completeness')}</span>
                   </div>
                   {missing.length > 0 && (
-                    <span className="text-xs" style={{ color: '#334155' }}>
+                    <span className="text-xs text-slate-500">
                       {t('brand.missing')} {missing.slice(0,3).join(locale==='ar'?'، ':' · ')}{missing.length>3?'...':''}
                     </span>
                   )}
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.08)' }}>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
                   <div className="h-full rounded-full transition-all duration-700"
                     style={{ width:`${score}%`, background:score>=80?'linear-gradient(90deg,#10b981,#059669)':score>=50?'linear-gradient(90deg,#f59e0b,#d97706)':'linear-gradient(90deg,#ef4444,#dc2626)' }}/>
                 </div>
@@ -931,9 +917,9 @@ function BrandBrainInner() {
 
               {score < 60 && (
                 <div className="flex items-center gap-2 mt-4 px-4 py-3 rounded-xl"
-                  style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.15)' }}>
+                  style={{ background:'#FFFBEB', border:'1px solid rgba(245,158,11,0.22)' }}>
                   <AlertTriangle size={14} className="text-amber-500 flex-shrink-0"/>
-                  <p className="text-xs" style={{ color:'rgba(245,158,11,0.8)' }}>{t('brand.lowCompletenessWarning')}</p>
+                  <p className="text-xs text-amber-800">{t('brand.lowCompletenessWarning')}</p>
                 </div>
               )}
             </div>
@@ -948,25 +934,25 @@ function BrandBrainInner() {
               WEBSITE INTELLIGENCE SCANNER
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(6,182,212,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.3)' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #8b5cf6 100%)' }} />
             <div className="p-5">
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.25)' }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: '#ECFEFF', border: '1px solid rgba(8,145,178,0.18)' }}>
                   <ScanSearch size={17} style={{ color: '#06b6d4' }} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">
+                    <span className="text-sm font-bold text-slate-950">
                       {locale === 'ar' ? 'مسح الموقع الإلكتروني' : 'Website Intelligence Scanner'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(6,182,212,0.12)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' }}>
                       3 {locale === 'ar' ? 'كردت' : 'credits'}
                     </span>
                   </div>
-                  <p className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                  <p className="text-xs mt-0.5 text-slate-500">
                     {locale === 'ar'
                       ? 'أدخل رابط موقعك — سيحلله الذكاء الاصطناعي ويملأ Brand Brain تلقائياً'
                       : 'Enter your website URL — AI reads your pages and auto-fills Brand Brain fields'}
@@ -977,16 +963,16 @@ function BrandBrainInner() {
               {/* URL input + scan button */}
               <div className="flex gap-2">
                 <div className="flex-1 flex items-center gap-2 px-3 rounded-xl"
-                  style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)', height: 42 }}>
-                  <Link2 size={14} style={{ color: '#475569', flexShrink: 0 }} />
+                  style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)', height: 42 }}>
+                  <Link2 size={14} style={{ color: '#64748B', flexShrink: 0 }} />
                   <input
                     type="url"
                     value={websiteUrl}
                     onChange={e => setWebsiteUrl(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && !scanning && handleScanWebsite()}
                     placeholder={locale === 'ar' ? 'https://your-brand.com' : 'https://your-brand.com'}
-                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-600"
-                    style={{ color: 'rgba(255,255,255,0.85)', direction: 'ltr' }}
+                    className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+                    style={{ color: '#0F172A', direction: 'ltr' }}
                   />
                 </div>
                 <button
@@ -994,9 +980,9 @@ function BrandBrainInner() {
                   disabled={scanning || !websiteUrl.trim()}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-50 flex-shrink-0"
                   style={{
-                    background: scanning ? 'rgba(6,182,212,0.1)' : 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-                    color: scanning ? '#67e8f9' : '#0a0a0a',
-                    boxShadow: scanning ? 'none' : '0 0 20px rgba(6,182,212,0.25)',
+                    background: scanning ? '#ECFEFF' : '#111827',
+                    color: scanning ? '#0891B2' : '#FFFFFF',
+                    boxShadow: 'none',
                   }}>
                   {scanning
                     ? <><Loader2 size={14} className="animate-spin" /> {locale === 'ar' ? 'جاري المسح...' : 'Scanning...'}</>
@@ -1008,21 +994,21 @@ function BrandBrainInner() {
               {/* Error */}
               {scanError && (
                 <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-xl"
-                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <AlertTriangle size={13} className="text-red-400 flex-shrink-0" />
-                  <span className="text-xs" style={{ color: '#fca5a5' }}>{scanError}</span>
+                  style={{ background: '#FEF2F2', border: '1px solid rgba(220,38,38,0.18)' }}>
+                  <AlertTriangle size={13} className="text-red-600 flex-shrink-0" />
+                  <span className="text-xs text-red-700">{scanError}</span>
                 </div>
               )}
 
               {/* Scan preview */}
               {showScanPreview && scanResult && (
                 <div className="mt-4 rounded-xl overflow-hidden"
-                  style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                  style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className="px-4 py-3 flex items-center justify-between"
                     style={{ borderBottom: '1px solid rgba(6,182,212,0.1)' }}>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 size={14} style={{ color: '#06b6d4' }} />
-                      <span className="text-xs font-bold" style={{ color: '#67e8f9' }}>
+                      <span className="text-xs font-bold" style={{ color: '#0891B2' }}>
                         {locale === 'ar' ? 'تم استخراج بيانات الموقع' : 'Website data extracted'}
                       </span>
                     </div>
@@ -1040,7 +1026,7 @@ function BrandBrainInner() {
                     ].map(({ k, label }) => scanResult[k] ? (
                       <div key={k} className="flex gap-2 text-xs">
                         <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>{label}</span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{String(scanResult[k])}</span>
+                        <span className="text-slate-700">{String(scanResult[k])}</span>
                       </div>
                     ) : null)}
                     {Array.isArray(scanResult.uniqueAdvantages) && (scanResult.uniqueAdvantages as string[]).length > 0 && (
@@ -1048,7 +1034,7 @@ function BrandBrainInner() {
                         <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
                           {locale === 'ar' ? 'مزايا فريدة' : 'Unique Advantages'}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(scanResult.uniqueAdvantages as string[]).slice(0,3).join(' · ')}</span>
+                        <span className="text-slate-700">{(scanResult.uniqueAdvantages as string[]).slice(0,3).join(' · ')}</span>
                       </div>
                     )}
                     {Array.isArray(scanResult.toneKeywords) && (scanResult.toneKeywords as string[]).length > 0 && (
@@ -1056,7 +1042,7 @@ function BrandBrainInner() {
                         <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
                           {locale === 'ar' ? 'نبرة الصوت' : 'Tone Keywords'}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(scanResult.toneKeywords as string[]).join(', ')}</span>
+                        <span className="text-slate-700">{(scanResult.toneKeywords as string[]).join(', ')}</span>
                       </div>
                     )}
                   </div>
@@ -1064,7 +1050,7 @@ function BrandBrainInner() {
                     <button
                       onClick={applyScanResult}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                      style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: '#0a0a0a', boxShadow: '0 0 16px rgba(6,182,212,0.2)' }}>
+                      style={{ background: '#111827', color: '#FFFFFF' }}>
                       <Check size={12} strokeWidth={3} />
                       {locale === 'ar' ? 'تطبيق على Brand Brain' : 'Apply to Brand Brain'}
                     </button>
@@ -1084,25 +1070,25 @@ function BrandBrainInner() {
               CONTENT SAMPLES ANALYZER
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.3)' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)' }} />
             <div className="p-5">
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                  style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                   <FileText size={17} style={{ color: '#a78bfa' }} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white">
+                    <span className="text-sm font-bold text-slate-950">
                       {locale === 'ar' ? 'تحليل المحتوى الناجح' : 'Content Samples Analyzer'}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(139,92,246,0.12)', color: '#c4b5fd', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: '#F5F3FF', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.18)' }}>
                       2 {locale === 'ar' ? 'كردت' : 'credits'}
                     </span>
                   </div>
-                  <p className="text-xs mt-0.5" style={{ color: '#475569' }}>
+                  <p className="text-xs mt-0.5 text-slate-500">
                     {locale === 'ar'
                       ? 'الصق أفضل محتواك — سيستخرج الذكاء أنماط الـ hooks والأسلوب والزوايا الناجحة'
                       : 'Paste your best-performing content — AI extracts hooks, angles, and tone patterns'}
@@ -1128,11 +1114,11 @@ function BrandBrainInner() {
                       placeholder={locale === 'ar'
                         ? 'الصق هنا caption أو إعلان أو سكريبت أثبت نجاحه...'
                         : 'Paste a caption, ad, email, or script that performed well...'}
-                      className="w-full px-3 py-2.5 rounded-xl text-xs outline-none resize-none"
+                      className="w-full px-3 py-2.5 rounded-xl text-xs outline-none resize-none placeholder:text-slate-400"
                       style={{
-                        background: 'rgba(139,92,246,0.05)',
-                        border: '1px solid rgba(139,92,246,0.15)',
-                        color: 'rgba(255,255,255,0.8)',
+                        background: '#FFFFFF',
+                        border: '1px solid rgba(15,23,42,0.10)',
+                        color: '#0F172A',
                         caretColor: '#a78bfa',
                       }}
                     />
@@ -1146,9 +1132,9 @@ function BrandBrainInner() {
                 disabled={analyzing || contentSamples.every(s => !s.trim())}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-50"
                 style={{
-                  background: analyzing ? 'rgba(139,92,246,0.1)' : 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                  color: analyzing ? '#c4b5fd' : '#ffffff',
-                  boxShadow: analyzing ? 'none' : '0 0 20px rgba(139,92,246,0.25)',
+                  background: analyzing ? '#F5F3FF' : '#111827',
+                  color: analyzing ? '#5E5CE6' : '#ffffff',
+                  boxShadow: 'none',
                 }}>
                 {analyzing
                   ? <><Loader2 size={14} className="animate-spin" /> {locale === 'ar' ? 'جاري التحليل...' : 'Analyzing...'}</>
@@ -1159,21 +1145,21 @@ function BrandBrainInner() {
               {/* Error */}
               {analyzeError && (
                 <div className="flex items-center gap-2 mt-3 px-3 py-2 rounded-xl"
-                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <AlertTriangle size={13} className="text-red-400 flex-shrink-0" />
-                  <span className="text-xs" style={{ color: '#fca5a5' }}>{analyzeError}</span>
+                  style={{ background: '#FEF2F2', border: '1px solid rgba(220,38,38,0.18)' }}>
+                  <AlertTriangle size={13} className="text-red-600 flex-shrink-0" />
+                  <span className="text-xs text-red-700">{analyzeError}</span>
                 </div>
               )}
 
               {/* Analyze preview */}
               {showAnalyzePreview && analyzeResult && (
                 <div className="mt-4 rounded-xl overflow-hidden"
-                  style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                  style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className="px-4 py-3 flex items-center justify-between"
-                    style={{ borderBottom: '1px solid rgba(139,92,246,0.1)' }}>
+                    style={{ borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 size={14} style={{ color: '#a78bfa' }} />
-                      <span className="text-xs font-bold" style={{ color: '#c4b5fd' }}>
+                      <span className="text-xs font-bold" style={{ color: '#5E5CE6' }}>
                         {locale === 'ar' ? 'تم استخراج أنماط المحتوى' : 'Content patterns extracted'}
                       </span>
                     </div>
@@ -1189,7 +1175,7 @@ function BrandBrainInner() {
                         </div>
                         <div className="space-y-1">
                           {(analyzeResult.winningHooks as string[]).slice(0, 3).map((h, i) => (
-                            <div key={i} className="flex items-start gap-2 text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                            <div key={i} className="flex items-start gap-2 text-xs text-slate-700">
                               <ChevronRight size={11} style={{ color: '#a78bfa', flexShrink: 0, marginTop: 2 }} />
                               <span>{h}</span>
                             </div>
@@ -1202,7 +1188,7 @@ function BrandBrainInner() {
                         <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
                           {locale === 'ar' ? 'أسلوب الكتابة' : 'Writing Style'}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{String(analyzeResult.writingStyle)}</span>
+                        <span className="text-slate-700">{String(analyzeResult.writingStyle)}</span>
                       </div>
                     )}
                     {Array.isArray(analyzeResult.toneKeywords) && (analyzeResult.toneKeywords as string[]).length > 0 && (
@@ -1210,7 +1196,7 @@ function BrandBrainInner() {
                         <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
                           {locale === 'ar' ? 'نبرة الصوت' : 'Tone Keywords'}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(analyzeResult.toneKeywords as string[]).join(', ')}</span>
+                        <span className="text-slate-700">{(analyzeResult.toneKeywords as string[]).join(', ')}</span>
                       </div>
                     )}
                     {Array.isArray(analyzeResult.winningAngles) && (analyzeResult.winningAngles as string[]).length > 0 && (
@@ -1218,7 +1204,7 @@ function BrandBrainInner() {
                         <span className="flex-shrink-0 font-semibold" style={{ color: '#475569', width: 120 }}>
                           {locale === 'ar' ? 'زوايا المحتوى' : 'Content Angles'}
                         </span>
-                        <span style={{ color: 'rgba(255,255,255,0.7)' }}>{(analyzeResult.winningAngles as string[]).slice(0,3).join(' · ')}</span>
+                        <span className="text-slate-700">{(analyzeResult.winningAngles as string[]).slice(0,3).join(' · ')}</span>
                       </div>
                     )}
                   </div>
@@ -1226,7 +1212,7 @@ function BrandBrainInner() {
                     <button
                       onClick={applyAnalyzeResult}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
-                      style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#ffffff', boxShadow: '0 0 16px rgba(139,92,246,0.2)' }}>
+                      style={{ background: '#111827', color: '#ffffff' }}>
                       <Check size={12} strokeWidth={3} />
                       {locale === 'ar' ? 'تطبيق على Brand Brain' : 'Apply to Brand Brain'}
                     </button>
@@ -1246,7 +1232,7 @@ function BrandBrainInner() {
               STEP STEPPER
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl p-3"
-            style={{ background:'rgba(10,11,28,0.7)', border:'1px solid rgba(139,92,246,0.15)', backdropFilter:'blur(20px)' }}>
+            style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex gap-1.5 overflow-x-auto">
               {STEPS.map((s, idx) => {
                 const active    = step === s.id
@@ -1256,15 +1242,15 @@ function BrandBrainInner() {
                   <button key={s.id} onClick={() => setStep(s.id)}
                     className="flex-1 min-w-[80px] flex flex-col items-center gap-2 px-2 py-3 rounded-xl transition-all duration-200"
                     style={{
-                      background: active ? `${s.color}15` : 'transparent',
-                      border: `1px solid ${active ? s.color+'40' : 'rgba(139,92,246,0.08)'}`,
-                      boxShadow: active ? `0 0 20px ${s.color}18` : 'none',
+                      background: active ? `${s.color}10` : '#FFFFFF',
+                      border: `1px solid ${active ? s.color+'35' : 'rgba(15,23,42,0.08)'}`,
+                      boxShadow: 'none',
                     }}>
                     <div className="relative">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
                         style={{
-                          background: active ? `${s.color}22` : completed ? `${s.color}0e` : 'rgba(139,92,246,0.06)',
-                          border: `1px solid ${active ? s.color+'50' : completed ? s.color+'25' : 'rgba(139,92,246,0.12)'}`,
+                          background: active ? `${s.color}14` : completed ? `${s.color}0e` : '#F8FAFC',
+                          border: `1px solid ${active ? s.color+'40' : completed ? s.color+'25' : 'rgba(15,23,42,0.08)'}`,
                         }}>
                         <s.icon size={16} style={{ color: active ? s.color : completed ? s.color+'bb' : '#334155' }}/>
                       </div>
@@ -1293,21 +1279,21 @@ function BrandBrainInner() {
               STEP CONTENT CARD
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background:'rgba(10,11,28,0.85)', border:`1px solid ${currentStep.color}30`, backdropFilter:'blur(24px)', boxShadow:`0 0 50px ${currentStep.color}06, 0 4px 40px rgba(0,0,0,0.4)` }}>
+            style={{ background:'#FFFFFF', border:`1px solid rgba(15,23,42,0.08)`, boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
 
             {/* Step color top accent */}
             <div className="h-0.5" style={{ background:`linear-gradient(90deg, ${currentStep.color} 0%, ${currentStep.color}00 60%)` }}/>
 
             {/* Step header */}
             <div className="flex items-center gap-4 px-6 pt-5 pb-4"
-              style={{ borderBottom:`1px solid rgba(139,92,246,0.1)` }}>
+              style={{ borderBottom:`1px solid rgba(15,23,42,0.08)` }}>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
                 style={{ background:`${currentStep.color}18`, border:`1px solid ${currentStep.color}35`, boxShadow:`0 0 20px ${currentStep.color}15` }}>
                 <currentStep.icon size={22} style={{ color:currentStep.color }}/>
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold text-white">{t(currentStep.labelKey)}</h2>
-                <p className="text-xs mt-0.5" style={{ color:'#475569' }}>{t(currentStep.descKey)}</p>
+                <h2 className="text-lg font-bold text-slate-950">{t(currentStep.labelKey)}</h2>
+                <p className="text-xs mt-0.5 text-slate-500">{t(currentStep.descKey)}</p>
               </div>
               <div className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
                 style={{ background:`${currentStep.color}0e`, color:`${currentStep.color}bb`, border:`1px solid ${currentStep.color}20` }}>
@@ -1318,12 +1304,12 @@ function BrandBrainInner() {
             {/* AI Suggest error banner */}
             {suggestError && (
               <div className="mx-6 mt-3 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl"
-                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                style={{ background: '#FEF2F2', border: '1px solid rgba(220,38,38,0.18)' }}>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle size={13} className="text-red-400 flex-shrink-0"/>
-                  <span className="text-xs font-medium" style={{ color: '#fca5a5' }}>{suggestError}</span>
+                  <AlertTriangle size={13} className="text-red-600 flex-shrink-0"/>
+                  <span className="text-xs font-medium text-red-700">{suggestError}</span>
                 </div>
-                <button onClick={() => setSuggestError(null)} className="text-xs opacity-50 hover:opacity-100 transition-opacity" style={{ color: '#fca5a5' }}>✕</button>
+                <button onClick={() => setSuggestError(null)} className="text-xs opacity-50 hover:opacity-100 transition-opacity text-red-700">✕</button>
               </div>
             )}
 
@@ -1335,7 +1321,7 @@ function BrandBrainInner() {
 
                   {/* ── Brand Logo Upload ──────────────────────────── */}
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                    <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>
                       {locale === 'ar' ? 'شعار العلامة التجارية' : 'Brand Logo'}
                     </label>
                     <div className="flex items-center gap-4">
@@ -1349,13 +1335,13 @@ function BrandBrainInner() {
                           </div>
                         ) : (
                           <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                            style={{ background: 'rgba(8,9,28,0.7)', border: '2px dashed rgba(139,92,246,0.25)' }}>
+                            style={{ background: '#F8FAFC', border: '2px dashed rgba(15,23,42,0.12)' }}>
                             <ImageIcon size={22} style={{ color: 'rgba(139,92,246,0.35)' }} />
                           </div>
                         )}
                         {logoUploading && (
                           <div className="absolute inset-0 rounded-2xl flex items-center justify-center"
-                            style={{ background: 'rgba(6,7,26,0.75)' }}>
+                            style={{ background: 'rgba(255,255,255,0.75)' }}>
                             <Loader2 size={18} className="animate-spin" style={{ color: '#f59e0b' }} />
                           </div>
                         )}
@@ -1410,13 +1396,13 @@ function BrandBrainInner() {
                       placeholder={t('brand.identityBrandNamePlaceholder')} accentColor={currentStep.color}/>
                   </Field>
                   <Field label={t('brand.identityIndustryLabel')}>
-                    <div className="relative">
+                      <div className="relative">
                       <select value={form.industry||''} onChange={e=>set('industry',e.target.value)}
                         className="w-full appearance-none px-4 py-3 rounded-xl text-sm focus:outline-none transition-all"
-                        style={{ background:'rgba(8,9,28,0.7)', border:'1px solid rgba(139,92,246,0.2)', color:form.industry?'#f1f5f9':'#4b5563' }}>
-                        <option value="" style={{background:'#0c0d24'}}>{t('brand.identityIndustryPlaceholder')}</option>
+                        style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.10)', color:form.industry?'#0F172A':'#94A3B8' }}>
+                        <option value="">{t('brand.identityIndustryPlaceholder')}</option>
                         {(locale==='ar'?INDUSTRIES_AR:INDUSTRIES_EN).map((ind,idx)=>(
-                          <option key={idx} value={ind} style={{background:'#0c0d24'}}>{ind}</option>
+                          <option key={idx} value={ind}>{ind}</option>
                         ))}
                       </select>
                       <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{color:'#4b5563'}}/>
@@ -1486,8 +1472,8 @@ function BrandBrainInner() {
                           <button key={a} onClick={()=>set('audienceAge',a)}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                             style={{
-                              background:form.audienceAge===a?`${currentStep.color}18`:'rgba(12,13,36,0.6)',
-                              border:`1px solid ${form.audienceAge===a?currentStep.color+'50':'rgba(139,92,246,0.18)'}`,
+                              background:form.audienceAge===a?`${currentStep.color}12`:'#FFFFFF',
+                              border:`1px solid ${form.audienceAge===a?currentStep.color+'45':'rgba(15,23,42,0.10)'}`,
                               color:form.audienceAge===a?currentStep.color:'#64748b',
                               boxShadow:form.audienceAge===a?`0 0 10px ${currentStep.color}18`:'none',
                             }}>
@@ -1548,8 +1534,8 @@ function BrandBrainInner() {
                         <button key={style} onClick={()=>set('visualStyle',style)}
                           className="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
                           style={{
-                            background:form.visualStyle===style?`${currentStep.color}18`:'rgba(12,13,36,0.6)',
-                            border:`1px solid ${form.visualStyle===style?currentStep.color+'50':'rgba(139,92,246,0.18)'}`,
+                            background:form.visualStyle===style?`${currentStep.color}12`:'#FFFFFF',
+                            border:`1px solid ${form.visualStyle===style?currentStep.color+'45':'rgba(15,23,42,0.10)'}`,
                             color:form.visualStyle===style?currentStep.color:'#64748b',
                             boxShadow:form.visualStyle===style?`0 0 10px ${currentStep.color}18`:'none',
                           }}>
@@ -1603,13 +1589,13 @@ function BrandBrainInner() {
 
               {/* ── Navigation ─────────────────────────────────── */}
               <div className="flex items-center justify-between pt-5"
-                style={{ borderTop:'1px solid rgba(139,92,246,0.1)' }}>
+                style={{ borderTop:'1px solid rgba(15,23,42,0.08)' }}>
 
                 <button
                   onClick={() => currentStepIdx > 0 && setStep(STEPS[currentStepIdx-1].id)}
                   disabled={currentStepIdx === 0}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-20"
-                  style={{ color:'#64748b', background:currentStepIdx===0?'transparent':'rgba(12,13,36,0.6)', border:currentStepIdx===0?'none':'1px solid rgba(139,92,246,0.15)' }}>
+                  style={{ color:'#64748b', background:currentStepIdx===0?'transparent':'#FFFFFF', border:currentStepIdx===0?'none':'1px solid rgba(15,23,42,0.10)' }}>
                   <ArrowRight size={14}/> {t('brand.navPrevious')}
                 </button>
 
@@ -1618,7 +1604,7 @@ function BrandBrainInner() {
                   {STEPS.map(s => (
                     <button key={s.id} onClick={() => setStep(s.id)}
                       className="rounded-full transition-all duration-300"
-                      style={{ width:step===s.id?'22px':'6px', height:'6px', background:step===s.id?s.color:'rgba(139,92,246,0.2)' }}/>
+                      style={{ width:step===s.id?'22px':'6px', height:'6px', background:step===s.id?s.color:'#CBD5E1' }}/>
                   ))}
                 </div>
 
@@ -1650,13 +1636,13 @@ function BrandBrainInner() {
               { color:'#10b981', icon:Target,    label:'Sentinel',    descKey:'brand.sentinelCardDesc' },
             ].map((c,i) => (
               <div key={i} className="rounded-xl p-4 transition-all duration-200"
-                style={{ background:'rgba(10,11,28,0.7)', border:'1px solid rgba(139,92,246,0.12)', backdropFilter:'blur(12px)' }}>
+                style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
                   style={{ background:`${c.color}12`, border:`1px solid ${c.color}22` }}>
                   <c.icon size={16} style={{ color:c.color }}/>
                 </div>
-                <p className="text-xs font-bold text-white mb-1">{c.label}</p>
-                <p className="text-[11px] leading-relaxed" style={{ color:'#475569' }}>{t(c.descKey)}</p>
+                <p className="text-xs font-bold text-slate-950 mb-1">{c.label}</p>
+                <p className="text-[11px] leading-relaxed text-slate-500">{t(c.descKey)}</p>
               </div>
             ))}
           </div>
