@@ -141,6 +141,31 @@ function mergeAiInsights(
   }
 }
 
+function getBriefExecutionTarget(payload: unknown): { nextHref?: string; executionLabel?: string } {
+  const p = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
+  if (p.source !== 'marketing-operating-brief') return {}
+
+  const href = typeof p.href === 'string' && p.href.trim() ? p.href : undefined
+  const actionId = typeof p.actionId === 'string' ? p.actionId : ''
+
+  const labelMap: Record<string, string> = {
+    'complete-brand-brain': 'Open Brand Brain completion flow',
+    'capture-learning': 'Open Brand Brain learning flow',
+    'launch-first-campaign': 'Open campaign creation flow',
+    'generate-content-plan': 'Open content plan workflow',
+    'schedule-drafts': 'Open scheduling workflow',
+    'connect-platforms': 'Open platform connections',
+    'create-ab-test': 'Open campaign experiments',
+    'inspect-analytics': 'Open analytics',
+    'review-suggestions': 'Review agent recommendations',
+  }
+
+  return {
+    nextHref: href,
+    executionLabel: labelMap[actionId] ?? 'Continue recommended workflow',
+  }
+}
+
 /**
  * Apply Brand Brain learning when a suggestion is APPROVED.
  * Returns which BrandProfile fields were updated (empty = no-op).
@@ -305,6 +330,8 @@ export async function PATCH(req: NextRequest) {
     // 2. If APPROVED → apply Brand Brain learning (non-blocking on failure)
     let brandBrainUpdated = false
     let updatedFields: string[] = []
+    let nextHref: string | undefined
+    let executionLabel: string | undefined
 
     if (status === 'APPROVED') {
       const learning = await applyBrandBrainLearning(workspace.id, {
@@ -314,6 +341,10 @@ export async function PATCH(req: NextRequest) {
       })
       brandBrainUpdated = learning.brandBrainUpdated
       updatedFields     = learning.updatedFields
+
+      const target = getBriefExecutionTarget(existing.payload)
+      nextHref = target.nextHref
+      executionLabel = target.executionLabel
     }
 
     return NextResponse.json({
@@ -321,6 +352,8 @@ export async function PATCH(req: NextRequest) {
       suggestionStatus:    updated.status,
       brandBrainUpdated,
       updatedFields,
+      nextHref,
+      executionLabel,
       suggestion: { id: updated.id, status: updated.status },
     })
   } catch (err: any) {

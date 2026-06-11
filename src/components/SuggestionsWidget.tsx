@@ -12,10 +12,11 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
-  Sparkles, XCircle, ExternalLink,
+  Sparkles, XCircle, ExternalLink, CheckCircle2,
   ChevronRight, Lightbulb, AlertTriangle, X,
 } from 'lucide-react'
 
@@ -82,6 +83,7 @@ interface SuggestionsWidgetProps {
 export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetProps) {
   const { authHeader } = useAuth()
   const { t, locale, dir } = useI18n()
+  const router = useRouter()
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   // exiting: set of IDs currently fading out
@@ -89,7 +91,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
   const [acting, setActing]           = useState<Record<string, 'approving' | 'rejecting' | 'dismissing'>>({})
-  const [feedback, setFeedback]       = useState<Record<string, { brandBrainUpdated: boolean }>>({})
+  const [feedback, setFeedback]       = useState<Record<string, { brandBrainUpdated: boolean; executionLabel?: string }>>({})
 
   const sg = t('suggestions') as Record<string, string>
 
@@ -140,18 +142,27 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
       if (status === 'APPROVED') {
         setFeedback(prev => ({
           ...prev,
-          [id]: { brandBrainUpdated: Boolean(data.brandBrainUpdated) },
+          [id]: {
+            brandBrainUpdated: Boolean(data.brandBrainUpdated),
+            executionLabel: typeof data.executionLabel === 'string' ? data.executionLabel : undefined,
+          },
         }))
       }
 
-      // Remove card after brief visual feedback
-      removeAfterDelay(id, 900)
+      const nextHref = typeof data.nextHref === 'string' ? data.nextHref : null
+      if (status === 'APPROVED' && nextHref) {
+        setTimeout(() => router.push(nextHref), 650)
+        removeAfterDelay(id, 1200)
+      } else {
+        // Remove card after brief visual feedback
+        removeAfterDelay(id, 900)
+      }
     } catch {
       // silently keep existing state — user can retry
     } finally {
       setActing(prev => { const n = { ...prev }; delete n[id]; return n })
     }
-  }, [authHeader, removeAfterDelay])
+  }, [authHeader, removeAfterDelay, router])
 
   const dismiss = useCallback(async (id: string) => {
     setActing(prev => ({ ...prev, [id]: 'dismissing' }))
@@ -291,7 +302,11 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                 {/* Approval feedback */}
                 {justActed && (
                   <p className="text-[10px] font-semibold mb-2" style={{ color: '#10B981' }}>
-                    ✓ {feedback[s.id].brandBrainUpdated ? sg.approvedBrandUpdated : sg.approvedOnly}
+                    ✓ {feedback[s.id].executionLabel
+                      ? feedback[s.id].executionLabel
+                      : feedback[s.id].brandBrainUpdated
+                      ? sg.approvedBrandUpdated
+                      : sg.approvedOnly}
                   </p>
                 )}
 
@@ -332,6 +347,18 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                       {sg.btnViewCampaign}
                     </Link>
                   )}
+                  <button
+                    disabled={isActing}
+                    onClick={() => act(s.id, 'APPROVED')}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(16,185,129,0.08)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}
+                  >
+                    {acting[s.id] === 'approving'
+                      ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
+                      : <CheckCircle2 className="w-3 h-3" />
+                    }
+                    {locale === 'ar' ? 'موافقة ومتابعة' : 'Approve & Continue'}
+                  </button>
                   <button
                     disabled={isActing}
                     onClick={() => act(s.id, 'REJECTED')}
