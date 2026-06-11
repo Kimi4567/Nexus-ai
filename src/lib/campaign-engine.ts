@@ -449,25 +449,43 @@ export async function runCampaignEngine(params: {
     // Clear the _generatingAt flag — generation is done
     delete aiOutput._generatingAt
 
-    const updatedCampaign = await db.campaign.update({
-      where: { id: campaign.id },
-      data: {
-        aiOutput,
-        activities: {
-          create: {
-            type: 'engine_run',
-            description: `NEXUS Engine prepared campaign package (${engine.score}% ready)`,
-            metadata: {
-              score: engine.score,
-              status: engine.status,
-              sentinelStatus: engine.sentinelStatus,
-              calendarCount: engine.calendarCount,
+    // Persist the final result with retry — DB connections can time out after a
+    // long GPT-4o call. 3 retries with 2 s back-off covers transient pool issues.
+    let updatedCampaign: typeof campaign & { activities: any[] } = campaign as any
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        updatedCampaign = await db.campaign.update({
+          where: { id: campaign.id },
+          data: {
+            aiOutput,
+            activities: {
+              create: {
+                type: 'engine_run',
+                description: `NEXUS Engine prepared campaign package (${engine.score}% ready)`,
+                metadata: {
+                  score: engine.score,
+                  status: engine.status,
+                  sentinelStatus: engine.sentinelStatus,
+                  calendarCount: engine.calendarCount,
+                },
+              },
             },
           },
-        },
-      },
-      include: { activities: { orderBy: { createdAt: 'desc' }, take: 20 } },
-    })
+          include: { activities: { orderBy: { createdAt: 'desc' }, take: 20 } },
+        })
+        break // success — exit retry loop
+      } catch (dbErr: any) {
+        const isTimeout =
+          dbErr?.message?.includes('timeout') ||
+          dbErr?.message?.includes('57014') ||
+          dbErr?.code === 'P2024'
+        if (isTimeout && attempt < 3) {
+          await new Promise(r => setTimeout(r, 2000 * attempt))
+          continue
+        }
+        throw dbErr
+      }
+    }
 
     await db.agentRun.update({
       where: { id: agentRun.id },
