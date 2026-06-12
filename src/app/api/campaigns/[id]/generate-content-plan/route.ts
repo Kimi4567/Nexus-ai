@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
+import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 
@@ -409,9 +410,14 @@ Rules:
       })
     }
 
+    // Arabic for ar/bilingual/unset campaigns; English only when explicitly 'en'.
+    const isArabic = (bodyLanguage || '').toLowerCase() !== 'en'
+
     const postsToCreate = slots.map((slot, i) => {
       const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
-      const caption = gen.caption ?? gen.text ?? `Post ${i + 1} for ${PLATFORM_LABELS[slot.platform] ?? slot.platform}`
+      // Video slots return videoCaption (not caption). Prefer real AI copy; only
+      // fall back to language-aware brand copy — never an English placeholder.
+      const caption = resolvePostCaption(gen, { isArabic, brand: brandName, hint: keyMessage || offer || campaignName })
       const imagePrompt = gen.imagePrompt ?? ''
       const videoPrompt = gen.videoScript ?? gen.videoCaption ?? ''
       const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))

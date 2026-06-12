@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult } from '@/lib/brandReadiness'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import { getCampaignDeliverable } from '@/lib/planDeliverable'
 import {
   ArrowLeft, Wand2, ChevronRight, ChevronLeft, Check,
   Target, Megaphone, Settings, Rocket, Loader2, Brain, AlertTriangle,
@@ -77,6 +78,10 @@ function NewCampaignPageInner() {
   const rawPlan = billingStatus.status?.plan ?? 'free'
   const planPostQuota = PLAN_POST_QUOTA[rawPlan] ?? 3
   const planDisplayName = PLAN_DISPLAY[rawPlan] ?? 'Free'
+  // Per-campaign deliverable (what THIS content-plan run actually generates) —
+  // distinct from planPostQuota (the monthly quota). The wizard promises this
+  // honest count so it never says "25" when the run produces 18.
+  const deliverable = getCampaignDeliverable(rawPlan)
   const isFreePlan = !billingStatus.isPaid
 
   // ── Content Focus options ─────────────────────────────────────────────────────
@@ -490,8 +495,8 @@ function NewCampaignPageInner() {
 
     const subText = isContent
       ? (locale === 'ar'
-          ? `بنجهز ${planPostQuota} بوست جاهز للنشر. لحظة.`
-          : `Preparing ${planPostQuota} ready-to-publish posts. Just a moment.`)
+          ? `بنجهز ${deliverable.total} بوست جاهز للنشر. لحظة.`
+          : `Preparing ${deliverable.total} ready-to-publish posts. Just a moment.`)
       : (locale === 'ar'
           ? 'الـ AI بيحلل البراند بتاعك ويبني استراتيجية محتوى كاملة.'
           : 'AI is analysing your brand and building a full content strategy.')
@@ -1275,13 +1280,13 @@ function NewCampaignPageInner() {
                       <div className="space-y-1 text-xs text-slate-500">
                         <p>
                           {locale === 'ar'
-                            ? `📦 باقة ${planDisplayName} ← ${planPostQuota} بوست عضوي جاهز للنشر`
-                            : `📦 ${planDisplayName} plan → ${planPostQuota} organic posts ready to publish`}
+                            ? `📦 هذه الحملة: ${deliverable.total} منشور جاهز للنشر${deliverable.videoSlots > 0 ? ` (${deliverable.imagePosts} صورة + ${deliverable.videoSlots} فيديو)` : ''}`
+                            : `📦 This campaign: ${deliverable.total} posts ready to publish${deliverable.videoSlots > 0 ? ` (${deliverable.imagePosts} image + ${deliverable.videoSlots} video)` : ''}`}
                         </p>
                         <p>
                           {locale === 'ar'
-                            ? `📊 توزيع: ${postDistribution || `${planPostQuota} بوست`}`
-                            : `📊 Distribution: ${postDistribution || `${planPostQuota} posts`}`}
+                            ? `🗓 حصتك الشهرية: ${planPostQuota} بوست / شهر (${planDisplayName})`
+                            : `🗓 Monthly quota: ${planPostQuota} posts / month (${planDisplayName})`}
                         </p>
                         <p>
                           {locale === 'ar'
