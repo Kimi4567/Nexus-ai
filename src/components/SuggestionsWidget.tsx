@@ -180,9 +180,9 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
   }, [authHeader, removeAfterDelay])
 
   const glassCard = {
-    background: 'rgba(12,13,36,0.6)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(139,92,246,0.1)',
+    background: '#FFFFFF',
+    border: '1px solid rgba(15,23,42,0.08)',
+    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
   }
 
   return (
@@ -191,7 +191,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Lightbulb className="w-4 h-4 text-accent-purple" />
-          <h3 className="font-bold text-sm text-white">{sg.sectionTitle}</h3>
+          <h3 className="font-bold text-sm text-slate-900">{sg.sectionTitle}</h3>
           {suggestions.length > 0 && (
             <span
               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
@@ -216,7 +216,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
             <div
               key={i}
               className="h-16 rounded-xl animate-pulse"
-              style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.08)' }}
+              style={{ background: 'rgba(94,92,230,0.04)', border: '1px solid rgba(94,92,230,0.08)' }}
             />
           ))}
         </div>
@@ -236,7 +236,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
         <div className="text-center py-8">
           <div
             className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}
+            style={{ background: 'rgba(94,92,230,0.06)', border: '1px solid rgba(94,92,230,0.12)' }}
           >
             <Sparkles className="w-5 h-5 text-accent-purple/40" />
           </div>
@@ -278,7 +278,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                     style={{ background: pc, boxShadow: `0 0 4px ${pc}` }}
                   />
-                  <p className="text-sm font-semibold text-white flex-1 leading-snug">{s.title}</p>
+                  <p className="text-sm font-semibold text-slate-900 flex-1 leading-snug">{s.title}</p>
                   {/* Dismiss × button */}
                   <button
                     onClick={() => dismiss(s.id)}
@@ -320,7 +320,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   {s.campaignName && (
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff' }}
+                      style={{ background: 'rgba(94,92,230,0.1)', color: '#5E5CE6' }}
                     >
                       {s.campaignName}
                     </span>
@@ -341,7 +341,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                     <Link
                       href={`/campaigns/${s.campaignId}`}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
-                      style={{ background: 'rgba(139,92,246,0.15)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.3)' }}
+                      style={{ background: 'rgba(94,92,230,0.15)', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.3)' }}
                     >
                       <ExternalLink className="w-3 h-3" />
                       {sg.btnViewCampaign}

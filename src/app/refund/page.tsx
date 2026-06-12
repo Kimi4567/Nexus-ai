@@ -43,9 +43,9 @@ export default function RefundPage() {
   const isAr = locale === 'ar'
 
   return (
-    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#020204' }}>
+    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#F5F5F7' }}>
       <nav className="sticky top-0 z-40 px-6 py-4 flex justify-between items-center"
-        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        style={{ background: '#FFFFFF', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
         <Link href="/" className="text-2xl font-bold gradient-text">NEXUS AI</Link>
         <Link href="/auth/login" className="text-sm text-text-muted hover:text-text-primary transition">
           {lgT?.navLogin as string}
@@ -68,7 +68,7 @@ export default function RefundPage() {
         <div className="space-y-8">
           {SECTIONS.map((sec, i) => (
             <section key={i} className="p-6"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '16px' }}>
               <h2 className="text-lg font-bold text-violet-400 mb-3">
                 {isAr ? sec.titleAr : sec.titleEn}
               </h2>
@@ -80,7 +80,7 @@ export default function RefundPage() {
         </div>
 
         <div className="mt-12 pt-8 flex gap-6 text-sm text-text-muted"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <Link href="/" className="hover:text-text-primary transition">{lgT?.backHome as string}</Link>
           <Link href="/terms" className="hover:text-text-primary transition">{lgT?.linkTerms as string}</Link>
           <Link href="/privacy" className="hover:text-text-primary transition">{lgT?.linkPrivacy as string}</Link>

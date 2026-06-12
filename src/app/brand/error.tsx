@@ -18,7 +18,7 @@ export default function BrandBrainError({
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4"
-      style={{ background: '#06071A' }}
+      style={{ background: '#F5F5F7' }}
     >
       <div className="text-center max-w-md w-full">
 
@@ -36,7 +36,7 @@ export default function BrandBrainError({
           </div>
         </div>
 
-        <h1 className="text-2xl font-black text-white mb-3">
+        <h1 className="text-2xl font-black text-slate-900 mb-3">
           Brand Brain Error
         </h1>
         <p className="text-sm leading-relaxed mb-8" style={{ color: '#475569' }}>
@@ -51,7 +51,7 @@ export default function BrandBrainError({
             style={{
               background: 'rgba(239,68,68,0.06)',
               border: '1px solid rgba(239,68,68,0.2)',
-              color: '#fca5a5',
+              color: '#DC2626',
             }}
           >
             {error.message}
@@ -74,8 +74,8 @@ export default function BrandBrainError({
             href="/dashboard"
             className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
             style={{
-              background: 'rgba(12,13,36,0.6)',
-              border: '1px solid rgba(139,92,246,0.2)',
+              background: '#FFFFFF',
+              border: '1px solid rgba(15,23,42,0.12)',
               color: '#64748b',
             }}
           >
