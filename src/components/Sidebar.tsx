@@ -283,22 +283,17 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       {/* Scrollable nav */}
       <div className="flex-1 overflow-y-auto py-3 px-2">
 
-        {/* Main */}
+        {/* Home */}
         <NavItem href="/dashboard" label={t('sidebar.home')}
           icon={Icons.dashboard} {...sharedProps} />
+
+        {/* CREATE — build & manage content */}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'إنشاء' : 'Create'}</SectionLabel>}
+        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/brand" label={t('sidebar.brand')}
           icon={Icons.brain} dot={pendingProposals > 0 ? '#f59e0b' : undefined} {...sharedProps} />
-        <NavItem href="/brand/score-history" label={locale === 'ar' ? 'تحديثات السكور' : 'Score Updates'}
-          icon={Icons.score} {...sharedProps} />
-
-        {/* Organic Content */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'محتوى عضوي' : 'Organic Content'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/campaigns" label={locale === 'ar' ? 'خطط المحتوى' : 'Content Plans'}
           icon={Icons.campaigns} {...sharedProps} />
-        <NavItem href="/templates" label={locale === 'ar' ? 'القوالب' : 'Templates'}
-          icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>}
-          {...sharedProps} />
         <NavItem href="/content-hub" label={locale === 'ar' ? 'مركز المحتوى' : 'Content Hub'}
           icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>}
           {...sharedProps} />
@@ -306,27 +301,32 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           icon={Icons.calendar} {...sharedProps} />
         <NavItem href="/media" label={t('sidebar.media')}
           icon={Icons.media} {...sharedProps} />
+        <NavItem href="/templates" label={locale === 'ar' ? 'القوالب' : 'Templates'}
+          icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>}
+          {...sharedProps} />
 
-        {/* Agents */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'الوكلاء' : 'Agents'}</SectionLabel>}
+        {/* INTELLIGENCE — analyze & learn */}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'ذكاء' : 'Intelligence'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
-        <NavItem href="/studio" label={locale === 'ar' ? 'استوديو' : 'Studio'}
+        <NavItem href="/studio" label={locale === 'ar' ? 'استوديو AI' : 'AI Studio'}
           icon={Icons.studio} {...sharedProps} />
-        <NavItem href="/sentinel" label="Sentinel"
-          icon={Icons.sentinel} badge="AI" badgeColor="#8B5CF6" {...sharedProps} />
         <NavItem href="/analytics" label={locale === 'ar' ? 'تحليلات' : 'Analytics'}
           icon={Icons.analytics} {...sharedProps} />
+        <NavItem href="/sentinel" label="Sentinel"
+          icon={Icons.sentinel} badge="AI" badgeColor="#8B5CF6" {...sharedProps} />
         <NavItem href="/vex" label="Vex"
           icon={Icons.vex} badge="AI" badgeColor="#F97316" {...sharedProps} />
+        <NavItem href="/brand/score-history" label={locale === 'ar' ? 'سجل السكور' : 'Score History'}
+          icon={Icons.score} {...sharedProps} />
 
-        {/* Paid Ads */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'إعلانات مدفوعة' : 'Paid Ads'}</SectionLabel>}
+        {/* ADS — paid advertising */}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'إعلانات' : 'Ads'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/paid-campaigns" label={locale === 'ar' ? 'الحملات المدفوعة' : 'Paid Campaigns'}
           icon={Icons.paidAds} badge="NEW" badgeColor="#F97316" {...sharedProps} />
 
-        {/* Platform */}
-        {!collapsed && <SectionLabel>{t('sidebar.sectionPlatforms')}</SectionLabel>}
+        {/* CONNECT — link social accounts */}
+        {!collapsed && <SectionLabel>{locale === 'ar' ? 'اتصال' : 'Connect'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/connections" label={t('sidebar.connect')}
           icon={Icons.connections} badge={t('sidebar.badgeSetup')} badgeColor="#10B981" {...sharedProps} />

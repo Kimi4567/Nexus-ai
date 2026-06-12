@@ -36,10 +36,6 @@ interface SocialAccount {
 // every render and unmounts/remounts the DOM — causing inputs to lose focus
 // after every keystroke.
 
-function NebulaOrbs() {
-  return null
-}
-
 function GlassCard({
   children,
   className = '',
@@ -70,8 +66,8 @@ function GlassCard({
 function SectionBadge({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-      <span className="text-label" style={{ color, letterSpacing: '0.08em' }}>{label}</span>
+      <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
+      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
     </div>
   )
 }
@@ -325,13 +321,15 @@ export default function SettingsPage() {
 
         <div className="max-w-5xl mx-auto px-6 py-10 page-enter">
           {/* ── Header ───────────────────────────────────────── */}
-          <div className="mb-10">
-            <div className="flex items-center gap-2 mb-2">
-              <Settings className="w-4 h-4 text-slate-400" />
-              <span className="text-xs text-slate-400 font-mono tracking-wider">NEXUS COMMAND CENTER</span>
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(15,23,42,0.05)', border: '1px solid rgba(15,23,42,0.08)' }}>
+                <Settings className="w-4 h-4 text-slate-500" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('sidebar.settings')}</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-950 mb-2">{t('settings.pageTitle')}</h1>
-            <p className="text-slate-500 text-sm">{t('settings.subheading')}</p>
+            <h1 className="text-2xl font-bold text-slate-950 mb-1">{t('settings.pageTitle')}</h1>
+            <p className="text-[13px] text-slate-500">{t('settings.subheading')}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -777,9 +775,7 @@ export default function SettingsPage() {
                               className="h-full rounded-full transition-all"
                               style={{
                                 width: `${pct}%`,
-                                background: pct <= 20
-                                  ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                                  : 'linear-gradient(90deg, #06b6d4, #0891b2)',
+                                background: pct <= 20 ? '#ef4444' : '#5E5CE6',
                               }}
                             />
                           )
@@ -949,12 +945,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <style jsx>{`
-          @keyframes float {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-20px) scale(1.02); }
-          }
-        `}</style>
       </div>
     </AppShell>
   )

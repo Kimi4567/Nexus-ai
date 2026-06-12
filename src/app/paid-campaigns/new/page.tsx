@@ -437,7 +437,7 @@ export default function NewPaidCampaignPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="p-4 rounded-xl text-[12px] text-text-muted"
+                  <div className="p-4 rounded-xl text-[12px] text-slate-500"
                     style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
                     No {data.platform} ad account connected.{' '}
                     <button className="text-orange-400 underline" onClick={() => router.push('/connections')}>

@@ -198,8 +198,8 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
         </svg>
       </div>
 
-      <h3 className="text-[18px] font-bold text-white mb-2">No paid campaigns yet</h3>
-      <p className="text-text-muted text-[13px] max-w-[360px] leading-relaxed mb-8">
+      <h3 className="text-[18px] font-bold text-slate-950 mb-2">No paid campaigns yet</h3>
+      <p className="text-slate-500 text-[13px] max-w-[360px] leading-relaxed mb-8">
         {hasAccounts
           ? 'Your ad account is connected. Create your first AI-powered campaign and launch it across Meta, Google, TikTok, or LinkedIn.'
           : 'Connect your ad account first, then build AI-powered campaigns that run through the real Ad Manager — not just social posts.'}
@@ -222,7 +222,7 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
         <button
           onClick={() => router.push('/paid-campaigns/new')}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
-          style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)' }}
+          style={{ background: '#F97316' }}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2">
             <path d="M8 2v12M2 8h12" strokeLinecap="round"/>
@@ -240,8 +240,8 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
         ].map(item => (
           <div key={item.step} className="text-center">
             <div className="text-[11px] font-bold mb-1.5" style={{ color: '#F97316' }}>{item.step}</div>
-            <p className="text-[12px] font-semibold text-white mb-1">{item.title}</p>
-            <p className="text-[11px] text-text-muted leading-relaxed">{item.desc}</p>
+            <p className="text-[12px] font-semibold text-slate-950 mb-1">{item.title}</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">{item.desc}</p>
           </div>
         ))}
       </div>
@@ -488,7 +488,7 @@ export default function PaidCampaignsPage() {
               onConnect={handleConnectMeta}
             />
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-text-muted text-[14px]">
+            <div className="text-center py-16 text-slate-400 text-[14px]">
               No campaigns match the selected filters.
             </div>
           ) : (
