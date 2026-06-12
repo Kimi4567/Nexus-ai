@@ -19,8 +19,15 @@ async function callOpenAI(prompt: string): Promise<any> {
       response_format: { type: 'json_object' },
     }),
   })
-  const data = await response.json()
-  return JSON.parse(data.choices?.[0]?.message?.content || '{}')
+  // Defensive (Trust Sprint #1): a non-2xx or malformed OpenAI response must
+  // reject — never silently parse to `{}` and look like a successful strategy.
+  const data = await response.json().catch(() => null)
+  if (!response.ok || !data) {
+    throw new Error(`OpenAI request failed (${response.status})`)
+  }
+  const content = data?.choices?.[0]?.message?.content
+  if (!content) throw new Error('OpenAI returned no content')
+  return JSON.parse(content)
 }
 
 export async function POST(req: NextRequest) {

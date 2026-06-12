@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
+import StrategyFailedScreen from '@/components/StrategyFailedScreen'
+import { decidePostEngine } from './strategyOutcome'
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
 
@@ -148,6 +150,10 @@ function NewCampaignPageInner() {
   const [loadingPhase, setLoadingPhase] = useState<'strategy' | 'content'>('strategy')
   const [error, setError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  // Trust Sprint #1 — honest strategy-failure state (never route to Content Hub on failure)
+  const [strategyFailed, setStrategyFailed] = useState(false)
+  const [strategyRefunded, setStrategyRefunded] = useState(false)
+  const [pendingCampaignId, setPendingCampaignId] = useState<string | null>(null)
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
 
   // AI suggest state
@@ -330,20 +336,27 @@ function NewCampaignPageInner() {
     if (!name.trim()) return
     setSaving(true)
     setError('')
+    setStrategyFailed(false)
 
     try {
-      const saveRes = await fetch('/api/campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-        body: JSON.stringify({ name, goal, tone, platforms, audience }),
-      })
+      // Reuse an already-created campaign on retry — never create a duplicate.
+      let campaignId = pendingCampaignId
+      if (!campaignId) {
+        const saveRes = await fetch('/api/campaigns', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify({ name, goal, tone, platforms, audience }),
+        })
 
-      if (!saveRes.ok) {
-        const err = await saveRes.json().catch(() => ({}))
-        throw new Error(err.error || (cnT?.errorSave as string))
+        if (!saveRes.ok) {
+          const err = await saveRes.json().catch(() => ({}))
+          throw new Error(err.error || (cnT?.errorSave as string))
+        }
+
+        const saved = await saveRes.json()
+        campaignId = saved.id as string
+        setPendingCampaignId(campaignId)
       }
-
-      const { id: campaignId } = await saveRes.json()
 
       if (skipGeneration || brandNotReady) {
         router.push(`/campaigns/${campaignId}`)
@@ -351,53 +364,62 @@ function NewCampaignPageInner() {
       }
 
       setSaving(false)
+      setLoadingPhase('strategy')
       setGeneratingStrategy(true)
 
+      // ── Strategy (Run Full Strategy) — MUST succeed before we proceed ──────────
+      const engineRes = await fetch(`/api/campaigns/${campaignId}/engine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+        body: JSON.stringify({
+          language: contentLanguage,
+          contentFocus,
+        }),
+      })
+
+      const engineBody = await engineRes.json().catch(() => ({}))
+      const outcome = decidePostEngine(engineRes.status, engineRes.ok, engineBody)
+
+      if (outcome.kind === 'upgrade') {
+        // Out of credits — show upgrade and stay on the wizard. Never pretend success.
+        setGeneratingStrategy(false)
+        setShowUpgrade(true)
+        return
+      }
+
+      if (outcome.kind === 'failed') {
+        // Strategy failed — surface it honestly. Do NOT route to the Content Hub.
+        setStrategyRefunded(outcome.refunded)
+        setGeneratingStrategy(false)
+        setStrategyFailed(true)
+        return
+      }
+
+      // ── Strategy succeeded — the content plan is genuinely optional ────────────
+      setLoadingPhase('content')
       try {
-        const engineRes = await fetch(`/api/campaigns/${campaignId}/engine`, {
+        await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
           body: JSON.stringify({
+            mediaSource: selectedMediaIds.length > 0 ? 'UPLOADED' : 'GENERATE',
             language: contentLanguage,
-            contentFocus,
+            selectedMediaIds,
+            contentMix: {
+              educational: selectedMix.educational,
+              promotional: selectedMix.promotional,
+              engagement: selectedMix.engagement,
+            },
           }),
         })
-
-        if (!engineRes.ok) {
-          if (engineRes.status === 402) {
-            setGeneratingStrategy(false)
-            setShowUpgrade(true)
-            router.push(`/campaigns/${campaignId}/content-hub`)
-            return
-          }
-          throw new Error('Strategy generation failed')
-        }
-
-        // Auto-generate content plan after strategy
-        setLoadingPhase('content')
-        try {
-          await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-            body: JSON.stringify({
-              mediaSource: selectedMediaIds.length > 0 ? 'UPLOADED' : 'GENERATE',
-              language: contentLanguage,
-              selectedMediaIds,
-              contentMix: {
-                educational: selectedMix.educational,
-                promotional: selectedMix.promotional,
-                engagement: selectedMix.engagement,
-              },
-            }),
-          })
-        } catch { /* non-fatal — generatable from campaign page */ }
-      } catch { /* non-fatal */ }
+      } catch { /* non-fatal — content plan is generatable from the campaign page */ }
 
       router.push(`/campaigns/${campaignId}/content-hub`)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : (cnT?.errorUnexpected as string)
       setError(msg)
       setSaving(false)
+      setGeneratingStrategy(false)
     }
   }
 
@@ -422,6 +444,27 @@ function NewCampaignPageInner() {
     if (suggestion.field === 'name') setName(suggestion.text)
     if (suggestion.field === 'audience') setAudience(suggestion.text)
     setSuggestion(null)
+  }
+
+  // ── Strategy failure screen (Trust Sprint #1) ───────────────────────────────
+  // A failed strategy must never be presented as success. Show it honestly,
+  // surface the refund, and offer Retry (reuses the campaign — no duplicate).
+  if (strategyFailed) {
+    return (
+      <AppShell>
+        <StrategyFailedScreen
+          rtl={locale === 'ar'}
+          refunded={strategyRefunded}
+          title={(cnT?.strategyFailedTitle as string) ?? (locale === 'ar' ? 'فشل توليد الاستراتيجية' : 'Strategy generation failed')}
+          description={(cnT?.strategyFailedDesc as string) ?? (locale === 'ar' ? 'لم نتمكن من توليد استراتيجية حملتك ولم يتم إنشاء أي محتوى.' : "We couldn't generate your campaign strategy. No content was created.")}
+          refundNote={(cnT?.strategyFailedRefunded as string) ?? (locale === 'ar' ? 'تم إرجاع الكريدت الذي خُصم لهذه المحاولة.' : 'The credits charged for this attempt have been refunded.')}
+          retryLabel={(cnT?.btnRetry as string) ?? (locale === 'ar' ? 'إعادة المحاولة' : 'Try again')}
+          viewCampaignLabel={(cnT?.btnViewCampaign as string) ?? (locale === 'ar' ? 'الذهاب إلى صفحة الحملة' : 'Go to campaign page')}
+          onRetry={() => handleCreate()}
+          onViewCampaign={() => { if (pendingCampaignId) router.push(`/campaigns/${pendingCampaignId}`) }}
+        />
+      </AppShell>
+    )
   }
 
   // ── Loading screen ────────────────────────────────────────────────────────────
