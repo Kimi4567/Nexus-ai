@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
@@ -134,6 +134,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Check credits — 1 credit per image (IMAGE_GENERATION cost = 3)
     // We check once for the batch; each image costs 3 credits
+    let creditsWereCharged = false
     for (let i = 0; i < Math.min(postsToGenerate.length, 5); i++) {
       const creditCheck = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
       if (!creditCheck.ok) {
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest, { params }: Params) {
           generated: i,
         }, { status: 402 })
       }
+      creditsWereCharged = creditCheck.creditsUsed > 0
     }
 
     // Mark all as GENERATING
@@ -176,6 +178,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       } catch (err: any) {
         console.error(`[Content Hub] Image generation failed for ${post.id}:`, err)
         await (prisma.socialPost as any).update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
+        // Refund this post's image credit — a failed image must not be charged
+        if (creditsWereCharged) await refundCredits(userId, 'IMAGE_GENERATION')
         results.push({ id: post.id, success: false, error: err.message })
       }
     }

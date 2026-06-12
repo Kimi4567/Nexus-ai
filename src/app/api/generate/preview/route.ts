@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { generateMarketingStrategy, generateAdConcepts } from '@/lib/ai/adapter'
 import { prisma } from '@/lib/prisma'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
 // Simple in-memory rate limiter: 5 generations per user per minute
 const rateMap = new Map<string, { count: number; reset: number }>()
@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
     const { name, goal, audience, tone, platforms, description, brandProfile } = body
 
     if (!name) {
+      // Charged but no work performed — refund (skip unlimited plans)
+      if (credit.creditsUsed > 0) await refundCredits(userId, 'CAMPAIGN_GENERATION', 'Missing campaign name')
       return NextResponse.json({ error: 'Campaign name is required' }, { status: 400 })
     }
 
@@ -74,6 +76,8 @@ export async function POST(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('[generate/preview] error', err)
-    return NextResponse.json({ error: err.message || 'Generation failed' }, { status: 500 })
+    // Refund — failed generation must not charge the user (skip unlimited plans)
+    if (credit.creditsUsed > 0) await refundCredits(userId, 'CAMPAIGN_GENERATION')
+    return NextResponse.json({ error: err.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

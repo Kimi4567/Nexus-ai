@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency, BusinessBrief } from '@/lib/agents/orchestrator'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { aiRateLimit } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 
@@ -88,7 +88,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Run agents (10-20s -- consider background queue for prod)
-    const result = await runFullAgency(workspace.id, brief)
+    let result
+    try {
+      result = await runFullAgency(workspace.id, brief)
+    } catch (genErr) {
+      // Refund — failed strategy run must not charge the user (skip unlimited plans)
+      if (credit.creditsUsed > 0) await refundCredits(user.id, 'RUN_FULL_STRATEGY')
+      throw genErr
+    }
 
     // AD3: Post-generation quality validation (non-blocking — logs only)
     const qualityReport = validateOutputObject(result, {

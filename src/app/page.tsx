@@ -288,10 +288,10 @@ export default function LandingPage() {
     },
     {
       icon: MonitorCheck,
-      title: ar ? 'التعلم والرقابة' : 'Learning and monitoring',
-      body: ar ? 'النظام يتابع الأداء والمنافسين ويقترح تحسينات بدل الاعتماد على التخمين.' : 'The system watches performance and competitors, then recommends improvements.',
-      href: '/sentinel',
-      cta: ar ? 'افتح Sentinel' : 'Open Sentinel',
+      title: ar ? 'التعلم والتحسين' : 'Learning and improvement',
+      body: ar ? 'النظام يتابع أداء منشوراتك ويغذّي النتائج في ذاكرة العلامة لتتحسن كل حملة تالية.' : 'The system tracks how your posts perform and feeds results back into your brand memory, so each campaign improves.',
+      href: '/analytics',
+      cta: ar ? 'عرض التحليلات' : 'View analytics',
     },
   ]
 

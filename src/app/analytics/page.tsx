@@ -468,6 +468,19 @@ export default function PulsePage() {
                     return ins.href ? <Link key={ins.id} href={ins.href}>{inner}</Link> : <div key={ins.id}>{inner}</div>
                   })}
                 </div>
+              ) : (overview?.publishedPosts ?? 0) > 0 ? (
+                // Posts are live but engagement data hasn't arrived yet — be honest, no fake numbers.
+                <div className="flex-1 flex flex-col items-center justify-center text-center px-4 gap-1.5">
+                  <span className="text-base">⏳</span>
+                  <p className="text-xs font-medium text-slate-500">
+                    {ar ? 'بانتظار بيانات الأداء' : 'Waiting for performance data'}
+                  </p>
+                  <p className="text-[11px] text-slate-400 leading-relaxed max-w-[240px]">
+                    {ar
+                      ? 'منشوراتك منشورة. بمجرد أن تجمع تفاعلاً، سيتعلم Brand Brain من النتائج تلقائياً ويحسّن حملتك التالية.'
+                      : 'Your posts are published. Once they gather engagement, your Brand Brain learns from the results automatically and improves your next campaign.'}
+                  </p>
+                </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
                   <p className="text-xs text-slate-400 text-center">

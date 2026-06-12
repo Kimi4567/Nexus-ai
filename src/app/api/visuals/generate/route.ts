@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, checkDailyImageCap, refundCredits } from '@/lib/credits'
 import {
   buildImagePrompt,
   generateWithDallE,
@@ -65,6 +65,27 @@ export async function POST(req: NextRequest) {
     orderBy: { createdAt: 'asc' },
   })
   if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
+
+  // ── Daily image cap (per-plan abuse guard, checked BEFORE deduction) ────────
+  // Even with credits available, limit images/day so Free users can't run up
+  // real $ cost. Failed (refunded) generations are excluded from the count.
+  const planUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { subscriptionStatus: true },
+  })
+  const imageCap = await checkDailyImageCap(workspace.id, planUser?.subscriptionStatus)
+  if (!imageCap.allowed) {
+    return NextResponse.json(
+      {
+        error: 'DAILY_IMAGE_LIMIT',
+        message: `You've reached today's image limit (${imageCap.cap}). It resets tomorrow — upgrade for a higher daily limit.`,
+        used: imageCap.used,
+        cap: imageCap.cap,
+        upgradeUrl: '/billing',
+      },
+      { status: 429 },
+    )
+  }
 
   // ── Fetch campaign + Brand Brain + Strategy ────────────────────────────────
   // If no campaignId, we still fetch the brand profile for workspace-level generation
@@ -177,7 +198,9 @@ export async function POST(req: NextRequest) {
         },
       })
     } catch (genErr: any) {
-      return NextResponse.json({ error: genErr.message || 'Generation failed' }, { status: 500 })
+      // Refund — failed generation must not charge the user (skip unlimited plans)
+      if (credit.creditsUsed > 0) await refundCredits(userId, 'IMAGE_GENERATION')
+      return NextResponse.json({ error: genErr.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
     }
   }
 
@@ -255,6 +278,9 @@ export async function POST(req: NextRequest) {
       data:  { status: 'FAILED', errorMessage: err.message || 'Generation failed' },
     }).catch(() => {})
 
-    return NextResponse.json({ error: err.message || 'Image generation failed' }, { status: 500 })
+    // Refund — the user must not be charged for a failed image (skip unlimited plans)
+    if (credit.creditsUsed > 0) await refundCredits(userId, 'IMAGE_GENERATION')
+
+    return NextResponse.json({ error: err.message || 'Image generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

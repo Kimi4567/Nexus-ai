@@ -78,7 +78,8 @@ const SECTION_DEFS: { id: string; labelKey: string; icon: React.ElementType; col
   { id: 'security',  labelKey: 'settings.security',         icon: Shield,        color: '#f59e0b' },
   { id: 'accounts',  labelKey: 'settings.sectionAccounts',  icon: Globe,         color: '#10b981' },
   { id: 'billing',   labelKey: 'settings.sectionBillingNav',icon: CreditCard,    color: '#8b5cf6' },
-  { id: 'referral',  labelKey: 'settings.sectionReferral',  icon: Gift,          color: '#8b5cf6' },
+  // BETA: 'referral' section hidden from nav (referrals are a post-PMF growth feature).
+  // The render block + ReferralWidget remain in code; re-add this entry to re-enable.
   { id: 'danger',    labelKey: 'settings.sectionDanger',    icon: AlertTriangle, color: '#ef4444' },
 ]
 

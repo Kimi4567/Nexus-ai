@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +62,8 @@ function normalizeUrl(raw: string): string {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Hoisted so the outer catch can refund a charged-but-failed scan.
+  let chargedUserId: string | null = null
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -78,6 +80,8 @@ export async function POST(req: NextRequest) {
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
     }
+    // Mark as charged (skip unlimited plans) so any failure below refunds.
+    if (creditResult.creditsUsed > 0) chargedUserId = user.id
 
     const base = normalizeUrl(url)
 
@@ -95,6 +99,7 @@ export async function POST(req: NextRequest) {
     const pages = fetched.filter(t => t.length > 200) // drop empty/failed pages
 
     if (pages.length === 0) {
+      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Website unreadable')
       return NextResponse.json({
         error: 'Could not read website content. The site may block automated access or require JavaScript.',
       }, { status: 422 })
@@ -148,7 +153,8 @@ Return JSON with this exact structure:
     })
 
     if (!openaiRes.ok) {
-      return NextResponse.json({ error: 'AI analysis failed' }, { status: 500 })
+      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN')
+      return NextResponse.json({ error: 'AI analysis failed', refunded: !!chargedUserId }, { status: 500 })
     }
 
     const openaiData = await openaiRes.json()
@@ -160,12 +166,15 @@ Return JSON with this exact structure:
       const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
       extracted = JSON.parse(clean)
     } catch {
-      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
+      if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN', 'Unparseable AI response')
+      return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
 
     return NextResponse.json({ extracted, pagesScanned: pages.length })
   } catch (error) {
     console.error('[brand/scan-website]', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    // Refund — charged-but-failed scan must not cost the user (skip unlimited plans)
+    if (chargedUserId) await refundCredits(chargedUserId, 'WEBSITE_SCAN')
+    return NextResponse.json({ error: 'Internal server error', refunded: !!chargedUserId }, { status: 500 })
   }
 }

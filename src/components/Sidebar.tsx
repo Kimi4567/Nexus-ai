@@ -308,22 +308,19 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {/* INTELLIGENCE — analyze & learn */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'ذكاء' : 'Intelligence'}</SectionLabel>}
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
-        <NavItem href="/studio" label={locale === 'ar' ? 'استوديو AI' : 'AI Studio'}
-          icon={Icons.studio} {...sharedProps} />
         <NavItem href="/analytics" label={locale === 'ar' ? 'تحليلات' : 'Analytics'}
           icon={Icons.analytics} {...sharedProps} />
-        <NavItem href="/sentinel" label="Sentinel"
-          icon={Icons.sentinel} badge="AI" badgeColor="#8B5CF6" {...sharedProps} />
-        <NavItem href="/vex" label="Vex"
-          icon={Icons.vex} badge="AI" badgeColor="#F97316" {...sharedProps} />
         <NavItem href="/brand/score-history" label={locale === 'ar' ? 'سجل السكور' : 'Score History'}
           icon={Icons.score} {...sharedProps} />
 
-        {/* ADS — paid advertising */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'إعلانات' : 'Ads'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
-        <NavItem href="/paid-campaigns" label={locale === 'ar' ? 'الحملات المدفوعة' : 'Paid Campaigns'}
-          icon={Icons.paidAds} badge="NEW" badgeColor="#F97316" {...sharedProps} />
+        {/* ─────────────────────────────────────────────────────────────────────
+            BETA: hidden from navigation until the golden path is proven.
+            Pages remain on disk; re-enable here when ready.
+              • /studio          (AI Studio)
+              • /sentinel        (standalone Sentinel — kept ONLY as inline campaign gate)
+              • /vex             (paid-ads agent)
+              • /paid-campaigns  (paid advertising)
+           ───────────────────────────────────────────────────────────────────── */}
 
         {/* CONNECT — link social accounts */}
         {!collapsed && <SectionLabel>{locale === 'ar' ? 'اتصال' : 'Connect'}</SectionLabel>}
