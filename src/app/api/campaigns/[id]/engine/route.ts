@@ -5,6 +5,10 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { deriveCampaignEngineState, runCampaignEngine } from '@/lib/campaign-engine'
 
+// Strategy generation makes two GPT-4o-mini calls; give the function headroom so
+// a slower-but-valid Arabic response completes instead of being killed mid-run.
+export const maxDuration = 60
+
 type Params = { params: { id: string } }
 
 export async function GET(req: NextRequest, { params }: Params) {

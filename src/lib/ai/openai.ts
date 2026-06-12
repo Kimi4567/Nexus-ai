@@ -45,13 +45,15 @@ async function callOpenAI(
   })
 
   if (!response.ok) {
-    const err = await response.text()
-    console.error('[OpenAI] API error:', response.status, err)
+    const err = await response.text().catch(() => '')
+    console.error('[OpenAI] API error:', response.status, err.slice(0, 300))
     throw new Error(`OpenAI API error: ${response.status}`)
   }
 
   const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
+  const choice = data?.choices?.[0]
+  const content = choice?.message?.content
+  const finishReason = choice?.finish_reason
   if (!content) throw new Error('OpenAI returned empty response')
 
   if (jsonMode) {
@@ -70,7 +72,14 @@ async function callOpenAI(
     const match = content.match(/\{[\s\S]*\}/)
     if (match) { try { return JSON.parse(match[0]) } catch {} }
 
-    console.error('[OpenAI] JSON parse failed after all attempts:', content.slice(0, 300))
+    // Truncation is the most common real-world cause: the model hit max_tokens
+    // and the JSON was cut off mid-structure. Surface it CLEARLY so logs explain
+    // the cause (and the fix) instead of a generic "invalid JSON".
+    if (finishReason === 'length') {
+      console.error(`[OpenAI] Response truncated — hit max_tokens=${maxTokens} (finish_reason=length). Increase max_tokens. Head:`, content.slice(0, 200))
+      throw new Error(`OpenAI response truncated at max_tokens=${maxTokens} — output incomplete`)
+    }
+    console.error(`[OpenAI] JSON parse failed after all attempts (finish_reason=${finishReason}):`, content.slice(0, 300))
     throw new Error('OpenAI returned invalid JSON')
   }
   return content
@@ -112,7 +121,9 @@ ${campaign.pastLearnings ? `\n${campaign.pastLearnings}` : ''}
 Be specific and concise. Real copy, not generic placeholders.
 ${getLanguageInstruction(campaign.language)}`
 
-  return callOpenAI(system, user, true, 400)
+  // Arabic JSON output is token-heavy; 1500 leaves headroom so the strategy
+  // JSON is never truncated mid-structure (the real cause of engine failures).
+  return callOpenAI(system, user, true, 1500)
 }
 
 // ─────────────────────────────────────────────
@@ -158,7 +169,9 @@ ${platformGuides ? `Platform guides:\n${platformGuides}` : ''}
 3 concepts, 3 different angles. Write real copy, not descriptions.
 CRITICAL: ${getLanguageInstruction(campaign.language)}`
 
-  const result = await callOpenAI(system, user, true, 400)
+  // 3 full Arabic concepts (hook + 40-60 word script + headlines + captions) are
+  // the heaviest output here; 3000 prevents mid-JSON truncation under max_tokens.
+  const result = await callOpenAI(system, user, true, 3000)
   // Handle both { concepts: [] } and direct array
   if (Array.isArray(result)) return result
   if (result?.concepts) return result.concepts
