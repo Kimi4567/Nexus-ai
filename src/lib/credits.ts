@@ -494,6 +494,105 @@ export async function getCreditHistory(
     .catch(() => [])
 }
 
+// ── Public: real usage for dashboard + analytics ──────────────────────────────
+
+export interface UsageSummary {
+  generationsTotal: number
+  generationsThisMonth: number
+  creditsUsedThisMonth: number
+}
+
+/**
+ * The SINGLE source of truth for "AI generations" and "credits used this month",
+ * shared by /api/dashboard/stats and /api/analytics/overview so their numbers
+ * always agree. Derived from the credit-transaction ledger (the same populated
+ * source the billing credit-log uses) plus the always-incremented
+ * `monthlyGenerations` counter.
+ *
+ * - generationsTotal: lifetime AI spend events (monthlyGenerations is bumped on
+ *   every deduction for both credit and unlimited plans; ledger debit count is a
+ *   fallback floor).
+ * - generationsThisMonth / creditsUsedThisMonth: from this month's ledger rows,
+ *   netting out refunds. NEVER computed as (monthlyTotal - remaining), which
+ *   underflows to 0 when rollover/granted credits exceed the plan quota.
+ */
+export async function getUsageSummary(userId: string): Promise<UsageSummary> {
+  const start = new Date()
+  start.setDate(1)
+  start.setHours(0, 0, 0, 0)
+  const db = prisma as any
+  try {
+    const [user, debitCountTotal, monthTxns] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { monthlyGenerations: true } }),
+      db.creditTransaction.count({ where: { userId, amount: { lt: 0 } } }).catch(() => 0),
+      db.creditTransaction.findMany({
+        where: { userId, createdAt: { gte: start } },
+        select: { amount: true, entityType: true },
+      }).catch(() => []),
+    ])
+
+    let generationsThisMonth = 0
+    let creditsUsedThisMonth = 0
+    for (const t of monthTxns as Array<{ amount: number; entityType: string | null }>) {
+      if (t.amount < 0) {
+        generationsThisMonth += 1
+        creditsUsedThisMonth += -t.amount
+      } else if (t.entityType === 'refund') {
+        // A refund cancels a failed attempt — don't count it as a generation or as used credit.
+        generationsThisMonth -= 1
+        creditsUsedThisMonth -= t.amount
+      }
+    }
+
+    return {
+      generationsTotal: Math.max(user?.monthlyGenerations ?? 0, (debitCountTotal as number) ?? 0),
+      generationsThisMonth: Math.max(0, generationsThisMonth),
+      creditsUsedThisMonth: Math.max(0, creditsUsedThisMonth),
+    }
+  } catch {
+    return { generationsTotal: 0, generationsThisMonth: 0, creditsUsedThisMonth: 0 }
+  }
+}
+
+/**
+ * Per-month AI activity for the last `months` months, from the credit ledger —
+ * the same populated source as getUsageSummary. Replaces the optional `usage`
+ * table the analytics chart used to read (which can be empty in production).
+ */
+export async function getMonthlyActivity(
+  userId: string,
+  months = 6,
+): Promise<Array<{ month: number; year: number; generations: number; creditsUsed: number }>> {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1)
+  const db = prisma as any
+  const txns: Array<{ amount: number; entityType: string | null; createdAt: Date }> =
+    await db.creditTransaction
+      .findMany({
+        where: { userId, createdAt: { gte: start } },
+        select: { amount: true, entityType: true, createdAt: true },
+      })
+      .catch(() => [])
+
+  const buckets = new Map<string, { generations: number; creditsUsed: number }>()
+  for (const t of txns) {
+    const d = new Date(t.createdAt)
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}`
+    const b = buckets.get(key) ?? { generations: 0, creditsUsed: 0 }
+    if (t.amount < 0) { b.generations += 1; b.creditsUsed += -t.amount }
+    else if (t.entityType === 'refund') { b.generations -= 1; b.creditsUsed -= t.amount }
+    buckets.set(key, b)
+  }
+
+  return Array.from({ length: months }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1)
+    const month = d.getMonth() + 1
+    const year = d.getFullYear()
+    const b = buckets.get(`${year}-${month}`) ?? { generations: 0, creditsUsed: 0 }
+    return { month, year, generations: Math.max(0, b.generations), creditsUsed: Math.max(0, b.creditsUsed) }
+  })
+}
+
 // ── Internal: credit transaction logger ───────────────────────────────────────
 
 const ACTION_LABELS: Record<string, string> = {

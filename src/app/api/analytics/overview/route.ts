@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { PLANS_CREDITS } from '@/lib/credits'
+import { PLANS_CREDITS, getUsageSummary, getMonthlyActivity } from '@/lib/credits'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -32,14 +32,17 @@ export async function GET(req: Request) {
     const isUnlimited = plan === 'AGENCY'
     const monthlyTotal = PLANS_CREDITS[plan] ?? 15
     const creditsRemaining = user?.aiCredits ?? 0
-    const creditsUsedThisMonth = isUnlimited
-      ? user?.monthlyGenerations ?? 0
-      : Math.max(0, monthlyTotal - creditsRemaining)
+
+    // Real usage from the credit ledger (shared with /api/dashboard/stats).
+    // Never (monthlyTotal - remaining), which underflows to 0 when rollover
+    // credits exceed the plan quota.
+    const usageSummary = await getUsageSummary(userId)
+    const creditsUsedThisMonth = usageSummary.creditsUsedThisMonth
 
     if (!workspace) {
       return NextResponse.json({
         campaigns: 0, activeCampaigns: 0, draftCampaigns: 0,
-        generations: 0, publishedPosts: 0,
+        generations: usageSummary.generationsTotal, publishedPosts: 0,
         creditsRemaining, creditsUsedThisMonth, monthlyTotal, isUnlimited, plan,
         monthlyActivity: [],
         topCampaigns: [],
@@ -51,44 +54,28 @@ export async function GET(req: Request) {
       campaigns,
       activeCampaigns,
       draftCampaigns,
-      generations,
     ] = await Promise.all([
       prisma.campaign.count({ where: { workspaceId: workspace.id } }).catch(() => 0),
       prisma.campaign.count({ where: { workspaceId: workspace.id, status: 'ACTIVE' } }).catch(() => 0),
       prisma.campaign.count({ where: { workspaceId: workspace.id, status: 'DRAFT' } }).catch(() => 0),
-      prisma.generation.count({ where: { campaign: { workspaceId: workspace.id } } }).catch(() => 0),
     ])
+    // AI generations = real spend events from the ledger (shared definition).
+    const generations = usageSummary.generationsTotal
 
     // ── Published posts ─────────────────────────────────────────────────────
     const publishedPosts = await prisma.socialPost.count({
       where: { workspaceId: workspace.id, status: 'PUBLISHED' },
     }).catch(() => 0)
 
-    // ── Monthly activity (last 6 months of Usage records) ──────────────────
-    const now = new Date()
-    const usage = await prisma.usage.findMany({
-      where: { userId },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }],
-      take: 6,
-    }).catch(() => [])
-
-    // Build last 6 calendar months and fill in usage data
+    // ── Monthly activity (last 6 months) — from the credit ledger ──────────
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-    const monthlyActivity = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
-      const month = d.getMonth() + 1
-      const year = d.getFullYear()
-      const record = usage.find((u: { month: number; year: number; generationsCount: number; aiCreditsUsed: number }) =>
-        u.month === month && u.year === year
-      )
-      return {
-        label: monthNames[d.getMonth()],
-        month,
-        year,
-        generations: record?.generationsCount ?? 0,
-        creditsUsed: record?.aiCreditsUsed ?? 0,
-      }
-    })
+    const monthlyActivity = (await getMonthlyActivity(userId, 6)).map(a => ({
+      label: monthNames[a.month - 1],
+      month: a.month,
+      year: a.year,
+      generations: a.generations,
+      creditsUsed: a.creditsUsed,
+    }))
 
     // ── Top campaigns by generation count ──────────────────────────────────
     const topCampaigns = await prisma.campaign.findMany({
