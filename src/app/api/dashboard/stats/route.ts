@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { FREE_STARTER_CREDITS, PLANS_CREDITS } from '@/lib/credits'
+import { FREE_STARTER_CREDITS, PLANS_CREDITS, getUsageSummary } from '@/lib/credits'
 
 export async function GET(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -31,8 +31,6 @@ export async function GET(req: NextRequest) {
       totalCampaigns,
       campaignsThisMonth,
       campaignsLastMonth,
-      totalGenerations,
-      generationsThisMonth,
       recentActivities,
       recentCampaigns,
       publishedPostsTotal,
@@ -62,23 +60,6 @@ export async function GET(req: NextRequest) {
             where: {
               workspaceId,
               createdAt: { gte: startOfLastMonth, lte: endOfLastMonth },
-            },
-          })
-        : Promise.resolve(0),
-
-      // Total AI generations
-      workspaceId
-        ? prisma.generation.count({
-            where: { campaign: { workspaceId } },
-          })
-        : Promise.resolve(0),
-
-      // Generations this month
-      workspaceId
-        ? prisma.generation.count({
-            where: {
-              campaign: { workspaceId },
-              createdAt: { gte: startOfMonth },
             },
           })
         : Promise.resolve(0),
@@ -130,6 +111,9 @@ export async function GET(req: NextRequest) {
         ? (prisma as any).socialPost.count({ where: { workspaceId } })
         : Promise.resolve(0),
     ])
+
+    // AI generations + credits-used from the ledger (shared with analytics).
+    const usageSummary = await getUsageSummary(userId)
 
     // Calculate % change for campaigns
     const campaignChange =
@@ -196,8 +180,8 @@ export async function GET(req: NextRequest) {
           change: campaignChange,
         },
         generations: {
-          total: totalGenerations,
-          thisMonth: generationsThisMonth,
+          total: usageSummary.generationsTotal,
+          thisMonth: usageSummary.generationsThisMonth,
         },
         credits: {
           remaining: creditsRemaining,
