@@ -79,9 +79,9 @@ export default function PrivacyPage() {
   const isAr = locale === 'ar'
 
   return (
-    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#020204' }}>
+    <div className="min-h-screen" dir={isRTL ? 'rtl' : 'ltr'} style={{ background: '#F5F5F7' }}>
       <nav className="sticky top-0 z-40 px-6 py-4 flex justify-between items-center"
-        style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        style={{ background: '#FFFFFF', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
         <Link href="/" className="flex items-center gap-2">
           <img src="/nexus_ai_icon.png" alt="Nexus AI" width={32} height={32} style={{ borderRadius: '8px' }} />
           <span className="text-2xl font-bold gradient-text">NEXUS AI</span>
@@ -95,10 +95,10 @@ export default function PrivacyPage() {
 
         {/* App identity header — required for TikTok / platform app review */}
         <div className="flex items-center gap-4 mb-10 p-5 rounded-2xl"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)' }}>
           <img src="/nexus_ai_icon.png" alt="Nexus AI App Icon" width={56} height={56} style={{ borderRadius: '14px', flexShrink: 0 }} />
           <div>
-            <div className="text-xl font-bold text-white">Nexus AI</div>
+            <div className="text-xl font-bold text-slate-900">Nexus AI</div>
             <div className="text-sm text-text-muted mt-0.5">nexus-grow.com</div>
             <div className="text-xs text-text-muted mt-1">AI-Powered Marketing Platform</div>
           </div>
@@ -118,13 +118,13 @@ export default function PrivacyPage() {
 
         <p className="text-sm text-text-secondary leading-relaxed mb-10 p-4 rounded-xl"
           style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.15)' }}>
-          This Privacy Policy applies to the <strong className="text-white">Nexus AI</strong> application (the &quot;Application&quot;), operated by Nexus AI at <a href="https://nexus-grow.com" className="text-cyan underline">nexus-grow.com</a>. By using Nexus AI, you agree to the collection and use of information as described below.
+          This Privacy Policy applies to the <strong className="text-slate-900">Nexus AI</strong> application (the &quot;Application&quot;), operated by Nexus AI at <a href="https://nexus-grow.com" className="text-cyan underline">nexus-grow.com</a>. By using Nexus AI, you agree to the collection and use of information as described below.
         </p>
 
         <div className="space-y-10">
           {SECTIONS.map((sec, i) => (
             <section key={i} className="p-6"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '16px' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '16px' }}>
               <h2 className="text-lg font-bold text-cyan mb-4">
                 {isAr ? sec.titleAr : sec.titleEn}
               </h2>
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="mt-12 pt-8 flex gap-6 text-sm text-text-muted"
-          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <Link href="/" className="hover:text-text-primary transition">{lgT?.backHome as string}</Link>
           <Link href="/terms" className="hover:text-text-primary transition">{lgT?.linkTerms as string}</Link>
           <Link href="/cookies" className="hover:text-text-primary transition">{lgT?.linkCookies as string}</Link>
