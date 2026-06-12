@@ -12,7 +12,6 @@ import {
   ChevronDown, Check, Clock,
   Layers, Target
 } from 'lucide-react'
-import StarField from '@/components/ui/StarField'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -43,20 +42,6 @@ const TABS: { id: TabId; labelKey: string; placeholderKey: string; icon: React.E
   { id: 'storyboard', labelKey: 'nex.tabStoryboard', placeholderKey: 'nex.storyboardPlaceholder', icon: Layers },
 ]
 
-// ── Ambient background ─────────────────────────────────────────
-function NexOrbs() {
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="absolute rounded-full blur-[140px] opacity-20"
-        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(6,182,212,0.15), transparent 70%)', top: '-10%', left: '-15%', animation: 'float 14s ease-in-out infinite' }} />
-      <div className="absolute rounded-full blur-[100px] opacity-15"
-        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)', bottom: '5%', right: '-10%', animation: 'float 11s ease-in-out infinite reverse' }} />
-      <div className="absolute rounded-full blur-[80px] opacity-10"
-        style={{ width: 300, height: 300, background: 'radial-gradient(circle, rgba(6,182,212,0.1), transparent 70%)', top: '50%', left: '50%', animation: 'float 9s ease-in-out infinite' }} />
-    </div>
-  )
-}
-
 // ── Copy button ────────────────────────────────────────────────
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -69,7 +54,7 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-      style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
+      style={{ background: copied ? '#ECFDF5' : '#F8FAFC', color: copied ? '#059669' : '#475569', border: `1px solid ${copied ? '#BBF7D0' : '#E2E8F0'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? t('common.copied') : t('common.copy')}
     </button>
@@ -85,10 +70,10 @@ function TabPill({ id, label, icon: Icon, active, onClick }: {
     <button onClick={onClick}
       className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
       style={{
-        background: active ? 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.08))' : 'rgba(255,255,255,0.04)',
-        color: active ? '#06b6d4' : '#9ca3af',
-        border: `1px solid ${active ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.07)'}`,
-        boxShadow: active ? '0 0 20px rgba(6,182,212,0.1)' : 'none',
+        background: active ? '#E0F2FE' : '#FFFFFF',
+        color: active ? '#0369A1' : '#64748B',
+        border: `1px solid ${active ? 'rgba(14,165,233,0.28)' : 'rgba(15,23,42,0.08)'}`,
+        boxShadow: active ? '0 8px 18px rgba(14,165,233,0.10)' : 'none',
       }}>
       <Icon size={15} />
       <span>{label}</span>
@@ -104,18 +89,18 @@ function NexSelect<T extends string>({ label, value, options, onChange }: {
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs text-gray-500">{label}</label>
+      <label className="text-xs text-slate-500">{label}</label>
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#e5e7eb', outline: 'none' }}>
+          style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.1)', color: '#0F172A', outline: 'none' }}>
           {options.map(o => (
-            <option key={o.value} value={o.value} style={{ background: '#0d0d1a' }}>
+            <option key={o.value} value={o.value} style={{ background: '#FFFFFF' }}>
               {o.label}
             </option>
           ))}
         </select>
-        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       </div>
     </div>
   )
@@ -146,8 +131,8 @@ export default function NexStudioPage() {
 
   // ── Loading guard ────────────────────────────────────────────
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#030309' }}>
-      <Loader2 className="animate-spin text-cyan-500" size={32} />
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">
+      <Loader2 className="animate-spin text-blue-500" size={32} />
     </div>
   )
   if (!isAuthenticated) return null
@@ -212,55 +197,52 @@ export default function NexStudioPage() {
 
   // ── UI ───────────────────────────────────────────────────────
   const glassCard = {
-    background: 'rgba(12,13,36,0.6)',
-    border: '1px solid var(--nx-border)',
-    backdropFilter: 'blur(20px)',
+    background: '#FFFFFF',
+    border: '1px solid rgba(15,23,42,0.08)',
+    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
   }
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#030309' }} dir={dir}>
-        <StarField />
-        <NexOrbs />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="min-h-screen bg-[#f5f5f7]" dir={dir}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
           {/* ── Header ─────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.25), rgba(6,182,212,0.08))', border: '1px solid rgba(6,182,212,0.3)', boxShadow: '0 0 30px rgba(6,182,212,0.15)' }}>
-                  <Film size={26} className="text-cyan-400" />
+                  style={{ background: '#E0F2FE', border: '1px solid rgba(14,165,233,0.18)' }}>
+                  <Film size={26} className="text-blue-600" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyan-400 animate-pulse" style={{ boxShadow: '0 0 8px rgba(6,182,212,0.8)' }} />
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500" />
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-white">NEX</h1>
+                  <h1 className="text-2xl font-semibold text-slate-950">NEX</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: 'rgba(6,182,212,0.15)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)' }}>
+                    style={{ background: '#E0F2FE', color: '#0369A1', border: '1px solid rgba(14,165,233,0.25)' }}>
                     Studio
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{t('nex.subheading')}</p>
+                <p className="text-slate-500 text-sm mt-0.5">{t('nex.subheading')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               {brand?.brandName ? (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
-                  style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981' }}>
+                  style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', color: '#047857' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
                   <span>Brain: {brand.brandName}</span>
                 </div>
               ) : (
                 <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
-                  style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)', color: '#06b6d4' }}>
+                  style={{ background: '#E0F2FE', border: '1px solid rgba(14,165,233,0.25)', color: '#0369A1' }}>
                   <span>{t('nex.activateBrain')}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)', color: '#06b6d4' }}>
+                style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)', color: '#475569' }}>
                 <Sparkles size={12} />
                 <span>{t('nex.gptActive')}</span>
               </div>
@@ -283,8 +265,8 @@ export default function NexStudioPage() {
 
               {/* Options card */}
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  <Target size={14} className="text-cyan-500" />
+                <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                  <Target size={14} className="text-blue-600" />
                   {t('nex.generationSettings')}
                 </h3>
                 <NexSelect<Platform>
@@ -330,7 +312,7 @@ export default function NexStudioPage() {
 
               {/* Quick prompts */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('nex.quickPrompts')}</h3>
+                <h3 className="text-xs font-semibold text-slate-500 mb-3">{t('nex.quickPrompts')}</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
                     'إطلاق منتج جديد للعناية بالبشرة',
@@ -344,8 +326,8 @@ export default function NexStudioPage() {
                     'Digital marketing online course',
                   ]).map((idea, i) => (
                     <button key={i} onClick={() => setPrompt(idea)}
-                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-cyan-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
-                      style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(255,255,255,0.06)', color: '#9ca3af' }}>
+                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-blue-700 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
+                      style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)', color: '#475569' }}>
                       {idea}
                     </button>
                   ))}
@@ -359,11 +341,11 @@ export default function NexStudioPage() {
               {/* Prompt input */}
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                    <currentTab.icon size={14} className="text-cyan-500" />
+                  <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                    <currentTab.icon size={14} className="text-blue-600" />
                     {currentTab.label}
                   </h3>
-                  <span className="text-xs text-gray-600">{charCount} {t('nex.charsSuffix')}</span>
+                  <span className="text-xs text-slate-400">{charCount} {t('nex.charsSuffix')}</span>
                 </div>
 
                 <textarea
@@ -375,25 +357,25 @@ export default function NexStudioPage() {
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none transition-all"
                   style={{
-                    background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#e5e7eb',
+                    background: '#F8FAFC',
+                    border: '1px solid rgba(15,23,42,0.1)',
+                    color: '#0F172A',
                   }}
                 />
 
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">{t('nex.ctrlEnterHint')}</span>
+                  <span className="text-xs text-slate-400">{t('nex.ctrlEnterHint')}</span>
                   <button
                     onClick={generate}
                     disabled={!prompt.trim() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                     style={{
                       background: prompt.trim() && !loading
-                        ? 'linear-gradient(135deg, #06b6d4, #0891b2)'
-                        : 'rgba(255,255,255,0.05)',
-                      color: prompt.trim() && !loading ? '#0a0a0a' : '#4b5563',
+                        ? '#0071E3'
+                        : '#E2E8F0',
+                      color: prompt.trim() && !loading ? '#FFFFFF' : '#64748B',
                       cursor: prompt.trim() && !loading ? 'pointer' : 'not-allowed',
-                      boxShadow: prompt.trim() && !loading ? '0 0 30px rgba(6,182,212,0.3)' : 'none',
+                      boxShadow: prompt.trim() && !loading ? '0 10px 24px rgba(0,113,227,0.18)' : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
                     {loading ? t('nex.generating') : t('nex.generateNow')}
@@ -405,8 +387,7 @@ export default function NexStudioPage() {
               {(result || loading) && (
                 <div className="rounded-2xl p-5 space-y-4" style={{
                   ...glassCard,
-                  border: '1px solid rgba(6,182,212,0.2)',
-                  boxShadow: '0 0 40px rgba(6,182,212,0.05)',
+                  border: '1px solid rgba(14,165,233,0.18)',
                 }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: '#06b6d4' }}>
@@ -419,14 +400,14 @@ export default function NexStudioPage() {
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
                       <div className="relative">
-                        <div className="w-16 h-16 rounded-full border-2 border-cyan-500/30 border-t-cyan-500 animate-spin" />
-                        <Sparkles size={18} className="absolute inset-0 m-auto text-cyan-400" />
+                        <div className="w-16 h-16 rounded-full border-2 border-blue-200 border-t-blue-500 animate-spin" />
+                        <Sparkles size={18} className="absolute inset-0 m-auto text-blue-500" />
                       </div>
-                      <p className="text-sm text-gray-400 animate-pulse">{t('nex.crafting')}</p>
+                      <p className="text-sm text-slate-500 animate-pulse">{t('nex.crafting')}</p>
                     </div>
                   ) : (
                     <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
-                      style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
+                      style={{ color: '#334155', maxHeight: '500px', overflowY: 'auto' }}>
                       {result}
                     </pre>
                   )}
@@ -437,12 +418,12 @@ export default function NexStudioPage() {
               {!result && !loading && (
                 <div className="rounded-2xl p-10 flex flex-col items-center justify-center gap-4" style={glassCard}>
                   <div className="w-20 h-20 rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}>
-                    <Film size={32} className="text-cyan-500/50" />
+                    style={{ background: '#E0F2FE', border: '1px solid rgba(14,165,233,0.18)' }}>
+                    <Film size={32} className="text-blue-500/60" />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">{t('nex.emptyTitle')}</p>
-                    <p className="text-gray-600 text-xs mt-1">{t('nex.emptySub')}</p>
+                    <p className="text-slate-500 text-sm">{t('nex.emptyTitle')}</p>
+                    <p className="text-slate-400 text-xs mt-1">{t('nex.emptySub')}</p>
                   </div>
                 </div>
               )}
@@ -453,30 +434,30 @@ export default function NexStudioPage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-                  <Clock size={14} className="text-gray-500" />
+                <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                  <Clock size={14} className="text-slate-400" />
                   {t('nex.historyTitle')}
                 </h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
+                <button onClick={() => setHistory([])} className="text-xs text-slate-400 hover:text-red-600 transition-colors">
                   {t('nex.clearAll')}
                 </button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
                   <div key={h.id}
-                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(255,255,255,0.05)' }}
+                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-all"
+                    style={{ border: '1px solid rgba(15,23,42,0.08)' }}
                     onClick={() => { setResult(h.output); setActiveTab(h.tab) }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(6,182,212,0.1)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.2)' }}>
                         {tabs.find(tab => tab.id === h.tab)?.label}
                       </span>
-                      <span className="text-xs text-gray-500 truncate">{h.prompt}</span>
+                      <span className="text-xs text-slate-500 truncate">{h.prompt}</span>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-gray-700">{h.platform}</span>
-                      <span className="text-xs text-gray-700">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-xs text-slate-400">{h.platform}</span>
+                      <span className="text-xs text-slate-400">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   </div>
                 ))}
@@ -497,8 +478,8 @@ export default function NexStudioPage() {
                   style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
                   <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-                <p className="text-white text-sm font-medium">{t(cap.labelKey)}</p>
-                <p className="text-gray-600 text-xs mt-1">{t(cap.descKey)}</p>
+                <p className="text-slate-800 text-sm font-medium">{t(cap.labelKey)}</p>
+                <p className="text-slate-400 text-xs mt-1">{t(cap.descKey)}</p>
               </div>
             ))}
           </div>
