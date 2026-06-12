@@ -303,8 +303,8 @@ export default function ConnectionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-nx-base flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -314,26 +314,25 @@ export default function ConnectionsPage() {
 
   return (
     <AppShell>
-      <div className="relative min-h-screen">
-        <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-30" />
-        <div className="relative max-w-5xl mx-auto px-4 py-10 page-enter" dir={dir}>
+      <div className="min-h-screen bg-[#f5f5f7]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter" dir={dir}>
 
         {/* ── Header ─────────────────────────────────────────── */}
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-2">
-            <Plug className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs text-emerald-400/70 font-mono tracking-wider">NEXUS CONNECTIONS</span>
+            <Plug className="w-4 h-4 text-blue-600" />
+            <span className="text-xs text-slate-500 font-semibold tracking-[0.18em] uppercase">NEXUS CONNECTIONS</span>
           </div>
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-2">{t('connections.title')}</h1>
-              <p className="text-gray-400 text-sm max-w-lg">{t('connections.subtitle')}</p>
+              <h1 className="text-3xl font-semibold text-slate-950 mb-2">{t('connections.title')}</h1>
+              <p className="text-slate-500 text-sm max-w-lg leading-6">{t('connections.subtitle')}</p>
             </div>
             <button
               onClick={fetchAccounts}
-              className="p-2.5 rounded-xl border transition-all" style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)' }}
+              className="p-2.5 rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:border-slate-300 hover:text-slate-900"
             >
-              <RefreshCw className={`w-4 h-4 text-gray-400 ${loadingAccounts ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${loadingAccounts ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
@@ -343,8 +342,8 @@ export default function ConnectionsPage() {
           <div
             className={`flex items-center gap-3 px-5 py-3 mb-6 rounded-xl text-sm ${
               message.type === 'success'
-                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
-                : 'bg-red-500/10 border border-red-500/20 text-red-300'
+                ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                : 'bg-red-50 border border-red-200 text-red-700'
             }`}
           >
             {message.type === 'success'
@@ -359,15 +358,16 @@ export default function ConnectionsPage() {
         <div
           className="flex items-center gap-5 p-5 mb-8 rounded-2xl"
           style={{
-            background: loadingAccounts ? 'rgba(139,92,246,0.04)' : connectedCount > 0 ? 'rgba(16,185,129,0.04)' : 'rgba(245,158,11,0.04)',
-            border: loadingAccounts ? '1px solid rgba(139,92,246,0.12)' : connectedCount > 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(245,158,11,0.15)',
+            background: '#FFFFFF',
+            border: loadingAccounts ? '1px solid rgba(59,130,246,0.14)' : connectedCount > 0 ? '1px solid rgba(16,185,129,0.16)' : '1px solid rgba(245,158,11,0.18)',
+            boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
           }}
         >
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-2xl font-black"
             style={{
-              background: loadingAccounts ? 'rgba(139,92,246,0.08)' : connectedCount > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
-              color: loadingAccounts ? '#8b5cf6' : connectedCount > 0 ? '#10b981' : '#f59e0b',
+              background: loadingAccounts ? '#EFF6FF' : connectedCount > 0 ? '#ECFDF5' : '#FFFBEB',
+              color: loadingAccounts ? '#2563EB' : connectedCount > 0 ? '#059669' : '#D97706',
             }}
           >
             {loadingAccounts ? '…' : `${connectedCount}/${totalPlatforms}`}
@@ -375,22 +375,22 @@ export default function ConnectionsPage() {
           <div className="flex-1">
             {loadingAccounts ? (
               <div className="space-y-1.5">
-                <div className="h-3 w-36 rounded animate-pulse" style={{ background: 'rgba(139,92,246,0.15)' }} />
-                <div className="h-2.5 w-52 rounded animate-pulse" style={{ background: 'rgba(139,92,246,0.08)' }} />
+                <div className="h-3 w-36 rounded animate-pulse bg-slate-200" />
+                <div className="h-2.5 w-52 rounded animate-pulse bg-slate-100" />
               </div>
             ) : connectedCount === 0 ? (
               <>
-                <p className="font-bold text-amber-400 mb-0.5">{t('connections.noneConnected')}</p>
-                <p className="text-sm text-gray-400">{t('connections.noneConnectedDesc')}</p>
+                <p className="font-semibold text-amber-700 mb-0.5">{t('connections.noneConnected')}</p>
+                <p className="text-sm text-slate-500">{t('connections.noneConnectedDesc')}</p>
               </>
             ) : (
               <>
-                <p className="font-bold text-emerald-400 mb-0.5">
+                <p className="font-semibold text-emerald-700 mb-0.5">
                   {connectedCount === 1
                     ? t('connections.platform1Connected')
                     : `${connectedCount} ${t('connections.platformNConnected')}`}
                 </p>
-                <p className="text-sm text-gray-400">{t('connections.expandDesc')}</p>
+                <p className="text-sm text-slate-500">{t('connections.expandDesc')}</p>
               </>
             )}
           </div>
@@ -399,7 +399,7 @@ export default function ConnectionsPage() {
               onClick={() => handleConnect('META')}
               disabled={connecting === 'META'}
               className="shrink-0 px-5 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #1877F2, #4c9fff)', color: '#fff' }}
+              style={{ background: '#1877F2', color: '#fff', boxShadow: '0 8px 20px rgba(24,119,242,0.18)' }}
             >
               {connecting === 'META'
                 ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />{t('connections.connecting')}</span>
@@ -421,9 +421,9 @@ export default function ConnectionsPage() {
                 key={platform.id}
                 className="rounded-2xl overflow-hidden transition-all"
                 style={{
-                  background: isConnected ? 'rgba(16,185,129,0.04)' : 'rgba(12,13,36,0.6)',
-                  border: isConnected ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(139,92,246,0.15)',
-                  backdropFilter: 'blur(12px)',
+                  background: isConnected ? '#F7FEFB' : '#FFFFFF',
+                  border: isConnected ? '1px solid rgba(16,185,129,0.22)' : '1px solid rgba(15,23,42,0.08)',
+                  boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
                 }}
               >
                 <div className="p-6 flex items-start gap-5">
@@ -431,8 +431,8 @@ export default function ConnectionsPage() {
                   <div
                     className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
                     style={{
-                      background: `linear-gradient(135deg, ${platform.color}18, ${platform.color}08)`,
-                      border: `1px solid ${platform.color}20`,
+                      background: `${platform.color}0F`,
+                      border: `1px solid ${platform.color}18`,
                     }}
                   >
                     {platform.icon}
@@ -441,20 +441,20 @@ export default function ConnectionsPage() {
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap mb-2">
-                      <h3 className="text-lg font-bold">{t(platform.nameKey)}</h3>
+                      <h3 className="text-lg font-semibold text-slate-950">{t(platform.nameKey)}</h3>
                       {isConnected ? (
-                        <span className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           {t('connections.connected')}
                         </span>
                       ) : !platform.available ? (
-                        <span className="text-xs px-3 py-1 rounded-full font-semibold bg-white/5 text-gray-500 border border-white/8">
+                        <span className="text-xs px-3 py-1 rounded-full font-semibold bg-slate-100 text-slate-500 border border-slate-200">
                           {platform.eta ? `Coming ${platform.eta}` : t('connections.comingSoon')}
                         </span>
                       ) : null}
                     </div>
 
-                    <p className="text-sm text-gray-400 mb-3">{t(platform.descKey)}</p>
+                    <p className="text-sm text-slate-500 mb-3 leading-6">{t(platform.descKey)}</p>
 
                     {/* Features — content data, locale ternary is acceptable */}
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -464,8 +464,8 @@ export default function ConnectionsPage() {
                           className="text-xs px-2.5 py-1 rounded-lg"
                           style={{
                             background: `${platform.color}10`,
-                            color: isConnected ? platform.color : '#64748b',
-                            border: `1px solid ${platform.color}15`,
+                            color: isConnected ? platform.color : '#475569',
+                            border: `1px solid ${platform.color}14`,
                           }}
                         >
                           {f}
@@ -477,25 +477,25 @@ export default function ConnectionsPage() {
                     {isConnected && connectedAccount && (
                       <div
                         className="p-3 rounded-xl mb-4"
-                        style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.1)' }}
+                        style={{ background: '#FFFFFF', border: '1px solid rgba(16,185,129,0.16)' }}
                       >
-                        <p className="text-xs text-gray-400 mb-1">{t('connections.connectedAccount')}</p>
-                        <p className="font-semibold text-sm text-emerald-300">{connectedAccount.accountName}</p>
+                        <p className="text-xs text-slate-500 mb-1">{t('connections.connectedAccount')}</p>
+                        <p className="font-semibold text-sm text-emerald-700">{connectedAccount.accountName}</p>
                         {connectedAccount.pages?.length > 0 && (
                           <div className="mt-2 space-y-1">
-                            <p className="text-xs text-gray-500">{t('connections.pagesAndAccounts')}</p>
+                            <p className="text-xs text-slate-500">{t('connections.pagesAndAccounts')}</p>
                             {connectedAccount.pages.map(page => (
-                              <div key={page.id} className="flex items-center gap-2 text-xs text-gray-400">
+                              <div key={page.id} className="flex items-center gap-2 text-xs text-slate-500">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 <span>{page.name}</span>
                                 {page.igAccountId && (
-                                  <span className="text-pink-400 text-[10px]">{t('connections.instagram')}</span>
+                                  <span className="text-pink-600 text-[10px]">{t('connections.instagram')}</span>
                                 )}
                               </div>
                             ))}
                           </div>
                         )}
-                        <p className="text-[10px] text-gray-600 mt-2">
+                        <p className="text-[10px] text-slate-400 mt-2">
                           {t('connections.connectedDate')} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
                         </p>
                       </div>
@@ -522,8 +522,8 @@ export default function ConnectionsPage() {
                           <button
                             onClick={() => handleDisconnect(connectedAccount!.id)}
                             disabled={isDisconnecting}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-red-400 hover:text-red-300 transition-all disabled:opacity-60"
-                            style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm text-red-700 hover:text-red-800 transition-all disabled:opacity-60"
+                            style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}
                           >
                             {isDisconnecting
                               ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t('connections.disconnecting')}</>
@@ -535,14 +535,14 @@ export default function ConnectionsPage() {
                           onClick={() => handleConnect(platform.id)}
                           disabled={isConnecting}
                           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-60 text-white"
-                          style={{ background: `linear-gradient(135deg, ${platform.color}, ${platform.color}aa)` }}
+                          style={{ background: platform.color, boxShadow: `0 8px 20px ${platform.color}1F` }}
                         >
                           {isConnecting
                             ? <><Loader2 className="w-4 h-4 animate-spin" />{t('connections.connecting')}</>
                             : <><Plug className="w-4 h-4" />{t('connections.connectAccount')}</>}
                         </button>
                       ) : (
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
                           <Zap className="w-4 h-4" />
                           <span>{t('connections.comingSoonLong')}</span>
                         </div>
@@ -558,20 +558,20 @@ export default function ConnectionsPage() {
         {/* ── Security Note ──────────────────────────────────── */}
         <div
           className="flex items-start gap-3 mt-8 p-5 rounded-2xl"
-          style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(12px)' }}
+          style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}
         >
-          <Shield className="w-5 h-5 text-violet-400 shrink-0 mt-0.5" />
+          <Shield className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-semibold mb-1">{t('connections.securityTitle')}</p>
-            <p className="text-xs text-gray-500 leading-relaxed">{t('connections.securityDesc')}</p>
+            <p className="text-sm font-semibold text-slate-950 mb-1">{t('connections.securityTitle')}</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{t('connections.securityDesc')}</p>
           </div>
         </div>
 
         {/* ── Help CTA ───────────────────────────────────────── */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-slate-500">
             {t('connections.helpText')}{' '}
-            <a href="mailto:support@nexus-grow.com" className="text-violet-400 hover:text-violet-300 transition">
+            <a href="mailto:support@nexus-grow.com" className="text-blue-600 hover:text-blue-700 transition">
               {t('connections.contactUs')}
             </a>
           </p>

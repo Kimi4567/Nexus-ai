@@ -12,7 +12,6 @@ import {
   Activity, ArrowUpRight, Megaphone, Image, Send,
   BrainCircuit, RefreshCw
 } from 'lucide-react'
-import StarField from '@/components/ui/StarField'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -71,17 +70,6 @@ interface SystemInsight {
   href?: string
 }
 
-function PulseOrbs() {
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="absolute rounded-full blur-[160px] opacity-15"
-        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(16,185,129,0.18), transparent 70%)', top: '-15%', left: '-10%', animation: 'float 18s ease-in-out infinite' }} />
-      <div className="absolute rounded-full blur-[100px] opacity-12"
-        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(6,182,212,0.1), transparent 70%)', bottom: '5%', right: '-10%', animation: 'float 13s ease-in-out infinite reverse' }} />
-    </div>
-  )
-}
-
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   const { t } = useI18n()
@@ -89,7 +77,7 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-      style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#10b981' : '#9ca3af', border: `1px solid ${copied ? '#10b98130' : 'rgba(255,255,255,0.08)'}` }}>
+      style={{ background: copied ? '#ECFDF5' : '#F8FAFC', color: copied ? '#059669' : '#475569', border: `1px solid ${copied ? '#BBF7D0' : '#E2E8F0'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? t('common.copied') : t('common.copy')}
     </button>
@@ -101,14 +89,14 @@ function PulseSelect<T extends string>({ label, value, options, onChange }: {
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs text-gray-500">{label}</label>
+      <label className="text-xs text-slate-500">{label}</label>
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.12)', color: '#f8fafc', outline: 'none' }}>
-          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
+          style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.1)', color: '#0F172A', outline: 'none' }}>
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#FFFFFF' }}>{o.label}</option>)}
         </select>
-        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       </div>
     </div>
   )
@@ -127,19 +115,19 @@ function MetricCard({
   loading?: boolean
 }) {
   const inner = (
-    <div className="rounded-xl p-4 h-full transition-all hover:brightness-110"
-      style={{ background: 'rgba(12,13,36,0.6)', border: `1px solid rgba(255,255,255,0.06)` }}>
+    <div className="rounded-2xl p-4 h-full transition-all hover:-translate-y-0.5"
+      style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
       <div className="flex items-center justify-between mb-3">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center"
           style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
           <Icon size={16} style={{ color }} />
         </div>
-        {href && <ArrowUpRight size={12} style={{ color: 'rgba(255,255,255,0.2)' }} />}
+        {href && <ArrowUpRight size={12} className="text-slate-300" />}
       </div>
-      <p className="text-xs text-gray-500 mb-1">{label}</p>
+      <p className="text-xs text-slate-500 mb-1">{label}</p>
       {loading
-        ? <div className="h-6 w-16 rounded animate-pulse" style={{ background: 'rgba(255,255,255,0.06)' }} />
-        : <p className="text-2xl font-bold text-white">{value}</p>
+        ? <div className="h-6 w-16 rounded animate-pulse bg-slate-100" />
+        : <p className="text-2xl font-semibold text-slate-950">{value}</p>
       }
       {sub && !loading && <p className="text-xs mt-1" style={{ color: `${color}aa` }}>{sub}</p>}
     </div>
@@ -157,7 +145,7 @@ function ActivityChart({ data, loading }: { data: MonthActivity[]; loading: bool
       <div className="flex items-end gap-2 h-24">
         {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="flex-1 rounded-sm animate-pulse"
-            style={{ height: `${40 + Math.random() * 60}%`, background: 'rgba(255,255,255,0.04)' }} />
+            style={{ height: `${40 + Math.random() * 60}%`, background: '#E2E8F0' }} />
         ))}
       </div>
     )
@@ -176,8 +164,8 @@ function ActivityChart({ data, loading }: { data: MonthActivity[]; loading: bool
               <div className="w-full rounded-sm transition-all duration-700 group relative"
                 style={{
                   height: `${pct}%`,
-                  background: d.generations > 0 ? 'rgba(139,92,246,0.35)' : 'rgba(255,255,255,0.04)',
-                  border: d.generations > 0 ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.05)',
+                  background: d.generations > 0 ? '#0EA5E9' : '#E2E8F0',
+                  border: d.generations > 0 ? '1px solid rgba(14,165,233,0.25)' : '1px solid rgba(148,163,184,0.22)',
                   minHeight: 4,
                 }}>
                 {d.generations > 0 && (
@@ -193,11 +181,11 @@ function ActivityChart({ data, loading }: { data: MonthActivity[]; loading: bool
       {/* Month labels */}
       <div className="flex gap-2 mt-2">
         {data.map((d, i) => (
-          <div key={i} className="flex-1 text-center text-[10px] text-gray-600">{d.label}</div>
+          <div key={i} className="flex-1 text-center text-[10px] text-slate-400">{d.label}</div>
         ))}
       </div>
       {!hasData && (
-        <p className="text-xs text-gray-600 mt-1 text-center">
+        <p className="text-xs text-slate-400 mt-1 text-center">
           {ar ? 'لا توجد نشاطات بعد — قم بإنشاء حملتك الأولى' : 'No activity yet — create your first campaign'}
         </p>
       )}
@@ -212,7 +200,7 @@ function CreditBar({ used, total, isUnlimited }: { used: number; total: number; 
   const color = isUnlimited ? '#10B981' : low ? '#f59e0b' : '#10B981'
   return (
     <div className="mt-2">
-      <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+      <div className="w-full h-1.5 rounded-full overflow-hidden bg-slate-100">
         <div className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, background: color }} />
       </div>
@@ -222,10 +210,10 @@ function CreditBar({ used, total, isUnlimited }: { used: number; total: number; 
 
 // ── Insight badge ────────────────────────────────────────────────────────────
 const INSIGHT_COLORS = {
-  action:  { bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.2)',  text: '#A78BFA' },
-  info:    { bg: 'rgba(6,182,212,0.06)',  border: 'rgba(6,182,212,0.15)',  text: '#22d3ee' },
-  warning: { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.2)', text: '#fbbf24' },
-  success: { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)', text: '#34d399' },
+  action:  { bg: '#F5F3FF', border: '#DDD6FE', text: '#6D28D9' },
+  info:    { bg: '#ECFEFF', border: '#A5F3FC', text: '#0E7490' },
+  warning: { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309' },
+  success: { bg: '#ECFDF5', border: '#BBF7D0', text: '#047857' },
 }
 
 export default function PulsePage() {
@@ -273,8 +261,8 @@ export default function PulsePage() {
   }, [isAuthenticated])
 
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
-      <Loader2 className="animate-spin" size={32} style={{ color: '#10B981' }} />
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">
+      <Loader2 className="animate-spin" size={32} style={{ color: '#0EA5E9' }} />
     </div>
   )
   if (!isAuthenticated) return null
@@ -317,8 +305,8 @@ export default function PulsePage() {
     }
   }
 
-  const glassCard = { background: 'rgba(12,13,36,0.6)', border: '1px solid var(--nx-border)', backdropFilter: 'blur(16px)' }
-  const pulseColor = '#10B981'
+  const glassCard = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }
+  const pulseColor = '#0EA5E9'
 
   // Derived label for plan credits display
   const creditLabel = overview?.isUnlimited
@@ -335,36 +323,32 @@ export default function PulsePage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
-        <StarField />
-        <PulseOrbs />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="min-h-screen bg-[#f5f5f7]" dir={dir}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
           {/* ── Header ────────────────────────────────────────────────────── */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(16,185,129,0.08))', border: '1px solid rgba(16,185,129,0.3)', boxShadow: '0 0 30px rgba(16,185,129,0.15)' }}>
+                  style={{ background: '#E0F2FE', border: '1px solid rgba(14,165,233,0.18)' }}>
                   <BarChart2 size={26} style={{ color: pulseColor }} />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse"
-                  style={{ background: pulseColor, boxShadow: `0 0 8px ${pulseColor}` }} />
+                <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500" />
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-white">PULSE</h1>
+                  <h1 className="text-2xl font-semibold text-slate-950">PULSE</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: 'rgba(16,185,129,0.15)', color: pulseColor, border: `1px solid rgba(16,185,129,0.3)` }}>
+                    style={{ background: '#ECFEFF', color: '#0E7490', border: '1px solid #A5F3FC' }}>
                     {t('analytics.badge')}
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{t('analytics.subheading')}</p>
+                <p className="text-slate-500 text-sm mt-0.5">{t('analytics.subheading')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-              style={{ background: 'rgba(16,185,129,0.1)', border: `1px solid rgba(16,185,129,0.2)`, color: pulseColor }}>
+              style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', color: '#047857' }}>
               <Sparkles size={12} />
               <span>{t('analytics.gptActive')}</span>
             </div>
@@ -418,11 +402,11 @@ export default function PulsePage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Activity size={16} style={{ color: pulseColor }} />
-                  <span className="text-sm font-semibold text-gray-300">
+                  <span className="text-sm font-semibold text-slate-800">
                     {ar ? 'نشاط توليد AI الشهري' : 'Monthly AI Activity'}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-gray-600">
+                <div className="flex items-center gap-1 text-xs text-slate-400">
                   <RefreshCw size={11} />
                   <span>{ar ? 'آخر 6 أشهر' : 'Last 6 months'}</span>
                 </div>
@@ -432,8 +416,8 @@ export default function PulsePage() {
                 loading={dataLoading}
               />
               {overview && !dataLoading && (
-                <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                  <div className="text-xs text-gray-500">
+                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-xs text-slate-500">
                     {ar
                       ? `${overview.creditsUsedThisMonth} رصيد مستخدم هذا الشهر`
                       : `${overview.creditsUsedThisMonth} credits used this month`}
@@ -460,14 +444,14 @@ export default function PulsePage() {
             <div className="rounded-2xl p-5 flex flex-col" style={glassCard}>
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles size={14} style={{ color: pulseColor }} />
-                <span className="text-sm font-semibold text-gray-300">
+                <span className="text-sm font-semibold text-slate-800">
                   {ar ? 'رؤى النظام' : 'System Insights'}
                 </span>
               </div>
               {dataLoading ? (
                 <div className="space-y-3 flex-1">
                   {[1,2,3].map(i => (
-                    <div key={i} className="h-12 rounded-xl animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+                    <div key={i} className="h-12 rounded-xl animate-pulse bg-slate-100" />
                   ))}
                 </div>
               ) : insights.length > 0 ? (
@@ -486,7 +470,7 @@ export default function PulsePage() {
                 </div>
               ) : (
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="text-xs text-gray-600 text-center">
+                  <p className="text-xs text-slate-400 text-center">
                     {ar ? 'لا توجد رؤى بعد' : 'No insights yet'}
                   </p>
                 </div>
@@ -500,7 +484,7 @@ export default function PulsePage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Megaphone size={14} style={{ color: pulseColor }} />
-                  <span className="text-sm font-semibold text-gray-300">
+                  <span className="text-sm font-semibold text-slate-800">
                     {ar ? 'الحملات الأخيرة' : 'Recent Campaigns'}
                   </span>
                 </div>
@@ -520,15 +504,15 @@ export default function PulsePage() {
                   return (
                     <Link key={c.id} href={`/campaigns/${c.id}`}
                       className="flex items-center justify-between p-3 rounded-xl transition-all hover:bg-white/[0.03]"
-                      style={{ border: '1px solid rgba(255,255,255,0.05)' }}>
+                      style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
-                        <span className="text-sm text-gray-300 truncate">{c.name}</span>
+                        <span className="text-sm text-slate-700 truncate">{c.name}</span>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className="text-xs text-gray-600">{c._count.generations} gen</span>
-                        <span className="text-xs text-gray-700">{timeLabel}</span>
-                        <ArrowUpRight size={12} style={{ color: 'rgba(255,255,255,0.15)' }} />
+                        <span className="text-xs text-slate-400">{c._count.generations} gen</span>
+                        <span className="text-xs text-slate-400">{timeLabel}</span>
+                        <ArrowUpRight size={12} className="text-slate-300" />
                       </div>
                     </Link>
                   )
@@ -539,17 +523,17 @@ export default function PulsePage() {
 
           {/* ── AI Analysis Engine ─────────────────────────────────────────── */}
           <div className="rounded-2xl p-1 overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(6,182,212,0.04))', border: '1px solid rgba(16,185,129,0.15)' }}>
-            <div className="rounded-xl p-5" style={{ background: 'rgba(6,7,26,0.97)' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+            <div className="rounded-xl p-5 bg-white">
 
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  style={{ background: '#E0F2FE', border: '1px solid rgba(14,165,233,0.18)' }}>
                   <BrainCircuit size={16} style={{ color: pulseColor }} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-white">{ar ? 'محرك التحليل الذكي' : 'AI Analysis Engine'}</h2>
-                  <p className="text-xs text-gray-500">{ar ? 'رؤى مخصصة لعلامتك التجارية' : 'Custom insights for your brand'}</p>
+                  <h2 className="text-sm font-semibold text-slate-950">{ar ? 'محرك التحليل الذكي' : 'AI Analysis Engine'}</h2>
+                  <p className="text-xs text-slate-500">{ar ? 'رؤى مخصصة لعلامتك التجارية' : 'Custom insights for your brand'}</p>
                 </div>
               </div>
 
@@ -559,9 +543,9 @@ export default function PulsePage() {
                   <button key={tab.id} onClick={() => { setAnalysisType(tab.id); setResult('') }}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                     style={{
-                      background: analysisType === tab.id ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.08))' : 'rgba(255,255,255,0.04)',
-                      color: analysisType === tab.id ? pulseColor : '#9ca3af',
-                      border: `1px solid ${analysisType === tab.id ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                      background: analysisType === tab.id ? '#E0F2FE' : '#F8FAFC',
+                      color: analysisType === tab.id ? '#0369A1' : '#64748B',
+                      border: `1px solid ${analysisType === tab.id ? 'rgba(14,165,233,0.25)' : 'rgba(15,23,42,0.08)'}`,
                     }}>
                     <tab.icon size={15} />
                     <span>{t(tab.labelKey)}</span>
@@ -573,7 +557,7 @@ export default function PulsePage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Config */}
                 <div className="lg:col-span-1 space-y-4">
-                  <div className="rounded-xl p-4 space-y-4" style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
+                  <div className="rounded-xl p-4 space-y-4 bg-slate-50 border border-slate-200">
                     <PulseSelect
                       label={t('analytics.industryLabel') as string}
                       value={industry}
@@ -602,8 +586,8 @@ export default function PulsePage() {
                   </div>
 
                   {/* Quick queries */}
-                  <div className="rounded-xl p-4" style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
-                    <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('analytics.quickQuestions')}</h3>
+                  <div className="rounded-xl p-4 bg-slate-50 border border-slate-200">
+                    <h3 className="text-xs font-semibold text-slate-500 mb-3">{t('analytics.quickQuestions')}</h3>
                     <div className="space-y-2">
                       {(ar ? [
                         'ما هي أفضل أوقات النشر على Instagram؟',
@@ -617,8 +601,8 @@ export default function PulsePage() {
                         'How does my campaign compare to market benchmarks?',
                       ]).map((q, i) => (
                         <button key={i} onClick={() => setPrompt(q)}
-                          className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-purple-400 ${ar ? 'text-right' : 'text-left'}`}
-                          style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(16,185,129,0.08)', color: '#94a3b8' }}>
+                          className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-blue-700 ${ar ? 'text-right' : 'text-left'}`}
+                          style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', color: '#475569' }}>
                           {q}
                         </button>
                       ))}
@@ -628,8 +612,8 @@ export default function PulsePage() {
 
                 {/* Query + Output */}
                 <div className="lg:col-span-2 space-y-4">
-                  <div className="rounded-xl p-5 space-y-4" style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
-                    <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                  <div className="rounded-xl p-5 space-y-4 bg-slate-50 border border-slate-200">
+                    <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                       {(() => {
                         const tab = analysisTabs.find(tab => tab.id === analysisType)!
                         return <><tab.icon size={14} style={{ color: pulseColor }} />{t(tab.labelKey)}</>
@@ -642,14 +626,14 @@ export default function PulsePage() {
                       placeholder={t('analytics.promptPlaceholder') as string}
                       rows={4}
                       className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                      style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(16,185,129,0.12)', color: '#f8fafc' }} />
+                      style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.1)', color: '#0F172A' }} />
                     <div className="flex justify-end">
                       <button onClick={generate} disabled={!prompt.trim() || aiLoading}
                         className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                         style={{
-                          background: prompt.trim() && !aiLoading ? `linear-gradient(135deg, ${pulseColor}, #059669)` : 'rgba(255,255,255,0.05)',
-                          color: prompt.trim() && !aiLoading ? '#fff' : '#4b5563',
-                          boxShadow: prompt.trim() && !aiLoading ? `0 0 30px rgba(16,185,129,0.3)` : 'none',
+                          background: prompt.trim() && !aiLoading ? '#0071E3' : '#E2E8F0',
+                          color: prompt.trim() && !aiLoading ? '#fff' : '#64748B',
+                          boxShadow: prompt.trim() && !aiLoading ? '0 10px 24px rgba(0,113,227,0.18)' : 'none',
                         }}>
                         {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
                         {aiLoading ? t('analytics.analyzing') : t('analytics.analyzeNow')}
@@ -659,7 +643,7 @@ export default function PulsePage() {
 
                   {(result || aiLoading) && (
                     <div className="rounded-xl p-5 space-y-4"
-                      style={{ background: 'rgba(12,13,36,0.6)', border: `1px solid rgba(16,185,129,0.2)`, boxShadow: 'rgba(16,185,129,0.05) 0 0 40px' }}>
+                      style={{ background: '#F8FAFC', border: '1px solid rgba(14,165,233,0.18)' }}>
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: pulseColor }}>
                           <Sparkles size={14} />{t('analytics.insightTitle')}
@@ -669,11 +653,11 @@ export default function PulsePage() {
                       {aiLoading ? (
                         <div className="flex flex-col items-center justify-center py-10 gap-4">
                           <div className="w-12 h-12 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(16,185,129,0.3)', borderTopColor: pulseColor }} />
-                          <p className="text-sm text-gray-400 animate-pulse">{t('analytics.processing')}</p>
+                          <p className="text-sm text-slate-500 animate-pulse">{t('analytics.processing')}</p>
                         </div>
                       ) : (
                         <pre className="text-sm leading-relaxed whitespace-pre-wrap font-sans"
-                          style={{ color: '#d1d5db', maxHeight: '500px', overflowY: 'auto' }}>
+                          style={{ color: '#334155', maxHeight: '500px', overflowY: 'auto' }}>
                           {result}
                         </pre>
                       )}
@@ -682,11 +666,11 @@ export default function PulsePage() {
 
                   {!result && !aiLoading && (
                     <div className="rounded-xl p-8 flex flex-col items-center gap-4"
-                      style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(16,185,129,0.08)' }}>
+                      style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                       <Image size={28} style={{ color: 'rgba(16,185,129,0.3)' }} />
                       <div className="text-center">
-                        <p className="text-gray-400 text-sm">{t('analytics.emptyTitle')}</p>
-                        <p className="text-gray-600 text-xs mt-1">{t('analytics.emptySub')}</p>
+                        <p className="text-slate-500 text-sm">{t('analytics.emptyTitle')}</p>
+                        <p className="text-slate-400 text-xs mt-1">{t('analytics.emptySub')}</p>
                       </div>
                     </div>
                   )}
@@ -695,24 +679,24 @@ export default function PulsePage() {
 
               {/* History */}
               {history.length > 0 && (
-                <div className="mt-5 pt-5 border-t border-white/5">
+                <div className="mt-5 pt-5 border-t border-slate-100">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold text-gray-500">{t('analytics.historyTitle')}</h3>
-                    <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">{t('analytics.clearAll')}</button>
+                    <h3 className="text-xs font-semibold text-slate-500">{t('analytics.historyTitle')}</h3>
+                    <button onClick={() => setHistory([])} className="text-xs text-slate-400 hover:text-red-600 transition-colors">{t('analytics.clearAll')}</button>
                   </div>
                   <div className="space-y-1">
                     {history.map(h => (
                       <div key={h.id} onClick={() => { setResult(h.output); setAnalysisType(h.type) }}
-                        className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                        style={{ border: '1px solid rgba(16,185,129,0.08)' }}>
+                        className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-all"
+                        style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                             style={{ background: 'rgba(16,185,129,0.1)', color: pulseColor, border: `1px solid rgba(16,185,129,0.2)` }}>
                             {t(analysisTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
                           </span>
-                          <span className="text-xs text-gray-500 truncate">{h.query}</span>
+                          <span className="text-xs text-slate-500 truncate">{h.query}</span>
                         </div>
-                        <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString(ar ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-xs text-slate-400 flex-shrink-0">{h.createdAt.toLocaleTimeString(ar ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     ))}
                   </div>

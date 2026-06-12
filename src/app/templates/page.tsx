@@ -116,8 +116,8 @@ export default function TemplatesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark flex items-center justify-center">
-        <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -134,16 +134,17 @@ export default function TemplatesPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 page-enter">
+      <div className="min-h-screen bg-[#f5f5f7]">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 page-enter">
 
         {/* Header */}
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
-            <span className="text-xs text-amber-400/70 font-mono tracking-wider">NEXUS TEMPLATES</span>
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            <span className="text-xs text-slate-500 font-semibold tracking-[0.18em] uppercase">NEXUS TEMPLATES</span>
           </div>
-          <h1 className="text-3xl font-bold mb-2">{tplT?.pageTitle as string}</h1>
-          <p className="text-gray-400 text-sm">{tplT?.pageSubtitle as string}</p>
+          <h1 className="text-3xl font-semibold text-slate-950 mb-2">{tplT?.pageTitle as string}</h1>
+          <p className="text-slate-500 text-sm max-w-2xl leading-6">{tplT?.pageSubtitle as string}</p>
         </div>
 
         {/* Grid */}
@@ -151,17 +152,18 @@ export default function TemplatesPage() {
           {TEMPLATES.map(tpl => (
             <div
               key={tpl.id}
-              className="relative rounded-2xl p-6 transition-all group hover:scale-[1.01]"
+              className="relative rounded-2xl p-6 transition-all group hover:-translate-y-0.5"
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: '#FFFFFF',
+                border: '1px solid rgba(15,23,42,0.08)',
+                boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
               }}
             >
               {/* Badge */}
               {tpl.badge && (
                 <div
                   className="absolute -top-3 right-5 text-xs font-bold px-3 py-1 rounded-full"
-                  style={{ background: tpl.color, color: '#000' }}
+                  style={{ background: tpl.color, color: '#fff', boxShadow: `0 8px 18px ${tpl.color}25` }}
                 >
                   {tplT?.badgeMostUsed as string}
                 </div>
@@ -176,10 +178,10 @@ export default function TemplatesPage() {
               </div>
 
               {/* Content */}
-              <h3 className="font-bold text-lg mb-1 transition-colors">
+              <h3 className="font-semibold text-slate-950 text-lg mb-1 transition-colors">
                 {locale === 'ar' ? tpl.name : tpl.nameEn}
               </h3>
-              <p className="text-gray-400 text-sm mb-4 leading-relaxed">
+              <p className="text-slate-500 text-sm mb-4 leading-relaxed">
                 {locale === 'ar' ? tpl.desc : tpl.descEn}
               </p>
 
@@ -194,8 +196,8 @@ export default function TemplatesPage() {
                 {tpl.platforms.map(p => (
                   <span
                     key={p}
-                    className="text-xs px-2 py-1 rounded-full text-gray-500"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                    className="text-xs px-2 py-1 rounded-full text-slate-500"
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}
                   >
                     {PLATFORM_ICONS[p] || '🌐'} {p}
                   </span>
@@ -206,7 +208,7 @@ export default function TemplatesPage() {
               <button
                 onClick={() => useTemplate(tpl)}
                 className="w-full py-2.5 rounded-xl font-bold text-sm transition-all text-white hover:opacity-90"
-                style={{ background: `linear-gradient(135deg, ${tpl.color}, ${tpl.color}bb)` }}
+                style={{ background: tpl.color, boxShadow: `0 10px 24px ${tpl.color}24` }}
               >
                 {tplT?.btnUse as string}
               </button>
@@ -218,10 +220,11 @@ export default function TemplatesPage() {
         <div className="mt-10 text-center">
           <Link
             href="/campaigns/new"
-            className="text-sm text-gray-500 hover:text-white transition"
+            className="text-sm text-blue-600 hover:text-blue-700 transition"
           >
             {tplT?.btnStartFromScratch as string}
           </Link>
+        </div>
         </div>
       </div>
     </AppShell>
