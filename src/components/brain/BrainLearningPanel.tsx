@@ -184,7 +184,8 @@ function ProposalCard({
         <button
           disabled={acting}
           onClick={onAccept}
-          className="flex-1 py-1.5 rounded-lg text-xs font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-50"
+          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 hover:brightness-95"
+          style={{ background: 'var(--nx-violet-dim)', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.22)' }}
         >
           {acting ? 'Applying…' : '✓ Accept'}
         </button>

@@ -27,6 +27,8 @@ import {
   NexusBadge,
   NexusStatusDot,
   NexusGlassCard,
+  SkeletonStatCard,
+  SkeletonCard,
 } from '@/components/nexus-ui'
 import type { AgentId } from '@/components/nexus-ui/NexusAgentAvatar'
 
@@ -341,17 +343,25 @@ export default function DashboardPage() {
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const timeStr = lastUpdated.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
 
-  // ── Loading state ──
+  // ── Loading state — content-shaped skeleton (premium perceived performance) ──
   if (authLoading || loading) {
     return (
       <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-3 relative">
-              <div className="absolute inset-0 rounded-full border-2 border-[rgba(94,92,230,0.2)] border-t-[#5E5CE6] animate-spin" />
-              <Sparkles className="w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: '#5E5CE6' }} />
-            </div>
-            <p className="text-[13px]" style={{ color: 'var(--nx-text-3)' }}>{t('common.loading')}</p>
+        <div className="space-y-6 animate-[fadeIn_0.3s_ease-out]">
+          {/* Header placeholder */}
+          <SkeletonCard lines={2} />
+          {/* 4 metric cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+          </div>
+          {/* Main content blocks */}
+          <SkeletonCard lines={4} />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2"><SkeletonCard lines={5} /></div>
+            <SkeletonCard lines={4} />
           </div>
         </div>
       </AppShell>
@@ -567,7 +577,7 @@ export default function DashboardPage() {
             <NexusMetricCard
               label={t('dashboard.statCredits')}
               value={stats?.isUnlimited ? '∞' : (stats?.creditsRemaining ?? 0)}
-              accentColor={stats?.lowCredits ? '#F97316' : '#06B6D4'}
+              accentColor={stats?.lowCredits ? '#F59E0B' : '#06B6D4'}
               icon={<Zap className="w-3.5 h-3.5" />}
             >
               {!stats?.isUnlimited && (
@@ -584,9 +594,12 @@ export default function DashboardPage() {
                     />
                   </div>
                   <p className="text-[10px]" style={{ color: 'var(--nx-text-4)' }}>
-                    {ar ? `من ${stats?.creditsMonthlyTotal ?? 15} وحدة` : `of ${stats?.creditsMonthlyTotal ?? 15}`}
+                    {(() => {
+                      const denom = Math.max(stats?.creditsRemaining ?? 0, stats?.creditsMonthlyTotal ?? 15)
+                      return ar ? `من ${denom} وحدة` : `of ${denom}`
+                    })()}
                     {stats?.lowCredits && (
-                      <Link href="/billing" className="ml-1 font-bold" style={{ color: '#F97316' }}>
+                      <Link href="/billing" className="ml-1 font-bold" style={{ color: 'var(--nx-warning)' }}>
                         {ar ? '· ترقية' : '· upgrade'}
                       </Link>
                     )}

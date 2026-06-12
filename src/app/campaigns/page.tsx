@@ -170,7 +170,7 @@ export default function CampaignsPage() {
         ].map((s) => (
           <div key={s.label} className="p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '14px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center gap-2 mb-2">{s.icon}<span className="text-text-muted text-sm">{s.label}</span></div>
-            <p className="text-2xl font-bold">{loading ? '—' : s.value}</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--nx-text-1)' }}>{loading ? '—' : s.value}</p>
           </div>
         ))}
       </div>
