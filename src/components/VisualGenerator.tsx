@@ -315,7 +315,8 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Generation failed')
+      // Prefer the friendly `message` (e.g. daily image limit) over the error code.
+      if (!res.ok) throw new Error(data.message || data.error || 'Generation failed')
 
       const newVisual = data.visual
       setVisuals(prev => [newVisual, ...prev])
@@ -438,6 +439,11 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
             {(context.brandToneWords || []).length > 0 && (
               <div>Brand voice: <span className="text-gray-400">{context.brandToneWords?.slice(0, 3).join(', ')}</span></div>
             )}
+          </div>
+
+          {/* Cost transparency — shown before the action (factual, no decoration) */}
+          <div className="text-[10px] text-gray-500 text-center -mb-1">
+            Costs <span className="text-gray-300 font-semibold">3 credits</span> · failed generations are refunded automatically
           </div>
 
           <button

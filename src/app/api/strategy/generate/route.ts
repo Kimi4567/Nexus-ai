@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -138,7 +138,14 @@ Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts
     const credit = await checkAndDeductCredits(user.id, 'CAMPAIGN_GENERATION')
     if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
-    const strategy = await callOpenAI(prompt)
+    let strategy
+    try {
+      strategy = await callOpenAI(prompt)
+    } catch (genErr) {
+      // Refund — failed generation must not charge the user (skip unlimited plans)
+      if (credit.creditsUsed > 0) await refundCredits(user.id, 'CAMPAIGN_GENERATION')
+      throw genErr
+    }
 
     return NextResponse.json({ strategy })
   } catch (err: any) {

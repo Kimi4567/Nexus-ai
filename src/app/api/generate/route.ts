@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
@@ -116,6 +116,8 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('Generate failed:', error)
-    return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
+    // Refund — failed generation must not charge the user (skip unlimited plans)
+    if (credit.creditsUsed > 0) await refundCredits(userId, 'CAMPAIGN_GENERATION')
+    return NextResponse.json({ error: 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

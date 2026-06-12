@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
 type Params = { params: { id: string; postId: string } }
 
@@ -42,6 +42,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Hoisted so the catch can refund a charged-but-failed rewrite.
+  let rewriteCharged = false
   try {
     // ── 1. Verify post ownership ───────────────────────────────────────────
     const post = await (prisma.socialPost as any).findFirst({
@@ -76,6 +78,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         { status: 402 },
       )
     }
+    rewriteCharged = creditCheck.creditsUsed > 0
 
     // ── 3. Load brand profile ──────────────────────────────────────────────
     const brand = await prisma.brandProfile.findUnique({
@@ -177,6 +180,8 @@ ${post.caption}${instruction ? `\n\nRewrite instruction: ${instruction}` : '\n\n
     return NextResponse.json({ post: updated })
   } catch (err: any) {
     console.error('[content-plan/rewrite POST]', err)
-    return NextResponse.json({ error: 'Failed to rewrite post' }, { status: 500 })
+    // Refund — failed rewrite must not charge the user (skip unlimited plans)
+    if (rewriteCharged) await refundCredits(userId, 'AI_POST_REWRITE')
+    return NextResponse.json({ error: 'Failed to rewrite post', refunded: rewriteCharged }, { status: 500 })
   }
 }

@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runSentinelReview, SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { runBrainLearning } from '@/lib/brain-learning'
 
 type Params = { params: { id: string } }
@@ -62,7 +62,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         },
       },
     })
-    if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!campaign) {
+      // Charged but no work performed — refund (skip unlimited plans)
+      if (credit.creditsUsed > 0) await refundCredits(userId, 'SENTINEL_REVIEW', 'Campaign not found')
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
 
     const brand = campaign.workspace?.brandProfile
     const aiOutput = (campaign.aiOutput as any) || {}
@@ -159,6 +163,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ sentinelReview, creditsRemaining: credit.creditsRemaining })
   } catch (err: any) {
     console.error('[sentinel-review POST]', err)
-    return NextResponse.json({ error: err.message || 'Review failed' }, { status: 500 })
+    // Refund — failed review must not charge the user (skip unlimited plans)
+    if (credit.creditsUsed > 0) await refundCredits(userId, 'SENTINEL_REVIEW')
+    return NextResponse.json({ error: err.message || 'Review failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

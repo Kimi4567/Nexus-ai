@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
@@ -111,6 +111,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Hoisted so any failure below the deduction (incl. the outer catch) can refund.
+  let contentPlanCharged = false
   try {
     // ── 1. Load campaign ───────────────────────────────────────────────────
     const campaign = await prisma.campaign.findFirst({
@@ -144,6 +146,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         { status: 402 },
       )
     }
+    contentPlanCharged = creditCheck.creditsUsed > 0 // skip refund for unlimited plans
 
     // ── 4. Read strategy from aiOutput ────────────────────────────────────
     const aiOutput = campaign.aiOutput as any
@@ -377,6 +380,16 @@ Rules:
       }
     } catch {
       generatedPosts = []
+    }
+
+    // Refund — the AI produced no usable content (API error or unparseable output).
+    // Deducting credits for zero posts would unfairly charge the user.
+    if (generatedPosts.length === 0) {
+      if (contentPlanCharged) await refundCredits(userId, 'CONTENT_PLAN_GENERATION', 'No content generated')
+      return NextResponse.json(
+        { error: 'Content generation failed — no posts were produced. Please try again.', refunded: contentPlanCharged },
+        { status: 502 },
+      )
     }
 
     // ── 9. Create SocialPost records ──────────────────────────────────────
@@ -695,7 +708,9 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
     })
   } catch (err: any) {
     console.error('[generate-content-plan POST]', err)
-    return NextResponse.json({ error: 'Failed to generate content plan' }, { status: 500 })
+    // Refund — a failed content-plan generation must not charge the user (skip unlimited plans)
+    if (contentPlanCharged) await refundCredits(userId, 'CONTENT_PLAN_GENERATION')
+    return NextResponse.json({ error: 'Failed to generate content plan', refunded: contentPlanCharged }, { status: 500 })
   }
 }
 

@@ -12,7 +12,13 @@ prisma/dev.db
 
 # Backup files
 *.old
+*.bak
 app_backup_*
+
+# Editor / office / temp artifacts
+*.swp
+*.tmp
+.~lock.*#
 
 # FUSE temp files
 .fuse_hidden*

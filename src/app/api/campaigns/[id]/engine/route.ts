@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { deriveCampaignEngineState, runCampaignEngine } from '@/lib/campaign-engine'
 
 type Params = { params: { id: string } }
@@ -49,6 +49,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
   } catch (err: any) {
     console.error('[campaign-engine POST]', err)
-    return NextResponse.json({ error: err?.message || 'NEXUS Engine failed' }, { status: 500 })
+    // Refund — a failed engine run must not charge the user (skip unlimited plans)
+    if (credit.creditsUsed > 0) await refundCredits(userId, 'RUN_FULL_STRATEGY')
+    return NextResponse.json({ error: err?.message || 'NEXUS Engine failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

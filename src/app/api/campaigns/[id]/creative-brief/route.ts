@@ -14,7 +14,7 @@ import {
   CampaignContext,
   AssetItem,
 } from '@/lib/agents/visual-director'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
 type Params = { params: { id: string } }
 
@@ -125,6 +125,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       const selectedMedia = await prisma.media.findMany({ where: mediaFilter, take: 20 })
 
       if (selectedMedia.length === 0) {
+        // Charged but no work performed — refund (skip unlimited plans)
+        if (credit.creditsUsed > 0) await refundCredits(userId, 'CREATIVE_BRIEF', 'No media to analyze')
         return NextResponse.json(
           { error: 'No media found. Upload assets to your workspace first, then select them for analysis.' },
           { status: 400 }
@@ -170,6 +172,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ creativeBrief, creativeMode: mode, creditsRemaining: credit.creditsRemaining })
   } catch (err: any) {
     console.error('[creative-brief POST]', err)
-    return NextResponse.json({ error: err.message || 'Generation failed' }, { status: 500 })
+    // Refund — failed generation must not charge the user (skip unlimited plans)
+    if (credit.creditsUsed > 0) await refundCredits(userId, 'CREATIVE_BRIEF')
+    return NextResponse.json({ error: err.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }

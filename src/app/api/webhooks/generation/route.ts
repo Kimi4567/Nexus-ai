@@ -4,9 +4,9 @@
  * Protected by WEBHOOK_SECRET env var — all requests must include
  * Authorization: Bearer <WEBHOOK_SECRET>
  *
- * Note: Video status is primarily tracked via polling
- * (/api/campaigns/[id]/video-status). This webhook is an optional push
- * alternative for providers that support it.
+ * Updates the generic Generation record status for async providers that
+ * support push callbacks. (AI video generation has been removed; this
+ * remains for any other long-running generation provider.)
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'

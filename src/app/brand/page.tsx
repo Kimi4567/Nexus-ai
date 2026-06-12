@@ -919,6 +919,37 @@ function BrandBrainInner() {
                 </div>
               </div>
 
+              {/* Next step — one clear instruction based on completion state */}
+              <div className="flex items-center gap-2 mt-4 px-4 py-3 rounded-xl"
+                style={{ background:'#F5F3FF', border:'1px solid rgba(94,92,230,0.18)' }}>
+                <Sparkles size={14} style={{ color:'#5E5CE6' }} className="flex-shrink-0"/>
+                {score >= 80 ? (
+                  <p className="text-xs text-slate-600">
+                    {locale === 'ar' ? 'ذاكرة علامتك جاهزة. الخطوة التالية: ' : 'Your brand memory is ready. Next step: '}
+                    <button onClick={() => router.push('/campaigns/new')} className="font-bold underline" style={{ color:'#5E5CE6' }}>
+                      {locale === 'ar' ? 'أنشئ حملة' : 'create a campaign'}
+                    </button>
+                    {locale === 'ar' ? ' — سيستخدم NEXUS هذه الذاكرة.' : ' — NEXUS will use this memory.'}
+                  </p>
+                ) : missing.length > 0 ? (
+                  <p className="text-xs text-slate-600">
+                    {locale === 'ar' ? 'الخطوة التالية: أكمل ' : 'Next step: complete '}
+                    <span className="font-semibold" style={{ color:'#5E5CE6' }}>
+                      {missing.slice(0,2).join(locale==='ar'?'، ':' & ')}
+                    </span>
+                    {locale === 'ar'
+                      ? ' — أو امسح موقعك أدناه لتعبئتها تلقائياً.'
+                      : ' — or scan your website below to auto-fill it.'}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-600">
+                    {locale === 'ar'
+                      ? 'الخطوة التالية: راجع الحقول وفعّل الحفظ لتقوية ذاكرة العلامة.'
+                      : 'Next step: review your fields and save to strengthen your brand memory.'}
+                  </p>
+                )}
+              </div>
+
               {score < 60 && (
                 <div className="flex items-center gap-2 mt-4 px-4 py-3 rounded-xl"
                   style={{ background:'#FFFBEB', border:'1px solid rgba(245,158,11,0.22)' }}>

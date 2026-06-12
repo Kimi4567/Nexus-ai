@@ -12,9 +12,11 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 
 export async function POST(req: NextRequest) {
+  // Hoisted so any failure below the deduction refunds the user.
+  let chargedUserId: string | null = null
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,6 +33,7 @@ export async function POST(req: NextRequest) {
     if (!creditResult.ok) {
       return NextResponse.json({ error: 'insufficient_credits' }, { status: 402 })
     }
+    if (creditResult.creditsUsed > 0) chargedUserId = user.id
 
     const validSamples = samples.filter(s => s?.trim()).slice(0, 3)
     const combined = validSamples
@@ -76,7 +79,8 @@ Return JSON with this exact structure:
     })
 
     if (!openaiRes.ok) {
-      return NextResponse.json({ error: 'AI analysis failed' }, { status: 500 })
+      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS')
+      return NextResponse.json({ error: 'AI analysis failed', refunded: !!chargedUserId }, { status: 500 })
     }
 
     const openaiData = await openaiRes.json()
@@ -87,12 +91,14 @@ Return JSON with this exact structure:
       const clean = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim()
       extracted = JSON.parse(clean)
     } catch {
-      return NextResponse.json({ error: 'Failed to parse AI response' }, { status: 500 })
+      if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS', 'Unparseable AI response')
+      return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
 
     return NextResponse.json({ extracted, samplesAnalyzed: validSamples.length })
   } catch (error) {
     console.error('[brand/analyze-content]', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS')
+    return NextResponse.json({ error: 'Internal server error', refunded: !!chargedUserId }, { status: 500 })
   }
 }

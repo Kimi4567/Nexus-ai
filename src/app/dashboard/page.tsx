@@ -119,20 +119,8 @@ interface MarketingIntelligenceBrief {
   }
 }
 
-// Agent definitions mapped to new NEXUS UI AgentId system
-const AGENT_DEFS: Array<{
-  agentId: AgentId
-  name: string
-  roleKey: string
-  statusKey: string
-  href: string
-  accentColor: string
-}> = [
-  { agentId: 'nex',       name: 'NEX',      roleKey: 'dashboard.nexRole',      statusKey: 'dashboard.agentReady',      href: '/studio',    accentColor: '#0891B2' },
-  { agentId: 'vex',       name: 'VEX',      roleKey: 'dashboard.vexRole',      statusKey: 'dashboard.agentActive',     href: '/vex',       accentColor: '#D97706' },
-  { agentId: 'pulse',     name: 'PULSE',    roleKey: 'dashboard.pulseRole',    statusKey: 'dashboard.agentAnalyzing',  href: '/analytics', accentColor: '#059669' },
-  { agentId: 'sentinel',  name: 'SENTINEL', roleKey: 'dashboard.sentinelRole', statusKey: 'dashboard.agentMonitoring', href: '/sentinel',  accentColor: '#EAB308' },
-]
+// BETA: AGENT_DEFS (the decorative "AI squad" card data) removed along with the
+// squad grid — it linked to pages hidden for beta and showed non-real statuses.
 
 const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
   DRAFT:     { ar: 'مسودة',   en: 'Draft',     color: '#64748b' },
@@ -311,8 +299,8 @@ export default function DashboardPage() {
       text:   isAr ? 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر' : 'All campaigns are drafts — activate PULSE to find the best publishing time',
       action: isAr ? 'فتح PULSE' : 'Open PULSE', href: '/analytics' })
     if (built.length === 0 && stats.campaigns > 0) built.push({ id: '5', priority: 'low',
-      text:   isAr ? 'نظامك يعمل جيداً — Sentinel يراقب السوق والمنافسين ٢٤/٧' : 'Your system is running great — Sentinel is watching your market 24/7',
-      action: isAr ? 'عرض التقرير' : 'View Report', href: '/sentinel' })
+      text:   isAr ? 'نظامك يعمل جيداً — راجع الأداء وخطّط حملتك التالية' : 'Your system is running well — review performance and plan your next campaign',
+      action: isAr ? 'عرض التحليلات' : 'View Analytics', href: '/analytics' })
     setInsights(built)
   }, [stats, hasConnections, locale])
 
@@ -624,6 +612,33 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* ── Next Best Action (fallback) ──
+              Guarantees one clear next step even before the server-driven
+              Marketing Operating Brief loads (new users / API hiccup).
+              Hidden once `intelligence` is present to avoid duplication. */}
+          {!intelligence && insights.length > 0 && (
+            <div className="rounded-2xl p-5 flex items-start gap-4"
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 8px 24px rgba(15,23,42,0.06)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(94,92,230,0.1)', border: '1px solid rgba(94,92,230,0.22)' }}>
+                <ArrowUpRight className="w-5 h-5" style={{ color: '#5E5CE6' }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#5E5CE6' }}>
+                  {ar ? 'الخطوة التالية' : 'Next best action'}
+                </p>
+                <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--nx-text-2)' }}>
+                  {insights[0].text}
+                </p>
+                <Link href={insights[0].href}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition"
+                  style={{ background: '#5E5CE6' }}>
+                  {insights[0].action} <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+          )}
+
           {/* ── Marketing Operating Brief ── */}
           {intelligence && (
             <div className="rounded-2xl overflow-hidden"
@@ -781,31 +796,12 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* ── AI Agents Status ── */}
-          <div>
-            <NexusSectionHeader
-              label={ar ? 'فريق الذكاء الاصطناعي' : 'AI SQUAD'}
-              title={t('dashboard.aiAgents')}
-              icon={<Sparkles className="w-4 h-4" />}
-              accentColor="#8B5CF6"
-              className="mb-4"
-            />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {AGENT_DEFS.map(agent => (
-                <NexusAgentCard
-                  key={agent.agentId}
-                  agentId={agent.agentId}
-                  name={agent.name}
-                  role={t(agent.roleKey)}
-                  statusLabel={t(agent.statusKey)}
-                  statusActive
-                  href={agent.href}
-                  accentColor={agent.accentColor}
-                  launchLabel={t('dashboard.launchAgent')}
-                />
-              ))}
-            </div>
-          </div>
+          {/* ── AI Agents Status ──
+              BETA: removed. The squad cards showed decorative "active/monitoring"
+              statuses (not real data) and 3 of 4 linked to pages hidden for beta
+              (/studio, /vex, /sentinel). Agents now surface only where they produce
+              real output (strategy, content, analytics). Re-introduce only with live
+              status data if needed. */}
 
           {/* ── Brand Brain Learning Proposals ── */}
           <BrainLearningPanel compact={true} />
@@ -826,7 +822,7 @@ export default function DashboardPage() {
                   <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{t('dashboard.campaignsTitle')}</h3>
                 </div>
                 <Link
-                  href="/vex"
+                  href="/campaigns"
                   className="flex items-center gap-1 text-[11px] transition-colors"
                   style={{ color: 'var(--nx-text-4)' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#A78BFA' }}
@@ -874,7 +870,7 @@ export default function DashboardPage() {
                       </Link>
                     )
                   })}
-                  <Link href="/vex"
+                  <Link href="/campaigns/new"
                     className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] transition-all"
                     style={{ color: 'var(--nx-text-4)' }}
                     onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-2)'; (e.currentTarget as HTMLAnchorElement).style.background = '#F9FAFB' }}
@@ -952,7 +948,7 @@ export default function DashboardPage() {
                       )
                     })}
                     <Link
-                      href="/sentinel"
+                      href="/analytics"
                       className="flex items-center justify-center gap-1 pt-1 text-[10px] transition-colors"
                       style={{ color: 'var(--nx-text-4)' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#34D399' }}
@@ -976,11 +972,9 @@ export default function DashboardPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {[
+                // BETA: links to hidden pages (/studio, /vex, /sentinel) removed.
                 { key: 'dashboard.quickNewCampaign',  href: '/campaigns/new', color: '#8B5CF6' },
-                { key: 'dashboard.quickVideoScript',  href: '/studio',        color: '#06B6D4' },
-                { key: 'dashboard.quickAdCopy',       href: '/vex',           color: '#F97316' },
                 { key: 'dashboard.quickAnalytics',    href: '/analytics',     color: '#10B981' },
-                { key: 'dashboard.quickMarketWatch',  href: '/sentinel',      color: '#EAB308' },
                 { key: 'dashboard.quickConnect',      href: '/connections',   color: '#10B981' },
               ].map(qa => (
                 <Link

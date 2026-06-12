@@ -11,7 +11,12 @@
  * Triggers:
  *   - 'strategy'          : After campaign strategy is generated
  *   - 'approved_content'  : After user approves a content plan
- *   - 'post_performance'  : After a post gets engagement data (future)
+ *   - 'post_performance'  : After published posts get real engagement data.
+ *                           The post_performance writeback runs AUTOMATICALLY in the
+ *                           analytics cron (src/app/api/cron/fetch-analytics) via
+ *                           lib/brain-learning.runBrainLearning — that is where the
+ *                           live performance → Brand Brain loop is closed. This route
+ *                           handles the user-triggered 'strategy' and 'approved_content'.
  */
 
 import { NextRequest, NextResponse } from 'next/server'

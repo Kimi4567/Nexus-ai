@@ -177,6 +177,22 @@ export const PLANS_CREDITS: Record<string, number> = {
   ACTIVE:    150,  // Stripe active = Growth tier
 }
 
+// ── Daily image-generation caps per plan ──────────────────────────────────────
+// Secondary guard on top of credits: even with credits available, cap how many
+// images a workspace can generate per calendar day to prevent cost runaway /
+// abuse (image generation is the only action that costs real $ at scale).
+// Free is deliberately tight; paid tiers scale up. -1 = uncapped.
+
+export const DAILY_IMAGE_CAPS: Record<string, number> = {
+  FREE:      3,
+  STARTER:   20,
+  PRO:       60,   // Growth
+  GROWTH:    60,
+  BUSINESS:  200,  // Agency
+  AGENCY:    200,
+  ACTIVE:    60,   // Stripe active = Growth tier
+}
+
 // ── Low-credits warning threshold ─────────────────────────────────────────────
 // Fire the "credits low" email when balance falls below this after a deduction.
 // 4 = less than 1 CAMPAIGN_GENERATION remaining.
@@ -356,6 +372,95 @@ export async function addCredits(
     data: { aiCredits: { increment: amount } },
   })
   await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
+}
+
+// ── Public: refund credits on failed generation ───────────────────────────────
+
+/**
+ * Refund the exact cost of `action` back to the user and log a REFUND entry.
+ *
+ * Call this in the catch block of any route that deducts credits BEFORE doing
+ * the AI work, so a failed generation never charges the user.
+ *
+ * IMPORTANT: only call when the credit was actually deducted. Unlimited-plan
+ * users have creditsUsed === 0 — skip the refund for them (guard at call site):
+ *
+ *   const credit = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
+ *   if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+ *   try { ...AI work... }
+ *   catch (e) {
+ *     if (credit.creditsUsed > 0) await refundCredits(userId, 'IMAGE_GENERATION')
+ *     return NextResponse.json({ error: '...' }, { status: 500 })
+ *   }
+ *
+ * Never throws — refund failure must not mask the original error.
+ */
+export async function refundCredits(
+  userId: string,
+  action: CreditAction,
+  reason = 'Generation failed',
+): Promise<void> {
+  const cost = CREDIT_COSTS[action]
+  if (!cost) return
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiCredits: { increment: cost } },
+    })
+    await _logTransaction(
+      userId,
+      'REFUND',
+      cost, // positive = credited back
+      `Refund — ${ACTION_LABELS[action] || action} (${reason})`,
+      undefined,
+      'refund',
+    )
+  } catch (e) {
+    console.error('[refundCredits] failed (non-fatal):', (e as Error).message)
+  }
+}
+
+// ── Public: daily image-generation cap ────────────────────────────────────────
+
+export interface ImageCapResult {
+  allowed: boolean
+  used: number
+  cap: number        // -1 = uncapped
+  remaining: number  // -1 = uncapped
+}
+
+/**
+ * Count non-failed image generations for a workspace since local midnight.
+ * Failed (and refunded) generations are excluded so they don't burn the cap.
+ */
+export async function countImagesToday(workspaceId: string): Promise<number> {
+  const dayStart = new Date()
+  dayStart.setHours(0, 0, 0, 0)
+  return (prisma as any).generatedVisual
+    .count({
+      where: {
+        workspaceId,
+        createdAt: { gte: dayStart },
+        status: { not: 'FAILED' },
+      },
+    })
+    .catch(() => 0)
+}
+
+/**
+ * Check whether a workspace may generate another image today under its plan cap.
+ * Resolve `plan` from the user's subscriptionStatus. Unknown plans default to FREE.
+ */
+export async function checkDailyImageCap(
+  workspaceId: string,
+  plan: string | null | undefined,
+): Promise<ImageCapResult> {
+  const key = (plan || 'FREE').toUpperCase()
+  const cap = DAILY_IMAGE_CAPS[key] ?? DAILY_IMAGE_CAPS.FREE
+  if (cap === -1) return { allowed: true, used: 0, cap: -1, remaining: -1 }
+  const used = await countImagesToday(workspaceId)
+  const remaining = Math.max(0, cap - used)
+  return { allowed: used < cap, used, cap, remaining }
 }
 
 /**
