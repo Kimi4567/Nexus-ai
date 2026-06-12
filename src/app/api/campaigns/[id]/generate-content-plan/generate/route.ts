@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
+import { buildImagePrompt, type VisualContext } from '@/lib/ai/imageGen'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
@@ -26,6 +27,38 @@ const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
+
+function buildPostVisualContext(campaign: any, post: any): VisualContext {
+  const brand = campaign.workspace?.brandProfile
+  const aiOutput = (campaign.aiOutput as any) || {}
+  const strategy = aiOutput.strategy || aiOutput || {}
+
+  return {
+    visualType: 'SOCIAL_PREVIEW',
+    visualStyle: 'Premium',
+    campaignName: campaign.name || undefined,
+    campaignGoal: campaign.goal || undefined,
+    campaignTone: campaign.tone || undefined,
+    audience: campaign.audience || strategy.targetAudience || undefined,
+    brandName: brand?.brandName || campaign.workspace?.name || undefined,
+    primaryOffer: brand?.primaryOffer || strategy.primaryOffer || strategy.cta || undefined,
+    industry: brand?.industry || undefined,
+    brandToneWords: Array.isArray(brand?.toneKeywords) ? brand.toneKeywords : [],
+    colorPalette: Array.isArray(brand?.colorPalette)
+      ? brand.colorPalette.join(', ')
+      : (brand?.colorPalette || undefined),
+    visualStylePref: brand?.visualStyle || undefined,
+    uniqueAdvantages: Array.isArray(brand?.uniqueAdvantages)
+      ? brand.uniqueAdvantages.slice(0, 3).join(', ')
+      : undefined,
+    positioning: strategy.positioning || undefined,
+    visualDirection: strategy.visualDirection || post.imagePrompt || undefined,
+    differentiation: strategy.differentiation || undefined,
+    keyMessage: strategy.keyMessage || strategy.coreMessage || undefined,
+    postCaption: post.caption || post.imagePrompt || strategy.keyMessage || campaign.name || '',
+    platform: post.platform || 'META',
+  }
+}
 
 async function generateImage(prompt: string, platform: string): Promise<string> {
   if (process.env.FAL_KEY) {
@@ -159,7 +192,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     for (const post of postsToGenerate) {
       try {
-        const rawUrl = await generateImage(post.imagePrompt!, post.platform)
+        const { prompt } = await buildImagePrompt(buildPostVisualContext(campaign, post))
+        const rawUrl = await generateImage(prompt, post.platform)
 
         let finalUrl = rawUrl
         // Upload to Cloudinary if configured (avoids base64 in DB)

@@ -25,6 +25,10 @@ import {
   extractVisualConcept,
   type VisualConcept,
 } from '@/lib/ai/conceptExtractor'
+import {
+  buildPromptFromVisualBrief,
+  buildVisualCreativeBrief,
+} from '@/lib/ai/visualQualitySystem'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -435,44 +439,28 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   // 2. Detect language
   const language = detectLanguage(captionText)
 
-  // 3. Get industry style
-  const category = detectBrandCategory(ctx)
-  const style    = INDUSTRY_STYLES[category] || INDUSTRY_STYLES.general
-
-  // 4. Parse brand color mood
-  const rawPalette = Array.isArray(ctx.colorPalette)
-    ? (ctx.colorPalette as string[]).join(', ')
-    : (ctx.colorPalette || '')
-  const colorMood = parseColorMood(rawPalette)
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[imageGen] category=${category} language=${language} platform=${ctx.platform || 'META'}`)
-  }
-
-  // 5. No text → use brand-level prompt (no concept extraction needed)
-  if (!captionText.trim()) {
-    const prompt = buildBrandLevelPrompt(ctx, colorMood, style, language)
-    return { prompt, language }
-  }
-
-  // 6. Extract visual concept from caption via GPT-4o mini
-  const concept = await extractVisualConcept({
-    text:      captionText,
-    industry:  ctx.industry || category,
-    brandName: ctx.brandName || 'Brand',
-    language,
-  })
+  // 3. Extract visual concept from caption via GPT-4o mini when possible.
+  //    If there is no caption, the deterministic Visual Quality System still
+  //    creates an offer-led brief from Brand Brain + campaign context.
+  const categoryHint = detectBrandCategory(ctx)
+  const concept = captionText.trim()
+    ? await extractVisualConcept({
+        text:      captionText,
+        industry:  ctx.industry || categoryHint,
+        brandName: ctx.brandName || 'Brand',
+        language,
+      })
+    : undefined
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[imageGen] headline="${concept.headline}" | scene="${concept.centralElement.slice(0, 80)}..."`)
+    console.log(`[imageGen] language=${language} platform=${ctx.platform || 'META'} concept=${concept?.centralElement?.slice(0, 80) || 'brand-level'}...`)
   }
 
-  // 7. Build the prompt for the correct language.
-  //    Arabic → background-only (text composited separately via Satori)
-  //    English → full ad with AI-rendered text
-  const prompt = language === 'ar'
-    ? buildArabicAdPrompt(ctx, concept, colorMood, style)
-    : buildEnglishAdPrompt(ctx, concept, colorMood, style)
+  // 4. Build a structured Visual Creative Brief first, then render the final
+  //    text-free ad-background prompt from that brief. This same path is used
+  //    by single and batch generation.
+  const visualBrief = buildVisualCreativeBrief(ctx, concept)
+  const prompt = buildPromptFromVisualBrief(visualBrief, ctx, language)
 
   return { prompt, language, concept }
 }
