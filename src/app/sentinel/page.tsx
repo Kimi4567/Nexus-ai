@@ -11,7 +11,6 @@ import {
   Copy, Check, ChevronDown, Zap, Globe, TrendingUp, Search,
   Radio, Activity, Target, BarChart2
 } from 'lucide-react'
-import StarField from '@/components/ui/StarField'
 
 /* ═══════════════════════════════════════════════════════════════
    SENTINEL — 24/7 Market & Competitor Monitoring
@@ -47,9 +46,9 @@ function MarkdownOutput({ text }: { text: string }) {
     const parts = raw.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g)
     return parts.map((p, i) => {
       if (p.startsWith('**') && p.endsWith('**'))
-        return <strong key={i} style={{ color: '#f8fafc', fontWeight: 700 }}>{p.slice(2, -2)}</strong>
+        return <strong key={i} style={{ color: '#0F172A', fontWeight: 700 }}>{p.slice(2, -2)}</strong>
       if (p.startsWith('*') && p.endsWith('*'))
-        return <em key={i} style={{ color: '#d1d5db', fontStyle: 'italic' }}>{p.slice(1, -1)}</em>
+        return <em key={i} style={{ color: '#475569', fontStyle: 'italic' }}>{p.slice(1, -1)}</em>
       return p
     })
   }
@@ -60,34 +59,34 @@ function MarkdownOutput({ text }: { text: string }) {
 
     if (line.startsWith('### ')) {
       elements.push(
-        <h3 key={keyIdx++} className="text-sm font-bold mt-4 mb-1.5" style={{ color: '#EAB308' }}>
+        <h3 key={keyIdx++} className="text-sm font-semibold mt-4 mb-1.5" style={{ color: '#B45309' }}>
           {inlineStyle(line.slice(4))}
         </h3>
       )
     } else if (line.startsWith('## ')) {
       elements.push(
-        <h2 key={keyIdx++} className="text-base font-bold mt-5 mb-2" style={{ color: '#EAB308' }}>
+        <h2 key={keyIdx++} className="text-base font-semibold mt-5 mb-2" style={{ color: '#B45309' }}>
           {inlineStyle(line.slice(3))}
         </h2>
       )
     } else if (line.startsWith('# ')) {
       elements.push(
-        <h1 key={keyIdx++} className="text-lg font-bold mt-5 mb-2" style={{ color: '#EAB308' }}>
+        <h1 key={keyIdx++} className="text-lg font-semibold mt-5 mb-2" style={{ color: '#B45309' }}>
           {inlineStyle(line.slice(2))}
         </h1>
       )
     } else if (/^[-•–]\s/.test(line)) {
       elements.push(
-        <div key={keyIdx++} className="flex items-start gap-2 text-sm my-0.5" style={{ color: '#d1d5db' }}>
-          <span style={{ color: '#EAB308', marginTop: 1, flexShrink: 0 }}>•</span>
+        <div key={keyIdx++} className="flex items-start gap-2 text-sm my-0.5" style={{ color: '#334155' }}>
+          <span style={{ color: '#B45309', marginTop: 1, flexShrink: 0 }}>•</span>
           <span>{inlineStyle(line.replace(/^[-•–]\s/, ''))}</span>
         </div>
       )
     } else if (/^\d+\.\s/.test(line)) {
       const num = line.match(/^(\d+)\.\s/)![1]
       elements.push(
-        <div key={keyIdx++} className="flex items-start gap-2 text-sm my-0.5" style={{ color: '#d1d5db' }}>
-          <span style={{ color: '#EAB308', fontWeight: 600, flexShrink: 0 }}>{num}.</span>
+        <div key={keyIdx++} className="flex items-start gap-2 text-sm my-0.5" style={{ color: '#334155' }}>
+          <span style={{ color: '#B45309', fontWeight: 600, flexShrink: 0 }}>{num}.</span>
           <span>{inlineStyle(line.replace(/^\d+\.\s/, ''))}</span>
         </div>
       )
@@ -95,7 +94,7 @@ function MarkdownOutput({ text }: { text: string }) {
       elements.push(<div key={keyIdx++} style={{ height: 8 }} />)
     } else {
       elements.push(
-        <p key={keyIdx++} className="text-sm leading-relaxed my-0.5" style={{ color: '#d1d5db' }}>
+        <p key={keyIdx++} className="text-sm leading-relaxed my-0.5" style={{ color: '#334155' }}>
           {inlineStyle(line)}
         </p>
       )
@@ -119,17 +118,6 @@ const MONITOR_TABS: { id: MonitorType; labelKey: string; icon: React.ElementType
   { id: 'threats',       labelKey: 'sentinel.tabThreats',       icon: AlertTriangle },
 ]
 
-function SentinelOrbs() {
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div className="absolute rounded-full blur-[160px] opacity-15"
-        style={{ width: 700, height: 700, background: 'radial-gradient(circle, rgba(255,215,0,0.12), transparent 70%)', bottom: '-10%', left: '-10%', animation: 'float 20s ease-in-out infinite' }} />
-      <div className="absolute rounded-full blur-[100px] opacity-12"
-        style={{ width: 500, height: 500, background: 'radial-gradient(circle, rgba(139,92,246,0.1), transparent 70%)', top: '-5%', right: '-5%', animation: 'float 15s ease-in-out infinite reverse' }} />
-    </div>
-  )
-}
-
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   const { t } = useI18n()
@@ -137,7 +125,7 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button onClick={handle}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-      style={{ background: copied ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.05)', color: copied ? '#EAB308' : '#9ca3af', border: `1px solid ${copied ? '#EAB30830' : 'rgba(255,255,255,0.08)'}` }}>
+      style={{ background: copied ? '#FFFBEB' : '#F8FAFC', color: copied ? '#B45309' : '#475569', border: `1px solid ${copied ? '#FDE68A' : '#E2E8F0'}` }}>
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? t('common.copied') : t('common.copy')}
     </button>
@@ -149,14 +137,14 @@ function SentinelSelect<T extends string>({ label, value, options, onChange }: {
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs text-gray-500">{label}</label>
+      <label className="text-xs text-slate-500">{label}</label>
       <div className="relative">
         <select value={value} onChange={e => onChange(e.target.value as T)}
           className="w-full appearance-none px-3 py-2.5 rounded-xl text-sm pr-8"
-          style={{ background: 'rgba(12,13,36,0.55)', border: '1px solid rgba(139,92,246,0.12)', color: '#f8fafc', outline: 'none' }}>
-          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#111536' }}>{o.label}</option>)}
+          style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.1)', color: '#0F172A', outline: 'none' }}>
+          {options.map(o => <option key={o.value} value={o.value} style={{ background: '#FFFFFF' }}>{o.label}</option>)}
         </select>
-        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <ChevronDown size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       </div>
     </div>
   )
@@ -165,9 +153,9 @@ function SentinelSelect<T extends string>({ label, value, options, onChange }: {
 // Live alert card
 function AlertCard({ alert }: { alert: Alert }) {
   const colors: Record<Alert['type'], { bg: string; border: string; text: string; icon: React.ElementType }> = {
-    warning:     { bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.25)',  text: '#f59e0b', icon: AlertTriangle },
-    opportunity: { bg: 'rgba(234,179,8,0.08)',  border: 'rgba(234,179,8,0.25)',  text: '#EAB308', icon: TrendingUp },
-    info:        { bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.25)',   text: '#06b6d4', icon: Bell },
+    warning:     { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309', icon: AlertTriangle },
+    opportunity: { bg: '#F0FDF4', border: '#BBF7D0', text: '#047857', icon: TrendingUp },
+    info:        { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', icon: Bell },
   }
   const c = colors[alert.type]
   return (
@@ -177,10 +165,10 @@ function AlertCard({ alert }: { alert: Alert }) {
         <c.icon size={14} style={{ color: c.text }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white">{alert.title}</p>
-        <p className="text-xs text-gray-400 mt-0.5">{alert.body}</p>
+        <p className="text-sm font-medium text-slate-900">{alert.title}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{alert.body}</p>
       </div>
-      <span className="text-xs text-gray-600 flex-shrink-0">{alert.time}</span>
+      <span className="text-xs text-slate-400 flex-shrink-0">{alert.time}</span>
     </div>
   )
 }
@@ -246,8 +234,8 @@ export default function SentinelPage() {
   }, [brand])
 
   if (authLoading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0E27' }}>
-      <Loader2 className="animate-spin" size={32} style={{ color: '#EAB308' }} />
+    <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">
+      <Loader2 className="animate-spin" size={32} style={{ color: '#F59E0B' }} />
     </div>
   )
   if (!isAuthenticated) return null
@@ -329,8 +317,8 @@ export default function SentinelPage() {
     }
   }
 
-  const glassCard = { background: 'rgba(12,13,36,0.6)', border: '1px solid var(--nx-border)', backdropFilter: 'blur(16px)' }
-  const sentinelColor = '#EAB308'
+  const glassCard = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }
+  const sentinelColor = '#F59E0B'
 
   const industryOptions = [
     { value: 'ecommerce',  label: t('sentinel.industryEcommerce') as string },
@@ -412,55 +400,52 @@ export default function SentinelPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
-        <StarField />
-        <SentinelOrbs />
-
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
+      <div className="min-h-screen bg-[#f5f5f7]" dir={dir}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
 
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(234,179,8,0.25), rgba(234,179,8,0.08))', border: '1px solid rgba(234,179,8,0.3)', boxShadow: '0 0 30px rgba(234,179,8,0.15)' }}>
+                  style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
                   <Shield size={26} style={{ color: sentinelColor }} />
                 </div>
                 <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
-                  style={{ background: pulse ? sentinelColor : 'rgba(234,179,8,0.3)', boxShadow: pulse ? `0 0 12px ${sentinelColor}` : 'none', transition: 'all 0.5s ease' }} />
+                  style={{ background: pulse ? sentinelColor : '#FDE68A', transition: 'all 0.5s ease' }} />
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-white">Sentinel</h1>
+                  <h1 className="text-2xl font-semibold text-slate-950">Sentinel</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: 'rgba(234,179,8,0.15)', color: sentinelColor, border: `1px solid rgba(234,179,8,0.3)` }}>
+                    style={{ background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A' }}>
                     {t('sentinel.badge')}
                   </span>
                 </div>
-                <p className="text-gray-400 text-sm mt-0.5">{t('sentinel.subheading')}</p>
+                <p className="text-slate-500 text-sm mt-0.5">{t('sentinel.subheading')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               {brand?.brandName ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                  style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', color: '#EAB308' }}>
+                  style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309' }}>
                   <span>🧠</span>
                   <span>Brain: {brand.brandName}</span>
                 </div>
               ) : (
                 <a href="/brand" className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
-                  style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#f59e0b' }}>
+                  style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309' }}>
                   <span>⚡</span>
                   <span>{t('sentinel.activateBrain')}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                style={{ background: 'rgba(234,179,8,0.08)', border: `1px solid rgba(234,179,8,0.2)`, color: sentinelColor }}>
+                style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)', color: '#475569' }}>
                 <Radio size={12} className={pulse ? 'opacity-100' : 'opacity-30'} style={{ transition: 'opacity 0.5s' }} />
                 <span>{t('sentinel.watching')}</span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                style={{ background: 'rgba(139,92,246,0.1)', border: `1px solid rgba(139,92,246,0.2)`, color: '#8b5cf6' }}>
+                style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', color: '#6D28D9' }}>
                 <Sparkles size={12} />
                 <span>GPT-4o</span>
               </div>
@@ -470,7 +455,7 @@ export default function SentinelPage() {
           {/* Live alerts feed */}
           <div className="rounded-2xl p-5" style={glassCard}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                 <Bell size={14} style={{ color: sentinelColor }} />
                 {t('sentinel.liveAlerts')}
               </h3>
@@ -490,9 +475,9 @@ export default function SentinelPage() {
               <button key={mon.id} onClick={() => { setMonitorType(mon.id); setResult('') }}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
                 style={{
-                  background: monitorType === mon.id ? 'linear-gradient(135deg, rgba(234,179,8,0.2), rgba(234,179,8,0.08))' : 'rgba(255,255,255,0.04)',
-                  color: monitorType === mon.id ? sentinelColor : '#9ca3af',
-                  border: `1px solid ${monitorType === mon.id ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                  background: monitorType === mon.id ? '#FFFBEB' : '#FFFFFF',
+                  color: monitorType === mon.id ? '#B45309' : '#64748B',
+                  border: `1px solid ${monitorType === mon.id ? '#FDE68A' : 'rgba(15,23,42,0.08)'}`,
                 }}>
                 <mon.icon size={15} />
                 <span>{mon.label}</span>
@@ -505,38 +490,38 @@ export default function SentinelPage() {
             <div
               className="flex items-center gap-3 px-4 py-3 rounded-xl flex-wrap"
               style={{
-                background: 'rgba(234,179,8,0.04)',
-                border: '1px solid rgba(234,179,8,0.18)',
-                backdropFilter: 'blur(8px)',
+                background: '#FFFFFF',
+                border: '1px solid rgba(15,23,42,0.08)',
+                boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
               }}
             >
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div
                   className="w-6 h-6 rounded-md flex items-center justify-center"
-                  style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.25)' }}
+                  style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}
                 >
-                  <Target size={12} style={{ color: '#EAB308' }} />
+                  <Target size={12} style={{ color: '#B45309' }} />
                 </div>
-                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#EAB308' }}>
+                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: '#B45309' }}>
                   {locale === 'ar' ? `يرصد لصالح: ${brand.brandName}` : `Monitoring for: ${brand.brandName}`}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 flex-1">
                 {brand.industry && (
                   <span className="text-[10px] px-2 py-0.5 rounded-md font-medium"
-                    style={{ background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.2)', color: '#06b6d4' }}>
+                    style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8' }}>
                     {brand.industry}
                   </span>
                 )}
                 {brand.uniqueAdvantages?.slice(0, 2).map((a, i) => (
                   <span key={i} className="text-[10px] px-2 py-0.5 rounded-md font-medium"
-                    style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: '#8b5cf6' }}>
+                    style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', color: '#6D28D9' }}>
                     {a}
                   </span>
                 ))}
                 {brand.competitorNotes && (
                   <span className="text-[10px] px-2 py-0.5 rounded-md font-medium"
-                    style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+                    style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
                     {locale === 'ar' ? '⚔ منافسون محددون' : '⚔ Known competitors'}
                   </span>
                 )}
@@ -549,7 +534,7 @@ export default function SentinelPage() {
             {/* Config */}
             <div className="lg:col-span-1 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                   <Target size={14} style={{ color: sentinelColor }} />
                   {t('sentinel.monitorSettings')}
                 </h3>
@@ -569,7 +554,7 @@ export default function SentinelPage() {
 
               {/* Quick queries */}
               <div className="rounded-2xl p-4" style={glassCard}>
-                <h3 className="text-xs font-semibold text-gray-500 mb-3">{t('sentinel.quickQueries')}</h3>
+                <h3 className="text-xs font-semibold text-slate-500 mb-3">{t('sentinel.quickQueries')}</h3>
                 <div className="space-y-2">
                   {(locale === 'ar' ? [
                     brand?.brandName
@@ -599,8 +584,8 @@ export default function SentinelPage() {
                       : 'What threats are coming in my industry this quarter?',
                   ]).map((q, i) => (
                     <button key={i} onClick={() => setPrompt(q)}
-                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-green-400 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
-                      style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.08)', color: '#94a3b8' }}>
+                      className={`w-full text-xs px-3 py-2 rounded-lg transition-all hover:text-amber-700 ${locale === 'ar' ? 'text-right' : 'text-left'}`}
+                      style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)', color: '#475569' }}>
                       {q}
                     </button>
                   ))}
@@ -611,7 +596,7 @@ export default function SentinelPage() {
             {/* Query + Output */}
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-2xl p-5 space-y-4" style={glassCard}>
-                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                   {(() => {
                     const mon = monitorTabs.find(m => m.id === monitorType)!
                     return <><mon.icon size={14} style={{ color: sentinelColor }} />{mon.label}</>
@@ -624,14 +609,14 @@ export default function SentinelPage() {
                   placeholder={t('sentinel.promptPlaceholder') as string}
                   rows={5}
                   className="w-full resize-none text-sm rounded-xl p-4 focus:outline-none"
-                  style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)', color: '#f8fafc' }} />
+                  style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.1)', color: '#0F172A' }} />
                 <div className="flex justify-end">
                   <button onClick={generate} disabled={!prompt.trim() || loading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all"
                     style={{
-                      background: prompt.trim() && !loading ? `linear-gradient(135deg, ${sentinelColor}, #CA8A04)` : 'rgba(255,255,255,0.05)',
-                      color: prompt.trim() && !loading ? '#0a0a0a' : '#4b5563',
-                      boxShadow: prompt.trim() && !loading ? `0 0 30px rgba(234,179,8,0.3)` : 'none',
+                      background: prompt.trim() && !loading ? '#F59E0B' : '#E2E8F0',
+                      color: prompt.trim() && !loading ? '#FFFFFF' : '#64748B',
+                      boxShadow: prompt.trim() && !loading ? '0 10px 24px rgba(245,158,11,0.18)' : 'none',
                     }}>
                     {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                     {loading ? t('sentinel.monitoringVerb') : t('sentinel.monitorNow')}
@@ -640,7 +625,7 @@ export default function SentinelPage() {
               </div>
 
               {(result || loading) && (
-                <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: `1px solid rgba(234,179,8,0.2)`, boxShadow: 'rgba(234,179,8,0.05) 0 0 40px' }}>
+                <div className="rounded-2xl p-5 space-y-4" style={{ ...glassCard, border: '1px solid #FDE68A' }}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: sentinelColor }}>
                       <Sparkles size={14} />{t('sentinel.reportTitle')}
@@ -649,8 +634,8 @@ export default function SentinelPage() {
                   </div>
                   {loading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
-                      <div className="w-16 h-16 rounded-full border-2 animate-spin" style={{ borderColor: 'rgba(234,179,8,0.3)', borderTopColor: sentinelColor }} />
-                      <p className="text-sm text-gray-400 animate-pulse">{t('sentinel.processing')}</p>
+                      <div className="w-16 h-16 rounded-full border-2 border-amber-200 border-t-amber-500 animate-spin" />
+                      <p className="text-sm text-slate-500 animate-pulse">{t('sentinel.processing')}</p>
                     </div>
                   ) : (
                     <MarkdownOutput text={result} />
@@ -661,12 +646,12 @@ export default function SentinelPage() {
               {!result && !loading && (
                 <div className="rounded-2xl p-10 flex flex-col items-center gap-4" style={glassCard}>
                   <div className="w-20 h-20 rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.15)' }}>
-                    <Shield size={32} style={{ color: 'rgba(234,179,8,0.4)' }} />
+                    style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                    <Shield size={32} style={{ color: '#F59E0B' }} />
                   </div>
                   <div className="text-center">
-                    <p className="text-gray-400 text-sm">{t('sentinel.emptyTitle')}</p>
-                    <p className="text-gray-600 text-xs mt-1">{t('sentinel.emptySub')}</p>
+                    <p className="text-slate-500 text-sm">{t('sentinel.emptyTitle')}</p>
+                    <p className="text-slate-400 text-xs mt-1">{t('sentinel.emptySub')}</p>
                   </div>
                 </div>
               )}
@@ -677,24 +662,24 @@ export default function SentinelPage() {
           {history.length > 0 && (
             <div className="rounded-2xl p-5" style={glassCard}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-300">{t('sentinel.historyTitle')}</h3>
-                <button onClick={() => setHistory([])} className="text-xs text-gray-600 hover:text-red-400 transition-colors">
+                <h3 className="text-sm font-semibold text-slate-800">{t('sentinel.historyTitle')}</h3>
+                <button onClick={() => setHistory([])} className="text-xs text-slate-400 hover:text-red-600 transition-colors">
                   {t('sentinel.clearAll')}
                 </button>
               </div>
               <div className="space-y-2">
                 {history.map(h => (
                   <div key={h.id} onClick={() => { setResult(h.output); setMonitorType(h.type) }}
-                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-white/[0.03] transition-all"
-                    style={{ border: '1px solid rgba(139,92,246,0.08)' }}>
+                    className="flex items-center justify-between p-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-all"
+                    style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                         style={{ background: 'rgba(234,179,8,0.1)', color: sentinelColor, border: `1px solid rgba(234,179,8,0.2)` }}>
                         {t(monitorTabs.find(tab => tab.id === h.type)?.labelKey ?? '')}
                       </span>
-                      <span className="text-xs text-gray-500 truncate">{h.query}</span>
+                      <span className="text-xs text-slate-500 truncate">{h.query}</span>
                     </div>
-                    <span className="text-xs text-gray-700 flex-shrink-0">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-xs text-slate-400 flex-shrink-0">{h.createdAt.toLocaleTimeString(locale === 'ar' ? 'ar' : 'en', { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 ))}
               </div>
@@ -709,8 +694,8 @@ export default function SentinelPage() {
                   style={{ background: `${cap.color}18`, border: `1px solid ${cap.color}30` }}>
                   <cap.icon size={16} style={{ color: cap.color }} />
                 </div>
-                <p className="text-white text-xs font-medium">{t(cap.labelKey)}</p>
-                <p className="text-gray-600 text-xs mt-1">{t(cap.descKey)}</p>
+                <p className="text-slate-800 text-xs font-medium">{t(cap.labelKey)}</p>
+                <p className="text-slate-400 text-xs mt-1">{t(cap.descKey)}</p>
               </div>
             ))}
           </div>
