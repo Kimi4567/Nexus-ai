@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { calculateBrandMaturity, type BrandMaturityResult } from '@/lib/brandMaturity'
 
 /* ═══════════════════════════════════════════════════════════════
    useBrandBrain — الذاكرة المشتركة لكل الوكلاء الذكيين
@@ -38,6 +39,7 @@ export interface BrandProfile {
   strategicNotes?: string | null
   websiteUrl?: string | null
   contentSamples?: string[]
+  acceptedLearningCount?: number
 }
 
 const ARRAY_FIELDS: (keyof BrandProfile)[] = [
@@ -134,33 +136,11 @@ export function buildBrandContext(brand: BrandProfile | null): string {
  * Returns completeness score 0-100 and missing fields list (bilingual)
  */
 export function getBrandCompleteness(brand: BrandProfile | null, locale?: string): { score: number; missing: string[] } {
-  if (!brand) return { score: 0, missing: [] }
-  const isAr = !locale || locale === 'ar'
-
-  const checks = [
-    { key: 'brandName',        ar: 'اسم العلامة',      en: 'Brand Name'       },
-    { key: 'industry',         ar: 'القطاع',             en: 'Industry'         },
-    { key: 'description',      ar: 'وصف النشاط',        en: 'Description'      },
-    { key: 'primaryOffer',     ar: 'المنتج الرئيسي',    en: 'Primary Offer'    },
-    { key: 'targetAudience',   ar: 'الجمهور المستهدف',  en: 'Target Audience'  },
-    { key: 'audienceAge',      ar: 'الفئة العمرية',     en: 'Age Group'        },
-    { key: 'audienceLocation', ar: 'الموقع الجغرافي',   en: 'Location'         },
-    { key: 'toneKeywords',     ar: 'نبرة الصوت',        en: 'Brand Tone'       },
-    { key: 'topPlatforms',     ar: 'المنصات',            en: 'Platforms'        },
-    { key: 'uniqueAdvantages', ar: 'المميزات الفريدة',  en: 'Advantages'       },
-  ]
-
-  const missing: string[] = []
-  let filled = 0
-
-  for (const c of checks) {
-    const val = (brand as Record<string, unknown>)[c.key]
-    const ok = Array.isArray(val) ? val.length > 0 : !!val
-    if (ok) filled++
-    else missing.push(isAr ? c.ar : c.en)
-  }
-
-  return { score: Math.round((filled / checks.length) * 100), missing }
+  const maturity = calculateBrandMaturity(brand, {
+    acceptedLearningCount: brand?.acceptedLearningCount ?? 0,
+    locale,
+  })
+  return { score: maturity.score, missing: maturity.missing }
 }
 
 // ── Hook ───────────────────────────────────────────────────────
@@ -170,6 +150,7 @@ export function useBrandBrain() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [maturity, setMaturity] = useState<BrandMaturityResult | null>(null)
 
   const fetchBrand = useCallback(async () => {
     try {
@@ -178,7 +159,9 @@ export function useBrandBrain() {
       })
       if (!res.ok) throw new Error('Failed to load brand')
       const data = await res.json()
-      setBrand(normalizeBrandProfile(data.brandProfile))
+      const normalized = normalizeBrandProfile(data.brandProfile)
+      setBrand(normalized)
+      setMaturity(data.maturity ?? (normalized ? calculateBrandMaturity(normalized) : null))
     } catch {
       setError('تعذّر تحميل بيانات العلامة التجارية')
     } finally {
@@ -202,7 +185,9 @@ export function useBrandBrain() {
       })
       if (!res.ok) throw new Error('Failed to save')
       const result = await res.json()
-      setBrand(normalizeBrandProfile(result.brandProfile))
+      const normalized = normalizeBrandProfile(result.brandProfile)
+      setBrand(normalized)
+      setMaturity(result.maturity ?? (normalized ? calculateBrandMaturity(normalized) : null))
       return true
     } catch {
       setError('تعذّر حفظ البيانات. حاول مجدداً.')
@@ -213,12 +198,16 @@ export function useBrandBrain() {
   }, [authHeader])
 
   const brandContext = buildBrandContext(brand)
-  const { score, missing } = getBrandCompleteness(brand)
+  const derivedMaturity = maturity ?? calculateBrandMaturity(brand, {
+    acceptedLearningCount: brand?.acceptedLearningCount ?? 0,
+  })
+  const { score, missing } = { score: derivedMaturity.score, missing: derivedMaturity.missing }
 
   return {
     brand,
     brandContext,   // inject this into every AI system prompt
     completeness: score,
+    maturity: derivedMaturity,
     missingFields: missing,
     loading,
     saving,

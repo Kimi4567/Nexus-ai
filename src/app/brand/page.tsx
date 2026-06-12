@@ -420,7 +420,7 @@ function BrandBrainInner() {
   const searchParams = useSearchParams()
   const fromBrief = searchParams?.get('from') === 'brief'
   const { locale, dir, t } = useI18n()
-  const { brand, loading, saving, saveBrand } = useBrandBrain()
+  const { brand, loading, saving, saveBrand, refetch } = useBrandBrain()
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -447,6 +447,7 @@ function BrandBrainInner() {
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
   const [scoreHistory, setScoreHistory]   = useState<number[]>([])
+  const [scoreRefresh, setScoreRefresh]   = useState(0)
 
   // ── Website Scanner state ─────────────────────────────────────
   const [websiteUrl, setWebsiteUrl]           = useState('')
@@ -505,7 +506,12 @@ function BrandBrainInner() {
       })
       .catch(() => null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saved]) // re-fetch after each save so the sparkline updates live
+  }, [saved, scoreRefresh]) // re-fetch after saves and accepted learning proposals
+
+  const refreshBrainAfterLearning = () => {
+    refetch()
+    setScoreRefresh(v => v + 1)
+  }
 
   // ── handleSuggestText: for plain text fields ──────────────────
   const handleSuggestText = async (field: keyof BrandProfile) => {
@@ -928,7 +934,7 @@ function BrandBrainInner() {
           {/* ══════════════════════════════════════════════════════
               BRAIN LEARNING PROPOSALS
               ══════════════════════════════════════════════════════ */}
-          <BrainLearningPanel />
+          <BrainLearningPanel onUpdate={refreshBrainAfterLearning} />
 
           {/* ══════════════════════════════════════════════════════
               WEBSITE INTELLIGENCE SCANNER

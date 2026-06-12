@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
 import { runBrainLearning } from '@/lib/brain-learning'
+import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 export const dynamic = 'force-dynamic'
 
@@ -250,6 +251,7 @@ export async function GET(req: NextRequest) {
             where: { workspaceId: wsId },
             data: { winningHooks: mergeUnique(brand.winningHooks, winningHooks, 25) },
           })
+          snapshotBrandMaturity(prisma as any, wsId).catch(() => null)
 
           results.brandBrainUpdates++
           results.aboveAveragePosts += winningHooks.length

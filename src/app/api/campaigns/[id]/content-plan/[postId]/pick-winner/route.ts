@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
+import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 type Params = { params: { id: string; postId: string } }
 
@@ -116,6 +117,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
               winningHooks: mergeUnique(brand.winningHooks, [hook], 25),
             },
           })
+          snapshotBrandMaturity(prisma as any, campaign.workspaceId).catch(() => null)
           hookLearned = true
         }
       }

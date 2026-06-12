@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 type Params = { params: { id: string } }
 
@@ -108,6 +109,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
             },
           },
         }).catch(() => null)
+        snapshotBrandMaturity(prisma as any, existing.workspaceId).catch(() => null)
       }
     }
 

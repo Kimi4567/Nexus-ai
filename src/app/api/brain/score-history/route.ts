@@ -28,13 +28,13 @@ export async function GET(req: NextRequest) {
     try {
       snapshots = await db.brainScoreSnapshot.findMany({
         where: { workspaceId: workspace.id },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: 'desc' },
         take: 30,
         select: { score: true, createdAt: true },
       })
     } catch { /* model may not exist yet — return empty */ }
 
-    return NextResponse.json({ snapshots })
+    return NextResponse.json({ snapshots: snapshots.reverse() })
   } catch (error) {
     console.error('GET /api/brain/score-history error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

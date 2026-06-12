@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 const db = prisma as any  // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -147,10 +148,13 @@ export async function PATCH(req: NextRequest) {
       data: { status: 'accepted' },
     })
 
+    const maturity = await snapshotBrandMaturity(db, workspace.id)
+
     return NextResponse.json({
       success: true,
       action: 'accepted',
       field,
+      maturity,
       message: `Brand Brain updated: ${field}`,
     })
   } catch (error) {

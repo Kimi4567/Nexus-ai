@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import { calculateBrandMaturity, snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 // Use 'any' cast until prisma generate runs with the new BrandProfile model
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,6 +15,16 @@ function toStringArray(value: unknown): string[] {
     return value.split(',').map(item => item.trim()).filter(Boolean)
   }
   return []
+}
+
+async function getAcceptedLearningCount(workspaceId: string): Promise<number> {
+  try {
+    return await db.brainLearning.count({
+      where: { workspaceId, status: 'accepted' },
+    })
+  } catch {
+    return 0
+  }
 }
 
 // GET /api/brand — fetch brand profile for user's primary workspace
@@ -41,7 +52,13 @@ export async function GET(req: NextRequest) {
       // Model may not exist in DB yet — return null gracefully
     }
 
-    return NextResponse.json({ brandProfile, workspaceId: workspace.id })
+    const acceptedLearningCount = await getAcceptedLearningCount(workspace.id)
+    const maturity = calculateBrandMaturity(brandProfile, { acceptedLearningCount })
+    const profileWithMaturity = brandProfile
+      ? { ...brandProfile, acceptedLearningCount }
+      : null
+
+    return NextResponse.json({ brandProfile: profileWithMaturity, workspaceId: workspace.id, maturity })
   } catch (error) {
     console.error('GET /api/brand error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -118,67 +135,18 @@ export async function POST(req: NextRequest) {
     } catch (upsertError) {
       console.error('BrandProfile upsert error (table may not exist yet):', upsertError)
       // Return success with the data we have — table will be created on next prisma push
-      return NextResponse.json({ brandProfile: profileData, success: true, pending: true })
+      const maturity = calculateBrandMaturity(profileData)
+      return NextResponse.json({ brandProfile: profileData, maturity, success: true, pending: true })
     }
 
-    // ── Brain Score Snapshot (3-dimension intelligence formula) ─────────────────
-    // Score grows as the brand brain gets RICHER, not just "filled".
-    //   Completeness  (30 pts) — are the core fields set?
-    //   Array Depth   (50 pts) — how many hooks / angles / pain-points are stored?
-    //   Learning      (20 pts) — how many AI proposals has the user accepted?
-    // Max 100. A perfectly filled new brain ≈ 30. 100 requires real training.
-    try {
-      const saved = brandProfile as Record<string, unknown>
+    const maturity = await snapshotBrandMaturity(db, workspace.id)
+      ?? calculateBrandMaturity(brandProfile as Record<string, unknown>)
+    const profileWithMaturity = {
+      ...(brandProfile as Record<string, unknown>),
+      acceptedLearningCount: maturity.acceptedLearningCount,
+    }
 
-      // 1. Completeness (max 30)
-      const completenessMap: Record<string, number> = {
-        brandName: 5, industry: 5, description: 5, primaryOffer: 5,
-        targetAudience: 3, audienceAge: 2, audienceLocation: 2, topPlatforms: 3,
-      }
-      let completeness = 0
-      for (const [key, pts] of Object.entries(completenessMap)) {
-        const val = saved[key]
-        if (Array.isArray(val) ? val.length > 0 : !!val) completeness += pts
-      }
-
-      // 2. Array Depth (max 50)
-      function depth(arr: unknown[], brackets: [number, number][]): number {
-        const len = Array.isArray(arr) ? arr.length : 0
-        let pts = 0
-        for (const [threshold, score] of brackets) {
-          if (len >= threshold) pts = score; else break
-        }
-        return pts
-      }
-      const arrayDepth =
-        depth(saved.winningHooks      as unknown[], [[1,4],[3,8],[6,12],[10,16],[15,20]]) + // max 20
-        depth(saved.winningAngles     as unknown[], [[1,2],[3,5],[6,8],[10,10]])           + // max 10
-        depth(saved.audiencePainPoints as unknown[], [[1,2],[3,5],[6,8],[10,10]])          + // max 10
-        depth(saved.toneKeywords      as unknown[], [[1,2],[3,3],[5,5]])                  + // max 5
-        depth(saved.uniqueAdvantages  as unknown[], [[1,2],[3,3],[5,5]])                    // max 5
-      // Total max: 50
-
-      // 3. Learning Activity (max 20)
-      let acceptedCount = 0
-      try {
-        acceptedCount = await db.brainLearning.count({
-          where: { workspaceId: workspace.id, status: 'accepted' },
-        })
-      } catch { /* table may not exist yet */ }
-      const learning =
-        acceptedCount >= 13 ? 20 :
-        acceptedCount >= 8  ? 15 :
-        acceptedCount >= 4  ? 10 :
-        acceptedCount >= 1  ?  5 : 0
-
-      const score = Math.min(100, completeness + arrayDepth + learning)
-
-      await db.brainScoreSnapshot.create({
-        data: { workspaceId: workspace.id, score },
-      })
-    } catch { /* snapshot failure is non-critical */ }
-
-    return NextResponse.json({ brandProfile, success: true })
+    return NextResponse.json({ brandProfile: profileWithMaturity, maturity, success: true })
   } catch (error) {
     console.error('POST /api/brand error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
+import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 type Params = { params: { id: string } }
 
@@ -174,6 +175,7 @@ export async function POST(req: NextRequest, { params }: Params) {
               winningAngles: updatedAngles,
             },
           }).catch(() => null)
+          snapshotBrandMaturity(prisma as any, campaign.workspaceId).catch(() => null)
 
           learnedHooks  = learnings.hooks.length
           learnedAngles = learnings.angles.length

@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits } from '@/lib/credits'
+import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -172,6 +173,7 @@ Extract learnings as JSON:
           strategicNotes: newStrategic,
         },
       })
+      snapshotBrandMaturity(db, campaign.workspaceId).catch(() => null)
 
       await db.paidCampaignPack.update({
         where: { campaignId: params.id },
