@@ -766,7 +766,7 @@ function BrandBrainInner() {
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
 
   if (authLoading || loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#06071A' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5F5F7' }}>
       <div className="flex flex-col items-center gap-4">
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
           style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', boxShadow: '0 0 30px rgba(245,158,11,0.1)' }}>
