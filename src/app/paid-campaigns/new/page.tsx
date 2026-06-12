@@ -99,21 +99,21 @@ function StepBar({ step, total }: { step: number; total: number }) {
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all"
                 style={{
-                  background: done ? '#10B981' : active ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.06)',
-                  border: done ? '1px solid #10B981' : active ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.1)',
-                  color: done ? 'white' : active ? '#F97316' : 'var(--text-muted)',
+                  background: done ? '#059669' : active ? '#fff7ed' : '#f1f5f9',
+                  border: done ? '1px solid #059669' : active ? '1px solid #F97316' : '1px solid rgba(15,23,42,0.1)',
+                  color: done ? 'white' : active ? '#F97316' : '#94a3b8',
                 }}
               >
                 {done ? '✓' : idx}
               </div>
               <span className="text-[10px] hidden sm:block"
-                style={{ color: active ? '#F97316' : done ? '#10B981' : 'var(--text-muted)' }}>
+                style={{ color: active ? '#F97316' : done ? '#059669' : '#94a3b8' }}>
                 {label}
               </span>
             </div>
             {i < total - 1 && (
               <div className="flex-1 h-px mx-1 mb-4"
-                style={{ background: done ? '#10B981' : 'rgba(255,255,255,0.08)' }} />
+                style={{ background: done ? '#059669' : '#e2e8f0' }} />
             )}
           </div>
         )
@@ -323,21 +323,21 @@ export default function NewPaidCampaignPage() {
       case 1:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-white mb-1">Choose Platform</h2>
-            <p className="text-text-muted text-[13px] mb-6">Select the advertising platform for this campaign</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Choose Platform</h2>
+            <p className="text-slate-500 text-[13px] mb-6">Select the advertising platform for this campaign</p>
 
             {/* AI Assist Card */}
             <div className="mb-5 p-4 rounded-[14px] relative overflow-hidden"
-              style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08))', border: '1px solid rgba(139,92,246,0.3)' }}>
+              style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px]">⚡</span>
-                    <span className="text-[13px] font-bold text-white">Let AI Plan This</span>
+                    <span className="text-[13px] font-bold text-slate-950">Let AI Plan This</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                      style={{ background: 'rgba(139,92,246,0.3)', color: '#A78BFA' }}>FREE</span>
+                      style={{ background: '#ede9fe', color: '#6d28d9' }}>FREE</span>
                   </div>
-                  <p className="text-[11px] text-text-muted leading-relaxed">
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
                     AI reads your Brand Brain and recommends the ideal platform, objective, budget, and campaign name.
                   </p>
                 </div>
@@ -346,13 +346,14 @@ export default function NewPaidCampaignPage() {
                   disabled={aiSuggestLoading}
                   className="flex-shrink-0 px-4 py-2 rounded-xl text-[12px] font-bold text-white transition-all"
                   style={{
-                    background: aiSuggestLoading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #8B5CF6, #6366F1)',
+                    background: aiSuggestLoading ? '#e5e7eb' : '#6d28d9',
+                    color: aiSuggestLoading ? '#94a3b8' : 'white',
                     cursor: aiSuggestLoading ? 'wait' : 'pointer',
                   }}
                 >
                   {aiSuggestLoading ? (
                     <span className="flex items-center gap-1.5">
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+                      <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin inline-block" />
                       Planning...
                     </span>
                   ) : 'AI Suggest →'}
@@ -361,9 +362,9 @@ export default function NewPaidCampaignPage() {
             </div>
 
             <div className="flex items-center gap-2 mb-4">
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
-              <span className="text-[11px] text-text-muted">or choose manually</span>
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <div className="flex-1 h-px" style={{ background: '#e2e8f0' }} />
+              <span className="text-[11px] text-slate-400">or choose manually</span>
+              <div className="flex-1 h-px" style={{ background: '#e2e8f0' }} />
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -375,25 +376,25 @@ export default function NewPaidCampaignPage() {
                   className="relative flex flex-col items-start gap-1.5 p-4 rounded-[14px] text-left transition-all"
                   style={{
                     background: data.platform === p.id
-                      ? `rgba(${p.color === '#1877F2' ? '24,119,242' : p.color === '#4285F4' ? '66,133,244' : '255,0,80'},0.12)`
-                      : 'var(--nx-surface-2)',
+                      ? `rgba(${p.color === '#1877F2' ? '24,119,242' : p.color === '#4285F4' ? '66,133,244' : '255,0,80'},0.06)`
+                      : '#fff',
                     border: data.platform === p.id
                       ? `1px solid ${p.color}`
-                      : '1px solid rgba(255,255,255,0.08)',
-                    opacity: p.available ? 1 : 0.4,
+                      : '1px solid rgba(15,23,42,0.08)',
+                    opacity: p.available ? 1 : 0.5,
                     cursor: p.available ? 'pointer' : 'not-allowed',
                   }}
                 >
                   {!p.available && (
                     <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(107,114,128,0.2)', color: '#6B7280' }}>
+                      style={{ background: '#f1f5f9', color: '#94a3b8' }}>
                       Coming Soon
                     </span>
                   )}
-                  <span className="text-[13px] font-bold" style={{ color: p.available ? 'white' : '#6B7280' }}>
+                  <span className="text-[13px] font-bold" style={{ color: p.available ? '#0f172a' : '#94a3b8' }}>
                     {p.label}
                   </span>
-                  <span className="text-[11px] text-text-muted">{p.sub}</span>
+                  <span className="text-[11px] text-slate-500">{p.sub}</span>
                   {data.platform === p.id && (
                     <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
                       style={{ background: p.color, color: 'white' }}>✓</span>
@@ -405,9 +406,9 @@ export default function NewPaidCampaignPage() {
             {/* Ad Account selection */}
             {data.platform && (
               <div>
-                <label className="text-[12px] text-text-muted block mb-2 font-medium">
+                <label className="text-[12px] text-slate-500 block mb-2 font-medium">
                   Ad Account {accounts.filter(a => a.platform === data.platform).length === 0 && (
-                    <span className="text-orange-400 ml-1">— no connected account yet</span>
+                    <span className="text-orange-600 ml-1">— no connected account yet</span>
                   )}
                 </label>
                 {accounts.filter(a => a.platform === data.platform).length > 0 ? (
@@ -418,15 +419,15 @@ export default function NewPaidCampaignPage() {
                         onClick={() => set('adAccountId', acc.id)}
                         className="w-full flex items-center justify-between p-3 rounded-xl text-left transition-all"
                         style={{
-                          background: data.adAccountId === acc.id ? 'rgba(16,185,129,0.1)' : 'var(--nx-surface-2)',
-                          border: data.adAccountId === acc.id ? '1px solid #10B981' : '1px solid rgba(255,255,255,0.08)',
+                          background: data.adAccountId === acc.id ? 'rgba(5,150,105,0.06)' : '#fff',
+                          border: data.adAccountId === acc.id ? '1px solid #059669' : '1px solid rgba(15,23,42,0.08)',
                         }}
                       >
                         <div>
-                          <p className="text-[13px] font-medium text-white">
+                          <p className="text-[13px] font-medium text-slate-950">
                             {acc.platformAccountName || acc.platformAccountId}
                           </p>
-                          <p className="text-[11px] text-text-muted">{acc.currency} · {acc.status}</p>
+                          <p className="text-[11px] text-slate-500">{acc.currency} · {acc.status}</p>
                         </div>
                         {data.adAccountId === acc.id && (
                           <span className="text-[10px] px-2 py-0.5 rounded-full"
@@ -451,8 +452,8 @@ export default function NewPaidCampaignPage() {
 
             <div className="flex gap-3 mt-8">
               <button onClick={() => router.push('/paid-campaigns')}
-                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-text-muted hover:text-white transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
+                style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
                 Cancel
               </button>
               <button
@@ -460,7 +461,8 @@ export default function NewPaidCampaignPage() {
                 onClick={() => setStep(2)}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
                 style={{
-                  background: data.platform ? 'linear-gradient(135deg, #F97316, #EF4444)' : 'rgba(255,255,255,0.06)',
+                  background: data.platform ? '#F97316' : '#e2e8f0',
+                  color: data.platform ? 'white' : '#94a3b8',
                   cursor: data.platform ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -487,34 +489,34 @@ export default function NewPaidCampaignPage() {
 
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-white mb-1">Campaign Details</h2>
-            <p className="text-text-muted text-[13px] mb-6">Name your campaign, set the objective and budget</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Campaign Details</h2>
+            <p className="text-slate-500 text-[13px] mb-6">Name your campaign, set the objective and budget</p>
 
             {/* AI Suggestion banner */}
             {data.aiSuggested && data.aiSuggestionRationale && (
               <div className="mb-4 p-3 rounded-xl text-[11px]"
-                style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)' }}>
-                <span className="font-bold" style={{ color: '#A78BFA' }}>⚡ AI Suggestion: </span>
-                <span className="text-text-muted">{data.aiSuggestionRationale}</span>
+                style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.2)' }}>
+                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ AI Suggestion: </span>
+                <span className="text-slate-500">{data.aiSuggestionRationale}</span>
               </div>
             )}
 
             <div className="space-y-4">
               {/* Campaign name */}
               <div>
-                <label className="block text-[12px] font-medium text-text-muted mb-1.5">Campaign Name *</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Campaign Name *</label>
                 <input
                   value={data.name}
                   onChange={e => set('name', e.target.value)}
                   placeholder="e.g. Summer Sale 2025 — Meta"
-                  className="w-full px-3 py-2.5 rounded-xl text-[13px] text-white placeholder:text-text-muted focus:outline-none transition-all"
-                  style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 placeholder:text-slate-400 focus:outline-none transition-all"
+                  style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                 />
               </div>
 
               {/* Objective */}
               <div>
-                <label className="block text-[12px] font-medium text-text-muted mb-2">Campaign Objective *</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-2">Campaign Objective *</label>
                 <div className="grid grid-cols-3 gap-2">
                   {OBJECTIVES.map(obj => (
                     <button
@@ -522,13 +524,13 @@ export default function NewPaidCampaignPage() {
                       onClick={() => set('objective', obj.id)}
                       className="flex flex-col items-start gap-1 p-3 rounded-xl text-left transition-all"
                       style={{
-                        background: data.objective === obj.id ? 'rgba(249,115,22,0.12)' : 'var(--nx-surface-2)',
-                        border: data.objective === obj.id ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.08)',
+                        background: data.objective === obj.id ? '#fff7ed' : '#fff',
+                        border: data.objective === obj.id ? '1px solid #F97316' : '1px solid rgba(15,23,42,0.08)',
                       }}
                     >
                       <span className="text-base">{obj.icon}</span>
-                      <span className="text-[12px] font-semibold text-white">{obj.label}</span>
-                      <span className="text-[10px] text-text-muted leading-tight">{obj.desc}</span>
+                      <span className="text-[12px] font-semibold text-slate-950">{obj.label}</span>
+                      <span className="text-[10px] text-slate-500 leading-tight">{obj.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -537,30 +539,30 @@ export default function NewPaidCampaignPage() {
               {/* Budget */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-text-muted mb-1.5">Budget Type</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Budget Type</label>
                   <select
                     value={data.budgetType}
                     onChange={e => set('budgetType', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-white focus:outline-none"
-                    style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                    style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                   >
                     <option value="DAILY">Daily Budget</option>
                     <option value="LIFETIME">Lifetime Budget</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-text-muted mb-1.5">
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">
                     {data.budgetType === 'DAILY' ? 'Daily Budget' : 'Total Budget'}
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-text-muted">{data.currency}</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] text-slate-400">{data.currency}</span>
                     <input
                       type="number"
                       min="1"
                       value={data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget}
                       onChange={e => set(data.budgetType === 'DAILY' ? 'dailyBudget' : 'lifetimeBudget', e.target.value)}
-                      className="w-full pl-12 pr-3 py-2.5 rounded-xl text-[13px] text-white focus:outline-none"
-                      style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      className="w-full pl-12 pr-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                      style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                     />
                   </div>
                 </div>
@@ -568,12 +570,12 @@ export default function NewPaidCampaignPage() {
 
               {/* Currency */}
               <div>
-                <label className="block text-[12px] font-medium text-text-muted mb-1.5">Currency</label>
+                <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Currency</label>
                 <select
                   value={data.currency}
                   onChange={e => set('currency', e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl text-[13px] text-white focus:outline-none"
-                  style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                  style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                 >
                   <option value="USD">USD — US Dollar</option>
                   <option value="SAR">SAR — Saudi Riyal</option>
@@ -587,22 +589,22 @@ export default function NewPaidCampaignPage() {
               {/* Budget estimate */}
               {data.dailyBudget && parseFloat(data.dailyBudget) > 0 && (
                 <div className="p-3 rounded-xl"
-                  style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#F97316' }}>
+                  style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>
                     Estimated Results (14 days · MENA benchmarks)
                   </p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <p className="text-[11px] text-text-muted">Reach</p>
-                      <p className="text-[12px] font-bold text-white">{(reachMin/1000).toFixed(0)}K–{(reachMax/1000).toFixed(0)}K</p>
+                      <p className="text-[11px] text-slate-500">Reach</p>
+                      <p className="text-[12px] font-bold text-slate-950">{(reachMin/1000).toFixed(0)}K–{(reachMax/1000).toFixed(0)}K</p>
                     </div>
                     <div>
-                      <p className="text-[11px] text-text-muted">Impressions</p>
-                      <p className="text-[12px] font-bold text-white">{(impMin/1000).toFixed(0)}K–{(impMax/1000).toFixed(0)}K</p>
+                      <p className="text-[11px] text-slate-500">Impressions</p>
+                      <p className="text-[12px] font-bold text-slate-950">{(impMin/1000).toFixed(0)}K–{(impMax/1000).toFixed(0)}K</p>
                     </div>
                     <div>
-                      <p className="text-[11px] text-text-muted">CPM</p>
-                      <p className="text-[12px] font-bold text-white">${bench.min}–${bench.max}</p>
+                      <p className="text-[11px] text-slate-500">CPM</p>
+                      <p className="text-[12px] font-bold text-slate-950">${bench.min}–${bench.max}</p>
                     </div>
                   </div>
                 </div>
@@ -611,32 +613,32 @@ export default function NewPaidCampaignPage() {
               {/* Dates */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-medium text-text-muted mb-1.5">Start Date (optional)</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">Start Date (optional)</label>
                   <input
                     type="date"
                     value={data.startDate}
                     onChange={e => set('startDate', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-white focus:outline-none"
-                    style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
+                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                    style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-text-muted mb-1.5">End Date (optional)</label>
+                  <label className="block text-[12px] font-medium text-slate-500 mb-1.5">End Date (optional)</label>
                   <input
                     type="date"
                     value={data.endDate}
                     onChange={e => set('endDate', e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-white focus:outline-none"
-                    style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.1)', colorScheme: 'dark' }}
+                    className="w-full px-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
+                    style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                   />
                 </div>
               </div>
 
               {/* AI Output Language */}
               <div>
-                <label className="block text-[12px] font-medium text-text-muted mb-2">
+                <label className="block text-[12px] font-medium text-slate-500 mb-2">
                   AI Output Language
-                  <span className="ml-1 text-[10px]" style={{ color: '#6B7280' }}>— strategy + ad copy will be written in this language</span>
+                  <span className="ml-1 text-[10px] text-slate-400">— strategy + ad copy will be written in this language</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
@@ -649,12 +651,12 @@ export default function NewPaidCampaignPage() {
                       onClick={() => set('language', lang.id)}
                       className="flex flex-col items-start gap-0.5 p-3 rounded-xl text-left transition-all"
                       style={{
-                        background: data.language === lang.id ? 'rgba(16,185,129,0.1)' : 'var(--nx-surface-2)',
-                        border: data.language === lang.id ? '1px solid #10B981' : '1px solid rgba(255,255,255,0.08)',
+                        background: data.language === lang.id ? 'rgba(5,150,105,0.06)' : '#fff',
+                        border: data.language === lang.id ? '1px solid #059669' : '1px solid rgba(15,23,42,0.08)',
                       }}
                     >
-                      <span className="text-[12px] font-semibold text-white">{lang.label}</span>
-                      <span className="text-[10px] text-text-muted">{lang.desc}</span>
+                      <span className="text-[12px] font-semibold text-slate-950">{lang.label}</span>
+                      <span className="text-[10px] text-slate-500">{lang.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -663,16 +665,17 @@ export default function NewPaidCampaignPage() {
 
             <div className="flex gap-3 mt-8">
               <button onClick={() => setStep(1)}
-                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-text-muted hover:text-white transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
+                style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
                 ← Back
               </button>
               <button
                 disabled={!data.name || loading}
                 onClick={handleStep2}
-                className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
+                className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                 style={{
-                  background: data.name ? 'linear-gradient(135deg, #F97316, #EF4444)' : 'rgba(255,255,255,0.06)',
+                  background: data.name ? '#F97316' : '#e2e8f0',
+                  color: data.name ? 'white' : '#94a3b8',
                   cursor: data.name && !loading ? 'pointer' : 'not-allowed',
                 }}
               >
@@ -688,29 +691,29 @@ export default function NewPaidCampaignPage() {
         const strategy = data.aiStrategy
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-white mb-1">AI Campaign Strategy</h2>
-            <p className="text-text-muted text-[13px] mb-6">
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">AI Campaign Strategy</h2>
+            <p className="text-slate-500 text-[13px] mb-6">
               Your Brand Brain is powering the strategy. This generates audience targeting, budget plan, and creative brief.
             </p>
 
             {!strategy ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                  style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                  style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
                   <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                     <path d="M14 4C8.5 4 4 8.5 4 14s4.5 10 10 10 10-4.5 10-10S19.5 4 14 4z" stroke="#F97316" strokeWidth="1.5"/>
                     <path d="M10 14h4l3-5" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <p className="text-white font-medium mb-2">Ready to generate your AI strategy</p>
-                <p className="text-text-muted text-[12px] mb-6 max-w-xs mx-auto">
+                <p className="text-slate-950 font-medium mb-2">Ready to generate your AI strategy</p>
+                <p className="text-slate-500 text-[12px] mb-6 max-w-xs mx-auto">
                   Uses your Brand Brain data, campaign objective, budget, and platform to produce a complete, brand-specific strategy.
                 </p>
                 <button
                   disabled={loading}
                   onClick={handleGenerateStrategy}
                   className="px-6 py-3 rounded-xl text-[13px] font-bold text-white transition-all"
-                  style={{ background: loading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #8B5CF6, #6366F1)' }}
+                  style={{ background: loading ? '#e5e7eb' : '#6d28d9', color: loading ? '#94a3b8' : 'white' }}
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -725,12 +728,12 @@ export default function NewPaidCampaignPage() {
                 {/* Positioning */}
                 {(strategy.positioning as Record<string, unknown>) && (
                   <div className="p-4 rounded-[12px]"
-                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-accent-purple mb-3">Campaign Positioning</h3>
-                    <p className="text-[13px] text-white font-medium mb-1">
+                    style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#6d28d9' }}>Campaign Positioning</h3>
+                    <p className="text-[13px] text-slate-950 font-medium mb-1">
                       {String((strategy.positioning as Record<string, unknown>)?.core_message || '')}
                     </p>
-                    <p className="text-[12px] text-text-muted">
+                    <p className="text-[12px] text-slate-500">
                       {String((strategy.positioning as Record<string, unknown>)?.value_proposition || '')}
                     </p>
                   </div>
@@ -739,9 +742,9 @@ export default function NewPaidCampaignPage() {
                 {/* Audience */}
                 {(strategy.audience as Record<string, unknown>) && (
                   <div className="p-4 rounded-[12px]"
-                    style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#10B981' }}>Target Audience</h3>
-                    <p className="text-[13px] text-white font-medium">
+                    style={{ background: 'rgba(5,150,105,0.05)', border: '1px solid rgba(5,150,105,0.15)' }}>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#059669' }}>Target Audience</h3>
+                    <p className="text-[13px] text-slate-950 font-medium">
                       {String(((strategy.audience as Record<string, unknown>)?.primary_segment as Record<string, unknown>)?.description || '')}
                     </p>
                   </div>
@@ -750,15 +753,15 @@ export default function NewPaidCampaignPage() {
                 {/* Budget plan */}
                 {(strategy.budget_plan as Record<string, unknown>) && (
                   <div className="p-4 rounded-[12px]"
-                    style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#F97316' }}>Budget Plan</h3>
-                    <p className="text-[12px] text-text-muted mb-2">
+                    style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#c2410c' }}>Budget Plan</h3>
+                    <p className="text-[12px] text-slate-500 mb-2">
                       {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="text-center">
-                        <p className="text-[11px] text-text-muted">Est. Reach</p>
-                        <p className="text-[13px] font-bold text-white">
+                        <p className="text-[11px] text-slate-500">Est. Reach</p>
+                        <p className="text-[13px] font-bold text-slate-950">
                           {(() => {
                             const r = (strategy.budget_plan as Record<string, unknown>)?.estimated_reach as Record<string, number> | undefined
                             return r ? `${(r.min / 1000).toFixed(0)}K – ${(r.max / 1000).toFixed(0)}K` : '—'
@@ -766,8 +769,8 @@ export default function NewPaidCampaignPage() {
                         </p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[11px] text-text-muted">Est. Impressions</p>
-                        <p className="text-[13px] font-bold text-white">
+                        <p className="text-[11px] text-slate-500">Est. Impressions</p>
+                        <p className="text-[13px] font-bold text-slate-950">
                           {(() => {
                             const i = (strategy.budget_plan as Record<string, unknown>)?.estimated_impressions as Record<string, number> | undefined
                             return i ? `${(i.min / 1000).toFixed(0)}K – ${(i.max / 1000).toFixed(0)}K` : '—'
@@ -782,16 +785,16 @@ export default function NewPaidCampaignPage() {
 
             <div className="flex gap-3 mt-8">
               <button onClick={() => setStep(2)}
-                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-text-muted hover:text-white transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
+                style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
                 ← Back
               </button>
               {strategy && (
                 <button
                   onClick={handleGenerateCopy}
                   disabled={loading}
-                  className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
-                  style={{ background: loading ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #F97316, #EF4444)' }}
+                  className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
+                  style={{ background: loading ? '#e2e8f0' : '#F97316', color: loading ? '#94a3b8' : 'white' }}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -810,8 +813,8 @@ export default function NewPaidCampaignPage() {
       case 4:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-white mb-1">Ad Copy Variants</h2>
-            <p className="text-text-muted text-[13px] mb-6">
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Ad Copy Variants</h2>
+            <p className="text-slate-500 text-[13px] mb-6">
               AI generated {data.copyVariants.length} variants. Select the ones you want to run.
             </p>
 
@@ -821,45 +824,45 @@ export default function NewPaidCampaignPage() {
                 const isPreviewing = previewVariantId === variant.id
                 return (
                   <div key={variant.id} className="rounded-[12px] overflow-hidden transition-all"
-                    style={{ border: isSelected ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.08)' }}>
+                    style={{ border: isSelected ? '1px solid #F97316' : '1px solid rgba(15,23,42,0.08)' }}>
 
                     {/* ── Selection card ─────────────────────────────────────── */}
                     <div
                       onClick={() => toggleVariant(variant.id)}
                       className="w-full text-left p-4 transition-all"
                       style={{
-                        background: isSelected ? 'rgba(249,115,22,0.08)' : 'var(--nx-surface-2)',
+                        background: isSelected ? '#fff7ed' : '#fff',
                         cursor: 'pointer',
                       }}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <span className="text-[11px] font-bold uppercase tracking-wider"
-                          style={{ color: isSelected ? '#F97316' : '#6B7280' }}>
+                          style={{ color: isSelected ? '#F97316' : '#94a3b8' }}>
                           {variant.label}
                         </span>
                         <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                           style={{
                             background: isSelected ? '#F97316' : 'transparent',
-                            border: isSelected ? '1px solid #F97316' : '1px solid rgba(255,255,255,0.2)',
+                            border: isSelected ? '1px solid #F97316' : '1px solid rgba(15,23,42,0.15)',
                           }}>
                           {isSelected && <span className="text-[10px] text-white">✓</span>}
                         </div>
                       </div>
-                      <p className="text-[13px] font-semibold text-white mb-1">{variant.headline}</p>
-                      <p className="text-[12px] text-text-muted line-clamp-2 leading-relaxed">{variant.primaryText}</p>
+                      <p className="text-[13px] font-semibold text-slate-950 mb-1">{variant.headline}</p>
+                      <p className="text-[12px] text-slate-500 line-clamp-2 leading-relaxed">{variant.primaryText}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <span className="text-[10px] px-2 py-0.5 rounded-full"
-                          style={{ background: 'rgba(139,92,246,0.15)', color: '#8B5CF6' }}>
+                          style={{ background: '#ede9fe', color: '#6d28d9' }}>
                           {variant.angle.replace(/_/g, ' ')}
                         </span>
-                        <span className="text-[10px] text-text-muted">{variant.callToAction}</span>
+                        <span className="text-[10px] text-slate-500">{variant.callToAction}</span>
                         <button
                           onClick={e => { e.stopPropagation(); setPreviewVariantId(isPreviewing ? null : variant.id) }}
                           className="ml-auto text-[10px] px-2 py-0.5 rounded-full transition-all"
                           style={{
-                            background: isPreviewing ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
-                            color: isPreviewing ? '#60A5FA' : '#9CA3AF',
-                            border: isPreviewing ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                            background: isPreviewing ? 'rgba(59,130,246,0.1)' : '#f8fafc',
+                            color: isPreviewing ? '#2563eb' : '#64748b',
+                            border: isPreviewing ? '1px solid rgba(59,130,246,0.25)' : '1px solid rgba(15,23,42,0.08)',
                           }}
                         >
                           {isPreviewing ? '✕ Hide' : '👁 Preview'}
@@ -869,7 +872,7 @@ export default function NewPaidCampaignPage() {
 
                     {/* ── Facebook Feed Preview Mockup ──────────────────────── */}
                     {isPreviewing && (
-                      <div style={{ background: 'rgba(0,0,0,0.3)', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 12px 16px' }}>
+                      <div style={{ background: '#f8fafc', borderTop: '1px solid rgba(15,23,42,0.06)', padding: '12px 12px 16px' }}>
                         <p className="text-center text-[9px] font-bold uppercase tracking-widest mb-3" style={{ color: '#6B7280' }}>
                           {data.platform === 'GOOGLE' ? 'Google Search Preview' : data.platform === 'LINKEDIN' ? 'LinkedIn Feed Preview' : 'Facebook Feed Preview'}
                         </p>
@@ -953,16 +956,17 @@ export default function NewPaidCampaignPage() {
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => setStep(3)}
-                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-text-muted hover:text-white transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
+                style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
                 ← Back
               </button>
               <button
                 onClick={() => setStep(5)}
                 disabled={data.selectedVariantIds.length === 0}
-                className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
+                className="flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                 style={{
-                  background: data.selectedVariantIds.length > 0 ? 'linear-gradient(135deg, #F97316, #EF4444)' : 'rgba(255,255,255,0.06)',
+                  background: data.selectedVariantIds.length > 0 ? '#F97316' : '#e2e8f0',
+                  color: data.selectedVariantIds.length > 0 ? 'white' : '#94a3b8',
                 }}
               >
                 Continue with {data.selectedVariantIds.length} variant{data.selectedVariantIds.length !== 1 ? 's' : ''} →
@@ -975,37 +979,37 @@ export default function NewPaidCampaignPage() {
       case 5:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-white mb-1">Review & Launch</h2>
-            <p className="text-text-muted text-[13px] mb-6">Your campaign is ready. Review the details and go to the campaign manager.</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Review & Launch</h2>
+            <p className="text-slate-500 text-[13px] mb-6">Your campaign is ready. Review the details and go to the campaign manager.</p>
 
             {/* Summary card */}
-            <div className="p-4 rounded-[14px] mb-6 space-y-3"
-              style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(139,92,246,0.1)' }}>
+            <div className="p-4 rounded-[14px] mb-6 space-y-3 bg-white"
+              style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-muted">Campaign</span>
-                <span className="text-[13px] font-semibold text-white">{data.name}</span>
+                <span className="text-[12px] text-slate-500">Campaign</span>
+                <span className="text-[13px] font-semibold text-slate-950">{data.name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-muted">Platform</span>
-                <span className="text-[13px] font-semibold text-white">{data.platform}</span>
+                <span className="text-[12px] text-slate-500">Platform</span>
+                <span className="text-[13px] font-semibold text-slate-950">{data.platform}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-muted">Objective</span>
-                <span className="text-[13px] font-semibold text-white">{data.objective.replace(/_/g, ' ')}</span>
+                <span className="text-[12px] text-slate-500">Objective</span>
+                <span className="text-[13px] font-semibold text-slate-950">{data.objective.replace(/_/g, ' ')}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-muted">Budget</span>
-                <span className="text-[13px] font-semibold text-white">
+                <span className="text-[12px] text-slate-500">Budget</span>
+                <span className="text-[13px] font-semibold text-slate-950">
                   {data.currency} {data.budgetType === 'DAILY' ? `${data.dailyBudget}/day` : `${data.lifetimeBudget} total`}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-muted">Ad Variants</span>
-                <span className="text-[13px] font-semibold text-white">{data.selectedVariantIds.length} selected</span>
+                <span className="text-[12px] text-slate-500">Ad Variants</span>
+                <span className="text-[13px] font-semibold text-slate-950">{data.selectedVariantIds.length} selected</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-muted">AI Strategy</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>
+                <span className="text-[12px] text-slate-500">AI Strategy</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}>
                   ✓ Generated
                 </span>
               </div>
@@ -1013,9 +1017,9 @@ export default function NewPaidCampaignPage() {
 
             {/* Next steps */}
             <div className="p-4 rounded-[12px] mb-6"
-              style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#F97316' }}>Next Steps</p>
-              <ul className="space-y-1.5 text-[12px] text-text-muted">
+              style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>Next Steps</p>
+              <ul className="space-y-1.5 text-[12px] text-slate-500">
                 <li>• Open the Campaign Manager to review targeting</li>
                 <li>• Upload your creative assets (image / video)</li>
                 <li>• Export to {data.platform} Ads Manager or launch via API</li>
@@ -1025,14 +1029,14 @@ export default function NewPaidCampaignPage() {
 
             <div className="flex gap-3">
               <button onClick={() => setStep(4)}
-                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-text-muted hover:text-white transition-all"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-slate-500 hover:text-slate-950 transition-all"
+                style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
                 ← Back
               </button>
               <button
                 onClick={handleLaunch}
                 className="flex-1 py-2.5 rounded-xl text-[13px] font-bold text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                style={{ background: '#059669' }}
               >
                 Open Campaign Manager →
               </button>
@@ -1047,22 +1051,22 @@ export default function NewPaidCampaignPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen flex items-start justify-center pt-8" style={{ background: 'var(--nx-bg)' }}>
-        <div className="w-full max-w-[600px] px-4">
+      <div className="min-h-screen flex items-start justify-center pt-8 bg-[#f5f5f7]">
+        <div className="w-full max-w-[600px] px-4 pb-12">
           {/* Header */}
           <div className="flex items-center gap-3 mb-6">
             <button onClick={() => router.push('/paid-campaigns')}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-text-muted hover:text-white transition-all"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-950 transition-all"
+              style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M9 2L4 7l5 5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
             <div>
-              <h1 className="text-[15px] font-bold text-white">
+              <h1 className="text-[15px] font-bold text-slate-950">
                 {locale === 'ar' ? 'حملة إعلانية جديدة' : 'New Paid Campaign'}
               </h1>
-              <p className="text-[11px] text-text-muted">AI-powered across Meta, Google, TikTok, LinkedIn</p>
+              <p className="text-[11px] text-slate-500">AI-powered across Meta, Google, TikTok, LinkedIn</p>
             </div>
           </div>
 
@@ -1070,11 +1074,11 @@ export default function NewPaidCampaignPage() {
           <StepBar step={step} total={5} />
 
           {/* Card */}
-          <div className="rounded-[18px] p-6"
-            style={{ background: 'var(--nx-surface)', border: '1px solid rgba(139,92,246,0.12)' }}>
+          <div className="rounded-[18px] p-6 bg-white"
+            style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
             {error && (
               <div className="mb-4 p-3 rounded-xl text-[12px]"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#EF4444' }}>
+                style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', color: '#dc2626' }}>
                 {error}
               </div>
             )}

@@ -94,10 +94,10 @@ const PLATFORM_ICONS_SCH: Record<string, string> = {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  SCHEDULED: 'bg-accent/15 text-accent',
-  PUBLISHED: 'bg-green-500/15 text-green-400',
-  FAILED: 'bg-red-500/15 text-red-400',
-  DRAFT: 'bg-yellow-500/15 text-yellow-400',
+  SCHEDULED: 'bg-orange-50 text-orange-600 border border-orange-200',
+  PUBLISHED: 'bg-green-50 text-green-700 border border-green-200',
+  FAILED: 'bg-red-50 text-red-600 border border-red-200',
+  DRAFT: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
 }
 
 const CAMPAIGN_COLORS = [
@@ -549,7 +549,7 @@ function CalendarPageInner() {
   const minDateTime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)
 
   if (loading) return (
-    <div className="min-h-screen bg-dark flex items-center justify-center">
+    <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
       <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
     </div>
   )
@@ -562,14 +562,14 @@ function CalendarPageInner() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+            <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
               <span>Nexus</span><span>/</span>
-              <span className="text-gray-300">Calendar</span>
+              <span className="text-slate-600">Calendar</span>
             </div>
-            <h1 className="text-3xl font-bold mb-1">
+            <h1 className="text-3xl font-bold text-slate-950 mb-1">
               {activeTab === 'timeline' ? 'Content Calendar' : 'Published Queue'}
             </h1>
-            <p className="text-gray-400">
+            <p className="text-slate-500">
               {activeTab === 'timeline'
                 ? 'Your AI-planned content pipeline across all campaigns.'
                 : 'Scheduled and published posts across all connected accounts.'}
@@ -586,20 +586,20 @@ function CalendarPageInner() {
             <button
               onClick={() => setShowModal(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all"
-              style={{ boxShadow: '0 0 20px rgba(255,149,0,0.20)' }}>
+  >
               {scT?.btnSchedule as string || '+ Schedule Post'}
             </button>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-dark-secondary border border-dark-tertiary w-fit mb-8">
+        <div className="flex items-center gap-1 p-1 rounded-xl w-fit mb-8" style={{ background: '#f5f5f7', border: '1px solid rgba(15,23,42,0.08)' }}>
           <button
             onClick={() => setActiveTab('timeline')}
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
               activeTab === 'timeline'
                 ? 'bg-accent text-white shadow-sm'
-                : 'text-gray-400 hover:text-white'
+                : 'text-slate-500 hover:text-slate-950'
             }`}>
             📅 {locale === 'ar' ? 'الجدول الزمني' : 'Strategy Timeline'}
           </button>
@@ -608,11 +608,11 @@ function CalendarPageInner() {
             className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
               activeTab === 'queue'
                 ? 'bg-accent text-white shadow-sm'
-                : 'text-gray-400 hover:text-white'
+                : 'text-slate-500 hover:text-slate-950'
             }`}>
             📤 {locale === 'ar' ? 'قائمة النشر' : 'Published Queue'}
             {scheduled.length > 0 && (
-              <span className="ml-2 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-bold">
+              <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(15,23,42,0.12)', color: 'inherit' }}>
                 {scheduled.length}
               </span>
             )}
@@ -626,8 +626,8 @@ function CalendarPageInner() {
           <>
             {/* Auto-jump banner */}
             {autoJumpBanner && (
-              <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-xl border border-cyan-500/25 bg-cyan-500/8 text-sm">
-                <div className="flex items-center gap-2 text-cyan-300">
+              <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(6,182,212,0.07)', border: '1px solid rgba(6,182,212,0.25)' }}>
+                <div className="flex items-center gap-2 text-cyan-700">
                   <span>📅</span>
                   <span>
                     {locale === 'ar'
@@ -638,7 +638,7 @@ function CalendarPageInner() {
                 </div>
                 <button
                   onClick={() => setAutoJumpBanner(null)}
-                  className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all text-xs font-bold"
+                  className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all text-xs font-bold"
                   aria-label="Dismiss">
                   ✕
                 </button>
@@ -648,13 +648,13 @@ function CalendarPageInner() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-3 mb-3">
               {[
-                { label: 'Posts This Month', value: calStats.total,     color: 'text-white'      },
-                { label: 'Active Campaigns', value: calStats.campaigns,  color: 'text-indigo-400' },
-                { label: 'Platforms',        value: calStats.platforms,  color: 'text-amber-400'  },
+                { label: 'Posts This Month', value: calStats.total,     color: 'text-slate-950'  },
+                { label: 'Active Campaigns', value: calStats.campaigns,  color: 'text-indigo-600' },
+                { label: 'Platforms',        value: calStats.platforms,  color: 'text-amber-600'  },
               ].map(s => (
-                <div key={s.label} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-4">
+                <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -662,38 +662,38 @@ function CalendarPageInner() {
             {/* Legend */}
             <div className="flex items-center gap-4 mb-5 px-1">
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500/60" />
-                <span className="text-[11px] text-gray-500">✦ AI Planned</span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400" />
+                <span className="text-[11px] text-slate-500">✦ AI Planned</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
-                <span className="text-[11px] text-gray-500">🕐 Scheduled</span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                <span className="text-[11px] text-slate-500">🕐 Scheduled</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                <span className="text-[11px] text-gray-500">✅ Published</span>
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" />
+                <span className="text-[11px] text-slate-500">✅ Published</span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
               {/* Calendar Grid */}
-              <div className="lg:col-span-2 rounded-2xl border border-dark-tertiary bg-dark-secondary overflow-hidden">
+              <div className="lg:col-span-2 rounded-2xl overflow-hidden" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
 
                 {/* Month nav */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-dark-tertiary">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                   <button onClick={prevMonth}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                       <path d="M9 2L4 7l5 5" />
                     </svg>
                   </button>
                   <div className="text-center">
-                    <h2 className="font-bold text-white">{MONTHS[viewMonth]} {viewYear}</h2>
-                    {loadingCal && <span className="text-[10px] text-gray-600">Loading…</span>}
+                    <h2 className="font-bold text-slate-950">{MONTHS[viewMonth]} {viewYear}</h2>
+                    {loadingCal && <span className="text-[10px] text-slate-400">Loading…</span>}
                   </div>
                   <button onClick={nextMonth}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-950 hover:bg-slate-100 transition-all">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                       <path d="M5 2l5 5-5 5" />
                     </svg>
@@ -701,9 +701,9 @@ function CalendarPageInner() {
                 </div>
 
                 {/* Day headers */}
-                <div className="grid grid-cols-7 border-b border-dark-tertiary">
+                <div className="grid grid-cols-7 border-b border-slate-100">
                   {DAYS.map(d => (
-                    <div key={d} className="py-2 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">
+                    <div key={d} className="py-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">
                       {d}
                     </div>
                   ))}
@@ -712,7 +712,7 @@ function CalendarPageInner() {
                 {/* Days grid */}
                 <div className="grid grid-cols-7">
                   {Array.from({ length: firstDay }).map((_, i) => (
-                    <div key={`empty-${i}`} className="h-20 border-b border-r border-[#161622]" />
+                    <div key={`empty-${i}`} className="h-20 border-b border-r border-slate-100" />
                   ))}
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day      = i + 1
@@ -723,10 +723,10 @@ function CalendarPageInner() {
                       <div
                         key={day}
                         onClick={() => setSelectedDay(isSelected ? null : day)}
-                        className={`h-20 border-b border-r border-[#161622] p-1.5 cursor-pointer transition-all
-                          ${isSelected ? 'bg-accent/8' : 'hover:bg-white/2'}`}>
+                        className={`h-20 border-b border-r border-slate-100 p-1.5 cursor-pointer transition-all
+                          ${isSelected ? 'bg-orange-50' : 'hover:bg-slate-50'}`}>
                         <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold mb-1
-                          ${isToday ? 'bg-accent text-white' : isSelected ? 'text-accent' : 'text-gray-500'}`}>
+                          ${isToday ? 'bg-accent text-white' : isSelected ? 'text-accent' : 'text-slate-400'}`}>
                           {day}
                         </div>
                         <div className="space-y-0.5">
@@ -751,7 +751,7 @@ function CalendarPageInner() {
                             )
                           })}
                           {dayPosts.length > 2 && (
-                            <div className="text-[9px] text-gray-600">+{dayPosts.length - 2} more</div>
+                            <div className="text-[9px] text-slate-400">+{dayPosts.length - 2} more</div>
                           )}
                         </div>
                       </div>
@@ -765,9 +765,9 @@ function CalendarPageInner() {
 
                 {/* Selected day detail */}
                 {selectedDay ? (
-                  <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-5">
+                  <div className="rounded-2xl p-5" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-bold text-white">{MONTHS[viewMonth]} {selectedDay}</h3>
+                      <h3 className="font-bold text-slate-950">{MONTHS[viewMonth]} {selectedDay}</h3>
                       <Link href="/campaigns/new"
                         className="text-xs px-3 py-1.5 rounded-lg border border-accent/30 text-accent hover:bg-accent/10 transition-all">
                         + Add
@@ -776,7 +776,7 @@ function CalendarPageInner() {
                     {selectedDayPosts.length === 0 ? (
                       <div className="text-center py-6">
                         <div className="text-2xl mb-2">📅</div>
-                        <p className="text-sm text-gray-500">{calT?.emptyDay as string || 'No posts scheduled'}</p>
+                        <p className="text-sm text-slate-500">{calT?.emptyDay as string || 'No posts scheduled'}</p>
                         <Link href="/campaigns/new"
                           className="inline-block mt-3 text-xs text-accent hover:underline">
                           {calT?.btnNewCampaign as string || 'Create campaign'}
@@ -790,13 +790,13 @@ function CalendarPageInner() {
                           const isAiPlanned = post.source === 'campaign_ai_output'
                           return (
                             <div key={post.id}
-                              className="p-3 rounded-xl bg-dark border transition-all"
+                              className="p-3 rounded-xl bg-white transition-all"
                               style={{
-                                borderColor: isPublished
-                                  ? 'rgba(16,185,129,0.25)'
+                                border: isPublished
+                                  ? '1px solid rgba(16,185,129,0.3)'
                                   : isScheduled
-                                    ? 'rgba(52,211,153,0.20)'
-                                    : '#1e1e2e',
+                                    ? '1px solid rgba(52,211,153,0.3)'
+                                    : '1px solid rgba(15,23,42,0.08)',
                               }}>
                               {/* Header row */}
                               <div className="flex items-center gap-2 mb-2">
@@ -822,22 +822,22 @@ function CalendarPageInner() {
                                   </span>
                                 )}
                                 {!isPublished && !isScheduled && !isAiPlanned && (
-                                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
+                                  <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
                                     {post.type}
                                   </span>
                                 )}
                               </div>
 
                               {/* Content */}
-                              <p className="text-sm font-semibold text-white leading-snug mb-1">{post.topic}</p>
+                              <p className="text-sm font-semibold text-slate-950 leading-snug mb-1">{post.topic}</p>
 
                               {post.hook && (
-                                <p className="text-[11px] text-gray-400 italic leading-relaxed mb-1">
+                                <p className="text-[11px] text-slate-500 italic leading-relaxed mb-1">
                                   &ldquo;{post.hook}&rdquo;
                                 </p>
                               )}
                               {post.caption && !isScheduled && !isPublished && (
-                                <p className="text-[11px] text-gray-500 leading-relaxed mb-1 line-clamp-2">
+                                <p className="text-[11px] text-slate-500 leading-relaxed mb-1 line-clamp-2">
                                   {post.caption}
                                 </p>
                               )}
@@ -845,12 +845,12 @@ function CalendarPageInner() {
                                 <p className="text-[11px] text-accent font-medium">CTA: {post.cta}</p>
                               )}
                               {post.visualNote && (
-                                <p className="text-[10px] text-purple-400/70 mt-1">🎨 {post.visualNote}</p>
+                                <p className="text-[10px] text-purple-600 mt-1">🎨 {post.visualNote}</p>
                               )}
 
                               {/* Scheduled time */}
                               {(isScheduled || isPublished) && post.scheduledAt && (
-                                <p className="text-[10px] text-gray-500 mt-1">
+                                <p className="text-[10px] text-slate-500 mt-1">
                                   🕐 {new Date(post.scheduledAt).toLocaleTimeString(
                                     locale === 'ar' ? 'ar-SA' : 'en-US',
                                     { hour: '2-digit', minute: '2-digit' }
@@ -859,8 +859,8 @@ function CalendarPageInner() {
                               )}
 
                               {/* Footer */}
-                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-dark-tertiary">
-                                <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                              <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
                                   <span className="w-2 h-2 rounded-full inline-block flex-shrink-0"
                                     style={{ background: isPublished ? '#10b981' : isScheduled ? '#34d399' : post.campaignColor }} />
                                   <span className="truncate max-w-[100px]">{post.campaignName}</span>
@@ -879,9 +879,9 @@ function CalendarPageInner() {
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-5">
-                    <h3 className="font-bold text-white mb-1">Select a day</h3>
-                    <p className="text-sm text-gray-500">
+                  <div className="rounded-2xl p-5" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <h3 className="font-bold text-slate-950 mb-1">Select a day</h3>
+                    <p className="text-sm text-slate-500">
                       Click any day to see your AI-planned content. Each coloured pill is a post from a campaign.
                     </p>
                   </div>
@@ -889,8 +889,8 @@ function CalendarPageInner() {
 
                 {/* Campaign legend */}
                 {campaigns.length > 0 && (
-                  <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-5">
-                    <h3 className="font-bold text-white mb-4 text-sm">Campaigns</h3>
+                  <div className="rounded-2xl p-5" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <h3 className="font-bold text-slate-950 mb-4 text-sm">Campaigns</h3>
                     <div className="space-y-2">
                       {campaigns.slice(0, 6).map((c, i) => {
                         const color = CAMPAIGN_COLORS[i % CAMPAIGN_COLORS.length]
@@ -899,25 +899,25 @@ function CalendarPageInner() {
                           <Link key={c.id} href={`/campaigns/${c.id}`}
                             className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
                             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color.dot }} />
-                            <span className="text-xs text-gray-300 truncate flex-1 group-hover:text-white transition-colors">
+                            <span className="text-xs text-slate-600 truncate flex-1 group-hover:text-slate-950 transition-colors">
                               {c.title || c.name || 'Campaign'}
                             </span>
-                            <span className="text-[10px] text-gray-600 flex-shrink-0">{count} posts</span>
+                            <span className="text-[10px] text-slate-400 flex-shrink-0">{count} posts</span>
                           </Link>
                         )
                       })}
                       {campaigns.length > 6 && (
-                        <p className="text-[10px] text-gray-600 pt-1">+{campaigns.length - 6} more campaigns</p>
+                        <p className="text-[10px] text-slate-400 pt-1">+{campaigns.length - 6} more campaigns</p>
                       )}
                     </div>
                   </div>
                 )}
 
                 {/* Platform breakdown */}
-                <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-5">
-                  <h3 className="font-bold text-white mb-4 text-sm">{calT?.platformBreakdown as string || 'Platform Breakdown'}</h3>
+                <div className="rounded-2xl p-5" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
+                  <h3 className="font-bold text-slate-950 mb-4 text-sm">{calT?.platformBreakdown as string || 'Platform Breakdown'}</h3>
                   {monthPosts.length === 0 ? (
-                    <p className="text-sm text-gray-500">{calT?.emptyMonth as string || 'No posts this month'}</p>
+                    <p className="text-sm text-slate-500">{calT?.emptyMonth as string || 'No posts this month'}</p>
                   ) : (
                     <div className="space-y-3">
                       {Object.entries(platformBreakdown)
@@ -927,12 +927,12 @@ function CalendarPageInner() {
                             <span className="text-sm">{PLATFORM_ICONS_CAL[platform] || '📱'}</span>
                             <div className="flex-1">
                               <div className="flex justify-between text-xs mb-1">
-                                <span className="text-gray-300">{platform}</span>
+                                <span className="text-slate-700">{platform}</span>
                                 <span className="font-bold" style={{ color: PLATFORM_COLORS[platform] || '#FF9500' }}>
                                   {count}
                                 </span>
                               </div>
-                              <div className="h-1 rounded-full bg-dark-tertiary">
+                              <div className="h-1 rounded-full bg-slate-100">
                                 <div className="h-full rounded-full transition-all"
                                   style={{
                                     width: `${(count / monthPosts.length) * 100}%`,
@@ -947,14 +947,14 @@ function CalendarPageInner() {
                 </div>
 
                 {/* PULSE insight */}
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-5">
+                <div className="rounded-2xl p-5" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm">⚡</span>
-                    <div className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    <div className="text-xs font-bold uppercase tracking-wider text-amber-700">
                       {calT?.pulseLabel as string || 'PULSE Insight'}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-300 leading-relaxed">
+                  <p className="text-sm text-slate-700 leading-relaxed">
                     {monthPosts.length === 0
                       ? calT?.pulseEmpty as string || 'No posts scheduled yet. Create a campaign to start filling your calendar.'
                       : monthPosts.length < 12
@@ -984,31 +984,32 @@ function CalendarPageInner() {
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-8">
               {[
-                { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-accent'     },
-                { label: scT?.statPublished as string || 'Published', value: published.length, color: 'text-green-400'  },
-                { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-400'    },
+                { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
+                { label: scT?.statPublished as string || 'Published', value: published.length, color: 'text-green-700'   },
+                { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
               ].map(s => (
-                <div key={s.label} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-4">
+                <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className={`text-3xl font-black ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
                 </div>
               ))}
             </div>
 
             {/* No integrations warning */}
             {!loadingQueue && integrations.length === 0 && (
-              <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/5 p-6 mb-6 flex items-center gap-4">
+              <div className="rounded-2xl p-6 mb-6 flex items-center gap-4" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}>
                 <span className="text-2xl">⚠️</span>
                 <div>
-                  <div className="font-semibold text-yellow-300 mb-1">
+                  <div className="font-semibold text-yellow-700 mb-1">
                     {scT?.noIntegrationsTitle as string || 'No social accounts connected'}
                   </div>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-slate-600">
                     {scT?.noIntegrationsDesc as string || 'Connect your social accounts in Settings to start scheduling posts.'}
                   </p>
                 </div>
                 <Link href="/settings"
-                  className={`${isRTL ? 'mr-auto' : 'ml-auto'} shrink-0 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-sm font-semibold rounded-lg hover:bg-yellow-500/20 transition-all`}>
+                  className={`${isRTL ? 'mr-auto' : 'ml-auto'} shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-all`}
+                  style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', color: '#92400e' }}>
                   {scT?.btnConnectAccount as string || 'Connect Account'}
                 </Link>
               </div>
@@ -1017,22 +1018,22 @@ function CalendarPageInner() {
             {/* Queued posts */}
             {scheduled.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
                   {scT?.sectionScheduled as string || 'Scheduled'}
                 </h2>
                 <div className="space-y-3">
                   {scheduled.map(post => (
-                    <div key={post.id} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5 flex items-start gap-4">
+                    <div key={post.id} className="rounded-xl bg-white p-5 flex items-start gap-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                       <div className="text-2xl shrink-0">{PLATFORM_ICONS_SCH[post.platform] || '📱'}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-bold text-gray-400">{post.pageName || post.platform}</span>
+                          <span className="text-xs font-bold text-slate-500">{post.pageName || post.platform}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${STATUS_STYLES[post.status]}`}>
                             {post.status.toLowerCase()}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-300 mb-2 line-clamp-2">{post.caption}</p>
-                        <div className="flex items-center gap-3 text-xs text-gray-600">
+                        <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-400">
                           <span>🕐 {formatDate(post.scheduledAt)}</span>
                           <span className="text-accent font-medium">
                             {(scT?.postIn as string)?.replace('{time}', timeUntil(post.scheduledAt)) || `Posts in ${timeUntil(post.scheduledAt)}`}
@@ -1042,7 +1043,8 @@ function CalendarPageInner() {
                       <button
                         onClick={() => handleDelete(post.id)}
                         disabled={deletingId === post.id}
-                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-dark-tertiary text-gray-600 hover:text-red-400 hover:border-red-400/30 transition-all disabled:opacity-40">
+                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-40 text-slate-500 hover:text-red-500"
+                        style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
                         {deletingId === post.id ? '...' : scT?.btnCancel as string || 'Cancel'}
                       </button>
                     </div>
@@ -1054,22 +1056,22 @@ function CalendarPageInner() {
             {/* Published posts */}
             {published.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
                   {scT?.sectionPublished as string || 'Published'}
                 </h2>
                 <div className="space-y-3">
                   {published.slice(0, 5).map(post => (
-                    <div key={post.id} className="rounded-xl border border-dark-tertiary bg-dark-secondary p-5 flex items-start gap-4">
+                    <div key={post.id} className="rounded-xl bg-white p-5 flex items-start gap-4" style={{ border: '1px solid rgba(16,185,129,0.2)' }}>
                       <div className="text-2xl shrink-0">{PLATFORM_ICONS_SCH[post.platform] || '📱'}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-bold text-gray-400">{post.pageName || post.platform}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-500/15 text-green-400">
+                          <span className="text-xs font-bold text-slate-500">{post.pageName || post.platform}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-50 text-green-700 border border-green-200">
                             {scT?.statusPublished as string || 'Published'}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-300 mb-2 line-clamp-2">{post.caption}</p>
-                        <div className="flex items-center gap-3 text-xs text-gray-600">
+                        <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-400">
                           <span>✅ {post.publishedAt ? formatDate(post.publishedAt) : (scT?.statusPublished as string || 'Published')}</span>
                           {post.platformUrl && (
                             <a href={post.platformUrl} target="_blank" rel="noopener noreferrer"
@@ -1088,27 +1090,28 @@ function CalendarPageInner() {
             {/* Failed posts */}
             {failed.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-3">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
                   {scT?.sectionFailed as string || 'Failed'}
                 </h2>
                 <div className="space-y-3">
                   {failed.map(post => (
-                    <div key={post.id} className="rounded-xl border border-red-500/20 bg-red-500/5 p-5 flex items-start gap-4">
+                    <div key={post.id} className="rounded-xl p-5 flex items-start gap-4" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.2)' }}>
                       <div className="text-2xl shrink-0">{PLATFORM_ICONS_SCH[post.platform] || '📱'}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <span className="text-xs font-bold text-gray-400">{post.pageName}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-red-500/15 text-red-400">
+                          <span className="text-xs font-bold text-slate-500">{post.pageName}</span>
+                          <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-red-50 text-red-600 border border-red-200">
                             {scT?.statusFailed as string || 'Failed'}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-300 mb-1 line-clamp-2">{post.caption}</p>
+                        <p className="text-sm text-slate-700 mb-1 line-clamp-2">{post.caption}</p>
                         {post.errorMessage && (
-                          <p className="text-xs text-red-400">{post.errorMessage}</p>
+                          <p className="text-xs text-red-500">{post.errorMessage}</p>
                         )}
                       </div>
                       <button onClick={() => handleDelete(post.id)}
-                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-dark-tertiary text-gray-600 hover:text-red-400 transition-all">
+                        className="shrink-0 text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-red-500 transition-all"
+                        style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
                         {scT?.btnDismiss as string || 'Dismiss'}
                       </button>
                     </div>
@@ -1119,10 +1122,10 @@ function CalendarPageInner() {
 
             {/* Empty state */}
             {!loadingQueue && posts.length === 0 && (
-              <div className="rounded-2xl border border-dark-tertiary bg-dark-secondary p-12 text-center">
+              <div className="rounded-2xl p-12 text-center bg-white" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                 <div className="text-4xl mb-4">📤</div>
-                <h2 className="font-bold text-white mb-2">{scT?.emptyTitle as string || 'No scheduled posts'}</h2>
-                <p className="text-sm text-gray-500 mb-6">
+                <h2 className="font-bold text-slate-950 mb-2">{scT?.emptyTitle as string || 'No scheduled posts'}</h2>
+                <p className="text-sm text-slate-500 mb-6">
                   {scT?.emptyDesc as string || 'Schedule posts to your connected social accounts and they\'ll appear here.'}
                 </p>
                 <button onClick={() => setShowModal(true)}
@@ -1133,11 +1136,11 @@ function CalendarPageInner() {
             )}
 
             {/* AI tip */}
-            <div className="rounded-2xl border border-accent/20 bg-accent/5 p-5 mt-6">
-              <div className="text-xs font-bold uppercase tracking-wider text-accent mb-2">
+            <div className="rounded-2xl p-5 mt-6" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)' }}>
+              <div className="text-xs font-bold uppercase tracking-wider text-amber-700 mb-2">
                 {scT?.tipTitle as string || 'Pro Tip'}
               </div>
-              <p className="text-sm text-gray-300 leading-relaxed">
+              <p className="text-sm text-slate-700 leading-relaxed">
                 {scT?.tipDesc as string || 'Use the Strategy Timeline tab to plan content with AI, then schedule directly from your campaign\'s Content Hub.'}
               </p>
               <button
@@ -1155,21 +1158,21 @@ function CalendarPageInner() {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
-          <div className="w-full max-w-lg rounded-2xl border border-dark-tertiary bg-dark overflow-hidden"
+          style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}>
+          <div className="w-full max-w-lg rounded-2xl bg-white overflow-hidden"
             dir={dir}
-            style={{ boxShadow: '0 0 80px rgba(0,0,0,0.5)' }}>
+            style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 24px 48px rgba(15,23,42,0.12)' }}>
 
-            <div className="flex items-center justify-between px-6 py-4 border-b border-dark-tertiary">
-              <h2 className="font-bold text-white">{scT?.modalTitle as string || 'Schedule a Post'}</h2>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h2 className="font-bold text-slate-950">{scT?.modalTitle as string || 'Schedule a Post'}</h2>
               <button onClick={() => setShowModal(false)}
-                className="text-gray-600 hover:text-white transition-all text-xl">×</button>
+                className="text-slate-400 hover:text-slate-950 transition-all text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">×</button>
             </div>
 
             <div className="p-6 space-y-5">
               {/* Caption */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
                   {scT?.modalCaptionLabel as string || 'Caption'}
                 </label>
                 <textarea
@@ -1177,21 +1180,22 @@ function CalendarPageInner() {
                   onChange={e => setCaption(e.target.value)}
                   placeholder={scT?.modalCaptionPlaceholder as string || 'Write your post caption…'}
                   rows={4}
-                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 placeholder-slate-400 text-sm focus:outline-none transition-all resize-none"
+                  style={{ border: '1px solid rgba(15,23,42,0.1)' }}
                   autoFocus
                 />
-                <div className="text-xs text-gray-600 mt-1 text-left">{caption.length}/2200</div>
+                <div className="text-xs text-slate-400 mt-1 text-left">{caption.length}/2200</div>
               </div>
 
               {/* Account */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
                   {scT?.modalAccountLabel as string || 'Account'}
                 </label>
                 {integrations.length === 0 ? (
-                  <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/20 text-sm text-yellow-400">
+                  <div className="p-3 rounded-xl text-sm text-yellow-700" style={{ background: 'rgba(234,179,8,0.06)', border: '1px solid rgba(234,179,8,0.2)' }}>
                     {scT?.modalNoAccounts as string || 'No accounts connected.'}{' '}
-                    <Link href="/settings" className="underline">
+                    <Link href="/settings" className="underline font-medium">
                       {scT?.modalConnectLink as string || 'Connect one'}
                     </Link>
                   </div>
@@ -1199,7 +1203,8 @@ function CalendarPageInner() {
                   <select
                     value={selectedIntegration}
                     onChange={e => { setSelectedIntegration(e.target.value); setSelectedPage('') }}
-                    className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all">
+                    className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 text-sm focus:outline-none transition-all"
+                    style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
                     <option value="">{scT?.modalAccountPlaceholder as string || 'Select account…'}</option>
                     {integrations.map(i => (
                       <option key={i.id} value={i.id}>{i.accountName || i.platform}</option>
@@ -1211,7 +1216,7 @@ function CalendarPageInner() {
               {/* Page / Profile */}
               {selectedIntegration && getPages(selectedIntegration).length > 0 && (
                 <div>
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
                     {scT?.modalPageLabel as string || 'Page / Profile'}
                   </label>
                   <select
@@ -1223,7 +1228,8 @@ function CalendarPageInner() {
                       setSelectedPageName(page?.name || '')
                       setSelectedPlatform(page?.type === 'instagram' ? 'INSTAGRAM' : 'FACEBOOK')
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all">
+                    className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 text-sm focus:outline-none transition-all"
+                    style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
                     <option value="">{scT?.modalPagePlaceholder as string || 'Select page…'}</option>
                     {getPages(selectedIntegration).map((p: any) => (
                       <option key={p.id} value={p.id}>{p.name} ({p.type || 'facebook'})</option>
@@ -1234,7 +1240,7 @@ function CalendarPageInner() {
 
               {/* Date/Time */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
                   {scT?.modalDateLabel as string || 'Schedule Date & Time'}
                 </label>
                 <input
@@ -1242,15 +1248,16 @@ function CalendarPageInner() {
                   value={scheduledAt}
                   min={minDateTime}
                   onChange={e => setScheduledAt(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white text-sm focus:outline-none focus:border-accent/50 transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 text-sm focus:outline-none transition-all"
+                  style={{ border: '1px solid rgba(15,23,42,0.1)' }}
                 />
               </div>
 
               {/* Image URL */}
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 block">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 block">
                   {scT?.modalImageLabel as string || 'Image URL'}{' '}
-                  <span className="text-gray-700 normal-case font-normal">
+                  <span className="text-slate-400 normal-case font-normal">
                     {scT?.modalImageOptional as string || '(optional)'}
                   </span>
                 </label>
@@ -1259,14 +1266,16 @@ function CalendarPageInner() {
                   value={imageUrl}
                   onChange={e => setImageUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-4 py-3 rounded-xl bg-dark-secondary border border-dark-tertiary text-white placeholder-gray-600 text-sm focus:outline-none focus:border-accent/50 transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-[#f5f5f7] text-slate-950 placeholder-slate-400 text-sm focus:outline-none transition-all"
+                  style={{ border: '1px solid rgba(15,23,42,0.1)' }}
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 px-6 py-4 border-t border-dark-tertiary">
+            <div className="flex gap-3 px-6 py-4 border-t border-slate-100">
               <button onClick={() => setShowModal(false)}
-                className="flex-1 py-3 border border-dark-tertiary text-gray-400 hover:text-white rounded-xl text-sm font-medium transition-all">
+                className="flex-1 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-950 hover:bg-slate-50 transition-all"
+                style={{ border: '1px solid rgba(15,23,42,0.1)' }}>
                 {scT?.btnCancel as string || 'Cancel'}
               </button>
               <button

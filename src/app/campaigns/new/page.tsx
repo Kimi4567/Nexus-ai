@@ -455,42 +455,38 @@ function NewCampaignPageInner() {
 
     return (
       <AppShell>
-        <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center px-4">
           <div className="text-center max-w-md">
             <div className="relative w-24 h-24 mx-auto mb-8">
               <div className="absolute inset-0 rounded-full animate-ping"
-                style={{ background: isContent ? 'rgba(99,102,241,0.15)' : 'rgba(139,92,246,0.15)' }} />
+                style={{ background: isContent ? 'rgba(109,40,217,0.1)' : 'rgba(109,40,217,0.1)' }} />
               <div className="absolute inset-2 rounded-full animate-pulse"
-                style={{ background: isContent ? 'rgba(99,102,241,0.2)' : 'rgba(139,92,246,0.2)' }} />
+                style={{ background: isContent ? 'rgba(109,40,217,0.15)' : 'rgba(109,40,217,0.15)' }} />
               <div className="relative w-full h-full rounded-full flex items-center justify-center"
                 style={{
-                  background: isContent
-                    ? 'linear-gradient(135deg,#6366f1,#4f46e5)'
-                    : 'linear-gradient(135deg,#8B5CF6,#6366f1)',
-                  boxShadow: isContent
-                    ? '0 0 40px rgba(99,102,241,0.4)'
-                    : '0 0 40px rgba(139,92,246,0.4)',
+                  background: '#6d28d9',
+                  boxShadow: '0 8px 24px rgba(109,40,217,0.3)',
                 }}>
                 <Wand2 className="w-10 h-10 text-white" />
               </div>
             </div>
 
-            <h2 className="text-2xl font-bold mb-2">{headingText}</h2>
-            <p className="text-text-muted text-sm mb-8">{subText}</p>
+            <h2 className="text-2xl font-bold text-slate-950 mb-2">{headingText}</h2>
+            <p className="text-slate-500 text-sm mb-8">{subText}</p>
 
             <div className="flex items-center justify-center gap-2 mb-6">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full"
-                  style={{ background: isContent ? '#4ade80' : '#8B5CF6' }} />
-                <span className="text-xs" style={{ color: isContent ? '#4ade80' : '#8B5CF6' }}>
+                  style={{ background: isContent ? '#059669' : '#6d28d9' }} />
+                <span className="text-xs" style={{ color: isContent ? '#059669' : '#6d28d9' }}>
                   {locale === 'ar' ? 'الاستراتيجية' : 'Strategy'}
                 </span>
               </div>
-              <div className="w-8 h-px bg-gray-600" />
+              <div className="w-8 h-px bg-slate-300" />
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full"
-                  style={{ background: isContent ? '#6366f1' : 'rgba(99,102,241,0.3)' }} />
-                <span className="text-xs" style={{ color: isContent ? '#6366f1' : 'rgba(156,163,175,0.5)' }}>
+                  style={{ background: isContent ? '#6d28d9' : 'rgba(109,40,217,0.25)' }} />
+                <span className="text-xs" style={{ color: isContent ? '#6d28d9' : 'rgba(100,116,139,0.5)' }}>
                   {locale === 'ar' ? 'المحتوى' : 'Content'}
                 </span>
               </div>
@@ -501,10 +497,10 @@ function NewCampaignPageInner() {
                 <div key={`${loadingPhase}-${i}`} className="flex items-center gap-3 text-sm"
                   style={{ opacity: 0.4 + i * 0.2, animation: `fadeIn 0.5s ease ${i * 0.4}s both` }}>
                   {i === 0 && isContent
-                    ? <Check className="w-4 h-4 flex-shrink-0 text-green-400" />
-                    : <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-violet-400" />
+                    ? <Check className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                    : <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 text-violet-700" />
                   }
-                  <span className="text-text-secondary">{s}</span>
+                  <span className="text-slate-600">{s}</span>
                 </div>
               ))}
             </div>
@@ -517,29 +513,28 @@ function NewCampaignPageInner() {
   // ── Wizard ────────────────────────────────────────────────────────────────────
   return (
     <AppShell>
-      <div className="relative min-h-screen">
-        <div className="absolute inset-0 nx-bg-grid pointer-events-none opacity-30" />
-        <div className="relative max-w-3xl mx-auto px-4 py-10 page-enter">
+      <div className="min-h-screen bg-[#f5f5f7]">
+        <div className="max-w-3xl mx-auto px-4 py-10 page-enter">
           <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} reason="no_credits" />
 
           {/* ── Header ─────────────────────────────────────────────────────── */}
           <div className="flex items-center gap-3 mb-8">
             <Link href="/campaigns"
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105"
-              style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.2)' }}>
-              <ArrowLeft className="w-4 h-4 text-gray-400" />
+              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-slate-100"
+              style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.08)' }}>
+              <ArrowLeft className="w-4 h-4 text-slate-500" />
             </Link>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <Layers className="w-4 h-4 text-violet-400" />
-                <span className="text-xs text-violet-400/70 font-mono tracking-wider">
+                <Layers className="w-4 h-4 text-slate-400" />
+                <span className="text-xs text-slate-400 font-mono tracking-wider">
                   {locale === 'ar' ? 'محتوى عضوي جديد' : 'NEW ORGANIC CONTENT'}
                 </span>
               </div>
-              <h1 className="text-2xl font-bold">
+              <h1 className="text-2xl font-bold text-slate-950">
                 {locale === 'ar' ? 'ولّد محتوى المنصات' : 'Generate Platform Content'}
               </h1>
-              <p className="text-text-muted text-sm">
+              <p className="text-slate-500 text-sm">
                 {locale === 'ar' ? `الخطوة ${step} من ${totalSteps}` : `Step ${step} of ${totalSteps}`}
               </p>
             </div>
@@ -547,20 +542,19 @@ function NewCampaignPageInner() {
 
           {/* ── Brief banner — shown when arriving from Marketing Operating Brief */}
           {fromBrief && !briefBannerDismissed && (
-            <div className="rounded-2xl overflow-hidden mb-6"
-              style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
-              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+            <div className="rounded-2xl mb-6"
+              style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
               <div className="p-4 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
-                    <Sparkles className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                    style={{ background: '#ede9fe', border: '1px solid rgba(109,40,217,0.15)' }}>
+                    <Sparkles className="w-4 h-4 text-violet-700" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold mb-0.5" style={{ color: '#C4B5FD' }}>
+                    <p className="text-sm font-bold text-violet-800 mb-0.5">
                       {locale === 'ar' ? 'NEXUS يقترح إطلاق أول حملة' : 'NEXUS recommends launching your first campaign'}
                     </p>
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                    <p className="text-xs text-slate-500 leading-relaxed">
                       {locale === 'ar'
                         ? 'Brand Brain جاهز — أنشئ خطة محتوى الآن لتحريك منظومتك التسويقية.'
                         : 'Brand Brain is ready — create a content plan now to activate your marketing system.'}
@@ -569,8 +563,7 @@ function NewCampaignPageInner() {
                 </div>
                 <button
                   onClick={() => setBriefBannerDismissed(true)}
-                  className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:opacity-70"
-                  style={{ color: 'var(--nx-text-3)' }}>
+                  className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all text-slate-400 hover:text-slate-950">
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -586,31 +579,31 @@ function NewCampaignPageInner() {
               return (
                 <div key={s.num} className="flex items-center gap-1 flex-1 min-w-0">
                   <div className={`flex items-center justify-center w-9 h-9 rounded-xl transition-all flex-shrink-0 ${
-                    done ? 'text-white' : active ? 'text-black' : 'text-text-muted'
+                    done ? '' : active ? 'text-white' : 'text-slate-400'
                   }`} style={{
                     background: done
-                      ? 'rgba(16,185,129,0.15)'
+                      ? 'rgba(5,150,105,0.08)'
                       : active
-                      ? 'linear-gradient(135deg,#8B5CF6,#6366f1)'
-                      : 'rgba(255,255,255,0.04)',
+                      ? '#6d28d9'
+                      : '#f1f5f9',
                     border: done
-                      ? '1px solid rgba(16,185,129,0.3)'
+                      ? '1px solid rgba(5,150,105,0.2)'
                       : active
                       ? 'none'
-                      : '1px solid rgba(255,255,255,0.08)',
+                      : '1px solid rgba(15,23,42,0.08)',
                   }}>
                     {done
-                      ? <Check className="w-4 h-4 text-emerald-400" />
+                      ? <Check className="w-4 h-4 text-emerald-600" />
                       : <Icon className="w-4 h-4" />}
                   </div>
                   <span className={`text-xs hidden sm:block font-medium truncate ${
-                    active ? 'text-white' : done ? 'text-emerald-400' : 'text-text-muted'
+                    active ? 'text-slate-950' : done ? 'text-emerald-600' : 'text-slate-400'
                   }`}>
                     {s.label}
                   </span>
                   {s.num < totalSteps && (
                     <div className="flex-1 h-px mx-1" style={{
-                      background: done ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)',
+                      background: done ? 'rgba(5,150,105,0.4)' : 'rgba(15,23,42,0.08)',
                       minWidth: '8px',
                     }} />
                   )}
@@ -621,20 +614,19 @@ function NewCampaignPageInner() {
 
           {/* ── Card ────────────────────────────────────────────────────────── */}
           <div className="rounded-2xl p-6" style={{
-            background: 'rgba(12,13,36,0.6)',
-            border: '1px solid rgba(139,92,246,0.15)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            background: '#fff',
+            border: '1px solid rgba(15,23,42,0.08)',
+            boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
           }}>
 
             {/* ── Step 1: Content Info ──────────────────────────────────────── */}
             {step === 1 && (
               <div className="space-y-5">
                 <div>
-                  <h3 className="font-bold text-lg mb-0.5">
+                  <h3 className="font-bold text-lg text-slate-950 mb-0.5">
                     {locale === 'ar' ? 'معلومات المحتوى' : 'Content Info'}
                   </h3>
-                  <p className="text-text-muted text-sm">
+                  <p className="text-slate-500 text-sm">
                     {locale === 'ar'
                       ? 'حدد الاسم والهدف والنبرة وتركيز المحتوى'
                       : 'Define your content name, goal, tone, and focus'}
@@ -646,15 +638,15 @@ function NewCampaignPageInner() {
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-sm font-medium">
                       {locale === 'ar' ? 'اسم المشروع' : 'Project Name'}{' '}
-                      <span className="text-red-400">*</span>
+                      <span className="text-red-500">*</span>
                     </label>
                     <button type="button" onClick={() => handleSuggest('name')}
                       disabled={suggesting === 'name'}
                       className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all hover:scale-105"
                       style={{
-                        background: 'rgba(139,92,246,0.12)',
-                        border: '1px solid rgba(139,92,246,0.25)',
-                        color: '#a78bfa',
+                        background: '#ede9fe',
+                        border: '1px solid rgba(109,40,217,0.2)',
+                        color: '#6d28d9',
                       }}>
                       {suggesting === 'name'
                         ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -669,16 +661,16 @@ function NewCampaignPageInner() {
                     className="input-nexus" autoFocus />
                   {suggestion?.field === 'name' && (
                     <div className="mt-2 p-3 rounded-xl text-sm"
-                      style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                      <p className="text-violet-300 font-medium mb-2">✨ {suggestion.text}</p>
+                      style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
+                      <p className="text-violet-700 font-medium mb-2">✨ {suggestion.text}</p>
                       <div className="flex gap-2">
                         <button onClick={acceptSuggestion}
                           className="text-xs px-3 py-1 rounded-lg font-semibold"
-                          style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                          style={{ background: '#ede9fe', color: '#6d28d9', border: '1px solid rgba(109,40,217,0.2)' }}>
                           {locale === 'ar' ? 'استخدم هذا' : 'Use this'}
                         </button>
                         <button onClick={() => setSuggestion(null)}
-                          className="text-xs px-3 py-1 rounded-lg text-gray-500 hover:text-gray-400">
+                          className="text-xs px-3 py-1 rounded-lg text-slate-400 hover:text-slate-950">
                           {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
                         </button>
                       </div>
@@ -710,7 +702,7 @@ function NewCampaignPageInner() {
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     {locale === 'ar' ? 'تركيز المحتوى' : 'Content Focus'}
-                    <span className="text-text-muted font-normal ms-1 text-xs">
+                    <span className="text-slate-500 font-normal ms-1 text-xs">
                       {locale === 'ar' ? '— ما الهدف الأساسي؟' : '— What is the primary focus?'}
                     </span>
                   </label>
@@ -722,24 +714,24 @@ function NewCampaignPageInner() {
                         <button key={opt.value} type="button" onClick={() => setContentFocus(opt.value)}
                           className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
                           style={{
-                            background: isActive ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
+                            background: isActive ? '#faf5ff' : '#f8fafc',
                             border: isActive
-                              ? '1px solid rgba(139,92,246,0.4)'
-                              : '1px solid rgba(255,255,255,0.08)',
+                              ? '1px solid rgba(109,40,217,0.3)'
+                              : '1px solid rgba(15,23,42,0.08)',
                           }}>
                           <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: isActive ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)' }}>
+                            style={{ background: isActive ? '#ede9fe' : '#f1f5f9' }}>
                             <FocusIcon className="w-4 h-4"
-                              style={{ color: isActive ? '#a78bfa' : '#6B7280' }} />
+                              style={{ color: isActive ? '#6d28d9' : '#6B7280' }} />
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-medium"
-                              style={{ color: isActive ? '#a78bfa' : '#E5E7EB' }}>
+                              style={{ color: isActive ? '#6d28d9' : '#334155' }}>
                               {opt.label}
                             </p>
-                            <p className="text-xs text-text-muted truncate">{opt.desc}</p>
+                            <p className="text-xs text-slate-500 truncate">{opt.desc}</p>
                           </div>
-                          {isActive && <Check className="w-4 h-4 text-violet-400 flex-shrink-0 ms-auto" />}
+                          {isActive && <Check className="w-4 h-4 text-violet-700 flex-shrink-0 ms-auto" />}
                         </button>
                       )
                     })}
@@ -752,10 +744,10 @@ function NewCampaignPageInner() {
             {step === 2 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-bold text-lg mb-0.5">
+                  <h3 className="font-bold text-lg text-slate-950 mb-0.5">
                     {locale === 'ar' ? 'المنصات والحصة الشهرية' : 'Platforms & Monthly Quota'}
                   </h3>
-                  <p className="text-text-muted text-sm">
+                  <p className="text-slate-500 text-sm">
                     {locale === 'ar'
                       ? 'اختار المنصات — NEXUS هيوزّع البوستات تلقائياً'
                       : 'Choose your platforms — NEXUS will distribute posts automatically'}
@@ -764,24 +756,24 @@ function NewCampaignPageInner() {
 
                 {/* Plan Quota Banner */}
                 <div className="rounded-xl p-4" style={{
-                  background: isFreePlan ? 'rgba(249,115,22,0.06)' : 'rgba(99,102,241,0.06)',
-                  border: `1px solid ${isFreePlan ? 'rgba(249,115,22,0.25)' : 'rgba(99,102,241,0.25)'}`,
+                  background: isFreePlan ? 'rgba(249,115,22,0.06)' : '#f5f3ff',
+                  border: `1px solid ${isFreePlan ? 'rgba(249,115,22,0.25)' : 'rgba(109,40,217,0.2)'}`,
                 }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center"
                         style={{
-                          background: isFreePlan ? 'rgba(249,115,22,0.15)' : 'rgba(99,102,241,0.15)',
+                          background: isFreePlan ? 'rgba(249,115,22,0.15)' : '#ede9fe',
                         }}>
                         <BarChart3 className="w-4 h-4"
-                          style={{ color: isFreePlan ? '#F97316' : '#818CF8' }} />
+                          style={{ color: isFreePlan ? '#F97316' : '#6d28d9' }} />
                       </div>
                       <div>
                         <p className="text-sm font-bold"
-                          style={{ color: isFreePlan ? '#F97316' : '#818CF8' }}>
+                          style={{ color: isFreePlan ? '#F97316' : '#6d28d9' }}>
                           {locale === 'ar' ? `باقة ${planDisplayName}` : `${planDisplayName} Plan`}
                         </p>
-                        <p className="text-xs text-text-muted">
+                        <p className="text-xs text-slate-500">
                           {locale === 'ar'
                             ? `حصتك: ${planPostQuota} بوست / شهر`
                             : `Your quota: ${planPostQuota} posts / month`}
@@ -816,28 +808,28 @@ function NewCampaignPageInner() {
                     <button key={p} type="button" onClick={() => togglePlatform(p)}
                       className={`p-4 rounded-xl border text-sm font-medium transition-all ${
                         platforms.includes(p)
-                          ? 'border-amber bg-amber/10 text-amber'
-                          : 'border-white/10 hover:border-white/20 text-text-secondary'
+                          ? 'border-orange-400 bg-orange-50 text-orange-600'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-600'
                       }`}>
                       {p}
                     </button>
                   ))}
                 </div>
                 {platforms.length === 0 && (
-                  <p className="text-red-400 text-xs">{cnT?.platformRequired as string}</p>
+                  <p className="text-red-600 text-xs">{cnT?.platformRequired as string}</p>
                 )}
 
                 {/* Post distribution preview */}
                 {platforms.length > 0 && (
                   <div className="rounded-xl p-4" style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: '#f8fafc',
+                    border: '1px solid rgba(15,23,42,0.08)',
                   }}>
-                    <p className="text-xs text-text-muted mb-1.5">
+                    <p className="text-xs text-slate-500 mb-1.5">
                       {locale === 'ar' ? '📊 توزيع البوستات الشهرية:' : '📊 Monthly post distribution:'}
                     </p>
-                    <p className="text-sm font-semibold text-white">{postDistribution}</p>
-                    <p className="text-xs text-text-muted mt-1">
+                    <p className="text-sm font-semibold text-slate-950">{postDistribution}</p>
+                    <p className="text-xs text-slate-500 mt-1">
                       {locale === 'ar'
                         ? `الإجمالي: ${planPostQuota} بوست على ${platforms.length} منصة`
                         : `Total: ${planPostQuota} posts across ${platforms.length} platform${platforms.length > 1 ? 's' : ''}`}
@@ -851,8 +843,8 @@ function NewCampaignPageInner() {
             {step === 3 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-bold text-lg mb-0.5">{cnT?.step3Heading as string}</h3>
-                  <p className="text-text-muted text-sm">
+                  <h3 className="font-bold text-lg text-slate-950 mb-0.5">{cnT?.step3Heading as string}</h3>
+                  <p className="text-slate-500 text-sm">
                     {locale === 'ar'
                       ? 'صف الجمهور المستهدف — NEXUS هيبني المحتوى حوليه'
                       : 'Describe your target audience — NEXUS will tailor content around them'}
@@ -865,9 +857,9 @@ function NewCampaignPageInner() {
                       disabled={suggesting === 'audience'}
                       className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg transition-all hover:scale-105"
                       style={{
-                        background: 'rgba(139,92,246,0.12)',
-                        border: '1px solid rgba(139,92,246,0.25)',
-                        color: '#a78bfa',
+                        background: '#ede9fe',
+                        border: '1px solid rgba(109,40,217,0.2)',
+                        color: '#6d28d9',
                       }}>
                       {suggesting === 'audience'
                         ? <Loader2 className="w-3 h-3 animate-spin" />
@@ -880,22 +872,22 @@ function NewCampaignPageInner() {
                     rows={5} className="input-nexus resize-none" autoFocus />
                   {suggestion?.field === 'audience' && (
                     <div className="mt-2 p-3 rounded-xl text-sm"
-                      style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                      <p className="text-violet-300 mb-2">{suggestion.text}</p>
+                      style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.15)' }}>
+                      <p className="text-violet-700 mb-2">{suggestion.text}</p>
                       <div className="flex gap-2">
                         <button onClick={acceptSuggestion}
                           className="text-xs px-3 py-1 rounded-lg font-semibold"
-                          style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                          style={{ background: '#ede9fe', color: '#6d28d9', border: '1px solid rgba(109,40,217,0.2)' }}>
                           {locale === 'ar' ? 'استخدم هذا' : 'Use this'}
                         </button>
                         <button onClick={() => setSuggestion(null)}
-                          className="text-xs px-3 py-1 rounded-lg text-gray-500 hover:text-gray-400">
+                          className="text-xs px-3 py-1 rounded-lg text-slate-400 hover:text-slate-950">
                           {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
                         </button>
                       </div>
                     </div>
                   )}
-                  <p className="text-text-muted text-xs mt-1.5">{cnT?.audienceHint as string}</p>
+                  <p className="text-slate-500 text-xs mt-1.5">{cnT?.audienceHint as string}</p>
                 </div>
               </div>
             )}
@@ -904,10 +896,10 @@ function NewCampaignPageInner() {
             {step === 4 && (
               <div className="space-y-5">
                 <div>
-                  <h3 className="font-bold text-lg mb-0.5">
+                  <h3 className="font-bold text-lg text-slate-950 mb-0.5">
                     {locale === 'ar' ? 'إعدادات المحتوى' : 'Content Settings'}
                   </h3>
-                  <p className="text-text-muted text-sm">
+                  <p className="text-slate-500 text-sm">
                     {locale === 'ar'
                       ? 'حدد لغة المحتوى ومزيج أنواعه'
                       : 'Define your content language and type mix'}
@@ -917,7 +909,7 @@ function NewCampaignPageInner() {
                 {/* Language picker */}
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    <Globe className="w-3.5 h-3.5 inline me-1.5 text-violet-400" />
+                    <Globe className="w-3.5 h-3.5 inline me-1.5 text-slate-400" />
                     {locale === 'ar' ? 'لغة المحتوى' : 'Content Language'}
                   </label>
                   <div className="flex gap-2">
@@ -930,12 +922,12 @@ function NewCampaignPageInner() {
                         className="flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl text-sm font-medium transition-all"
                         style={{
                           background: contentLanguage === opt.value
-                            ? 'rgba(139,92,246,0.12)'
-                            : 'rgba(255,255,255,0.03)',
+                            ? '#faf5ff'
+                            : '#f8fafc',
                           border: contentLanguage === opt.value
-                            ? '1px solid rgba(139,92,246,0.4)'
-                            : '1px solid rgba(255,255,255,0.08)',
-                          color: contentLanguage === opt.value ? '#a78bfa' : '#9CA3AF',
+                            ? '1px solid rgba(109,40,217,0.3)'
+                            : '1px solid rgba(15,23,42,0.08)',
+                          color: contentLanguage === opt.value ? '#6d28d9' : '#64748b',
                         }}>
                         <span className="text-xl">{opt.flag}</span>
                         <span>{opt.label}</span>
@@ -947,7 +939,7 @@ function NewCampaignPageInner() {
                 {/* Content Mix */}
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    <BarChart3 className="w-3.5 h-3.5 inline me-1.5 text-violet-400" />
+                    <BarChart3 className="w-3.5 h-3.5 inline me-1.5 text-slate-400" />
                     {locale === 'ar' ? 'مزيج المحتوى' : 'Content Mix'}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -957,17 +949,17 @@ function NewCampaignPageInner() {
                         <button key={preset.id} type="button" onClick={() => setMixPreset(preset.id)}
                           className="p-3 rounded-xl text-left transition-all"
                           style={{
-                            background: isSelected ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
+                            background: isSelected ? '#faf5ff' : '#f8fafc',
                             border: isSelected
-                              ? '1px solid rgba(139,92,246,0.4)'
-                              : '1px solid rgba(255,255,255,0.08)',
+                              ? '1px solid rgba(109,40,217,0.4)'
+                              : '1px solid rgba(15,23,42,0.08)',
                           }}>
                           <div className="flex items-center justify-between mb-2">
                             <p className="text-sm font-medium"
-                              style={{ color: isSelected ? '#a78bfa' : '#E5E7EB' }}>
+                              style={{ color: isSelected ? '#6d28d9' : '#334155' }}>
                               {locale === 'ar' ? preset.label.ar : preset.label.en}
                             </p>
-                            {isSelected && <Check className="w-3.5 h-3.5 text-violet-400" />}
+                            {isSelected && <Check className="w-3.5 h-3.5 text-violet-700" />}
                           </div>
                           {/* Mini bar chart */}
                           <div className="flex gap-1 items-end h-6">
@@ -984,7 +976,7 @@ function NewCampaignPageInner() {
                               background: '#10B981',
                             }} />
                           </div>
-                          <div className="flex gap-2 mt-1.5 text-[10px] text-text-muted flex-wrap">
+                          <div className="flex gap-2 mt-1.5 text-[10px] text-slate-500 flex-wrap">
                             <span style={{ color: '#818CF8' }}>📚 {preset.educational}%</span>
                             <span style={{ color: '#FB923C' }}>📢 {preset.promotional}%</span>
                             <span style={{ color: '#34D399' }}>💬 {preset.engagement}%</span>
@@ -993,7 +985,7 @@ function NewCampaignPageInner() {
                       )
                     })}
                   </div>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-text-muted">
+                  <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
                     <span><span style={{ color: '#818CF8' }}>■</span> {locale === 'ar' ? 'تعليمي' : 'Educational'}</span>
                     <span><span style={{ color: '#FB923C' }}>■</span> {locale === 'ar' ? 'ترويجي' : 'Promotional'}</span>
                     <span><span style={{ color: '#34D399' }}>■</span> {locale === 'ar' ? 'تفاعلي' : 'Engagement'}</span>
@@ -1004,22 +996,22 @@ function NewCampaignPageInner() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium">
-                      <Library className="w-3.5 h-3.5 inline me-1.5 text-violet-400" />
+                      <Library className="w-3.5 h-3.5 inline me-1.5 text-slate-400" />
                       {locale === 'ar' ? 'استخدم صورك وفيديوهاتك' : 'Use Your Media Assets'}
                     </label>
                     <div className="flex items-center gap-2">
                       {selectedMediaIds.length > 0 && (
                         <span className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }}>
+                          style={{ background: '#ede9fe', color: '#6d28d9', border: '1px solid rgba(109,40,217,0.2)' }}>
                           {selectedMediaIds.length} {locale === 'ar' ? 'محدد' : 'selected'}
                         </span>
                       )}
                       {/* Inline upload button — always visible */}
                       <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all"
                         style={{
-                          background: 'rgba(139,92,246,0.12)',
-                          border: '1px solid rgba(139,92,246,0.35)',
-                          color: '#a78bfa',
+                          background: '#ede9fe',
+                          border: '1px solid rgba(109,40,217,0.2)',
+                          color: '#6d28d9',
                           opacity: inlineUploading ? 0.6 : 1,
                           pointerEvents: inlineUploading ? 'none' : 'auto',
                         }}>
@@ -1037,7 +1029,7 @@ function NewCampaignPageInner() {
                       </label>
                     </div>
                   </div>
-                  <p className="text-xs text-text-muted mb-3">
+                  <p className="text-xs text-slate-500 mb-3">
                     {locale === 'ar'
                       ? 'اختر أو ارفع صورًا وفيديوهات — سيحللها الـ AI ويوظفها في البوستات'
                       : 'Select or upload images & videos — AI will analyze and assign them to posts'}
@@ -1046,7 +1038,7 @@ function NewCampaignPageInner() {
                   {/* Inline upload error */}
                   {inlineUploadError && (
                     <div className="flex items-center gap-2 mb-3 rounded-lg px-3 py-2 text-xs"
-                      style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
+                      style={{ background: '#fef2f2', border: '1px solid rgba(239,68,68,0.15)', color: '#dc2626' }}>
                       <X className="w-3 h-3 flex-shrink-0" />
                       {inlineUploadError}
                       <button className="ms-auto text-xs opacity-60 hover:opacity-100" onClick={() => setInlineUploadError(null)}>✕</button>
@@ -1054,14 +1046,14 @@ function NewCampaignPageInner() {
                   )}
 
                   {loadingMedia ? (
-                    <div className="flex items-center gap-2 text-xs text-text-muted py-4">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 py-4">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       {locale === 'ar' ? 'جاري تحميل الميديا...' : 'Loading media...'}
                     </div>
                   ) : mediaItems.length === 0 ? (
                     /* Empty state — inline upload drop zone */
                     <label className="flex flex-col items-center gap-3 rounded-xl p-6 text-center cursor-pointer transition-all"
-                      style={{ background: 'rgba(139,92,246,0.04)', border: '1px dashed rgba(139,92,246,0.25)' }}>
+                      style={{ background: '#faf5ff', border: '1px dashed rgba(109,40,217,0.25)' }}>
                       <input
                         type="file"
                         multiple
@@ -1071,22 +1063,22 @@ function NewCampaignPageInner() {
                       />
                       {inlineUploading ? (
                         <>
-                          <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-                          <p className="text-sm text-violet-300">
+                          <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
+                          <p className="text-sm text-violet-700">
                             {locale === 'ar' ? `جاري الرفع... ${inlineUploadProgress}%` : `Uploading... ${inlineUploadProgress}%`}
                           </p>
                         </>
                       ) : (
                         <>
                           <div className="w-12 h-12 rounded-full flex items-center justify-center"
-                            style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
-                            <Upload className="w-5 h-5 text-violet-400" />
+                            style={{ background: '#ede9fe', border: '1px solid rgba(109,40,217,0.2)' }}>
+                            <Upload className="w-5 h-5 text-violet-600" />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-violet-300">
+                            <p className="text-sm font-medium text-violet-700">
                               {locale === 'ar' ? 'ارفع صورًا أو فيديوهات' : 'Upload images or videos'}
                             </p>
-                            <p className="text-xs text-text-muted mt-1">
+                            <p className="text-xs text-slate-500 mt-1">
                               {locale === 'ar' ? 'اضغط هنا أو اسحب الملفات — ينفع تختار أكثر من ملف' : 'Click or drag files here — multiple files supported'}
                             </p>
                           </div>
@@ -1107,9 +1099,9 @@ function NewCampaignPageInner() {
                             style={{
                               aspectRatio: '1',
                               border: isSelected
-                                ? '2px solid rgba(139,92,246,0.8)'
-                                : '2px solid rgba(255,255,255,0.08)',
-                              boxShadow: isSelected ? '0 0 12px rgba(139,92,246,0.3)' : 'none',
+                                ? '2px solid #6d28d9'
+                                : '2px solid rgba(15,23,42,0.08)',
+                              boxShadow: isSelected ? '0 0 12px rgba(109,40,217,0.15)' : 'none',
                             }}>
                             <img
                               src={thumbUrl}
@@ -1125,7 +1117,7 @@ function NewCampaignPageInner() {
                             )}
                             {isSelected && (
                               <div className="absolute top-1 right-1">
-                                <CheckCircle2 className="w-4 h-4" style={{ color: '#a78bfa' }} />
+                                <CheckCircle2 className="w-4 h-4" style={{ color: '#6d28d9' }} />
                               </div>
                             )}
                           </button>
@@ -1135,7 +1127,7 @@ function NewCampaignPageInner() {
                   )}
 
                   {selectedMediaIds.length > 0 && (
-                    <p className="text-xs mt-2" style={{ color: '#6366f1' }}>
+                    <p className="text-xs mt-2" style={{ color: '#6d28d9' }}>
                       ✨ {locale === 'ar'
                         ? `سيحلل الـ AI الـ ${selectedMediaIds.length} أصل محددة ويوزعها على البوستات`
                         : `AI will analyze ${selectedMediaIds.length} selected asset${selectedMediaIds.length > 1 ? 's' : ''} and assign them to posts`}
@@ -1149,10 +1141,10 @@ function NewCampaignPageInner() {
             {step === 5 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-bold text-lg mb-0.5">
+                  <h3 className="font-bold text-lg text-slate-950 mb-0.5">
                     {locale === 'ar' ? 'مراجعة وتأكيد' : 'Review & Confirm'}
                   </h3>
-                  <p className="text-text-muted text-sm">
+                  <p className="text-slate-500 text-sm">
                     {locale === 'ar'
                       ? 'تأكد من التفاصيل ثم ابدأ التوليد'
                       : 'Confirm details then start generation'}
@@ -1169,7 +1161,7 @@ function NewCampaignPageInner() {
                         <p className="text-sm font-bold mb-0.5" style={{ color: '#FFB800' }}>
                           {(t('brandGate') as Record<string, string>).campaignTitle}
                         </p>
-                        <p className="text-xs text-text-muted mb-2">
+                        <p className="text-xs text-slate-500 mb-2">
                           {(t('brandGate') as Record<string, string>).campaignDesc}
                         </p>
                         <Link href="/brand"
@@ -1184,7 +1176,7 @@ function NewCampaignPageInner() {
 
                 {/* Summary table */}
                 <div className="space-y-2.5 p-4 rounded-xl"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  style={{ background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)' }}>
                   {[
                     {
                       label: locale === 'ar' ? 'الاسم' : 'Name',
@@ -1222,22 +1214,22 @@ function NewCampaignPageInner() {
                     },
                   ].map(item => (
                     <div key={item.label} className="flex justify-between gap-3">
-                      <span className="text-text-muted text-sm flex-shrink-0">{item.label}</span>
-                      <span className="font-medium text-sm text-right">{item.value}</span>
+                      <span className="text-slate-500 text-sm flex-shrink-0">{item.label}</span>
+                      <span className="font-medium text-sm text-right text-slate-950">{item.value}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Generation info card */}
                 <div className="rounded-xl p-4"
-                  style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  style={{ background: '#f5f3ff', border: '1px solid rgba(109,40,217,0.15)' }}>
                   <div className="flex items-start gap-3">
-                    <Wand2 className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
+                    <Wand2 className="w-5 h-5 text-violet-700 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="font-semibold text-indigo-300 text-sm mb-2">
+                      <p className="font-semibold text-violet-700 text-sm mb-2">
                         {locale === 'ar' ? '✨ ما سيُولَّد' : '✨ What will be generated'}
                       </p>
-                      <div className="space-y-1 text-xs text-text-muted">
+                      <div className="space-y-1 text-xs text-slate-500">
                         <p>
                           {locale === 'ar'
                             ? `📦 باقة ${planDisplayName} ← ${planPostQuota} بوست عضوي جاهز للنشر`
@@ -1259,7 +1251,7 @@ function NewCampaignPageInner() {
                 </div>
 
                 {error && (
-                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">
                     {error}
                   </div>
                 )}
@@ -1267,7 +1259,7 @@ function NewCampaignPageInner() {
             )}
 
             {/* ── Navigation ────────────────────────────────────────────────── */}
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-white/10">
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200">
               <button onClick={() => setStep(s => s - 1)} disabled={step === 1}
                 className="btn-secondary disabled:opacity-40">
                 <PrevIcon className="w-4 h-4" />

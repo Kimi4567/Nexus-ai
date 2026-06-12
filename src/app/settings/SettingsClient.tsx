@@ -37,28 +37,7 @@ interface SocialAccount {
 // after every keystroke.
 
 function NebulaOrbs() {
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
-      <div
-        className="absolute w-[500px] h-[500px] rounded-full opacity-10 blur-[100px]"
-        style={{
-          background: 'radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)',
-          top: '5%',
-          right: '10%',
-          animation: 'float 10s ease-in-out infinite',
-        }}
-      />
-      <div
-        className="absolute w-[350px] h-[350px] rounded-full opacity-8 blur-[80px]"
-        style={{
-          background: 'radial-gradient(circle, rgba(6,182,212,0.10), transparent 70%)',
-          bottom: '15%',
-          left: '5%',
-          animation: 'float 12s ease-in-out infinite reverse',
-        }}
-      />
-    </div>
-  )
+  return null
 }
 
 function GlassCard({
@@ -76,12 +55,10 @@ function GlassCard({
     <div
       className={`page-enter ${className}`}
       style={{
-        background: accent ? 'rgba(139,92,246,0.05)' : 'rgba(12,13,36,0.6)',
-        border: accent ? '1px solid rgba(139,92,246,0.2)' : '1px solid rgba(139,92,246,0.1)',
+        background: accent ? 'rgba(239,68,68,0.03)' : '#fff',
+        border: accent ? '1px solid rgba(239,68,68,0.12)' : '1px solid rgba(15,23,42,0.08)',
         borderRadius: '16px',
-        boxShadow: accent
-          ? '0 8px 32px rgba(139,92,246,0.08), inset 0 1px 0 rgba(139,92,246,0.08)'
-          : '0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(139,92,246,0.04)',
+        boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
         ...style,
       }}
     >
@@ -93,7 +70,7 @@ function GlassCard({
 function SectionBadge({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+      <div className="w-2 h-2 rounded-full" style={{ background: color }} />
       <span className="text-label" style={{ color, letterSpacing: '0.08em' }}>{label}</span>
     </div>
   )
@@ -321,10 +298,10 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020204] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-2 border-amber/20 border-t-amber animate-spin" />
-          <Sparkles className="w-6 h-6 text-amber absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+          <div className="w-16 h-16 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin" />
+          <Sparkles className="w-6 h-6 text-slate-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
         </div>
       </div>
     )
@@ -344,28 +321,17 @@ export default function SettingsPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen relative" style={{ background: '#0A0E27' }} dir={dir}>
-        {/* Background atmosphere */}
-        <NebulaOrbs />
-        <div
-          className="fixed w-[800px] h-[800px] rounded-full pointer-events-none opacity-6 blur-[150px]"
-          style={{
-            background: 'radial-gradient(circle, rgba(139,92,246,0.10), transparent 70%)',
-            top: '30%',
-            left: '-10%',
-            animation: 'float 14s ease-in-out infinite',
-          }}
-        />
+      <div className="min-h-screen bg-[#f5f5f7]" dir={dir}>
 
-        <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 page-enter">
+        <div className="max-w-5xl mx-auto px-6 py-10 page-enter">
           {/* ── Header ───────────────────────────────────────── */}
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-2">
-              <Settings className="w-4 h-4 text-amber" />
-              <span className="text-xs text-amber/70 font-mono tracking-wider">NEXUS COMMAND CENTER</span>
+              <Settings className="w-4 h-4 text-slate-400" />
+              <span className="text-xs text-slate-400 font-mono tracking-wider">NEXUS COMMAND CENTER</span>
             </div>
-            <h1 className="text-display mb-2">{t('settings.pageTitle')}</h1>
-            <p className="text-text-secondary text-sm">{t('settings.subheading')}</p>
+            <h1 className="text-3xl font-bold text-slate-950 mb-2">{t('settings.pageTitle')}</h1>
+            <p className="text-slate-500 text-sm">{t('settings.subheading')}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -380,25 +346,25 @@ export default function SettingsPage() {
                     onClick={() => setActiveSection(section.id)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                       isActive
-                        ? 'text-white'
-                        : 'text-text-muted hover:text-white hover:bg-white/3'
+                        ? 'text-slate-950'
+                        : 'text-slate-500 hover:text-slate-950 hover:bg-slate-50'
                     }`}
                     style={{
-                      background: isActive ? 'rgba(139,92,246,0.12)' : 'transparent',
-                      border: isActive ? '1px solid rgba(139,92,246,0.2)' : '1px solid transparent',
+                      background: isActive ? '#f1f5f9' : 'transparent',
+                      border: isActive ? '1px solid rgba(15,23,42,0.12)' : '1px solid transparent',
                     }}
                   >
                     <Icon className="w-4 h-4" style={{ color: isActive ? section.color : undefined }} />
                     <span className={`flex-1 ${locale === 'ar' ? 'text-right' : 'text-left'}`}>{section.label}</span>
-                    {isActive && <ChevronLeft className="w-4 h-4 text-amber" />}
+                    {isActive && <ChevronLeft className="w-4 h-4 text-slate-400" />}
                   </button>
                 )
               })}
 
-              <div className="pt-4 mt-4" style={{ borderTop: '1px solid rgba(139,92,246,0.1)' }}>
+              <div className="pt-4 mt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
                 <Link
                   href="/dashboard"
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-text-muted hover:text-white hover:bg-white/3 transition-all"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-500 hover:text-slate-950 hover:bg-slate-50 transition-all"
                 >
                   <Monitor className="w-4 h-4" />
                   <span className={`flex-1 ${locale === 'ar' ? 'text-right' : 'text-left'}`}>{t('settings.backToDashboard')}</span>
@@ -417,24 +383,24 @@ export default function SettingsPage() {
                   <GlassCard className="p-6">
                     <div className="flex items-center gap-5">
                       <div
-                        className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-amber"
+                        className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-slate-700"
                         style={{
-                          background: 'rgba(139,92,246,0.08)',
-                          border: '1px solid rgba(245,158,11,0.15)',
+                          background: '#f1f5f9',
+                          border: '1px solid rgba(15,23,42,0.08)',
                         }}
                       >
                         {(displayName || email).charAt(0).toUpperCase()}
                       </div>
                       <div className="flex-1">
-                        <h2 className="text-headline mb-1">{displayName || t('settings.user')}</h2>
-                        <p className="text-text-muted text-sm">{email}</p>
+                        <h2 className="text-xl font-bold text-slate-950 mb-1">{displayName || t('settings.user')}</h2>
+                        <p className="text-slate-500 text-sm">{email}</p>
                         <div className="flex gap-2 mt-3">
                           <span
                             className="text-[11px] px-3 py-1 rounded-full font-semibold"
                             style={{
-                              background: 'rgba(139,92,246,0.08)',
-                              color: '#f59e0b',
-                              border: '1px solid rgba(245,158,11,0.15)',
+                              background: '#fff7ed',
+                              color: '#c2410c',
+                              border: '1px solid rgba(194,65,12,0.15)',
                             }}
                           >
                             {provider === 'google' ? '🔵 Google' : t('settings.emailProvider')}
@@ -442,9 +408,9 @@ export default function SettingsPage() {
                           <span
                             className="text-[11px] px-3 py-1 rounded-full font-semibold"
                             style={{
-                              background: 'rgba(16,185,129,0.08)',
-                              color: '#10b981',
-                              border: '1px solid rgba(16,185,129,0.15)',
+                              background: 'rgba(5,150,105,0.08)',
+                              color: '#059669',
+                              border: '1px solid rgba(5,150,105,0.15)',
                             }}
                           >
                             {t('settings.freePlanLabel')}
@@ -452,14 +418,14 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6" style={{ borderTop: '1px solid rgba(139,92,246,0.08)' }}>
+                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
                       <div>
-                        <p className="text-xs text-text-muted mb-1">{t('settings.memberSince')}</p>
-                        <p className="text-sm font-semibold text-text-primary">{createdAt}</p>
+                        <p className="text-xs text-slate-400 mb-1">{t('settings.memberSince')}</p>
+                        <p className="text-sm font-semibold text-slate-950">{createdAt}</p>
                       </div>
                       <div>
-                        <p className="text-xs text-text-muted mb-1">{t('settings.userId')}</p>
-                        <p className="text-xs font-mono text-text-muted truncate">{user?.id}</p>
+                        <p className="text-xs text-slate-400 mb-1">{t('settings.userId')}</p>
+                        <p className="text-xs font-mono text-slate-400 truncate">{user?.id}</p>
                       </div>
                     </div>
                   </GlassCard>
@@ -468,11 +434,11 @@ export default function SettingsPage() {
                   <GlassCard className="p-6">
                     <SectionBadge color="#06b6d4" label={t('settings.profile') as string} />
                     <h3 className="text-lg font-bold mb-1">{t('settings.displayNameTitle')}</h3>
-                    <p className="text-text-muted text-sm mb-6">{t('settings.displayNameDesc')}</p>
+                    <p className="text-slate-500 text-sm mb-6">{t('settings.displayNameDesc')}</p>
 
                     <div className="space-y-4 max-w-md">
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">{t('settings.name')}</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.name')}</label>
                         <input
                           type="text"
                           value={displayName}
@@ -482,19 +448,19 @@ export default function SettingsPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">{t('settings.email')}</label>
+                        <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.email')}</label>
                         <input
                           type="email"
                           value={email}
                           disabled
                           className="input-nexus opacity-50 cursor-not-allowed"
                         />
-                        <p className="text-xs text-text-muted mt-1">{t('settings.emailCannotChange')}</p>
+                        <p className="text-xs text-slate-400 mt-1">{t('settings.emailCannotChange')}</p>
                       </div>
 
                       {nameSuccess && (
                         <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-                          style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)', color: '#10b981' }}>
+                          style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)', color: '#059669' }}>
                           <Check className="w-4 h-4" /> {nameSuccess}
                         </div>
                       )}
@@ -531,11 +497,11 @@ export default function SettingsPage() {
                 <GlassCard className="p-6">
                   <SectionBadge color="#f59e0b" label={t('settings.security') as string} />
                   <h3 className="text-lg font-bold mb-1">{t('settings.passwordTitle')}</h3>
-                  <p className="text-text-muted text-sm mb-6">{t('settings.passwordDesc')}</p>
+                  <p className="text-slate-500 text-sm mb-6">{t('settings.passwordDesc')}</p>
 
                   <div className="space-y-4 max-w-md">
                     <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">{t('settings.newPassword')}</label>
+                      <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.newPassword')}</label>
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
@@ -547,14 +513,14 @@ export default function SettingsPage() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-white transition"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-950 transition"
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-text-secondary mb-2">{t('settings.confirmPassword')}</label>
+                      <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.confirmPassword')}</label>
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={confirmPassword}
@@ -566,7 +532,7 @@ export default function SettingsPage() {
 
                     {passwordSuccess && (
                       <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-                        style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)', color: '#10b981' }}>
+                        style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)', color: '#059669' }}>
                         <Check className="w-4 h-4" /> {passwordSuccess}
                       </div>
                     )}
@@ -609,21 +575,21 @@ export default function SettingsPage() {
                       <span
                         className="text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wider"
                         style={{
-                          background: 'rgba(139,92,246,0.08)',
-                          color: '#f59e0b',
-                          border: '1px solid rgba(245,158,11,0.15)',
+                          background: '#fef3c7',
+                          color: '#d97706',
+                          border: '1px solid rgba(217,119,6,0.15)',
                         }}
                       >
                         {t('common.beta')}
                       </span>
                     </div>
-                    <p className="text-text-muted text-sm mb-6">{t('settings.socialPlatformsDesc')}</p>
+                    <p className="text-slate-500 text-sm mb-6">{t('settings.socialPlatformsDesc')}</p>
 
                     {socialMessage && (
                       <div className={`rounded-xl p-3 text-sm mb-4 ${
                         socialMessage.startsWith('✓')
-                          ? 'bg-emerald-500/8 border border-emerald-500/15 text-emerald-400'
-                          : 'bg-red-500/8 border border-red-500/15 text-red-400'
+                          ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                          : 'bg-red-50 border border-red-200 text-red-700'
                       }`}>
                         {socialMessage}
                       </div>
@@ -633,8 +599,8 @@ export default function SettingsPage() {
                     <div
                       className="flex items-center justify-between p-4 mb-3"
                       style={{
-                        background: 'rgba(12,13,36,0.6)',
-                        border: '1px solid rgba(139,92,246,0.1)',
+                        background: '#fff',
+                        border: '1px solid rgba(15,23,42,0.08)',
                         borderRadius: '12px',
                       }}
                     >
@@ -646,14 +612,14 @@ export default function SettingsPage() {
                           📘
                         </div>
                         <div>
-                          <div className="font-semibold text-sm text-text-primary">Meta (Facebook + Instagram)</div>
+                          <div className="font-semibold text-sm text-slate-950">Meta (Facebook + Instagram)</div>
                           {metaAccount ? (
-                            <div className="text-xs text-text-muted mt-0.5">
-                              {t('settings.connectedAs')} <span className="text-text-secondary font-medium">{metaAccount.accountName}</span>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              {t('settings.connectedAs')} <span className="text-slate-700 font-medium">{metaAccount.accountName}</span>
                               {' · '}{metaAccount.pages.length} {t('settings.pagesLabel')}
                             </div>
                           ) : (
-                            <div className="text-xs text-text-muted mt-0.5">{t('settings.notConnected')}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{t('settings.notConnected')}</div>
                           )}
                         </div>
                       </div>
@@ -687,19 +653,19 @@ export default function SettingsPage() {
                     {/* Pages list */}
                     {metaAccount?.pages.length ? (
                       <div className="mb-4">
-                        <div className="text-[11px] text-text-muted mb-2 px-1 font-semibold uppercase tracking-wider">{t('settings.connectedPages')}</div>
+                        <div className="text-[11px] text-slate-400 mb-2 px-1 font-semibold uppercase tracking-wider">{t('settings.connectedPages')}</div>
                         <div className="space-y-2">
                           {metaAccount.pages.map(page => (
                             <div
                               key={page.id}
                               className="flex items-center gap-2 px-4 py-3 rounded-xl"
                               style={{
-                                background: 'rgba(12,13,36,0.55)',
-                                border: '1px solid rgba(139,92,246,0.08)',
+                                background: '#f8fafc',
+                                border: '1px solid rgba(15,23,42,0.06)',
                               }}
                             >
                               <span className="text-sm">📄</span>
-                              <span className="text-sm text-text-secondary">{page.name}</span>
+                              <span className="text-sm text-slate-700">{page.name}</span>
                               {page.igAccountId && (
                                 <span
                                   className="text-[10px] px-2 py-0.5 rounded-md mr-auto"
@@ -722,24 +688,24 @@ export default function SettingsPage() {
                     <div
                       className="flex items-center justify-between p-4 opacity-40"
                       style={{
-                        background: 'rgba(12,13,36,0.55)',
-                        border: '1px solid rgba(139,92,246,0.08)',
+                        background: '#f8fafc',
+                        border: '1px solid rgba(15,23,42,0.06)',
                         borderRadius: '12px',
                       }}
                     >
                       <div className="flex items-center gap-3">
                         <div
                           className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                          style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.1)' }}
+                          style={{ background: '#f1f5f9', border: '1px solid rgba(15,23,42,0.08)' }}
                         >
                           🎵
                         </div>
                         <div>
-                          <div className="font-semibold text-sm text-text-primary">TikTok for Business</div>
-                          <div className="text-xs text-text-muted mt-0.5">{t('common.comingSoon')}</div>
+                          <div className="font-semibold text-sm text-slate-950">TikTok for Business</div>
+                          <div className="text-xs text-slate-400 mt-0.5">{t('common.comingSoon')}</div>
                         </div>
                       </div>
-                      <span className="text-xs text-text-muted border border-white/5 px-3 py-1.5 rounded-lg">{t('common.comingSoon')}</span>
+                      <span className="text-xs text-slate-400 border border-slate-200 px-3 py-1.5 rounded-lg">{t('common.comingSoon')}</span>
                     </div>
                   </GlassCard>
                 </>
@@ -748,35 +714,35 @@ export default function SettingsPage() {
               {/* ═══ BILLING ═══════════════════════════════════ */}
               {activeSection === 'billing' && (
                 <GlassCard className="p-6">
-                  <SectionBadge color="#8b5cf6" label={t('settings.sectionBillingNav') as string} />
-                  <h3 className="text-lg font-bold mb-1">{t('settings.billingCurrentPlan')}</h3>
-                  <p className="text-text-muted text-sm mb-6">{t('settings.billingCurrentPlanDesc')}</p>
+                  <SectionBadge color="#6d28d9" label={t('settings.sectionBillingNav') as string} />
+                  <h3 className="text-lg font-bold text-slate-950 mb-1">{t('settings.billingCurrentPlan')}</h3>
+                  <p className="text-slate-500 text-sm mb-6">{t('settings.billingCurrentPlanDesc')}</p>
 
                   {/* Plan badge */}
                   <div
                     className="flex items-center justify-between p-5 mb-4"
                     style={{
-                      background: 'rgba(139,92,246,0.04)',
-                      border: '1px solid rgba(139,92,246,0.12)',
+                      background: '#faf5ff',
+                      border: '1px solid rgba(109,40,217,0.15)',
                       borderRadius: '16px',
                     }}
                   >
                     <div className="flex items-center gap-4">
                       <div
                         className="w-12 h-12 rounded-xl flex items-center justify-center"
-                        style={{ background: 'rgba(139,92,246,0.10)', border: '1px solid rgba(139,92,246,0.2)' }}
+                        style={{ background: '#ede9fe', border: '1px solid rgba(109,40,217,0.2)' }}
                       >
-                        <Sparkles className="w-5 h-5 text-violet-400" />
+                        <Sparkles className="w-5 h-5 text-violet-700" />
                       </div>
                       <div>
-                        <div className="font-bold text-text-primary capitalize">
+                        <div className="font-bold text-slate-950 capitalize">
                           {billingStatus
                             ? (billingStatus.hasActiveSubscription
                                 ? (billingStatus.plan === 'pro' ? (locale === 'ar' ? 'برو' : 'Pro') : locale === 'ar' ? 'بيزنس' : 'Business')
                                 : (locale === 'ar' ? 'مجاني' : 'Free'))
                             : (locale === 'ar' ? 'مجاني' : 'Free')}
                         </div>
-                        <div className="text-sm text-text-muted">
+                        <div className="text-sm text-slate-500">
                           {billingStatus?.hasActiveSubscription
                             ? (locale === 'ar' ? 'اشتراك نشط — أرصدة تتجدد شهرياً' : 'Active subscription — credits renew monthly')
                             : (locale === 'ar' ? 'مجاني — 20 رصيد مرة واحدة' : 'Free — 20 one-time credits')}
@@ -786,9 +752,9 @@ export default function SettingsPage() {
                     <span
                       className="text-xs px-3 py-1 rounded-full font-semibold"
                       style={{
-                        background: billingStatus?.hasActiveSubscription ? 'rgba(16,185,129,0.08)' : 'rgba(139,92,246,0.08)',
-                        color: billingStatus?.hasActiveSubscription ? '#10b981' : '#8b5cf6',
-                        border: billingStatus?.hasActiveSubscription ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(139,92,246,0.15)',
+                        background: billingStatus?.hasActiveSubscription ? 'rgba(5,150,105,0.08)' : '#ede9fe',
+                        color: billingStatus?.hasActiveSubscription ? '#059669' : '#6d28d9',
+                        border: billingStatus?.hasActiveSubscription ? '1px solid rgba(5,150,105,0.15)' : '1px solid rgba(109,40,217,0.15)',
                       }}
                     >
                       {billingStatus?.hasActiveSubscription ? t('settings.activeStatus') : (locale === 'ar' ? 'مجاني' : 'Free')}
@@ -798,10 +764,10 @@ export default function SettingsPage() {
                   {/* Credits bar */}
                   <div className="space-y-3 mb-6">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm text-text-muted w-28 text-right">
+                      <span className="text-sm text-slate-500 w-28 text-right">
                         {locale === 'ar' ? 'الأرصدة المتبقية' : 'Credits left'}
                       </span>
-                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(12,13,36,0.6)' }}>
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
                         {(() => {
                           const rem = billingStatus?.credits?.remaining ?? 0
                           const max = billingStatus?.credits?.max ?? 20
@@ -819,7 +785,7 @@ export default function SettingsPage() {
                           )
                         })()}
                       </div>
-                      <span className="text-xs text-text-secondary w-16 text-left">
+                      <span className="text-xs text-slate-600 w-16 text-left">
                         {billingStatus
                           ? `${billingStatus.credits.remaining} / ${billingStatus.credits.max === -1 ? '∞' : billingStatus.credits.max}`
                           : '— / 20'}
@@ -840,12 +806,12 @@ export default function SettingsPage() {
               {activeSection === 'referral' && (
                 <GlassCard className="p-6">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                      <Gift className="w-5 h-5 text-violet-400" />
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#ede9fe', border: '1px solid rgba(109,40,217,0.15)' }}>
+                      <Gift className="w-5 h-5 text-violet-700" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">Refer & Earn</h3>
-                      <p className="text-text-muted text-sm">Invite friends — you both get 20 free credits</p>
+                      <h3 className="text-lg font-bold text-slate-950">Refer & Earn</h3>
+                      <p className="text-slate-500 text-sm">Invite friends — you both get 20 free credits</p>
                     </div>
                   </div>
                   <ReferralWidget />
@@ -862,8 +828,8 @@ export default function SettingsPage() {
                       <AlertTriangle className="w-5 h-5 text-red-400" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-red-400">{t('settings.dangerTitle')}</h3>
-                      <p className="text-text-muted text-sm">{t('settings.dangerDesc')}</p>
+                      <h3 className="text-lg font-bold text-red-600">{t('settings.dangerTitle')}</h3>
+                      <p className="text-slate-500 text-sm">{t('settings.dangerDesc')}</p>
                     </div>
                   </div>
 
@@ -886,14 +852,14 @@ export default function SettingsPage() {
                     <div
                       className="flex items-center justify-between p-4"
                       style={{
-                        background: 'rgba(12,13,36,0.55)',
-                        border: '1px solid rgba(139,92,246,0.08)',
+                        background: '#fff',
+                        border: '1px solid rgba(15,23,42,0.08)',
                         borderRadius: '12px',
                       }}
                     >
                       <div>
-                        <div className="font-semibold text-sm text-text-primary">{t('settings.signOutAll')}</div>
-                        <div className="text-xs text-text-muted mt-1">{t('settings.signOutAllDesc')}</div>
+                        <div className="font-semibold text-sm text-slate-950">{t('settings.signOutAll')}</div>
+                        <div className="text-xs text-slate-500 mt-1">{t('settings.signOutAllDesc')}</div>
                       </div>
                       <button
                         onClick={handleSignOut}
@@ -913,15 +879,15 @@ export default function SettingsPage() {
                     <div
                       className="p-4"
                       style={{
-                        background: 'rgba(12,13,36,0.55)',
+                        background: '#fff',
                         border: '1px solid rgba(239,68,68,0.15)',
                         borderRadius: '12px',
                       }}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-sm text-red-400">{t('settings.resetWorkspace')}</div>
-                          <div className="text-xs text-text-muted mt-1 max-w-xs">{t('settings.resetWorkspaceDesc')}</div>
+                          <div className="font-semibold text-sm text-red-600">{t('settings.resetWorkspace')}</div>
+                          <div className="text-xs text-slate-500 mt-1 max-w-xs">{t('settings.resetWorkspaceDesc')}</div>
                         </div>
                         <button
                           onClick={() => { setResetConfirmOpen(true); setResetMessage(null) }}
@@ -938,14 +904,14 @@ export default function SettingsPage() {
                           className="mt-4 p-4 rounded-xl space-y-3"
                           style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
                         >
-                          <p className="text-sm text-red-300 font-medium">{t('settings.resetWorkspaceConfirmMsg')}</p>
-                          <p className="text-xs text-text-muted">{t('settings.resetWorkspaceTypeHint')}</p>
+                          <p className="text-sm text-red-600 font-medium">{t('settings.resetWorkspaceConfirmMsg')}</p>
+                          <p className="text-xs text-slate-500">{t('settings.resetWorkspaceTypeHint')}</p>
                           <input
                             type="text"
                             value={resetConfirmInput}
                             onChange={e => setResetConfirmInput(e.target.value)}
                             placeholder={t('settings.resetWorkspacePlaceholder') as string}
-                            className="w-full px-3 py-2 text-sm rounded-lg bg-transparent text-red-300 placeholder-red-400/40 outline-none"
+                            className="w-full px-3 py-2 text-sm rounded-lg bg-transparent text-red-600 placeholder-red-400/40 outline-none"
                             style={{ border: '1px solid rgba(239,68,68,0.3)' }}
                             disabled={resetting}
                           />
@@ -953,7 +919,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => { setResetConfirmOpen(false); setResetConfirmInput('') }}
                               disabled={resetting}
-                              className="px-4 py-2 text-xs font-semibold rounded-lg text-text-muted hover:text-text-primary transition"
+                              className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-950 transition"
                             >
                               {t('common.cancel')}
                             </button>

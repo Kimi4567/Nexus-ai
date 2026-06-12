@@ -127,10 +127,9 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
 
   return (
     <div
-      className="rounded-[14px] p-4 cursor-pointer transition-all duration-200 hover:scale-[1.01]"
+      className="rounded-xl p-4 cursor-pointer transition-all duration-200 hover:shadow-md bg-white"
       style={{
-        background: 'var(--nx-surface-2)',
-        border: '1px solid rgba(139,92,246,0.1)',
+        border: '1px solid rgba(15,23,42,0.08)',
       }}
       onClick={() => router.push(`/paid-campaigns/${campaign.id}`)}
     >
@@ -142,8 +141,8 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
             <PlatformIcon platform={campaign.platform} />
           </div>
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-white truncate leading-tight">{campaign.name}</p>
-            <p className="text-[11px] text-text-muted mt-0.5">{platform.label} · {campaign.objective.replace(/_/g, ' ')}</p>
+            <p className="text-[13px] font-semibold text-slate-950 truncate leading-tight">{campaign.name}</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{platform.label} · {campaign.objective.replace(/_/g, ' ')}</p>
           </div>
         </div>
         <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
@@ -161,17 +160,17 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
           { label: 'ROAS', value: campaign.avgROAS != null ? `${campaign.avgROAS.toFixed(1)}x` : '—' },
         ].map(kpi => (
           <div key={kpi.label} className="text-center">
-            <p className="text-[13px] font-bold text-white">{kpi.value}</p>
-            <p className="text-[10px] text-text-muted">{kpi.label}</p>
+            <p className="text-[13px] font-bold text-slate-950">{kpi.value}</p>
+            <p className="text-[10px] text-slate-500">{kpi.label}</p>
           </div>
         ))}
       </div>
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-text-muted">{budget}</span>
+        <span className="text-[11px] text-slate-500">{budget}</span>
         {campaign.status === 'DRAFT' && (
-          <span className="text-[10px] text-accent-purple font-medium">Ready to launch →</span>
+          <span className="text-[10px] text-indigo-600 font-medium">Ready to launch →</span>
         )}
       </div>
     </div>
@@ -343,7 +342,7 @@ export default function PaidCampaignsPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen" style={{ background: 'var(--nx-bg)' }}>
+      <div className="min-h-screen bg-[#f5f5f7]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
           {/* Page header */}
@@ -351,21 +350,21 @@ export default function PaidCampaignsPage() {
             <div>
               <div className="flex items-center gap-2.5 mb-1">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)' }}>
+                  style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#F97316" strokeWidth="1.5">
                     <rect x="1" y="3" width="14" height="10" rx="2"/>
                     <path d="M5 8h2.5M8.5 6.5l2 1.5-2 1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <h1 className="text-[20px] font-bold text-white">
+                <h1 className="text-[20px] font-bold text-slate-950">
                   {locale === 'ar' ? 'الحملات المدفوعة' : 'Paid Campaigns'}
                 </h1>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                  style={{ background: 'rgba(249,115,22,0.15)', color: '#F97316' }}>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                  style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid rgba(249,115,22,0.2)' }}>
                   AI-POWERED
                 </span>
               </div>
-              <p className="text-text-muted text-[13px]">
+              <p className="text-slate-500 text-[13px]">
                 {locale === 'ar'
                   ? 'إدارة حملاتك الإعلانية المدفوعة عبر جميع المنصات'
                   : 'Manage paid ad campaigns across Meta, Google, TikTok and LinkedIn'}
@@ -376,8 +375,8 @@ export default function PaidCampaignsPage() {
                 <button
                   onClick={handleConnectMeta}
                   disabled={connectingMeta}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium transition-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium text-slate-600 transition-all hover:bg-white"
+                  style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}
                 >
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <circle cx="3.5" cy="8" r="2"/><circle cx="12.5" cy="3.5" r="2"/><circle cx="12.5" cy="12.5" r="2"/>
@@ -388,8 +387,8 @@ export default function PaidCampaignsPage() {
               )}
               <Link
                 href="/paid-campaigns/new"
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold text-white transition-all"
-                style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)' }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-bold text-white transition-all"
+                style={{ background: '#F97316' }}
               >
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2">
                   <path d="M8 2v12M2 8h12" strokeLinecap="round"/>
@@ -403,16 +402,16 @@ export default function PaidCampaignsPage() {
           {campaigns.length > 0 && (
             <div className="grid grid-cols-4 gap-3 mb-6">
               {[
-                { label: 'Active Campaigns', value: String(activeCount), icon: '📡', color: '#10B981' },
-                { label: 'Total Spend', value: totalSpend > 0 ? `$${totalSpend.toFixed(0)}` : '$0', icon: '💰', color: '#F97316' },
-                { label: 'Total Impressions', value: totalImpressions > 0 ? formatNum(totalImpressions) : '0', icon: '👁️', color: '#8B5CF6' },
-                { label: 'Avg ROAS', value: avgROAS ? `${avgROAS.toFixed(1)}x` : '—', icon: '📈', color: '#06B6D4' },
+                { label: 'Active Campaigns', value: String(activeCount), icon: '📡', color: '#059669' },
+                { label: 'Total Spend', value: totalSpend > 0 ? `$${totalSpend.toFixed(0)}` : '$0', icon: '💰', color: '#ea580c' },
+                { label: 'Total Impressions', value: totalImpressions > 0 ? formatNum(totalImpressions) : '0', icon: '👁️', color: '#6366f1' },
+                { label: 'Avg ROAS', value: avgROAS ? `${avgROAS.toFixed(1)}x` : '—', icon: '📈', color: '#0284c7' },
               ].map(kpi => (
-                <div key={kpi.label} className="rounded-[12px] p-3.5"
-                  style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(139,92,246,0.08)' }}>
+                <div key={kpi.label} className="rounded-xl p-3.5 bg-white"
+                  style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-base">{kpi.icon}</span>
-                    <span className="text-[11px] text-text-muted">{kpi.label}</span>
+                    <span className="text-[11px] text-slate-500">{kpi.label}</span>
                   </div>
                   <p className="text-[22px] font-bold" style={{ color: kpi.color }}>{kpi.value}</p>
                 </div>
@@ -423,10 +422,10 @@ export default function PaidCampaignsPage() {
           {/* Connected accounts pill */}
           {accounts.length > 0 && (
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-[11px] text-text-muted">Connected accounts:</span>
+              <span className="text-[11px] text-slate-500">Connected accounts:</span>
               {accounts.map(acc => (
                 <span key={acc.id} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid rgba(16,185,129,0.2)' }}>
                   <PlatformIcon platform={acc.platform} />
                   {acc.platformAccountName || acc.platform}
                 </span>
@@ -438,16 +437,16 @@ export default function PaidCampaignsPage() {
           {campaigns.length > 0 && (
             <div className="flex items-center gap-2 mb-5 flex-wrap">
               {/* Platform filter */}
-              <div className="flex items-center gap-1 p-1 rounded-xl"
-                style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(139,92,246,0.08)' }}>
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-white"
+                style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                 {['ALL', 'META', 'GOOGLE', 'TIKTOK', 'LINKEDIN'].map(p => (
                   <button
                     key={p}
                     onClick={() => setPlatformFilter(p)}
                     className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
                     style={{
-                      background: platformFilter === p ? 'rgba(249,115,22,0.15)' : 'transparent',
-                      color: platformFilter === p ? '#F97316' : 'var(--text-muted)',
+                      background: platformFilter === p ? '#f1f5f9' : 'transparent',
+                      color: platformFilter === p ? '#0f172a' : '#64748b',
                     }}
                   >
                     {p === 'ALL' ? 'All Platforms' : PLATFORMS[p as keyof typeof PLATFORMS]?.label || p}
@@ -456,16 +455,16 @@ export default function PaidCampaignsPage() {
               </div>
 
               {/* Status filter */}
-              <div className="flex items-center gap-1 p-1 rounded-xl"
-                style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(139,92,246,0.08)' }}>
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-white"
+                style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                 {['ALL', 'ACTIVE', 'DRAFT', 'PAUSED', 'COMPLETED'].map(s => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
                     className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
                     style={{
-                      background: statusFilter === s ? 'rgba(139,92,246,0.15)' : 'transparent',
-                      color: statusFilter === s ? '#8B5CF6' : 'var(--text-muted)',
+                      background: statusFilter === s ? '#f1f5f9' : 'transparent',
+                      color: statusFilter === s ? '#0f172a' : '#64748b',
                     }}
                   >
                     {s === 'ALL' ? 'All Status' : STATUS_CONFIG[s as keyof typeof STATUS_CONFIG]?.label || s}
@@ -479,8 +478,8 @@ export default function PaidCampaignsPage() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {[1, 2, 3].map(i => (
-                <div key={i} className="rounded-[14px] h-40 animate-pulse"
-                  style={{ background: 'var(--nx-surface-2)' }} />
+                <div key={i} className="rounded-xl h-40 animate-pulse bg-white"
+                  style={{ border: '1px solid rgba(15,23,42,0.08)' }} />
               ))}
             </div>
           ) : campaigns.length === 0 ? (
