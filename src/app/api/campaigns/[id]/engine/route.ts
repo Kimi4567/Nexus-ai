@@ -51,6 +51,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     console.error('[campaign-engine POST]', err)
     // Refund — a failed engine run must not charge the user (skip unlimited plans)
     if (credit.creditsUsed > 0) await refundCredits(userId, 'RUN_FULL_STRATEGY')
-    return NextResponse.json({ error: err?.message || 'NEXUS Engine failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
+    return NextResponse.json({ error: err?.message || 'NEXUS Engine failed', refunded: credit.creditsUsed > 0, stage: 'strategy' }, { status: 500 })
   }
 }
