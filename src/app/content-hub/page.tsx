@@ -91,7 +91,7 @@ export default function ContentHubPage() {
   const StatusBadge = ({ done, total, pending, failed }: { done: number; total: number; pending: number; failed: number }) => {
     if (total === 0) return (
       <span className="text-xs px-2 py-0.5 rounded-full"
-        style={{ background: 'rgba(255,255,255,0.05)', color: '#6b7280' }}>
+        style={{ background: 'rgba(15,23,42,0.05)', color: '#6b7280', border: '1px solid rgba(15,23,42,0.08)' }}>
         {isAr ? 'لا يوجد محتوى' : 'No content yet'}
       </span>
     )
@@ -104,14 +104,14 @@ export default function ContentHubPage() {
     )
     if (pending > 0) return (
       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-        style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>
+        style={{ background: 'rgba(94,92,230,0.1)', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.2)' }}>
         <Clock className="w-3 h-3" />
         {done}/{total} {isAr ? 'مكتمل' : 'done'}
       </span>
     )
     if (failed > 0) return (
       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
-        style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+        style={{ background: 'rgba(239,68,68,0.1)', color: '#DC2626', border: '1px solid rgba(239,68,68,0.2)' }}>
         <AlertCircle className="w-3 h-3" />
         {isAr ? 'فشل بعض' : 'Some failed'}
       </span>
@@ -143,7 +143,7 @@ export default function ContentHubPage() {
             </div>
             <Link href="/campaigns/new"
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105"
-              style={{ background: 'linear-gradient(135deg,#8B5CF6,#6366f1)', color: 'white', boxShadow: '0 4px 15px rgba(139,92,246,0.3)' }}>
+              style={{ background: 'linear-gradient(135deg,#5E5CE6,#6366f1)', color: 'white', boxShadow: '0 4px 15px rgba(94,92,230,0.3)' }}>
               <Plus className="w-4 h-4" />
               {isAr ? 'خطة جديدة' : 'New Content Plan'}
             </Link>
@@ -168,7 +168,7 @@ export default function ContentHubPage() {
           {!loading && !error && campaigns.length === 0 && (
             <div className="text-center py-20">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                style={{ background: 'rgba(94,92,230,0.1)', border: '1px solid rgba(94,92,230,0.2)' }}>
                 <Image className="w-8 h-8 text-violet-400" />
               </div>
               <h3 className="font-bold text-lg mb-1">{isAr ? 'لا يوجد كامبينات بعد' : 'No campaigns yet'}</h3>
@@ -177,7 +177,7 @@ export default function ContentHubPage() {
               </p>
               <Link href="/campaigns/new"
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
-                style={{ background: 'linear-gradient(135deg,#8B5CF6,#6366f1)', color: 'white' }}>
+                style={{ background: 'linear-gradient(135deg,#5E5CE6,#6366f1)', color: 'white' }}>
                 <Plus className="w-4 h-4" />
                 {isAr ? 'أنشئ كامبين' : 'Create Campaign'}
               </Link>
@@ -192,16 +192,16 @@ export default function ContentHubPage() {
                 return (
                   <button key={c.id}
                     onClick={() => router.push(`/campaigns/${c.id}/content-hub`)}
-                    className="text-left rounded-2xl p-5 transition-all hover:scale-[1.01] hover:border-violet-500/30 group"
+                    className="text-left rounded-2xl p-5 transition-all hover:scale-[1.01] group"
                     style={{
-                      background: 'rgba(12,13,36,0.7)',
-                      border: '1px solid rgba(139,92,246,0.12)',
-                      backdropFilter: 'blur(12px)',
+                      background: '#FFFFFF',
+                      border: '1px solid rgba(15,23,42,0.08)',
+                      boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
                     }}>
                     {/* Top row */}
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0 mr-2">
-                        <p className="font-bold text-sm truncate">{c.name}</p>
+                        <p className="font-bold text-sm truncate" style={{ color: 'var(--nx-text-1)' }}>{c.name}</p>
                         <p className="text-xs text-text-muted mt-0.5">
                           {c.platforms.slice(0, 3).join(' · ')}
                           {c.platforms.length > 3 && ` +${c.platforms.length - 3}`}
@@ -218,13 +218,13 @@ export default function ContentHubPage() {
                           <span>{c.donePosts}/{c.totalPosts}</span>
                         </div>
                         <div className="h-1.5 rounded-full overflow-hidden"
-                          style={{ background: 'rgba(255,255,255,0.06)' }}>
+                          style={{ background: 'rgba(15,23,42,0.08)' }}>
                           <div className="h-full rounded-full transition-all"
                             style={{
                               width: `${pct}%`,
                               background: pct === 100
                                 ? 'linear-gradient(90deg,#10b981,#059669)'
-                                : 'linear-gradient(90deg,#8B5CF6,#6366f1)',
+                                : 'linear-gradient(90deg,#5E5CE6,#6366f1)',
                             }} />
                         </div>
                       </div>
@@ -251,7 +251,7 @@ export default function ContentHubPage() {
                             )}
                           </>
                         ) : (
-                          <span className="text-violet-400/60">
+                          <span className="font-medium" style={{ color: '#5E5CE6' }}>
                             {isAr ? 'اضغط لإنشاء المحتوى' : 'Click to generate content'}
                           </span>
                         )}

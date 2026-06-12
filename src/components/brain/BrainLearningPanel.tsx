@@ -15,6 +15,18 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
+
+// Arabic display names for Brand Brain fields (keyed by proposal.field)
+const FIELD_AR: Record<string, string> = {
+  winningHooks:       'الخطافات الرابحة',
+  winningAngles:      'الزوايا الرابحة',
+  toneKeywords:       'نبرة العلامة',
+  audiencePainPoints: 'نقاط ألم الجمهور',
+  audienceDesires:    'رغبات الجمهور',
+  uniqueAdvantages:   'المزايا الفريدة',
+  strategicNotes:     'ملاحظات استراتيجية',
+}
 
 interface Proposal {
   id: string
@@ -40,6 +52,8 @@ interface BrainLearningPanelProps {
 
 export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: BrainLearningPanelProps) {
   const { authHeader } = useAuth()
+  const { locale } = useI18n()
+  const ar = locale === 'ar'
   const [proposals, setProposals]   = useState<Proposal[]>([])
   const [loading, setLoading]       = useState(true)
   const [acting, setActing]         = useState<string | null>(null) // proposalId being acted on
@@ -96,10 +110,12 @@ export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: Br
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-[var(--nx-text)]">
-            NEXUS learned {proposals.length} thing{proposals.length !== 1 ? 's' : ''} about your brand
+            {ar
+              ? `تعلّم NEXUS ${proposals.length} معلومة عن علامتك`
+              : `NEXUS learned ${proposals.length} thing${proposals.length !== 1 ? 's' : ''} about your brand`}
           </p>
           <p className="text-xs text-[var(--nx-muted)] mt-0.5">
-            Review and accept to update your Brand Brain
+            {ar ? 'راجع واقبل لتحديث ذاكرة العلامة' : 'Review and accept to update your Brand Brain'}
           </p>
         </div>
       </div>
@@ -110,6 +126,7 @@ export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: Br
           <ProposalCard
             key={proposal.id}
             proposal={proposal}
+            ar={ar}
             acting={acting === proposal.id}
             onAccept={() => act(proposal.id, 'accept')}
             onDismiss={() => act(proposal.id, 'dismiss')}
@@ -124,11 +141,13 @@ export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: Br
 
 function ProposalCard({
   proposal,
+  ar,
   acting,
   onAccept,
   onDismiss,
 }: {
   proposal: Proposal
+  ar: boolean
   acting: boolean
   onAccept: () => void
   onDismiss: () => void
@@ -138,7 +157,8 @@ function ProposalCard({
   // Format the proposed value for display
   const proposedDisplay = Array.isArray(proposal.proposed)
     ? (proposal.proposed as string[]).slice(0, 3).map((v, i) => (
-        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300 text-xs border border-violet-500/20 mr-1 mb-1">
+        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs mr-1 mb-1"
+          style={{ background: 'var(--nx-violet-dim)', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.2)' }}>
           {v}
         </span>
       ))
@@ -153,8 +173,8 @@ function ProposalCard({
       {/* Field label */}
       <div className="flex items-center gap-2 mb-2">
         <span className="text-base">{proposal.icon || '🔹'}</span>
-        <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">
-          {proposal.displayName}
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#5E5CE6' }}>
+          {ar ? (FIELD_AR[proposal.field] || proposal.displayName) : proposal.displayName}
         </span>
         <span className="ml-auto text-xs text-[var(--nx-muted)]">
           +{proposedCount} new
@@ -187,7 +207,7 @@ function ProposalCard({
           className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 hover:brightness-95"
           style={{ background: 'var(--nx-violet-dim)', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.22)' }}
         >
-          {acting ? 'Applying…' : '✓ Accept'}
+          {acting ? (ar ? 'جارٍ التطبيق…' : 'Applying…') : (ar ? '✓ قبول' : '✓ Accept')}
         </button>
         <button
           disabled={acting}

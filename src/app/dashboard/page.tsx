@@ -443,8 +443,8 @@ export default function DashboardPage() {
             locale={locale}
           />
 
-          {/* ── First-Login Welcome Banner ── */}
-          {!welcomeDismissed && (
+          {/* ── First-Login Welcome Banner — only for brand-new accounts (no campaigns yet) ── */}
+          {!welcomeDismissed && (stats?.campaigns ?? 0) === 0 && (
             <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #5E5CE6, #F97316, #10B981)' }} />
               <div className="p-5 flex items-start justify-between gap-4">
@@ -500,17 +500,20 @@ export default function DashboardPage() {
           )}
 
 
-          {/* ── Onboarding Checklist ── */}
-          <OnboardingChecklist
-            stats={stats ? {
-              campaigns: stats.campaigns,
-              publishedPostsTotal: stats.publishedPostsTotal,
-              strategiesRun: stats.campaigns,
-              contentPlans: stats.contentPostsTotal,
-            } : null}
-            brandReadiness={brandReadiness}
-            hasConnections={hasConnections}
-          />
+          {/* ── Onboarding Checklist — only for brand-new accounts; established accounts
+                rely on the Marketing Journey bar above (avoids 3 stacked progress modules) ── */}
+          {(stats?.campaigns ?? 0) === 0 && (
+            <OnboardingChecklist
+              stats={stats ? {
+                campaigns: stats.campaigns,
+                publishedPostsTotal: stats.publishedPostsTotal,
+                strategiesRun: stats.campaigns,
+                contentPlans: stats.contentPostsTotal,
+              } : null}
+              brandReadiness={brandReadiness}
+              hasConnections={hasConnections}
+            />
+          )}
 
           {/* ── Low Credits Upgrade Banner ── */}
           {stats?.lowCredits && !upgradeBannerDismissed && (
