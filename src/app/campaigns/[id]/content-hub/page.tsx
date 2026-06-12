@@ -487,6 +487,12 @@ export default function ContentHubPage() {
     const post = posts.find(p => p.id === postId)
     if (!post) return
 
+    // Cost confirmation before spending credits (failed generations are refunded).
+    if (typeof window !== 'undefined' &&
+        !window.confirm('Generate image for 3 credits? Failed generations are refunded.')) {
+      return
+    }
+
     setGeneratingImageId(postId)
     setError(null)
     try {
@@ -1560,12 +1566,13 @@ function PostCard({
           <button
             onClick={onGenerateImage}
             disabled={isGeneratingImage}
+            title="Generate image · 3 credits · failed generations are refunded"
             className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: isGeneratingImage ? '#8B5CF6' : '#5E5CE6' }}
           >
             {isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>
-              : <>🎨 Gen</>
+              : <>🎨 Img · 3 credits</>
             }
           </button>
         )}
