@@ -32,7 +32,7 @@ interface Step {
 const STEPS: Step[] = [
   { id: 'identity',    labelKey: 'brand.stepIdentityLabel',    descKey: 'brand.stepIdentityDesc',    icon: Brain,   color: '#f59e0b', fieldCheck: 'brandName'       },
   { id: 'product',     labelKey: 'brand.stepProductLabel',     descKey: 'brand.stepProductDesc',     icon: Package, color: '#06b6d4', fieldCheck: 'primaryOffer'    },
-  { id: 'audience',    labelKey: 'brand.stepAudienceLabel',    descKey: 'brand.stepAudienceDesc',    icon: Users,   color: '#8b5cf6', fieldCheck: 'targetAudience'  },
+  { id: 'audience',    labelKey: 'brand.stepAudienceLabel',    descKey: 'brand.stepAudienceDesc',    icon: Users,   color: '#5E5CE6', fieldCheck: 'targetAudience'  },
   { id: 'voice',       labelKey: 'brand.stepVoiceLabel',       descKey: 'brand.stepVoiceDesc',       icon: Mic,     color: '#10b981', fieldCheck: 'writingStyle'    },
   { id: 'platforms',   labelKey: 'brand.stepPlatformsLabel',   descKey: 'brand.stepPlatformsDesc',   icon: Globe,   color: '#ec4899', fieldCheck: 'topPlatforms'    },
   { id: 'competitors', labelKey: 'brand.stepCompetitorsLabel', descKey: 'brand.stepCompetitorsDesc', icon: Target,  color: '#f97316', fieldCheck: 'competitorNotes' },
@@ -169,7 +169,7 @@ function Field({ label, children, onSuggest, suggesting, accentColor }: {
   label: string; children: React.ReactNode;
   onSuggest?: () => void; suggesting?: boolean; accentColor?: string
 }) {
-  const accent = accentColor || '#8b5cf6'
+  const accent = accentColor || '#5E5CE6'
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
@@ -220,7 +220,7 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, accent, locale }: {
 function NxInput({ value, onChange, placeholder, textarea, accentColor }: {
   value: string; onChange: (v: string) => void; placeholder?: string; textarea?: boolean; accentColor?: string
 }) {
-  const accent = accentColor || '#8b5cf6'
+  const accent = accentColor || '#5E5CE6'
   const [focused, setFocused] = useState(false)
   const cls = "w-full px-4 py-3 rounded-xl text-sm focus:outline-none transition-all duration-200 placeholder:text-slate-400"
   const style = {
@@ -244,7 +244,7 @@ function NxInput({ value, onChange, placeholder, textarea, accentColor }: {
 function ToggleGrid({ options, selected, onChange, color }: {
   options: string[]; selected: string[]; onChange: (v: string[]) => void; color?: string
 }) {
-  const c = color || '#8b5cf6'
+  const c = color || '#5E5CE6'
   const safeSelected = Array.isArray(selected) ? selected : []
   const toggle = (v: string) => safeSelected.includes(v) ? onChange(safeSelected.filter(x => x !== v)) : onChange([...safeSelected, v])
   return (
@@ -312,7 +312,7 @@ function BrandSummaryCard({
         }}>
 
         {/* Top gradient bar */}
-        <div className="h-1" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #10b981 100%)' }}/>
+        <div className="h-1" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #5E5CE6 50%, #10b981 100%)' }}/>
 
         {/* Header */}
         <div className="p-6 pb-4">
@@ -336,11 +336,11 @@ function BrandSummaryCard({
           <div className="flex items-center gap-3 px-4 py-3 rounded-2xl mb-5"
             style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
             <div className="flex items-center gap-2 flex-1">
-              <Brain size={16} style={{ color: '#8b5cf6' }}/>
+              <Brain size={16} style={{ color: '#5E5CE6' }}/>
               <span className="text-sm font-semibold text-slate-950">Brand Brain</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-1.5 w-32 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.12)' }}>
+              <div className="h-1.5 w-32 rounded-full overflow-hidden" style={{ background: 'rgba(94,92,230,0.12)' }}>
                 <div className="h-full rounded-full transition-all duration-700"
                   style={{ width: `${score}%`, background: score >= 80 ? 'linear-gradient(90deg,#10b981,#059669)' : 'linear-gradient(90deg,#f59e0b,#d97706)' }}/>
               </div>
@@ -350,7 +350,7 @@ function BrandSummaryCard({
           </div>
 
           {/* Brand details grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {form.brandName && (
               <div className="px-4 py-3 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.18)' }}>
                 <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(245,158,11,0.5)' }}>{t('brand.summaryBrand')}</p>
@@ -365,7 +365,7 @@ function BrandSummaryCard({
             )}
             {form.targetAudience && (
               <div className="px-4 py-3 rounded-xl col-span-2" style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
-                <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(139,92,246,0.5)' }}>{t('brand.summaryAudience')}</p>
+                <p className="text-[10px] font-mono mb-1" style={{ color: 'rgba(94,92,230,0.5)' }}>{t('brand.summaryAudience')}</p>
                 <p className="text-sm font-bold text-slate-950 line-clamp-1">{form.targetAudience}</p>
               </div>
             )}
@@ -795,7 +795,7 @@ function BrandBrainInner() {
           {fromBrief && !briefBannerDismissed && (
             <div className="rounded-2xl overflow-hidden"
               style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.18)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #5E5CE6, #06b6d4)' }} />
               <div className="p-4 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
@@ -829,7 +829,7 @@ function BrandBrainInner() {
             style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
 
             {/* Gradient top bar */}
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #06b6d4 100%)' }} />
+            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #5E5CE6 50%, #06b6d4 100%)' }} />
 
             <div className="p-6">
               {/* Eyebrow */}
@@ -970,7 +970,7 @@ function BrandBrainInner() {
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
             style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #8b5cf6 100%)' }} />
+            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #5E5CE6 100%)' }} />
             <div className="p-5">
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
@@ -1092,7 +1092,7 @@ function BrandBrainInner() {
                     <button
                       onClick={() => setShowScanPreview(false)}
                       className="px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={{ background: 'rgba(139,92,246,0.08)', color: '#64748b', border: '1px solid rgba(139,92,246,0.12)' }}>
+                      style={{ background: 'rgba(94,92,230,0.08)', color: '#64748b', border: '1px solid rgba(94,92,230,0.12)' }}>
                       {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
                     </button>
                   </div>
@@ -1106,7 +1106,7 @@ function BrandBrainInner() {
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
             style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)' }} />
+            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #5E5CE6 0%, #ec4899 100%)' }} />
             <div className="p-5">
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
@@ -1254,7 +1254,7 @@ function BrandBrainInner() {
                     <button
                       onClick={() => setShowAnalyzePreview(false)}
                       className="px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={{ background: 'rgba(139,92,246,0.08)', color: '#64748b', border: '1px solid rgba(139,92,246,0.12)' }}>
+                      style={{ background: 'rgba(94,92,230,0.08)', color: '#64748b', border: '1px solid rgba(94,92,230,0.12)' }}>
                       {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
                     </button>
                   </div>
@@ -1371,7 +1371,7 @@ function BrandBrainInner() {
                         ) : (
                           <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
                             style={{ background: '#F8FAFC', border: '2px dashed rgba(15,23,42,0.12)' }}>
-                            <ImageIcon size={22} style={{ color: 'rgba(139,92,246,0.35)' }} />
+                            <ImageIcon size={22} style={{ color: 'rgba(94,92,230,0.35)' }} />
                           </div>
                         )}
                         {logoUploading && (
@@ -1667,7 +1667,7 @@ function BrandBrainInner() {
             {[
               { color:'#f59e0b', icon:Brain,     label:'NEX Studio',  descKey:'brand.nexCardDesc'      },
               { color:'#06b6d4', icon:Zap,       label:'VEX Ads',     descKey:'brand.vexCardDesc'      },
-              { color:'#8b5cf6', icon:BarChart2, label:'PULSE',       descKey:'brand.pulseCardDesc'    },
+              { color:'#5E5CE6', icon:BarChart2, label:'PULSE',       descKey:'brand.pulseCardDesc'    },
               { color:'#10b981', icon:Target,    label:'Sentinel',    descKey:'brand.sentinelCardDesc' },
             ].map((c,i) => (
               <div key={i} className="rounded-xl p-4 transition-all duration-200"

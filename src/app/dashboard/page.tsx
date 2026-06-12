@@ -133,7 +133,7 @@ const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
 const ALERT_BG = {
   critical: { bg: 'rgba(244,63,94,0.06)',  border: 'rgba(244,63,94,0.2)' },
   warning:  { bg: 'rgba(234,179,8,0.06)',  border: 'rgba(234,179,8,0.2)' },
-  info:     { bg: 'rgba(139,92,246,0.06)', border: 'rgba(139,92,246,0.2)' },
+  info:     { bg: 'rgba(94,92,230,0.06)', border: 'rgba(94,92,230,0.2)' },
   success:  { bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.2)' },
 }
 
@@ -348,8 +348,8 @@ export default function DashboardPage() {
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="text-center">
             <div className="w-12 h-12 mx-auto mb-3 relative">
-              <div className="absolute inset-0 rounded-full border-2 border-[rgba(139,92,246,0.2)] border-t-[#8B5CF6] animate-spin" />
-              <Sparkles className="w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: '#8B5CF6' }} />
+              <div className="absolute inset-0 rounded-full border-2 border-[rgba(94,92,230,0.2)] border-t-[#5E5CE6] animate-spin" />
+              <Sparkles className="w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: '#5E5CE6' }} />
             </div>
             <p className="text-[13px]" style={{ color: 'var(--nx-text-3)' }}>{t('common.loading')}</p>
           </div>
@@ -394,12 +394,12 @@ export default function DashboardPage() {
                 onClick={() => load(true)}
                 className="p-2.5 rounded-xl transition-all"
                 style={{
-                  background: 'rgba(139,92,246,0.06)',
-                  border: '1px solid rgba(139,92,246,0.15)',
+                  background: 'rgba(94,92,230,0.06)',
+                  border: '1px solid rgba(94,92,230,0.15)',
                   color: 'var(--nx-text-3)',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(139,92,246,0.35)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-1)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(139,92,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-3)' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(94,92,230,0.35)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-1)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(94,92,230,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-3)' }}
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
@@ -436,11 +436,11 @@ export default function DashboardPage() {
           {/* ── First-Login Welcome Banner ── */}
           {!welcomeDismissed && (
             <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
-              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8B5CF6, #F97316, #10B981)' }} />
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #5E5CE6, #F97316, #10B981)' }} />
               <div className="p-5 flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
                   <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl"
-                    style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                    style={{ background: 'rgba(94,92,230,0.08)', border: '1px solid rgba(94,92,230,0.15)' }}>
                     🚀
                   </div>
                   <div className="flex-1 min-w-0">
@@ -543,7 +543,7 @@ export default function DashboardPage() {
               label={t('dashboard.statCampaignLabel')}
               value={stats?.campaigns ?? 0}
               sub={`${stats?.activeCampaigns ?? 0} ${t('dashboard.thisMonth')}`}
-              accentColor="#8B5CF6"
+              accentColor="#5E5CE6"
               icon={<Target className="w-3.5 h-3.5" />}
             />
 
@@ -602,8 +602,8 @@ export default function DashboardPage() {
           {/* ── Growth Insight Bar ── */}
           {stats && stats.campaigns > 0 && (
             <div className="rounded-xl px-4 py-3 flex items-center gap-3"
-              style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.1)' }}>
-              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#8B5CF6' }} />
+              style={{ background: 'rgba(94,92,230,0.04)', border: '1px solid rgba(94,92,230,0.1)' }}>
+              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#5E5CE6' }} />
               <p className="text-[11px]" style={{ color: 'var(--nx-text-4)' }}>
                 {ar
                   ? `${stats.campaigns} حملة · ${stats.totalGenerations} توليد AI · ${stats.publishedPostsTotal} منشور منشور — الرحلة من الفكرة للنشر كاملة`
@@ -643,7 +643,7 @@ export default function DashboardPage() {
           {intelligence && (
             <div className="rounded-2xl overflow-hidden"
               style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 12px 36px rgba(15,23,42,0.08)' }}>
-              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #06b6d4, #8b5cf6, #10b981)' }} />
+              <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #06b6d4, #5E5CE6, #10b981)' }} />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-4 flex-wrap mb-5">
                   <div className="flex items-start gap-4 flex-1 min-w-[240px]">
@@ -675,14 +675,14 @@ export default function DashboardPage() {
                     </div>
                     <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
                       <div className="h-full rounded-full transition-all duration-700"
-                        style={{ width: `${intelligence.maturityScore}%`, background: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' }} />
+                        style={{ width: `${intelligence.maturityScore}%`, background: 'linear-gradient(90deg, #06B6D4, #5E5CE6)' }} />
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                   <div className="xl:col-span-1 rounded-xl p-4"
-                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.14)' }}>
+                    style={{ background: 'rgba(94,92,230,0.06)', border: '1px solid rgba(94,92,230,0.14)' }}>
                     <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#5E5CE6' }}>
                       {ar ? 'الخطوة التالية' : 'Next best action'}
                     </p>
@@ -818,7 +818,7 @@ export default function DashboardPage() {
             <NexusGlassCard className="lg:col-span-2" padding="lg">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Rocket className="w-4 h-4" style={{ color: '#8B5CF6' }} />
+                  <Rocket className="w-4 h-4" style={{ color: '#5E5CE6' }} />
                   <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{t('dashboard.campaignsTitle')}</h3>
                 </div>
                 <Link
@@ -835,8 +835,8 @@ export default function DashboardPage() {
               {campaigns.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-                    style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
-                    <Plus className="w-6 h-6" style={{ color: 'rgba(139,92,246,0.4)' }} />
+                    style={{ background: 'rgba(94,92,230,0.06)', border: '1px solid rgba(94,92,230,0.12)' }}>
+                    <Plus className="w-6 h-6" style={{ color: 'rgba(94,92,230,0.4)' }} />
                   </div>
                   <p className="text-sm font-semibold mb-1" style={{ color: 'var(--nx-text-2)' }}>{t('dashboard.noCampaigns')}</p>
                   <p className="text-xs mb-5 max-w-[200px] mx-auto" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.noCampaignsDesc')}</p>
@@ -856,7 +856,7 @@ export default function DashboardPage() {
                         onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
                       >
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
-                          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                          style={{ background: 'rgba(94,92,230,0.08)', border: '1px solid rgba(94,92,230,0.12)' }}>
                           {c.thumbnail || '🎯'}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -900,7 +900,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-2.5">
                     {insights.map(ins => {
-                      const colors = { high: '#8B5CF6', medium: '#10B981', low: '#06B6D4' }
+                      const colors = { high: '#5E5CE6', medium: '#10B981', low: '#06B6D4' }
                       const c = colors[ins.priority]
                       return (
                         <div key={ins.id} className="rounded-xl p-3" style={{ background: `${c}06`, border: `1px solid ${c}18` }}>
@@ -965,7 +965,7 @@ export default function DashboardPage() {
           {/* ── Quick Access ── */}
           <div className="rounded-2xl p-4" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />
+              <Zap className="w-3.5 h-3.5" style={{ color: '#5E5CE6' }} />
               <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
                 {t('dashboard.quickAccess')}
               </p>
@@ -973,7 +973,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               {[
                 // BETA: links to hidden pages (/studio, /vex, /sentinel) removed.
-                { key: 'dashboard.quickNewCampaign',  href: '/campaigns/new', color: '#8B5CF6' },
+                { key: 'dashboard.quickNewCampaign',  href: '/campaigns/new', color: '#5E5CE6' },
                 { key: 'dashboard.quickAnalytics',    href: '/analytics',     color: '#10B981' },
                 { key: 'dashboard.quickConnect',      href: '/connections',   color: '#10B981' },
               ].map(qa => (

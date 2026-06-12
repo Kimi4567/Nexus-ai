@@ -1041,7 +1041,7 @@ export default function ContentHubPage() {
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-4 gap-3 mb-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                   <div className="rounded-xl p-3 text-center"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <div className="text-2xl font-bold text-slate-950">{approveResult.approved}</div>
@@ -1245,7 +1245,7 @@ export default function ContentHubPage() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-3 max-h-80 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-80 overflow-y-auto">
                   {mediaLibrary
                     .filter(m => ['image', 'IMAGE', 'logo', 'LOGO'].includes(m.type))
                     .map(m => (
@@ -1391,7 +1391,7 @@ function PostCard({
 
   const statusColor = {
     PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
-    FAILED: '#ef4444', AWAITING_UPLOAD: '#8b5cf6', SKIPPED: '#6b7280',
+    FAILED: '#ef4444', AWAITING_UPLOAD: '#5E5CE6', SKIPPED: '#6b7280',
   }[status] ?? '#6b7280'
 
   const statusLabel = {
@@ -1568,7 +1568,7 @@ function PostCard({
             disabled={isGeneratingImage}
             title="Generate image · 3 credits · failed generations are refunded"
             className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
-            style={{ borderColor: 'rgba(15,23,42,0.08)', color: isGeneratingImage ? '#8B5CF6' : '#5E5CE6' }}
+            style={{ borderColor: 'rgba(15,23,42,0.08)', color: isGeneratingImage ? '#5E5CE6' : '#5E5CE6' }}
           >
             {isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>

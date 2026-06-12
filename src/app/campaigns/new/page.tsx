@@ -679,7 +679,7 @@ function NewCampaignPageInner() {
                 </div>
 
                 {/* Goal + Tone */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1.5">{cnT?.goalLabel as string}</label>
                     <select value={goal} onChange={e => setGoal(e.target.value)} className="input-nexus">
@@ -942,7 +942,7 @@ function NewCampaignPageInner() {
                     <BarChart3 className="w-3.5 h-3.5 inline me-1.5 text-slate-400" />
                     {locale === 'ar' ? 'مزيج المحتوى' : 'Content Mix'}
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {CONTENT_MIX_PRESETS.map(preset => {
                       const isSelected = mixPreset === preset.id
                       return (

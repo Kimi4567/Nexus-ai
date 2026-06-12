@@ -23,8 +23,10 @@ const VARIANTS: Record<Variant, string> = {
   primary: 'nx-btn-primary',
   orange:  'nx-btn-orange',
   ghost:   'nx-btn-ghost',
-  subtle:  'bg-white/5 text-nx-text-2 hover:bg-white/10 hover:text-nx-text-1 border border-white/8 rounded-xl transition-all',
-  danger:  'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 rounded-xl transition-all',
+  // Light-theme corrected: the old values (bg-white/5, border-white/8) were dark-theme
+  // remnants that rendered nearly invisible on the light canvas.
+  subtle:  'bg-slate-100 text-nx-text-2 hover:bg-slate-200 hover:text-nx-text-1 border border-nx-border rounded-xl transition-all',
+  danger:  'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 hover:border-red-300 rounded-xl transition-all',
 }
 
 const SIZES: Record<Size, string> = {

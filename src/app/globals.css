@@ -29,6 +29,10 @@
     --nx-orange:      #D97706;
     --nx-orange-dim:  rgba(217, 119, 6, 0.08);
 
+    /* ── Semantic warning (single source of truth) ── */
+    --nx-warning:     #F59E0B;
+    --nx-warning-dim: rgba(245, 158, 11, 0.10);
+
     /* ── Text ── */
     --nx-text-1: #111827;
     --nx-text-2: #4B5563;
@@ -229,7 +233,7 @@
   }
   .nx-metric-card:hover::before { opacity: 1; }
   .nx-metric-card:hover {
-    border-color: rgba(139,92,246,0.3);
+    border-color: rgba(94,92,230,0.3);
     box-shadow: var(--shadow-card-hover);
   }
 
@@ -304,8 +308,8 @@
     transition: all 0.2s ease;
   }
   .nx-workflow-step.active {
-    border-color: rgba(139,92,246,0.4);
-    background: rgba(139,92,246,0.06);
+    border-color: rgba(94,92,230,0.4);
+    background: rgba(94,92,230,0.06);
     box-shadow: 0 8px 20px rgba(94,92,230,0.08);
   }
   .nx-workflow-step.completed {
@@ -395,7 +399,7 @@
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
   }
   .input-nexus:focus {
-    border-color: rgba(139,92,246,0.5);
+    border-color: rgba(94,92,230,0.5);
     box-shadow: 0 0 0 3px rgba(94,92,230,0.10);
   }
   .input-nexus::placeholder { color: var(--nx-text-3); }
@@ -425,6 +429,11 @@
   .text-amber    { color: #D97706; }
   .bg-amber      { background-color: #D97706; }
   .border-amber  { border-color: #D97706; }
+  /* Semantic warning — one source of truth (#F59E0B) */
+  .text-warning   { color: var(--nx-warning); }
+  .bg-warning     { background-color: var(--nx-warning); }
+  .bg-warning-dim { background-color: var(--nx-warning-dim); }
+  .border-warning { border-color: var(--nx-warning); }
   .text-text-primary   { color: var(--nx-text-1); }
   .text-text-secondary { color: var(--nx-text-2); }
   .text-text-muted     { color: var(--nx-text-3); }
