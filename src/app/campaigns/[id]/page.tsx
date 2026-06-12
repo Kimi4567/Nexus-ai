@@ -670,7 +670,7 @@ function CampaignDetailPageInner() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-5xl mb-4">😕</div>
-            <h2 className="text-xl font-bold mb-2 text-white">{cdT?.notFoundTitle}</h2>
+            <h2 className="text-xl font-bold mb-2 text-slate-900">{cdT?.notFoundTitle}</h2>
             <Link href="/campaigns" className="text-accent hover:text-accent-light transition text-sm">{cdT?.notFoundBack}</Link>
           </div>
         </div>
@@ -744,7 +744,7 @@ function CampaignDetailPageInner() {
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
     return (
-      <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.1)' }}>
+      <div className="rounded-2xl p-8 text-center" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
         <div className="text-3xl mb-3">{icon}</div>
         <p className="text-sm" style={{ color: 'var(--nx-text-4)' }}>{message}</p>
       </div>
@@ -780,8 +780,8 @@ function CampaignDetailPageInner() {
     }
     return {
       key: platform || 'GENERAL', label: platform || 'General', icon: '🌐', accent: '#a78bfa',
-      bg: 'rgba(139,92,246,0.08)',
-      border: 'rgba(139,92,246,0.2)',
+      bg: 'rgba(94,92,230,0.08)',
+      border: 'rgba(94,92,230,0.2)',
     }
   }
 
@@ -854,11 +854,11 @@ function CampaignDetailPageInner() {
       <div className="max-w-5xl mx-auto px-6 py-8 page-enter">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link href="/dashboard" className="hover:text-white transition">{cdT?.breadcrumbHome}</Link>
+          <Link href="/dashboard" className="hover:text-slate-900 transition">{cdT?.breadcrumbHome}</Link>
           <span>/</span>
-          <Link href="/campaigns" className="hover:text-white transition">{cdT?.breadcrumbCampaigns}</Link>
+          <Link href="/campaigns" className="hover:text-slate-900 transition">{cdT?.breadcrumbCampaigns}</Link>
           <span>/</span>
-          <span className="text-gray-300 truncate max-w-xs">{campaign.name}</span>
+          <span className="text-slate-700 truncate max-w-xs">{campaign.name}</span>
         </div>
 
         {/* Brand Brain quality notice (shown when score < 60 and not dismissed) */}
@@ -878,7 +878,7 @@ function CampaignDetailPageInner() {
               </div>
               <button
                 onClick={() => setBrandNoticeDismissed(true)}
-                className="text-text-muted hover:text-white transition-all text-xs px-1 flex-shrink-0">
+                className="text-text-muted hover:text-slate-900 transition-all text-xs px-1 flex-shrink-0">
                 ✕
               </button>
             </div>
@@ -912,12 +912,12 @@ function CampaignDetailPageInner() {
         {/* Brief banner — shown when arriving from Marketing Operating Brief */}
         {fromBrief && !briefBannerDismissed && (
           <div className="rounded-2xl overflow-hidden mb-4"
-            style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(12px)' }}>
-            <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)' }} />
+            style={{ background: 'rgba(94,92,230,0.07)', border: '1px solid rgba(94,92,230,0.3)', backdropFilter: 'blur(12px)' }}>
+            <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #5E5CE6, #06b6d4)' }} />
             <div className="p-4 flex items-start justify-between gap-3">
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                  style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                  style={{ background: 'rgba(94,92,230,0.15)', border: '1px solid rgba(94,92,230,0.3)' }}>
                   <Sparkles className="w-4 h-4" style={{ color: '#A78BFA' }} />
                 </div>
                 <div className="min-w-0">
@@ -944,27 +944,27 @@ function CampaignDetailPageInner() {
         {/* Header card — NEXUS UI */}
         <div className="rounded-2xl mb-4 overflow-hidden"
           style={{
-            background: 'rgba(10,11,28,0.9)',
-            border: '1px solid rgba(139,92,246,0.2)',
+            background: '#FFFFFF',
+            border: '1px solid rgba(94,92,230,0.2)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 0 40px rgba(139,92,246,0.05)',
+            boxShadow: '0 0 40px rgba(94,92,230,0.05)',
           }}>
           {/* Gradient accent bar */}
-          <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #06b6d4 50%, #10b981 100%)' }} />
+          <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #5E5CE6 0%, #06b6d4 50%, #10b981 100%)' }} />
           <div className="p-6">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 20px rgba(139,92,246,0.1)' }}>
+                  style={{ background: 'rgba(94,92,230,0.1)', border: '1px solid rgba(94,92,230,0.2)', boxShadow: '0 0 20px rgba(94,92,230,0.1)' }}>
                   {campaign.thumbnail || '🎯'}
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--nx-text-1)' }}>{campaign.name}</h1>
                   <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--nx-text-3)' }}>
                     <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
-                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span style={{ color: 'rgba(94,92,230,0.4)' }}>·</span>
                     <span>{locale === 'ar' ? 'نبرة: ' : 'Tone: '}{campaign.tone}</span>
-                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span style={{ color: 'rgba(94,92,230,0.4)' }}>·</span>
                     <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
                   </div>
                   <div className="flex gap-2 mt-2">
@@ -979,11 +979,11 @@ function CampaignDetailPageInner() {
                   <div className="flex items-center gap-2 mt-3">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
                       style={{
-                        background: campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
-                        border: `1px solid ${campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
+                        background: campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.1)' : 'rgba(94,92,230,0.1)',
+                        border: `1px solid ${campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.25)' : 'rgba(94,92,230,0.2)'}`,
                         color: campaign.status === 'ACTIVE' ? '#10b981' : '#a78bfa',
                       }}>
-                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: campaign.status === 'ACTIVE' ? '#10b981' : '#8b5cf6' }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: campaign.status === 'ACTIVE' ? '#10b981' : '#5E5CE6' }} />
                       {campaign.status}
                     </span>
                   </div>
@@ -995,7 +995,7 @@ function CampaignDetailPageInner() {
                 <Link
                   href="/campaigns/new"
                   className="px-3 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 16px rgba(139,92,246,0.3)' }}
+                  style={{ background: 'linear-gradient(135deg, #5E5CE6, #7c3aed)', color: '#0f172a', boxShadow: '0 0 16px rgba(94,92,230,0.3)' }}
                 >
                   {cdT?.btnNewCampaign || '+ New Campaign'}
                 </Link>
@@ -1014,7 +1014,7 @@ function CampaignDetailPageInner() {
                       {/* Click-away backdrop */}
                       <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
                       <div className="absolute right-0 top-full mt-1 z-20 min-w-44 rounded-xl shadow-2xl overflow-hidden"
-                        style={{ background: 'rgba(18,19,40,0.98)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(20px)' }}>
+                        style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.2)', backdropFilter: 'blur(20px)' }}>
                         <button
                           onClick={() => { updateCampaign({ favorite: !campaign.favorite }); setShowHeaderMenu(false) }}
                           disabled={saving}
@@ -1059,8 +1059,8 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <div className="rounded-2xl px-5 py-5 mb-6"
             style={{
-              background: 'rgba(10,11,28,0.85)',
-              border: '1px solid rgba(139,92,246,0.15)',
+              background: '#FFFFFF',
+              border: '1px solid rgba(94,92,230,0.15)',
               backdropFilter: 'blur(16px)',
             }}>
 
@@ -1145,7 +1145,7 @@ function CampaignDetailPageInner() {
                   onClick={() => handleRunEngine(true)}
                   disabled={engineRunning}
                   title={locale === 'ar' ? 'إعادة توليد كل المخرجات من الصفر' : 'Regenerate all outputs from scratch'}
-                  className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-sm text-gray-500 hover:text-gray-300 hover:border-white/20 disabled:opacity-40 transition"
+                  className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-sm text-gray-500 hover:text-slate-700 hover:border-white/20 disabled:opacity-40 transition"
                 >
                   ↻
                 </button>
@@ -1155,7 +1155,7 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={handleSentinelReview}
                     disabled={sentinelState === 'reviewing'}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-900 transition disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 0 16px rgba(79,70,229,0.25)' }}
                   >
                     {sentinelState === 'reviewing'
@@ -1170,7 +1170,7 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-900 transition disabled:opacity-60"
                     style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: '0 0 16px rgba(16,185,129,0.2)' }}
                   >
                     {launchState === 'approving'
@@ -1184,15 +1184,15 @@ function CampaignDetailPageInner() {
                 {(campaign.status === 'ACTIVE' || approvalState === 'done') && (
                   <Link
                     href={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition"
-                    style={{ background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', boxShadow: '0 0 16px rgba(139,92,246,0.22)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-bold text-slate-900 transition"
+                    style={{ background: 'linear-gradient(135deg, #7c3aed, #5E5CE6)', boxShadow: '0 0 16px rgba(94,92,230,0.22)' }}
                   >
                     {locale === 'ar' ? '📋 Content Hub' : '📋 Content Hub'}
                   </Link>
                 )}
 
                 {engineRunning && (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white/50"
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-slate-900/50"
                     style={{ background: 'rgba(255,255,255,0.05)' }}>
                     <span className="w-3 h-3 border-2 border-white/30 border-t-white/70 rounded-full animate-spin flex-shrink-0" />
                     {locale === 'ar' ? 'جاري التشغيل...' : 'Running...'}
@@ -1241,7 +1241,7 @@ function CampaignDetailPageInner() {
                     </div>
                   </div>
                   {sentinelReview.summary && (
-                    <p className="text-sm text-gray-300 leading-relaxed">{sentinelReview.summary}</p>
+                    <p className="text-sm text-slate-700 leading-relaxed">{sentinelReview.summary}</p>
                   )}
                   {sentinelReview.complianceWarnings?.length > 0 && (
                     <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
@@ -1290,7 +1290,7 @@ function CampaignDetailPageInner() {
                     <p className="text-sm font-semibold text-green-400 mb-1">
                       {locale === 'ar' ? '🚀 هل أنت جاهز للإطلاق؟' : '🚀 Ready to approve and launch?'}
                     </p>
-                    <p className="text-xs text-gray-400 mb-3">
+                    <p className="text-xs text-slate-500 mb-3">
                       {locale === 'ar'
                         ? 'سيتم اعتماد الحملة وإنشاء خطة المحتوى الكاملة، ثم انتقالك تلقائياً إلى Content Hub.'
                         : 'This will approve the campaign, generate your full content plan, and take you straight to the Content Hub.'}
@@ -1301,13 +1301,13 @@ function CampaignDetailPageInner() {
                     <div className="flex gap-2">
                       <button
                         onClick={handleApproveAndLaunch}
-                        className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                        className="px-4 py-2 bg-green-500 text-slate-900 text-xs font-bold rounded-xl hover:bg-green-600 transition"
                       >
                         {locale === 'ar' ? '🚀 نعم، اعتماد وإطلاق' : '🚀 Yes, Approve & Launch'}
                       </button>
                       <button
                         onClick={() => setApprovalState('idle')}
-                        className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition"
+                        className="px-4 py-2 bg-dark-tertiary text-slate-500 text-xs font-semibold rounded-xl hover:text-slate-900 transition"
                       >
                         {cdT?.approveCancelBtn || 'Cancel'}
                       </button>
@@ -1362,10 +1362,10 @@ function CampaignDetailPageInner() {
         {/* Generating state */}
         {!aiOutput && generating && (
           <div className="rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(234,179,8,0.2)', backdropFilter: 'blur(16px)' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(234,179,8,0.2)', backdropFilter: 'blur(16px)' }}>
             <div className="text-5xl mb-4 animate-bounce">🤖</div>
             <h3 className="text-xl font-bold mb-2 text-amber-400">{cdT?.generatingTitle}</h3>
-            <p className="text-gray-400 mb-6 text-sm">{cdT?.generatingSubtitle}</p>
+            <p className="text-slate-500 mb-6 text-sm">{cdT?.generatingSubtitle}</p>
             <div className="flex justify-center gap-4 mb-4 flex-wrap">
               {([cdT?.genStep1, cdT?.genStep2, cdT?.genStep3, cdT?.genStep4]).map((step, i) => (
                 <div key={i} className="flex items-center gap-1 text-xs text-gray-500">
@@ -1383,9 +1383,9 @@ function CampaignDetailPageInner() {
         {/* No AI output state (not generating) — NEXUS UI */}
         {!aiOutput && !generating && (
           <div className="rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(16px)' }}>
+            style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.12)', backdropFilter: 'blur(16px)' }}>
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              style={{ background: 'rgba(94,92,230,0.1)', border: '1px solid rgba(94,92,230,0.2)' }}>
               <span className="text-3xl">🤖</span>
             </div>
             <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>{cdT?.noOutputTitle}</h3>
@@ -1394,7 +1394,7 @@ function CampaignDetailPageInner() {
               onClick={() => handleRunEngine()}
               disabled={engineRunning}
               className="px-6 py-3 rounded-xl font-bold transition disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
+              style={{ background: 'linear-gradient(135deg, #5E5CE6, #7c3aed)', color: '#0f172a', boxShadow: '0 0 20px rgba(94,92,230,0.3)' }}>
               {engineRunning
                 ? (locale === 'ar' ? '⏳ جاري التوليد...' : '⏳ Generating...')
                 : (cdT?.noOutputBtn || (locale === 'ar' ? '🚀 توليد الاستراتيجية الكاملة' : '🚀 Generate Full Strategy'))}
@@ -1410,17 +1410,17 @@ function CampaignDetailPageInner() {
           <>
             {/* NEXUS tab navigation */}
             <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 p-1 rounded-2xl"
-              style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.08)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.08)' }}>
               {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
                 <button
                   key={i}
                   onClick={() => setActiveTab(i)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
                   style={activeTab === i ? {
-                    background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.1))',
-                    border: '1px solid rgba(139,92,246,0.3)',
+                    background: 'linear-gradient(135deg, rgba(94,92,230,0.2), rgba(6,182,212,0.1))',
+                    border: '1px solid rgba(94,92,230,0.3)',
                     color: '#e2d9f3',
-                    boxShadow: '0 0 12px rgba(139,92,246,0.15)',
+                    boxShadow: '0 0 12px rgba(94,92,230,0.15)',
                   } : {
                     background: 'transparent',
                     border: '1px solid transparent',
@@ -1459,9 +1459,9 @@ function CampaignDetailPageInner() {
                   const topAngle = contentAnglesDetailed[0]?.angle || contentAnglesDetailed[0]?.title || null
                   return (
                     <div className="rounded-2xl overflow-hidden"
-                      style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 30px rgba(139,92,246,0.06)' }}>
+                      style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.2)', boxShadow: '0 0 30px rgba(94,92,230,0.06)' }}>
                       {/* Header bar */}
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(139,92,246,0.12)', background: 'rgba(139,92,246,0.06)' }}>
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(94,92,230,0.12)', background: 'rgba(94,92,230,0.06)' }}>
                         <div className="flex items-center gap-2">
                           <span className="text-sm">🧠</span>
                           <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nx-accent)' }}>
@@ -1481,12 +1481,12 @@ function CampaignDetailPageInner() {
                         {/* Key Message */}
                         {strategy.keyMessage && (
                           <div className="flex gap-3 items-start">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>💬</div>
+                            <div className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{ background: 'rgba(94,92,230,0.15)', border: '1px solid rgba(94,92,230,0.3)' }}>💬</div>
                             <div className="min-w-0">
-                              <p className="text-[9px] uppercase tracking-widest font-bold mb-0.5" style={{ color: 'rgba(139,92,246,0.8)' }}>
+                              <p className="text-[9px] uppercase tracking-widest font-bold mb-0.5" style={{ color: 'rgba(94,92,230,0.8)' }}>
                                 {locale === 'ar' ? 'الرسالة الجوهرية' : 'Core Message'}
                               </p>
-                              <p className="text-white text-sm font-semibold leading-snug">"{strategy.keyMessage}"</p>
+                              <p className="text-slate-900 text-sm font-semibold leading-snug">"{strategy.keyMessage}"</p>
                             </div>
                           </div>
                         )}
@@ -1516,19 +1516,19 @@ function CampaignDetailPageInner() {
                           <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
                             <div className="flex items-center gap-2">
                               <span className="text-xs">🧬</span>
-                              <span className="text-[10px] text-gray-400">{locale === 'ar' ? 'اكتمال Brand Brain' : 'Brand Brain'}</span>
+                              <span className="text-[10px] text-slate-500">{locale === 'ar' ? 'اكتمال Brand Brain' : 'Brand Brain'}</span>
                               <div className="flex items-center gap-0.5">
                                 {brandFields.map((k, i) => {
                                   const v = (brandDNA as any)[k]
                                   const filled = Array.isArray(v) ? v.length > 0 : !!v
-                                  return <div key={i} className="w-1.5 h-2.5 rounded-sm" style={{ background: filled ? '#8b5cf6' : 'rgba(255,255,255,0.08)' }} />
+                                  return <div key={i} className="w-1.5 h-2.5 rounded-sm" style={{ background: filled ? '#5E5CE6' : 'rgba(255,255,255,0.08)' }} />
                                 })}
                               </div>
                               <span className="text-[10px] font-bold" style={{ color: brandPct >= 70 ? '#10b981' : brandPct >= 40 ? '#f59e0b' : '#ef4444' }}>{brandPct}%</span>
                             </div>
                             {brandPct < 100 && (
                               <a href="/brand" className="text-[9px] font-semibold px-2 py-0.5 rounded-lg transition-opacity hover:opacity-80"
-                                style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.9)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                style={{ background: 'rgba(94,92,230,0.12)', color: 'rgba(94,92,230,0.9)', border: '1px solid rgba(94,92,230,0.2)' }}>
                                 {locale === 'ar' ? 'أكمل الملف ←' : 'Complete Profile →'}
                               </a>
                             )}
@@ -1542,11 +1542,11 @@ function CampaignDetailPageInner() {
                 {/* 🚀 Next Best Action — pinned banner, shown once */}
                 {strategy.nextBestAction && (
                   <div className="rounded-2xl p-4 flex items-center gap-3"
-                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.08))', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 20px rgba(139,92,246,0.08)' }}>
+                    style={{ background: 'linear-gradient(135deg, rgba(94,92,230,0.15), rgba(6,182,212,0.08))', border: '1px solid rgba(94,92,230,0.3)', boxShadow: '0 0 20px rgba(94,92,230,0.08)' }}>
                     <span className="text-2xl flex-shrink-0">🚀</span>
                     <div className="min-w-0">
                       <p className="text-[10px] text-accent uppercase tracking-widest font-bold mb-0.5">{cdT?.nextActionBannerLabel || 'Your Next Action'}</p>
-                      <p className="text-white text-sm font-semibold leading-relaxed">{strategy.nextBestAction}</p>
+                      <p className="text-slate-900 text-sm font-semibold leading-relaxed">{strategy.nextBestAction}</p>
                     </div>
                   </div>
                 )}
@@ -1554,8 +1554,8 @@ function CampaignDetailPageInner() {
                 {/* ══ CHAPTER 01 — THE BRIEF ═══════════════════════════════════ */}
                 {(strategy.diagnosis || businessObjective) && (
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>01</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(94,92,230,0.2)' }}>01</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(94,92,230,0.25) 0%, transparent 100%)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterBrief || 'The Brief'}</span>
                   </div>
                 )}
@@ -1579,7 +1579,7 @@ function CampaignDetailPageInner() {
                           { label: cdT?.diagTrustGap || 'Trust Gap', value: diagnosisDetails.trustGap, color: 'text-red-400' },
                           { label: cdT?.diagRisk || 'Main Risk', value: diagnosisDetails.mainRisk, color: 'text-red-400' },
                           { label: cdT?.diagPaidAdsReady || 'Paid Ads Ready', value: diagnosisDetails.readyForPaidAds ? '✓ Yes' : '✗ Not yet', color: diagnosisDetails.readyForPaidAds ? 'text-green-400' : 'text-amber-400' },
-                          diagnosisDetails.readyForPaidAdsReason ? { label: 'Why', value: diagnosisDetails.readyForPaidAdsReason, color: 'text-gray-400' } : null,
+                          diagnosisDetails.readyForPaidAdsReason ? { label: 'Why', value: diagnosisDetails.readyForPaidAdsReason, color: 'text-slate-500' } : null,
                         ].filter(Boolean).map((item: any, i: number) => (
                           <div key={i} className="bg-dark/60 rounded-lg p-2.5 border border-dark-tertiary">
                             <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
@@ -1593,7 +1593,7 @@ function CampaignDetailPageInner() {
 
                 {/* Business Objective */}
                 {businessObjective && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(99,102,241,0.2)' }}>
                     <p className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-3 flex items-center gap-2">
                       <span>🎯</span> {cdT?.sectionBusinessObjective || 'Business Objective'}
                     </p>
@@ -1618,8 +1618,8 @@ function CampaignDetailPageInner() {
                 {/* ══ CHAPTER 02 — THE STRATEGY ════════════════════════════════ */}
                 {(strategy.keyMessage || strategy.positioning || strategy.differentiation || audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0 || strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>02</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(94,92,230,0.2)' }}>02</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(94,92,230,0.25) 0%, transparent 100%)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterStrategy || 'The Strategy'}</span>
                   </div>
                 )}
@@ -1627,9 +1627,9 @@ function CampaignDetailPageInner() {
                 {/* Key Message — flagship */}
                 {strategy.keyMessage && (
                   <div className="rounded-2xl p-5"
-                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05))', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 0 24px rgba(99,102,241,0.06)' }}>
+                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(94,92,230,0.05))', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 0 24px rgba(99,102,241,0.06)' }}>
                     <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mb-2">{cdT?.sectionKeyMessage || 'Core Message'}</p>
-                    <p className="text-white text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
+                    <p className="text-slate-900 text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
                     <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
                   </div>
                 )}
@@ -1638,15 +1638,15 @@ function CampaignDetailPageInner() {
                 {(strategy.positioning || strategy.differentiation) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {strategy.positioning && (
-                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                      <div className="rounded-2xl p-4" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>🎯</span> {cdT?.sectionPositioning || 'Positioning'}</p>
-                        <p className="text-gray-300 text-sm leading-relaxed">{strategy.positioning}</p>
+                        <p className="text-slate-700 text-sm leading-relaxed">{strategy.positioning}</p>
                       </div>
                     )}
                     {strategy.differentiation && (
-                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                      <div className="rounded-2xl p-4" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</p>
-                        <p className="text-gray-300 text-sm leading-relaxed">{strategy.differentiation}</p>
+                        <p className="text-slate-700 text-sm leading-relaxed">{strategy.differentiation}</p>
                       </div>
                     )}
                   </div>
@@ -1654,7 +1654,7 @@ function CampaignDetailPageInner() {
 
                 {/* Audience Segments */}
                 {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
                       <span>👥</span> {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}
                     </h3>
@@ -1664,18 +1664,18 @@ function CampaignDetailPageInner() {
                           <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">#{i + 1}</span>
-                              <p className="text-sm font-bold text-white">{seg.segment}</p>
+                              <p className="text-sm font-bold text-slate-900">{seg.segment}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                               {seg.situation && (
                                 <div className="col-span-2">
                                   <span className="text-gray-600 text-[9px] uppercase tracking-wide">Situation: </span>
-                                  <span className="text-gray-300">{seg.situation}</span>
+                                  <span className="text-slate-700">{seg.situation}</span>
                                 </div>
                               )}
-                              {seg.pain && <div><span className="text-red-400 text-[9px] uppercase">Pain: </span><span className="text-gray-400">{seg.pain}</span></div>}
-                              {seg.desiredOutcome && <div><span className="text-green-400 text-[9px] uppercase">Wants: </span><span className="text-gray-400">{seg.desiredOutcome}</span></div>}
-                              {seg.objection && <div><span className="text-amber-400 text-[9px] uppercase">Objection: </span><span className="text-gray-400">{seg.objection}</span></div>}
+                              {seg.pain && <div><span className="text-red-400 text-[9px] uppercase">Pain: </span><span className="text-slate-500">{seg.pain}</span></div>}
+                              {seg.desiredOutcome && <div><span className="text-green-400 text-[9px] uppercase">Wants: </span><span className="text-slate-500">{seg.desiredOutcome}</span></div>}
+                              {seg.objection && <div><span className="text-amber-400 text-[9px] uppercase">Objection: </span><span className="text-slate-500">{seg.objection}</span></div>}
                               {seg.message && (
                                 <div className="col-span-2">
                                   <span className="text-indigo-400 text-[9px] uppercase">Message: </span>
@@ -1698,7 +1698,7 @@ function CampaignDetailPageInner() {
                         {audienceSegments.map((seg: string, i: number) => (
                           <div key={i} className="flex items-start gap-2 bg-dark rounded-xl p-3 border border-dark-tertiary text-sm">
                             <span className="text-accent font-bold flex-shrink-0">{i + 1}</span>
-                            <span className="text-gray-300">{seg}</span>
+                            <span className="text-slate-700">{seg}</span>
                           </div>
                         ))}
                       </div>
@@ -1708,31 +1708,31 @@ function CampaignDetailPageInner() {
 
                 {/* Value Propositions */}
                 {(strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>💎</span> {cdT?.sectionValueProps || 'Value Propositions'}</h3>
                     {strategy.valueProps?.length > 0 ? (
                       <ul className="space-y-1.5">
                         {strategy.valueProps.map((vp: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                          <li key={i} className="flex items-start gap-2 text-slate-700 text-sm">
                             <span className="text-accent mt-0.5 flex-shrink-0">→</span> {vp}
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-300 text-sm">{strategy.estimatedResults}</p>
+                      <p className="text-slate-700 text-sm">{strategy.estimatedResults}</p>
                     )}
                   </div>
                 )}
 
                 {/* ══ TOP HOOKS — Copyable scroll-stopping lines ══════════════ */}
                 {topHooks.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
                       <span>🎯</span> {cdT?.sectionTopHooks || 'Top Hooks'}
                     </h3>
                     <div className="space-y-2">
                       {topHooks.slice(0, 6).map((hook: string, i: number) => (
-                        <div key={i} className="flex items-start gap-3 rounded-xl p-3 border border-dark-tertiary hover:border-accent/30 transition-colors" style={{ background: 'rgba(139,92,246,0.03)' }}>
+                        <div key={i} className="flex items-start gap-3 rounded-xl p-3 border border-dark-tertiary hover:border-accent/30 transition-colors" style={{ background: 'rgba(94,92,230,0.03)' }}>
                           <span className="text-[10px] font-black text-accent/50 mt-0.5 w-4 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
                           <p className="text-gray-200 text-sm flex-1 leading-snug">{hook}</p>
                           <CopyBtn text={hook} label={cdT?.copyBtn || 'Copy'} />
@@ -1745,15 +1745,15 @@ function CampaignDetailPageInner() {
                 {/* ══ CHAPTER 03 — EXECUTION PLAN ══════════════════════════════ */}
                 {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.contentPillars?.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>03</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(94,92,230,0.2)' }}>03</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(94,92,230,0.25) 0%, transparent 100%)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterExecution || 'Execution Plan'}</span>
                   </div>
                 )}
 
                 {/* Funnel */}
                 {(funnelStages.length > 0 || strategy.funnelStrategy) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
                       <span>🔻</span> {cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Marketing Funnel'}
                     </h3>
@@ -1771,17 +1771,17 @@ function CampaignDetailPageInner() {
                           }
                           return (
                             <div key={i} className={`rounded-xl p-3.5 border ${stageColors[stage.stage] || 'border-dark-tertiary bg-dark'}`}>
-                              <p className="font-bold text-xs uppercase tracking-wide text-white mb-2">
+                              <p className="font-bold text-xs uppercase tracking-wide text-slate-900 mb-2">
                                 {stageIcons[stage.stage] || '📌'} {stage.stage}
                                 {stage.productArea && <span className="ml-2 text-[10px] text-gray-600 normal-case font-normal">({stage.productArea})</span>}
                               </p>
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-xs">
-                                {stage.userMindset && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.funnelMindset || 'Mindset'}: </span><span className="text-gray-400 italic">{stage.userMindset}</span></div>}
+                                {stage.userMindset && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.funnelMindset || 'Mindset'}: </span><span className="text-slate-500 italic">{stage.userMindset}</span></div>}
                                 {stage.message && <div><span className="text-gray-600 text-[9px] uppercase">Message: </span><span className="text-gray-200 font-medium">{stage.message}</span></div>}
-                                {stage.contentType && <div><span className="text-gray-600 text-[9px] uppercase">Format: </span><span className="text-gray-400">{stage.contentType}</span></div>}
-                                {stage.platform && <div><span className="text-gray-600 text-[9px] uppercase">Platform: </span><span className="text-gray-400">{stage.platform}</span></div>}
+                                {stage.contentType && <div><span className="text-gray-600 text-[9px] uppercase">Format: </span><span className="text-slate-500">{stage.contentType}</span></div>}
+                                {stage.platform && <div><span className="text-gray-600 text-[9px] uppercase">Platform: </span><span className="text-slate-500">{stage.platform}</span></div>}
                                 {stage.cta && <div><span className="text-gray-600 text-[9px] uppercase">CTA: </span><span className="text-accent font-semibold">{stage.cta}</span></div>}
-                                {stage.successMetric && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.weekSuccessMetric || 'Metric'}: </span><span className="text-gray-400">{stage.successMetric}</span></div>}
+                                {stage.successMetric && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.weekSuccessMetric || 'Metric'}: </span><span className="text-slate-500">{stage.successMetric}</span></div>}
                               </div>
                               {stage.nextStep && (
                                 <p className="text-[10px] text-gray-500 mt-2 pt-2 border-t border-dark-tertiary/50">
@@ -1803,7 +1803,7 @@ function CampaignDetailPageInner() {
                           strategy.funnelStrategy[key] && (
                             <div key={key} className={`rounded-xl p-3.5 border ${color}`}>
                               <p className="font-semibold text-xs uppercase tracking-wide mb-1.5">{icon} {label}</p>
-                              <p className="text-gray-300 text-xs leading-relaxed">{strategy.funnelStrategy[key]}</p>
+                              <p className="text-slate-700 text-xs leading-relaxed">{strategy.funnelStrategy[key]}</p>
                             </div>
                           )
                         ))}
@@ -1814,7 +1814,7 @@ function CampaignDetailPageInner() {
 
                 {/* Channel Strategy — unified mix + detail */}
                 {(strategy.channelMix?.length > 0 || channelStrategy.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
                       <span>📡</span> {cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'}
                     </h3>
@@ -1843,7 +1843,7 @@ function CampaignDetailPageInner() {
                               )}
                               {(ch.contentType || ch.postingApproach || ch.cta) && (
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                                  {ch.contentType && <span className="text-gray-400">📄 {ch.contentType}</span>}
+                                  {ch.contentType && <span className="text-slate-500">📄 {ch.contentType}</span>}
                                   {ch.postingApproach && <span className="text-gray-500">{ch.postingApproach}</span>}
                                   {ch.cta && <span className="text-accent font-semibold">{ch.cta}</span>}
                                 </div>
@@ -1854,7 +1854,7 @@ function CampaignDetailPageInner() {
                       ) : (
                         strategy.channelMix?.map((ch: any, i: number) => (
                           <div key={i} className="flex items-center gap-4 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                            <span className="text-gray-300 font-semibold w-28 flex-shrink-0 capitalize text-sm">{ch.platform}</span>
+                            <span className="text-slate-700 font-semibold w-28 flex-shrink-0 capitalize text-sm">{ch.platform}</span>
                             <div className="flex-1">
                               <div className="w-full bg-dark-tertiary rounded-full h-1.5 mb-1">
                                 <div className="h-1.5 rounded-full" style={{ width: `${Math.min(ch.budgetPercent, 100)}%`, background: 'var(--accent)' }} />
@@ -1871,11 +1871,11 @@ function CampaignDetailPageInner() {
 
                 {/* Content Pillars */}
                 {strategy.contentPillars?.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>📐</span> {cdT?.sectionContentPillars || 'Content Pillars'}</h3>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {strategy.contentPillars.map((p: string, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-3 text-xs text-center text-gray-300 border border-dark-tertiary">{p}</div>
+                        <div key={i} className="bg-dark rounded-xl p-3 text-xs text-center text-slate-700 border border-dark-tertiary">{p}</div>
                       ))}
                     </div>
                   </div>
@@ -1883,39 +1883,39 @@ function CampaignDetailPageInner() {
 
                 {/* Offer & CTA Strategy */}
                 {strategy.offerCTAStrategy && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>📣</span> {cdT?.sectionOfferCTA || 'Offer & CTA'}</h3>
                     <div className="space-y-2">
                       {strategy.offerCTAStrategy.primaryCTA && (
-                        <div className="flex items-center gap-3 rounded-xl p-3 border border-accent/20" style={{ background: 'rgba(139,92,246,0.06)' }}>
+                        <div className="flex items-center gap-3 rounded-xl p-3 border border-accent/20" style={{ background: 'rgba(94,92,230,0.06)' }}>
                           <span className="text-[10px] text-accent font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaPrimary || 'Primary CTA'}</span>
-                          <p className="text-white text-sm font-semibold flex-1">{strategy.offerCTAStrategy.primaryCTA}</p>
+                          <p className="text-slate-900 text-sm font-semibold flex-1">{strategy.offerCTAStrategy.primaryCTA}</p>
                           <CopyBtn text={strategy.offerCTAStrategy.primaryCTA} label={cdT?.copyBtn || 'Copy'} />
                         </div>
                       )}
                       {strategy.offerCTAStrategy.secondaryCTA && (
                         <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaSecondary || 'Secondary'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.secondaryCTA}</p>
+                          <p className="text-slate-700 text-sm flex-1">{strategy.offerCTAStrategy.secondaryCTA}</p>
                           <CopyBtn text={strategy.offerCTAStrategy.secondaryCTA} label={cdT?.copyBtn || 'Copy'} />
                         </div>
                       )}
                       {strategy.offerCTAStrategy.leadMagnet && (
                         <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaLeadMagnet || 'Lead Magnet'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.leadMagnet}</p>
+                          <p className="text-slate-700 text-sm flex-1">{strategy.offerCTAStrategy.leadMagnet}</p>
                         </div>
                       )}
                       {strategy.offerCTAStrategy.betaOffer && (
                         <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaBetaOffer || 'Beta Offer'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.betaOffer}</p>
+                          <p className="text-slate-700 text-sm flex-1">{strategy.offerCTAStrategy.betaOffer}</p>
                         </div>
                       )}
                       {strategy.offerCTAStrategy.contactFlow && (
                         <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <span className="text-[10px] text-green-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaContactFlow || 'Contact Flow'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.contactFlow}</p>
+                          <p className="text-slate-700 text-sm flex-1">{strategy.offerCTAStrategy.contactFlow}</p>
                         </div>
                       )}
                     </div>
@@ -1928,13 +1928,13 @@ function CampaignDetailPageInner() {
                     <h3 className="font-bold text-sm mb-2 flex items-center gap-2 text-purple-400">
                       <span>🎨</span> {cdT?.sectionVisualDirection || 'Visual Direction'}
                     </h3>
-                    <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
+                    <p className="text-slate-700 text-sm leading-relaxed">{strategy.visualDirection}</p>
                   </div>
                 )}
 
                 {/* ══ WEEKLY EXECUTION PLAN ════════════════════════════════════ */}
                 {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
                       <span>📅</span> {cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}
                     </h3>
@@ -1943,20 +1943,20 @@ function CampaignDetailPageInner() {
                         {weeklyExecutionPlan.map((w: any) => (
                           <div key={w.week} className="rounded-xl overflow-hidden border border-dark-tertiary">
                             {/* Week header */}
-                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)' }}>
+                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(94,92,230,0.08)' }}>
                               <span className="text-[10px] font-black text-accent">W{w.week}</span>
-                              <span className="text-sm font-semibold text-white flex-1">{w.objective}</span>
+                              <span className="text-sm font-semibold text-slate-900 flex-1">{w.objective}</span>
                               {w.cta && <span className="text-[10px] text-accent font-semibold hidden md:block">{w.cta}</span>}
                             </div>
                             {/* Week body */}
                             <div className="px-4 py-3 space-y-2">
                               {w.keyMessage && (
-                                <p className="text-xs text-gray-400 italic">"{w.keyMessage}"</p>
+                                <p className="text-xs text-slate-500 italic">"{w.keyMessage}"</p>
                               )}
                               {w.deliverables?.length > 0 && (
                                 <ul className="space-y-1">
                                   {w.deliverables.map((d: string, di: number) => (
-                                    <li key={di} className="flex items-start gap-2 text-xs text-gray-300">
+                                    <li key={di} className="flex items-start gap-2 text-xs text-slate-700">
                                       <span className="text-accent/60 mt-0.5 flex-shrink-0">→</span> {d}
                                     </li>
                                   ))}
@@ -1983,16 +1983,16 @@ function CampaignDetailPageInner() {
                       <div className="space-y-3">
                         {weeklyPlan.map((w: any) => (
                           <div key={w.week} className="rounded-xl overflow-hidden border border-dark-tertiary">
-                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)' }}>
+                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(94,92,230,0.08)' }}>
                               <span className="text-[10px] font-black text-accent">W{w.week}</span>
-                              <span className="text-sm font-semibold text-white flex-1">{w.objective}</span>
+                              <span className="text-sm font-semibold text-slate-900 flex-1">{w.objective}</span>
                             </div>
                             <div className="px-4 py-3 space-y-1">
-                              {w.keyMessage && <p className="text-xs text-gray-400 italic">"{w.keyMessage}"</p>}
+                              {w.keyMessage && <p className="text-xs text-slate-500 italic">"{w.keyMessage}"</p>}
                               {w.deliverables?.length > 0 && (
                                 <ul className="space-y-1">
                                   {w.deliverables.map((d: string, di: number) => (
-                                    <li key={di} className="flex items-start gap-2 text-xs text-gray-300">
+                                    <li key={di} className="flex items-start gap-2 text-xs text-slate-700">
                                       <span className="text-accent/60 mt-0.5 flex-shrink-0">→</span> {d}
                                     </li>
                                   ))}
@@ -2009,15 +2009,15 @@ function CampaignDetailPageInner() {
                 {/* ══ CHAPTER 04 — METRICS & READINESS ════════════════════════ */}
                 {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0 || readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0 || adSetupPlan) && (
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>04</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(94,92,230,0.2)' }}>04</span>
+                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(94,92,230,0.25) 0%, transparent 100%)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterMetrics || 'Metrics & Readiness'}</span>
                   </div>
                 )}
 
                 {/* KPIs + Success Metrics — unified */}
                 {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
                       <span>📊</span> {cdT?.sectionKpis || 'KPIs & Metrics'}
                     </h3>
@@ -2026,7 +2026,7 @@ function CampaignDetailPageInner() {
                         {strategy.kpis.map((kpi: any, i: number) => (
                           <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary text-center">
                             <p className="text-accent font-bold text-lg">{kpi.target}</p>
-                            <p className="text-gray-400 text-[10px] mt-0.5">{kpi.metric}</p>
+                            <p className="text-slate-500 text-[10px] mt-0.5">{kpi.metric}</p>
                             <p className="text-gray-600 text-[10px]">{kpi.timeframe}</p>
                           </div>
                         ))}
@@ -2054,7 +2054,7 @@ function CampaignDetailPageInner() {
                                 {catMetrics.map((m: any, idx: number) => (
                                   <div key={idx} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
                                     <div>
-                                      <p className="text-xs text-gray-300">{m.metric}</p>
+                                      <p className="text-xs text-slate-700">{m.metric}</p>
                                       <p className="text-[10px] text-gray-600">{m.timeframe}</p>
                                     </div>
                                     <span className={`text-sm font-bold flex-shrink-0 ${catColors[cat]}`}>{m.target}</span>
@@ -2069,7 +2069,7 @@ function CampaignDetailPageInner() {
                     {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
                       <ul className="space-y-1.5">
                         {successMetrics.map((metric: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                          <li key={i} className="flex items-start gap-2 text-slate-700 text-sm">
                             <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span> {metric}
                           </li>
                         ))}
@@ -2080,7 +2080,7 @@ function CampaignDetailPageInner() {
 
                 {/* Launch Readiness */}
                 {readinessChecklist.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
                       <span>✅</span> {cdT?.sectionReadinessChecklist || 'Launch Readiness'}
                     </h3>
@@ -2095,7 +2095,7 @@ function CampaignDetailPageInner() {
                         const isApproval = atype === 'APPROVAL' || lc.includes('approv')
                         return (
                           <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
-                            item.done ? 'border-green-500/30 bg-green-500/5 text-green-400' : 'border-dark-tertiary text-gray-400'
+                            item.done ? 'border-green-500/30 bg-green-500/5 text-green-400' : 'border-dark-tertiary text-slate-500'
                           }`}>
                             <span className="flex-shrink-0">{item.done ? '✓' : '○'}</span>
                             <span className="flex-1">{item.label || item.item}</span>
@@ -2127,7 +2127,7 @@ function CampaignDetailPageInner() {
 
                 {/* Asset Requirements */}
                 {assetRequirements && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
                       <span>📦</span> {cdT?.sectionAssetRequirements || 'Asset Requirements'}
                     </h3>
@@ -2137,7 +2137,7 @@ function CampaignDetailPageInner() {
                           <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetMustHave || 'Must Have'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.mustHave.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                              <li key={i} className="text-xs text-slate-700 flex items-start gap-1.5">
                                 <span className="text-red-400 mt-0.5 flex-shrink-0">✦</span>{a}
                               </li>
                             ))}
@@ -2149,7 +2149,7 @@ function CampaignDetailPageInner() {
                           <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.niceToHave.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                              <li key={i} className="text-xs text-slate-500 flex items-start gap-1.5">
                                 <span className="text-amber-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
                               </li>
                             ))}
@@ -2161,7 +2161,7 @@ function CampaignDetailPageInner() {
                           <p className="text-xs text-blue-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForAds || 'For Paid Ads'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.forAds.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                              <li key={i} className="text-xs text-slate-500 flex items-start gap-1.5">
                                 <span className="text-blue-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
                               </li>
                             ))}
@@ -2173,7 +2173,7 @@ function CampaignDetailPageInner() {
                           <p className="text-xs text-green-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForProof || 'Social Proof'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.forProof.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
+                              <li key={i} className="text-xs text-slate-500 flex items-start gap-1.5">
                                 <span className="text-green-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
                               </li>
                             ))}
@@ -2186,7 +2186,7 @@ function CampaignDetailPageInner() {
                         <p className="text-xs text-accent font-bold uppercase tracking-wide mb-2">{cdT?.assetNextToCreate || 'Create These First'}</p>
                         <ol className="space-y-1">
                           {assetRequirements.nextToCreate.map((a: string, i: number) => (
-                            <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                            <li key={i} className="text-xs text-slate-700 flex items-start gap-1.5">
                               <span className="text-accent font-bold w-4 flex-shrink-0">{i + 1}.</span>{a}
                             </li>
                           ))}
@@ -2211,7 +2211,7 @@ function CampaignDetailPageInner() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                       {strategy.executionChecklist.map((item: string, i: number) => (
-                        <div key={i} className="flex items-start gap-2 text-gray-300 text-xs">
+                        <div key={i} className="flex items-start gap-2 text-slate-700 text-xs">
                           <span className="text-green-500 mt-0.5 flex-shrink-0">□</span> {item}
                         </div>
                       ))}
@@ -2245,7 +2245,7 @@ function CampaignDetailPageInner() {
                       {riskNotes.length > 0 && (
                         <ul className="space-y-1.5 px-1">
                           {riskNotes.map((note: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2 text-gray-400 text-xs">
+                            <li key={i} className="flex items-start gap-2 text-slate-500 text-xs">
                               <span className="text-red-400 mt-0.5 flex-shrink-0">!</span>{note}
                             </li>
                           ))}
@@ -2294,14 +2294,14 @@ function CampaignDetailPageInner() {
                             /* Empty state — campaign was generated before adSetupPlan schema */
                             <div className="flex flex-col items-center gap-3 py-6 text-center">
                               <span className="text-3xl">📡</span>
-                              <p className="text-sm text-gray-400 max-w-xs">
+                              <p className="text-sm text-slate-500 max-w-xs">
                                 {locale === 'ar' ? 'خطة الإعلانات غير متاحة لهذه الحملة. أعد تشغيل الاستراتيجية للحصول على خطة إعلانية كاملة.' : 'Ad setup plan not available for this campaign. Regenerate the strategy to get a full ad plan.'}
                               </p>
                               <button
                                 type="button"
                                 disabled={engineRunning}
                                 onClick={() => handleRunEngine(true)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-slate-900 transition-opacity hover:opacity-80 disabled:opacity-50"
                                 style={{ background: 'linear-gradient(135deg,#3B82F6,#6366F1)' }}
                               >
                                 {engineRunning ? (locale === 'ar' ? 'جارٍ التشغيل...' : 'Running...') : (locale === 'ar' ? '🔄 أعد تشغيل الاستراتيجية' : '🔄 Regenerate Strategy')}
@@ -2341,7 +2341,7 @@ function CampaignDetailPageInner() {
                               {adSetupPlan.targeting && (
                                 <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
                                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
-                                  <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
+                                  <p className="text-sm text-slate-700">{adSetupPlan.targeting}</p>
                                 </div>
                               )}
 
@@ -2349,7 +2349,7 @@ function CampaignDetailPageInner() {
                               {adSetupPlan.exclusions && (
                                 <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
                                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Exclusions</p>
-                                  <p className="text-sm text-gray-300">{adSetupPlan.exclusions}</p>
+                                  <p className="text-sm text-slate-700">{adSetupPlan.exclusions}</p>
                                 </div>
                               )}
 
@@ -2359,7 +2359,7 @@ function CampaignDetailPageInner() {
                                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">Ad Copy Angles</p>
                                   <div className="space-y-1">
                                     {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
-                                      <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
+                                      <div key={i} className="flex items-start gap-2 text-xs text-slate-700 bg-dark rounded-lg p-2 border border-dark-tertiary">
                                         <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
                                       </div>
                                     ))}
@@ -2372,7 +2372,7 @@ function CampaignDetailPageInner() {
                                 <div className="flex flex-wrap gap-1.5 mb-3">
                                   <p className="w-full text-xs text-gray-500 uppercase tracking-wide mb-1">Creative Formats</p>
                                   {adSetupPlan.creativeFormats.map((f: string, i: number) => (
-                                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full text-purple-300" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>{f}</span>
+                                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full text-purple-300" style={{ background: 'rgba(94,92,230,0.12)', border: '1px solid rgba(94,92,230,0.2)' }}>{f}</span>
                                   ))}
                                 </div>
                               )}
@@ -2407,7 +2407,7 @@ function CampaignDetailPageInner() {
                 <BrandDNABadge brand={brandDNA} locale={locale} />
 
                 {/* Top Hooks */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                   <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🪝</span> {cdT?.sectionTopHooks}</h3>
                   {topHooks.length > 0 ? (
                     <div className="space-y-3">
@@ -2437,12 +2437,12 @@ function CampaignDetailPageInner() {
 
                 {/* CTA Variations */}
                 {ctaVariations.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                  <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📣</span> {cdT?.sectionCtaVariations}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {ctaVariations.map((cta: string, i: number) => (
                         <div key={i} className="flex items-center justify-between bg-dark rounded-xl p-3 border border-dark-tertiary gap-3">
-                          <span className="text-gray-300 text-sm flex-1">{cta}</span>
+                          <span className="text-slate-700 text-sm flex-1">{cta}</span>
                           <CopyBtn text={cta} label={cdT?.copyBtn || 'Copy'} />
                         </div>
                       ))}
@@ -2452,13 +2452,13 @@ function CampaignDetailPageInner() {
 
                 {/* Caption Formulas */}
                 {captionFormulas.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                  <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✍️</span> {cdT?.sectionCaptionFormulas}</h3>
                     <div className="space-y-3">
                       {captionFormulas.map((caption: string, i: number) => (
                         <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="text-gray-300 text-sm leading-relaxed flex-1">{caption}</p>
+                            <p className="text-slate-700 text-sm leading-relaxed flex-1">{caption}</p>
                             <CopyBtn text={caption} label={cdT?.copyBtn || 'Copy'} />
                           </div>
                         </div>
@@ -2469,21 +2469,21 @@ function CampaignDetailPageInner() {
 
                 {/* Script Template */}
                 {scriptTemplate && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                  <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📝</span> {cdT?.sectionScriptTemplate}</h3>
                     <div className="bg-dark rounded-xl p-4 border border-dark-tertiary">
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <span className="text-xs text-gray-500 uppercase tracking-wide">Script Template</span>
                         <CopyBtn text={scriptTemplate} label={cdT?.copyBtn || 'Copy'} />
                       </div>
-                      <pre className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap font-sans">{scriptTemplate}</pre>
+                      <pre className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap font-sans">{scriptTemplate}</pre>
                     </div>
                   </div>
                 )}
 
                 {/* Content Angles — Sprint M detailed view (show both) */}
                 {contentAnglesDetailed.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                  <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-3">
                       {contentAnglesDetailed.map((angle: any, i: number) => (
@@ -2491,7 +2491,7 @@ function CampaignDetailPageInner() {
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2">
                               <span className="text-accent font-bold text-xs bg-accent/10 px-2 py-0.5 rounded">{i + 1}</span>
-                              <p className="text-sm font-bold text-white">{angle.title}</p>
+                              <p className="text-sm font-bold text-slate-900">{angle.title}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
                               <SaveToMemoryBtn
@@ -2512,25 +2512,25 @@ function CampaignDetailPageInner() {
                             {angle.pain && (
                               <div>
                                 <span className="text-gray-600 uppercase tracking-wide">{cdT?.anglePain || 'Pain'}: </span>
-                                <span className="text-gray-400">{angle.pain}</span>
+                                <span className="text-slate-500">{angle.pain}</span>
                               </div>
                             )}
                             {angle.format && (
                               <div>
                                 <span className="text-gray-600 uppercase tracking-wide">Format: </span>
-                                <span className="text-gray-400">{angle.format}</span>
+                                <span className="text-slate-500">{angle.format}</span>
                               </div>
                             )}
                             {angle.platform && (
                               <div>
                                 <span className="text-gray-600 uppercase tracking-wide">Platform: </span>
-                                <span className="text-gray-400">{angle.platform}</span>
+                                <span className="text-slate-500">{angle.platform}</span>
                               </div>
                             )}
                             {angle.asset && (
                               <div>
                                 <span className="text-gray-600 uppercase tracking-wide">{cdT?.angleAsset || 'Asset'}: </span>
-                                <span className="text-gray-400">{angle.asset}</span>
+                                <span className="text-slate-500">{angle.asset}</span>
                               </div>
                             )}
                           </div>
@@ -2552,14 +2552,14 @@ function CampaignDetailPageInner() {
 
                 {/* Content Angles — legacy string list */}
                 {contentAngles.length > 0 && contentAnglesDetailed.length === 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                  <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-2">
                       {contentAngles.map((angle: string, i: number) => (
                         <div key={i} className="flex items-start justify-between gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <div className="flex items-start gap-2 flex-1">
                             <span className="text-accent font-bold text-xs w-5 flex-shrink-0 mt-0.5">{i + 1}</span>
-                            <p className="text-gray-300 text-sm leading-relaxed">{angle}</p>
+                            <p className="text-slate-700 text-sm leading-relaxed">{angle}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <SaveToMemoryBtn
@@ -2595,7 +2595,7 @@ function CampaignDetailPageInner() {
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyExecutionPlan || '4-Week Execution Plan'}</p>
                     {weeklyExecutionPlan.map((wk: any, wi: number) => (
-                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
+                      <div key={wi} className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
@@ -2613,7 +2613,7 @@ function CampaignDetailPageInner() {
                         {wk.keyMessage && (
                           <div className="mb-3 bg-dark rounded-xl p-3 border border-indigo-500/20">
                             <span className="text-xs text-indigo-400 uppercase tracking-wide">{cdT?.weekKeyMessage || 'Key Message'}: </span>
-                            <span className="text-gray-300 text-sm">"{wk.keyMessage}"</span>
+                            <span className="text-slate-700 text-sm">"{wk.keyMessage}"</span>
                           </div>
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
@@ -2622,7 +2622,7 @@ function CampaignDetailPageInner() {
                               <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekDeliverables || 'Deliverables'}</p>
                               <ul className="space-y-1">
                                 {wk.deliverables.map((d: string, di: number) => (
-                                  <li key={di} className="text-gray-300 text-xs flex items-start gap-1">
+                                  <li key={di} className="text-slate-700 text-xs flex items-start gap-1">
                                     <span className="text-accent mt-0.5">·</span> {d}
                                   </li>
                                 ))}
@@ -2634,7 +2634,7 @@ function CampaignDetailPageInner() {
                               <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekAssets || 'Assets Needed'}</p>
                               <ul className="space-y-1">
                                 {wk.assetsNeeded.map((a: string, ai: number) => (
-                                  <li key={ai} className="text-gray-400 text-xs flex items-start gap-1">
+                                  <li key={ai} className="text-slate-500 text-xs flex items-start gap-1">
                                     <span className="text-amber-400/60 mt-0.5">◦</span> {a}
                                   </li>
                                 ))}
@@ -2675,7 +2675,7 @@ function CampaignDetailPageInner() {
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}</p>
                     {weeklyPlan.map((wk: any, wi: number) => (
-                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
+                      <div key={wi} className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
@@ -2693,7 +2693,7 @@ function CampaignDetailPageInner() {
                         {wk.keyMessage && (
                           <div className="mb-3 bg-dark rounded-xl p-3 border border-indigo-500/20">
                             <span className="text-xs text-indigo-400 uppercase tracking-wide">{cdT?.weekKeyMessage || 'Key Message'}: </span>
-                            <span className="text-gray-300 text-sm">"{wk.keyMessage}"</span>
+                            <span className="text-slate-700 text-sm">"{wk.keyMessage}"</span>
                           </div>
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
@@ -2702,7 +2702,7 @@ function CampaignDetailPageInner() {
                               <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekThemes || 'Themes'}</p>
                               <ul className="space-y-1">
                                 {wk.contentThemes.map((theme: string, ti: number) => (
-                                  <li key={ti} className="text-gray-300 text-xs flex items-start gap-1">
+                                  <li key={ti} className="text-slate-700 text-xs flex items-start gap-1">
                                     <span className="text-accent mt-0.5">·</span> {theme}
                                   </li>
                                 ))}
@@ -2714,7 +2714,7 @@ function CampaignDetailPageInner() {
                               <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekDeliverables || 'Deliverables'}</p>
                               <ul className="space-y-1">
                                 {wk.deliverables.map((d: string, di: number) => (
-                                  <li key={di} className="text-gray-300 text-xs flex items-start gap-1">
+                                  <li key={di} className="text-slate-700 text-xs flex items-start gap-1">
                                     <span className="text-green-400 mt-0.5">□</span> {d}
                                   </li>
                                 ))}
@@ -2725,7 +2725,7 @@ function CampaignDetailPageInner() {
                         {wk.channels?.length > 0 && (
                           <div className="flex gap-2 mt-3 flex-wrap">
                             {wk.channels.map((ch: string, ci: number) => (
-                              <span key={ci} className="text-xs bg-dark border border-dark-tertiary px-2 py-1 rounded-full text-gray-400 capitalize">
+                              <span key={ci} className="text-xs bg-dark border border-dark-tertiary px-2 py-1 rounded-full text-slate-500 capitalize">
                                 {PLATFORM_ICONS[ch.toUpperCase()] || '🌐'} {ch}
                               </span>
                             ))}
@@ -2740,13 +2740,13 @@ function CampaignDetailPageInner() {
                 {monthlyPreviewItems.length > 0 && (
                   <div className="space-y-5">
                     <div className="rounded-2xl p-5 border"
-                      style={{ background: 'rgba(10,11,28,0.82)', borderColor: 'rgba(139,92,246,0.18)' }}>
+                      style={{ background: '#FFFFFF', borderColor: 'rgba(94,92,230,0.18)' }}>
                       <div className="flex flex-col md:flex-row md:items-center gap-3">
                         <div>
                           <p className="text-xs text-gray-500 uppercase tracking-wide">
                             {locale === 'ar' ? 'خطة الشهر حسب المنصة' : 'Monthly plan by platform'}
                           </p>
-                          <h3 className="text-white font-bold mt-1">
+                          <h3 className="text-slate-900 font-bold mt-1">
                             {locale === 'ar'
                               ? `${monthlyPreviewItems.length} كارت محتوى جاهز للمراجعة`
                               : `${monthlyPreviewItems.length} content cards ready for review`}
@@ -2774,7 +2774,7 @@ function CampaignDetailPageInner() {
                         <div key={platformKey} className="space-y-3">
                           <div className="flex items-center gap-2 px-1">
                             <span className="text-lg">{theme.icon}</span>
-                            <h3 className="font-bold text-white">{theme.label}</h3>
+                            <h3 className="font-bold text-slate-900">{theme.label}</h3>
                             <span className="text-xs text-gray-600">· {posts.length} {locale === 'ar' ? 'بوست' : 'posts'}</span>
                           </div>
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2804,7 +2804,7 @@ function CampaignDetailPageInner() {
             {activeTab === 3 && (
               <div className="space-y-4">
                 {/* ── Creative Brief Entry Card — Sprint F ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.3)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(168,85,247,0.3)', backdropFilter: 'blur(12px)' }}>
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🎨</span>
@@ -2840,7 +2840,7 @@ function CampaignDetailPageInner() {
 
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
-                    className="w-full py-3 rounded-xl font-bold text-sm transition-all bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl font-bold text-sm transition-all bg-purple-600 hover:bg-purple-500 text-slate-900 flex items-center justify-center gap-2"
                   >
                     <span>🎨</span>
                     {creativeBrief
@@ -2852,7 +2852,7 @@ function CampaignDetailPageInner() {
                 </div>
 
                 {/* ── Content Hub Entry Card ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.25)', backdropFilter: 'blur(12px)' }}>
                   <div className="flex items-start gap-3 mb-4">
                     <span className="text-2xl">📅</span>
                     <div className="flex-1">
@@ -2866,13 +2866,13 @@ function CampaignDetailPageInner() {
                   </div>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     {['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok'].map(p => (
-                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>{p}</span>
+                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(94,92,230,0.1)', color: '#a78bfa', border: '1px solid rgba(94,92,230,0.2)' }}>{p}</span>
                     ))}
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/content-hub`, '_blank')}
-                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.9), rgba(109,40,217,0.9))', border: '1px solid rgba(139,92,246,0.4)' }}
+                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-slate-900 flex items-center justify-center gap-2"
+                    style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.9), rgba(109,40,217,0.9))', border: '1px solid rgba(94,92,230,0.4)' }}
                   >
                     <span>📅</span>
                     {locale === 'ar' ? 'فتح مركز المحتوى' : 'Open Content Hub'}
@@ -2881,7 +2881,7 @@ function CampaignDetailPageInner() {
                 </div>
 
                 {/* ── Paid Launch Pack Card ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.3)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(245,158,11,0.3)', backdropFilter: 'blur(12px)' }}>
                   <div className="flex items-start gap-3 mb-4">
                     <span className="text-2xl">🚀</span>
                     <div className="flex-1">
@@ -2902,7 +2902,7 @@ function CampaignDetailPageInner() {
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
-                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-slate-900 flex items-center justify-center gap-2"
                     style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))', border: '1px solid rgba(245,158,11,0.4)' }}
                   >
                     <span>🚀</span>
@@ -2913,13 +2913,13 @@ function CampaignDetailPageInner() {
 
                 {/* Visual Direction from strategy */}
                 {strategy.visualDirection && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>
+                  <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>
                     <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-purple-400"><span>🎯</span> {cdT?.sectionVisualDirection}</h3>
-                    <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
+                    <p className="text-slate-700 text-sm leading-relaxed">{strategy.visualDirection}</p>
                   </div>
                 )}
 
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.1)', backdropFilter: 'blur(12px)' }}>
                   <VisualGenerator context={visualContext} />
                 </div>
 
@@ -2929,7 +2929,7 @@ function CampaignDetailPageInner() {
             {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
               <div className="space-y-4">
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(34,197,94,0.2)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(34,197,94,0.2)', backdropFilter: 'blur(12px)' }}>
                   <SocialPublisher
                     campaignId={campaign.id}
                     campaignName={campaign.name}
@@ -2943,13 +2943,13 @@ function CampaignDetailPageInner() {
                 {/* ── Learning Loop card — save winning hook back to Brand Brain ── */}
                 {topHooks.length > 0 && (
                   <div className="rounded-2xl p-5 flex items-start gap-4"
-                    style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    style={{ background: 'rgba(94,92,230,0.05)', border: '1px solid rgba(94,92,230,0.2)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                      style={{ background: 'rgba(94,92,230,0.1)', border: '1px solid rgba(94,92,230,0.25)' }}>
                       <span className="text-lg">🧠</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white mb-1">
+                      <p className="text-sm font-bold text-slate-900 mb-1">
                         {locale === 'ar' ? 'علّم عقلك من هذه الحملة' : 'Teach your Brain from this campaign'}
                       </p>
                       <p className="text-xs mb-3" style={{ color: '#64748b' }}>
@@ -2960,7 +2960,7 @@ function CampaignDetailPageInner() {
                       <div className="space-y-2">
                         {topHooks.slice(0, 3).map((hook, i) => (
                           <div key={i} className="flex items-start gap-2 p-3 rounded-xl"
-                            style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                            style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.12)' }}>
                             <p className="text-xs flex-1 leading-relaxed" style={{ color: '#94a3b8' }}>
                               "{hook.length > 100 ? hook.slice(0, 100) + '…' : hook}"
                             </p>
@@ -2980,7 +2980,7 @@ function CampaignDetailPageInner() {
                 )}
 
                 {/* Analytics section */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(59,130,246,0.2)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl p-6" style={{ background: '#FFFFFF', border: '1px solid rgba(59,130,246,0.2)', backdropFilter: 'blur(12px)' }}>
                   <SocialAnalytics campaignId={campaign.id} />
                 </div>
               </div>
@@ -2992,17 +2992,17 @@ function CampaignDetailPageInner() {
 
                 {/* Header card */}
                 <div className="rounded-2xl p-6 border"
-                  style={{ background: 'rgba(109,40,217,0.05)', borderColor: 'rgba(139,92,246,0.25)' }}>
+                  style={{ background: 'rgba(109,40,217,0.05)', borderColor: 'rgba(94,92,230,0.25)' }}>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                      style={{ background: 'rgba(94,92,230,0.15)', border: '1px solid rgba(94,92,230,0.3)' }}>
                       <span className="text-lg">🤖</span>
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-base">
+                      <h3 className="font-bold text-slate-900 text-base">
                         {locale === 'ar' ? 'وضع الأوتوبايلوت' : 'Autopilot Mode'}
                       </h3>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-slate-500">
                         {locale === 'ar'
                           ? 'بعد الموافقة على الاستراتيجية، NEXUS يولد المحتوى والصور وينشر على جدولك تلقائياً'
                           : 'After strategy approval, NEXUS generates content & images and publishes on your schedule automatically'}
@@ -3010,7 +3010,7 @@ function CampaignDetailPageInner() {
                     </div>
                     {campaign.autopilotEnabled && (
                       <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                        style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.35)', color: '#a78bfa' }}>
+                        style={{ background: 'rgba(94,92,230,0.15)', border: '1px solid rgba(94,92,230,0.35)', color: '#a78bfa' }}>
                         <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
                         {locale === 'ar' ? 'نشط' : 'Active'}
                       </div>
@@ -3030,7 +3030,7 @@ function CampaignDetailPageInner() {
                           <span className={req.done ? 'text-green-400' : 'text-gray-600'}>
                             {req.done ? '✓' : '○'}
                           </span>
-                          <span className={req.done ? 'text-gray-300' : 'text-gray-600'}>{req.label}</span>
+                          <span className={req.done ? 'text-slate-700' : 'text-gray-600'}>{req.label}</span>
                         </div>
                       ))}
                     </div>
@@ -3074,7 +3074,7 @@ function CampaignDetailPageInner() {
                             if (d.posts) setAutopilotQueue(d.posts)
                           }}
                           className="px-4 py-2 rounded-xl border text-xs font-semibold transition"
-                          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                          style={{ background: 'rgba(94,92,230,0.08)', border: '1px solid rgba(94,92,230,0.2)', color: '#a78bfa' }}>
                           {locale === 'ar' ? '↻ تحديث القائمة' : '↻ Refresh Queue'}
                         </button>
                       </>
@@ -3113,7 +3113,7 @@ function CampaignDetailPageInner() {
                           color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
                             ? '#6b7280' : '#fff',
                           boxShadow: !autopilotActivating && aiOutput && weeklyExecutionPlan.length > 0
-                            ? '0 0 24px rgba(139,92,246,0.3)' : 'none',
+                            ? '0 0 24px rgba(94,92,230,0.3)' : 'none',
                         }}>
                         {autopilotActivating
                           ? (locale === 'ar' ? '⏳ جاري التفعيل...' : '⏳ Activating...')
@@ -3144,19 +3144,19 @@ function CampaignDetailPageInner() {
                 {/* Queue table */}
                 {autopilotQueue.length > 0 && (
                   <div className="rounded-2xl border overflow-hidden"
-                    style={{ background: 'rgba(12,13,36,0.6)', borderColor: 'rgba(139,92,246,0.15)' }}>
-                    <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(139,92,246,0.1)' }}>
-                      <h4 className="font-semibold text-white text-sm flex items-center gap-2">
+                    style={{ background: '#FFFFFF', borderColor: 'rgba(94,92,230,0.15)' }}>
+                    <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(94,92,230,0.1)' }}>
+                      <h4 className="font-semibold text-slate-900 text-sm flex items-center gap-2">
                         <span>📅</span>
                         {locale === 'ar'
                           ? `قائمة الجدولة — ${autopilotQueue.length} منشور`
                           : `Scheduled Queue — ${autopilotQueue.length} posts`}
                       </h4>
                     </div>
-                    <div className="divide-y" style={{ borderColor: 'rgba(139,92,246,0.08)' }}>
+                    <div className="divide-y" style={{ borderColor: 'rgba(94,92,230,0.08)' }}>
                       {autopilotQueue.map((post) => {
                         const statusColors: Record<string, { bg: string; text: string; label: string }> = {
-                          SCHEDULED:  { bg: 'rgba(139,92,246,0.12)', text: '#a78bfa', label: locale === 'ar' ? 'مجدول' : 'Scheduled' },
+                          SCHEDULED:  { bg: 'rgba(94,92,230,0.12)', text: '#a78bfa', label: locale === 'ar' ? 'مجدول' : 'Scheduled' },
                           PUBLISHED:  { bg: 'rgba(16,185,129,0.12)', text: '#34d399', label: locale === 'ar' ? 'منشور' : 'Published' },
                           FAILED:     { bg: 'rgba(239,68,68,0.12)',   text: '#f87171', label: locale === 'ar' ? 'فشل' : 'Failed' },
                           DRAFT:      { bg: 'rgba(107,114,128,0.12)', text: '#9ca3af', label: locale === 'ar' ? 'موقف' : 'Paused' },
@@ -3168,7 +3168,7 @@ function CampaignDetailPageInner() {
                           <div key={post.id} className="flex items-start gap-4 px-5 py-4">
                             {/* Image preview */}
                             <div className="w-14 h-14 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center"
-                              style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                              style={{ background: 'rgba(94,92,230,0.08)', border: '1px solid rgba(94,92,230,0.15)' }}>
                               {post.imageUrl ? (
                                 <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
                               ) : (
@@ -3181,7 +3181,7 @@ function CampaignDetailPageInner() {
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 {post.weekNumber && (
                                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                    style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                    style={{ background: 'rgba(94,92,230,0.1)', color: '#a78bfa', border: '1px solid rgba(94,92,230,0.2)' }}>
                                     {locale === 'ar' ? `الأسبوع ${post.weekNumber}` : `Week ${post.weekNumber}`}
                                   </span>
                                 )}
@@ -3198,7 +3198,7 @@ function CampaignDetailPageInner() {
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-400 line-clamp-2">{post.caption}</p>
+                              <p className="text-xs text-slate-500 line-clamp-2">{post.caption}</p>
                               {post.scheduledAt && (
                                 <p className="text-xs text-gray-600 mt-1">
                                   📅 {new Date(post.scheduledAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
@@ -3217,7 +3217,7 @@ function CampaignDetailPageInner() {
                 {/* Empty state when autopilot is active but queue was just loaded */}
                 {campaign.autopilotEnabled && autopilotQueue.length === 0 && (
                   <div className="rounded-2xl p-8 text-center border"
-                    style={{ background: 'rgba(12,13,36,0.4)', borderColor: 'rgba(139,92,246,0.1)' }}>
+                    style={{ background: '#FFFFFF', borderColor: 'rgba(94,92,230,0.1)' }}>
                     <div className="text-3xl mb-3">🤖</div>
                     <p className="text-gray-500 text-sm">
                       {locale === 'ar'
@@ -3243,8 +3243,8 @@ function CampaignDetailPageInner() {
                 {/* How it works */}
                 {!campaign.autopilotEnabled && (
                   <div className="rounded-2xl p-5 border"
-                    style={{ background: 'rgba(12,13,36,0.4)', borderColor: 'rgba(255,255,255,0.05)' }}>
-                    <h4 className="text-sm font-semibold text-gray-400 mb-3">
+                    style={{ background: '#FFFFFF', borderColor: 'rgba(255,255,255,0.05)' }}>
+                    <h4 className="text-sm font-semibold text-slate-500 mb-3">
                       {locale === 'ar' ? '⚡ كيف يعمل الأوتوبايلوت' : '⚡ How Autopilot works'}
                     </h4>
                     <div className="space-y-2.5">
@@ -3281,10 +3281,10 @@ function CampaignDetailPageInner() {
 
                 {!perfLoading && !perfData && (
                   <div className="rounded-2xl p-8 text-center"
-                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                    style={{ background: '#FFFFFF', border: '1px solid rgba(6,182,212,0.15)' }}>
                     <div className="text-4xl mb-3">📊</div>
-                    <h3 className="font-bold text-white text-base mb-1">No performance data yet</h3>
-                    <p className="text-sm text-gray-400">Data appears here after posts are published and analytics are fetched (24-48h after publishing).</p>
+                    <h3 className="font-bold text-slate-900 text-base mb-1">No performance data yet</h3>
+                    <p className="text-sm text-slate-500">Data appears here after posts are published and analytics are fetched (24-48h after publishing).</p>
                   </div>
                 )}
 
@@ -3312,7 +3312,7 @@ function CampaignDetailPageInner() {
                           { label: 'Avg Engagement',   value: `${s.avgEngagementRate}%`,           icon: '📈', color: '#fb923c' },
                         ].map(kpi => (
                           <div key={kpi.label} className="rounded-2xl p-4"
-                            style={{ background: 'rgba(10,11,28,0.85)', border: `1px solid ${kpi.color}25` }}>
+                            style={{ background: '#FFFFFF', border: `1px solid ${kpi.color}25` }}>
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-base">{kpi.icon}</span>
                               <span className="text-xs text-gray-500 font-medium">{kpi.label}</span>
@@ -3324,7 +3324,7 @@ function CampaignDetailPageInner() {
 
                       {/* Posts status row */}
                       <div className="rounded-2xl p-4 flex flex-wrap gap-6"
-                        style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        style={{ background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.06)' }}>
                         {[
                           ['Total Posts', s.totalPosts, '#9ca3af'],
                           ['Published',   s.publishedPosts, '#34d399'],
@@ -3346,8 +3346,8 @@ function CampaignDetailPageInner() {
                       {/* Platform breakdown */}
                       {Object.keys(platforms).length > 0 && (
                         <div className="rounded-2xl p-5"
-                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <h4 className="font-semibold text-white text-sm mb-4">Platform Breakdown</h4>
+                          style={{ background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <h4 className="font-semibold text-slate-900 text-sm mb-4">Platform Breakdown</h4>
                           <div className="space-y-3">
                             {Object.entries(platforms).map(([platform, data]: [string, any]) => {
                               const color = PLATFORM_COLORS[platform] ?? '#6366f1'
@@ -3359,10 +3359,10 @@ function CampaignDetailPageInner() {
                                   <div className="flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-2">
                                       <span>{icon}</span>
-                                      <span className="text-sm text-white font-medium">{platform}</span>
+                                      <span className="text-sm text-slate-900 font-medium">{platform}</span>
                                       <span className="text-xs text-gray-500">{data.posts} posts</span>
                                     </div>
-                                    <div className="flex gap-4 text-xs text-gray-400">
+                                    <div className="flex gap-4 text-xs text-slate-500">
                                       <span>{data.reach?.toLocaleString()} reach</span>
                                       <span className="font-semibold" style={{ color }}>{data.avgEngagementRate}%</span>
                                     </div>
@@ -3381,8 +3381,8 @@ function CampaignDetailPageInner() {
                       {/* Engagement trend */}
                       {trend.length > 1 && (
                         <div className="rounded-2xl p-5"
-                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <h4 className="font-semibold text-white text-sm mb-4">Engagement Trend</h4>
+                          style={{ background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <h4 className="font-semibold text-slate-900 text-sm mb-4">Engagement Trend</h4>
                           <div className="flex items-end gap-1 h-20">
                             {(() => {
                               const maxEng = Math.max(...trend.map(t => t.engagements), 1)
@@ -3411,8 +3411,8 @@ function CampaignDetailPageInner() {
                       {/* Top posts */}
                       {topPosts.length > 0 && (
                         <div className="rounded-2xl p-5"
-                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <h4 className="font-semibold text-white text-sm mb-4">🏆 Top Performing Posts</h4>
+                          style={{ background: '#FFFFFF', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <h4 className="font-semibold text-slate-900 text-sm mb-4">🏆 Top Performing Posts</h4>
                           <div className="space-y-3">
                             {topPosts.map((post, i) => (
                               <div key={post.id} className="flex gap-3 p-3 rounded-xl"
@@ -3429,7 +3429,7 @@ function CampaignDetailPageInner() {
                                   <img src={post.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-gray-300 line-clamp-2">{post.caption}</p>
+                                  <p className="text-sm text-slate-700 line-clamp-2">{post.caption}</p>
                                   <div className="flex gap-3 mt-1 text-xs text-gray-500">
                                     <span>{PLATFORM_ICONS[String(post.platform)] ?? '📣'} {post.platform}</span>
                                     <span>❤️ {post.likes}</span>
