@@ -67,7 +67,7 @@ function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
           <stop offset="100%" stopColor={dotColor} stopOpacity="0" />
         </linearGradient>
         <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#8b5cf6" />
+          <stop offset="0%" stopColor="#5E5CE6" />
           <stop offset="100%" stopColor={dotColor} />
         </linearGradient>
       </defs>
@@ -77,10 +77,10 @@ function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
         <g key={v}>
           <line
             x1={padX} y1={toY(v)} x2={W - padX} y2={toY(v)}
-            stroke="rgba(139,92,246,0.12)" strokeWidth="1" strokeDasharray="4,4"
+            stroke="rgba(94,92,230,0.12)" strokeWidth="1" strokeDasharray="4,4"
           />
           <text x={padX - 6} y={toY(v) + 4} textAnchor="end"
-            fontSize="10" fill="rgba(148,163,184,0.4)" fontFamily="monospace">
+            fontSize="10" fill="#64748B" fontFamily="monospace">
             {v}
           </text>
         </g>
@@ -100,7 +100,7 @@ function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
         return (
           <g key={i}>
             <circle cx={toX(i)} cy={toY(s.score)} r={isLast ? 5 : 3}
-              fill={c} stroke="rgba(10,11,28,0.8)" strokeWidth={isLast ? 2 : 1.5} />
+              fill={c} stroke="#FFFFFF" strokeWidth={isLast ? 2 : 1.5} />
             {isLast && (
               <circle cx={toX(i)} cy={toY(s.score)} r="9"
                 fill="none" stroke={c} strokeWidth="1.5" opacity="0.4" />
@@ -128,7 +128,7 @@ function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
         .filter((v, i, arr) => arr.indexOf(v) === i && v < snapshots.length)
         .map(i => (
           <text key={i} x={toX(i)} y={H - 4} textAnchor="middle"
-            fontSize="9" fill="rgba(148,163,184,0.35)" fontFamily="monospace">
+            fontSize="9" fill="#94A3B8" fontFamily="monospace">
             {new Date(snapshots[i].createdAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
           </text>
         ))
@@ -142,18 +142,18 @@ function MilestoneBadge({ score, date, isFirst }: { score: number; date: string;
   const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
   const label = score >= 80 ? '🧠 Full Power' : score >= 75 ? '🚀 Advanced' : score >= 50 ? '📈 Building' : score >= 25 ? '🌱 Starting' : '⚡ First Save'
   return (
-    <div className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(139,92,246,0.08)' }}>
+    <div className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(94,92,230,0.08)' }}>
       <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: `${color}15`, border: `1px solid ${color}35` }}>
         <span className="text-base font-black tabular-nums" style={{ color, fontSize: 13 }}>{score}</span>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold" style={{ color: '#e2e8f0' }}>{label}{isFirst ? ' — First Save' : ''}</p>
+        <p className="text-xs font-semibold" style={{ color: '#1f2937' }}>{label}{isFirst ? ' — First Save' : ''}</p>
         <p className="text-[10px] mt-0.5" style={{ color: '#334155' }}>
           {new Date(date).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
-      <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(139,92,246,0.08)' }}>
+      <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(94,92,230,0.08)' }}>
         <div className="h-full rounded-full" style={{ width: `${score}%`, background: color }} />
       </div>
     </div>
@@ -166,14 +166,14 @@ function StatCard({ icon, label, value, sub, color }: {
 }) {
   return (
     <div className="flex-1 min-w-[140px] rounded-2xl p-4"
-      style={{ background: 'rgba(10,11,28,0.7)', border: `1px solid ${color}20`, backdropFilter: 'blur(12px)' }}>
+      style={{ background: '#FFFFFF', border: `1px solid ${color}20`, backdropFilter: 'blur(12px)' }}>
       <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-3"
         style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
         <span style={{ color }}>{icon}</span>
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'rgba(148,163,184,0.4)' }}>{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#64748B' }}>{label}</p>
       <p className="text-2xl font-black tabular-nums" style={{ color }}>{value}</p>
-      {sub && <p className="text-[10px] mt-1" style={{ color: 'rgba(148,163,184,0.3)' }}>{sub}</p>}
+      {sub && <p className="text-[10px] mt-1" style={{ color: '#94A3B8' }}>{sub}</p>}
     </div>
   )
 }
@@ -233,15 +233,15 @@ export default function ScoreHistoryPage() {
           {/* ── Back button ───────────────────────────────────────── */}
           <button onClick={() => router.push('/brand')}
             className="flex items-center gap-2 mb-6 text-sm font-semibold transition-all hover:opacity-80"
-            style={{ color: 'rgba(148,163,184,0.5)' }}>
+            style={{ color: '#64748B' }}>
             <ArrowLeft size={15} />
             Brand Brain
           </button>
 
           {/* ── Header ────────────────────────────────────────────── */}
           <div className="rounded-2xl overflow-hidden mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.4)' }}>
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #06b6d4 100%)' }} />
+            style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.2)', backdropFilter: 'blur(24px)', boxShadow: '0 4px 40px rgba(0,0,0,0.4)' }}>
+            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #5E5CE6 50%, #06b6d4 100%)' }} />
             <div className="p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-1 h-3.5 rounded-full" style={{ background: 'linear-gradient(180deg, #f59e0b, #f59e0b80)' }} />
@@ -251,7 +251,7 @@ export default function ScoreHistoryPage() {
               </div>
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                  <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
                     <Brain size={28} className="text-amber-400" />
                     Brain Score Journey
                   </h1>
@@ -275,17 +275,17 @@ export default function ScoreHistoryPage() {
           {loading ? (
             <div className="flex items-center justify-center h-48">
               <div className="w-8 h-8 rounded-full border-2 border-t-amber-400 animate-spin"
-                style={{ borderColor: 'rgba(139,92,246,0.2)', borderTopColor: '#f59e0b' }} />
+                style={{ borderColor: 'rgba(94,92,230,0.2)', borderTopColor: '#f59e0b' }} />
             </div>
           ) : snapshots.length === 0 ? (
             /* ── Empty state ──────────────────────────────────────── */
             <div className="rounded-2xl p-12 text-center"
-              style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.15)', backdropFilter: 'blur(12px)' }}>
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
                 style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
                 <Brain size={32} className="text-amber-400 opacity-40" />
               </div>
-              <p className="text-lg font-bold text-white mb-2">No history yet</p>
+              <p className="text-lg font-bold text-slate-900 mb-2">No history yet</p>
               <p className="text-sm mb-6" style={{ color: '#475569' }}>Save your Brand Brain at least once to start tracking</p>
               <button onClick={() => router.push('/brand')}
                 className="px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
@@ -323,20 +323,20 @@ export default function ScoreHistoryPage() {
                   label="Brain Saves"
                   value={`${saves}`}
                   sub="Training sessions"
-                  color="#8b5cf6"
+                  color="#5E5CE6"
                 />
               </div>
 
               {/* ── Chart ─────────────────────────────────────────── */}
               <div className="rounded-2xl p-5 mb-6"
-                style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
+                style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.15)', backdropFilter: 'blur(12px)' }}>
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.4)' }}>Score over time</p>
+                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Score over time</p>
                   <div className="flex items-center gap-4">
                     {[{ color: '#ef4444', label: '< 50' }, { color: '#f59e0b', label: '50–79' }, { color: '#10b981', label: '80+' }].map(t => (
                       <div key={t.label} className="flex items-center gap-1.5">
                         <div className="w-2 h-2 rounded-full" style={{ background: t.color }} />
-                        <span className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>{t.label}</span>
+                        <span className="text-[10px]" style={{ color: '#94A3B8' }}>{t.label}</span>
                       </div>
                     ))}
                   </div>
@@ -347,8 +347,8 @@ export default function ScoreHistoryPage() {
               {/* ── Target zones ──────────────────────────────────── */}
               {current < 100 && (
                 <div className="rounded-2xl p-5 mb-6"
-                  style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
-                  <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(148,163,184,0.4)' }}>Next targets</p>
+                  style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.15)', backdropFilter: 'blur(12px)' }}>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#64748B' }}>Next targets</p>
                   <div className="flex flex-col gap-2">
                     {[
                       { target: 25, label: 'Starter Brain', desc: 'Brand name + industry + description', color: '#ef4444' },
@@ -364,7 +364,7 @@ export default function ScoreHistoryPage() {
                         </div>
                         <div className="flex-1">
                           <p className="text-xs font-bold" style={{ color: t.color }}>{t.target} — {t.label}</p>
-                          <p className="text-[10px] mt-0.5" style={{ color: 'rgba(148,163,184,0.3)' }}>{t.desc}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: '#94A3B8' }}>{t.desc}</p>
                         </div>
                         <span className="text-xs font-black tabular-nums" style={{ color: `${t.color}80` }}>+{t.target - current}</span>
                       </div>
@@ -375,11 +375,11 @@ export default function ScoreHistoryPage() {
 
               {/* ── History log ───────────────────────────────────── */}
               <div className="rounded-2xl p-5"
-                style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
+                style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.15)', backdropFilter: 'blur(12px)' }}>
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.4)' }}>Save history</p>
+                  <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>Save history</p>
                   <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                    style={{ background: 'rgba(139,92,246,0.1)', color: 'rgba(139,92,246,0.6)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    style={{ background: 'rgba(94,92,230,0.1)', color: 'rgba(94,92,230,0.6)', border: '1px solid rgba(94,92,230,0.2)' }}>
                     {milestones.length} changes
                   </span>
                 </div>
@@ -397,7 +397,7 @@ export default function ScoreHistoryPage() {
                   <div className="flex items-center gap-3">
                     <Zap size={18} className="text-amber-400 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-white">Reach 80 to unlock Full Power</p>
+                      <p className="text-sm font-bold text-slate-900">Reach 80 to unlock Full Power</p>
                       <p className="text-xs mt-0.5" style={{ color: '#475569' }}>More data = smarter AI for every campaign</p>
                     </div>
                   </div>
@@ -413,9 +413,9 @@ export default function ScoreHistoryPage() {
 
           {!loading && updates.length > 0 && (
             <div className="rounded-2xl p-5 mt-6"
-              style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
+              style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.15)', backdropFilter: 'blur(12px)' }}>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: '#64748B' }}>
                   Brand Brain updates
                 </p>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
@@ -444,18 +444,18 @@ export default function ScoreHistoryPage() {
                               style={{ background: `${color}10`, color, border: `1px solid ${color}20` }}>
                               {update.status}
                             </span>
-                            <span className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                            <span className="text-[10px]" style={{ color: '#94A3B8' }}>
                               {update.trigger.replace(/_/g, ' ')}
                             </span>
                           </div>
                           <p className="text-xs mt-1 leading-relaxed" style={{ color: '#cbd5e1' }}>
                             {formatProposed(update.proposed)}
                           </p>
-                          <p className="text-[10px] mt-1 leading-relaxed" style={{ color: 'rgba(148,163,184,0.45)' }}>
+                          <p className="text-[10px] mt-1 leading-relaxed" style={{ color: '#64748B' }}>
                             {update.reason}
                           </p>
                         </div>
-                        <span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                        <span className="text-[10px] flex-shrink-0" style={{ color: '#94A3B8' }}>
                           {new Date(update.updatedAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
