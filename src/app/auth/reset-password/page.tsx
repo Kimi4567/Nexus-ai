@@ -82,13 +82,13 @@ function ResetPasswordForm() {
   }
 
   const inputStyle = {
-    background: 'rgba(12,13,36,0.65)',
-    border: '1px solid rgba(139,92,246,0.15)',
+    background: '#FFFFFF',
+    border: '1px solid rgba(15,23,42,0.12)',
   }
 
   const wrap = (children: React.ReactNode) => (
     <div
-      className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
+      className="min-h-screen bg-bg-base text-slate-950 flex items-center justify-center px-4"
       dir={dir}
       style={{
         backgroundImage:
@@ -183,7 +183,7 @@ function ResetPasswordForm() {
               onChange={e => setPassword(e.target.value)}
               placeholder={rpT?.passwordPlaceholder || '••••••••'}
               autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition pr-11"
+              className="w-full px-4 py-3 rounded-xl text-slate-950 placeholder-slate-400 focus:outline-none transition pr-11"
               style={inputStyle}
               onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
               onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
@@ -191,7 +191,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
-              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition"
+              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-slate-700 transition"
               tabIndex={-1}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -211,7 +211,7 @@ function ResetPasswordForm() {
               onChange={e => setConfirm(e.target.value)}
               placeholder={rpT?.confirmPlaceholder || '••••••••'}
               autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition pr-11"
+              className="w-full px-4 py-3 rounded-xl text-slate-950 placeholder-slate-400 focus:outline-none transition pr-11"
               style={inputStyle}
               onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
               onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
@@ -219,7 +219,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowConfirm(v => !v)}
-              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition"
+              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-slate-700 transition"
               tabIndex={-1}
             >
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}

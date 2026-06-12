@@ -32,12 +32,12 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  const inputStyle = { background: 'rgba(12,13,36,0.65)', border: '1px solid rgba(139,92,246,0.15)' }
+  const inputStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.12)' }
 
   if (done) {
     return (
       <div
-        className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
+        className="min-h-screen bg-bg-base text-slate-950 flex items-center justify-center px-4"
         dir={dir}
         style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
       >
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
           <h1 className="text-2xl font-bold font-heading mb-2">{fpT?.successTitle}</h1>
           <p className="text-text-secondary mb-6">
             {fpT?.successDesc}{' '}
-            <span className="text-white font-semibold">{email}</span>
+            <span className="text-slate-900 font-semibold">{email}</span>
           </p>
           <Link
             href="/auth/login"
@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div
-      className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
+      className="min-h-screen bg-bg-base text-slate-950 flex items-center justify-center px-4"
       dir={dir}
       style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
     >
@@ -97,7 +97,7 @@ export default function ForgotPasswordPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition"
+                className="w-full px-4 py-3 rounded-xl text-slate-950 placeholder-slate-400 focus:outline-none transition"
                 style={inputStyle}
                 onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
                 onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
