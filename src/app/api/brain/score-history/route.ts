@@ -25,6 +25,17 @@ export async function GET(req: NextRequest) {
     }
 
     let snapshots: Array<{ score: number; createdAt: Date }> = []
+    let updates: Array<{
+      id: string
+      field: string
+      displayName: string
+      icon: string | null
+      trigger: string
+      proposed: unknown
+      reason: string
+      status: string
+      updatedAt: Date
+    }> = []
     try {
       snapshots = await db.brainScoreSnapshot.findMany({
         where: { workspaceId: workspace.id },
@@ -32,9 +43,28 @@ export async function GET(req: NextRequest) {
         take: 30,
         select: { score: true, createdAt: true },
       })
+      updates = await db.brainLearning.findMany({
+        where: {
+          workspaceId: workspace.id,
+          status: { in: ['accepted', 'dismissed'] },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          field: true,
+          displayName: true,
+          icon: true,
+          trigger: true,
+          proposed: true,
+          reason: true,
+          status: true,
+          updatedAt: true,
+        },
+      })
     } catch { /* model may not exist yet — return empty */ }
 
-    return NextResponse.json({ snapshots: snapshots.reverse() })
+    return NextResponse.json({ snapshots: snapshots.reverse(), updates })
   } catch (error) {
     console.error('GET /api/brain/score-history error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

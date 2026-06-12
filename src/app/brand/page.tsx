@@ -891,14 +891,12 @@ function BrandBrainInner() {
                     {saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>}
                     {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
                   </button>
-                  {scoreHistory.length >= 2 && (
-                    <button onClick={() => router.push('/brand/score-history')}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-                      style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
-                      <BarChart2 size={13} />
-                      {locale === 'ar' ? 'سجل النمو' : 'Score History'}
-                    </button>
-                  )}
+                  <button onClick={() => router.push('/brand/score-history')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
+                    style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
+                    <BarChart2 size={13} />
+                    {locale === 'ar' ? 'سجل النمو' : 'Score History'}
+                  </button>
                 </div>
               </div>
 

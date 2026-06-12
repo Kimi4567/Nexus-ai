@@ -15,6 +15,25 @@ interface Snapshot {
   createdAt: string
 }
 
+interface BrainUpdate {
+  id: string
+  field: string
+  displayName: string
+  icon: string | null
+  trigger: string
+  proposed: unknown
+  reason: string
+  status: string
+  updatedAt: string
+}
+
+function formatProposed(value: unknown): string {
+  if (Array.isArray(value)) return value.filter(Boolean).slice(0, 4).join(' · ')
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') return JSON.stringify(value).slice(0, 160)
+  return String(value ?? '')
+}
+
 /* ── Full SVG Line Chart ──────────────────────────────────────── */
 function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
   if (snapshots.length < 2) return null
@@ -164,6 +183,7 @@ export default function ScoreHistoryPage() {
   const router = useRouter()
   const { authHeader } = useAuth()
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
+  const [updates, setUpdates] = useState<BrainUpdate[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchHistory = useCallback(async () => {
@@ -175,6 +195,9 @@ export default function ScoreHistoryPage() {
       const data = await res.json()
       if (Array.isArray(data.snapshots)) {
         setSnapshots(data.snapshots)
+      }
+      if (Array.isArray(data.updates)) {
+        setUpdates(data.updates)
       }
     } catch { /* silent */ } finally {
       setLoading(false)
@@ -386,6 +409,61 @@ export default function ScoreHistoryPage() {
                 </div>
               )}
             </>
+          )}
+
+          {!loading && updates.length > 0 && (
+            <div className="rounded-2xl p-5 mt-6"
+              style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.15)', backdropFilter: 'blur(12px)' }}>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                  Brand Brain updates
+                </p>
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                  style={{ background: 'rgba(16,185,129,0.1)', color: 'rgba(16,185,129,0.75)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  {updates.filter(u => u.status === 'accepted').length} accepted
+                </span>
+              </div>
+              <div className="space-y-2">
+                {updates.map(update => {
+                  const accepted = update.status === 'accepted'
+                  const color = accepted ? '#10b981' : '#64748b'
+                  return (
+                    <div key={update.id} className="rounded-xl p-3"
+                      style={{ background: accepted ? 'rgba(16,185,129,0.06)' : 'rgba(100,116,139,0.06)', border: `1px solid ${accepted ? 'rgba(16,185,129,0.18)' : 'rgba(100,116,139,0.14)'}` }}>
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${color}12`, border: `1px solid ${color}28` }}>
+                          <span className="text-sm">{update.icon || '🧠'}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs font-bold" style={{ color }}>
+                              {update.displayName || update.field}
+                            </p>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-md uppercase"
+                              style={{ background: `${color}10`, color, border: `1px solid ${color}20` }}>
+                              {update.status}
+                            </span>
+                            <span className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                              {update.trigger.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <p className="text-xs mt-1 leading-relaxed" style={{ color: '#cbd5e1' }}>
+                            {formatProposed(update.proposed)}
+                          </p>
+                          <p className="text-[10px] mt-1 leading-relaxed" style={{ color: 'rgba(148,163,184,0.45)' }}>
+                            {update.reason}
+                          </p>
+                        </div>
+                        <span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                          {new Date(update.updatedAt).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
