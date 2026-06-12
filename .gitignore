@@ -18,3 +18,6 @@ app_backup_*
 .fuse_hidden*
 .env
 .DS_Store
+
+# Local generated reports
+NEXUS_Credit_Cost_Audit.pdf
