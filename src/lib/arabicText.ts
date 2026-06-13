@@ -149,3 +149,85 @@ export async function renderArabicTextLayer(
     return null
   }
 }
+
+/**
+ * Render an Arabic CTA pill (brand-color button) as a transparent PNG buffer
+ * (Visual Ad Engine v1.1). Uses the same Satori + Noto Naskh Arabic path as the
+ * headline so RTL shaping is correct. Positioned in the lower band, above the
+ * brand-name / logo row. Returns null if Satori/font are unavailable (caller then
+ * simply omits the CTA — no layout change).
+ */
+export async function renderArabicCtaLayer(
+  text: string,
+  imageWidth: number,
+  imageHeight: number,
+  bgColor = '#6366f1',
+  textColor = '#FFFFFF',
+): Promise<Buffer | null> {
+  if (!text?.trim()) return null
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const satoriModule = await import('satori').catch(() => null) as any
+    if (!satoriModule) return null
+    const satori = satoriModule.default ?? satoriModule
+
+    const fontData = await loadArabicFont()
+    if (!fontData) return null
+
+    const fontSize  = imageWidth >= 1080 ? 38 : imageWidth >= 800 ? 32 : 26
+    const padBottom = Math.round(imageHeight * 0.105) // sits ~88% down, clear of the brand row
+
+    const element = {
+      type: 'div',
+      props: {
+        style: {
+          width:          imageWidth,
+          height:         imageHeight,
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
+          justifyContent: 'flex-end',
+          background:     'transparent',
+          paddingBottom:  padBottom,
+          boxSizing:      'border-box',
+        },
+        children: [
+          {
+            type: 'div',
+            props: {
+              style: {
+                display:      'flex',
+                background:    bgColor,
+                borderRadius: 999,
+                padding:      `${Math.round(fontSize * 0.5)}px ${Math.round(fontSize * 1.15)}px`,
+                color:        textColor,
+                fontSize,
+                fontWeight:   '700',
+                fontFamily:   '"Noto Naskh Arabic"',
+                textAlign:    'center',
+                direction:    'rtl',
+                filter:       'drop-shadow(0px 2px 14px rgba(0,0,0,0.55))',
+              },
+              children: text,
+            },
+          },
+        ],
+      },
+    }
+
+    const svg = await satori(element, {
+      width:  imageWidth,
+      height: imageHeight,
+      fonts: [
+        { name: 'Noto Naskh Arabic', data: fontData, weight: 700, style: 'normal' },
+      ],
+    })
+
+    const { default: sharp } = await import('sharp')
+    return await sharp(Buffer.from(svg)).resize(imageWidth, imageHeight).png().toBuffer()
+  } catch (err) {
+    console.warn('[arabicText] renderArabicCtaLayer failed:', err)
+    return null
+  }
+}

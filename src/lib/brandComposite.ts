@@ -20,7 +20,14 @@
  */
 
 import sharp from 'sharp'
-import { renderArabicTextLayer } from '@/lib/arabicText'
+import { renderArabicTextLayer, renderArabicCtaLayer } from '@/lib/arabicText'
+import {
+  prepareCtaText,
+  isArabicText,
+  escapeSvgText,
+  ctaTextColor,
+  ctaPillGeometry,
+} from '@/lib/visualCta'
 
 // ─── Platform dimension map ───────────────────────────────────────────────────
 
@@ -40,6 +47,7 @@ export interface BrandCompositeOptions {
   accentColor?: string | null      // Brand primary color e.g. '#6366f1'
   platform?: string                // instagram | square | facebook | linkedin | tiktok
   adHeadline?: string | null       // Arabic (or any) ad copy headline — composited via SVG
+  ctaText?: string | null          // call-to-action label (e.g. "Order Now" / "اطلب الآن") — composited as a pill
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -213,6 +221,35 @@ function buildBrandTextSvg(w: number, h: number, brandName: string): Buffer {
 }
 
 /**
+ * CTA pill (English/Latin) — a rounded brand-color button with high-contrast bold
+ * text, centred in the lower band (above the brand-name / logo row). Arabic CTAs
+ * are rendered via Satori instead (correct RTL shaping). Geometry/escaping are the
+ * pure, unit-tested helpers in visualCta.ts.
+ */
+function buildCtaPillSvg(w: number, h: number, text: string, bgColor: string): Buffer {
+  const g = ctaPillGeometry(w, h, text.length)
+  const txtColor = ctaTextColor(bgColor)
+  return Buffer.from(`<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="ctaShadow" x="-20%" y="-40%" width="140%" height="180%">
+      <feDropShadow dx="0" dy="2" stdDeviation="10" flood-color="rgba(0,0,0,0.45)"/>
+    </filter>
+  </defs>
+  <rect x="${g.pillX}" y="${g.pillY}" width="${g.pillW}" height="${g.pillH}" rx="${g.radius}" fill="${bgColor}" filter="url(#ctaShadow)"/>
+  <text
+    x="${g.centerX}"
+    y="${g.textBaselineY}"
+    text-anchor="middle"
+    font-family="Arial, Helvetica, sans-serif"
+    font-weight="bold"
+    font-size="${g.fontSize}px"
+    fill="${txtColor}"
+    letter-spacing="0.5"
+  >${escapeSvgText(text)}</text>
+</svg>`)
+}
+
+/**
  * Thin accent bar — brand color, 6px, pinned to the very bottom.
  * Matches the look of Apple, Nike, premium tech brand social ads.
  */
@@ -297,6 +334,17 @@ export async function composeBrandedPost(
     ? buildAdHeadlineSvg(w, h, rawHeadline)
     : null
 
+  // CTA pill (Visual Ad Engine v1.1) — only when a CTA is provided.
+  //   Arabic CTA → Satori + Noto Naskh (correct RTL); Latin CTA → SVG.
+  //   Empty/missing CTA → no layer at all (image renders exactly as before).
+  const ctaText = prepareCtaText(opts.ctaText)
+  const ctaArabicLayer = (ctaText && isArabicText(ctaText))
+    ? await renderArabicCtaLayer(ctaText, w, h, accentColor, ctaTextColor(accentColor)).catch(() => null)
+    : null
+  const ctaSvg = (ctaText && !isArabicText(ctaText))
+    ? buildCtaPillSvg(w, h, ctaText, accentColor)
+    : null
+
   // ── 3. Fetch + resize logo (optional) ────────────────────────────────────
   const logoSize = Math.round(w * 0.1)  // 10% of width: 108px at 1080
   const logoPaddingX = Math.round(w * 0.025)
@@ -320,6 +368,14 @@ export async function composeBrandedPost(
   // Latin/English ad headline via SVG (Sharp handles it well)
   if (headlineSvg) {
     compositeInputs.push({ input: headlineSvg, top: 0, left: 0 })
+  }
+
+  // CTA pill — below the headline, above the brand-name / logo row
+  if (ctaArabicLayer) {
+    compositeInputs.push({ input: ctaArabicLayer, top: 0, left: 0 })
+  }
+  if (ctaSvg) {
+    compositeInputs.push({ input: ctaSvg, top: 0, left: 0 })
   }
 
   // Logo — bottom-right, with padding

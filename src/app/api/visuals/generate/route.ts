@@ -249,6 +249,9 @@ export async function POST(req: NextRequest) {
         // Satori and English/Latin through SVG, both producing clean text overlays on
         // the text-free AI background.
         adHeadline: concept?.headline || undefined,
+        // Visual Ad Engine v1.1 — render the already-extracted CTA as a brand-color pill.
+        // No extra AI call: concept.cta is produced by the existing conceptExtractor.
+        ctaText: concept?.cta || undefined,
       })
 
       const finalPublicId = `visual_${visual.id}`
