@@ -37,7 +37,7 @@ interface ContentPost {
   uploadedMediaId: string | null
   contentPlanIndex: number
   scheduledAt: string | null
-  status: 'DRAFT' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+  status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
   // A/B Testing fields
   variantGroup: string | null
   variantLabel: string | null   // 'A' | 'B' | null
@@ -180,8 +180,10 @@ export default function ContentHubPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
+  const [scheduling, setScheduling] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [approveResult, setApproveResult] = useState<{
+    kind: 'approved' | 'scheduled'
     approved: number
     linked: number
     unlinked: number
@@ -409,12 +411,14 @@ export default function ContentHubPage() {
       // Reload posts and compute the summary from fresh data, not stale React state.
       const freshPosts = await loadData()
 
-      // Build approval result for the summary modal
-      const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && p.scheduledAt)
-      const scheduledDates = scheduledPosts
+      // Build approval result for the summary modal (approved posts keep their
+      // planned dates from generation — they are not "scheduled" until the user
+      // schedules them in the next step).
+      const approvedPosts = freshPosts.filter(p => p.status === 'APPROVED' && p.scheduledAt)
+      const scheduledDates = approvedPosts
         .map(p => p.scheduledAt!)
         .sort()
-      const platformsUsed = [...new Set(scheduledPosts.map(p => p.platform.toUpperCase()))]
+      const platformsUsed = [...new Set(approvedPosts.map(p => p.platform.toUpperCase()))]
       const totalFreshImagePosts = freshPosts.filter(p => !p.isVideoPost).length
       const pendingFreshImages = freshPosts.filter(p =>
         !p.isVideoPost &&
@@ -422,6 +426,7 @@ export default function ContentHubPage() {
       ).length
 
       setApproveResult({
+        kind: 'approved',
         approved:  data.approved  ?? 0,
         linked:    data.linked    ?? 0,
         unlinked:  data.unlinked  ?? 0,
@@ -440,6 +445,45 @@ export default function ContentHubPage() {
       setError(err.message)
     } finally {
       setApproving(false)
+    }
+  }
+
+  // ── Schedule approved posts → SCHEDULED (separate decision from approval) ──────
+
+  async function scheduleAll() {
+    if (!isAuthenticated) return
+    setScheduling(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/schedule-content-plan`, {
+        method: 'POST',
+        headers: { Authorization: authHeader() },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Scheduling failed')
+
+      const freshPosts = await loadData()
+      const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && p.scheduledAt)
+      const scheduledDates = scheduledPosts.map(p => p.scheduledAt!).sort()
+      const platformsUsed = [...new Set(scheduledPosts.map(p => p.platform.toUpperCase()))]
+
+      setApproveResult({
+        kind: 'scheduled',
+        approved:  data.scheduled ?? 0,
+        linked:    data.linked    ?? 0,
+        unlinked:  0,
+        learned: { hooks: 0, angles: 0 },
+        platforms: platformsUsed,
+        firstDate: scheduledDates[0] ?? null,
+        lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
+        pendingImages: 0,
+        totalImages: 0,
+        videoSlots: 0,
+      })
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setScheduling(false)
     }
   }
 
@@ -628,7 +672,8 @@ export default function ContentHubPage() {
           <div className="flex items-center gap-3 flex-wrap">
             {posts.length > 0 && (
               <>
-                {/* Approve All — primary CTA when posts exist */}
+                {/* Primary CTA — honest two-step lifecycle:
+                    DRAFT → Approve → APPROVED → Schedule → SCHEDULED */}
                 {posts.filter(p => p.status === 'DRAFT').length > 0 ? (
                   <button
                     onClick={() => setShowApproveConfirm(true)}
@@ -650,6 +695,31 @@ export default function ContentHubPage() {
                         ✓ {t('contentHub.approveAll')}
                         <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
                           {posts.filter(p => p.status === 'DRAFT').length}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                ) : posts.filter(p => p.status === 'APPROVED').length > 0 ? (
+                  <button
+                    onClick={scheduleAll}
+                    disabled={scheduling}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    style={{
+                      background: '#4F46E5',
+                      color: 'white',
+                      opacity: scheduling ? 0.6 : 1,
+                    }}
+                  >
+                    {scheduling ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        {t('contentHub.scheduling')}
+                      </>
+                    ) : (
+                      <>
+                        🗓 {t('contentHub.scheduleAll')}
+                        <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
+                          {posts.filter(p => p.status === 'APPROVED').length}
                         </span>
                       </>
                     )}
@@ -1029,9 +1099,15 @@ export default function ContentHubPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-slate-950">
-                        {approveResult.approved} posts scheduled!
+                        {approveResult.approved} {approveResult.kind === 'scheduled'
+                          ? t('contentHub.postsScheduled')
+                          : t('contentHub.postsApproved')}
                       </h3>
-                      <p className="text-sm text-emerald-600">Your content plan is live</p>
+                      <p className="text-sm text-emerald-600">
+                        {approveResult.kind === 'scheduled'
+                          ? t('contentHub.scheduledSubtitle')
+                          : t('contentHub.approvedSubtitle')}
+                      </p>
                     </div>
                   </div>
                   <button
