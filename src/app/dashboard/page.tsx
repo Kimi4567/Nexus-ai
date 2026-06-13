@@ -5,6 +5,7 @@ import MarketingJourneyBar from '@/components/MarketingJourneyBar'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
 import OnboardingChecklist from '@/components/OnboardingChecklist'
+import { getOnboardingVisibility } from '@/lib/dashboardOnboarding'
 import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -181,6 +182,7 @@ export default function DashboardPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
+  const [brandLoaded, setBrandLoaded] = useState(false)
   const [upgradeBannerDismissed, setUpgradeBannerDismissed] = useState(false)
   const [welcomeDismissed, setWelcomeDismissed] = useState(true) // true until localStorage checked
 
@@ -275,6 +277,7 @@ export default function DashboardPage() {
         }
       })
       .catch(() => {})
+      .finally(() => setBrandLoaded(true))
   }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -340,6 +343,17 @@ export default function DashboardPage() {
 
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const timeStr = lastUpdated.toLocaleTimeString(locale === 'ar' ? 'ar-SA' : 'en-US', { hour: '2-digit', minute: '2-digit' })
+
+  // ── Onboarding surface consolidation ──
+  // Decide which (if any) onboarding surface to show, by real user state, so
+  // established users don't see beginner welcome/checklist clutter and so we
+  // never flash a new-user state while the brand fetch is still in flight.
+  const onboarding = getOnboardingVisibility({
+    hasCampaigns: (stats?.campaigns ?? 0) > 0,
+    brandReady: brandReadiness?.ready ?? false,
+    hasBrandName: !!brandName,
+    brandLoaded,
+  })
 
   // ── Loading state ──
   if (authLoading || loading) {
@@ -423,18 +437,22 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Marketing Journey Bar ── */}
-          <MarketingJourneyBar
-            brandReady={brandReadiness?.ready ?? false}
-            hasCampaigns={(stats?.campaigns ?? 0) > 0}
-            hasContent={(stats?.contentPostsTotal ?? 0) > 0}
-            hasConnections={hasConnections ?? false}
-            hasPublished={(stats?.publishedPostsTotal ?? 0) > 0}
-            locale={locale}
-          />
+          {/* ── Marketing Journey Bar ──
+              The single compact next-action surface. Hidden during the brief
+              brand-loading window so we don't flash step 1 for a returning user. */}
+          {onboarding.showJourneyBar && (
+            <MarketingJourneyBar
+              brandReady={brandReadiness?.ready ?? false}
+              hasCampaigns={(stats?.campaigns ?? 0) > 0}
+              hasContent={(stats?.contentPostsTotal ?? 0) > 0}
+              hasConnections={hasConnections ?? false}
+              hasPublished={(stats?.publishedPostsTotal ?? 0) > 0}
+              locale={locale}
+            />
+          )}
 
-          {/* ── First-Login Welcome Banner ── */}
-          {!welcomeDismissed && (
+          {/* ── First-Login Welcome Banner — brand-new users only ── */}
+          {onboarding.showWelcome && !welcomeDismissed && (
             <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8B5CF6, #F97316, #10B981)' }} />
               <div className="p-5 flex items-start justify-between gap-4">
@@ -490,17 +508,19 @@ export default function DashboardPage() {
           )}
 
 
-          {/* ── Onboarding Checklist ── */}
-          <OnboardingChecklist
-            stats={stats ? {
-              campaigns: stats.campaigns,
-              publishedPostsTotal: stats.publishedPostsTotal,
-              strategiesRun: stats.campaigns,
-              contentPlans: stats.contentPostsTotal,
-            } : null}
-            brandReadiness={brandReadiness}
-            hasConnections={hasConnections}
-          />
+          {/* ── Onboarding Checklist — brand-new users only ── */}
+          {onboarding.showChecklist && (
+            <OnboardingChecklist
+              stats={stats ? {
+                campaigns: stats.campaigns,
+                publishedPostsTotal: stats.publishedPostsTotal,
+                strategiesRun: stats.campaigns,
+                contentPlans: stats.contentPostsTotal,
+              } : null}
+              brandReadiness={brandReadiness}
+              hasConnections={hasConnections}
+            />
+          )}
 
           {/* ── Low Credits Upgrade Banner ── */}
           {stats?.lowCredits && !upgradeBannerDismissed && (
