@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { summarizeByDisplayState } from '@/lib/postVisibility'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -218,7 +219,7 @@ export default function ContentHubPage() {
   const [enableABTesting, setEnableABTesting] = useState(false)
   const [pickingWinner, setPickingWinner] = useState<string | null>(null)
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const autoBuildStartedRef = useRef(false)
 
@@ -297,6 +298,7 @@ export default function ContentHubPage() {
       if (statusFilter === 'PENDING') return p.generationStatus === 'PENDING' || p.generationStatus === 'AWAITING_UPLOAD'
       if (statusFilter === 'DONE') return p.generationStatus === 'DONE'
       if (statusFilter === 'SCHEDULED') return p.status === 'SCHEDULED'
+      if (statusFilter === 'PUBLISHED') return p.status === 'PUBLISHED'
       return true
     })
 
@@ -918,13 +920,35 @@ export default function ContentHubPage() {
                 )
               })}
             </div>
+            {/* PR5: honest execution-state summary — keeps published posts visible */}
+            {posts.length > 0 && (() => {
+              const sum = summarizeByDisplayState(posts as any)
+              const scheduled = sum.scheduledManual + sum.scheduledAuto
+              const chips = [
+                sum.draft     > 0 && { label: t('contentHub.sumDraft'),     n: sum.draft,     color: '#7c3aed' },
+                sum.approved  > 0 && { label: t('contentHub.sumApproved'),  n: sum.approved,  color: '#059669' },
+                scheduled     > 0 && { label: t('contentHub.sumScheduled'), n: scheduled,     color: '#6366f1' },
+                sum.published > 0 && { label: t('contentHub.sumPublished'), n: sum.published, color: '#10b981' },
+                sum.failed    > 0 && { label: t('contentHub.sumFailed'),    n: sum.failed,    color: '#ef4444' },
+              ].filter(Boolean) as { label: string; n: number; color: string }[]
+              return chips.length > 0 ? (
+                <div className="flex gap-1.5 items-center flex-wrap mb-2">
+                  {chips.map((c, i) => (
+                    <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg"
+                      style={{ background: `${c.color}12`, color: c.color, border: `1px solid ${c.color}33` }}>
+                      {c.n} {c.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null
+            })()}
             {/* Status filter */}
             <div className="flex gap-1.5 items-center">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('contentHub.statusLabel')}</span>
-              {(['ALL', 'PENDING', 'DONE', 'SCHEDULED'] as const).map(s => {
+              {(['ALL', 'PENDING', 'DONE', 'SCHEDULED', 'PUBLISHED'] as const).map(s => {
                 const isActive = statusFilter === s
-                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? t('contentHub.filterPending') : s === 'DONE' ? `✓ ${t('contentHub.filterReady')}` : `🗓 ${t('contentHub.filterScheduled')}`
-                const activeColor = s === 'DONE' ? '#10b981' : s === 'PENDING' ? '#f59e0b' : s === 'SCHEDULED' ? '#6366f1' : '#7c3aed'
+                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? t('contentHub.filterPending') : s === 'DONE' ? `✓ ${t('contentHub.filterReady')}` : s === 'SCHEDULED' ? `🗓 ${t('contentHub.filterScheduled')}` : `✅ ${t('contentHub.filterPublished')}`
+                const activeColor = s === 'DONE' ? '#10b981' : s === 'PENDING' ? '#f59e0b' : s === 'SCHEDULED' ? '#6366f1' : s === 'PUBLISHED' ? '#10b981' : '#7c3aed'
                 return (
                   <button key={s} onClick={() => setStatusFilter(s)}
                     className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"

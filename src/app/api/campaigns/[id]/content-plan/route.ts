@@ -23,8 +23,8 @@ export async function GET(req: NextRequest, { params }: Params) {
       where: {
         campaignId: params.id,
         workspaceId: campaign.workspaceId,
-        // Return only content-plan posts (not yet published)
-        publishedAt: null,
+        // PR5 visibility: include published posts too, so a manually-published post
+        // doesn't "disappear" from the Content Hub. The UI summarises + badges them.
       },
       orderBy: [{ contentPlanIndex: 'asc' }, { createdAt: 'asc' }],
       select: {
