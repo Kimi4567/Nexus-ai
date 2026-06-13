@@ -69,6 +69,8 @@ export default function OGImage() {
         {/* Headline */}
         <div
           style={{
+            display: 'flex',
+            flexDirection: 'column',
             fontSize: '64px',
             fontWeight: 800,
             color: '#ffffff',
@@ -78,9 +80,10 @@ export default function OGImage() {
             maxWidth: '800px',
           }}
         >
-          Your AI{' '}
-          <span style={{ color: '#8B5CF6' }}>Marketing</span>
-          <br />Department
+          <div style={{ display: 'flex' }}>
+            Your AI <span style={{ color: '#8B5CF6' }}>Marketing</span>
+          </div>
+          <div style={{ display: 'flex' }}>Department</div>
         </div>
 
         {/* Subtitle */}
