@@ -402,8 +402,9 @@ function NewCampaignPageInner() {
 
       // ── Strategy succeeded — the content plan is genuinely optional ────────────
       setLoadingPhase('content')
+      let planOk = false
       try {
-        await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
+        const planRes = await fetch(`/api/campaigns/${campaignId}/generate-content-plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
           body: JSON.stringify({
@@ -417,9 +418,19 @@ function NewCampaignPageInner() {
             },
           }),
         })
-      } catch { /* non-fatal — content plan is generatable from the campaign page */ }
+        // A 502/5xx does NOT throw — check the status explicitly so a failed
+        // auto-generation isn't silently swallowed into an empty content hub.
+        planOk = planRes.ok
+      } catch { /* network error — fall through to content-hub auto-build retry */ }
 
-      router.push(`/campaigns/${campaignId}/content-hub`)
+      // If the automatic plan didn't complete, hand off to the content hub's
+      // existing ?buildPlan=1 auto-build so the user gets an immediate retry
+      // instead of an empty "No content plan yet" state.
+      router.push(
+        planOk
+          ? `/campaigns/${campaignId}/content-hub`
+          : `/campaigns/${campaignId}/content-hub?buildPlan=1`,
+      )
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : (cnT?.errorUnexpected as string)
       setError(msg)

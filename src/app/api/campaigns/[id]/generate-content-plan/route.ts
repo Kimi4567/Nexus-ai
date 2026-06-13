@@ -20,8 +20,17 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { PLAN_QUOTAS } from '@/lib/stripe'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
+import {
+  generateContentPlanWithRetry,
+  contentPlanFailureResponse,
+} from '@/lib/contentPlanGeneration'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+
+// Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
+// past the platform default. Match the sibling routes (engine, /generate) so the
+// function isn't killed mid-generation — the real cause of intermittent 502s.
+export const maxDuration = 60
 
 type Params = { params: { id: string } }
 
@@ -351,47 +360,46 @@ Rules:
       slots.map(s => ({ index: s.index, platform: s.platform, isVideoPost: s.isVideoPost })),
     )}`
 
-    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',  // Content plan posts — user publishes these directly
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg },
-        ],
-        temperature: 0.8,
-        response_format: { type: 'json_object' },
-      }),
+    // Single content-plan request body (rebuilt fresh for every retry attempt).
+    const chatRequestBody = JSON.stringify({
+      model: 'gpt-4o',  // Content plan posts — user publishes these directly
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMsg },
+      ],
+      temperature: 0.8,
+      response_format: { type: 'json_object' },
     })
-    const chatData = await chatRes.json()
 
-    let generatedPosts: any[] = []
-    try {
-      const raw = JSON.parse(chatData.choices?.[0]?.message?.content ?? '{}')
-      if (Array.isArray(raw)) {
-        generatedPosts = raw
-      } else {
-        // GPT with json_object format wraps the array — find it regardless of key name
-        const arrayValue = Object.values(raw).find((v) => Array.isArray(v)) as any[] | undefined
-        generatedPosts = arrayValue ?? []
+    // Safe in-process retry: a transient provider error (429/5xx/network) or a
+    // slow first response no longer drops the user into a no-plan 502 — we retry
+    // before writing any posts, so no duplicates and no second charge.
+    // Deterministic failures (truncated/malformed) short-circuit and refund.
+    const { result: planResult, attempts: planAttempts } = await generateContentPlanWithRetry(
+      () => fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: chatRequestBody,
+      }),
+    )
+
+    if (!planResult.ok) {
+      // No usable content after retries — refund (skip unlimited plans) and
+      // surface a clear, user-safe failure instead of a silent empty plan.
+      if (contentPlanCharged) {
+        await refundCredits(userId, 'CONTENT_PLAN_GENERATION', `No content generated (${planResult.reason})`)
       }
-    } catch {
-      generatedPosts = []
+      console.error(
+        `[generate-content-plan] failed after ${planAttempts} attempt(s): ${planResult.reason}`,
+      )
+      const fail = contentPlanFailureResponse(planResult.reason, contentPlanCharged)
+      return NextResponse.json(fail.body, { status: fail.status })
     }
 
-    // Refund — the AI produced no usable content (API error or unparseable output).
-    // Deducting credits for zero posts would unfairly charge the user.
-    if (generatedPosts.length === 0) {
-      if (contentPlanCharged) await refundCredits(userId, 'CONTENT_PLAN_GENERATION', 'No content generated')
-      return NextResponse.json(
-        { error: 'Content generation failed — no posts were produced. Please try again.', refunded: contentPlanCharged },
-        { status: 502 },
-      )
-    }
+    const generatedPosts: any[] = planResult.posts
 
     // ── 9. Create SocialPost records ──────────────────────────────────────
     const now = new Date()
