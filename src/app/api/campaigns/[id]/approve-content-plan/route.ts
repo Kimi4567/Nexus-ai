@@ -24,6 +24,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
+import { buildLearningEvents } from '@/lib/brandBrainEvents'
 
 type Params = { params: { id: string } }
 
@@ -171,6 +172,28 @@ export async function POST(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[approve-content-plan] history write failed', e?.message))
     }
 
+    // Brand Brain (PR1): capture one learning event per ACTUAL transition. Derived from
+    // plan.history so re-approving a non-DRAFT post (empty plan) writes nothing — no
+    // duplicates, no events for invalid transitions. Non-blocking: never fails approval.
+    const approveEvents = buildLearningEvents(
+      plan.history.map((h: any) => ({
+        workspaceId: h.workspaceId,
+        campaignId: campaign.id,
+        socialPostId: h.socialPostId,
+        from: h.fromStatus ?? null,
+        to: h.toStatus,
+        actor: h.actor,
+        publishMode: 'MANUAL',
+        platform: (platformById.get(h.socialPostId) as string | undefined) ?? null,
+        approvedAt: updateById.get(h.socialPostId)?.approvedAt ?? null,
+      }))
+    )
+    if (approveEvents.length > 0) {
+      await (prisma as any).marketingLearningEvent
+        .createMany({ data: approveEvents })
+        .catch((e: any) => console.error('[approve-content-plan] learning event write failed', e?.message))
+    }
+
     const approvedIds = new Set(updateById.keys())
     const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
@@ -288,6 +311,24 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       await (prisma as any).postStatusHistory
         .createMany({ data: plan.history })
         .catch((e: any) => console.error('[approve-content-plan revert] history write failed', e?.message))
+    }
+
+    // Brand Brain (PR1): capture unschedule / revert events from the actual transitions.
+    const revertEvents = buildLearningEvents(
+      plan.history.map((h: any) => ({
+        workspaceId: h.workspaceId,
+        campaignId: campaign.id,
+        socialPostId: h.socialPostId,
+        from: h.fromStatus ?? null,
+        to: h.toStatus,
+        actor: h.actor,
+        publishMode: 'MANUAL',
+      }))
+    )
+    if (revertEvents.length > 0) {
+      await (prisma as any).marketingLearningEvent
+        .createMany({ data: revertEvents })
+        .catch((e: any) => console.error('[approve-content-plan revert] learning event write failed', e?.message))
     }
 
     return NextResponse.json({ success: true, reverted: plan.changed })

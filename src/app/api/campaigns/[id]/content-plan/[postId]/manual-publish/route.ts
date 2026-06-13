@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { planManualPublish } from '@/lib/manualPublish'
+import { buildLearningEvent } from '@/lib/brandBrainEvents'
 
 type Params = { params: { id: string; postId: string } }
 
@@ -50,6 +51,27 @@ export async function POST(req: NextRequest, { params }: Params) {
     await (prisma as any).postStatusHistory
       .create({ data: plan.history })
       .catch((e: any) => console.error('[manual-publish] history write failed', e?.message))
+
+    // Brand Brain (PR1): capture the manual publish as an honest learning event. This is
+    // a USER hand-publish (publishMode stays MANUAL) → POST_MANUALLY_PUBLISHED, never an
+    // automatic publish. Non-blocking: a failed event write never fails the action.
+    const publishEvent = buildLearningEvent({
+      workspaceId: post.workspaceId,
+      campaignId: params.id,
+      socialPostId: post.id,
+      from: 'SCHEDULED',
+      to: 'PUBLISHED',
+      actor: 'USER',
+      publishMode: updated.publishMode ?? 'MANUAL',
+      manuallyPublishedAt: updated.manuallyPublishedAt,
+      publishedAt: updated.publishedAt,
+      platformUrl: updated.platformUrl,
+    })
+    if (publishEvent) {
+      await (prisma as any).marketingLearningEvent
+        .create({ data: publishEvent })
+        .catch((e: any) => console.error('[manual-publish] learning event write failed', e?.message))
+    }
 
     return NextResponse.json({
       success: true,
