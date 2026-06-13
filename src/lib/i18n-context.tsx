@@ -108,7 +108,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       manualNotAuto: 'لن ينشر NEXUS هذا تلقائيًا',
       publishedManually: 'تم النشر يدويًا',
       manualTitle: 'انشر يدويًا',
-      manualIntro: 'سينشر NEXUS هذا تلقائيًا. اتبع الخطوات لنشره بنفسك ثم أكّد.',
+      manualIntro: 'لن ينشر NEXUS هذا تلقائيًا. اتبع الخطوات لنشره بنفسك، ثم أكّد أنك نشرته يدويًا.',
       manualCopyCaption: 'انسخ التعليق',
       manualOpenCreative: 'افتح/نزّل التصميم',
       manualOpenPlatform: 'افتح المنصة',
