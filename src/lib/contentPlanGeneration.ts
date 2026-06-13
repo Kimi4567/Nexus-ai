@@ -1,0 +1,168 @@
+/**
+ * Content-plan generation reliability (Trust Sprint #5).
+ *
+ * Root cause of the intermittent 502: the single gpt-4o content-plan call had no
+ * HTTP-error handling and no retry. A transient provider hiccup (429 / 5xx /
+ * network blip) or a slow response left `choices` undefined, the parse produced
+ * an empty array, and the route returned 502 — even though an immediate retry
+ * succeeds (exactly what was observed in PR #4 QA).
+ *
+ * This module:
+ *  - classifies a chat-completion response clearly (ok / truncated / malformed /
+ *    empty / provider) so failures are never silent or ambiguous;
+ *  - retries ONLY transient failures, in-process, BEFORE any posts are created —
+ *    so a retry can never produce duplicate posts or a second credit charge;
+ *  - short-circuits deterministic failures (truncated/malformed) that a retry
+ *    cannot fix, so the caller refunds and surfaces a clear error fast.
+ *
+ * It is intentionally provider-agnostic and fetch-injectable so it can be unit
+ * tested without network or prisma.
+ */
+
+export interface ChatChoiceLike {
+  message?: { content?: unknown }
+  finish_reason?: string
+}
+
+export interface ChatResponseLike {
+  choices?: ChatChoiceLike[]
+  error?: unknown
+}
+
+export type ContentPlanFailure = 'truncated' | 'malformed' | 'empty' | 'provider'
+
+export type ParseResult =
+  | { ok: true; posts: any[] }
+  | { ok: false; reason: ContentPlanFailure }
+
+/** Pull the posts array out of a (possibly wrapped) json_object response. */
+export function extractPostsArray(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw
+  if (raw && typeof raw === 'object') {
+    const arr = Object.values(raw as Record<string, unknown>).find((v) => Array.isArray(v))
+    if (Array.isArray(arr)) return arr
+  }
+  return []
+}
+
+/**
+ * Parse one chat-completion response into posts, classifying failures clearly.
+ * - `truncated`: model hit its token ceiling (finish_reason === 'length') →
+ *   output is incomplete; retrying the same request will not help.
+ * - `malformed`: content present but not valid JSON.
+ * - `empty`: no choice / empty content / zero posts → usually a transient
+ *   provider issue worth retrying.
+ */
+export function parseContentPlanResponse(data: ChatResponseLike): ParseResult {
+  const choice = data?.choices?.[0]
+  if (!choice) return { ok: false, reason: 'empty' }
+  if (choice.finish_reason === 'length') return { ok: false, reason: 'truncated' }
+
+  const content = typeof choice.message?.content === 'string' ? choice.message.content : ''
+  if (!content.trim()) return { ok: false, reason: 'empty' }
+
+  let raw: unknown
+  try {
+    raw = JSON.parse(content)
+  } catch {
+    return { ok: false, reason: 'malformed' }
+  }
+
+  const posts = extractPostsArray(raw)
+  if (!posts.length) return { ok: false, reason: 'empty' }
+  return { ok: true, posts }
+}
+
+/** Transient failures are worth retrying; deterministic ones are not. */
+export function isRetryableFailure(reason: ContentPlanFailure): boolean {
+  return reason === 'provider' || reason === 'empty'
+}
+
+export interface FetchLikeResponse {
+  ok: boolean
+  status: number
+  json: () => Promise<any>
+}
+
+export interface RetryOpts {
+  /** Total attempts including the first (default 2). */
+  maxAttempts?: number
+  /** Linear backoff base; delay before attempt n+1 is baseDelayMs * n (default 700). */
+  baseDelayMs?: number
+  /** Injectable sleep for fast tests. */
+  sleep?: (ms: number) => Promise<void>
+}
+
+export interface RetryResult {
+  result: ParseResult
+  attempts: number
+}
+
+/**
+ * Call the content-plan model with a safe in-process retry.
+ *
+ * `doFetch` performs exactly one provider request (fresh each call). Transient
+ * failures — non-OK HTTP, empty/no-choice output, or a thrown network error —
+ * retry up to `maxAttempts` with linear backoff. Deterministic failures
+ * (truncated / malformed) short-circuit immediately. On success returns the
+ * parsed posts and the attempt number it succeeded on.
+ *
+ * Because this runs before the caller writes any SocialPost rows, a retry can
+ * never create duplicate posts, and the caller charges credits exactly once.
+ */
+export async function generateContentPlanWithRetry(
+  doFetch: () => Promise<FetchLikeResponse>,
+  opts: RetryOpts = {},
+): Promise<RetryResult> {
+  const maxAttempts = Math.max(1, opts.maxAttempts ?? 2)
+  const baseDelayMs = opts.baseDelayMs ?? 700
+  const sleep = opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)))
+
+  let last: ParseResult = { ok: false, reason: 'provider' }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let parsed: ParseResult
+    try {
+      const res = await doFetch()
+      if (!res.ok) {
+        parsed = { ok: false, reason: 'provider' }
+      } else {
+        const data = await res.json()
+        parsed = parseContentPlanResponse(data)
+      }
+    } catch {
+      parsed = { ok: false, reason: 'provider' }
+    }
+
+    if (parsed.ok) return { result: parsed, attempts: attempt }
+
+    last = parsed
+    // Deterministic failure — a retry cannot help. Fail clearly now.
+    if (!isRetryableFailure(parsed.reason)) return { result: parsed, attempts: attempt }
+    if (attempt < maxAttempts) await sleep(baseDelayMs * attempt)
+  }
+
+  return { result: last, attempts: maxAttempts }
+}
+
+export interface ContentPlanFailureHttp {
+  status: number
+  body: { error: string; reason: ContentPlanFailure; refunded: boolean }
+}
+
+/**
+ * Build the HTTP failure payload for a non-recoverable content-plan generation.
+ * Always 502 with a clear, user-safe message and an explicit `refunded` flag so
+ * the client knows credits were returned. Centralised so the message stays
+ * consistent and testable.
+ */
+export function contentPlanFailureResponse(
+  reason: ContentPlanFailure,
+  refunded: boolean,
+): ContentPlanFailureHttp {
+  const error =
+    reason === 'truncated'
+      ? 'Content generation produced incomplete output. Please try again.'
+      : 'Content generation failed — no posts were produced. Please try again.'
+  return { status: 502, body: { error, reason, refunded } }
+}
