@@ -6,6 +6,7 @@ import AppShell from '@/components/AppShell'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
+import { deriveDisplayState, statusLabelKey } from '@/lib/postStatus'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,11 @@ type CalendarPost = {
   visualNote?: string
   source?: 'campaign_ai_output' | 'legacy' | 'scheduled' | 'published'
   scheduledAt?: string  // ISO string for scheduled posts
-  publishStatus?: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT'
+  publishStatus?: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
+  // PR5 honest display: manual vs auto distinction + platform proof
+  publishMode?: 'MANUAL' | 'AUTO' | null
+  platformUrl?: string | null
+  platformPostId?: string | null
 }
 
 type ScheduledPost = {
@@ -36,10 +41,12 @@ type ScheduledPost = {
   platform: string
   pageName: string
   imageUrl?: string
-  status: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT'
+  status: 'SCHEDULED' | 'PUBLISHED' | 'FAILED' | 'DRAFT' | 'APPROVED'
   scheduledAt: string
   publishedAt?: string
-  platformUrl?: string
+  platformUrl?: string | null
+  platformPostId?: string | null
+  publishMode?: 'MANUAL' | 'AUTO' | null
   campaignId?: string
   errorMessage?: string
 }
@@ -302,6 +309,9 @@ function convertScheduledToCalendarPosts(
         topic:         p.caption?.slice(0, 70) || 'Scheduled Post',
         scheduledAt:   p.scheduledAt,
         publishStatus: p.status,
+        publishMode:   p.publishMode ?? null,
+        platformUrl:   p.platformUrl ?? null,
+        platformPostId: p.platformPostId ?? null,
         source:        (isPublished ? 'published' : 'scheduled') as 'published' | 'scheduled',
       }
     })
@@ -805,23 +815,26 @@ function CalendarPageInner() {
                                   style={{ color: PLATFORM_COLORS[post.platform] || '#FF9500' }}>
                                   {post.platform}
                                 </span>
-                                {/* Status badge */}
-                                {isPublished && (
-                                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-green-500/15 text-green-400 flex items-center gap-0.5">
-                                    ✅ Published
-                                  </span>
-                                )}
-                                {isScheduled && (
-                                  <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-500/15 text-emerald-400 flex items-center gap-0.5">
-                                    🕐 Scheduled
-                                  </span>
-                                )}
-                                {isAiPlanned && (
+                                {/* Status badge — honest derived state (PR5): distinguishes
+                                    published manually vs automatically, and scheduled
+                                    manual vs auto. AI-planned campaign content stays as such. */}
+                                {isAiPlanned ? (
                                   <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-cyan-500/15 text-cyan-400">
                                     ✦ AI Planned
                                   </span>
-                                )}
-                                {!isPublished && !isScheduled && !isAiPlanned && (
+                                ) : (isPublished || isScheduled) && post.publishStatus ? (() => {
+                                  const ds = deriveDisplayState({ status: post.publishStatus, publishMode: post.publishMode, platformPostId: post.platformPostId, platformUrl: post.platformUrl })
+                                  const icon = ds.startsWith('published') ? '✅' : ds.startsWith('scheduled') ? '🕐' : ds === 'failed' ? '⚠️' : '✦'
+                                  const cls = ds.startsWith('published') ? 'bg-green-500/15 text-green-400'
+                                    : ds.startsWith('scheduled') ? 'bg-emerald-500/15 text-emerald-400'
+                                    : ds === 'failed' ? 'bg-red-500/15 text-red-400'
+                                    : 'bg-slate-100 text-slate-500'
+                                  return (
+                                    <span className={`ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold flex items-center gap-0.5 ${cls}`}>
+                                      {icon} {t(statusLabelKey({ status: post.publishStatus, publishMode: post.publishMode, platformPostId: post.platformPostId, platformUrl: post.platformUrl })) as string}
+                                    </span>
+                                  )
+                                })() : (
                                   <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
                                     {post.type}
                                   </span>
