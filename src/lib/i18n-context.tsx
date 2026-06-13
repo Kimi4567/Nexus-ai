@@ -78,6 +78,18 @@ export function useI18n() {
 // Formal Modern Standard Arabic (فصحى) — suitable for all Middle East
 export const translations: Record<Locale, Record<string, any>> = {
   ar: {
+    status: {
+      draft: 'مسودة',
+      approved: 'معتمد',
+      scheduledManual: 'مجدول يدويًا',
+      scheduledAuto: 'مجدول تلقائيًا',
+      publishedManually: 'تم النشر يدويًا',
+      publishedAuto: 'تم النشر تلقائيًا',
+      failed: 'فشل',
+      readyToPublish: 'جاهز للنشر',
+      manualPublishing: 'نشر يدوي',
+      autoPublishing: 'نشر تلقائي',
+    },
     contentHub: {
       title: 'مركز المحتوى',
       posts: 'منشور',
@@ -1960,6 +1972,18 @@ export const translations: Record<Locale, Record<string, any>> = {
     },
   },
   en: {
+    status: {
+      draft: 'Draft',
+      approved: 'Approved',
+      scheduledManual: 'Scheduled (manual)',
+      scheduledAuto: 'Scheduled (auto)',
+      publishedManually: 'Published manually',
+      publishedAuto: 'Published automatically',
+      failed: 'Failed',
+      readyToPublish: 'Ready to publish',
+      manualPublishing: 'Manual publishing',
+      autoPublishing: 'Auto publishing',
+    },
     contentHub: {
       title: 'Content Hub',
       posts: 'posts',
