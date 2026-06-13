@@ -41,6 +41,10 @@ export async function GET(req: NextRequest, { params }: Params) {
         contentPlanIndex: true,
         scheduledAt: true,
         status: true,
+        // Publishing lifecycle (manual publishing checklist — PR4)
+        publishMode: true,
+        manuallyPublishedAt: true,
+        platformUrl: true,
         // A/B Testing fields
         variantGroup: true,
         variantLabel: true,

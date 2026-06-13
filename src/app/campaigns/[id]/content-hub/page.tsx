@@ -38,6 +38,10 @@ interface ContentPost {
   contentPlanIndex: number
   scheduledAt: string | null
   status: 'DRAFT' | 'APPROVED' | 'SCHEDULED' | 'PUBLISHED' | 'FAILED'
+  // Publishing lifecycle (manual publishing checklist — PR4)
+  publishMode?: 'MANUAL' | 'AUTO' | null
+  manuallyPublishedAt?: string | null
+  platformUrl?: string | null
   // A/B Testing fields
   variantGroup: string | null
   variantLabel: string | null   // 'A' | 'B' | null
@@ -157,6 +161,16 @@ const getPlatformConfig = (p: string) =>
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
+// Where to open each platform for manual posting (PR4 — no API, just a deep link home).
+const PLATFORM_HOME_URLS: Record<string, string> = {
+  META: 'https://facebook.com', FACEBOOK: 'https://facebook.com', INSTAGRAM: 'https://instagram.com',
+  LINKEDIN: 'https://linkedin.com', TIKTOK: 'https://tiktok.com', TWITTER: 'https://x.com',
+  YOUTUBE: 'https://youtube.com', SNAPCHAT: 'https://snapchat.com',
+}
+function platformHomeUrl(platform: string): string | null {
+  return PLATFORM_HOME_URLS[platform?.toUpperCase()] ?? null
+}
+
 export default function ContentHubPage() {
   const params = useParams()
   const router = useRouter()
@@ -181,6 +195,11 @@ export default function ContentHubPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
   const [scheduling, setScheduling] = useState(false)
+  // Manual publishing checklist (PR4) — for MANUAL + SCHEDULED posts
+  const [manualPublishPost, setManualPublishPost] = useState<ContentPost | null>(null)
+  const [manualUrl, setManualUrl] = useState('')
+  const [manualPublishing, setManualPublishing] = useState(false)
+  const [captionCopied, setCaptionCopied] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [approveResult, setApproveResult] = useState<{
     kind: 'approved' | 'scheduled'
@@ -484,6 +503,36 @@ export default function ContentHubPage() {
       setError(err.message)
     } finally {
       setScheduling(false)
+    }
+  }
+
+  // ── Manual publishing (PR4): record the user's own confirmation they posted it ──
+  // NEXUS does NOT publish to any platform here — no social API call.
+
+  async function copyCaption(text: string) {
+    try { await navigator.clipboard.writeText(text); setCaptionCopied(true); setTimeout(() => setCaptionCopied(false), 1800) } catch { /* clipboard blocked */ }
+  }
+
+  async function confirmManualPublish() {
+    const post = manualPublishPost
+    if (!post || !isAuthenticated) return
+    setManualPublishing(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/content-plan/${post.id}/manual-publish`, {
+        method: 'POST',
+        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveUrl: manualUrl.trim() || null }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to mark as published')
+      await loadData()
+      setManualPublishPost(null)
+      setManualUrl('')
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setManualPublishing(false)
     }
   }
 
@@ -982,6 +1031,7 @@ export default function ContentHubPage() {
               }))}
               onRewrite={(instruction) => rewritePost(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickWinner(post.id) : undefined}
+              onManualPublish={() => { setManualPublishPost(post); setManualUrl('') }}
             />
           )
 
@@ -1342,6 +1392,53 @@ export default function ContentHubPage() {
           </div>
         )}
 
+        {/* ── Manual publishing checklist (PR4) ─────────────────────────── */}
+        {manualPublishPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={() => { if (!manualPublishing) { setManualPublishPost(null); setManualUrl('') } }}>
+            <div className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#4F46E5,#6366f1,#7c3aed)' }} />
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="text-base font-bold text-slate-950">📤 {t('contentHub.manualTitle')}</h3>
+                  <button onClick={() => { setManualPublishPost(null); setManualUrl('') }} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+                </div>
+                <p className="text-xs text-slate-500 mb-4">{t('contentHub.manualIntro')}</p>
+
+                <button onClick={() => copyCaption(manualPublishPost.caption)} className="w-full flex items-center justify-between text-sm px-3 py-2.5 rounded-xl mb-2" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                  <span>1️⃣ {t('contentHub.manualCopyCaption')}</span>
+                  <span className="text-xs font-semibold" style={{ color: captionCopied ? '#047857' : '#4F46E5' }}>{captionCopied ? `✓ ${t('contentHub.copied')}` : t('contentHub.copy')}</span>
+                </button>
+
+                {manualPublishPost.imageUrl && (
+                  <a href={manualPublishPost.imageUrl} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between text-sm px-3 py-2.5 rounded-xl mb-2" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <span>2️⃣ {t('contentHub.manualOpenCreative')}</span>
+                    <span className="text-xs font-semibold text-[#4F46E5]">{t('contentHub.open')} ↗</span>
+                  </a>
+                )}
+
+                {platformHomeUrl(manualPublishPost.platform) && (
+                  <a href={platformHomeUrl(manualPublishPost.platform)!} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-between text-sm px-3 py-2.5 rounded-xl mb-3" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <span>3️⃣ {t('contentHub.manualOpenPlatform')} · {manualPublishPost.platform}</span>
+                    <span className="text-xs font-semibold text-[#4F46E5]">{t('contentHub.open')} ↗</span>
+                  </a>
+                )}
+
+                <label className="block text-xs font-medium text-slate-600 mb-1">4️⃣ {t('contentHub.manualPasteUrl')} <span className="text-slate-400">({t('contentHub.optional')})</span></label>
+                <input type="url" value={manualUrl} onChange={e => setManualUrl(e.target.value)} placeholder="https://…" className="w-full rounded-xl text-sm px-3 py-2 mb-4 focus:outline-none" style={{ background: '#FFFFFF', border: '1px solid rgba(79,70,229,0.24)', color: '#0f172a' }} />
+
+                <p className="text-[11px] text-slate-500 mb-3 px-1">⚠️ {t('contentHub.manualDisclaimer')}</p>
+
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setManualPublishPost(null); setManualUrl('') }} disabled={manualPublishing} className="text-sm px-4 py-2 rounded-xl text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button onClick={confirmManualPublish} disabled={manualPublishing} className="text-sm px-4 py-2 rounded-xl font-semibold text-white flex items-center gap-2" style={{ background: '#4F46E5', opacity: manualPublishing ? 0.6 : 1 }}>
+                    {manualPublishing ? (<><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('contentHub.marking')}</>) : (<>✓ {t('contentHub.manualConfirm')}</>)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </AppShell>
   )
@@ -1434,6 +1531,7 @@ interface PostCardProps {
   onPendingEdit: (updates: Partial<ContentPost>) => void
   onRewrite: (instruction: string) => Promise<void>
   onPickWinner?: () => void
+  onManualPublish?: () => void
 }
 
 function PostCard({
@@ -1454,6 +1552,7 @@ function PostCard({
   onPendingEdit,
   onRewrite,
   onPickWinner,
+  onManualPublish,
 }: PostCardProps) {
   const { t } = useI18n()
   const [showRewriteInput, setShowRewriteInput] = useState(false)
@@ -1537,6 +1636,30 @@ function PostCard({
       )}
       {!['META','FACEBOOK','INSTAGRAM','LINKEDIN','TIKTOK'].includes(platform) && (
         <GenericMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} platform={platform} isExpanded={isExpanded} onExpandToggle={onToggleExpand} brandName={brandName} brandLogo={brandLogo} />
+      )}
+
+      {/* ── Manual publishing (PR4): only for MANUAL + SCHEDULED posts ───── */}
+      {post.status === 'SCHEDULED' && post.publishMode !== 'AUTO' && onManualPublish && (
+        <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
+          <button
+            onClick={onManualPublish}
+            className="w-full text-xs px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5"
+            style={{ background: '#EEF2FF', color: '#4338CA', border: '1px solid rgba(79,70,229,0.22)' }}
+          >
+            📤 {t('contentHub.publishManually')}
+          </button>
+          <p className="text-[10px] text-slate-400 mt-1 text-center">{t('contentHub.manualNotAuto')}</p>
+        </div>
+      )}
+      {post.status === 'PUBLISHED' && post.manuallyPublishedAt && (
+        <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg" style={{ background: '#ECFDF5', color: '#047857' }}>
+            ✓ {t('contentHub.publishedManually')}
+          </span>
+          {post.platformUrl && (
+            <a href={post.platformUrl} target="_blank" rel="noopener noreferrer" className="block text-[10px] text-[#5E5CE6] hover:underline mt-1 truncate">{post.platformUrl}</a>
+          )}
+        </div>
       )}
 
       {/* ── Edit caption overlay ─────────── */}
