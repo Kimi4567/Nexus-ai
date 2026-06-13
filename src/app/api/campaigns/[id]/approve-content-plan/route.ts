@@ -1,14 +1,21 @@
 /**
  * POST /api/campaigns/[id]/approve-content-plan
  *
- * Approves all DRAFT posts in a campaign's content plan:
- * - Moves status: DRAFT → SCHEDULED
- * - Assigns integrationId + pageId per platform (FL2A)
- * - Extracts top hooks + content angles → writes to Brand Brain (FLC)
- * - Returns count of approved posts + what Brand Brain learned
+ * Approves all DRAFT posts in a campaign's content plan. Approval and scheduling
+ * are SEPARATE decisions (the agency "client approval before scheduling" step):
+ * - Default (mode 'approve'):  DRAFT → APPROVED only. Sets approvedAt. Does NOT
+ *   schedule and does NOT touch scheduledAt. Scheduling happens later via
+ *   POST /api/campaigns/[id]/schedule-content-plan.
+ * - Legacy (mode 'approve_and_schedule'): the old one-click behaviour — DRAFT →
+ *   SCHEDULED in one step. Kept explicit for any flow that still needs it; never
+ *   the default.
+ * - Assigns integrationId + pageId per platform (FL2A) so a later schedule/publish
+ *   has credentials.
+ * - Records every transition in PostStatusHistory (actor USER).
+ * - Extracts top hooks + content angles → writes to Brand Brain (FLC, unchanged).
  *
  * DELETE /api/campaigns/[id]/approve-content-plan
- * Reverts all SCHEDULED posts (that haven't published yet) back to DRAFT.
+ * Reverts all APPROVED or SCHEDULED posts (that haven't published yet) back to DRAFT.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,6 +23,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
+import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
 
 type Params = { params: { id: string } }
 
@@ -85,6 +93,10 @@ export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // mode: 'approve' (default, DRAFT→APPROVED) | 'approve_and_schedule' (legacy, DRAFT→SCHEDULED)
+  const body = await req.json().catch(() => ({} as any))
+  const mode: ApprovalMode = body?.mode === 'approve_and_schedule' ? 'approve_and_schedule' : 'approve'
+
   try {
     // Verify campaign ownership
     const campaign = await prisma.campaign.findFirst({
@@ -127,23 +139,40 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: true, approved: 0, message: 'No draft posts to approve' })
     }
 
-    // Update each post: DRAFT → SCHEDULED + assign integrationId where available
-    let approved = 0
-    for (const post of draftPosts) {
-      const platformKey = String(post.platform)
-      const match = integrationMap[platformKey]
+    // Decide the honest transitions (pure, fully tested in approvalPlan.test.ts):
+    //  - 'approve' (default): DRAFT → APPROVED  (sets approvedAt, never schedules)
+    //  - 'approve_and_schedule' (legacy): DRAFT → SCHEDULED in one explicit step
+    const plan = planApproval(
+      draftPosts.map((p: any) => ({ id: p.id, workspaceId: campaign.workspaceId, status: 'DRAFT' as const })),
+      { mode, actor: 'USER' }
+    )
+    const updateById = new Map(plan.updates.map(u => [u.id, u.data]))
+    const platformById = new Map(draftPosts.map((p: any) => [p.id, String(p.platform)]))
 
+    // Apply the planned status change + assign integration credentials where available.
+    let approved = 0
+    for (const [postId, data] of updateById) {
+      const match = integrationMap[platformById.get(postId) as string]
       await (prisma.socialPost as any).update({
-        where: { id: post.id },
+        where: { id: postId },
         data: {
-          status: 'SCHEDULED',
+          status: data.status,
+          ...(data.approvedAt !== undefined ? { approvedAt: data.approvedAt } : {}),
           ...(match ? { integrationId: match.integrationId, pageId: match.pageId } : {}),
         },
       })
       approved++
     }
 
-    const linked   = draftPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length
+    // Record the lifecycle transitions for the audit trail / future Brand Brain.
+    if (plan.history.length > 0) {
+      await (prisma as any).postStatusHistory
+        .createMany({ data: plan.history })
+        .catch((e: any) => console.error('[approve-content-plan] history write failed', e?.message))
+    }
+
+    const approvedIds = new Set(updateById.keys())
+    const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
 
     // ── FLC: Extract hooks + angles → update Brand Brain (non-blocking) ──────────
@@ -199,14 +228,16 @@ export async function POST(req: NextRequest, { params }: Params) {
       }).catch(() => null) // fire-and-forget — never block approval
     }
 
-    // Build human-readable message
-    let message = `${approved} post${approved !== 1 ? 's' : ''} scheduled`
+    // Build human-readable message (honest about what actually happened)
+    const verb = mode === 'approve_and_schedule' ? 'scheduled' : 'approved'
+    let message = `${approved} post${approved !== 1 ? 's' : ''} ${verb}`
     if (linked > 0)         message += ` (${linked} linked to connected platforms)`
     if (learnedHooks > 0)   message += ` · Brand Brain learned ${learnedHooks} new hooks`
     if (learnedAngles > 0)  message += ` + ${learnedAngles} angles`
 
     return NextResponse.json({
       success: true,
+      mode,
       approved,
       linked,
       unlinked,
@@ -230,20 +261,36 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
-    // Revert SCHEDULED → DRAFT (only unpublished posts)
-    const result = await prisma.socialPost.updateMany({
+    // Revert APPROVED or SCHEDULED → DRAFT (only unpublished posts). Clears
+    // approvedAt and records the un-approve / un-schedule transition(s).
+    const livePosts = await (prisma.socialPost as any).findMany({
       where: {
         campaignId: params.id,
         workspaceId: campaign.workspaceId,
-        status: 'SCHEDULED',
+        status: { in: ['APPROVED', 'SCHEDULED'] },
         publishedAt: null,
       },
-      data: {
-        status: 'DRAFT',
-      },
+      select: { id: true, status: true },
     })
 
-    return NextResponse.json({ success: true, reverted: result.count })
+    const plan = planRevert(
+      livePosts.map((p: any) => ({ id: p.id, workspaceId: campaign.workspaceId, status: p.status })),
+      { actor: 'USER' }
+    )
+
+    for (const u of plan.updates) {
+      await (prisma.socialPost as any).update({
+        where: { id: u.id },
+        data: { status: u.data.status, approvedAt: u.data.approvedAt ?? null },
+      })
+    }
+    if (plan.history.length > 0) {
+      await (prisma as any).postStatusHistory
+        .createMany({ data: plan.history })
+        .catch((e: any) => console.error('[approve-content-plan revert] history write failed', e?.message))
+    }
+
+    return NextResponse.json({ success: true, reverted: plan.changed })
   } catch (err: any) {
     console.error('[approve-content-plan DELETE]', err)
     return NextResponse.json({ error: 'Failed to revert approval' }, { status: 500 })
