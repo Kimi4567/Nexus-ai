@@ -617,11 +617,11 @@ export default function ContentHubPage() {
             >
               ← {campaign.name}
             </button>
-            <h1 className="text-2xl font-bold text-slate-950">Content Hub</h1>
+            <h1 className="text-2xl font-bold text-slate-950">{t('contentHub.title')}</h1>
             <p className="text-sm text-slate-500 mt-0.5">
               {posts.length > 0
-                ? `${posts.length} posts · ${doneCount} images ready · ${posts.filter(p => p.isVideoPost).length} video slots`
-                : 'Generate your monthly content plan'}
+                ? `${posts.length} ${t('contentHub.posts')} · ${doneCount} ${t('contentHub.imagesReady')} · ${posts.filter(p => p.isVideoPost).length} ${t('contentHub.videoSlots')}`
+                : t('contentHub.generatePrompt')}
             </p>
           </div>
 
@@ -643,11 +643,11 @@ export default function ContentHubPage() {
                     {approving ? (
                       <>
                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                        Approving...
+                        {t('contentHub.approving')}
                       </>
                     ) : (
                       <>
-                        ✓ Approve All &amp; Schedule
+                        ✓ {t('contentHub.approveAll')}
                         <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
                           {posts.filter(p => p.status === 'DRAFT').length}
                         </span>
@@ -658,7 +658,7 @@ export default function ContentHubPage() {
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
                     style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(5,150,105,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
-                    All posts scheduled
+                    {t('contentHub.allScheduled')}
                   </div>
                 )}
 
@@ -675,11 +675,11 @@ export default function ContentHubPage() {
                   {generating ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      Generating...
+                      {t('contentHub.generatingImages')}
                     </>
                   ) : (
                     <>
-                      ✨ Generate Images
+                      ✨ {t('contentHub.generateImages')}
                       {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length > 0 && (
                         <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
                           {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length}
@@ -694,7 +694,7 @@ export default function ContentHubPage() {
                   className="px-4 py-2 rounded-xl text-sm border transition-all"
                   style={{ borderColor: 'rgba(15,23,42,0.14)', color: '#374151', background: '#FFFFFF' }}
                 >
-                  {generatingPlan ? 'Regenerating...' : '↻ Regenerate Plan'}
+                  {generatingPlan ? t('contentHub.regenerating') : `↻ ${t('contentHub.regeneratePlan')}`}
                 </button>
               </>
             )}
@@ -730,9 +730,9 @@ export default function ContentHubPage() {
                   {generatingPlan ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      Building Content Plan...
+                      {t('contentHub.buildingPlanShort')}
                     </>
-                  ) : '✨ Build Monthly Content Plan'}
+                  ) : `✨ ${t('contentHub.buildPlan')}`}
                 </button>
               </div>
             )}
@@ -756,8 +756,8 @@ export default function ContentHubPage() {
         {totalImagePosts > 0 && (
           <div className="mb-5 p-3 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-slate-700 font-medium">Image generation progress</span>
-              <span className="text-slate-500">{doneCount} / {totalImagePosts} images</span>
+              <span className="text-slate-700 font-medium">{t('contentHub.imageProgress')}</span>
+              <span className="text-slate-500">{doneCount} / {totalImagePosts} {t('contentHub.images')}</span>
             </div>
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
               <div
@@ -790,7 +790,7 @@ export default function ContentHubPage() {
                     }}
                   >
                     {cfg && <span>{cfg.icon}</span>}
-                    {p === 'ALL' ? 'All Platforms' : (cfg?.label ?? p)}
+                    {p === 'ALL' ? t('contentHub.allPlatforms') : (cfg?.label ?? p)}
                     <span className="text-xs px-1.5 py-0.5 rounded-full"
                       style={{ background: isActive ? 'rgba(255,255,255,0.2)' : '#F3F4F6', color: isActive ? '#fff' : '#6b7280' }}>
                       {count}
@@ -801,10 +801,10 @@ export default function ContentHubPage() {
             </div>
             {/* Status filter */}
             <div className="flex gap-1.5 items-center">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Status</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('contentHub.statusLabel')}</span>
               {(['ALL', 'PENDING', 'DONE', 'SCHEDULED'] as const).map(s => {
                 const isActive = statusFilter === s
-                const label = s === 'ALL' ? 'All' : s === 'PENDING' ? 'Pending' : s === 'DONE' ? '✓ Ready' : '🗓 Scheduled'
+                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? t('contentHub.filterPending') : s === 'DONE' ? `✓ ${t('contentHub.filterReady')}` : `🗓 ${t('contentHub.filterScheduled')}`
                 const activeColor = s === 'DONE' ? '#10b981' : s === 'PENDING' ? '#f59e0b' : s === 'SCHEDULED' ? '#6366f1' : '#7c3aed'
                 return (
                   <button key={s} onClick={() => setStatusFilter(s)}
@@ -822,7 +822,7 @@ export default function ContentHubPage() {
                 <button onClick={() => { setActivePlatform('ALL'); setStatusFilter('ALL') }}
                   className="px-2 py-1 rounded-lg text-xs text-slate-500 hover:text-slate-900 transition-all ml-1"
                   style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
-                  ✕ Clear
+                  ✕ {t('contentHub.clear')}
                 </button>
               )}
             </div>
@@ -836,9 +836,9 @@ export default function ContentHubPage() {
               style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
               📅
             </div>
-            <h3 className="text-lg font-semibold text-slate-950 mb-2">No content plan yet</h3>
+            <h3 className="text-lg font-semibold text-slate-950 mb-2">{t('contentHub.emptyTitle')}</h3>
             <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
-              Generate your monthly content plan. The AI will write all post captions and image prompts based on your campaign strategy.
+              {t('contentHub.emptyDesc')}
             </p>
           </div>
         )}
@@ -849,8 +849,8 @@ export default function ContentHubPage() {
               style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
               <span className="w-8 h-8 border-2 border-purple-500/40 border-t-purple-400 rounded-full animate-spin" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-950 mb-2">Building your content plan...</h3>
-            <p className="text-sm text-slate-500">Writing captions and image prompts for all posts</p>
+            <h3 className="text-lg font-semibold text-slate-950 mb-2">{t('contentHub.buildingTitle')}</h3>
+            <p className="text-sm text-slate-500">{t('contentHub.buildingDesc')}</p>
           </div>
         )}
 
@@ -977,12 +977,12 @@ export default function ContentHubPage() {
                 style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)' }}>
                 📅
               </div>
-              <h3 className="text-lg font-bold text-slate-950 mb-2">Approve &amp; Schedule all posts?</h3>
+              <h3 className="text-lg font-bold text-slate-950 mb-2">{t('contentHub.approveConfirmTitle')}</h3>
               <p className="text-sm text-slate-600 mb-1">
-                This will mark all <span className="text-slate-950 font-semibold">{posts.filter(p => p.status === 'DRAFT').length} draft posts</span> as scheduled.
+                {t('contentHub.approveConfirmBody1')} <span className="text-slate-950 font-semibold">({posts.filter(p => p.status === 'DRAFT').length} {t('contentHub.draftPosts')})</span>
               </p>
               <p className="text-sm text-slate-500 mb-6">
-                Posts will auto-publish at their scheduled times. You can still edit captions before they go live.
+                {t('contentHub.approveConfirmBody2')}
               </p>
               <div className="flex gap-3">
                 <button
@@ -990,14 +990,14 @@ export default function ContentHubPage() {
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm text-slate-600 hover:text-slate-950 border transition-all"
                   style={{ borderColor: 'rgba(15,23,42,0.12)', background: '#FFFFFF' }}
                 >
-                  Cancel
+                  {t('contentHub.cancel')}
                 </button>
                 <button
                   onClick={approveAll}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                 >
-                  ✓ Yes, Schedule All
+                  ✓ {t('contentHub.approveConfirmYes')}
                 </button>
               </div>
             </div>
@@ -1379,6 +1379,7 @@ function PostCard({
   onRewrite,
   onPickWinner,
 }: PostCardProps) {
+  const { t } = useI18n()
   const [showRewriteInput, setShowRewriteInput] = useState(false)
   const [rewriteInstruction, setRewriteInstruction] = useState('')
 
@@ -1395,8 +1396,8 @@ function PostCard({
   }[status] ?? '#6b7280'
 
   const statusLabel = {
-    PENDING: 'Pending', GENERATING: 'Generating…', DONE: 'Ready',
-    FAILED: 'Failed', AWAITING_UPLOAD: 'Upload Video', SKIPPED: 'Skipped',
+    PENDING: t('contentHub.statusPending'), GENERATING: t('contentHub.statusGenerating'), DONE: t('contentHub.statusReady'),
+    FAILED: t('contentHub.statusFailed'), AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
   }[status] ?? status
 
   const scheduledDate = post.scheduledAt
@@ -1420,13 +1421,13 @@ function PostCard({
                 color: post.variantLabel === 'A' ? '#fbbf24' : '#a5b4fc',
                 border: post.variantLabel === 'A' ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(99,102,241,0.35)',
               }}>
-              Variant {post.variantLabel}
+              {t('contentHub.variant')} {post.variantLabel}
             </span>
           )}
           {post.variantWinner && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
               style={{ background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }}>
-              🏆 Winner
+              🏆 {t('contentHub.winner')}
             </span>
           )}
         </div>
@@ -1473,12 +1474,12 @@ function PostCard({
             autoFocus
           />
           <div className="flex justify-end gap-2 mt-2">
-            <button onClick={onEditCaption} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors">Cancel</button>
+            <button onClick={onEditCaption} className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors">{t('contentHub.cancel')}</button>
             <button
               onClick={() => { onSaveEdit({ caption }); onEditCaption() }}
               className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white transition-all"
               style={{ background: '#111827' }}
-            >Save</button>
+            >{t('contentHub.save')}</button>
           </div>
         </div>
       )}
@@ -1487,13 +1488,13 @@ function PostCard({
       {showRewriteInput && !isEditingCaption && (
         <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(94,92,230,0.14)', background: '#F5F3FF' }}>
           <p className="text-[10px] text-[#5E5CE6] font-medium mb-1.5 flex items-center gap-1">
-            <span>✨</span> Rewrite instruction <span className="text-slate-400">(optional)</span>
+            <span>✨</span> {t('contentHub.rewriteInstruction')} <span className="text-slate-400">({t('contentHub.optional')})</span>
           </p>
           <input
             type="text"
             className="w-full rounded-xl text-xs px-3 py-2 focus:outline-none"
             style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.24)', color: '#0f172a' }}
-            placeholder='e.g. "make it more casual" or "add urgency"'
+            placeholder={t('contentHub.rewritePlaceholder')}
             value={rewriteInstruction}
             onChange={e => setRewriteInstruction(e.target.value)}
             onKeyDown={e => {
@@ -1515,7 +1516,7 @@ function PostCard({
             <button
               onClick={() => { setShowRewriteInput(false); setRewriteInstruction('') }}
               className="text-xs px-3 py-1.5 rounded-lg text-slate-500 hover:text-slate-950 transition-colors"
-            >Cancel</button>
+            >{t('contentHub.cancel')}</button>
             <button
               onClick={() => {
                 onRewrite(rewriteInstruction).then(() => {
@@ -1528,8 +1529,8 @@ function PostCard({
               style={{ background: '#111827', opacity: isRewriting ? 0.7 : 1 }}
             >
               {isRewriting
-                ? <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />Rewriting…</>
-                : <>✨ Rewrite</>
+                ? <><span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" />{t('contentHub.rewriting')}</>
+                : <>✨ {t('contentHub.rewrite')}</>
               }
             </button>
           </div>
@@ -1541,7 +1542,7 @@ function PostCard({
         <button onClick={onEditCaption}
           className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-[#5E5CE6] hover:bg-violet-50 transition-all flex items-center justify-center gap-1.5">
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M11.5 2.5a2.121 2.121 0 013 3L5 15l-4 1 1-4L11.5 2.5z"/></svg>
-          Edit
+          {t('contentHub.edit')}
         </button>
         <button
           onClick={() => { setShowRewriteInput(v => !v); setRewriteInstruction('') }}
@@ -1550,8 +1551,8 @@ function PostCard({
           style={{ borderColor: 'rgba(15,23,42,0.08)', color: isRewriting ? '#5E5CE6' : '#5E5CE6' }}
         >
           {isRewriting
-            ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Rewriting</>
-            : <>✨ Rewrite</>
+            ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.rewriting')}</>
+            : <>✨ {t('contentHub.rewrite')}</>
           }
         </button>
         {/* Generate AI image (disabled for TikTok — needs real video) */}
@@ -1560,7 +1561,7 @@ function PostCard({
             className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: '#DB2777' }}
             title="TikTok requires real video — upload yours">
-            📹 Vid
+            📹 {t('contentHub.vid')}
           </button>
         ) : (
           <button
@@ -1571,8 +1572,8 @@ function PostCard({
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: isGeneratingImage ? '#8B5CF6' : '#5E5CE6' }}
           >
             {isGeneratingImage
-              ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />Gen…</>
-              : <>🎨 Img · 3 credits</>
+              ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
+              : <>🎨 {t('contentHub.imgCredits')}</>
             }
           </button>
         )}
@@ -1589,8 +1590,8 @@ function PostCard({
             }}
           >
             {isPickingWinner
-              ? <><span className="w-2.5 h-2.5 border border-yellow-400/40 border-t-yellow-400 rounded-full animate-spin" />Picking…</>
-              : <>🏆 Win</>
+              ? <><span className="w-2.5 h-2.5 border border-yellow-400/40 border-t-yellow-400 rounded-full animate-spin" />{t('contentHub.picking')}</>
+              : <>🏆 {t('contentHub.win')}</>
             }
           </button>
         ) : (
@@ -1598,7 +1599,7 @@ function PostCard({
             className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all border-l flex items-center justify-center gap-1.5"
             style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
-            {isVideo ? 'Vid' : 'Img'}
+            {isVideo ? t('contentHub.vid') : t('contentHub.img')}
           </button>
         )}
       </div>
@@ -1633,6 +1634,7 @@ function BrandAvatar({ brandName, brandLogo, size = 32, gradientBg, rounded = 'f
 function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle, brandName, brandLogo }: {
   caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void; brandName: string; brandLogo: string | null
 }) {
+  const { t } = useI18n()
   const handle = brandName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
   const shortCaption = !isExpanded && caption.length > 100 ? caption.slice(0, 100) + '…' : caption
   return (
@@ -1645,7 +1647,6 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
           </div>
           <div>
             <div className="text-[12px] font-semibold text-gray-900 leading-tight">{handle}</div>
-            <div className="text-[10px] text-gray-400">Just now</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1673,18 +1674,16 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
           </div>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="1.8"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </div>
-        <div className="text-[12px] font-semibold text-gray-900 mb-1">1,234 likes</div>
         <div className="text-[12px] text-gray-900 leading-relaxed">
           <span className="font-semibold">{handle}</span>{' '}
-          <span className="text-gray-800">{shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}</span>
+          <span className="text-gray-800">{shortCaption || <span className="text-gray-400 italic">{t('contentHub.captionPlaceholder')}</span>}</span>
           {caption.length > 100 && (
             <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">
               {isExpanded ? 'less' : 'more'}
             </button>
           )}
         </div>
-        <div className="text-[11px] text-gray-400 mt-1">View all 42 comments</div>
-        <div className="text-[10px] text-gray-400 uppercase tracking-wide mt-1">2 hours ago</div>
+        <div className="text-[10px] text-gray-400 mt-1.5">{t('contentHub.previewOnly')}</div>
       </div>
     </div>
   )
@@ -1695,6 +1694,7 @@ function InstagramMockup({ caption, imageUrl, isVideo, status, isExpanded, onExp
 function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpandToggle, brandName, brandLogo }: {
   caption: string; imageUrl: string | null; isVideo: boolean; status: string; isExpanded: boolean; onExpandToggle: () => void; brandName: string; brandLogo: string | null
 }) {
+  const { t } = useI18n()
   const shortCaption = !isExpanded && caption.length > 140 ? caption.slice(0, 140) + '…' : caption
   return (
     <div style={{ background: '#fff', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
@@ -1704,12 +1704,6 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
           <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={40} gradientBg="#0A66C2" />
           <div>
             <div className="text-[13px] font-semibold text-gray-900 leading-tight">{brandName}</div>
-            <div className="text-[11px] text-gray-500 leading-tight">Marketing · Company</div>
-            <div className="flex items-center gap-1 mt-0.5">
-              <span className="text-[11px] text-gray-400">2h</span>
-              <span className="text-gray-300">·</span>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            </div>
           </div>
         </div>
         <button className="text-[11px] font-semibold px-3 py-1 rounded-full border" style={{ borderColor: '#0A66C2', color: '#0A66C2' }}>+ Follow</button>
@@ -1717,7 +1711,7 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
 
       {/* Caption */}
       <div className="px-3 pb-2.5 text-[13px] text-gray-800 leading-relaxed">
-        {shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}
+        {shortCaption || <span className="text-gray-400 italic">{t('contentHub.captionPlaceholder')}</span>}
         {caption.length > 140 && (
           <button onClick={onExpandToggle} className="ml-1 font-semibold text-gray-500 text-[12px]">
             {isExpanded ? 'Show less' : '…see more'}
@@ -1736,12 +1730,8 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
 
       {/* Reactions */}
       <div className="px-3 pt-2 pb-1">
-        <div className="flex items-center justify-between text-[11px] text-gray-500 mb-2 pb-1.5" style={{ borderBottom: '1px solid #e5e7eb' }}>
-          <div className="flex items-center gap-1">
-            <span>👍❤️💡</span>
-            <span>1,847</span>
-          </div>
-          <span>84 comments</span>
+        <div className="text-[10px] text-gray-400 mb-2 pb-1.5" style={{ borderBottom: '1px solid #e5e7eb' }}>
+          {t('contentHub.previewOnly')}
         </div>
         <div className="flex items-center justify-around pb-1">
           {[['👍','Like'],['💬','Comment'],['🔁','Repost'],['✉️','Send']].map(([icon, label]) => (
@@ -1760,6 +1750,7 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
 function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo }: {
   caption: string; imageUrl: string | null; isVideo: boolean; status: string; brandName: string; brandLogo: string | null
 }) {
+  const { t } = useI18n()
   const handle = '@' + brandName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
   return (
     <div className="relative flex" style={{ background: '#000', aspectRatio: '9/14', overflow: 'hidden' }}>
@@ -1780,8 +1771,8 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
           <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={36} gradientBg="#fe2c55" />
         </div>
         {[
-          { icon: '♥', count: '142K' }, { icon: '💬', count: '1.2K' },
-          { icon: '⤴', count: '8.4K' }, { icon: '⊙', count: '' },
+          { icon: '♥', count: '' }, { icon: '💬', count: '' },
+          { icon: '⤴', count: '' }, { icon: '⊙', count: '' },
         ].map(({ icon, count }) => (
           <div key={icon} className="flex flex-col items-center gap-0.5">
             <span className="text-white text-2xl drop-shadow">{icon}</span>
@@ -1794,12 +1785,13 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
       <div className="absolute bottom-0 left-0 right-10 p-3">
         <div className="text-white text-[12px] font-bold mb-1">{handle}</div>
         <p className="text-white text-[11px] leading-relaxed line-clamp-2 drop-shadow">
-          {caption || <span className="text-white/60 italic">Caption will appear here…</span>}
+          {caption || <span className="text-white/60 italic">{t('contentHub.captionPlaceholder')}</span>}
         </p>
         <div className="flex items-center gap-1.5 mt-2">
           <span className="text-white text-[13px] animate-spin" style={{ display: 'inline-block', animationDuration: '3s' }}>♪</span>
           <span className="text-white text-[10px]">Original Sound · {handle}</span>
         </div>
+        <div className="text-white/50 text-[9px] mt-1.5">{t('contentHub.previewOnly')}</div>
       </div>
     </div>
   )
@@ -1810,6 +1802,7 @@ function TikTokMockup({ caption, imageUrl, isVideo, status, brandName, brandLogo
 function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpanded, onExpandToggle, brandName, brandLogo }: {
   caption: string; imageUrl: string | null; isVideo: boolean; status: string; platform: string; isExpanded: boolean; onExpandToggle: () => void; brandName: string; brandLogo: string | null
 }) {
+  const { t } = useI18n()
   const cfg = getPlatformConfig(platform)
   const shortCaption = !isExpanded && caption.length > 120 ? caption.slice(0, 120) + '…' : caption
   return (
@@ -1818,11 +1811,11 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
         <BrandAvatar brandName={brandName} brandLogo={brandLogo} size={32} gradientBg={cfg.color} />
         <div>
           <div className="text-[12px] font-semibold text-gray-900">{brandName}</div>
-          <div className="text-[10px] text-gray-400">2h ago</div>
+          <div className="text-[10px] text-gray-400">{t('contentHub.previewOnly')}</div>
         </div>
       </div>
       <div className="px-3 pb-2 text-[12px] text-gray-800 leading-relaxed">
-        {shortCaption || <span className="text-gray-400 italic">Caption will appear here…</span>}
+        {shortCaption || <span className="text-gray-400 italic">{t('contentHub.captionPlaceholder')}</span>}
         {caption.length > 120 && (
           <button onClick={onExpandToggle} className="text-gray-500 ml-1 text-[11px]">{isExpanded ? 'less' : 'more'}</button>
         )}
@@ -1846,6 +1839,7 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
 // ── Image Placeholder ──────────────────────────────────────────────────────────
 
 function ImagePlaceholder({ isVideo, status, dark }: { isVideo: boolean; status: string; dark: boolean }) {
+  const { t } = useI18n()
   return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-2"
       style={{ background: dark ? 'transparent' : '#f9f9f9' }}>
@@ -1857,9 +1851,9 @@ function ImagePlaceholder({ isVideo, status, dark }: { isVideo: boolean; status:
         {status === 'GENERATING' ? (
           <span className="flex items-center gap-1">
             <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-            Generating…
+            {t('contentHub.imgGenerating')}
           </span>
-        ) : isVideo ? 'Upload your video' : status === 'PENDING' ? 'Image will be generated' : 'No image yet'}
+        ) : isVideo ? t('contentHub.imgUploadVideo') : status === 'PENDING' ? t('contentHub.imgWillGenerate') : t('contentHub.imgNone')}
       </span>
     </div>
   )
