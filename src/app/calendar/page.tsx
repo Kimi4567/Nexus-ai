@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
 import { deriveDisplayState, statusLabelKey } from '@/lib/postStatus'
+import { isAutoPublished } from '@/lib/postVisibility'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -480,8 +481,13 @@ function CalendarPageInner() {
   }
 
   // ── Queue derived state ────────────────────────────────────────────────────
+  // PR7 honesty: the Published Queue is the integration / auto-publish surface.
+  // Its "Published" count + list show ONLY genuinely auto-published posts. Manually
+  // published posts are NOT counted here — they live in the Content Hub, badged
+  // "Published manually" — so this surface never implies NEXUS auto-published a post
+  // the user published by hand.
   const scheduled = posts.filter(p => p.status === 'SCHEDULED')
-  const published  = posts.filter(p => p.status === 'PUBLISHED')
+  const autoPublished = posts.filter(p => isAutoPublished(p))
   const failed     = posts.filter(p => p.status === 'FAILED')
 
   const handleDelete = async (id: string) => {
@@ -582,7 +588,7 @@ function CalendarPageInner() {
             <p className="text-slate-500">
               {activeTab === 'timeline'
                 ? 'Your AI-planned content pipeline across all campaigns.'
-                : 'Scheduled and published posts across all connected accounts.'}
+                : (scT?.queueSubtitle as string || 'Scheduled posts and automatic publishing through your connected accounts.')}
             </p>
           </div>
 
@@ -998,7 +1004,7 @@ function CalendarPageInner() {
             <div className="grid grid-cols-3 gap-4 mb-8">
               {[
                 { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
-                { label: scT?.statPublished as string || 'Published', value: published.length, color: 'text-green-700'   },
+                { label: scT?.statAutoPublished as string || 'Published automatically', value: autoPublished.length, color: 'text-green-700'   },
                 { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
@@ -1006,6 +1012,11 @@ function CalendarPageInner() {
                   <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
                 </div>
               ))}
+            </div>
+
+            {/* Honest scope note (PR7): this queue is the auto-publish surface only. */}
+            <div className="rounded-xl px-4 py-3 mb-6 text-xs text-slate-500" style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
+              {scT?.queueManualNote as string || 'This queue shows posts NEXUS publishes automatically through a connected account. Posts you publish by hand are tracked in the Content Hub, marked “Published manually”.'}
             </div>
 
             {/* No integrations warning */}
@@ -1066,21 +1077,21 @@ function CalendarPageInner() {
               </div>
             )}
 
-            {/* Published posts */}
-            {published.length > 0 && (
+            {/* Published posts — auto/integration only (PR7) */}
+            {autoPublished.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
-                  {scT?.sectionPublished as string || 'Published'}
+                  {scT?.sectionAutoPublished as string || 'Published automatically'}
                 </h2>
                 <div className="space-y-3">
-                  {published.slice(0, 5).map(post => (
+                  {autoPublished.slice(0, 5).map(post => (
                     <div key={post.id} className="rounded-xl bg-white p-5 flex items-start gap-4" style={{ border: '1px solid rgba(16,185,129,0.2)' }}>
                       <div className="text-2xl shrink-0">{PLATFORM_ICONS_SCH[post.platform] || '📱'}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-xs font-bold text-slate-500">{post.pageName || post.platform}</span>
                           <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-50 text-green-700 border border-green-200">
-                            {scT?.statusPublished as string || 'Published'}
+                            {scT?.statusAutoPublished as string || 'Published automatically'}
                           </span>
                         </div>
                         <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>

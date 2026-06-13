@@ -43,6 +43,19 @@ export function isCompletedState(state: DisplayState): boolean {
   return state === 'published_manual' || state === 'published_auto'
 }
 
+/**
+ * True only when a post was published AUTOMATICALLY by an integration/API (PR 7).
+ *
+ * The Published Queue surface is the integration / auto-publish queue (connect an
+ * account → schedule → NEXUS publishes via the platform API). It must therefore
+ * count ONLY genuinely auto-published posts, never manually-published ones — those
+ * live in the Content Hub, badged "Published manually". A manual post (or a legacy
+ * AUTO post with no platform proof) is honestly NOT auto-published.
+ */
+export function isAutoPublished(post: PostStateInput): boolean {
+  return deriveDisplayState(post) === 'published_auto'
+}
+
 /** Tally a batch of posts by honest derived display state. Never invents a state. */
 export function summarizeByDisplayState(posts: PostStateInput[]): VisibilityCounts {
   const counts: VisibilityCounts = { ...EMPTY }
