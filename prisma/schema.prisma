@@ -1292,6 +1292,36 @@ model BrainScoreSnapshot {
 }
 
 // ============================================================================
+// BRAND BRAIN — execution-workflow learning events (Brand Brain Sprint PR1)
+// ============================================================================
+// Append-only WHAT-happened log of real execution actions (approve / schedule /
+// manual-publish / unschedule / revert). This is the product LEARNING layer (vs
+// PostStatusHistory, which is the lifecycle audit trail). A later sprint reads these
+// to learn from the user's behaviour. PURELY ADDITIVE: ids are stored as plain
+// strings (no relations, like PostStatusHistory.workspaceId) so this is a single new
+// table touching no existing model. NEVER stores performance metrics or inferred
+// results — only the action, its honest from/to status, and small safe metadata.
+model MarketingLearningEvent {
+  id            String   @id @default(cuid())
+
+  workspaceId   String
+  campaignId    String?
+  socialPostId  String?
+
+  eventType     String   // POST_APPROVED | POST_SCHEDULED | POST_MANUALLY_PUBLISHED | POST_UNSCHEDULED | POST_REVERTED_TO_DRAFT | POST_FAILED | POST_AUTO_PUBLISHED
+  source        String   @default("EXECUTION_WORKFLOW")
+  actor         String   @default("USER")   // USER | SYSTEM | CRON
+  metadata      Json     @default("{}")
+
+  createdAt     DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, eventType])
+  @@index([socialPostId])
+  @@index([campaignId])
+}
+
+// ============================================================================
 // PAID ADVERTISING CAMPAIGNS — Full Ad Manager System
 // ============================================================================
 // Architecture:

@@ -19,6 +19,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { planScheduling } from '@/lib/approvalPlan'
 import { validateTransition, buildStatusHistory } from '@/lib/postStatus'
+import { buildLearningEvents } from '@/lib/brandBrainEvents'
 
 type Params = { params: { id: string } }
 
@@ -91,6 +92,25 @@ export async function POST(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[schedule-content-plan] history write failed', e?.message))
     }
 
+    // Brand Brain (PR1): one POST_SCHEDULED event per actual APPROVED → SCHEDULED move.
+    const scheduleEvents = buildLearningEvents(
+      plan.history.map((h: any) => ({
+        workspaceId: h.workspaceId,
+        campaignId: campaign.id,
+        socialPostId: h.socialPostId,
+        from: h.fromStatus ?? null,
+        to: h.toStatus,
+        actor: h.actor,
+        publishMode: 'MANUAL',
+        platform: (platformById.get(h.socialPostId) as string | undefined) ?? null,
+      }))
+    )
+    if (scheduleEvents.length > 0) {
+      await (prisma as any).marketingLearningEvent
+        .createMany({ data: scheduleEvents })
+        .catch((e: any) => console.error('[schedule-content-plan] learning event write failed', e?.message))
+    }
+
     const linked = approvedPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length
     return NextResponse.json({
       success: true,
@@ -138,6 +158,24 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       await (prisma as any).postStatusHistory
         .createMany({ data: history })
         .catch((e: any) => console.error('[schedule-content-plan DELETE] history write failed', e?.message))
+    }
+
+    // Brand Brain (PR1): one POST_UNSCHEDULED event per actual SCHEDULED → APPROVED move.
+    const unscheduleEvents = buildLearningEvents(
+      history.map((h: any) => ({
+        workspaceId: h.workspaceId,
+        campaignId: campaign.id,
+        socialPostId: h.socialPostId,
+        from: h.fromStatus ?? null,
+        to: h.toStatus,
+        actor: h.actor,
+        publishMode: 'MANUAL',
+      }))
+    )
+    if (unscheduleEvents.length > 0) {
+      await (prisma as any).marketingLearningEvent
+        .createMany({ data: unscheduleEvents })
+        .catch((e: any) => console.error('[schedule-content-plan DELETE] learning event write failed', e?.message))
     }
 
     return NextResponse.json({ success: true, reverted })
