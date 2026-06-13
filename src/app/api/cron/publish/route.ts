@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { decryptToken } from '@/lib/tokenCrypto'
+import { autoPublishWhere, skippedManualWhere, isAutoPublishEligible } from '@/lib/publishGate'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,17 +43,25 @@ async function runPublishJob() {
   const now = new Date()
   console.log('[Cron:publish] Running at', now.toISOString())
 
-  // Find all scheduled posts due for publishing
-  const duePosts = await prisma.socialPost.findMany({
-    where: {
-      status: 'SCHEDULED',
-      scheduledAt: { lte: now },
-    },
+  // ── PUBLISH SAFETY GATE (PR 3) ───────────────────────────────────────────────
+  // Only auto-publish posts the user explicitly opted into automatic publishing
+  // (publishMode = AUTO). MANUAL posts (the default) and legacy rows are NEVER
+  // auto-published — even when SCHEDULED and past due. This is enforced at TWO
+  // layers: the DB query below, and a defensive in-code filter, so a manual post
+  // can never reach the publishing code through either path.
+  const duePosts = (await prisma.socialPost.findMany({
+    where: autoPublishWhere(now) as any,
     include: { integration: true },
     take: 20,
-  })
+  })).filter((p: any) => isAutoPublishEligible(p, now))
 
-  console.log(`[Cron:publish] Found ${duePosts.length} posts to publish`)
+  // Safe, server-side-only observability (never surfaced to users as a metric).
+  const skippedManualCount = await prisma.socialPost
+    .count({ where: skippedManualWhere(now) as any })
+    .catch(() => 0)
+  const autoEligibleCount = duePosts.length
+
+  console.log(`[Cron:publish] AUTO-eligible: ${autoEligibleCount} · skipped (manual/legacy, untouched): ${skippedManualCount}`)
 
   const results = await Promise.allSettled(
     duePosts.map(async (post) => {
@@ -199,7 +208,16 @@ async function runPublishJob() {
   const failed    = results.length - succeeded
 
   console.log(`[Cron:publish] Done — ${succeeded} published, ${failed} failed.`)
-  return { processed: results.length, succeeded, failed, timestamp: now.toISOString() }
+  return {
+    processed: results.length,
+    succeeded,
+    failed,
+    // Safe counts (auto-publish gate observability)
+    autoEligibleCount,
+    publishedCount: succeeded,
+    skippedManualCount,
+    timestamp: now.toISOString(),
+  }
 }
 
 // ── Route handlers ─────────────────────────────────────────────
