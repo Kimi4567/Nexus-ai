@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { deriveDisplayState } from '@/lib/postStatus'
-import { summarizeByDisplayState, isCompletedState, publicPostUrl } from '@/lib/postVisibility'
+import { summarizeByDisplayState, isCompletedState, publicPostUrl, isAutoPublished } from '@/lib/postVisibility'
 
 describe('derived display state — honest execution states', () => {
   it('1. PUBLISHED + MANUAL → published_manual (published manually)', () => {
@@ -84,5 +84,44 @@ describe('summarizeByDisplayState — keep published posts visible', () => {
 
   it('empty batch → all zeros', () => {
     expect(summarizeByDisplayState([])).toMatchObject({ total: 0, published: 0 })
+  })
+})
+
+describe('isAutoPublished — Published Queue counts integration/auto publishes only (PR7)', () => {
+  it('10. a manually-published post is NOT counted as auto-published', () => {
+    // PUBLISHED + MANUAL, even with a live URL the user pasted, is a manual publish.
+    expect(isAutoPublished({ status: 'PUBLISHED', publishMode: 'MANUAL', platformUrl: 'https://fb.com/p/1' })).toBe(false)
+    expect(isAutoPublished({ status: 'PUBLISHED', publishMode: 'MANUAL' })).toBe(false)
+  })
+
+  it('11. an auto/integration-published post (AUTO + platform proof) IS counted', () => {
+    expect(isAutoPublished({ status: 'PUBLISHED', publishMode: 'AUTO', platformPostId: 'fb_9' })).toBe(true)
+    expect(isAutoPublished({ status: 'PUBLISHED', publishMode: 'AUTO', platformUrl: 'https://fb.com/p/9' })).toBe(true)
+  })
+
+  it('12. AUTO without any platform proof is NOT claimed as auto-published (legacy safe)', () => {
+    expect(isAutoPublished({ status: 'PUBLISHED', publishMode: 'AUTO' })).toBe(false)
+  })
+
+  it('13. non-published states are never auto-published', () => {
+    expect(isAutoPublished({ status: 'SCHEDULED', publishMode: 'AUTO' })).toBe(false)
+    expect(isAutoPublished({ status: 'SCHEDULED', publishMode: 'MANUAL' })).toBe(false)
+    expect(isAutoPublished({ status: 'APPROVED' })).toBe(false)
+    expect(isAutoPublished({ status: 'DRAFT' })).toBe(false)
+    expect(isAutoPublished({ status: 'FAILED' })).toBe(false)
+  })
+
+  it('14. the auto-published count excludes manual publishes (no contradiction with Content Hub)', () => {
+    const posts = [
+      { status: 'PUBLISHED', publishMode: 'MANUAL', platformUrl: 'https://x.co/a' }, // manual → Content Hub
+      { status: 'PUBLISHED', publishMode: 'MANUAL' },                                 // manual → Content Hub
+      { status: 'PUBLISHED', publishMode: 'AUTO', platformPostId: 'fb_1' },           // auto  → this queue
+      { status: 'SCHEDULED', publishMode: 'AUTO' },
+      { status: 'DRAFT' },
+    ]
+    const autoCount = posts.filter(p => isAutoPublished(p as any)).length
+    expect(autoCount).toBe(1)
+    // the two manual publishes are still honestly "published" overall (Content Hub view)
+    expect(summarizeByDisplayState(posts as any).published).toBe(3)
   })
 })
