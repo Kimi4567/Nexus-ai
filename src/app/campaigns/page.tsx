@@ -187,7 +187,7 @@ export default function CampaignsPage() {
               ) : loadError && counts === null ? (
                 <p className="text-2xl font-bold text-slate-300" title={cT?.statError as string || 'Failed to load'}>—</p>
               ) : (
-                <p className="text-2xl font-bold">{counts ? counts[s.key] : 0}</p>
+                <p className="text-2xl font-bold text-slate-900">{counts ? counts[s.key] : 0}</p>
               )}
             </div>
           )

@@ -506,7 +506,7 @@ export default function PaidLaunchPage() {
               {generating ? (
                 <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating Full Pack...</>
               ) : (
-                <><Zap size={16} /> {hasGenerated ? 'Regenerate Pack' : 'Generate Full Pack'} — 3 credits</>
+                <><Zap size={16} /> {hasGenerated ? 'Regenerate Pack' : 'Generate Full Pack'} — {PAID_PACK_COST} credits</>
               )}
             </button>
           </div>
