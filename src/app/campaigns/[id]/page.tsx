@@ -12,6 +12,7 @@ import SocialPublisher from '@/components/SocialPublisher'
 import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
+import StrategySection from '@/components/StrategySection'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
@@ -1510,13 +1511,18 @@ function CampaignDetailPageInner() {
                             {locale === 'ar' ? 'ملخص الاستراتيجية' : 'Strategy Intelligence'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${engineScore}%`, background: `linear-gradient(90deg, ${confColor}, ${confColor}bb)` }} />
+                        {/* PR-2B2A — single trust signal: show the engineScore readiness
+                            chip ONLY for old strategies. When confidenceReport exists, the
+                            calm "Confidence & Data Gaps" block below is the one signal. */}
+                        {!confidenceReport && (
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${engineScore}%`, background: confColor }} />
+                            </div>
+                            <span className="text-[10px] font-black" style={{ color: confColor }}>{engineScore}%</span>
+                            <span className="text-[10px] font-semibold" style={{ color: confColor }}>{confLabel}</span>
                           </div>
-                          <span className="text-[10px] font-black" style={{ color: confColor }}>{engineScore}%</span>
-                          <span className="text-[10px] font-semibold" style={{ color: confColor }}>{confLabel}</span>
-                        </div>
+                        )}
                       </div>
                       {/* Content grid */}
                       <div className="p-4 grid grid-cols-1 gap-3">
@@ -1581,41 +1587,41 @@ function CampaignDetailPageInner() {
                   )
                 })()}
 
-                {/* 🚀 Next Best Action — pinned banner, shown once */}
+                {/* Next Best Action — calm pinned banner (PR-2B2A: softened, no heavy gradient) */}
                 {strategy.nextBestAction && (
-                  <div className="rounded-2xl p-4 flex items-center gap-3"
-                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(6,182,212,0.08))', border: '1px solid rgba(139,92,246,0.3)', boxShadow: '0 0 20px rgba(139,92,246,0.08)' }}>
-                    <span className="text-2xl flex-shrink-0">🚀</span>
+                  <div className="rounded-2xl p-4 flex items-center gap-3.5"
+                    style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                    <span className="text-lg flex-shrink-0 opacity-80">🚀</span>
                     <div className="min-w-0">
-                      <p className="text-[10px] text-accent uppercase tracking-widest font-bold mb-0.5">{cdT?.nextActionBannerLabel || 'Your Next Action'}</p>
-                      <p className="text-white text-sm font-semibold leading-relaxed">{strategy.nextBestAction}</p>
+                      <p className="text-[10px] text-accent/90 uppercase tracking-widest font-semibold mb-1">{cdT?.nextActionBannerLabel || 'Your Next Action'}</p>
+                      <p className="text-white text-sm font-medium leading-relaxed">{strategy.nextBestAction}</p>
                     </div>
                   </div>
                 )}
 
-                {/* 🔎 PR-2B1 — Honesty readout: confidence + missing data + assumptions */}
+                {/* Strategy readiness — single calm trust signal (PR-2B2A) */}
                 {(confidenceReport || missingDataLabels.length > 0 || assumptions.length > 0) && (
-                  <div className="rounded-2xl p-4 space-y-3"
-                    style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                  <div className="rounded-2xl p-5 space-y-3.5"
+                    style={{ background: 'rgba(10,11,28,0.55)', border: '1px solid rgba(255,255,255,0.07)' }}>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nx-accent)' }}>
-                        {locale === 'ar' ? 'الثقة والبيانات الناقصة' : 'Confidence & Data Gaps'}
+                      <span className="text-[11px] uppercase tracking-widest font-semibold text-gray-400">
+                        {locale === 'ar' ? 'جاهزية الاستراتيجية' : 'Strategy Readiness'}
                       </span>
                       {confidenceReport?.overall && (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ color: confLevelColor(confidenceReport.overall), background: `${confLevelColor(confidenceReport.overall)}1a` }}>
+                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                          style={{ color: confLevelColor(confidenceReport.overall), background: `${confLevelColor(confidenceReport.overall)}14` }}>
                           {confLevelLabel(confidenceReport.overall)}
                         </span>
                       )}
                     </div>
                     {missingDataLabels.length > 0 && (
                       <div>
-                        <p className="text-[11px] text-amber-400/90 leading-relaxed">
-                          <span className="font-semibold">{locale === 'ar' ? 'بيانات ناقصة: ' : 'Not enough data on: '}</span>
+                        <p className="text-[12px] text-gray-400 leading-relaxed">
+                          <span className="font-medium text-gray-300">{locale === 'ar' ? 'بيانات ناقصة: ' : 'Not enough data on: '}</span>
                           {missingDataLabels.join(locale === 'ar' ? '، ' : ', ')}.
                         </p>
-                        <a href="/brand" className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded transition"
-                          style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.95)' }}>
+                        <a href="/brand" className="inline-block mt-2 text-[11px] px-2.5 py-1 rounded-lg transition hover:opacity-80"
+                          style={{ background: 'rgba(139,92,246,0.1)', color: 'rgba(139,92,246,0.95)' }}>
                           {locale === 'ar' ? 'أكمل في Brand Brain ←' : '→ Complete in Brand Brain'}
                         </a>
                       </div>
@@ -1842,12 +1848,9 @@ function CampaignDetailPageInner() {
                   </div>
                 )}
 
-                {/* Funnel */}
+                {/* Funnel (PR-2B2A: collapsible) */}
                 {(funnelStages.length > 0 || strategy.funnelStrategy) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                      <span>🔻</span> {cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Marketing Funnel'}
-                    </h3>
+                  <StrategySection title={cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Marketing Funnel'} icon="🔻" defaultOpen={false}>
                     {funnelStages.length > 0 ? (
                       <div className="space-y-2">
                         {funnelStages.map((stage: any, i: number) => {
@@ -1900,15 +1903,12 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                     )}
-                  </div>
+                  </StrategySection>
                 )}
 
-                {/* Channel Strategy — unified mix + detail */}
+                {/* Channel Strategy — unified mix + detail (PR-2B2A: collapsible) */}
                 {(strategy.channelMix?.length > 0 || channelStrategy.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                      <span>📡</span> {cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'}
-                    </h3>
+                  <StrategySection title={cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'} icon="📡" defaultOpen={false}>
                     <div className="space-y-2.5">
                       {channelStrategy.length > 0 ? (
                         channelStrategy.map((ch: any, i: number) => {
@@ -1957,19 +1957,18 @@ function CampaignDetailPageInner() {
                         ))
                       )}
                     </div>
-                  </div>
+                  </StrategySection>
                 )}
 
-                {/* Content Pillars */}
+                {/* Content Pillars (PR-2B2A: collapsible) */}
                 {strategy.contentPillars?.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>📐</span> {cdT?.sectionContentPillars || 'Content Pillars'}</h3>
+                  <StrategySection title={cdT?.sectionContentPillars || 'Content Pillars'} icon="📐" defaultOpen={false}>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                       {strategy.contentPillars.map((p: string, i: number) => (
                         <div key={i} className="bg-dark rounded-xl p-3 text-xs text-center text-gray-300 border border-dark-tertiary">{p}</div>
                       ))}
                     </div>
-                  </div>
+                  </StrategySection>
                 )}
 
                 {/* Offer & CTA Strategy */}
@@ -2023,12 +2022,9 @@ function CampaignDetailPageInner() {
                   </div>
                 )}
 
-                {/* ══ WEEKLY EXECUTION PLAN ════════════════════════════════════ */}
+                {/* ══ 30-DAY / WEEKLY EXECUTION PLAN (PR-2B2A: collapsible) ══════════ */}
                 {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                      <span>📅</span> {cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}
-                    </h3>
+                  <StrategySection title={cdT?.sectionWeeklyPlan || '30-Day Execution Plan'} icon="📅" defaultOpen={false}>
                     {weeklyExecutionPlan.length > 0 ? (
                       <div className="space-y-3">
                         {weeklyExecutionPlan.map((w: any) => (
@@ -2094,7 +2090,7 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                     )}
-                  </div>
+                  </StrategySection>
                 )}
 
                 {/* ══ CHAPTER 04 — METRICS & READINESS ════════════════════════ */}
