@@ -794,9 +794,15 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {intelligence.risks.length > 0 && (
+                {/* Display-only: hide the 'pending-approvals' risk
+                    ("Recommendations need decisions"). It duplicates the AI
+                    Suggestions section, which is the single place to act on
+                    suggestion decisions (its count lives in that section header).
+                    The intelligence API/data is untouched — only this one risk is
+                    filtered from the Brief's rendering; all other risks still show. */}
+                {intelligence.risks.filter(r => r.id !== 'pending-approvals').length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {intelligence.risks.map(risk => (
+                    {intelligence.risks.filter(r => r.id !== 'pending-approvals').map(risk => (
                       <div key={risk.id} className="inline-flex items-start gap-2 rounded-xl px-3 py-2 max-w-full md:max-w-[360px]"
                         style={{ background: 'rgba(249,115,22,0.055)', border: '1px solid rgba(249,115,22,0.14)' }}>
                         <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#F97316' }} />
