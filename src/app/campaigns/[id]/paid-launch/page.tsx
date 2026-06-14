@@ -14,6 +14,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
+import CreditConfirmModal from '@/components/CreditConfirmModal'
+// Mirror of CREDIT_COSTS.PAID_PACK_GENERATE in src/lib/credits.ts (server is the
+// source of truth and still deducts/refunds; this literal is display-only).
+const PAID_PACK_COST = 6
 import {
   Target, Zap, Users, DollarSign, Copy, ExternalLink,
   CheckCircle, TrendingUp, Brain, ChevronDown, ChevronUp,
@@ -180,6 +184,7 @@ export default function PaidLaunchPage() {
   const [pack, setPack] = useState<PaidPack | null>(null)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const [showGenerateConfirm, setShowGenerateConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Setup form state
@@ -486,9 +491,9 @@ export default function PaidLaunchPage() {
               </div>
             </div>
 
-            {/* Generate button */}
+            {/* Generate button — gated by a credit-confirmation modal */}
             <button
-              onClick={handleGenerate}
+              onClick={() => setShowGenerateConfirm(true)}
               disabled={generating || platforms.length === 0}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -501,7 +506,7 @@ export default function PaidLaunchPage() {
               {generating ? (
                 <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating Full Pack...</>
               ) : (
-                <><Zap size={16} /> {hasGenerated ? 'Regenerate Pack' : 'Generate Full Pack'} — 3 credits</>
+                <><Zap size={16} /> {hasGenerated ? 'Regenerate Pack' : 'Generate Full Pack'} — {PAID_PACK_COST} credits</>
               )}
             </button>
           </div>
@@ -957,6 +962,17 @@ export default function PaidLaunchPage() {
           @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
         `}</style>
       </div>
+
+      <CreditConfirmModal
+        isOpen={showGenerateConfirm}
+        onClose={() => setShowGenerateConfirm(false)}
+        onConfirm={handleGenerate}
+        cost={PAID_PACK_COST}
+        actionTitle="Generate Paid Ad Pack"
+        authHeader={authHeader}
+        includedItems={['Audience targeting', 'Copy variants', 'Budget plan', 'Platform setup']}
+        confirmLabel={`Confirm & Generate — ${PAID_PACK_COST} credits`}
+      />
     </AppShell>
   )
 }

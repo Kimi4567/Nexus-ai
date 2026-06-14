@@ -13,11 +13,12 @@ export function middleware(request: NextRequest) {
   // Never touch API routes
   if (pathname.startsWith(API_PREFIX)) return NextResponse.next()
 
-  // Redirect logged-in users away from auth pages
-  // We check for Supabase cookie OR next-auth token
+  // Redirect logged-in users away from auth pages.
+  // Auth is fully consolidated on Supabase — detect the Supabase session cookie.
+  // (Legacy NextAuth was removed; this is a convenience redirect only, real route
+  //  protection is handled client-side.)
   const hasCookie = [...request.cookies.getAll()].some(
-    c => (c.name.startsWith('sb-') && c.name.endsWith('-auth-token')) ||
-         c.name === 'next-auth.session-token'
+    c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token')
   )
 
   const isPublicOnly = PUBLIC_ONLY.some(p => pathname.startsWith(p))

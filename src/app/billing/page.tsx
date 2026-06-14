@@ -13,6 +13,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import CreditHistoryModal from '@/components/CreditHistoryModal'
+import { formatCreditDisplay } from '@/lib/creditDisplay'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
@@ -379,9 +380,17 @@ export default function BillingPage() {
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
 
-  const creditsPercent = monthlyCredits > 0 && monthlyCredits !== -1
-    ? Math.min(100, Math.round((currentCredits / monthlyCredits) * 100))
-    : monthlyCredits === -1 ? 100 : 0
+  // Honest, overflow-safe credit display. When the balance exceeds the monthly
+  // grant (rollover / bonus / refunds), we show "N credits" + an explanation
+  // instead of a confusing "246 / 150" with an overflowing bar.
+  // No active subscription → one-time credits → no monthly denominator.
+  const creditGrant = billingStatus?.hasActiveSubscription ? monthlyCredits : 0
+  const creditDisp = formatCreditDisplay({
+    availableCredits: currentCredits,
+    monthlyCredits: creditGrant,
+    locale: ar ? 'ar' : 'en',
+  })
+  const creditsPercent = creditDisp.percent
 
   return (
     <AppShell>
@@ -438,7 +447,7 @@ export default function BillingPage() {
               <div className="flex-1 max-w-xs">
                 <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
                   <span>{ar ? 'الأرصدة المتبقية' : 'Credits remaining'}</span>
-                  <span className="font-mono text-slate-700">{currentCredits} / {!billingStatus?.hasActiveSubscription ? `20 ${ar ? '(مرة واحدة)' : '(one-time)'}` : monthlyCredits === -1 ? (ar ? 'غير محدود' : 'unlimited') : `${monthlyCredits}${ar ? '/شهر' : '/mo'}`}</span>
+                  <span className="font-mono text-slate-700">{creditDisp.primary}</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
                   <div
@@ -451,6 +460,9 @@ export default function BillingPage() {
                     }}
                   />
                 </div>
+                {creditDisp.secondary && (
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">{creditDisp.secondary}</p>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
