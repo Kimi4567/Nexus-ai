@@ -52,10 +52,12 @@ interface Props {
 
 // -- Progress steps ----------------------------------------------------------
 
+// Five honest steps that reflect what actually runs: a single strategist agent
+// reading Brand Brain and producing the strategic brief. No fake multi-agent theater.
 const STEP_DURATIONS = [1500, 3000, 4000, 3500, 3000]
-const STEP_ICONS     = [Cpu, BarChart3, Film, Megaphone, Shield, Zap]
-const STEP_COLORS    = ['#8B5CF6', '#8B5CF6', '#10B981', '#FF6B35', '#FFD700', '#00D4FF']
-const STEP_KEYS      = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const
+const STEP_ICONS     = [Brain, Cpu, BarChart3, Megaphone, Shield]
+const STEP_COLORS    = ['#8B5CF6', '#8B5CF6', '#10B981', '#FF6B35', '#00D4FF']
+const STEP_KEYS      = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
 
 // -- Shared card style -------------------------------------------------------
 
@@ -116,12 +118,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     onClose()
   }
 
-  // Start a new strategy run from the success screen
+  // Start a new strategy run from the success screen.
+  // Routes back through the cost-confirmation gate so a second run can never
+  // silently spend another 8 credits — the user must re-confirm the cost first.
+  // The phase is set EXPLICITLY to 'cost_confirm' (not inferred from a cleared
+  // result / reset flag). No generation starts and no credits are spent here;
+  // the run only begins after the user re-confirms on the cost screen.
   const handleRunAgain = () => {
     clearResultCache()
     setResult(null)
-    setPhase('running')
+    setCostConfirmed(false)   // require a fresh 8-credit confirmation
+    setCreditBalance(null)    // re-fetch balance on the cost screen
     setCurrentStep(0)
+    setPhase('cost_confirm')  // explicit route back to the cost-confirmation gate
     setRunKey(k => k + 1)
   }
 
@@ -611,7 +620,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         {locale === 'ar' ? 'تشغيل الاستراتيجية الكاملة' : 'Full Strategy Run'}
                       </p>
                       <p className="text-[10px] text-text-muted">
-                        {locale === 'ar' ? '6 وكلاء ذكاء اصطناعي' : '6 AI agents activated'}
+                        {locale === 'ar' ? 'استراتيجي تسويق ذكي من Brand Brain' : 'AI strategist, built from your Brand Brain'}
                       </p>
                     </div>
                   </div>
@@ -661,8 +670,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 </p>
                 <div className="grid grid-cols-2 gap-1">
                   {(locale === 'ar'
-                    ? ['استراتيجية العلامة', 'خطة الحملة', 'زوايا المحتوى', 'الهوكات والـ CTA', 'القصة المصورة', 'لوحة قيادة ذكية']
-                    : ['Brand Strategy', 'Campaign Plan', 'Content Angles', 'Hooks & CTAs', 'Visual Storyboard', 'Intelligence Brief']
+                    ? ['تشخيص العلامة', 'التموضع والرسائل', 'شرائح الجمهور', 'زوايا المحتوى والهوكات', 'خطة 4 أسابيع', 'الخطوة التالية']
+                    : ['Brand diagnosis', 'Positioning & messaging', 'Audience segments', 'Content angles & hooks', '4-week plan', 'Next best action']
                   ).map(item => (
                     <div key={item} className="flex items-center gap-1.5 text-[10px] text-text-muted">
                       <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
@@ -1090,7 +1099,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               {[
                 { value: '1',                            label: rs.statCampaign,     color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)',  border: 'rgba(139,92,246,0.18)' },
                 { value: String(result.suggestions ?? 0),label: rs.statSuggestions,  color: '#10B981', bg: 'rgba(16,185,129,0.08)',   border: 'rgba(16,185,129,0.18)' },
-                { value: String(result.creditsUsed ?? 5), label: rs.statCreditsUsed,  color: '#FF6B35', bg: 'rgba(255,107,53,0.08)',  border: 'rgba(255,107,53,0.18)' },
+                { value: String(result.creditsUsed ?? 8), label: rs.statCreditsUsed,  color: '#FF6B35', bg: 'rgba(255,107,53,0.08)',  border: 'rgba(255,107,53,0.18)' },
                 { value: String(creditsLeftDisplay),      label: rs.statCreditsLeft,  color: '#00D4FF', bg: 'rgba(0,212,255,0.08)',   border: 'rgba(0,212,255,0.18)' },
               ].map(({ value, label, color, bg: cellBg, border }) => (
                 <div key={label} className="rounded-xl p-2.5 text-center"
