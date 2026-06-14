@@ -619,6 +619,23 @@ model BrandProfile {
   // Strategic notes (freeform memory)
   strategicNotes String?   @db.Text
 
+  // ── Strategy data requirements (PR-2A) ──────────────────────────────────────
+  // Additive, nullable. Captured so NEXUS can tell whether it has enough data for
+  // full / paid / KPI / funnel strategy. Free-text bands in 2A (structured numbers
+  // may come later). No generation logic reads these yet — capture + warnings only.
+  businessGoal          String?   @db.Text   // main business goal (e.g. "more booked consultations")
+  marketingBudget       String?              // free-text band, e.g. "$1,000–3,000 / month"
+  conversionDestination String?              // where leads/sales land (landing page, WhatsApp, form)
+  leadHandling          String?   @db.Text   // sales process / who handles leads
+  customerObjections    String[]  @default([]) // main objections that block buying
+  complianceNotes       String?   @db.Text   // regulated-industry restrictions, if any
+  averageOrderValue     String?              // free-text band
+  grossMargin           String?              // free-text band
+  customerLifetimeValue String?              // free-text band
+  salesCycleLength      String?              // e.g. "1-2 weeks", "3+ months"
+  seasonality           String?   @db.Text   // demand timing notes
+  pastAdResults         String?   @db.Text   // free-text CPL/CPA/ROAS history (structured later)
+
   // Website & content intelligence (auto-scanned)
   websiteUrl    String?                          // brand's main website URL
   contentSamples String[]  @default([])          // up to 3 pasted best-performing content pieces

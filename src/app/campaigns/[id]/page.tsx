@@ -2291,8 +2291,8 @@ function CampaignDetailPageInner() {
                         <span>📡</span>
                         <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>
                           {locale === 'ar'
-                            ? 'تخطيط الإعلانات المدفوعة غير مُفعّل بعد.'
-                            : 'Paid ads planning is not active yet.'}
+                            ? 'تخطيط الإعلانات المدفوعة غير مُفعّل بعد — أضِف الميزانية والموقع ووجهة التحويل في Brand Brain لتجهيزه.'
+                            : 'Paid ads planning is not active yet — add monthly budget, location, and a conversion destination in Brand Brain to prepare it.'}
                         </p>
                       </div>
                     )

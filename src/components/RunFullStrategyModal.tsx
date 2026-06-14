@@ -681,6 +681,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 </div>
               </div>
 
+              {/* PR-2A — honest scope note: budget/KPI/paid planning depend on Brand Brain data */}
+              <div className="rounded-xl px-3 py-2.5 mb-3 flex items-start gap-2"
+                style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                <Brain className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#8B5CF6' }} />
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                  {locale === 'ar'
+                    ? 'ميزانية، KPIs، وتخطيط الإعلانات المدفوعة تُفتح عند إضافة بياناتها في Brand Brain. بدونها تبقى منخفضة الثقة.'
+                    : 'Budget, KPI, and paid-ads planning unlock as you add that data in Brand Brain — without it they stay low-confidence.'}
+                </p>
+              </div>
+
               {/* Not enough credits warning */}
               {!canAfford && creditBalance !== null && (
                 <div className="rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2"
