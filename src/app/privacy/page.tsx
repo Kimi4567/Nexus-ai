@@ -65,8 +65,14 @@ const SECTIONS = [
     bodyEn: 'We reserve the right to modify this policy. Material changes are published with 30 days advance notice (email + in-app). Continued use constitutes acceptance of the new policy.',
   },
   {
-    titleAr: '11. التواصل',
-    titleEn: '11. Contact Us',
+    titleAr: '11. الحسابات الاجتماعية المتصلة (Meta / Facebook)',
+    titleEn: '11. Connected Social Accounts (Meta / Facebook)',
+    bodyAr: `عند ربط صفحة Facebook، تستخدم NEXUS أذونات Meta من أجل:\n• عرض قائمة الصفحات التي تديرها (pages_show_list)\n• قراءة التفاعل على منشوراتك الخاصة (pages_read_engagement)\n• نشر المنشورات التي تنشئها (pages_manage_posts)\n\n• ننشر على صفحتك فقط عندما تضغط "نشر" بنفسك — لا يوجد نشر تلقائي، ولا تُشغّل NEXUS إعلانات مدفوعة دون إجراء منك.\n• تُخزَّن رموز الوصول (tokens) مشفّرة (AES-256 أثناء التخزين، TLS 1.3 أثناء النقل) وتُحذف فوراً عند فصل الحساب من صفحة "الاتصالات".\n• لا نرى ولا نخزّن كلمة مرور Facebook الخاصة بك — يتم الربط عبر OAuth الرسمي من Meta.\n• لحذف البيانات المرتبطة بربط Meta: افصل الحساب من "الاتصالات" أو استخدم عملية حذف البيانات (/data-deletion). وعند استلام طلب حذف من Meta نعالجه ونزوّدك برمز تأكيد.\n• أذونات Instagram غير مستخدمة بعد، ونشر Instagram غير مُفعّل حالياً.`,
+    bodyEn: `When you connect a Facebook Page, NEXUS uses Meta permissions to:\n• List the Pages you manage (pages_show_list)\n• Read engagement on your own posts (pages_read_engagement)\n• Publish posts you create (pages_manage_posts)\n\n• We publish to your Page only when you explicitly click Publish — there is no automatic posting, and NEXUS does not run paid ads without your action.\n• Access tokens are stored encrypted (AES-256 at rest, TLS 1.3 in transit) and are deleted immediately when you disconnect the account in Connections.\n• We never see or store your Facebook password — connection uses Meta's official OAuth.\n• To delete data associated with a Meta connection, disconnect in Connections or use our Data Deletion process (/data-deletion). When Meta sends a data-deletion request, we process it and return a confirmation code.\n• Instagram permissions are not used yet; Instagram publishing is not enabled.`,
+  },
+  {
+    titleAr: '12. التواصل',
+    titleEn: '12. Contact Us',
     bodyAr: 'البريد: privacy@nexus-grow.com | العنوان: دبي، الإمارات العربية المتحدة | وقت الاستجابة: 24-48 ساعة عمل',
     bodyEn: 'Email: privacy@nexus-grow.com | Address: Dubai, UAE | Response time: 24-48 business hours',
   },

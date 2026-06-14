@@ -5,16 +5,16 @@ import { useI18n } from '@/lib/i18n-context'
 
 const SECTIONS = [
   {
-    titleAr: 'خطة Starter المجانية',
-    titleEn: 'Free Starter Plan',
-    bodyAr: 'خطة Starter مجانية 100% ومفتوحة للجميع. لا تحتاج بطاقة ائتمان. استخدمها لتجربة المنصة قبل أي التزام مالي.',
-    bodyEn: 'The Starter plan is 100% free with no credit card required. Use it to explore the platform before any financial commitment.',
+    titleAr: 'خطة Free المجانية',
+    titleEn: 'Free Plan',
+    bodyAr: 'خطة Free مجانية 100% ومفتوحة للجميع. لا تحتاج بطاقة ائتمان. استخدمها لتجربة المنصة قبل أي التزام مالي.',
+    bodyEn: 'The Free plan is 100% free with no credit card required. Use it to explore the platform before any financial commitment.',
   },
   {
     titleAr: 'الاسترداد خلال 14 يوماً',
     titleEn: '14-Day Refund Window',
-    bodyAr: `إذا اشتركت في خطة Pro أو Enterprise ولم تكن راضياً، يمكنك طلب استرداد كامل خلال 14 يوماً من تاريخ الاشتراك الأول.\n\nشروط الاسترداد:\n• يجب أن يكون الطلب خلال 14 يوماً من أول فوترة\n• لا يتجاوز استخدامك 20% من حصتك الشهرية\n• يجب أن يكون الحساب في حالة جيدة (بدون انتهاكات)`,
-    bodyEn: `If you subscribe to Pro or Enterprise and are not satisfied, you may request a full refund within 14 days of your first billing date.\n\nConditions:\n• Request must be made within 14 days of first billing\n• Usage must not exceed 20% of your monthly quota\n• Account must be in good standing (no violations)`,
+    bodyAr: `إذا اشتركت في خطة مدفوعة (Starter أو Growth أو Agency) ولم تكن راضياً، يمكنك طلب استرداد كامل خلال 14 يوماً من تاريخ الاشتراك الأول.\n\nشروط الاسترداد:\n• يجب أن يكون الطلب خلال 14 يوماً من أول فوترة\n• لا يتجاوز استخدامك 20% من حصتك الشهرية\n• يجب أن يكون الحساب في حالة جيدة (بدون انتهاكات)`,
+    bodyEn: `If you subscribe to a paid plan (Starter, Growth, or Agency) and are not satisfied, you may request a full refund within 14 days of your first billing date.\n\nConditions:\n• Request must be made within 14 days of first billing\n• Usage must not exceed 20% of your monthly quota\n• Account must be in good standing (no violations)`,
   },
   {
     titleAr: 'ما لا يُسترد',
