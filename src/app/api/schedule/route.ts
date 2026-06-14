@@ -18,12 +18,22 @@ export async function GET(req: NextRequest) {
     const workspace = await prisma.workspace.findFirst({ where: { ownerId: user.id } })
     if (!workspace) return NextResponse.json({ posts: [] })
 
+    // Ordering:
+    //  - default `scheduledAt asc` keeps the calendar's "earliest upcoming first" behaviour.
+    //  - `?order=recent` orders by createdAt desc so MANUALLY published posts
+    //    (which have scheduledAt = null and would otherwise sort last / fall outside
+    //    the take cap) surface at the top of the post-history list.
+    const order = new URL(req.url).searchParams.get('order')
+    const orderBy = order === 'recent'
+      ? ({ createdAt: 'desc' } as const)
+      : ({ scheduledAt: 'asc' } as const)
+
     const posts = await prisma.socialPost.findMany({
       where: {
         workspaceId: workspace.id,
         status: { in: ['SCHEDULED', 'DRAFT', 'PUBLISHED', 'FAILED'] },
       },
-      orderBy: { scheduledAt: 'asc' },
+      orderBy,
       take: 50,
     })
 

@@ -86,6 +86,8 @@ export default function SocialPublisher({
   const [caption, setCaption] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  // Remove-from-history (Nexus-only; never touches the platform)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   // Schedule
   const [mode, setMode] = useState<'now' | 'schedule'>('now')
@@ -130,7 +132,9 @@ export default function SocialPublisher({
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true)
     try {
-      const res = await fetch('/api/schedule', {
+      // order=recent → newest first, so manually-published posts (scheduledAt = null)
+      // surface here instead of being pushed past the server-side take cap.
+      const res = await fetch('/api/schedule?order=recent', {
         headers: { Authorization: authHeader() },
       })
       const data = await res.json()
@@ -143,6 +147,25 @@ export default function SocialPublisher({
       setLoadingPosts(false)
     }
   }, [authHeader, campaignId])
+
+  // Remove a post from Nexus history ONLY. This deletes the local SocialPost
+  // record; it does NOT delete the post from Facebook/the platform. The user
+  // must delete on the platform manually if they want it removed there.
+  const handleRemoveFromHistory = useCallback(async (id: string) => {
+    const msg = ar
+      ? 'إزالة من سجل Nexus فقط — لن يتم حذف المنشور من فيسبوك. احذفه يدويًا على فيسبوك إذا أردت ذلك. متابعة؟'
+      : 'Remove from Nexus history only — this will NOT delete the post from Facebook. Delete it on Facebook manually if you want it gone there. Continue?'
+    if (!window.confirm(msg)) return
+    setRemovingId(id)
+    try {
+      await fetch(`/api/schedule?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() },
+      })
+      setPosts(prev => prev.filter(p => p.id !== id))
+    } catch { /* silent */ }
+    finally { setRemovingId(null) }
+  }, [authHeader, ar])
 
   useEffect(() => {
     loadAccounts()
@@ -279,6 +302,18 @@ export default function SocialPublisher({
           {ar ? 'ربط حساب الآن' : 'Connect account now'}
           <ExternalLink className="w-3 h-3" />
         </a>
+
+        {/* Honest readiness note — publishing is unavailable until an account is
+            connected, and Meta may require app-permission review first. */}
+        <div className="max-w-sm mx-auto mt-2 rounded-xl px-3 py-2.5 flex items-start gap-2 text-start"
+          style={{ background: 'rgba(255,184,0,0.06)', border: '1px solid rgba(255,184,0,0.2)' }}>
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
+          <p className="text-[11px] leading-snug text-gray-400">
+            {ar
+              ? 'النشر غير متاح حتى تربط حساباً. قد يتطلب Facebook/Instagram مراجعة أذونات التطبيق (Meta App Review) قبل تفعيل النشر المباشر.'
+              : 'Publishing is unavailable until an account is connected. Facebook/Instagram may require Meta App Review of publishing permissions before live posting is enabled.'}
+          </p>
+        </div>
       </div>
     )
   }
@@ -560,6 +595,13 @@ export default function SocialPublisher({
                     {ar ? 'عرض المنشور' : 'View post'} <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
+                {mode !== 'schedule' && (
+                  <p className="text-[11px] text-gray-400 mt-1.5 leading-snug font-normal">
+                    {ar
+                      ? 'يفتح "عرض المنشور" المنصة وقد لا يكون متاحًا إذا حُذف هناك. تظهر التحليلات عادةً خلال 24–72 ساعة؛ إذا حذفت المنشور على المنصة فلن يمكن جلب تحليلاته.'
+                      : '"View post" opens the platform and may be unavailable if the post was deleted there. Analytics usually arrive within 24–72h; if you delete the post on the platform, its analytics can no longer be fetched.'}
+                  </p>
+                )}
               </>
             ) : (
               <p>{result.error}</p>
@@ -599,6 +641,11 @@ export default function SocialPublisher({
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">
             {ar ? 'سجل المنشورات' : 'Post History'}
           </p>
+          <p className="text-[11px] text-gray-500 leading-snug">
+            {ar
+              ? '"إزالة" تحذف من Nexus فقط ولا تحذف من المنصة. التحليلات غير متاحة للمنشورات المحذوفة على المنصة.'
+              : '"Remove" clears it from Nexus only — not from the platform. Analytics aren\'t available for posts deleted on the platform.'}
+          </p>
           <div className="space-y-2">
             {posts.map(post => (
               <div key={post.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl bg-dark-tertiary">
@@ -633,11 +680,24 @@ export default function SocialPublisher({
                         href={post.platformUrl}
                         target="_blank"
                         rel="noreferrer"
+                        title={ar
+                          ? 'يفتح على المنصة — قد لا يكون متاحًا إذا حُذف هناك'
+                          : 'Opens on the platform — may be unavailable if deleted there'}
                         className="text-xs text-accent hover:underline flex items-center gap-0.5"
                       >
                         {ar ? 'عرض' : 'View'} <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
+                    <button
+                      onClick={() => handleRemoveFromHistory(post.id)}
+                      disabled={removingId === post.id}
+                      title={ar
+                        ? 'إزالة من سجل Nexus فقط — لا يحذف من فيسبوك'
+                        : 'Remove from Nexus history only — does NOT delete from Facebook'}
+                      className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-40"
+                    >
+                      {removingId === post.id ? (ar ? '...' : '...') : (ar ? 'إزالة' : 'Remove')}
+                    </button>
                   </div>
                   {post.errorMessage && (
                     <p className="text-xs text-red-400 mt-1">{post.errorMessage}</p>
