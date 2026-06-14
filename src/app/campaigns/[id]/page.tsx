@@ -1445,6 +1445,13 @@ function CampaignDetailPageInner() {
                 <AgentBanner idx={0} />
                 <BrandDNABadge brand={brandDNA} locale={locale} />
 
+                {/* Honest provenance + review cue (PR-1 trust copy) */}
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nx-text-4)' }}>
+                  {locale === 'ar'
+                    ? 'مبني على Brand Brain الخاص بك — راجِعه قبل تحويله إلى محتوى.'
+                    : 'Based on your Brand Brain — review it before turning it into content.'}
+                </p>
+
                 {/* ── Strategy TL;DR Intelligence Card ────────────────────── */}
                 {(engineScore > 0 || strategy.keyMessage || topHooks.length > 0) && (() => {
                   const brandFields: Array<keyof BrandDNAData> = ['brandName','industry','toneKeywords','targetAudience','writingStyle','uniqueAdvantages','audiencePainPoints','topPlatforms']
@@ -1455,7 +1462,9 @@ function CampaignDetailPageInner() {
                   const brandTotal = brandFields.length
                   const brandPct = Math.round((brandFilled / brandTotal) * 100)
                   const confColor = engineScore >= 75 ? '#10b981' : engineScore >= 50 ? '#f59e0b' : '#ef4444'
-                  const confLabel = engineScore >= 75 ? (locale === 'ar' ? 'ثقة عالية' : 'High Confidence') : engineScore >= 50 ? (locale === 'ar' ? 'ثقة متوسطة' : 'Moderate Confidence') : (locale === 'ar' ? 'ثقة منخفضة' : 'Low Confidence')
+                  // Honest label: this bar reflects Brand-Brain/strategy readiness (a
+                  // completeness score), NOT a model confidence value. Worded accordingly.
+                  const confLabel = engineScore >= 75 ? (locale === 'ar' ? 'جاهزية عالية' : 'High readiness') : engineScore >= 50 ? (locale === 'ar' ? 'جاهزية متوسطة' : 'Moderate readiness') : (locale === 'ar' ? 'جاهزية مبدئية' : 'Early readiness')
                   const topAngle = contentAnglesDetailed[0]?.angle || contentAnglesDetailed[0]?.title || null
                   return (
                     <div className="rounded-2xl overflow-hidden"
@@ -2272,6 +2281,22 @@ function CampaignDetailPageInner() {
                     adSetupPlan.adCopyAngles?.length > 0 || adSetupPlan.notReadyIf?.length > 0 ||
                     adSetupPlan.objective || adSetupPlan.platformPriority?.length > 0
                   )
+                  // PR-1 honesty: don't render a "VEX Ad Setup Plan" panel (or a
+                  // regenerate-to-get-ads CTA that would spend credits) when no real ad
+                  // data exists. Paid ads planning isn't generated yet — say so calmly.
+                  if (!hasAdContent) {
+                    return (
+                      <div className="rounded-xl px-4 py-3 flex items-center gap-2.5"
+                        style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                        <span>📡</span>
+                        <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>
+                          {locale === 'ar'
+                            ? 'تخطيط الإعلانات المدفوعة غير مُفعّل بعد.'
+                            : 'Paid ads planning is not active yet.'}
+                        </p>
+                      </div>
+                    )
+                  }
                   return (
                     <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.2)' }}>
                       {/* Header — always clickable */}
