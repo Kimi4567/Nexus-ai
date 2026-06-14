@@ -50,8 +50,8 @@ const PLATFORMS: PlatformDef[] = [
     color: '#1877F2',
     gradient: 'from-blue-600/20 to-indigo-600/10',
     available: true,
-    featuresAr: ['نشر تلقائي', 'جدولة المنشورات', 'إنستجرام + فيسبوك', 'إدارة الصفحات'],
-    featuresEn: ['Auto publish', 'Post scheduling', 'Instagram + Facebook', 'Page management'],
+    featuresAr: ['النشر والجدولة', 'جدولة المنشورات', 'إنستجرام + فيسبوك', 'إدارة الصفحات'],
+    featuresEn: ['Publish & schedule', 'Post scheduling', 'Instagram + Facebook', 'Page management'],
   },
   {
     id: 'LINKEDIN',

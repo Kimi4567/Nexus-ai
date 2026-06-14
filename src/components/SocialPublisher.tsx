@@ -635,6 +635,13 @@ export default function SocialPublisher({
         )}
       </button>
 
+      {/* Honest publishing note (Meta review-safe): no automatic posting */}
+      <p className="text-[11px] text-gray-500 text-center leading-snug">
+        {ar
+          ? 'تُنشر المنشورات فقط عند الضغط على "نشر" — لا يوجد نشر تلقائي.'
+          : 'Posts publish only when you click Publish — no automatic posting.'}
+      </p>
+
       {/* Published history */}
       {posts.length > 0 && (
         <div className="space-y-3 pt-2 border-t border-dark-tertiary">

@@ -13,8 +13,8 @@ const SECTIONS = [
   {
     titleAr: '2. وصف الخدمة',
     titleEn: '2. Description of Service',
-    bodyAr: `NEXUS AI هي منصة تسويق مدعومة بالذكاء الاصطناعي تضم 4 وكلاء متخصصين:\n• NEX — منتج الفيديو\n• VEX — مدير الإعلانات\n• PULSE — المحلل الاستراتيجي\n• Sentinel — الحارس الذكي\n\nالخدمة تُقدم بنظام الاشتراك الشهري بمستويات مختلفة (Starter, Pro, Enterprise).`,
-    bodyEn: 'NEXUS AI is an AI-powered marketing platform featuring 4 specialized agents: NEX (Video), VEX (Ads), PULSE (Analytics), and Sentinel (Monitoring). The Service is offered on a monthly subscription basis with different tiers (Starter, Pro, Enterprise).',
+    bodyAr: `NEXUS AI هي منصة تسويق مدعومة بالذكاء الاصطناعي تضم وكلاء متخصصين:\n• NEX — منتج الفيديو\n• VEX — مدير الإعلانات\n• PULSE — التحليلات (قيد التطوير)\n• Sentinel — الحارس الذكي\n\nالخدمة تُقدم بنظام الاشتراك الشهري بمستويات مختلفة (Free, Starter, Growth, Agency).`,
+    bodyEn: 'NEXUS AI is an AI-powered marketing platform featuring specialized agents: NEX (Video), VEX (Ads), PULSE (Analytics — in development), and Sentinel (Monitoring). The Service is offered on a monthly subscription basis with different tiers (Free, Starter, Growth, Agency).',
   },
   {
     titleAr: '3. التسجيل والحساب',
@@ -71,8 +71,14 @@ const SECTIONS = [
     bodyEn: 'We reserve the right to modify these Terms at any time. Material changes are published with 30 days advance notice (email + in-app). Continued use after changes constitutes acceptance of the new Terms.',
   },
   {
-    titleAr: '12. التواصل',
-    titleEn: '12. Contact',
+    titleAr: '12. النشر على وسائل التواصل والحسابات المتصلة',
+    titleEn: '12. Social Publishing & Connected Accounts',
+    bodyAr: `• يمكنك ربط حسابات وسائل التواصل (مثل صفحة Facebook) عبر OAuth الرسمي لكل منصة.\n• تنشر NEXUS على حساباتك المتصلة فقط عند اتخاذك إجراءً صريحاً (الضغط على "نشر"). لا يوجد نشر تلقائي، ولا تُشغّل NEXUS إعلانات مدفوعة أو إنفاقاً إعلانياً دون إجرائك.\n• أنت المسؤول عن المحتوى الذي تنشره وعن الالتزام بسياسات كل منصة (مثل Meta).\n• يمكنك فصل أي حساب في أي وقت، ويُحذف رمز الوصول فوراً عند الفصل.\n• قد تتأخر مقاييس الأداء (مثل التفاعل) أو لا تتوفر حسب أذونات المنصة؛ حلقة تعلّم التحليلات قيد التطوير ولا تُقدَّم كميزة مكتملة بعد.`,
+    bodyEn: `• You may connect social accounts (such as a Facebook Page) via each platform's official OAuth.\n• NEXUS publishes to your connected accounts only when you take an explicit action (clicking "Publish"). There is no automatic posting, and NEXUS does not run paid ads or ad spend without your action.\n• You are responsible for the content you publish and for compliance with each platform's policies (e.g., Meta).\n• You can disconnect any account at any time; the access token is deleted immediately on disconnect.\n• Performance metrics (e.g., engagement) may be delayed or unavailable depending on platform permissions; the analytics learning loop is in development and is not offered as a completed feature yet.`,
+  },
+  {
+    titleAr: '13. التواصل',
+    titleEn: '13. Contact',
     bodyAr: 'البريد الإلكتروني: legal@nexus-grow.com | العنوان: دبي، الإمارات العربية المتحدة | وقت الاستجابة: 24-48 ساعة عمل',
     bodyEn: 'Email: legal@nexus-grow.com | Address: Dubai, UAE | Response time: 24-48 business hours',
   },
