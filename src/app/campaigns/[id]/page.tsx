@@ -705,6 +705,39 @@ function CampaignDetailPageInner() {
   const doNotDoYet: string[] = strategy.doNotDoYet || []
   const successMetricsDetailed: any[] = strategy.successMetricsDetailed || []
   const executionAssumptions: string[] = strategy.executionAssumptions || []
+  // PR-2B1 — honesty scaffold (server-authoritative confidence/missing-data)
+  const assumptions: string[] = (strategy as any).assumptions || []
+  const missingDataKeys: string[] = (strategy as any).missingData || []
+  const confidenceReport: any = (strategy as any).confidenceReport || null
+  const competitorAnalysisComplete: boolean | null =
+    typeof (strategy as any).competitorAnalysisComplete === 'boolean' ? (strategy as any).competitorAnalysisComplete : null
+  // Localized labels for stable readiness keys (mirrors PR-2A Brand Brain wording).
+  const MISSING_KEY_LABELS: Record<string, { en: string; ar: string }> = {
+    brandName: { en: 'brand name', ar: 'اسم العلامة' },
+    industry: { en: 'industry', ar: 'المجال' },
+    description: { en: 'business description', ar: 'وصف النشاط' },
+    targetAudience: { en: 'target audience', ar: 'الجمهور المستهدف' },
+    topPlatforms: { en: 'platforms', ar: 'المنصات' },
+    businessGoal: { en: 'main business goal', ar: 'الهدف التجاري' },
+    primaryOffer: { en: 'primary offer', ar: 'العرض الأساسي' },
+    audienceLocation: { en: 'location', ar: 'الموقع الجغرافي' },
+    uniqueAdvantages: { en: 'differentiator', ar: 'الميزة التنافسية' },
+    marketingBudget: { en: 'monthly budget', ar: 'الميزانية الشهرية' },
+    conversionDestination: { en: 'conversion destination', ar: 'وجهة التحويل' },
+    leadHandling: { en: 'lead handling', ar: 'إدارة العملاء المحتملين' },
+    competitors: { en: 'competitors', ar: 'المنافسون' },
+    pixel: { en: 'pixel / analytics', ar: 'بكسل / تحليلات' },
+  }
+  const missingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
+  const confLevelLabel = (lvl: string): string => {
+    const map: Record<string, { en: string; ar: string }> = {
+      high: { en: 'High confidence', ar: 'ثقة عالية' },
+      medium: { en: 'Medium confidence', ar: 'ثقة متوسطة' },
+      low: { en: 'Low confidence — needs more data', ar: 'ثقة منخفضة — تحتاج بيانات أكثر' },
+    }
+    return map[lvl] ? (locale === 'ar' ? map[lvl].ar : map[lvl].en) : lvl
+  }
+  const confLevelColor = (lvl: string): string => (lvl === 'high' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444')
   // Sprint F — creative brief
   const creativeBrief = aiOutput?.creativeBrief || null
   const creativeMode: 'asset' | 'concept' | null = aiOutput?.creativeMode || null
@@ -1560,6 +1593,55 @@ function CampaignDetailPageInner() {
                   </div>
                 )}
 
+                {/* 🔎 PR-2B1 — Honesty readout: confidence + missing data + assumptions */}
+                {(confidenceReport || missingDataLabels.length > 0 || assumptions.length > 0) && (
+                  <div className="rounded-2xl p-4 space-y-3"
+                    style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nx-accent)' }}>
+                        {locale === 'ar' ? 'الثقة والبيانات الناقصة' : 'Confidence & Data Gaps'}
+                      </span>
+                      {confidenceReport?.overall && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                          style={{ color: confLevelColor(confidenceReport.overall), background: `${confLevelColor(confidenceReport.overall)}1a` }}>
+                          {confLevelLabel(confidenceReport.overall)}
+                        </span>
+                      )}
+                    </div>
+                    {missingDataLabels.length > 0 && (
+                      <div>
+                        <p className="text-[11px] text-amber-400/90 leading-relaxed">
+                          <span className="font-semibold">{locale === 'ar' ? 'بيانات ناقصة: ' : 'Not enough data on: '}</span>
+                          {missingDataLabels.join(locale === 'ar' ? '، ' : ', ')}.
+                        </p>
+                        <a href="/brand" className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded transition"
+                          style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.95)' }}>
+                          {locale === 'ar' ? 'أكمل في Brand Brain ←' : '→ Complete in Brand Brain'}
+                        </a>
+                      </div>
+                    )}
+                    {competitorAnalysisComplete === false && (
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        {locale === 'ar'
+                          ? 'تحليل المنافسين غير مكتمل — لم تُضَف منافسون. لن يخترع NEXUS منافسين.'
+                          : 'Competitor analysis is incomplete — no competitors provided. NEXUS will not invent competitors.'}
+                      </p>
+                    )}
+                    {assumptions.length > 0 && (
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">{locale === 'ar' ? 'افتراضات' : 'Assumptions'}</p>
+                        <ul className="space-y-1">
+                          {assumptions.map((a: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2 text-[11px] text-gray-400">
+                              <span className="text-gray-600 mt-0.5 flex-shrink-0">≈</span>{a}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ══ CHAPTER 01 — THE BRIEF ═══════════════════════════════════ */}
                 {(strategy.diagnosis || businessObjective) && (
                   <div className="flex items-center gap-3 mt-1">
@@ -2037,6 +2119,11 @@ function CampaignDetailPageInner() {
                             <p className="text-accent font-bold text-lg">{kpi.target}</p>
                             <p className="text-gray-400 text-[10px] mt-0.5">{kpi.metric}</p>
                             <p className="text-gray-600 text-[10px]">{kpi.timeframe}</p>
+                            {kpi.isHypothesis && (
+                              <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full text-amber-400" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                                {locale === 'ar' ? 'فرضية — تحقّق بالبيانات' : 'Hypothesis'}
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -2064,7 +2151,7 @@ function CampaignDetailPageInner() {
                                   <div key={idx} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
                                     <div>
                                       <p className="text-xs text-gray-300">{m.metric}</p>
-                                      <p className="text-[10px] text-gray-600">{m.timeframe}</p>
+                                      <p className="text-[10px] text-gray-600">{m.timeframe}{m.isHypothesis ? (locale === 'ar' ? ' · فرضية' : ' · hypothesis') : ''}</p>
                                     </div>
                                     <span className={`text-sm font-bold flex-shrink-0 ${catColors[cat]}`}>{m.target}</span>
                                   </div>
