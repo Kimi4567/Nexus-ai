@@ -74,7 +74,7 @@ export function normalizeStrategyOutput(raw: unknown): StrategyOutput {
     out.marketContext = { ...(out.marketContext as object), isAssumption: true }
   }
 
-  return out as StrategyOutput
+  return out as unknown as StrategyOutput
 }
 
 // ── unsupported performance numbers ─────────────────────────────────────────────
