@@ -23,14 +23,10 @@ import {
 } from 'lucide-react'
 import {
   NexusMetricCard,
-  NexusAgentCard,
-  NexusSectionHeader,
   NexusButton,
-  NexusBadge,
   NexusStatusDot,
   NexusGlassCard,
 } from '@/components/nexus-ui'
-import type { AgentId } from '@/components/nexus-ui/NexusAgentAvatar'
 
 /* ═══════════════════════════════════════════════════════════════
    NEXUS DASHBOARD — مركز القيادة الذكي
@@ -422,26 +418,28 @@ export default function DashboardPage() {
                   : t('dashboard.subtitle')}
               </p>
             </div>
-            {/* One clear primary (New Content Plan) + one secondary (Run Strategy).
-                The manual refresh button was removed — the dashboard auto-refreshes
-                every 5 minutes — so the header carries a single obvious next action. */}
+            {/* Strategy-first hierarchy: exactly ONE filled primary action
+                (Run Full Strategy) + one quiet secondary (New Content Plan).
+                Strategy is the signature action of a strategist-led marketing OS —
+                it puts the brand brain to work and feeds the rest of the loop.
+                The manual refresh button was removed (auto-refresh every 5 min). */}
             <div className="flex items-center gap-2">
               <NexusButton
                 variant="ghost"
+                size="sm"
+                href="/campaigns/new"
+                icon={<Rocket className="w-3.5 h-3.5" />}
+              >
+                {t('dashboard.createCampaign')}
+              </NexusButton>
+              <NexusButton
+                variant="primary"
                 size="sm"
                 onClick={() => setRunStrategyOpen(true)}
                 icon={<Sparkles className="w-3.5 h-3.5" />}
               >
                 <span className="hidden sm:inline">{t('runStrategy.btnDashboard')}</span>
                 <span className="sm:hidden">{t('runStrategy.btnDashboard')}</span>
-              </NexusButton>
-              <NexusButton
-                variant="primary"
-                size="sm"
-                href="/campaigns/new"
-                icon={<Rocket className="w-3.5 h-3.5" />}
-              >
-                {t('dashboard.createCampaign')}
               </NexusButton>
             </div>
           </div>
