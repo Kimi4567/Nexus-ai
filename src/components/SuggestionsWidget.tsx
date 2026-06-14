@@ -16,8 +16,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
-  Sparkles, XCircle, ExternalLink, CheckCircle2,
-  ChevronRight, Lightbulb, AlertTriangle, X,
+  Sparkles, ExternalLink, CheckCircle2,
+  ChevronRight, Lightbulb, AlertTriangle,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -90,7 +90,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
   const [exiting, setExiting]         = useState<Set<string>>(new Set())
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
-  const [acting, setActing]           = useState<Record<string, 'approving' | 'rejecting' | 'dismissing'>>({})
+  const [acting, setActing]           = useState<Record<string, 'approving' | 'rejecting'>>({})
   const [feedback, setFeedback]       = useState<Record<string, { brandBrainUpdated: boolean; executionLabel?: string }>>({})
 
   const sg = t('suggestions') as Record<string, string>
@@ -164,38 +164,25 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
     }
   }, [authHeader, removeAfterDelay, router])
 
-  const dismiss = useCallback(async (id: string) => {
-    setActing(prev => ({ ...prev, [id]: 'dismissing' }))
-    try {
-      await fetch(`/api/suggestions?id=${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: authHeader() },
-      })
-    } catch {
-      // best-effort; remove from UI regardless
-    } finally {
-      setActing(prev => { const n = { ...prev }; delete n[id]; return n })
-      removeAfterDelay(id, 0)
-    }
-  }, [authHeader, removeAfterDelay])
-
-  const glassCard = {
-    background: 'rgba(12,13,36,0.6)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(139,92,246,0.1)',
+  // Light surface consistent with the rest of the dashboard (no dark panel).
+  const lightCard = {
+    background: '#FFFFFF',
+    border: '1px solid rgba(15,23,42,0.08)',
+    boxShadow: '0 1px 2px rgba(15,23,42,0.04)',
   }
 
   return (
-    <div dir={dir} className="rounded-2xl p-5" style={glassCard}>
-      {/* ── Header ── */}
+    <div dir={dir} className="rounded-2xl p-5" style={lightCard}>
+      {/* ── Header (count folded in here — the section header is the single
+            place the "needs your decision" count lives) ── */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Lightbulb className="w-4 h-4 text-accent-purple" />
-          <h3 className="font-bold text-sm text-white">{sg.sectionTitle}</h3>
+          <Lightbulb className="w-4 h-4" style={{ color: '#5E5CE6' }} />
+          <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{sg.sectionTitle}</h3>
           {suggestions.length > 0 && (
             <span
               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-              style={{ background: 'rgba(255,184,0,0.15)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.3)' }}
+              style={{ background: 'rgba(94,92,230,0.1)', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.2)' }}
             >
               {suggestions.length}
             </span>
@@ -203,7 +190,8 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
         </div>
         <button
           onClick={load}
-          className="text-[10px] text-text-muted hover:text-text-secondary transition flex items-center gap-0.5"
+          className="text-[10px] transition flex items-center gap-0.5"
+          style={{ color: 'var(--nx-text-4)' }}
         >
           {sg.refresh} <ChevronRight className="w-3 h-3" />
         </button>
@@ -216,7 +204,7 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
             <div
               key={i}
               className="h-16 rounded-xl animate-pulse"
-              style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.08)' }}
+              style={{ background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.06)' }}
             />
           ))}
         </div>
@@ -236,12 +224,12 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
         <div className="text-center py-8">
           <div
             className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}
+            style={{ background: 'rgba(94,92,230,0.08)', border: '1px solid rgba(94,92,230,0.15)' }}
           >
-            <Sparkles className="w-5 h-5 text-accent-purple/40" />
+            <Sparkles className="w-5 h-5" style={{ color: 'rgba(94,92,230,0.45)' }} />
           </div>
-          <p className="text-sm font-medium text-text-secondary mb-1">{sg.emptyTitle}</p>
-          <p className="text-xs text-text-muted max-w-[220px] mx-auto leading-relaxed">{sg.emptyDesc}</p>
+          <p className="text-sm font-medium mb-1" style={{ color: 'var(--nx-text-2)' }}>{sg.emptyTitle}</p>
+          <p className="text-xs max-w-[220px] mx-auto leading-relaxed" style={{ color: 'var(--nx-text-4)' }}>{sg.emptyDesc}</p>
         </div>
       )}
 
@@ -259,12 +247,10 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                 key={s.id}
                 className="rounded-xl p-3 transition-all duration-300"
                 style={{
-                  background: justActed
-                    ? 'rgba(16,185,129,0.06)'
-                    : 'rgba(255,184,0,0.06)',
+                  background: justActed ? '#ECFDF5' : '#FBFBFD',
                   border: justActed
                     ? '1px solid rgba(16,185,129,0.2)'
-                    : '1px solid rgba(255,184,0,0.18)',
+                    : '1px solid rgba(15,23,42,0.08)',
                   opacity: isExiting ? 0 : 1,
                   transform: isExiting ? 'translateY(-4px) scale(0.98)' : 'none',
                   pointerEvents: isExiting ? 'none' : 'auto',
@@ -272,30 +258,17 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   maxHeight: isExiting ? '0px' : '300px',
                 }}
               >
-                {/* Row 1: priority dot + title + dismiss × */}
+                {/* Row 1: priority dot + title */}
                 <div className="flex items-start gap-2 mb-1.5">
                   <div
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-                    style={{ background: pc, boxShadow: `0 0 4px ${pc}` }}
+                    style={{ background: pc }}
                   />
-                  <p className="text-sm font-semibold text-white flex-1 leading-snug">{s.title}</p>
-                  {/* Dismiss × button */}
-                  <button
-                    onClick={() => dismiss(s.id)}
-                    disabled={isActing}
-                    className="flex-shrink-0 w-5 h-5 flex items-center justify-center rounded opacity-40 hover:opacity-100 transition-opacity disabled:opacity-20"
-                    title={sg.btnDismiss}
-                    style={{ color: '#94a3b8' }}
-                  >
-                    {acting[s.id] === 'dismissing'
-                      ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-                      : <X className="w-3 h-3" />
-                    }
-                  </button>
+                  <p className="text-sm font-semibold flex-1 leading-snug" style={{ color: 'var(--nx-text-1)' }}>{s.title}</p>
                 </div>
 
                 {/* Row 2: reasoning (truncated) */}
-                <p className="text-[11px] text-text-muted leading-relaxed mb-2 line-clamp-2">
+                <p className="text-[11px] leading-relaxed mb-2 line-clamp-2" style={{ color: 'var(--nx-text-3)' }}>
                   {s.reasoning}
                 </p>
 
@@ -313,35 +286,37 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                 {/* Row 3: meta (agent + campaign + impact + date) */}
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2.5">
                   {s.agent && (
-                    <span className="text-[10px] text-text-muted">
+                    <span className="text-[10px]" style={{ color: 'var(--nx-text-4)' }}>
                       {t(AGENT_KEY[s.agent] ?? 'suggestions.agentStrategist') as string}
                     </span>
                   )}
                   {s.campaignName && (
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: 'rgba(139,92,246,0.1)', color: '#a5a0ff' }}
+                      style={{ background: 'rgba(94,92,230,0.1)', color: '#5E5CE6' }}
                     >
                       {s.campaignName}
                     </span>
                   )}
                   {s.impact && (
-                    <span className="text-[10px]" style={{ color: '#10B981' }}>
+                    <span className="text-[10px]" style={{ color: '#059669' }}>
                       {s.impact}
                     </span>
                   )}
-                  <span className="text-[10px] text-text-muted ms-auto">
+                  <span className="text-[10px] ms-auto" style={{ color: 'var(--nx-text-4)' }}>
                     {relativeTime(s.createdAt, locale)}
                   </span>
                 </div>
 
-                {/* Row 4: primary action = open campaign, secondary = dismiss */}
+                {/* Row 4: one primary action = Approve, one quiet action = Dismiss.
+                    "View campaign" is a calm secondary link. No red destructive
+                    styling — dismissing a suggestion is not a dangerous action. */}
                 <div className="flex items-center gap-2 flex-wrap">
                   {s.campaignId && (
                     <Link
                       href={`/campaigns/${s.campaignId}`}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all"
-                      style={{ background: 'rgba(139,92,246,0.15)', color: '#a5a0ff', border: '1px solid rgba(139,92,246,0.3)' }}
+                      style={{ background: '#F5F3FF', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.18)' }}
                     >
                       <ExternalLink className="w-3 h-3" />
                       {sg.btnViewCampaign}
@@ -350,26 +325,30 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                   <button
                     disabled={isActing}
                     onClick={() => act(s.id, 'APPROVED')}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(16,185,129,0.08)', color: '#10B981', border: '1px solid rgba(16,185,129,0.2)' }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold text-white transition-all disabled:opacity-50"
+                    style={{ background: '#5E5CE6' }}
                   >
                     {acting[s.id] === 'approving'
                       ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
                       : <CheckCircle2 className="w-3 h-3" />
                     }
-                    {locale === 'ar' ? 'موافقة ومتابعة' : 'Approve & Continue'}
+                    {sg.btnApprove}
                   </button>
+                  {/* Quiet "Dismiss" — label/styling only. Underlying behavior is
+                      UNCHANGED from the old Reject: it records the decision as
+                      REJECTED (status + rejectedAt, record retained in history).
+                      It does NOT hard-delete the suggestion. */}
                   <button
                     disabled={isActing}
                     onClick={() => act(s.id, 'REJECTED')}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50 ms-auto"
-                    style={{ background: 'rgba(239,68,68,0.06)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.15)' }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50 ms-auto hover:bg-slate-100"
+                    style={{ color: 'var(--nx-text-4)' }}
                   >
                     {acting[s.id] === 'rejecting'
                       ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" />
-                      : <XCircle className="w-3 h-3" />
+                      : null
                     }
-                    {sg.btnReject}
+                    {sg.btnDismiss}
                   </button>
                 </div>
               </div>

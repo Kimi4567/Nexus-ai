@@ -15,10 +15,10 @@ import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Sparkles, RefreshCw, Rocket, Zap,
+  Sparkles, Rocket, Zap,
   ArrowUpRight, AlertTriangle, CheckCircle2,
-  Target, Bell, Brain,
-  TrendingUp, Send, X,
+  Target, Bell,
+  Send, X,
   BarChart3, ChevronRight, Plus, Flame, Shield,
 } from 'lucide-react'
 import {
@@ -159,7 +159,6 @@ export default function DashboardPage() {
   const [insights, setInsights] = useState<AIInsight[]>([])
   const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
@@ -206,7 +205,6 @@ export default function DashboardPage() {
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
-    else setRefreshing(true)
     try {
       const [statsRes, campaignsRes, intelligenceRes] = await Promise.allSettled([
         fetch('/api/dashboard/stats', { headers: { Authorization: authHeader() } }),
@@ -229,8 +227,20 @@ export default function DashboardPage() {
           contentPostsTotal: d.stats?.contentPosts?.total ?? 0,
         })
         if (d.activities?.length > 0) {
+          // Display-level de-duplication only (no API/data change): collapse
+          // identical activity rows — same agent + message + campaign — that the
+          // feed sometimes returns more than once, then cap to 4 distinct items.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setAlerts(d.activities.slice(0, 4).map((a: any) => ({
+          const seenAlertKeys = new Set<string>()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const distinctActivities = (d.activities as any[]).filter((a: any) => {
+            const key = `${a.agent || ''}|${a.actionEn || a.action || ''}|${a.actionAr || ''}|${a.campaign || ''}`
+            if (seenAlertKeys.has(key)) return false
+            seenAlertKeys.add(key)
+            return true
+          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setAlerts(distinctActivities.slice(0, 4).map((a: any) => ({
             id: a.id || String(Math.random()), type: 'info' as const,
             title: a.agent || 'Nexus',
             body: a.actionAr || a.action || 'نشاط جديد',
@@ -254,7 +264,7 @@ export default function DashboardPage() {
       }
       setLastUpdated(new Date())
     } catch {/* silent */}
-    finally { setLoading(false); setRefreshing(false) }
+    finally { setLoading(false) }
   }, [authHeader])
 
   useEffect(() => {
@@ -412,20 +422,10 @@ export default function DashboardPage() {
                   : t('dashboard.subtitle')}
               </p>
             </div>
+            {/* One clear primary (New Content Plan) + one secondary (Run Strategy).
+                The manual refresh button was removed — the dashboard auto-refreshes
+                every 5 minutes — so the header carries a single obvious next action. */}
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => load(true)}
-                className="p-2.5 rounded-xl transition-all"
-                style={{
-                  background: 'rgba(139,92,246,0.06)',
-                  border: '1px solid rgba(139,92,246,0.15)',
-                  color: 'var(--nx-text-3)',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(139,92,246,0.35)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-1)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(139,92,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-3)' }}
-              >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
               <NexusButton
                 variant="ghost"
                 size="sm"
@@ -629,19 +629,6 @@ export default function DashboardPage() {
               )}
             </NexusMetricCard>
           </div>
-
-          {/* ── Growth Insight Bar ── */}
-          {stats && stats.campaigns > 0 && (
-            <div className="rounded-xl px-4 py-3 flex items-center gap-3"
-              style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.1)' }}>
-              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#8B5CF6' }} />
-              <p className="text-[11px]" style={{ color: 'var(--nx-text-4)' }}>
-                {ar
-                  ? `${stats.campaigns} حملة · ${stats.totalGenerations} توليد AI · ${stats.publishedPostsTotal} منشور منشور — الرحلة من الفكرة للنشر كاملة`
-                  : `${stats.campaigns} campaign${stats.campaigns !== 1 ? 's' : ''} · ${stats.totalGenerations} AI generation${stats.totalGenerations !== 1 ? 's' : ''} · ${stats.publishedPostsTotal} post${stats.publishedPostsTotal !== 1 ? 's' : ''} published — idea to publish, end to end`}
-              </p>
-            </div>
-          )}
 
           {/* ── Next Best Action (fallback) ──
               Guarantees one clear next step even before the server-driven
@@ -901,15 +888,6 @@ export default function DashboardPage() {
                       </Link>
                     )
                   })}
-                  <Link href="/campaigns/new"
-                    className="flex items-center gap-2 px-3 py-2 mt-2 rounded-xl text-[11px] transition-all"
-                    style={{ color: 'var(--nx-text-4)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-2)'; (e.currentTarget as HTMLAnchorElement).style.background = '#F9FAFB' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = 'var(--nx-text-4)'; (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    {t('dashboard.createCampaign')}
-                  </Link>
                 </div>
               )}
             </NexusGlassCard>
@@ -990,45 +968,6 @@ export default function DashboardPage() {
                   </div>
                 )}
               </NexusGlassCard>
-            </div>
-          </div>
-
-          {/* ── Quick Access ── */}
-          <div className="rounded-2xl p-4" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <Zap className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />
-              <p className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
-                {t('dashboard.quickAccess')}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                // BETA: links to hidden pages (/studio, /vex, /sentinel) removed.
-                { key: 'dashboard.quickNewCampaign',  href: '/campaigns/new', color: '#8B5CF6' },
-                { key: 'dashboard.quickAnalytics',    href: '/analytics',     color: '#10B981' },
-                { key: 'dashboard.quickConnect',      href: '/connections',   color: '#10B981' },
-              ].map(qa => (
-                <Link
-                  key={qa.href}
-                  href={qa.href}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
-                  style={{ background: `${qa.color}08`, border: `1px solid ${qa.color}18`, color: qa.color }}
-                  onMouseEnter={e => {
-                    const el = e.currentTarget as HTMLAnchorElement
-                    el.style.background = `${qa.color}14`
-                    el.style.borderColor = `${qa.color}30`
-                    el.style.transform = 'scale(1.02)'
-                  }}
-                  onMouseLeave={e => {
-                    const el = e.currentTarget as HTMLAnchorElement
-                    el.style.background = `${qa.color}08`
-                    el.style.borderColor = `${qa.color}18`
-                    el.style.transform = ''
-                  }}
-                >
-                  {t(qa.key)}
-                </Link>
-              ))}
             </div>
           </div>
 

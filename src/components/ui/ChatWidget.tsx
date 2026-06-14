@@ -276,8 +276,8 @@ export default memo(function ChatWidget() {
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-6 right-6 z-[100] w-14 h-14 rounded-full flex items-center justify-center shadow-2xl chat-btn"
         style={{
-          background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-          boxShadow: "0 8px 32px rgba(245,158,11,0.4)",
+          background: "linear-gradient(135deg, #6366F1 0%, #5E5CE6 100%)",
+          boxShadow: "0 8px 32px rgba(94,92,230,0.35)",
           transition: "transform 0.2s ease, box-shadow 0.2s ease",
         }}
         onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
@@ -286,9 +286,9 @@ export default memo(function ChatWidget() {
         onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1.08)"; }}
       >
         {open ? (
-          <X className="w-6 h-6 text-black" strokeWidth={2.5} />
+          <X className="w-6 h-6 text-white" strokeWidth={2.5} />
         ) : (
-          <MessageCircle className="w-6 h-6 text-black" strokeWidth={2.5} />
+          <MessageCircle className="w-6 h-6 text-white" strokeWidth={2.5} />
         )}
       </button>
 
