@@ -13,6 +13,7 @@ import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import StrategySection from '@/components/StrategySection'
+import StrategyActionCard from '@/components/StrategyActionCard'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
@@ -1185,12 +1186,12 @@ function CampaignDetailPageInner() {
                 </button>
 
                 {/* Primary CTA — context aware, one at a time */}
-                {!engineRunning && sentinelStatus !== 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
+                {activeTab !== 0 && !engineRunning && sentinelStatus !== 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
                   <button
                     onClick={handleSentinelReview}
                     disabled={sentinelState === 'reviewing'}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 0 16px rgba(79,70,229,0.25)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
+                    style={{ background: 'rgba(37,99,235,0.85)' }}
                   >
                     {sentinelState === 'reviewing'
                       ? '⏳...'
@@ -1200,12 +1201,12 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {!engineRunning && sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
+                {activeTab !== 0 && !engineRunning && sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
                   <button
                     onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition disabled:opacity-60"
-                    style={{ background: 'linear-gradient(135deg, #059669, #10b981)', boxShadow: '0 0 16px rgba(16,185,129,0.2)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
+                    style={{ background: 'rgba(5,150,105,0.85)' }}
                   >
                     {launchState === 'approving'
                       ? (locale === 'ar' ? '⏳ جارٍ الاعتماد...' : '⏳ Approving...')
@@ -1215,13 +1216,13 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {(campaign.status === 'ACTIVE' || approvalState === 'done') && (
+                {activeTab !== 0 && (campaign.status === 'ACTIVE' || approvalState === 'done') && (
                   <Link
                     href={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
-                    className="px-4 py-2 rounded-xl text-sm font-bold text-white transition"
-                    style={{ background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)', boxShadow: '0 0 16px rgba(139,92,246,0.22)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition"
+                    style={{ background: 'rgba(124,58,237,0.85)' }}
                   >
-                    {locale === 'ar' ? '📋 Content Hub' : '📋 Content Hub'}
+                    {locale === 'ar' ? 'Content Hub' : 'Content Hub'}
                   </Link>
                 )}
 
@@ -1587,17 +1588,26 @@ function CampaignDetailPageInner() {
                   )
                 })()}
 
-                {/* Next Best Action — calm pinned banner (PR-2B2A: softened, no heavy gradient) */}
-                {strategy.nextBestAction && (
-                  <div className="rounded-2xl p-4 flex items-center gap-3.5"
-                    style={{ background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.18)' }}>
-                    <span className="text-lg flex-shrink-0 opacity-80">🚀</span>
-                    <div className="min-w-0">
-                      <p className="text-[10px] text-accent/90 uppercase tracking-widest font-semibold mb-1">{cdT?.nextActionBannerLabel || 'Your Next Action'}</p>
-                      <p className="text-white text-sm font-medium leading-relaxed">{strategy.nextBestAction}</p>
-                    </div>
-                  </div>
-                )}
+                {/* PR-2B2B1 — Consolidated one-primary-CTA Action Card (replaces the
+                    non-actionable Next Best Action banner). Uses existing handlers only. */}
+                <StrategyActionCard
+                  locale={locale === 'ar' ? 'ar' : 'en'}
+                  nextBestAction={strategy.nextBestAction}
+                  engineRunning={engineRunning}
+                  brandBaseReady={brandDNA ? getBrandBrainReadiness(brandDNA as any).ready : true}
+                  sentinelPassed={sentinelStatus === 'passed'}
+                  isApproved={campaign.status === 'ACTIVE' || approvalState === 'done'}
+                  hasContentPlan={hasContentCalendar}
+                  hasPosts={(campaign.socialPostCount ?? 0) > 0}
+                  reviewing={sentinelState === 'reviewing'}
+                  approving={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
+                  missingDataKeys={missingDataKeys}
+                  paidGated={Boolean(confidenceReport) && confidenceReport?.byCapability?.paidStrategy !== 'high'}
+                  contentHubHref={`/campaigns/${campaignId}/content-hub`}
+                  contentHubBuildHref={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
+                  onReview={handleSentinelReview}
+                  onApprove={handleApproveAndLaunch}
+                />
 
                 {/* Strategy readiness — single calm trust signal (PR-2B2A) */}
                 {(confidenceReport || missingDataLabels.length > 0 || assumptions.length > 0) && (
@@ -2177,42 +2187,16 @@ function CampaignDetailPageInner() {
                       <span>✅</span> {cdT?.sectionReadinessChecklist || 'Launch Readiness'}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {readinessChecklist.map((item: any, i: number) => {
-                        const lc = (item.label || item.item || '').toLowerCase()
-                        const atype = (item.actionType || '').toUpperCase()
-                        const isBrandBrain = atype === 'BRAND_BRAIN' || lc.includes('brand brain') || lc.includes('brand profile')
-                        const isAssets = atype === 'ASSETS' || (lc.includes('asset') && !lc.includes('sentinel')) || lc.includes('upload') || lc.includes('photo')
-                        const isSentinel = atype === 'SENTINEL' || lc.includes('sentinel') || (lc.includes('review') && !lc.includes('brand'))
-                        const isCalendar = atype === 'CALENDAR' || lc.includes('calendar') || lc.includes('schedule') || lc.includes('push')
-                        const isApproval = atype === 'APPROVAL' || lc.includes('approv')
-                        return (
+                      {/* PR-2B2B1: status-only — actions consolidated into the Strategy Action Card */}
+                      {readinessChecklist.map((item: any, i: number) => (
                           <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
                             item.done ? 'border-green-500/30 bg-green-500/5 text-green-400' : 'border-dark-tertiary text-gray-400'
                           }`}>
                             <span className="flex-shrink-0">{item.done ? '✓' : '○'}</span>
                             <span className="flex-1">{item.label || item.item}</span>
-                            {item.done ? (
-                              <span className="text-[10px] text-green-500/70">{cdT?.readinessComplete || 'Done'}</span>
-                            ) : isBrandBrain ? (
-                              <Link href="/brand" className="text-[10px] px-2 py-0.5 rounded bg-accent/20 text-accent hover:bg-accent/30 transition whitespace-nowrap">{cdT?.readinessActionBrand || '→ Brand'}</Link>
-                            ) : isAssets ? (
-                              <Link href="/media" className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition whitespace-nowrap">{cdT?.readinessActionMedia || '→ Media'}</Link>
-                            ) : isSentinel ? (
-                              <button onClick={handleSentinelReview} disabled={sentinelState === 'reviewing'} className="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {sentinelState === 'reviewing' ? (cdT?.readinessActionReviewing || '⏳') : (cdT?.readinessActionReview || '→ Review')}
-                              </button>
-                            ) : isCalendar ? (
-                              <button onClick={() => handlePushToCalendar(false)} disabled={calendarPushState === 'pushing'} className="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {calendarPushState === 'pushing' ? (cdT?.readinessActionPushing || '⏳') : (cdT?.readinessActionPush || '→ Push')}
-                              </button>
-                            ) : isApproval ? (
-                              <button onClick={handleApprove} disabled={approvalState === 'approving' || approvalState === 'done'} className="text-[10px] px-2 py-0.5 rounded bg-green-500/20 text-green-500 hover:bg-green-500/30 transition disabled:opacity-50 whitespace-nowrap">
-                                {approvalState === 'done' ? '✓' : (cdT?.readinessActionApprove || '→ Approve')}
-                              </button>
-                            ) : null}
+                            <span className="text-[10px] text-gray-600">{item.done ? (cdT?.readinessComplete || 'Done') : (locale === 'ar' ? 'قيد الانتظار' : 'Pending')}</span>
                           </div>
-                        )
-                      })}
+                        ))}
                     </div>
                   </div>
                 )}
