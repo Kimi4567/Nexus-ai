@@ -15,6 +15,9 @@ import {
 } from './campaign-manager'
 import { runReportingAgent, getPeriodLabel, ReportingInput } from './reporting'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
+import { getStrategyCapabilities } from '@/lib/brandReadiness'
+import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
+import type { StrategyReadinessContext } from './strategist'
 
 // Re-export for API routes
 export type { BusinessBrief }
@@ -93,13 +96,57 @@ export async function runFullAgency(
           brandProfile.topPlatforms?.length ? `Best Platforms: ${brandProfile.topPlatforms.join(', ')}` : '',
           brandProfile.winningHooks?.length ? `Winning Hooks (use as style reference): ${brandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
           brandProfile.winningAngles?.length ? `Winning Angles: ${brandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
-          brandProfile.competitorNotes ? `Key Competitors: ${brandProfile.competitorNotes}` : '',
+          brandProfile.competitorNotes ? `Competitor Notes: ${brandProfile.competitorNotes}` : '',
+          (brandProfile as any).competitors?.length ? `Named Competitors (use ONLY these — never invent others): ${(brandProfile as any).competitors.join(', ')}` : '',
           brandProfile.strategicNotes ? `Strategic Notes: ${brandProfile.strategicNotes}` : '',
+          // PR-2B1 — wire the PR-2A strategy-data fields into the strategist context.
+          (brandProfile as any).businessGoal ? `Business Goal: ${(brandProfile as any).businessGoal}` : '',
+          (brandProfile as any).marketingBudget ? `Marketing Budget (band): ${(brandProfile as any).marketingBudget}` : '',
+          (brandProfile as any).conversionDestination ? `Conversion Destination: ${(brandProfile as any).conversionDestination}` : '',
+          (brandProfile as any).leadHandling ? `Lead Handling / Sales Process: ${(brandProfile as any).leadHandling}` : '',
+          (brandProfile as any).customerObjections?.length ? `Customer Objections: ${(brandProfile as any).customerObjections.join(', ')}` : '',
+          (brandProfile as any).complianceNotes ? `Compliance Notes: ${(brandProfile as any).complianceNotes}` : '',
+          (brandProfile as any).averageOrderValue ? `Average Order Value: ${(brandProfile as any).averageOrderValue}` : '',
+          (brandProfile as any).grossMargin ? `Gross Margin: ${(brandProfile as any).grossMargin}` : '',
+          (brandProfile as any).customerLifetimeValue ? `Customer Lifetime Value: ${(brandProfile as any).customerLifetimeValue}` : '',
+          (brandProfile as any).salesCycleLength ? `Sales Cycle Length: ${(brandProfile as any).salesCycleLength}` : '',
+          (brandProfile as any).seasonality ? `Seasonality: ${(brandProfile as any).seasonality}` : '',
+          (brandProfile as any).pastAdResults ? `Past Ad Results (historical data): ${(brandProfile as any).pastAdResults}` : '',
         ].filter(Boolean).join('\n')
       : ''
 
+    // 1b. PR-2B1 — compute capability readiness server-side (single source of truth)
+    //     and build the compact readiness context passed into the strategist.
+    const bp: any = brandProfile || {}
+    const capabilities = getStrategyCapabilities(bp, { hasPixel: false })
+    const hasHistoricalData = Boolean(bp.pastAdResults)
+    const readiness: StrategyReadinessContext = {
+      capabilities: Object.values(capabilities).map(c => ({
+        id: c.id, ready: c.ready, confidence: c.confidence, missingKeys: c.missingKeys,
+      })),
+      missingKeys: collectMissingKeys(capabilities),
+      hasBudget: Boolean(bp.marketingBudget),
+      hasConversionDestination: Boolean(bp.conversionDestination),
+      hasCompetitors: Boolean(bp.competitors?.length) || Boolean(bp.competitorNotes),
+      hasHistoricalData,
+      hasPixel: false,
+    }
+    // Numbers the model is allowed to echo (user-provided), used by the scrubber.
+    const allowedNumbers = [bp.marketingBudget, bp.pricePoint, bp.averageOrderValue, bp.customerLifetimeValue, bp.grossMargin]
+      .filter(Boolean) as string[]
+    const allowedCompetitors = [
+      ...((bp.competitors as string[] | undefined) || []),
+      ...(bp.competitorNotes ? [bp.competitorNotes as string] : []),
+    ]
+
     // 2. Strategist agent
-    const strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language)
+    let strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language, readiness)
+    // 2b. PR-2B1 — server-authoritative readiness + anti-hallucination scrubbing.
+    //     The model's confidenceReport/missingData/competitorAnalysisComplete are
+    //     DISCARDED and replaced from getStrategyCapabilities() here.
+    strategy = applyServerReadiness(strategy, capabilities, {
+      hasHistoricalData, allowedCompetitors, allowedNumbers,
+    })
     strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.

@@ -18,6 +18,7 @@
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
 import { getPlanContext } from './planContext'
+import { normalizeStrategyOutput } from '@/lib/strategyNormalize'
 
 // ── Preserved interfaces (backwards compat) ──────────────────────────────────
 
@@ -95,6 +96,8 @@ export interface KPI {
   metric: string
   target: string
   timeframe: string
+  /** PR-2B1: true when this KPI is a hypothesis (no historical data to back it). */
+  isHypothesis?: boolean
 }
 
 export interface BudgetItem {
@@ -228,6 +231,43 @@ export interface SuccessMetricDetailed {
   metric: string
   target: string
   timeframe: string
+  /** PR-2B1: true when this metric is a hypothesis (no historical data to back it). */
+  isHypothesis?: boolean
+}
+
+// ── PR-2B1 — honesty scaffold (all optional, server-authoritative where noted) ──
+
+export type StrategyConfidenceLevel = 'high' | 'medium' | 'low'
+export type CapabilityConfidenceLevel = 'high' | 'low' | 'none'
+
+/**
+ * Server-authoritative confidence readout. The model MAY propose this, but the
+ * orchestrator overwrites it from getStrategyCapabilities() before persisting, so
+ * the AI can never inflate confidence.
+ */
+export interface ConfidenceReport {
+  overall: StrategyConfidenceLevel
+  byCapability: Record<string, CapabilityConfidenceLevel>
+}
+
+/** Optional market/category context — isAssumption is ALWAYS forced true. */
+export interface MarketContext {
+  summary: string
+  isAssumption: true
+}
+
+/**
+ * Compact readiness signal passed INTO the strategist so it knows what it may and
+ * may not assert. Built server-side from getStrategyCapabilities() + Brand Brain.
+ */
+export interface StrategyReadinessContext {
+  capabilities: { id: string; ready: boolean; confidence: CapabilityConfidenceLevel; missingKeys: string[] }[]
+  missingKeys: string[]
+  hasBudget: boolean
+  hasConversionDestination: boolean
+  hasCompetitors: boolean
+  hasHistoricalData: boolean
+  hasPixel: boolean
 }
 
 // ── Main strategy output interface ───────────────────────────────────────────
@@ -283,6 +323,14 @@ export interface StrategyOutput {
   doNotDoYet?: string[]
   successMetricsDetailed?: SuccessMetricDetailed[]
   executionAssumptions?: string[]
+
+  // PR-2B1 — honesty scaffold (all optional; *server-authoritative fields are
+  // overwritten by the orchestrator from getStrategyCapabilities()).
+  assumptions?: string[]
+  missingData?: string[]                 // SERVER-AUTHORITATIVE — stable readiness keys
+  confidenceReport?: ConfidenceReport    // SERVER-AUTHORITATIVE
+  competitorAnalysisComplete?: boolean   // SERVER-AUTHORITATIVE
+  marketContext?: MarketContext          // isAssumption forced true if present
 }
 
 // ── OpenAI call helper ────────────────────────────────────────────────────────
@@ -300,7 +348,7 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.45,  // Lower = more analytical, consistent, grounded
+      temperature: 0.30,  // PR-2B1: lowered 0.45→0.30 for grounding (less embellishment / number-invention)
       max_tokens: maxTokens,
       response_format: { type: 'json_object' },
     }),
@@ -316,7 +364,8 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
 export async function runStrategistAgent(
   brief: BusinessBrief,
   brandContext?: string,
-  language?: string
+  language?: string,
+  readiness?: StrategyReadinessContext
 ): Promise<StrategyOutput> {
   const langInstruction = getLanguageInstruction(language ?? brief.language)
   const planContext = getPlanContext(brief.planTier)
@@ -333,6 +382,19 @@ RULES:
 - Weekly plan = real deliverables ("3 Reels scripts about X", not "create content")
 - Never use: transform / unlock / game-changer / cutting-edge / leverage / maximize ROI
 - All text must follow the language instruction above
+
+ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
+1. Never invent competitor names or facts. Use ONLY competitors explicitly provided. If none are provided, set "competitorAnalysisComplete": false and do not name any competitor.
+2. Never invent performance numbers — no CPL, CPA, ROAS, CTR, conversion rates, click counts, or impressions. Numbers may ONLY echo values the user provided (e.g. their budget band or price point).
+3. Never promise results. Use conditional, effort-framed language ("aims to", "target to validate") — never "you will get X".
+4. Never state market or category claims as fact. If you include "marketContext", it is an ASSUMPTION (the field isAssumption is always true) and must be hedged.
+5. No budget provided → do NOT produce a budget allocation as fact. Leave budgetBreakdown empty.
+6. No conversion destination provided → add an explicit funnel/paid risk to "riskNotes" (the conversion step is unverified).
+7. No competitors provided → competitor analysis is incomplete; say so plainly.
+8. No historical performance data → every KPI and success metric is a hypothesis ("isHypothesis": true).
+9. No pixel/analytics connected → retargeting is future setup only; do not describe active retargeting.
+10. Where a required input is missing, write the literal phrase "Not enough data" in that field and add the missing item to "missingData".
+11. Paid output stays read-only and advisory — never describe how to execute/launch ads.
 
 Return ONLY valid JSON. No markdown outside the JSON.`
 
@@ -360,8 +422,23 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     brief.mediaContext ? `\nMEDIA LIBRARY CONTEXT:\n${brief.mediaContext}` : '',
   ].filter(Boolean).join('\n')
 
+  // PR-2B1 — readiness context so the model knows what it may/may not assert.
+  const readinessBlock = readiness
+    ? [
+        '\nDATA READINESS (you must respect this — do not assert beyond it):',
+        `- Budget provided: ${readiness.hasBudget ? 'yes' : 'no'}`,
+        `- Conversion destination provided: ${readiness.hasConversionDestination ? 'yes' : 'no'}`,
+        `- Competitors provided: ${readiness.hasCompetitors ? 'yes' : 'no'}`,
+        `- Historical performance data: ${readiness.hasHistoricalData ? 'yes' : 'no'}`,
+        `- Pixel/analytics connected: ${readiness.hasPixel ? 'yes' : 'no'}`,
+        readiness.missingKeys.length ? `- Missing inputs (echo these into "missingData" and write "Not enough data" where they block a section): ${readiness.missingKeys.join(', ')}` : '- No critical inputs missing.',
+        'Capability readiness: ' + readiness.capabilities.map(c => `${c.id}=${c.confidence}`).join(', '),
+      ].join('\n')
+    : ''
+
   const userPrompt = `
 ${extendedBrief}
+${readinessBlock}
 
 Return JSON with these exact fields — all specific to this brand:
 
@@ -427,12 +504,40 @@ Return JSON with these exact fields — all specific to this brand:
   "valueProps": ["string — 3-5 value propositions"],
   "doNotDoYet": ["string — 3-5 specific traps to avoid"],
   "nextBestAction": "string — ONE specific task to do today",
-  "estimatedResults": "string — realistic, stage-appropriate",
+  "estimatedResults": "string — realistic, stage-appropriate, NO invented numbers",
   "readyForPaidAds": boolean,
-  "readyForPaidAdsReason": "string"
+  "readyForPaidAdsReason": "string",
+
+  "businessObjective": {
+    "primary": "string — the business goal in plain terms",
+    "marketing": "string", "conversionAction": "string",
+    "expectedUserAction": "string", "whyNow": "string", "successIn30Days": "string"
+  },
+  "diagnosisDetails": {
+    "stage": "pre-launch|early-stage|active|scaling|recovery",
+    "bottleneck": "string", "trustGap": "string", "offerClarity": "clear|unclear|partial",
+    "contentGap": "string", "assetReadiness": "string", "conversionReadiness": "string",
+    "readyForPaidAds": boolean, "readyForPaidAdsReason": "string", "mainRisk": "string"
+  },
+  "funnelStages": [
+    { "stage": "awareness|consideration|conversion|followUp", "userMindset": "string", "message": "string", "contentType": "string", "platform": "string", "cta": "string", "successMetric": "string", "nextStep": "string", "productArea": "string" }
+  ],
+  "kpis": [
+    { "metric": "string", "target": "string — NO invented performance numbers; a goal to validate", "timeframe": "string", "isHypothesis": true }
+  ],
+  "successMetricsDetailed": [
+    { "category": "lead|engagement|conversion|operational", "metric": "string", "target": "string — NO invented numbers", "timeframe": "string", "isHypothesis": true }
+  ],
+  "readinessChecklist": [ { "label": "string — a concrete pre-launch readiness item", "done": false } ],
+  "riskNotes": ["string — real risks; flag funnel/paid risk if conversion destination or budget is missing"],
+  "executionAssumptions": ["string — assumptions this plan rests on"],
+  "assumptions": ["string — explicit assumptions you made due to missing data"],
+  "missingData": ["string — inputs that were missing; write the readiness keys you were given"],
+  "competitorAnalysisComplete": false,
+  "confidenceReport": { "overall": "high|medium|low", "byCapability": { "contentStrategy": "high|low|none" } }
 }`
 
-  const output = await callOpenAI(systemPrompt, userPrompt, 6500) as StrategyOutput
+  const output = normalizeStrategyOutput(await callOpenAI(systemPrompt, userPrompt, 7500)) as StrategyOutput
 
   // ── Quality guardrail: log if output is too generic ───────────────────────
   const rawText = JSON.stringify(output)
