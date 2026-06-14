@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult } from '@/lib/brandReadiness'
+import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -374,7 +375,15 @@ export default function DashboardPage() {
 
   if (!isAuthenticated) return null
 
-  const creditPct = Math.min(100, Math.round(((stats?.creditsRemaining ?? 0) / (stats?.creditsMonthlyTotal ?? 15)) * 100))
+  // Overflow-safe credit display: clamps the bar to 100% and, when the balance
+  // exceeds the monthly grant (rollover / bonus / refunds), avoids the confusing
+  // "246 of 150" by surfacing a bonus note instead.
+  const creditDisp = formatCreditDisplay({
+    availableCredits: stats?.creditsRemaining ?? 0,
+    monthlyCredits: stats?.isUnlimited ? -1 : (stats?.creditsMonthlyTotal ?? 0),
+    locale: ar ? 'ar' : 'en',
+  })
+  const creditPct = creditDisp.percent
 
   return (
     <AppShell>
@@ -604,7 +613,9 @@ export default function DashboardPage() {
                     />
                   </div>
                   <p className="text-[10px]" style={{ color: 'var(--nx-text-4)' }}>
-                    {ar ? `من ${stats?.creditsMonthlyTotal ?? 15} وحدة` : `of ${stats?.creditsMonthlyTotal ?? 15}`}
+                    {creditDisp.overGrant
+                      ? (ar ? `خطتك: ${stats?.creditsMonthlyTotal ?? 0}/شهر · رصيد إضافي` : `Plan: ${stats?.creditsMonthlyTotal ?? 0}/mo · incl. bonus`)
+                      : (ar ? `من ${stats?.creditsMonthlyTotal ?? 0} وحدة` : `of ${stats?.creditsMonthlyTotal ?? 0}`)}
                     {stats?.lowCredits && (
                       <Link href="/billing" className="ml-1 font-bold" style={{ color: '#F97316' }}>
                         {ar ? '· ترقية' : '· upgrade'}

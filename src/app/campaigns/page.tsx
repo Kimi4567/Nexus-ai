@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
 import {
   FolderKanban, Plus, Megaphone, Search, Filter,
   Loader2, Star, MoreHorizontal, RefreshCw, Wand2,
@@ -34,7 +35,9 @@ export default function CampaignsPage() {
   const cT = t('campaigns')
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [counts, setCounts] = useState<CampaignCounts | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'name'>('updatedAt')
@@ -63,6 +66,7 @@ export default function CampaignsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(false)
     try {
       const params = new URLSearchParams()
       if (search)       params.set('search', search)
@@ -77,8 +81,15 @@ export default function CampaignsPage() {
       if (res.ok) {
         const data = await res.json()
         setCampaigns(data.campaigns || [])
+        // Prefer authoritative workspace-wide counts from the API; fall back to
+        // deriving from the returned rows only if the API omitted them.
+        setCounts(resolveCampaignCounts(data))
+      } else {
+        setLoadError(true)
       }
-    } catch { /* silent */ }
+    } catch {
+      setLoadError(true)
+    }
     finally { setLoading(false) }
   }, [authHeader, search, statusFilter, favoriteOnly, sortBy])
 
@@ -135,10 +146,6 @@ export default function CampaignsPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [openMenuId])
 
-  const activeCount  = campaigns.filter(c => c.status === 'ACTIVE').length
-  const draftCount   = campaigns.filter(c => c.status === 'DRAFT').length
-  const totalCount   = campaigns.length
-
   const dateLocale = locale === 'ar' ? 'ar-EG' : 'en-US'
 
   return (
@@ -164,16 +171,38 @@ export default function CampaignsPage() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: cT?.statTotal as string,  value: totalCount,  icon: <FolderKanban className="w-5 h-5 text-cyan-700" /> },
-          { label: cT?.statActive as string, value: activeCount, icon: <Megaphone className="w-5 h-5 text-emerald-700" /> },
-          { label: cT?.statDraft as string,  value: draftCount,  icon: <Wand2 className="w-5 h-5 text-amber-700" /> },
-        ].map((s) => (
-          <div key={s.label} className="p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '14px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="flex items-center gap-2 mb-2">{s.icon}<span className="text-text-muted text-sm">{s.label}</span></div>
-            <p className="text-2xl font-bold">{loading ? '—' : s.value}</p>
-          </div>
-        ))}
+          { key: 'total' as const,  label: cT?.statTotal as string,  icon: <FolderKanban className="w-5 h-5 text-cyan-700" /> },
+          { key: 'active' as const, label: cT?.statActive as string, icon: <Megaphone className="w-5 h-5 text-emerald-700" /> },
+          { key: 'draft' as const,  label: cT?.statDraft as string,  icon: <Wand2 className="w-5 h-5 text-amber-700" /> },
+        ].map((s) => {
+          // Show counts as soon as they're available. Only fall back to a
+          // skeleton on the very first load (before any counts arrive) so the
+          // cards never sit blank, and never collapse to nothing on refetch.
+          const showSkeleton = loading && counts === null
+          return (
+            <div key={s.key} className="p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '14px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+              <div className="flex items-center gap-2 mb-2">{s.icon}<span className="text-text-muted text-sm">{s.label}</span></div>
+              {showSkeleton ? (
+                <div className="h-8 w-10 rounded-md bg-slate-100 animate-pulse" />
+              ) : loadError && counts === null ? (
+                <p className="text-2xl font-bold text-slate-300" title={cT?.statError as string || 'Failed to load'}>—</p>
+              ) : (
+                <p className="text-2xl font-bold">{counts ? counts[s.key] : 0}</p>
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      {/* Inline load error (non-blocking) */}
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.18)', color: '#9F1239' }}>
+          <span>{cT?.loadErrorMsg as string || 'Could not load your campaigns. Please try again.'}</span>
+          <button onClick={load} className="font-semibold underline underline-offset-2 hover:opacity-80">
+            {cT?.retry as string || 'Retry'}
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">

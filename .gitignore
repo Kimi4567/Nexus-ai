@@ -27,3 +27,4 @@ app_backup_*
 
 # Local generated reports
 NEXUS_Credit_Cost_Audit.pdf
+tsconfig.tsbuildinfo

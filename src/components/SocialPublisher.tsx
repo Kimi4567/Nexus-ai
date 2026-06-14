@@ -279,6 +279,18 @@ export default function SocialPublisher({
           {ar ? 'ربط حساب الآن' : 'Connect account now'}
           <ExternalLink className="w-3 h-3" />
         </a>
+
+        {/* Honest readiness note — publishing is unavailable until an account is
+            connected, and Meta may require app-permission review first. */}
+        <div className="max-w-sm mx-auto mt-2 rounded-xl px-3 py-2.5 flex items-start gap-2 text-start"
+          style={{ background: 'rgba(255,184,0,0.06)', border: '1px solid rgba(255,184,0,0.2)' }}>
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
+          <p className="text-[11px] leading-snug text-gray-400">
+            {ar
+              ? 'النشر غير متاح حتى تربط حساباً. قد يتطلب Facebook/Instagram مراجعة أذونات التطبيق (Meta App Review) قبل تفعيل النشر المباشر.'
+              : 'Publishing is unavailable until an account is connected. Facebook/Instagram may require Meta App Review of publishing permissions before live posting is enabled.'}
+          </p>
+        </div>
       </div>
     )
   }

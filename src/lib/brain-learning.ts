@@ -21,6 +21,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { brainLearningCapDb, BRAIN_LEARNING_DAILY_CAP } from '@/lib/dbRateLimit'
 
 async function callOpenAI(messages: Array<{ role: string; content: string }>, maxTokens = 800): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -78,10 +79,28 @@ export async function runBrainLearning(params: BrainLearningParams): Promise<num
   const { workspaceId, campaignId, trigger, payload } = params
   const startMs = Date.now()
 
+  // ── COGS guard: daily per-workspace cap ──────────────────────────────────────
+  // Background learning is NOT billed to user credits, so it's uncovered cost.
+  // Enforce a daily cap per workspace so a busy/abusive workspace can't run
+  // unbounded gpt-4o spend. Fail-open (allow) only if the limiter itself errors.
+  try {
+    const cap = await brainLearningCapDb(workspaceId)
+    if (!cap.ok) {
+      console.warn(
+        `[brain-learning] SKIP trigger=${trigger} workspace=${workspaceId} reason=daily_cap_reached ` +
+        `cap=${BRAIN_LEARNING_DAILY_CAP} resetAt=${new Date(cap.resetAt).toISOString()}`,
+      )
+      return 0
+    }
+  } catch (capErr) {
+    console.warn('[brain-learning] cap check failed (allowing, non-fatal):', (capErr as Error).message)
+  }
+
   // ── Cost tracking (non-blocking) ─────────────────────────────────────────────
   // These calls are background system operations — not billed to user credits.
   // Log estimated cost to Vercel for operational monitoring at scale.
   // Estimated: $0.013–$0.020 per call (gpt-4o, ~2–4k input + ~800 output tokens).
+  // Search logs for "[brain-learning] COST" to total background spend.
   console.log(`[brain-learning] COST trigger=${trigger} workspace=${workspaceId} estimated=$0.015`)
   // ─────────────────────────────────────────────────────────────────────────────
 

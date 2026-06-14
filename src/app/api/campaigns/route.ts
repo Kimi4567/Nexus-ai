@@ -169,32 +169,43 @@ export async function GET(req: NextRequest) {
       ...(favorite ? { favorite: true } : {}),
     }
 
-    const campaigns = await prisma.campaign.findMany({
-      where,
-      orderBy: { [sort]: order },
-      take: limit,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        goal: true,
-        audience: true,
-        tone: true,
-        platforms: true,
-        status: true,
-        favorite: true,
-        thumbnail: true,
-        lastViewedAt: true,
-        createdAt: true,
-        updatedAt: true,
-        aiOutput: true,  // Required by calendar page to extract calendarItems / contentCalendar
-        _count: { select: { activities: true } },
-      },
-    })
+    // Workspace-wide counts for the summary cards. These are deliberately
+    // independent of search/status/favorite filters and of the `limit` page
+    // size, so the cards always reflect the TRUE totals (matching the dashboard)
+    // rather than the currently-filtered/paginated rows.
+    const baseWhere = { workspace: { ownerId: userId } } as const
 
-    return NextResponse.json({ campaigns })
+    const [campaigns, total, active, draft] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        orderBy: { [sort]: order },
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          goal: true,
+          audience: true,
+          tone: true,
+          platforms: true,
+          status: true,
+          favorite: true,
+          thumbnail: true,
+          lastViewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          aiOutput: true,  // Required by calendar page to extract calendarItems / contentCalendar
+          _count: { select: { activities: true } },
+        },
+      }),
+      prisma.campaign.count({ where: baseWhere }),
+      prisma.campaign.count({ where: { ...baseWhere, status: 'ACTIVE' } }),
+      prisma.campaign.count({ where: { ...baseWhere, status: 'DRAFT' } }),
+    ])
+
+    return NextResponse.json({ campaigns, counts: { total, active, draft } })
   } catch (err: any) {
     console.error('[campaigns GET]', err)
-    return NextResponse.json({ campaigns: [] })
+    return NextResponse.json({ campaigns: [], counts: { total: 0, active: 0, draft: 0 } })
   }
 }

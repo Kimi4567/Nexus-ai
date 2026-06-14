@@ -17,7 +17,13 @@ import {
 import AppShell from '@/components/AppShell'
 import UpgradeModal from '@/components/UpgradeModal'
 import StrategyFailedScreen from '@/components/StrategyFailedScreen'
+import CreditConfirmModal from '@/components/CreditConfirmModal'
 import { decidePostEngine } from './strategyOutcome'
+
+// Mirror of CREDIT_COSTS.RUN_FULL_STRATEGY in src/lib/credits.ts — the engine
+// run is the primary spend when generating a new campaign. Server still
+// deducts/refunds; this literal is display-only for the confirmation modal.
+const CAMPAIGN_GENERATE_COST = 8
 
 const PLATFORMS = ['Facebook', 'Instagram', 'TikTok', 'YouTube Shorts', 'Snapchat', 'LinkedIn']
 
@@ -151,6 +157,7 @@ function NewCampaignPageInner() {
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [showGenerateConfirm, setShowGenerateConfirm] = useState(false)
   const [generatingStrategy, setGeneratingStrategy] = useState(false)
   const [loadingPhase, setLoadingPhase] = useState<'strategy' | 'content'>('strategy')
   const [error, setError] = useState('')
@@ -1340,7 +1347,7 @@ function NewCampaignPageInner() {
                   {(t('brandGate') as Record<string, string>).saveDraftBtn}
                 </button>
               ) : (
-                <button onClick={() => handleCreate(false)} disabled={saving || !name.trim()}
+                <button onClick={() => setShowGenerateConfirm(true)} disabled={saving || !name.trim()}
                   className="btn-primary disabled:opacity-40 min-w-[160px]">
                   {saving ? (
                     <>
@@ -1359,6 +1366,20 @@ function NewCampaignPageInner() {
           </div>
         </div>
       </div>
+
+      <CreditConfirmModal
+        isOpen={showGenerateConfirm}
+        onClose={() => setShowGenerateConfirm(false)}
+        onConfirm={() => handleCreate(false)}
+        cost={CAMPAIGN_GENERATE_COST}
+        actionTitle={locale === 'ar' ? 'توليد الحملة' : 'Generate Campaign'}
+        authHeader={authHeader}
+        locale={locale}
+        includedItems={locale === 'ar'
+          ? ['الاستراتيجية', 'الزوايا والهوكات', 'خطة التنفيذ', 'خطة المحتوى']
+          : ['Strategy', 'Angles & hooks', 'Execution plan', 'Content plan']}
+        confirmLabel={locale === 'ar' ? `تأكيد وتوليد — ${CAMPAIGN_GENERATE_COST} كريديت` : `Confirm & Generate — ${CAMPAIGN_GENERATE_COST} credits`}
+      />
     </AppShell>
   )
 }
