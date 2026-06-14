@@ -348,7 +348,13 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             }}>
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold" style={{ color: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6' }}>
-                {isEmpty ? '⚠ No credits left' : isLow ? `⚠ ${creditsRemaining} credits left` : isPaid ? `✓ ${isUnlimited ? '∞' : creditsRemaining} credits` : `⚡ ${t('sidebar.upgradePro')}`}
+                {isEmpty
+                  ? '⚠ No credits left'
+                  : isLow
+                  ? `⚠ ${creditsRemaining} credits left`
+                  : isPaid
+                  ? (isUnlimited ? '✓ Unlimited credits' : `✓ ${creditsRemaining} credits left`)
+                  : `⚡ ${t('sidebar.upgradePro')}`}
               </span>
               {!isPaid && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#111827', color: 'white' }}>PRO</span>}
             </div>
