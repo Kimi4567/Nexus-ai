@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
+import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
@@ -443,6 +444,11 @@ function BrandBrainInner() {
     winningHooks: [], winningAngles: [], failedAngles: [],
     competitors: [], competitorNotes: '', strategicNotes: '',
     websiteUrl: '', contentSamples: [],
+    // PR-2A — strategy data requirements (optional; free-text)
+    businessGoal: '', marketingBudget: '', conversionDestination: '', leadHandling: '',
+    customerObjections: [], complianceNotes: '',
+    averageOrderValue: '', grossMargin: '', customerLifetimeValue: '',
+    salesCycleLength: '', seasonality: '', pastAdResults: '',
   })
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
@@ -1659,6 +1665,130 @@ function BrandBrainInner() {
               </div>
             </div>
           </div>
+
+          {/* ══ Strategy readiness + data requirements (PR-2A) ══
+              Capture-only + advisory. Optional fields; never block the organic flow.
+              No generation logic reads these — they drive calm readiness warnings. */}
+          {(() => {
+            const ar = locale === 'ar'
+            const caps = getStrategyCapabilities(form)
+            const items = [caps.contentStrategy, caps.fullStrategy, caps.paidStrategy, caps.kpiBudget, caps.funnel, caps.competitorAnalysis, caps.retargeting]
+            const dot = (c: { confidence: string }) => c.confidence === 'high' ? '#10b981' : c.confidence === 'low' ? '#f59e0b' : '#94a3b8'
+            // Localize the (locale-agnostic) capability ids + missing field keys here in the UI.
+            const CAP_LABELS: Record<string, [string, string]> = {
+              contentStrategy:     ['Content strategy',         'استراتيجية المحتوى'],
+              fullStrategy:        ['Full marketing strategy',  'استراتيجية تسويق كاملة'],
+              paidStrategy:        ['Paid strategy',            'استراتيجية إعلانات مدفوعة'],
+              kpiBudget:           ['KPI & budget',             'مؤشرات الأداء والميزانية'],
+              funnel:              ['Funnel / journey',         'مسار العميل'],
+              competitorAnalysis:  ['Competitor analysis',      'تحليل المنافسين'],
+              retargeting:         ['Retargeting',              'إعادة الاستهداف'],
+            }
+            const KEY_LABELS: Record<string, [string, string]> = {
+              brandName:             ['brand name',             'اسم العلامة'],
+              industry:              ['industry',               'المجال'],
+              description:           ['business description',   'وصف النشاط'],
+              targetAudience:        ['target customer',        'العميل المستهدف'],
+              topPlatforms:          ['channels',               'القنوات'],
+              businessGoal:          ['main business goal',     'الهدف التجاري'],
+              primaryOffer:          ['offer',                  'العرض'],
+              audienceLocation:      ['location',               'الموقع'],
+              uniqueAdvantages:      ['differentiator',         'الميزة التفضيلية'],
+              marketingBudget:       ['monthly budget',         'الميزانية الشهرية'],
+              conversionDestination: ['conversion destination', 'وجهة التحويل'],
+              leadHandling:          ['lead handling',          'إدارة العملاء المحتملين'],
+              competitors:           ['competitors',            'المنافسون'],
+              pixel:                 ['analytics/pixel',        'تحليلات/بكسل'],
+            }
+            const L = (pair?: [string, string]) => pair ? (ar ? pair[1] : pair[0]) : ''
+            const capLabel = (id: string) => L(CAP_LABELS[id]) || id
+            const keyList = (keys: string[]) => keys.map(k => L(KEY_LABELS[k]) || k).join(ar ? '، ' : ', ')
+            const capMessage = (c: { id: string; ready: boolean; missingKeys: string[] }) => {
+              if (c.id === 'retargeting') return c.ready
+                ? (ar ? 'تحليلات/بكسل متصل — يمكن التخطيط لإعادة الاستهداف.' : 'Analytics/pixel connected — retargeting can be planned.')
+                : (ar ? 'غير مُفعّل بعد — لا يوجد تحليلات/بكسل. اعتبره إعداداً مستقبلياً.' : 'Not active yet — no analytics/pixel connected. Treat as future setup.')
+              if (c.id === 'competitorAnalysis') return c.ready
+                ? (ar ? 'يعتمد على ملاحظاتك فقط (وليس بيانات سوق حية).' : 'Uses your notes only — not live market data.')
+                : (ar ? 'غير مكتمل — لم تتم إضافة منافسين.' : 'Incomplete — no competitors provided.')
+              if (c.ready) return ar ? 'جاهز — مبني على Brand Brain.' : 'Ready — grounded in your Brand Brain.'
+              const list = keyList(c.missingKeys)
+              return ar ? `أضِف: ${list} لرفع الجاهزية.` : `Add ${list} to improve readiness.`
+            }
+            const inputCls = 'w-full text-[13px] rounded-lg px-3 py-2 text-slate-800 outline-none'
+            const inputStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.12)' }
+            const field = (key: keyof BrandProfile, label: string, placeholder: string, multiline = false) => (
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">{label}</label>
+                {multiline
+                  ? <textarea rows={2} className={inputCls} style={inputStyle} placeholder={placeholder}
+                      value={String((form as Record<string, unknown>)[key] ?? '')}
+                      onChange={e => set(key, e.target.value)} />
+                  : <input className={inputCls} style={inputStyle} placeholder={placeholder}
+                      value={String((form as Record<string, unknown>)[key] ?? '')}
+                      onChange={e => set(key, e.target.value)} />}
+              </div>
+            )
+            return (
+              <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart2 size={16} style={{ color: '#5E5CE6' }} />
+                  <h3 className="text-sm font-bold text-slate-950">{ar ? 'جاهزية الاستراتيجية' : 'Strategy readiness'}</h3>
+                </div>
+                <p className="text-[12px] text-slate-500 mb-4">
+                  {ar ? 'ما الذي يملك NEXUS بيانات كافية لإنتاجه بثقة — وما الذي ينقصه.' : 'What NEXUS has enough data to produce confidently — and what is still missing.'}
+                </p>
+
+                <div className="grid sm:grid-cols-2 gap-2 mb-5">
+                  {items.map(c => (
+                    <div key={c.id} className="flex items-start gap-2.5 rounded-xl px-3 py-2.5" style={{ background: '#FBFBFD', border: '1px solid rgba(15,23,42,0.06)' }}>
+                      <span className="mt-1 w-2 h-2 rounded-full flex-shrink-0" style={{ background: dot(c) }} />
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold text-slate-800">{capLabel(c.id)}{c.ready ? ' ✓' : ''}</p>
+                        <p className="text-[11px] leading-relaxed text-slate-500">{capMessage(c)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <details className="rounded-xl" style={{ border: '1px solid rgba(94,92,230,0.18)', background: 'rgba(94,92,230,0.04)' }}>
+                  <summary className="cursor-pointer select-none px-4 py-3 text-[13px] font-semibold text-slate-800">
+                    {ar ? 'بيانات الاستراتيجية (اختياري) — لفتح تخطيط الميزانية والإعلانات وKPIs' : 'Strategy data (optional) — unlock budget, paid & KPI planning'}
+                  </summary>
+                  <div className="px-4 pb-4 pt-1 space-y-3">
+                    {field('businessGoal', ar ? 'الهدف التجاري الرئيسي' : 'Main business goal', ar ? 'مثال: حجوزات استشارات أكثر' : 'e.g. more booked consultations', true)}
+                    {field('marketingBudget', ar ? 'ميزانية التسويق الشهرية' : 'Monthly marketing budget', ar ? 'مثال: ١٬٠٠٠–٣٬٠٠٠ شهرياً' : 'e.g. $1,000–3,000 / month')}
+                    {field('conversionDestination', ar ? 'وجهة التحويل' : 'Conversion destination', ar ? 'صفحة هبوط / واتساب / نموذج' : 'landing page / WhatsApp / form')}
+                    {field('leadHandling', ar ? 'كيف تُدار العملاء المحتملون' : 'Lead handling / sales process', ar ? 'من يتابع العملاء وكيف' : 'who follows up and how', true)}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">{ar ? 'أهم اعتراضات العملاء (افصل بفواصل)' : 'Main customer objections (comma-separated)'}</label>
+                      <input className={inputCls} style={inputStyle} placeholder={ar ? 'مثال: السعر، الوقت، الثقة' : 'e.g. price, timing, trust'}
+                        value={(form.customerObjections || []).join(', ')}
+                        onChange={e => set('customerObjections', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
+                    </div>
+                    {field('complianceNotes', ar ? 'قيود امتثال (إن وجدت)' : 'Compliance restrictions (if any)', '', true)}
+                  </div>
+                </details>
+
+                <details className="rounded-xl mt-2" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
+                  <summary className="cursor-pointer select-none px-4 py-3 text-[13px] font-semibold text-slate-800">
+                    {ar ? 'اقتصاديات (اختياري) — ترفع الثقة' : 'Economics (optional) — raises confidence'}
+                  </summary>
+                  <div className="px-4 pb-4 pt-1 space-y-3">
+                    {field('averageOrderValue', ar ? 'متوسط قيمة الطلب' : 'Average order value', '')}
+                    {field('grossMargin', ar ? 'هامش الربح' : 'Gross margin', '')}
+                    {field('customerLifetimeValue', ar ? 'قيمة العميل مدى الحياة' : 'Customer lifetime value', '')}
+                    {field('salesCycleLength', ar ? 'طول دورة البيع' : 'Sales cycle length', ar ? 'مثال: أسبوع–أسبوعين' : 'e.g. 1–2 weeks')}
+                    {field('seasonality', ar ? 'الموسمية' : 'Seasonality', '', true)}
+                    {field('pastAdResults', ar ? 'نتائج إعلانات سابقة (CPL/CPA/ROAS)' : 'Past ad results (CPL/CPA/ROAS)', '', true)}
+                  </div>
+                </details>
+
+                <p className="text-[11px] text-slate-400 mt-3">
+                  {ar ? 'هذه الحقول اختيارية ولا تمنع استراتيجيتك العضوية الحالية.' : 'These fields are optional and never block your current organic strategy.'}
+                </p>
+              </div>
+            )
+          })()}
 
           {/* ══════════════════════════════════════════════════════
               AGENT INJECTION GRID

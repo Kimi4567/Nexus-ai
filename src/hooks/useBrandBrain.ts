@@ -40,6 +40,19 @@ export interface BrandProfile {
   websiteUrl?: string | null
   contentSamples?: string[]
   acceptedLearningCount?: number
+  // PR-2A — strategy data requirements (additive, optional; free-text bands)
+  businessGoal?: string | null
+  marketingBudget?: string | null
+  conversionDestination?: string | null
+  leadHandling?: string | null
+  customerObjections?: string[]
+  complianceNotes?: string | null
+  averageOrderValue?: string | null
+  grossMargin?: string | null
+  customerLifetimeValue?: string | null
+  salesCycleLength?: string | null
+  seasonality?: string | null
+  pastAdResults?: string | null
 }
 
 const ARRAY_FIELDS: (keyof BrandProfile)[] = [
@@ -56,6 +69,7 @@ const ARRAY_FIELDS: (keyof BrandProfile)[] = [
   'failedAngles',
   'competitors',
   'contentSamples',
+  'customerObjections',
 ]
 
 function toStringArray(value: unknown): string[] {

@@ -93,6 +93,10 @@ export async function POST(req: NextRequest) {
       winningHooks, winningAngles, failedAngles, topPlatforms,
       strategicNotes, competitorNotes, competitors,
       websiteUrl, contentSamples,
+      // PR-2A — strategy data requirements (additive, nullable; capture only)
+      businessGoal, marketingBudget, conversionDestination, leadHandling,
+      customerObjections, complianceNotes, averageOrderValue, grossMargin,
+      customerLifetimeValue, salesCycleLength, seasonality, pastAdResults,
     } = body
 
     const profileData = {
@@ -123,6 +127,19 @@ export async function POST(req: NextRequest) {
       competitors: toStringArray(competitors),
       websiteUrl: websiteUrl || null,
       contentSamples: toStringArray(contentSamples),
+      // PR-2A — strategy data requirements (free-text bands; arrays via toStringArray)
+      businessGoal: businessGoal || null,
+      marketingBudget: marketingBudget || null,
+      conversionDestination: conversionDestination || null,
+      leadHandling: leadHandling || null,
+      customerObjections: toStringArray(customerObjections),
+      complianceNotes: complianceNotes || null,
+      averageOrderValue: averageOrderValue || null,
+      grossMargin: grossMargin || null,
+      customerLifetimeValue: customerLifetimeValue || null,
+      salesCycleLength: salesCycleLength || null,
+      seasonality: seasonality || null,
+      pastAdResults: pastAdResults || null,
     }
 
     let brandProfile = null
