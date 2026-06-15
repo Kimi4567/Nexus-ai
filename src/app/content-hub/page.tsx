@@ -137,8 +137,8 @@ export default function ContentHubPage() {
               </h1>
               <p className="text-text-muted text-sm mt-0.5">
                 {isAr
-                  ? 'كل خطط المحتوى الشهرية في مكان واحد'
-                  : 'All your monthly content plans in one place'}
+                  ? 'مراجعة المحتوى والأصول الإبداعية المُولّدة عبر الحملات'
+                  : 'Review generated content and creative assets across campaigns.'}
               </p>
             </div>
             <Link href="/campaigns/new"

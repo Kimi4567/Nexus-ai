@@ -292,7 +292,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/brand" label={t('sidebar.brand')}
           icon={Icons.brain} dot={pendingProposals > 0 ? '#f59e0b' : undefined} {...sharedProps} />
-        <NavItem href="/campaigns" label={locale === 'ar' ? 'خطط المحتوى' : 'Content Plans'}
+        <NavItem href="/campaigns" label={locale === 'ar' ? 'الحملات' : 'Campaigns'}
           icon={Icons.campaigns} {...sharedProps} />
         <NavItem href="/content-hub" label={locale === 'ar' ? 'مركز المحتوى' : 'Content Hub'}
           icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>}
