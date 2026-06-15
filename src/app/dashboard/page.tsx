@@ -6,7 +6,7 @@ import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
 import OnboardingChecklist from '@/components/OnboardingChecklist'
 import { getOnboardingVisibility } from '@/lib/dashboardOnboarding'
-import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
+import BrainLearnedSummary from '@/components/brain/BrainLearnedSummary'
 import PlatformReadinessStrip from '@/components/PlatformReadinessStrip'
 import { derivePlatformReadiness } from '@/lib/platformReadiness'
 import { useEffect, useState, useCallback, useRef } from 'react'
@@ -840,8 +840,8 @@ export default function DashboardPage() {
               real output (strategy, content, analytics). Re-introduce only with live
               status data if needed. */}
 
-          {/* ── Brand Brain Learning Proposals ── */}
-          <BrainLearningPanel compact={true} />
+          {/* ── What NEXUS Learned — one compact summary line (Operator Foundation PR-1B) ── */}
+          <BrainLearnedSummary />
 
           {/* ── Sprint B: AI Suggestions Feed ── */}
           <div ref={suggestionsSectionRef} className="scroll-mt-6">
