@@ -1,7 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
-import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
+import { BrainTimeline } from '@/components/brain/BrainTimeline'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -967,9 +967,9 @@ function BrandBrainInner() {
           </div>
 
           {/* ══════════════════════════════════════════════════════
-              BRAIN LEARNING PROPOSALS
+              WHAT NEXUS LEARNED — timeline (Operator Foundation PR-1B)
               ══════════════════════════════════════════════════════ */}
-          <BrainLearningPanel onUpdate={refreshBrainAfterLearning} />
+          <BrainTimeline onUpdate={refreshBrainAfterLearning} />
 
           {/* ══════════════════════════════════════════════════════
               WEBSITE INTELLIGENCE SCANNER
