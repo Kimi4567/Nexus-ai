@@ -2131,8 +2131,8 @@ function CampaignDetailPageInner() {
 
                 {/* KPIs + Success Metrics — unified */}
                 {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                  <div className="nx-card p-5">
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--nx-text-1)]">
                       {cdT?.sectionKpis || 'KPIs & Metrics'}
                     </h3>
                     {strategy.kpis?.length > 0 && (
@@ -2140,10 +2140,10 @@ function CampaignDetailPageInner() {
                         {strategy.kpis.map((kpi: any, i: number) => (
                           <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary text-center">
                             <p className="text-accent font-bold text-lg">{kpi.target}</p>
-                            <p className="text-gray-400 text-[10px] mt-0.5">{kpi.metric}</p>
+                            <p className="text-[var(--nx-text-2)] text-[10px] mt-0.5">{kpi.metric}</p>
                             <p className="text-gray-600 text-[10px]">{kpi.timeframe}</p>
                             {kpi.isHypothesis && (
-                              <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full text-amber-400" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                              <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full text-amber-700" style={{ background: 'rgba(245,158,11,0.12)' }}>
                                 {locale === 'ar' ? 'فرضية — تحقّق بالبيانات' : 'Hypothesis'}
                               </span>
                             )}
@@ -2163,8 +2163,8 @@ function CampaignDetailPageInner() {
                             operational: cdT?.metricOperational || 'Operational',
                           }
                           const catColors: Record<string, string> = {
-                            lead: 'text-blue-400', engagement: 'text-pink-400',
-                            conversion: 'text-green-400', operational: 'text-amber-400',
+                            lead: 'text-blue-600', engagement: 'text-pink-600',
+                            conversion: 'text-emerald-600', operational: 'text-amber-600',
                           }
                           return (
                             <div key={cat}>
@@ -2173,7 +2173,7 @@ function CampaignDetailPageInner() {
                                 {catMetrics.map((m: any, idx: number) => (
                                   <div key={idx} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
                                     <div>
-                                      <p className="text-xs text-gray-300">{m.metric}</p>
+                                      <p className="text-xs text-[var(--nx-text-2)]">{m.metric}</p>
                                       <p className="text-[10px] text-gray-600">{m.timeframe}{m.isHypothesis ? (locale === 'ar' ? ' · فرضية' : ' · hypothesis') : ''}</p>
                                     </div>
                                     <span className={`text-sm font-bold flex-shrink-0 ${catColors[cat]}`}>{m.target}</span>
@@ -2188,8 +2188,8 @@ function CampaignDetailPageInner() {
                     {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
                       <ul className="space-y-1.5">
                         {successMetrics.map((metric: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
-                            <span className="text-green-400 mt-0.5 flex-shrink-0">✓</span> {metric}
+                          <li key={i} className="flex items-start gap-2 text-[var(--nx-text-2)] text-sm">
+                            <span className="text-emerald-600 mt-0.5 flex-shrink-0">✓</span> {metric}
                           </li>
                         ))}
                       </ul>
