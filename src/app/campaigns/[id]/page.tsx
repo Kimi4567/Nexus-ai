@@ -14,6 +14,7 @@ import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import StrategySection from '@/components/StrategySection'
 import StrategyActionCard from '@/components/StrategyActionCard'
+import StrategicVerdictCard from '@/components/StrategicVerdictCard'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
@@ -1486,6 +1487,23 @@ function CampaignDetailPageInner() {
                     ? 'مبني على Brand Brain الخاص بك — راجِعه قبل تحويله إلى محتوى.'
                     : 'Based on your Brand Brain — review it before turning it into content.'}
                 </p>
+
+                {/* PR-2B2C — Derived Strategic Verdict + Top 3 Decisions (client-side, no generation) */}
+                {(strategy.positioning || strategy.keyMessage || strategy.differentiation || strategy.targetAudienceRefined) && (
+                  <StrategicVerdictCard
+                    locale={locale === 'ar' ? 'ar' : 'en'}
+                    positioning={strategy.positioning}
+                    keyMessage={strategy.keyMessage}
+                    differentiation={(strategy as any).differentiation}
+                    targetAudienceRefined={strategy.targetAudienceRefined}
+                    topSegment={audienceSegmentsDetailed[0]?.segment || null}
+                    audienceLocation={(brandDNA as any)?.audienceLocation || null}
+                    confidenceReport={confidenceReport}
+                    missingDataKeys={missingDataKeys}
+                    hasFunnel={funnelStages.length > 0}
+                    kpisAreHypotheses={(strategy.kpis || []).some((k: any) => k?.isHypothesis) || successMetricsDetailed.some((m: any) => m?.isHypothesis)}
+                  />
+                )}
 
                 {/* ── Strategy TL;DR Intelligence Card ────────────────────── */}
                 {(engineScore > 0 || strategy.keyMessage || topHooks.length > 0) && (() => {
