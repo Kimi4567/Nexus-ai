@@ -15,6 +15,7 @@ import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import StrategySection from '@/components/StrategySection'
 import StrategyActionCard from '@/components/StrategyActionCard'
 import StrategicVerdictCard from '@/components/StrategicVerdictCard'
+import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
@@ -944,6 +945,9 @@ function CampaignDetailPageInner() {
             </div>
           )
         })()}
+
+        {/* What NEXUS did here — Proof of Work (Operator Foundation PR-1C1, read-only) */}
+        <CampaignProofOfWork campaignId={campaign.id} campaign={campaign as any} />
 
         {/* Brief banner — shown when arriving from Marketing Operating Brief */}
         {fromBrief && !briefBannerDismissed && (

@@ -43,8 +43,11 @@ export async function GET(req: NextRequest, { params }: Params) {
         status: true,
         // Publishing lifecycle (manual publishing checklist — PR4)
         publishMode: true,
+        approvedAt: true,
+        publishedAt: true,
         manuallyPublishedAt: true,
         platformUrl: true,
+        errorMessage: true,
         // A/B Testing fields
         variantGroup: true,
         variantLabel: true,
