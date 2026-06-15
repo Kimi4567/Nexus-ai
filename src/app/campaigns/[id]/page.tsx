@@ -1718,8 +1718,8 @@ function CampaignDetailPageInner() {
 
                 {/* Business Objective */}
                 {businessObjective && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <p className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                  <div className="nx-card p-5">
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-3 flex items-center gap-2">
                       {cdT?.sectionBusinessObjective || 'Business Objective'}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -1763,15 +1763,15 @@ function CampaignDetailPageInner() {
                 {(strategy.positioning || strategy.differentiation) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {strategy.positioning && (
-                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionPositioning || 'Positioning'}</p>
-                        <p className="text-gray-300 text-sm leading-relaxed">{strategy.positioning}</p>
+                      <div className="nx-card p-4">
+                        <p className="text-[10px] text-[var(--nx-text-3)] font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionPositioning || 'Positioning'}</p>
+                        <p className="text-[var(--nx-text-2)] text-sm leading-relaxed">{strategy.positioning}</p>
                       </div>
                     )}
                     {strategy.differentiation && (
-                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionDifferentiation || 'Differentiation'}</p>
-                        <p className="text-gray-300 text-sm leading-relaxed">{strategy.differentiation}</p>
+                      <div className="nx-card p-4">
+                        <p className="text-[10px] text-[var(--nx-text-3)] font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionDifferentiation || 'Differentiation'}</p>
+                        <p className="text-[var(--nx-text-2)] text-sm leading-relaxed">{strategy.differentiation}</p>
                       </div>
                     )}
                   </div>
@@ -1833,18 +1833,18 @@ function CampaignDetailPageInner() {
 
                 {/* Value Propositions */}
                 {(strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">{cdT?.sectionValueProps || 'Value Propositions'}</h3>
+                  <div className="nx-card p-5">
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-[var(--nx-text-1)]">{cdT?.sectionValueProps || 'Value Propositions'}</h3>
                     {strategy.valueProps?.length > 0 ? (
                       <ul className="space-y-1.5">
                         {strategy.valueProps.map((vp: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                          <li key={i} className="flex items-start gap-2 text-[var(--nx-text-2)] text-sm">
                             <span className="text-accent mt-0.5 flex-shrink-0">→</span> {vp}
                           </li>
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-300 text-sm max-w-[72ch]">{strategy.estimatedResults}</p>
+                      <p className="text-[var(--nx-text-2)] text-sm max-w-[72ch]">{strategy.estimatedResults}</p>
                     )}
                   </div>
                 )}
