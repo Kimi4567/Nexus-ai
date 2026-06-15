@@ -2990,34 +2990,38 @@ function CampaignDetailPageInner() {
                   </button>
                 </div>
 
-                {/* ── Paid Launch Pack Card ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.3)', backdropFilter: 'blur(12px)' }}>
-                  <div className="flex items-start gap-3 mb-4">
-                    <span className="text-2xl">🚀</span>
+                {/* ── Paid Planning Pack Card (planning/brief only — not execution) ── */}
+                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}>
+                  <div className="flex items-start gap-3 mb-3">
+                    <span className="text-2xl">📋</span>
                     <div className="flex-1">
-                      <h3 className="font-bold text-base text-amber-400">
-                        {locale === 'ar' ? 'حملة مدفوعة' : 'Paid Campaign Launch'}
+                      <h3 className="font-bold text-base text-white">
+                        {locale === 'ar' ? 'موجز حملة مدفوعة' : 'Paid Campaign Brief'}
                       </h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-400 mt-0.5">
                         {locale === 'ar'
-                          ? 'جمهور مستهدف + نسخ إعلانية + دليل تشغيل + تحديث Brand Brain تلقائياً'
-                          : 'AI targeting brief + ad copy + step-by-step launch guide + Brand Brain learning loop'}
+                          ? 'جمهور مستهدف + نسخ إعلانية + دليل تخطيط + تحديث Brand Brain تلقائياً'
+                          : 'AI targeting brief + ad copy + step-by-step planning guide + Brand Brain learning loop'}
                       </p>
                     </div>
                   </div>
+                  <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+                    {locale === 'ar'
+                      ? 'للتخطيط فقط — لن تُطلق أي إعلانات ولن يُصرف أي مبلغ دون موافقة صريحة.'
+                      : 'Planning only — ads will not launch and no budget will be spent without explicit approval.'}
+                  </p>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     {['𝓕 Meta', 'G Google', '♪ TikTok', 'in LinkedIn'].map(p => (
-                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }}>{p}</span>
+                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.08)' }}>{p}</span>
                     ))}
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
-                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(217,119,6,0.9))', border: '1px solid rgba(245,158,11,0.4)' }}
+                    className="w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb' }}
                   >
-                    <span>🚀</span>
-                    {locale === 'ar' ? 'فتح حزمة الإطلاق المدفوع' : 'Open Paid Launch Pack'}
-                    <span className="text-amber-300 text-xs">↗</span>
+                    {locale === 'ar' ? 'فتح حزمة التخطيط المدفوع' : 'Open Paid Planning Pack'}
+                    <span className="text-gray-400 text-xs">↗</span>
                   </button>
                 </div>
 
@@ -3110,12 +3114,12 @@ function CampaignDetailPageInner() {
                     </div>
                     <div>
                       <h3 className="font-bold text-white text-base">
-                        {locale === 'ar' ? 'وضع الأوتوبايلوت' : 'Autopilot Mode'}
+                        {locale === 'ar' ? 'الأوتوبايلوت' : 'Autopilot'}
                       </h3>
                       <p className="text-xs text-gray-400">
                         {locale === 'ar'
-                          ? 'بعد الموافقة على الاستراتيجية، NEXUS يولد المحتوى والصور وينشر على جدولك تلقائياً'
-                          : 'After strategy approval, NEXUS generates content & images and publishes on your schedule automatically'}
+                          ? 'ينشر الأوتوبايلوت المحتوى الذي وافقتَ عليه وفق الجدول الذي اعتمدته — فقط بعد تفعيلك له.'
+                          : 'Auto-publishes the content you approved, on the schedule you approved — only after you enable it.'}
                       </p>
                     </div>
                     {campaign.autopilotEnabled && (
@@ -3126,6 +3130,13 @@ function CampaignDetailPageInner() {
                       </div>
                     )}
                   </div>
+
+                  {/* Trust contract — always visible (enabled or not) */}
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    {locale === 'ar'
+                      ? 'ينشر الأوتوبايلوت المحتوى الذي وافقتَ عليه فقط، وفق الجدول الذي اعتمدته، بعد تفعيلك الصريح له. بدون أي إنفاق إعلاني. يمكنك الإيقاف في أي وقت.'
+                      : 'Autopilot only publishes content you approved, on the schedule you approved, after you explicitly enable it. No ad spend. Pause anytime.'}
+                  </p>
 
                   {/* Requirements checklist */}
                   {!campaign.autopilotEnabled && (
@@ -3215,19 +3226,18 @@ function CampaignDetailPageInner() {
                           }
                         }}
                         disabled={autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0}
-                        className="px-5 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-40"
+                        className="px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-40"
                         style={{
                           background: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
                             ? 'rgba(255,255,255,0.05)'
-                            : 'linear-gradient(135deg, #7c3aed, #5b21b6)',
+                            : 'rgba(139,92,246,0.15)',
                           color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
-                            ? '#6b7280' : '#fff',
-                          boxShadow: !autopilotActivating && aiOutput && weeklyExecutionPlan.length > 0
-                            ? '0 0 24px rgba(139,92,246,0.3)' : 'none',
+                            ? '#6b7280' : '#c4b5fd',
+                          border: '1px solid rgba(139,92,246,0.3)',
                         }}>
                         {autopilotActivating
-                          ? (locale === 'ar' ? '⏳ جاري التفعيل...' : '⏳ Activating...')
-                          : (locale === 'ar' ? '🚀 تفعيل الأوتوبايلوت' : '🚀 Activate Autopilot')}
+                          ? (locale === 'ar' ? 'جاري التفعيل…' : 'Enabling…')
+                          : (locale === 'ar' ? 'تفعيل الأوتوبايلوت' : 'Enable Autopilot')}
                       </button>
                     )}
                   </div>
@@ -3362,12 +3372,12 @@ function CampaignDetailPageInner() {
                         { icon: '🧠', label: 'يقرأ خطة التنفيذ الأسبوعية من الاستراتيجية' },
                         { icon: '✍️', label: 'يولد كابشن احترافي لكل منشور بناءً على الرسالة والـ CTA' },
                         { icon: '🎨', label: 'قبل 48 ساعة من الموعد، يولد صورة تلقائياً بـ DALL-E 3' },
-                        { icon: '📤', label: 'في الموعد المحدد، ينشر على جميع المنصات المتصلة تلقائياً' },
+                        { icon: '📤', label: 'في كل موعد مجدول، ينشر على منصاتك المتصلة — فقط بعد تفعيلك للأوتوبايلوت' },
                       ] : [
                         { icon: '🧠', label: 'Reads the weekly execution plan from your strategy' },
                         { icon: '✍️', label: 'Generates a professional caption for each post based on the key message + CTA' },
                         { icon: '🎨', label: '48h before each post, auto-generates an image with DALL-E 3' },
-                        { icon: '📤', label: 'At the scheduled time, publishes to all connected platforms automatically' },
+                        { icon: '📤', label: 'At each scheduled time, publishes to your connected platforms — only after you enable Autopilot' },
                       ]).map((step, i) => (
                         <div key={i} className="flex items-start gap-3">
                           <span className="text-sm flex-shrink-0 mt-0.5">{step.icon}</span>

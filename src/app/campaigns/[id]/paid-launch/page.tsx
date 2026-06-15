@@ -3,8 +3,9 @@
 /**
  * /campaigns/[id]/paid-launch
  *
- * The Paid Campaign Launch Pack — everything needed to run paid ads on
- * Meta, Google, TikTok, and LinkedIn without any API approval needed today.
+ * The Paid Planning Pack — a paid campaign brief/plan the user reviews before
+ * running paid ads on Meta, Google, TikTok, and LinkedIn. Planning only: NEXUS
+ * does not launch ads or spend budget.
  *
  * Architecture note: the data model maps 1:1 to Meta Marketing API fields.
  * When API approvals arrive, we add one function call on top of this page.
@@ -361,9 +362,9 @@ export default function PaidLaunchPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <Rocket size={22} color="#f59e0b" />
+                <Rocket size={22} color="#94a3b8" />
                 <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>
-                  Paid Launch Pack
+                  Paid Planning Pack
                 </h1>
                 {pack?.status && (
                   <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: `${STATUS_COLORS[pack.status]}20`, color: STATUS_COLORS[pack.status], border: `1px solid ${STATUS_COLORS[pack.status]}40` }}>
@@ -372,7 +373,7 @@ export default function PaidLaunchPage() {
                 )}
               </div>
               <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-                {campaign?.name ?? 'Campaign'} — everything ready to launch, no API approvals needed
+                {campaign?.name ?? 'Campaign'} — a paid campaign brief for you to review. Planning only — ads will not launch and no budget will be spent without explicit approval.
               </p>
             </div>
 
@@ -382,7 +383,7 @@ export default function PaidLaunchPage() {
                   onClick={handleMarkLaunched}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
                 >
-                  <CheckCircle size={14} /> Mark as Launched
+                  <CheckCircle size={14} /> Mark as Launched by me
                 </button>
               )}
               {isLaunched && !isCompleted && (
@@ -779,9 +780,9 @@ export default function PaidLaunchPage() {
               </Section>
             )}
 
-            {/* Platform Launch Guides */}
+            {/* Platform Setup Guides */}
             {pack.platformGuides && (
-              <Section title="Step-by-Step Launch Guides" icon={<BookOpen size={16} color="#f472b6" />} defaultOpen={false}>
+              <Section title="Step-by-Step Setup Guides" icon={<BookOpen size={16} color="#f472b6" />} defaultOpen={false}>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                   {(pack.platforms ?? []).map(p => (
                     <button
