@@ -1521,7 +1521,7 @@ function CampaignDetailPageInner() {
                   const topAngle = contentAnglesDetailed[0]?.angle || contentAnglesDetailed[0]?.title || null
                   return (
                     <div className="rounded-2xl overflow-hidden"
-                      style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 30px rgba(139,92,246,0.06)' }}>
+                      style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                       {/* Header bar */}
                       <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(139,92,246,0.12)', background: 'rgba(139,92,246,0.06)' }}>
                         <div className="flex items-center gap-2">
@@ -1595,7 +1595,7 @@ function CampaignDetailPageInner() {
                             </div>
                             {brandPct < 100 && (
                               <a href="/brand" className="text-[9px] font-semibold px-2 py-0.5 rounded-lg transition-opacity hover:opacity-80"
-                                style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.9)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.9)', border: '1px solid var(--nx-border-dark)' }}>
                                 {locale === 'ar' ? 'أكمل الملف ←' : 'Complete Profile →'}
                               </a>
                             )}
@@ -1630,7 +1630,7 @@ function CampaignDetailPageInner() {
                 {/* Strategy readiness — single calm trust signal (PR-2B2A) */}
                 {(confidenceReport || missingDataLabels.length > 0 || assumptions.length > 0) && (
                   <div className="rounded-2xl p-5 space-y-3.5"
-                    style={{ background: 'rgba(10,11,28,0.55)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[11px] uppercase tracking-widest font-semibold text-gray-400">
                         {locale === 'ar' ? 'جاهزية الاستراتيجية' : 'Strategy Readiness'}
@@ -1680,7 +1680,7 @@ function CampaignDetailPageInner() {
                 {(strategy.diagnosis || businessObjective) && (
                   <div className="flex items-center gap-3 mt-1">
                     <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>01</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterBrief || 'The Brief'}</span>
                   </div>
                 )}
@@ -1718,9 +1718,9 @@ function CampaignDetailPageInner() {
 
                 {/* Business Objective */}
                 {businessObjective && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <p className="text-xs font-bold text-indigo-400 uppercase tracking-wide mb-3 flex items-center gap-2">
-                      <span>🎯</span> {cdT?.sectionBusinessObjective || 'Business Objective'}
+                      {cdT?.sectionBusinessObjective || 'Business Objective'}
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {[
@@ -1744,7 +1744,7 @@ function CampaignDetailPageInner() {
                 {(strategy.keyMessage || strategy.positioning || strategy.differentiation || audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0 || strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
                   <div className="flex items-center gap-3 mt-1">
                     <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>02</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterStrategy || 'The Strategy'}</span>
                   </div>
                 )}
@@ -1752,7 +1752,7 @@ function CampaignDetailPageInner() {
                 {/* Key Message — flagship */}
                 {strategy.keyMessage && (
                   <div className="rounded-2xl p-5"
-                    style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05))', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 0 24px rgba(99,102,241,0.06)' }}>
+                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mb-2">{cdT?.sectionKeyMessage || 'Core Message'}</p>
                     <p className="text-white text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
                     <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
@@ -1763,14 +1763,14 @@ function CampaignDetailPageInner() {
                 {(strategy.positioning || strategy.differentiation) && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {strategy.positioning && (
-                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>🎯</span> {cdT?.sectionPositioning || 'Positioning'}</p>
+                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionPositioning || 'Positioning'}</p>
                         <p className="text-gray-300 text-sm leading-relaxed">{strategy.positioning}</p>
                       </div>
                     )}
                     {strategy.differentiation && (
-                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</p>
+                      <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionDifferentiation || 'Differentiation'}</p>
                         <p className="text-gray-300 text-sm leading-relaxed">{strategy.differentiation}</p>
                       </div>
                     )}
@@ -1779,9 +1779,9 @@ function CampaignDetailPageInner() {
 
                 {/* Audience Segments */}
                 {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                      <span>👥</span> {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}
+                      {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}
                     </h3>
                     {audienceSegmentsDetailed.length > 0 ? (
                       <div className="space-y-3">
@@ -1833,8 +1833,8 @@ function CampaignDetailPageInner() {
 
                 {/* Value Propositions */}
                 {(strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>💎</span> {cdT?.sectionValueProps || 'Value Propositions'}</h3>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">{cdT?.sectionValueProps || 'Value Propositions'}</h3>
                     {strategy.valueProps?.length > 0 ? (
                       <ul className="space-y-1.5">
                         {strategy.valueProps.map((vp: string, i: number) => (
@@ -1851,9 +1851,9 @@ function CampaignDetailPageInner() {
 
                 {/* ══ TOP HOOKS — Copyable scroll-stopping lines ══════════════ */}
                 {topHooks.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                      <span>🎯</span> {cdT?.sectionTopHooks || 'Top Hooks'}
+                      {cdT?.sectionTopHooks || 'Top Hooks'}
                     </h3>
                     <div className="space-y-2">
                       {topHooks.slice(0, 6).map((hook: string, i: number) => (
@@ -1871,7 +1871,7 @@ function CampaignDetailPageInner() {
                 {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.contentPillars?.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
                   <div className="flex items-center gap-3 mt-1">
                     <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>03</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterExecution || 'Execution Plan'}</span>
                   </div>
                 )}
@@ -2001,8 +2001,8 @@ function CampaignDetailPageInner() {
 
                 {/* Offer & CTA Strategy */}
                 {strategy.offerCTAStrategy && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><span>📣</span> {cdT?.sectionOfferCTA || 'Offer & CTA'}</h3>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
+                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">{cdT?.sectionOfferCTA || 'Offer & CTA'}</h3>
                     <div className="space-y-2">
                       {strategy.offerCTAStrategy.primaryCTA && (
                         <div className="flex items-center gap-3 rounded-xl p-3 border border-accent/20" style={{ background: 'rgba(139,92,246,0.06)' }}>
@@ -2042,9 +2042,9 @@ function CampaignDetailPageInner() {
 
                 {/* Visual Direction */}
                 {strategy.visualDirection && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(168,85,247,0.04)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <h3 className="font-bold text-sm mb-2 flex items-center gap-2 text-purple-400">
-                      <span>🎨</span> {cdT?.sectionVisualDirection || 'Visual Direction'}
+                      {cdT?.sectionVisualDirection || 'Visual Direction'}
                     </h3>
                     <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
                   </div>
@@ -2125,16 +2125,16 @@ function CampaignDetailPageInner() {
                 {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0 || readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0 || adSetupPlan) && (
                   <div className="flex items-center gap-3 mt-1">
                     <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>04</span>
-                    <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(139,92,246,0.25) 0%, transparent 100%)' }} />
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterMetrics || 'Metrics & Readiness'}</span>
                   </div>
                 )}
 
                 {/* KPIs + Success Metrics — unified */}
                 {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                      <span>📊</span> {cdT?.sectionKpis || 'KPIs & Metrics'}
+                      {cdT?.sectionKpis || 'KPIs & Metrics'}
                     </h3>
                     {strategy.kpis?.length > 0 && (
                       <div className={`grid gap-2 mb-4 ${strategy.kpis.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
@@ -2200,9 +2200,9 @@ function CampaignDetailPageInner() {
 
                 {/* Launch Readiness */}
                 {readinessChecklist.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                      <span>✅</span> {cdT?.sectionReadinessChecklist || 'Launch Readiness'}
+                      {cdT?.sectionReadinessChecklist || 'Launch Readiness'}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {/* PR-2B2B1: status-only — actions consolidated into the Strategy Action Card */}
@@ -2221,9 +2221,9 @@ function CampaignDetailPageInner() {
 
                 {/* Asset Requirements */}
                 {assetRequirements && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
                     <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                      <span>📦</span> {cdT?.sectionAssetRequirements || 'Asset Requirements'}
+                      {cdT?.sectionAssetRequirements || 'Asset Requirements'}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {assetRequirements.mustHave?.length > 0 && (
@@ -2301,7 +2301,7 @@ function CampaignDetailPageInner() {
                 {strategy.executionChecklist?.length > 0 && (
                   <div className="rounded-2xl p-5" style={{ background: 'rgba(34,197,94,0.03)', border: '1px solid rgba(34,197,94,0.12)' }}>
                     <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-green-400">
-                      <span>✅</span> {cdT?.sectionExecutionChecklist || 'Execution Checklist'}
+                      {cdT?.sectionExecutionChecklist || 'Execution Checklist'}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                       {strategy.executionChecklist.map((item: string, i: number) => (
