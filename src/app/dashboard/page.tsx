@@ -227,13 +227,14 @@ export default function DashboardPage() {
         })
         if (d.activities?.length > 0) {
           // Display-level de-duplication only (no API/data change): collapse
-          // identical activity rows — same agent + message + campaign — that the
-          // feed sometimes returns more than once, then cap to 4 distinct items.
+          // alerts with the same agent + message into one — even across different
+          // campaigns — so a repeated line like "prepared campaign package (14% ready)"
+          // shows once instead of N times. Then cap to 4 distinct items. (PR-1E)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const seenAlertKeys = new Set<string>()
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const distinctActivities = (d.activities as any[]).filter((a: any) => {
-            const key = `${a.agent || ''}|${a.actionEn || a.action || ''}|${a.actionAr || ''}|${a.campaign || ''}`
+            const key = `${a.agent || ''}|${a.actionEn || a.action || ''}|${a.actionAr || ''}`
             if (seenAlertKeys.has(key)) return false
             seenAlertKeys.add(key)
             return true
@@ -315,9 +316,9 @@ export default function DashboardPage() {
     if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium',
       text:   isAr ? 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر' : 'All campaigns are drafts — activate PULSE to find the best publishing time',
       action: isAr ? 'فتح PULSE' : 'Open PULSE', href: '/analytics' })
-    if (built.length === 0 && stats.campaigns > 0) built.push({ id: '5', priority: 'low',
-      text:   isAr ? 'نظامك يعمل جيداً — راجع الأداء وخطّط حملتك التالية' : 'Your system is running well — review performance and plan your next campaign',
-      action: isAr ? 'عرض التحليلات' : 'View Analytics', href: '/analytics' })
+    // PR-1E: no generic "your system is running well" filler. When there is no
+    // real, specific, action-backed insight we leave the list empty so the AI
+    // Insights card shows its calm "all good" state instead of motivational noise.
     setInsights(built)
   }, [stats, hasConnections, locale])
 
@@ -772,7 +773,7 @@ export default function DashboardPage() {
                   <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--nx-text-4)' }}>
-                        {ar ? 'دورة التشغيل' : 'Operating loop'}
+                        {ar ? 'سير عمل التسويق' : 'Marketing workflow'}
                       </p>
                       <div className="grid grid-cols-2 gap-2">
                         {[
@@ -797,7 +798,7 @@ export default function DashboardPage() {
 
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--nx-text-4)' }}>
-                        {ar ? 'إشارات النظام' : 'System signals'}
+                        {ar ? 'مؤشرات الحالة' : 'Status checks'}
                       </p>
                       <div className="space-y-2">
                         {intelligence.signals.slice(0, 4).map(signal => {

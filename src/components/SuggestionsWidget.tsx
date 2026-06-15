@@ -58,6 +58,11 @@ const AGENT_KEY: Record<AgentType, string> = {
   REPORTING:        'suggestions.agentReporting',
 }
 
+/** Display-only text tidy: collapse doubled punctuation/space (e.g. "care.." → "care."). */
+function clean(str: string | null | undefined): string {
+  return (str || '').replace(/\s{2,}/g, ' ').replace(/([.!؟?،,])\1+/g, '$1').replace(/\.\s*\./g, '.').trim()
+}
+
 function relativeTime(dateStr: string, locale: string): string {
   try {
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -105,7 +110,23 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
       })
       if (!res.ok) throw new Error('Load failed')
       const data = await res.json()
-      setSuggestions(data.suggestions || [])
+      // PR-1E noise cleanup (display only — no API/data change):
+      // 1) collapse near-identical suggestions (same normalized reasoning/title),
+      // 2) show only the top 1–2 most relevant, so the dashboard isn't a wall of
+      //    five repeated "Strategy ready" cards. The full set still lives in the API.
+      const incoming: Suggestion[] = data.suggestions || []
+      const seen = new Set<string>()
+      const deduped = incoming.filter((s) => {
+        const key = (s.reasoning || s.title || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9؀-ۿ]/g, '')
+          .slice(0, 80)
+        if (!key) return true
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      setSuggestions(deduped.slice(0, 2))
       setExiting(new Set())
     } catch {
       setError(sg.errorLoad)
@@ -264,12 +285,12 @@ export default function SuggestionsWidget({ refreshKey = 0 }: SuggestionsWidgetP
                     className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
                     style={{ background: pc }}
                   />
-                  <p className="text-sm font-semibold flex-1 leading-snug" style={{ color: 'var(--nx-text-1)' }}>{s.title}</p>
+                  <p className="text-sm font-semibold flex-1 leading-snug" style={{ color: 'var(--nx-text-1)' }}>{clean(s.title)}</p>
                 </div>
 
                 {/* Row 2: reasoning (truncated) */}
                 <p className="text-[11px] leading-relaxed mb-2 line-clamp-2" style={{ color: 'var(--nx-text-3)' }}>
-                  {s.reasoning}
+                  {clean(s.reasoning)}
                 </p>
 
                 {/* Approval feedback */}
