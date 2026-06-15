@@ -1778,8 +1778,8 @@ function CampaignDetailPageInner() {
 
                 {/* Audience Segments */}
                 {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                  <div className="nx-card p-5">
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--nx-text-1)]">
                       {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}
                     </h3>
                     {audienceSegmentsDetailed.length > 0 ? (
@@ -1788,29 +1788,29 @@ function CampaignDetailPageInner() {
                           <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">#{i + 1}</span>
-                              <p className="text-sm font-bold text-white">{seg.segment}</p>
+                              <p className="text-sm font-bold text-[var(--nx-text-1)]">{seg.segment}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                               {seg.situation && (
                                 <div className="col-span-2">
                                   <span className="text-gray-600 text-[9px] uppercase tracking-wide">Situation: </span>
-                                  <span className="text-gray-300">{seg.situation}</span>
+                                  <span className="text-[var(--nx-text-2)]">{seg.situation}</span>
                                 </div>
                               )}
-                              {seg.pain && <div><span className="text-red-400 text-[9px] uppercase">Pain: </span><span className="text-gray-400">{seg.pain}</span></div>}
-                              {seg.desiredOutcome && <div><span className="text-green-400 text-[9px] uppercase">Wants: </span><span className="text-gray-400">{seg.desiredOutcome}</span></div>}
-                              {seg.objection && <div><span className="text-amber-400 text-[9px] uppercase">Objection: </span><span className="text-gray-400">{seg.objection}</span></div>}
+                              {seg.pain && <div><span className="text-red-600 text-[9px] uppercase">Pain: </span><span className="text-[var(--nx-text-2)]">{seg.pain}</span></div>}
+                              {seg.desiredOutcome && <div><span className="text-emerald-600 text-[9px] uppercase">Wants: </span><span className="text-[var(--nx-text-2)]">{seg.desiredOutcome}</span></div>}
+                              {seg.objection && <div><span className="text-amber-600 text-[9px] uppercase">Objection: </span><span className="text-[var(--nx-text-2)]">{seg.objection}</span></div>}
                               {seg.message && (
                                 <div className="col-span-2">
-                                  <span className="text-indigo-400 text-[9px] uppercase">Message: </span>
-                                  <span className="text-gray-200 font-medium">{seg.message}</span>
+                                  <span className="text-indigo-600 text-[9px] uppercase">Message: </span>
+                                  <span className="text-[var(--nx-text-2)] font-medium">{seg.message}</span>
                                 </div>
                               )}
                             </div>
                             {(seg.platform || seg.format || seg.cta) && (
                               <div className="flex items-center gap-3 mt-2 pt-2 border-t border-dark-tertiary text-xs">
-                                {seg.platform && <span className="text-gray-500">📱 {seg.platform}</span>}
-                                {seg.format && <span className="text-gray-500">📄 {seg.format}</span>}
+                                {seg.platform && <span className="text-[var(--nx-text-3)]">📱 {seg.platform}</span>}
+                                {seg.format && <span className="text-[var(--nx-text-3)]">📄 {seg.format}</span>}
                                 {seg.cta && <span className="text-accent font-semibold ml-auto">{seg.cta}</span>}
                               </div>
                             )}
@@ -1822,7 +1822,7 @@ function CampaignDetailPageInner() {
                         {audienceSegments.map((seg: string, i: number) => (
                           <div key={i} className="flex items-start gap-2 bg-dark rounded-xl p-3 border border-dark-tertiary text-sm">
                             <span className="text-accent font-bold flex-shrink-0">{i + 1}</span>
-                            <span className="text-gray-300">{seg}</span>
+                            <span className="text-[var(--nx-text-2)]">{seg}</span>
                           </div>
                         ))}
                       </div>
