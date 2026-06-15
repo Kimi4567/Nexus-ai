@@ -194,8 +194,9 @@ export default function CampaignsPage() {
         })}
       </div>
 
-      {/* Inline load error (non-blocking) */}
-      {loadError && (
+      {/* Inline load error — only when the fetch truly failed AND no usable list is shown.
+          PR-1D: never show a hard error banner over a populated/stale list. */}
+      {loadError && campaigns.length === 0 && (
         <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(244,63,94,0.06)', border: '1px solid rgba(244,63,94,0.18)', color: '#9F1239' }}>
           <span>{cT?.loadErrorMsg as string || 'Could not load your campaigns. Please try again.'}</span>
           <button onClick={load} className="font-semibold underline underline-offset-2 hover:opacity-80">

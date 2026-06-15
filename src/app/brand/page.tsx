@@ -421,7 +421,10 @@ function BrandBrainInner() {
   const searchParams = useSearchParams()
   const fromBrief = searchParams?.get('from') === 'brief'
   const { locale, dir, t } = useI18n()
-  const { brand, loading, saving, saveBrand, refetch } = useBrandBrain()
+  const { brand, loading, error, saving, saveBrand, refetch } = useBrandBrain()
+  // PR-1D: track whether a loaded brand has been applied to the form, so we never
+  // flash the "Needs Data" empty state between load-complete and form hydration.
+  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -470,11 +473,14 @@ function BrandBrainInner() {
   const [showAnalyzePreview, setShowAnalyzePreview] = useState(false)
 
   useEffect(() => {
+    if (brand === null) return // not loaded yet, or a genuinely empty account
     try {
       const normalized = normalizeBrandProfile(brand)
       if (normalized) setForm(b => ({ ...b, ...normalized }))
     } catch (err) {
       console.error('[BrandBrain] normalizeBrandProfile failed:', err)
+    } finally {
+      setHydrated(true)
     }
   }, [brand])
 
@@ -780,6 +786,35 @@ function BrandBrainInner() {
         </div>
         <Loader2 className="animate-spin text-amber-400/60" size={18} />
       </div>
+    </div>
+  )
+  // PR-1D: a transient /api/brand fetch failure must NOT render as "0/100 Needs Data".
+  // Show an honest error + Retry instead. The real empty-account state is preserved
+  // only when the fetch succeeded (no error) and the account is genuinely empty.
+  if (error && !brand) return (
+    <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#06071A' }}>
+      <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+          style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
+          <Brain size={28} className="text-amber-400" />
+        </div>
+        <p className="text-sm" style={{ color: '#cbd5e1' }}>
+          {locale === 'ar'
+            ? 'تعذّر تحميل ذاكرة العلامة التجارية. تحقّق من اتصالك وحاول مرة أخرى.'
+            : 'Could not load your Brand Brain. Check your connection and try again.'}
+        </p>
+        <button onClick={() => refetch()}
+          className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+          style={{ background: '#f59e0b' }}>
+          {locale === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+        </button>
+      </div>
+    </div>
+  )
+  // Avoid a one-frame flash of the empty form between load-complete and hydration.
+  if (brand && !hydrated) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#06071A' }}>
+      <Loader2 className="animate-spin text-amber-400/60" size={18} />
     </div>
   )
   if (!isAuthenticated) return null

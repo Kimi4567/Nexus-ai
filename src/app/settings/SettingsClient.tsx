@@ -404,16 +404,25 @@ export default function SettingsPage() {
                           >
                             {provider === 'google' ? '🔵 Google' : t('settings.emailProvider')}
                           </span>
-                          <span
-                            className="text-[11px] px-3 py-1 rounded-full font-semibold"
-                            style={{
-                              background: 'rgba(5,150,105,0.08)',
-                              color: '#059669',
-                              border: '1px solid rgba(5,150,105,0.15)',
-                            }}
-                          >
-                            {t('settings.freePlanLabel')}
-                          </span>
+                          {/* PR-1D: plan badge reads the same source as Billing
+                              (/api/billing/status). Hidden until loaded — never a
+                              hardcoded "Free Plan" that contradicts Billing. */}
+                          {billingStatus && (
+                            <span
+                              className="text-[11px] px-3 py-1 rounded-full font-semibold"
+                              style={{
+                                background: 'rgba(5,150,105,0.08)',
+                                color: '#059669',
+                                border: '1px solid rgba(5,150,105,0.15)',
+                              }}
+                            >
+                              {billingStatus.hasActiveSubscription
+                                ? (billingStatus.plan
+                                    ? billingStatus.plan.charAt(0).toUpperCase() + billingStatus.plan.slice(1)
+                                    : (locale === 'ar' ? 'مشترك' : 'Subscribed'))
+                                : (locale === 'ar' ? 'مجاني' : 'Free')}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
