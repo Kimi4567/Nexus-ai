@@ -1751,10 +1751,9 @@ function CampaignDetailPageInner() {
 
                 {/* Key Message — flagship */}
                 {strategy.keyMessage && (
-                  <div className="rounded-2xl p-5"
-                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mb-2">{cdT?.sectionKeyMessage || 'Core Message'}</p>
-                    <p className="text-white text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
+                  <div className="nx-card p-5">
+                    <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest mb-2">{cdT?.sectionKeyMessage || 'Core Message'}</p>
+                    <p className="text-[var(--nx-text-1)] text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
                     <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
                   </div>
                 )}
@@ -2221,18 +2220,18 @@ function CampaignDetailPageInner() {
 
                 {/* Asset Requirements */}
                 {assetRequirements && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                  <div className="nx-card p-5">
+                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--nx-text-1)]">
                       {cdT?.sectionAssetRequirements || 'Asset Requirements'}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {assetRequirements.mustHave?.length > 0 && (
                         <div>
-                          <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetMustHave || 'Must Have'}</p>
+                          <p className="text-xs text-red-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetMustHave || 'Must Have'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.mustHave.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
-                                <span className="text-red-400 mt-0.5 flex-shrink-0">✦</span>{a}
+                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
+                                <span className="text-red-600 mt-0.5 flex-shrink-0">✦</span>{a}
                               </li>
                             ))}
                           </ul>
@@ -2240,11 +2239,11 @@ function CampaignDetailPageInner() {
                       )}
                       {assetRequirements.niceToHave?.length > 0 && (
                         <div>
-                          <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
+                          <p className="text-xs text-amber-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.niceToHave.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
-                                <span className="text-amber-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
+                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
+                                <span className="text-amber-600/70 mt-0.5 flex-shrink-0">◦</span>{a}
                               </li>
                             ))}
                           </ul>
@@ -2252,11 +2251,11 @@ function CampaignDetailPageInner() {
                       )}
                       {assetRequirements.forAds?.length > 0 && (
                         <div>
-                          <p className="text-xs text-blue-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForAds || 'For Paid Ads'}</p>
+                          <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForAds || 'For Paid Ads'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.forAds.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
-                                <span className="text-blue-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
+                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
+                                <span className="text-blue-600/70 mt-0.5 flex-shrink-0">◦</span>{a}
                               </li>
                             ))}
                           </ul>
@@ -2264,11 +2263,11 @@ function CampaignDetailPageInner() {
                       )}
                       {assetRequirements.forProof?.length > 0 && (
                         <div>
-                          <p className="text-xs text-green-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForProof || 'Social Proof'}</p>
+                          <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForProof || 'Social Proof'}</p>
                           <ul className="space-y-1">
                             {assetRequirements.forProof.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-gray-400 flex items-start gap-1.5">
-                                <span className="text-green-400/60 mt-0.5 flex-shrink-0">◦</span>{a}
+                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
+                                <span className="text-emerald-600/70 mt-0.5 flex-shrink-0">◦</span>{a}
                               </li>
                             ))}
                           </ul>
@@ -2280,7 +2279,7 @@ function CampaignDetailPageInner() {
                         <p className="text-xs text-accent font-bold uppercase tracking-wide mb-2">{cdT?.assetNextToCreate || 'Create These First'}</p>
                         <ol className="space-y-1">
                           {assetRequirements.nextToCreate.map((a: string, i: number) => (
-                            <li key={i} className="text-xs text-gray-300 flex items-start gap-1.5">
+                            <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
                               <span className="text-accent font-bold w-4 flex-shrink-0">{i + 1}.</span>{a}
                             </li>
                           ))}
@@ -2288,7 +2287,7 @@ function CampaignDetailPageInner() {
                       </div>
                     )}
                     {assetRequirements.canStartWithoutNote && (
-                      <p className="text-xs text-gray-500 mt-3 italic">
+                      <p className="text-xs text-[var(--nx-text-3)] mt-3 italic">
                         {assetRequirements.canStartWithout
                           ? `✓ ${cdT?.assetCanStart || 'Can start without these'}`
                           : `⚠ ${cdT?.assetCannotStart || 'Required before starting'}`}: {assetRequirements.canStartWithoutNote}
