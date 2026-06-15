@@ -172,7 +172,7 @@ function ProductPreview({ ar }: { ar: boolean }) {
 
           <div className="grid gap-4">
             <div className="rounded-lg border border-slate-200 bg-white p-5">
-              <p className="text-[13px] font-semibold text-slate-500">{ar ? 'نضج النظام' : 'System maturity'}</p>
+              <p className="text-[13px] font-semibold text-slate-500">{ar ? 'اكتمال ذاكرة العلامة' : 'Brand memory completeness'}</p>
               <div className="mt-4 flex items-end gap-3">
                 <span className="text-5xl font-semibold tracking-tight text-slate-950">92</span>
                 <span className="mb-2 text-[15px] text-slate-500">/ 100</span>
@@ -337,7 +337,7 @@ export default function LandingPage() {
           <SectionTitle
             eyebrow={ar ? 'طريقة العمل' : 'Workflow'}
             title={ar ? 'من الذاكرة إلى التنفيذ.' : 'From memory to execution.'}
-            body={ar ? 'بدل مولد نصوص منفصل، Nexus يتحرك كقسم تسويق: يفهم، يخطط، ينتج، يعتمد، ويتعلم.' : 'Instead of a standalone generator, Nexus behaves like a marketing department: understand, plan, produce, approve, and learn.'}
+            body={ar ? 'بدل مولد نصوص منفصل، Nexus يتحرك كمشغّل تسويق: يفهم، يخطط، ينتج، يعتمد، ويتعلم.' : 'Instead of a standalone generator, Nexus works like a marketing operator: understand, plan, produce, approve, and learn.'}
           />
           <WorkflowStep
             index="01"

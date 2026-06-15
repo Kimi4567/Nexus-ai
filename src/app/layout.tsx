@@ -6,7 +6,7 @@ import { LanguageProvider } from '@/contexts/LanguageContext'
 export const metadata: Metadata = {
   title: 'NEXUS AI | Your AI Marketing Department',
   description:
-    'NEXUS AI is your complete AI marketing department — strategy, content, campaigns, analytics, and brand safety in one platform. Start free with 15 AI credits.',
+    'NEXUS AI is your AI marketing assistant — strategy, content, campaigns, and brand safety in one platform. Start free with 15 AI credits.',
   keywords: [
     'AI marketing', 'marketing automation', 'AI marketing department',
     'campaign generator', 'content creation', 'social media marketing',

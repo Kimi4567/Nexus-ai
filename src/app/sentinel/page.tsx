@@ -13,8 +13,7 @@ import {
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
-   SENTINEL — 24/7 Market & Competitor Monitoring
-   Nothing escapes the watch.
+   SENTINEL — Market & Competitor Scans (runs periodically)
    ═══════════════════════════════════════════════════════════════ */
 
 type MonitorType = 'competitors' | 'market' | 'reputation' | 'opportunities' | 'threats'

@@ -304,7 +304,7 @@ export default function DashboardPage() {
     const built: AIInsight[] = []
     const isAr = locale === 'ar'
     if (!hasConnections) built.push({ id: '1', priority: 'high',
-      text:   isAr ? 'لم تربط أي منصة بعد — ربط Meta يفعّل النشر التلقائي وتحليل الأداء' : 'No platform connected yet — linking Meta enables auto-publishing and performance analytics',
+      text:   isAr ? 'لم تربط أي منصة بعد — اربط Meta لجدولة المنشورات، ولرؤية الأداء عند توفر البيانات' : 'No platform connected yet — connect Meta to schedule posts and, once data is available, see performance',
       action: isAr ? 'ربط المنصات الآن' : 'Connect Platforms Now', href: '/connections' })
     if (stats.campaigns === 0) built.push({ id: '2', priority: 'high',
       text:   isAr ? 'أنشئ أول حملة — Nexus سيبني لك استراتيجية كاملة ومحتوى جاهز' : 'Create your first campaign — Nexus will build a full strategy and ready-to-use content',
@@ -491,8 +491,8 @@ export default function DashboardPage() {
                     </p>
                     <p className="text-[13px] text-slate-500 mb-3 leading-relaxed">
                       {ar
-                        ? 'قسم التسويق الذكي الكامل — استراتيجي، مخطط محتوى، ناشر تلقائي. ابدأ من الخطوة الأولى في الأسفل.'
-                        : 'Your full AI marketing department — strategist, content planner, auto-publisher. Follow the steps below to get started.'}
+                        ? 'مساعدك التسويقي بالذكاء الاصطناعي — يضع الاستراتيجية، ويكتب المحتوى، ويساعدك على النشر. ابدأ من الخطوة الأولى في الأسفل.'
+                        : 'Your AI marketing assistant — it plans strategy, drafts content, and helps you publish. Follow the steps below to get started.'}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <a href="/brand"
@@ -700,7 +700,7 @@ export default function DashboardPage() {
                   <div className="w-full sm:w-auto sm:min-w-[170px]">
                     <div className="flex items-end justify-between gap-3 mb-2">
                       <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
-                        {ar ? 'نضج النظام' : 'System maturity'}
+                        {ar ? 'اكتمال ذاكرة العلامة' : 'Brand memory completeness'}
                       </span>
                       <span className="text-2xl font-bold" style={{ color: '#06B6D4' }}>{intelligence.maturityScore}</span>
                     </div>

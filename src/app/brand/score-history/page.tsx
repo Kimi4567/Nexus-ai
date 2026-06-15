@@ -140,7 +140,7 @@ function ScoreChart({ snapshots }: { snapshots: Snapshot[] }) {
 /* ── Milestone badge ──────────────────────────────────────────── */
 function MilestoneBadge({ score, date, isFirst }: { score: number; date: string; isFirst?: boolean }) {
   const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
-  const label = score >= 80 ? '🧠 Full Power' : score >= 75 ? '🚀 Advanced' : score >= 50 ? '📈 Building' : score >= 25 ? '🌱 Starting' : '⚡ First Save'
+  const label = score >= 80 ? '🧠 Nearly complete' : score >= 75 ? '📈 Building' : score >= 50 ? '📈 Building' : score >= 25 ? '🌱 Starting' : '⚡ First save'
   return (
     <div className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(139,92,246,0.08)' }}>
       <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -299,9 +299,9 @@ export default function ScoreHistoryPage() {
               <div className="flex gap-3 mb-6 flex-wrap">
                 <StatCard
                   icon={<Brain size={16} />}
-                  label="Current Score"
+                  label="Memory completeness"
                   value={`${current}`}
-                  sub={current >= 80 ? 'Full Power 🧠' : current >= 50 ? 'Building 📈' : 'Needs Data ⚡'}
+                  sub={current >= 80 ? 'Nearly complete 🧠' : current >= 50 ? 'Building 📈' : 'Needs data ⚡'}
                   color={currentColor}
                 />
                 <StatCard
@@ -351,10 +351,10 @@ export default function ScoreHistoryPage() {
                   <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(148,163,184,0.4)' }}>Next targets</p>
                   <div className="flex flex-col gap-2">
                     {[
-                      { target: 25, label: 'Starter Brain', desc: 'Brand name + industry + description', color: '#ef4444' },
-                      { target: 50, label: 'Building Brain', desc: '+ offer + audience + tone', color: '#f59e0b' },
-                      { target: 75, label: 'Advanced Brain', desc: '+ platforms + advantages + pain points', color: '#06b6d4' },
-                      { target: 100, label: 'Full Power Brain', desc: 'All fields complete', color: '#10b981' },
+                      { target: 25, label: 'Started', desc: 'Brand name + industry + description', color: '#ef4444' },
+                      { target: 50, label: 'Building', desc: '+ offer + audience + tone', color: '#f59e0b' },
+                      { target: 75, label: 'Detailed', desc: '+ platforms + advantages + pain points', color: '#06b6d4' },
+                      { target: 100, label: 'Complete memory', desc: 'All fields complete', color: '#10b981' },
                     ].filter(t => t.target > current).map(t => (
                       <div key={t.target} className="flex items-center gap-3 py-2 px-3 rounded-xl"
                         style={{ background: `${t.color}06`, border: `1px solid ${t.color}15` }}>
@@ -397,8 +397,8 @@ export default function ScoreHistoryPage() {
                   <div className="flex items-center gap-3">
                     <Zap size={18} className="text-amber-400 flex-shrink-0" />
                     <div>
-                      <p className="text-sm font-bold text-white">Reach 80 to unlock Full Power</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#475569' }}>More data = smarter AI for every campaign</p>
+                      <p className="text-sm font-bold text-white">Reach 80 for near-complete brand memory</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#475569' }}>More inputs = better-grounded drafts</p>
                     </div>
                   </div>
                   <button onClick={() => router.push('/brand')}
