@@ -7,6 +7,8 @@ import SuggestionsWidget from '@/components/SuggestionsWidget'
 import OnboardingChecklist from '@/components/OnboardingChecklist'
 import { getOnboardingVisibility } from '@/lib/dashboardOnboarding'
 import { BrainLearningPanel } from '@/components/brain/BrainLearningPanel'
+import PlatformReadinessStrip from '@/components/PlatformReadinessStrip'
+import { derivePlatformReadiness } from '@/lib/platformReadiness'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -156,6 +158,7 @@ export default function DashboardPage() {
   const [intelligence, setIntelligence] = useState<MarketingIntelligenceBrief | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasConnections, setHasConnections] = useState<boolean | null>(null)
+  const [socialAccounts, setSocialAccounts] = useState<any[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
   const [runStrategyOpen, setRunStrategyOpen] = useState(false)
   const [suggestionsKey, setSuggestionsKey] = useState(0)
@@ -266,8 +269,12 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch('/api/social/accounts', { headers: { Authorization: authHeader() } })
       .then(r => r.json())
-      .then(d => setHasConnections((d.accounts || []).length > 0))
-      .catch(() => setHasConnections(false))
+      .then(d => {
+        const accts = d.accounts || []
+        setSocialAccounts(accts)
+        setHasConnections(accts.length > 0)
+      })
+      .catch(() => { setSocialAccounts([]); setHasConnections(false) })
   }, [authHeader])
 
   useEffect(() => { load() }, [load])
@@ -457,6 +464,14 @@ export default function DashboardPage() {
               locale={locale}
             />
           )}
+
+          {/* ── Platform Readiness strip (Operator Foundation PR-1A) ── */}
+          <div className="mt-4">
+            <PlatformReadinessStrip
+              states={derivePlatformReadiness(socialAccounts)}
+              t={t as (k: string) => string}
+            />
+          </div>
 
           {/* ── First-Login Welcome Banner — brand-new users only ── */}
           {onboarding.showWelcome && !welcomeDismissed && (

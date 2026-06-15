@@ -9,6 +9,8 @@ import {
   CheckCircle2, AlertCircle, Loader2, Unplug, Plug, Sparkles,
   ExternalLink, ChevronRight, Shield, Zap, Globe, RefreshCw
 } from 'lucide-react'
+import PlatformReadinessPanel from '@/components/PlatformReadinessPanel'
+import { derivePlatformReadiness, type ReadinessAction } from '@/lib/platformReadiness'
 
 /* ═══════════════════════════════════════════════════════════════
    CONNECTIONS HUB — ربط منصات التسويق
@@ -354,6 +356,22 @@ export default function ConnectionsPage() {
           </div>
         )}
 
+        {/* ── Platform Readiness (Operator Foundation PR-1A) ──── */}
+        <div className="mb-8">
+          <PlatformReadinessPanel
+            states={derivePlatformReadiness(accounts as any)}
+            t={t as (k: string) => string}
+            onAction={(action: ReadinessAction) => {
+              if (action === 'connect-meta') return handleConnect('META')
+              if (action === 'connect-tiktok') return handleConnect('TIKTOK')
+              if (action === 'connect-linkedin') return handleConnect('LINKEDIN')
+              // select-page / link-instagram / review-setup / open-connections:
+              // controls live in the platform cards below — scroll the user to them.
+              document.getElementById('platform-cards')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+          />
+        </div>
+
         {/* ── Progress Summary ───────────────────────────────── */}
         <div
           className="flex items-center gap-5 p-5 mb-8 rounded-2xl"
@@ -409,7 +427,7 @@ export default function ConnectionsPage() {
         </div>
 
         {/* ── Platform Cards ─────────────────────────────────── */}
-        <div className="space-y-4">
+        <div id="platform-cards" className="space-y-4">
           {PLATFORMS.map((platform) => {
             const connectedAccount = accounts.find(a => a.platform === platform.id)
             const isConnected = !!connectedAccount
