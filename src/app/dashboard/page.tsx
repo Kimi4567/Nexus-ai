@@ -700,7 +700,7 @@ export default function DashboardPage() {
                   <div className="w-full sm:w-auto sm:min-w-[170px]">
                     <div className="flex items-end justify-between gap-3 mb-2">
                       <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
-                        {ar ? 'اكتمال ذاكرة العلامة' : 'Brand memory completeness'}
+                        {ar ? 'جاهزية نظام التسويق' : 'Marketing system readiness'}
                       </span>
                       <span className="text-2xl font-bold" style={{ color: '#06B6D4' }}>{intelligence.maturityScore}</span>
                     </div>
@@ -708,6 +708,11 @@ export default function DashboardPage() {
                       <div className="h-full rounded-full transition-all duration-700"
                         style={{ width: `${intelligence.maturityScore}%`, background: 'linear-gradient(90deg, #06B6D4, #8B5CF6)' }} />
                     </div>
+                    <p className="text-[10px] leading-snug mt-1.5" style={{ color: 'var(--nx-text-4)' }}>
+                      {ar
+                        ? 'مبني على إعداد البراند، نشاط الحملات، جاهزية المنصات، وتغطية التعلّم — وليس على نتائج الأداء.'
+                        : 'Based on your brand setup, campaign activity, platform readiness, and learning coverage — not performance results.'}
+                    </p>
                   </div>
                 </div>
 

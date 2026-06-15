@@ -583,7 +583,7 @@ function CalendarPageInner() {
               <span className="text-slate-600">Calendar</span>
             </div>
             <h1 className="text-3xl font-bold text-slate-950 mb-1">
-              {activeTab === 'timeline' ? 'Content Calendar' : 'Published Queue'}
+              {activeTab === 'timeline' ? 'Content Calendar' : 'Publishing Queue'}
             </h1>
             <p className="text-slate-500">
               {activeTab === 'timeline'
@@ -626,7 +626,7 @@ function CalendarPageInner() {
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-950'
             }`}>
-            📤 {locale === 'ar' ? 'قائمة النشر' : 'Published Queue'}
+            📤 {locale === 'ar' ? 'قائمة النشر' : 'Publishing Queue'}
             {scheduled.length > 0 && (
               <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(15,23,42,0.12)', color: 'inherit' }}>
                 {scheduled.length}
@@ -665,7 +665,7 @@ function CalendarPageInner() {
             <div className="grid grid-cols-3 gap-3 mb-3">
               {[
                 { label: 'Posts This Month', value: calStats.total,     color: 'text-slate-950'  },
-                { label: 'Active Campaigns', value: calStats.campaigns,  color: 'text-indigo-600' },
+                { label: 'Campaigns this month', value: calStats.campaigns,  color: 'text-indigo-600' },
                 { label: 'Platforms',        value: calStats.platforms,  color: 'text-amber-600'  },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
