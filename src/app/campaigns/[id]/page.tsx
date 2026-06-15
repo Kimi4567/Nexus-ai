@@ -1693,7 +1693,7 @@ function CampaignDetailPageInner() {
                       <span className="text-lg flex-shrink-0">🔎</span>
                       <div>
                         <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1">{cdT?.sectionDiagnosis || 'Marketing Diagnosis'}</p>
-                        <p className="text-gray-200 text-sm leading-relaxed">{strategy.diagnosis}</p>
+                        <p className="text-gray-700 text-sm leading-relaxed">{strategy.diagnosis}</p>
                       </div>
                     </div>
                     {diagnosisDetails && (
@@ -1733,7 +1733,7 @@ function CampaignDetailPageInner() {
                       ].filter(item => item.value).map((item, i) => (
                         <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
                           <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.icon} {item.label}</p>
-                          <p className="text-sm text-gray-200 leading-snug">{item.value}</p>
+                          <p className="text-sm text-gray-800 leading-snug">{item.value}</p>
                         </div>
                       ))}
                     </div>
@@ -1764,13 +1764,13 @@ function CampaignDetailPageInner() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {strategy.positioning && (
                       <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>🎯</span> {cdT?.sectionPositioning || 'Positioning'}</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>🎯</span> {cdT?.sectionPositioning || 'Positioning'}</p>
                         <p className="text-gray-300 text-sm leading-relaxed">{strategy.positioning}</p>
                       </div>
                     )}
                     {strategy.differentiation && (
                       <div className="rounded-2xl p-4" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</p>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5"><span>⚡</span> {cdT?.sectionDifferentiation || 'Differentiation'}</p>
                         <p className="text-gray-300 text-sm leading-relaxed">{strategy.differentiation}</p>
                       </div>
                     )}
@@ -3005,7 +3005,7 @@ function CampaignDetailPageInner() {
                       </p>
                     </div>
                   </div>
-                  <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+                  <p className="text-[11px] mb-4 nx-trust-note">
                     {locale === 'ar'
                       ? 'للتخطيط فقط — لن تُطلق أي إعلانات ولن يُصرف أي مبلغ دون موافقة صريحة.'
                       : 'Planning only — ads will not launch and no budget will be spent without explicit approval.'}
@@ -3131,8 +3131,8 @@ function CampaignDetailPageInner() {
                     )}
                   </div>
 
-                  {/* Trust contract — always visible (enabled or not) */}
-                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                  {/* Trust contract — always visible (enabled or not). Light-lavender card → darken (not on-dark muted). */}
+                  <p className="text-[11px] text-gray-700 leading-relaxed">
                     {locale === 'ar'
                       ? 'ينشر الأوتوبايلوت المحتوى الذي وافقتَ عليه فقط، وفق الجدول الذي اعتمدته، بعد تفعيلك الصريح له. بدون أي إنفاق إعلاني. يمكنك الإيقاف في أي وقت.'
                       : 'Autopilot only publishes content you approved, on the schedule you approved, after you explicitly enable it. No ad spend. Pause anytime.'}

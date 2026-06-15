@@ -35,6 +35,12 @@
     --nx-text-3: #6B7280;
     --nx-text-4: #9CA3AF;
 
+    /* ── Dark-surface readability (PR-2C2A) ── */
+    --nx-card-dark:          rgba(17,24,39,0.55);
+    --nx-border-dark:        rgba(255,255,255,0.08);
+    --nx-text-on-dark:       #E5E7EB;
+    --nx-text-on-dark-muted: #9CA3AF;
+
     /* ── Glows ── */
     --glow-violet-sm:  0 8px 24px rgba(94, 92, 230, 0.10);
     --glow-violet-md:  0 14px 34px rgba(94, 92, 230, 0.12);
@@ -259,6 +265,12 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--nx-text-3);
+  }
+
+  /* ── Trust / safety note (PR-2C2A) — readable small print on dark ── */
+  .nx-trust-note {
+    color: var(--nx-text-on-dark-muted);
+    line-height: 1.55;
   }
 
   /* ── Agent card ────────────────────────────────────────────── */
