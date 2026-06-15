@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 import AppShell from '@/components/AppShell'
 import ReferralWidget from '@/components/ReferralWidget'
+import { getPlanDisplayName, formatCreditDisplay } from '@/lib/creditDisplay'
 import {
   Settings, Shield, Bell, Globe, Palette, KeyRound,
   LogOut, ChevronLeft, Check, AlertTriangle, User,
@@ -416,11 +417,10 @@ export default function SettingsPage() {
                                 border: '1px solid rgba(5,150,105,0.15)',
                               }}
                             >
-                              {billingStatus.hasActiveSubscription
-                                ? (billingStatus.plan
-                                    ? billingStatus.plan.charAt(0).toUpperCase() + billingStatus.plan.slice(1)
-                                    : (locale === 'ar' ? 'مشترك' : 'Subscribed'))
-                                : (locale === 'ar' ? 'مجاني' : 'Free')}
+                              {getPlanDisplayName(
+                                billingStatus.hasActiveSubscription ? billingStatus.plan : 'free',
+                                locale,
+                              )}
                             </span>
                           )}
                         </div>
@@ -743,17 +743,23 @@ export default function SettingsPage() {
                         <Sparkles className="w-5 h-5 text-violet-700" />
                       </div>
                       <div>
-                        <div className="font-bold text-slate-950 capitalize">
+                        <div className="font-bold text-slate-950">
+                          {/* PR-1H: same source as /billing (/api/billing/status).
+                              Never a hardcoded "Free"/"Pro" — 'pro' = Growth, and
+                              while loading we show a neutral placeholder, not Free. */}
                           {billingStatus
-                            ? (billingStatus.hasActiveSubscription
-                                ? (billingStatus.plan === 'pro' ? (locale === 'ar' ? 'برو' : 'Pro') : locale === 'ar' ? 'بيزنس' : 'Business')
-                                : (locale === 'ar' ? 'مجاني' : 'Free'))
-                            : (locale === 'ar' ? 'مجاني' : 'Free')}
+                            ? getPlanDisplayName(
+                                billingStatus.hasActiveSubscription ? billingStatus.plan : 'free',
+                                locale,
+                              )
+                            : '—'}
                         </div>
                         <div className="text-sm text-slate-500">
-                          {billingStatus?.hasActiveSubscription
-                            ? (locale === 'ar' ? 'اشتراك نشط — أرصدة تتجدد شهرياً' : 'Active subscription — credits renew monthly')
-                            : (locale === 'ar' ? 'مجاني — 20 رصيد مرة واحدة' : 'Free — 20 one-time credits')}
+                          {!billingStatus
+                            ? (locale === 'ar' ? 'جارٍ تحميل حالة الاشتراك…' : 'Loading subscription…')
+                            : billingStatus.hasActiveSubscription
+                              ? (locale === 'ar' ? 'اشتراك نشط — أرصدة تتجدد شهرياً' : 'Active subscription — credits renew monthly')
+                              : (locale === 'ar' ? 'مجاني — أرصدة لمرة واحدة' : 'Free — one-time credits')}
                         </div>
                       </div>
                     </div>
@@ -765,39 +771,52 @@ export default function SettingsPage() {
                         border: billingStatus?.hasActiveSubscription ? '1px solid rgba(5,150,105,0.15)' : '1px solid rgba(109,40,217,0.15)',
                       }}
                     >
-                      {billingStatus?.hasActiveSubscription ? t('settings.activeStatus') : (locale === 'ar' ? 'مجاني' : 'Free')}
+                      {!billingStatus
+                        ? '…'
+                        : billingStatus.hasActiveSubscription
+                          ? t('settings.activeStatus')
+                          : (locale === 'ar' ? 'مجاني' : 'Free')}
                     </span>
                   </div>
 
-                  {/* Credits bar */}
-                  <div className="space-y-3 mb-6">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-slate-500 w-28 text-right">
-                        {locale === 'ar' ? 'الأرصدة المتبقية' : 'Credits left'}
-                      </span>
-                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
-                        {(() => {
-                          const rem = billingStatus?.credits?.remaining ?? 0
-                          const max = billingStatus?.credits?.max ?? 20
-                          const pct = max > 0 ? Math.min(100, Math.round((rem / max) * 100)) : 0
-                          return (
+                  {/* Credits bar — honest, overflow-safe display (PR-1H).
+                      Same formatter as /billing: when balance exceeds the monthly
+                      grant we show "N credits" + a rollover/bonus note instead of a
+                      misleading "172 / 150". Monthly grant only applies to active
+                      paid plans (free credits are one-time, no denominator). */}
+                  {(() => {
+                    const creditDisp = formatCreditDisplay({
+                      availableCredits: billingStatus?.credits?.remaining ?? 0,
+                      monthlyCredits: billingStatus?.hasActiveSubscription
+                        ? (billingStatus?.credits?.max ?? 0)
+                        : 0,
+                      locale,
+                    })
+                    return (
+                      <div className="space-y-2 mb-6">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-slate-500 w-28 text-right">
+                            {locale === 'ar' ? 'الأرصدة المتبقية' : 'Credits left'}
+                          </span>
+                          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
                             <div
                               className="h-full rounded-full transition-all"
                               style={{
-                                width: `${pct}%`,
-                                background: pct <= 20 ? '#ef4444' : '#5E5CE6',
+                                width: `${creditDisp.percent}%`,
+                                background: creditDisp.percent <= 20 ? '#ef4444' : '#5E5CE6',
                               }}
                             />
-                          )
-                        })()}
+                          </div>
+                          <span className="text-xs text-slate-600 min-w-16 text-left whitespace-nowrap">
+                            {billingStatus ? creditDisp.primary : '—'}
+                          </span>
+                        </div>
+                        {billingStatus && creditDisp.secondary && (
+                          <p className="text-[11px] text-slate-400 leading-snug ms-28 ps-3">{creditDisp.secondary}</p>
+                        )}
                       </div>
-                      <span className="text-xs text-slate-600 w-16 text-left">
-                        {billingStatus
-                          ? `${billingStatus.credits.remaining} / ${billingStatus.credits.max === -1 ? '∞' : billingStatus.credits.max}`
-                          : '— / 20'}
-                      </span>
-                    </div>
-                  </div>
+                    )
+                  })()}
 
                   <Link
                     href="/billing"

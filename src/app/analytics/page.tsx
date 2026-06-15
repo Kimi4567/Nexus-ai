@@ -13,6 +13,7 @@ import {
   BrainCircuit, RefreshCw
 } from 'lucide-react'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
+import { formatCreditDisplay } from '@/lib/creditDisplay'
 
 /* ═══════════════════════════════════════════════════════════════
    PULSE — Analytics & Market Intelligence
@@ -315,11 +316,13 @@ export default function PulsePage() {
       ? `${overview.creditsRemaining} ${ar ? 'متبقي' : 'left'}`
       : '—'
 
-  const creditSub = overview?.isUnlimited
-    ? `${overview.creditsUsedThisMonth} ${ar ? 'هذا الشهر' : 'used this month'}`
-    : overview
-      ? `${overview.creditsUsedThisMonth} / ${overview.monthlyTotal} ${ar ? 'مستخدم' : 'used'}`
-      : ''
+  // PR-1H: "used this month" is real ledger spend and can legitimately exceed the
+  // monthly grant when the user has rollover/bonus credits. Never frame it as
+  // "159 / 150" (reads like an error). Show it as a standalone "used this month"
+  // figure; the monthly quota + over-grant explanation live in the detail row below.
+  const creditSub = overview
+    ? `${overview.creditsUsedThisMonth} ${ar ? 'مستخدم هذا الشهر' : 'used this month'}`
+    : ''
 
   return (
     <AppShell>
@@ -416,26 +419,46 @@ export default function PulsePage() {
                 loading={dataLoading}
               />
               {overview && !dataLoading && (
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <div className="text-xs text-slate-500">
-                    {ar
-                      ? `${overview.creditsUsedThisMonth} رصيد مستخدم هذا الشهر`
-                      : `${overview.creditsUsedThisMonth} credits used this month`}
-                  </div>
-                  {!overview.isUnlimited && (
-                    <div className="flex-1 max-w-32 mx-4">
-                      <CreditBar
-                        used={overview.creditsUsedThisMonth}
-                        total={overview.monthlyTotal}
-                        isUnlimited={false}
-                      />
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-slate-500">
+                      {ar
+                        ? `${overview.creditsUsedThisMonth} رصيد مستخدم هذا الشهر`
+                        : `${overview.creditsUsedThisMonth} credits used this month`}
                     </div>
-                  )}
-                  <Link href="/billing"
-                    className="text-xs font-semibold transition-all hover:brightness-125"
-                    style={{ color: pulseColor }}>
-                    {ar ? 'ترقية ←' : 'Upgrade →'}
-                  </Link>
+                    {!overview.isUnlimited && (
+                      <div className="flex-1 max-w-32 mx-4">
+                        <CreditBar
+                          used={overview.creditsUsedThisMonth}
+                          total={overview.monthlyTotal}
+                          isUnlimited={false}
+                        />
+                      </div>
+                    )}
+                    <Link href="/billing"
+                      className="text-xs font-semibold transition-all hover:brightness-125"
+                      style={{ color: pulseColor }}>
+                      {ar ? 'ترقية ←' : 'Upgrade →'}
+                    </Link>
+                  </div>
+                  {/* PR-1H: clarify the four distinct numbers — remaining, used this
+                      month, monthly quota — and explain over-grant balances instead
+                      of presenting them as a contradiction. */}
+                  {!overview.isUnlimited && (() => {
+                    const disp = formatCreditDisplay({
+                      availableCredits: overview.creditsRemaining,
+                      monthlyCredits: overview.monthlyTotal,
+                      locale: ar ? 'ar' : 'en',
+                    })
+                    return (
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        {ar
+                          ? `${overview.creditsRemaining} متبقي · حصة الخطة ${overview.monthlyTotal} رصيد/شهر`
+                          : `${overview.creditsRemaining} remaining · plan quota ${overview.monthlyTotal} credits/month`}
+                        {disp.secondary ? ` — ${disp.secondary}` : ''}
+                      </p>
+                    )
+                  })()}
                 </div>
               )}
             </div>

@@ -43,6 +43,37 @@ function safeInt(n: number | null | undefined): number {
   return Math.max(0, Math.trunc(n))
 }
 
+/**
+ * Canonical plan display name — ONE source of truth for the human-facing plan
+ * label across every surface (Billing, Settings, Sidebar, Dashboard, Analytics).
+ *
+ * Input is the plan identifier returned by /api/billing/status (lowercase id:
+ * 'free' | 'starter' | 'pro' | 'business'; legacy aliases 'growth'/'agency'/
+ * 'active' accepted). The internal Stripe id 'pro' is the GROWTH plan and must
+ * NEVER be shown to users as "Pro". Unknown ids fall back to a capitalized form
+ * rather than a misleading hardcoded "Free".
+ *
+ * Pure + display-only: never reads or mutates credits, balances, or Stripe.
+ */
+const PLAN_NAMES: Record<string, { en: string; ar: string }> = {
+  free:     { en: 'Free',    ar: 'مجاني' },
+  starter:  { en: 'Starter', ar: 'ستارتر' },
+  pro:      { en: 'Growth',  ar: 'جروث' },   // internal Stripe id 'pro' = Growth
+  growth:   { en: 'Growth',  ar: 'جروث' },
+  business: { en: 'Agency',  ar: 'وكالة' },
+  agency:   { en: 'Agency',  ar: 'وكالة' },
+  active:   { en: 'Growth',  ar: 'جروث' },   // legacy status fallback → Growth tier
+}
+
+export function getPlanDisplayName(plan: string | null | undefined, locale?: string): string {
+  const ar = (locale || '').toLowerCase().startsWith('ar')
+  const id = (plan ?? 'free').toString().trim().toLowerCase()
+  const match = PLAN_NAMES[id]
+  if (match) return ar ? match.ar : match.en
+  // Unknown id → capitalize, never silently coerce to "Free".
+  return id ? id.charAt(0).toUpperCase() + id.slice(1) : (ar ? 'مجاني' : 'Free')
+}
+
 export function formatCreditDisplay(input: CreditDisplayInput): CreditDisplay {
   const { availableCredits, monthlyCredits, compact = false } = input
   const ar = (input.locale || '').toLowerCase().startsWith('ar')
