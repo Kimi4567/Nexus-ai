@@ -3139,7 +3139,7 @@ export const translations: Record<Locale, Record<string, any>> = {
           instagramNotConnected: 'Not connected yet.',
           tiktokUnverified: 'Connected, but publishing permission is not verified yet.',
           tiktokNotConnected: 'Not connected yet.',
-          linkedinUnverified: 'Connected, but publishing is not verified yet.',
+          linkedinUnverified: 'Connected, but publishing permission is not verified yet.',
           linkedinNotConnected: 'Not connected yet.',
           googleNotAvailable: 'Not available yet.',
           snapchatNotAvailable: 'Not available yet.',
