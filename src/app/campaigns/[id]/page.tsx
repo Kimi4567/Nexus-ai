@@ -887,7 +887,7 @@ function CampaignDetailPageInner() {
     <>
     <AppShell>
       <AIPresenceBar authHeader={authHeader} />
-      <div className="max-w-5xl mx-auto px-6 py-8 page-enter">
+      <div className="max-w-[1200px] mx-auto px-6 py-8 page-enter">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <Link href="/dashboard" className="hover:text-white transition">{cdT?.breadcrumbHome}</Link>
@@ -1693,7 +1693,7 @@ function CampaignDetailPageInner() {
                       <span className="text-lg flex-shrink-0">🔎</span>
                       <div>
                         <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1">{cdT?.sectionDiagnosis || 'Marketing Diagnosis'}</p>
-                        <p className="text-gray-700 text-sm leading-relaxed">{strategy.diagnosis}</p>
+                        <p className="text-gray-700 text-sm leading-relaxed max-w-[72ch]">{strategy.diagnosis}</p>
                       </div>
                     </div>
                     {diagnosisDetails && (
@@ -1844,7 +1844,7 @@ function CampaignDetailPageInner() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-300 text-sm">{strategy.estimatedResults}</p>
+                      <p className="text-gray-300 text-sm max-w-[72ch]">{strategy.estimatedResults}</p>
                     )}
                   </div>
                 )}
@@ -2046,7 +2046,7 @@ function CampaignDetailPageInner() {
                     <h3 className="font-bold text-sm mb-2 flex items-center gap-2 text-purple-400">
                       {cdT?.sectionVisualDirection || 'Visual Direction'}
                     </h3>
-                    <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
+                    <p className="text-gray-300 text-sm leading-relaxed max-w-[72ch]">{strategy.visualDirection}</p>
                   </div>
                 )}
 
