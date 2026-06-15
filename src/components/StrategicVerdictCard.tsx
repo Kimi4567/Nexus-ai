@@ -31,6 +31,15 @@ export interface VerdictInput {
 
 const L = (lo: string, en: string, ar: string) => (lo === 'ar' ? ar : en)
 
+/** Join a list with a natural "A, B, and C" (Oxford) / "A، B، وC" in Arabic. */
+function joinAnd(parts: string[], lo: string): string {
+  if (parts.length <= 1) return parts[0] || ''
+  if (parts.length === 2) return L(lo, `${parts[0]} and ${parts[1]}`, `${parts[0]} و${parts[1]}`)
+  const head = parts.slice(0, -1).join(L(lo, ', ', '، '))
+  const last = parts[parts.length - 1]
+  return L(lo, `${head}, and ${last}`, `${head}، و${last}`)
+}
+
 const FALLBACK = (lo: string) =>
   L(lo,
     'Strategy direction is available, but more Brand Brain data is needed to make it sharper.',
@@ -80,7 +89,7 @@ export function deriveStrategicVerdict(input: VerdictInput): { text: string; isF
   if (input.confidenceReport && !paidReady) {
     const needs = missingPaidPrereqs(lo, input.missingDataKeys || [])
     const needsTxt = needs.length
-      ? needs.join(L(lo, ', ', '، '))
+      ? joinAnd(needs, lo)
       : L(lo, 'more data', 'بيانات إضافية')
     paidClause = L(lo,
       ` — paid planning needs ${needsTxt} before activation`,

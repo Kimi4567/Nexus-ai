@@ -36,6 +36,8 @@ describe('deriveStrategicVerdict', () => {
     expect(text).toMatch(/Anxious Patients/)
     expect(text).toMatch(/Abu Dhabi/)
     expect(text).toMatch(/before activation/i)
+    // Oxford "and" before the final paid prerequisite (copy polish).
+    expect(text).toMatch(/budget, conversion data, and tracking/)
   })
 
   it('sparse input returns the calm fallback', () => {
