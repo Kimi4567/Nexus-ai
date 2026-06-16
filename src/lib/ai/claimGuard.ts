@@ -121,3 +121,39 @@ export function buildClaimWarnings(result: ClaimScanResult): string[] {
     f => `Unsupported claim — needs evidence before it can be used (${claimCategoryLabel(f.category)}): "${f.match}"`,
   )
 }
+
+// ── PR-1K.1 — scheduled-post claim risk (display-only view model) ────────────────
+// Reuses detectUnsupportedClaims to flag a single post's visible text fields so the
+// UI can show a read-only "Needs evidence" warning before a scheduled post publishes.
+// Pure: scans only the text passed in; never mutates or persists anything.
+
+export interface PostLikeForClaims {
+  caption?: string | null
+  hook?: string | null
+  cta?: string | null
+  adCopy?: string | null
+  title?: string | null
+}
+
+export interface PostClaimRisk {
+  /** true when any visible text field contains an unsupported claim */
+  hasUnsupportedClaims: boolean
+  /** distinct claim categories found (for optional UI detail) */
+  categories: ClaimCategory[]
+}
+
+/**
+ * Display-only risk summary for a single scheduled/pending post. Scans the post's
+ * visible text fields (caption/hook/cta/adCopy/title) — no data is changed.
+ */
+export function getPostClaimRisk(post: PostLikeForClaims | null | undefined): PostClaimRisk {
+  const scan = detectUnsupportedClaims([
+    post?.caption,
+    post?.hook,
+    post?.cta,
+    post?.adCopy,
+    post?.title,
+  ])
+  const categories = Array.from(new Set(scan.findings.map(f => f.category)))
+  return { hasUnsupportedClaims: scan.hasUnsupportedClaims, categories }
+}

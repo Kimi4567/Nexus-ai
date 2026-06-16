@@ -4,7 +4,7 @@
  * soft capability language must stay allowed; hard unsourced claims must be flagged.
  */
 import { describe, it, expect } from 'vitest'
-import { detectUnsupportedClaims, buildClaimWarnings } from '@/lib/ai/claimGuard'
+import { detectUnsupportedClaims, buildClaimWarnings, getPostClaimRisk } from '@/lib/ai/claimGuard'
 
 const cats = (text: string) =>
   detectUnsupportedClaims(text).findings.map(f => f.category)
@@ -99,5 +99,52 @@ describe('detectUnsupportedClaims (PR-1K)', () => {
     expect(warnings.length).toBeGreaterThan(0)
     expect(warnings.every(w => /needs evidence/i.test(w))).toBe(true)
     expect(warnings.some(w => w.includes('30%'))).toBe(true)
+  })
+})
+
+describe('getPostClaimRisk (PR-1K.1 — scheduled-post warning view-model)', () => {
+  it('flags a scheduled post caption with "30% productivity gain"', () => {
+    const r = getPostClaimRisk({ caption: "Boost your startup's productivity by 30%!" })
+    expect(r.hasUnsupportedClaims).toBe(true)
+    expect(r.categories).toContain('percentage')
+  })
+
+  it('flags a performance claim ("boost sales") in a caption', () => {
+    const r = getPostClaimRisk({ caption: 'We boost sales for SMEs' })
+    expect(r.hasUnsupportedClaims).toBe(true)
+    expect(r.categories).toContain('performance')
+  })
+
+  it('flags "Increase sales by 25%"', () => {
+    expect(getPostClaimRisk({ caption: 'Increase sales by 25% this month' }).hasUnsupportedClaims).toBe(true)
+  })
+
+  it('flags "Trusted by thousands"', () => {
+    const r = getPostClaimRisk({ caption: 'Trusted by thousands of customers' })
+    expect(r.hasUnsupportedClaims).toBe(true)
+    expect(r.categories).toContain('socialProof')
+  })
+
+  it('does NOT flag a safe post ("Designed to help teams save time")', () => {
+    const r = getPostClaimRisk({ caption: 'Designed to help teams save time' })
+    expect(r.hasUnsupportedClaims).toBe(false)
+    expect(r.categories).toEqual([])
+  })
+
+  it('scans hook/cta/title fields too, not just caption', () => {
+    expect(getPostClaimRisk({ caption: 'A friendly intro', hook: 'Guaranteed results' }).hasUnsupportedClaims).toBe(true)
+    expect(getPostClaimRisk({ cta: 'Join thousands of users' }).hasUnsupportedClaims).toBe(true)
+  })
+
+  it('empty / missing post text returns no warning', () => {
+    expect(getPostClaimRisk({}).hasUnsupportedClaims).toBe(false)
+    expect(getPostClaimRisk(null).hasUnsupportedClaims).toBe(false)
+    expect(getPostClaimRisk({ caption: '', hook: null }).hasUnsupportedClaims).toBe(false)
+  })
+
+  it('returns only display-only metadata (no text/data mutation surface)', () => {
+    const r = getPostClaimRisk({ caption: '30% off productivity gains guaranteed' })
+    expect(Object.keys(r).sort()).toEqual(['categories', 'hasUnsupportedClaims'])
+    expect(Array.isArray(r.categories)).toBe(true)
   })
 })

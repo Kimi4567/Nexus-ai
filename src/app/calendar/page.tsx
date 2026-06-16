@@ -9,6 +9,7 @@ import { useSearchParams } from 'next/navigation'
 import { deriveDisplayState, statusLabelKey } from '@/lib/postStatus'
 import { isAutoPublished } from '@/lib/postVisibility'
 import { getPublishingStateSummary } from '@/lib/contentCounts'
+import { getPostClaimRisk } from '@/lib/ai/claimGuard'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1077,6 +1078,20 @@ function CalendarPageInner() {
                           </span>
                         </div>
                         <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>
+                        {/* PR-1K.1 — read-only claim-safety warning. Display only: never
+                            edits, cancels, unschedules, or blocks publishing. Reuses the
+                            shared detectUnsupportedClaims() guard via getPostClaimRisk(). */}
+                        {getPostClaimRisk(post).hasUnsupportedClaims && (
+                          <div
+                            className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md mb-2"
+                            style={{ background: 'rgba(234,179,8,0.12)', color: '#92400e', border: '1px solid rgba(234,179,8,0.3)' }}
+                            title={locale === 'ar'
+                              ? 'هذا المنشور المجدول يحتوي على ادعاء قد يحتاج إلى إثبات قبل النشر.'
+                              : 'This scheduled post contains a claim that may need proof before publishing.'}
+                          >
+                            ⚠️ {locale === 'ar' ? 'يحتاج إلى دليل' : 'Needs evidence'}
+                          </div>
+                        )}
                         <div className="flex items-center gap-3 text-xs text-slate-400">
                           <span>🕐 {formatDate(post.scheduledAt)}</span>
                           <span className="text-accent font-medium">
