@@ -3,7 +3,7 @@
  * Pure formatter — never shows numerator > denominator; percent clamps 0..100.
  */
 import { describe, it, expect } from 'vitest'
-import { formatCreditDisplay } from '@/lib/creditDisplay'
+import { formatCreditDisplay, getPlanDisplayName } from '@/lib/creditDisplay'
 
 describe('formatCreditDisplay', () => {
   // 1. Normal: 87 / 150
@@ -97,5 +97,54 @@ describe('formatCreditDisplay', () => {
     expect(r.primary).toBe('86 / 150 credits available this month')
     const neg = formatCreditDisplay({ availableCredits: -5 as number, monthlyCredits: 150 })
     expect(neg.primary).toBe('0 / 150 credits available this month')
+  })
+})
+
+describe('getPlanDisplayName (PR-1H — one plan-name truth)', () => {
+  // The internal Stripe id 'pro' is the GROWTH plan — must never surface as "Pro".
+  it('maps the internal "pro" id to Growth, never "Pro"', () => {
+    expect(getPlanDisplayName('pro', 'en')).toBe('Growth')
+    expect(getPlanDisplayName('pro', 'en')).not.toBe('Pro')
+    expect(getPlanDisplayName('pro', 'ar')).toBe('جروث')
+  })
+
+  it('maps "business" to Agency', () => {
+    expect(getPlanDisplayName('business', 'en')).toBe('Agency')
+    expect(getPlanDisplayName('business', 'ar')).toBe('وكالة')
+  })
+
+  it('maps free + starter consistently', () => {
+    expect(getPlanDisplayName('free', 'en')).toBe('Free')
+    expect(getPlanDisplayName('free', 'ar')).toBe('مجاني')
+    expect(getPlanDisplayName('starter', 'en')).toBe('Starter')
+  })
+
+  it('accepts legacy aliases (growth/agency/active) → same names', () => {
+    expect(getPlanDisplayName('growth', 'en')).toBe('Growth')
+    expect(getPlanDisplayName('agency', 'en')).toBe('Agency')
+    expect(getPlanDisplayName('active', 'en')).toBe('Growth')
+  })
+
+  it('is case/whitespace insensitive', () => {
+    expect(getPlanDisplayName('  PRO ', 'en')).toBe('Growth')
+    expect(getPlanDisplayName('Business', 'en')).toBe('Agency')
+  })
+
+  // The SAME id renders the SAME name regardless of which surface calls it.
+  it('returns one identical name across surfaces for the same plan id', () => {
+    const billing = getPlanDisplayName('pro', 'en')
+    const settings = getPlanDisplayName('pro', 'en')
+    const sidebar = getPlanDisplayName('pro', 'en')
+    expect(new Set([billing, settings, sidebar]).size).toBe(1)
+    expect(billing).toBe('Growth')
+  })
+
+  it('null/undefined fall back to Free without crashing (callers gate on load)', () => {
+    expect(getPlanDisplayName(null, 'en')).toBe('Free')
+    expect(getPlanDisplayName(undefined, 'ar')).toBe('مجاني')
+  })
+
+  it('unknown id capitalizes rather than silently becoming "Free"', () => {
+    expect(getPlanDisplayName('enterprise', 'en')).toBe('Enterprise')
   })
 })
