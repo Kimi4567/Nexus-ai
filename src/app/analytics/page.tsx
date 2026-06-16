@@ -394,9 +394,9 @@ export default function PulsePage() {
             />
             <MetricCard
               icon={BrainCircuit}
-              label={ar ? 'المسودات المُولّدة' : 'Drafts generated'}
+              label={ar ? 'إجمالي التوليدات بالذكاء الاصطناعي' : 'AI generations (all-time)'}
               value={dataLoading ? '—' : (overview?.generations ?? 0)}
-              sub={overview && !dataLoading ? (ar ? 'إجمالي الحملات' : 'across all campaigns') : undefined}
+              sub={overview && !dataLoading ? (ar ? 'جميع الوكلاء · كل الوقت' : 'All agents · all-time') : undefined}
               color="#06b6d4"
               href="/campaigns"
               loading={dataLoading}
