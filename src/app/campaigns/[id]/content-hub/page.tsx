@@ -332,10 +332,16 @@ export default function ContentHubPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Generation failed')
-      const abInfo = data.summary?.abTesting?.enabled
-        ? ` · ${data.summary.abTesting.bVariants} B variants`
-        : ''
-      setSuccessMsg(`Content plan created: ${data.summary.total} posts ready for review${abInfo}`)
+      // PR-1J.2: summary.total = base posts; A/B variants are added on top. Show the
+      // honest math (base + variants = drafts) so "18" and "36" never look contradictory.
+      // "drafts to review" — not "ready for review" — since they still need approval.
+      const bVariants = data.summary?.abTesting?.enabled ? (data.summary.abTesting.bVariants ?? 0) : 0
+      const totalDrafts = (data.summary?.total ?? 0) + bVariants
+      setSuccessMsg(
+        bVariants > 0
+          ? `Content plan created: ${data.summary.total} base posts + ${bVariants} A/B variants = ${totalDrafts} drafts to review`
+          : `Content plan created: ${data.summary.total} drafts to review`,
+      )
       await loadData()
     } catch (err: any) {
       setError(err.message)
@@ -713,11 +719,19 @@ export default function ContentHubPage() {
               ← {campaign.name}
             </button>
             <h1 className="text-2xl font-bold text-slate-950">{t('contentHub.title')}</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {posts.length > 0
-                ? `${posts.length} ${t('contentHub.posts')} · ${doneCount} ${t('contentHub.imagesReady')} · ${posts.filter(p => p.isVideoPost).length} ${t('contentHub.videoSlots')}`
-                : t('contentHub.generatePrompt')}
-            </p>
+            {/* PR-1J.2 — every count labeled distinctly so 36/32/4/done can't read as
+                a contradiction: 36 drafts (incl. A/B variants) = 32 image slots + 4
+                video slots; "visuals generated" tracks generation progress separately. */}
+            {posts.length > 0 ? (
+              <>
+                <p className="text-sm text-slate-500 mt-0.5">
+                  {`${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${posts.filter(p => p.isVideoPost).length} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`}
+                </p>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">{t('contentHub.countExplainer')}</p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500 mt-0.5">{t('contentHub.generatePrompt')}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">

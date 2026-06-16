@@ -95,9 +95,15 @@ export const translations: Record<Locale, Record<string, any>> = {
       posts: 'منشور',
       imagesReady: 'صورة جاهزة',
       videoSlots: 'خانة فيديو',
+      // PR-1J.2 — تسميات أعداد صادقة (دون تغيير البيانات). 36 = كل المسودات القابلة
+      // للمراجعة (منشورات أساسية + نسخ A/B)؛ 32 = خانات صور؛ 4 = خانات فيديو.
+      draftsToReview: 'مسودة للمراجعة',
+      imageSlots: 'خانة صورة',
+      visualsGenerated: 'عنصر مرئي مولّد',
+      countExplainer: 'تشمل المسودات نسخ A/B. خانات الصور والفيديو أماكن مخصّصة — تُولّد العناصر المرئية لاحقاً ولم تُنشأ بعد.',
       generatePrompt: 'أنشئ خطة المحتوى الشهرية',
       approving: 'جارٍ الاعتماد...',
-      approveAll: 'اعتماد الكل',
+      approveAll: 'اعتماد كل المسودات',
       scheduling: 'جارٍ الجدولة...',
       scheduleAll: 'جدولة الكل',
       postsApproved: 'منشورات تم اعتمادها!',
@@ -2139,9 +2145,15 @@ export const translations: Record<Locale, Record<string, any>> = {
       posts: 'posts',
       imagesReady: 'images ready',
       videoSlots: 'video slots',
+      // PR-1J.2 — honest count labels (no data change). 36 = all reviewable drafts
+      // (base posts + A/B variants); 32 = image slots; 4 = video slots.
+      draftsToReview: 'drafts to review',
+      imageSlots: 'image slots',
+      visualsGenerated: 'visuals generated',
+      countExplainer: 'Drafts include A/B variants. Image and video slots are placeholders — visuals are generated separately, not created yet.',
       generatePrompt: 'Generate your monthly content plan',
       approving: 'Approving…',
-      approveAll: 'Approve All',
+      approveAll: 'Approve all drafts',
       scheduling: 'Scheduling…',
       scheduleAll: 'Schedule All',
       postsApproved: 'posts approved!',

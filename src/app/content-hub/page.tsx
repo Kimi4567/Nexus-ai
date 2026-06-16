@@ -213,8 +213,11 @@ export default function ContentHubPage() {
                     {/* Progress bar */}
                     {c.totalPosts > 0 && (
                       <div className="mb-3">
+                        {/* PR-1J.2: denominator is ALL drafts (image + video slots),
+                            so label it "visuals generated", not "images" — 4 of these
+                            are video slots, so "images 0/36" was inaccurate. */}
                         <div className="flex items-center justify-between text-xs text-text-muted mb-1">
-                          <span>{isAr ? 'الصور المولّدة' : 'Images generated'}</span>
+                          <span>{isAr ? 'العناصر المرئية المولّدة' : 'Visuals generated'}</span>
                           <span>{c.donePosts}/{c.totalPosts}</span>
                         </div>
                         <div className="h-1.5 rounded-full overflow-hidden"
