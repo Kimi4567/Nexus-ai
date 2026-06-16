@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import AppShell from '@/components/AppShell'
 import { LayoutGrid, Loader2, ArrowRight, Image, CheckCircle2, Clock, AlertCircle, Plus } from 'lucide-react'
 
@@ -202,10 +203,18 @@ export default function ContentHubPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0 mr-2">
                         <p className="font-bold text-sm truncate">{c.name}</p>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          {c.platforms.slice(0, 3).join(' · ')}
-                          {c.platforms.length > 3 && ` +${c.platforms.length - 3}`}
-                        </p>
+                        {/* PR-1M: same normalized campaign.platforms list as Campaigns
+                            & Dashboard; honest "not set" instead of a blank/default. */}
+                        {(() => {
+                          const plat = getCampaignPlatformSummary(c.platforms, locale)
+                          return (
+                            <p className="text-xs text-text-muted mt-0.5">
+                              {plat.isEmpty
+                                ? plat.emptyLabel
+                                : plat.labels.slice(0, 3).join(' · ') + (plat.labels.length > 3 ? ` +${plat.labels.length - 3}` : '')}
+                            </p>
+                          )
+                        })()}
                       </div>
                       <StatusBadge done={c.donePosts} total={c.totalPosts} pending={c.pendingPosts} failed={c.failedPosts} />
                     </div>

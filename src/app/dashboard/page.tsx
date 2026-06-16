@@ -13,6 +13,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, getBrandReadinessCopy, BrandReadinessResult, BrandReadinessStatus } from '@/lib/brandReadiness'
+import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -911,7 +912,11 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate transition-colors" style={{ color: 'var(--nx-text-2)' }}>{c.name}</p>
-                          <p className="text-[11px] truncate" style={{ color: 'var(--nx-text-4)' }}>{c.platforms?.slice(0, 3).join(' · ') || '—'}</p>
+                          {/* PR-1M: same normalized campaign.platforms list as Campaigns & Content Hub. */}
+                          <p className="text-[11px] truncate" style={{ color: 'var(--nx-text-4)' }}>{(() => {
+                            const plat = getCampaignPlatformSummary(c.platforms, locale)
+                            return plat.isEmpty ? plat.emptyLabel : plat.labels.slice(0, 3).join(' · ')
+                          })()}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <NexusStatusDot color={si.color} size="xs" pulse={c.status === 'ACTIVE'} />

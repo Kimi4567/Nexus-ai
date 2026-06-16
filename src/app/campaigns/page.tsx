@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { resolveCampaignCounts, type CampaignCounts } from '@/lib/campaignSummary'
 import {
   FolderKanban, Plus, Megaphone, Search, Filter,
@@ -319,14 +320,22 @@ export default function CampaignsPage() {
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1">
-                          {(c.platforms || []).slice(0, 3).map((p, i) => (
-                            <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">{p}</span>
-                          ))}
-                          {c.platforms?.length > 3 && (
-                            <span className="text-xs text-text-muted">+{c.platforms.length - 3}</span>
-                          )}
-                        </div>
+                        {/* PR-1M: one normalized source (campaign.platforms) so this
+                            list matches Content Hub & Dashboard; honest "not set" empty state. */}
+                        {(() => {
+                          const plat = getCampaignPlatformSummary(c.platforms, locale)
+                          if (plat.isEmpty) return <span className="text-xs text-text-muted">{plat.emptyLabel}</span>
+                          return (
+                            <div className="flex items-center gap-1">
+                              {plat.labels.slice(0, 3).map((label, i) => (
+                                <span key={i} className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">{label}</span>
+                              ))}
+                              {plat.labels.length > 3 && (
+                                <span className="text-xs text-text-muted">+{plat.labels.length - 3}</span>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
 
                       <td className="px-6 py-4 text-sm text-text-secondary">
