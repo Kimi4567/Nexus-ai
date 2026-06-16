@@ -4,10 +4,12 @@ import { suggestRateLimitDb } from '@/lib/dbRateLimit'
 import {
   BANNED_PHRASES,
   SPECIFICITY_RULES,
+  UNSUPPORTED_CLAIMS_RULES,
   buildBrandContextBlock,
   type BrandContextData,
 } from '@/lib/ai/promptRules'
 import { checkAndDeductCredits } from '@/lib/credits'
+import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/brand/suggest
@@ -38,6 +40,8 @@ ${brandAnchor}
 ${BANNED_PHRASES}
 
 ${SPECIFICITY_RULES}
+
+${UNSUPPORTED_CLAIMS_RULES}
 
 CRITICAL INDUSTRY ALIGNMENT:
 You must stay 100% within the brand's actual industry. If the brand is in Real Estate, generate real estate content. If Fashion, generate fashion content. If Restaurants, generate restaurant content. Never bleed in marketing-tech, SaaS, or advertising-platform framing unless the brand explicitly operates in those sectors.
@@ -108,6 +112,16 @@ export async function POST(req: NextRequest) {
     const contextBlock = buildBrandContextBlock(brandData)
     const systemPrompt = buildSystemPrompt(contextBlock, brandName || undefined, industry || undefined)
 
+    // PR-G: anything the USER actually provided is allowed to keep its figures.
+    // Numbers/claims echoed from these are preserved by the truth guard; only
+    // model-invented metrics/proof get scrubbed.
+    const allowedClaims: string[] = [
+      description, primaryOffer, targetAudience, audienceLocation, pricePoint,
+      ...(Array.isArray(uniqueAdvantages) ? uniqueAdvantages : []),
+      ...(Array.isArray(toneKeywords) ? toneKeywords : []),
+      competitorNotesCtx,
+    ].filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+
     // ── Text fields: return { suggestion: string } ────────────────
     const textFieldPrompts: Record<string, string> = {
 
@@ -123,7 +137,7 @@ Language: ${lang}`,
 Rules:
 - Name what it is, who it is for (specific buyer profile), and what specific outcome it delivers
 - State the delivery format if relevant (1:1 coaching / SaaS / physical product / agency retainer)
-- Include a concrete metric or result if the context supports it
+- Describe the outcome qualitatively. Do NOT invent metrics, percentages, ROI, or "X% gain" figures — only include a number if it appears verbatim in the brand data above
 - Do NOT use: powerful, robust, comprehensive, scalable, or vague adjectives
 Language: ${lang}`,
 
@@ -187,9 +201,10 @@ Rules:
 - AVOID: "experienced team", "great service", "holistic approach", "tailored solutions"
 - Return ONLY a JSON array of short phrases (4-10 words each) in ${lang}. Example: ["advantage 1"]`,
 
-      winningHooks: `Generate 4-5 high-performing marketing hooks for ${brandName || 'this brand'}.
+      winningHooks: `Generate 4-5 marketing hook IDEAS to test for ${brandName || 'this brand'}.
 Rules:
-- Each hook must do ONE of: (a) name a specific pain, (b) challenge a belief the audience holds, (c) promise a specific outcome with a number or timeframe
+- These are hypotheses to test, not proven winners — do NOT claim results, and do NOT invent numbers, percentages, or timeframes (e.g. never "30% in 4 weeks")
+- Each hook must do ONE of: (a) name a specific pain, (b) challenge a belief the audience holds, (c) promise a specific qualitative outcome
 - Max 10 words per hook
 - NEVER start with: Discover, Unlock, Transform, Introducing, Are you ready, We help
 - Each hook must be so specific it could ONLY belong to ${brandName || 'this brand'} — not any brand
@@ -203,9 +218,10 @@ Rules:
 - AVOID: generic add-ons that any agency could offer
 - Return ONLY a JSON array of short phrases in ${lang}. Example: ["offer 1", "offer 2"]`,
 
-      winningAngles: `Suggest 3-5 proven marketing angles and campaign approaches for ${brandName || 'this brand'}.
+      winningAngles: `Suggest 3-5 marketing angles to TEST for ${brandName || 'this brand'}.
 Rules:
-- Each angle must be a strategic lens through which to position the brand (e.g., "Before/After transformation using [specific metric]")
+- These are angles to validate, not proven results — do NOT present them as facts, and do NOT invent testimonials, case studies, customer success stories, or metrics/percentages
+- Each angle must be a strategic lens through which to position the brand (e.g., "Before/After framing of the customer's situation")
 - Name the specific emotional trigger or logical argument each angle uses
 - Each angle must be tied to a real pain point or desire of the target audience
 - AVOID: generic angles like "social proof" or "authority positioning" without specifics
@@ -239,7 +255,10 @@ Rules:
         }),
       })
       const completion = await res.json()
-      const suggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+      const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
+      // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
+      // proof / overclaimed automation before it can be saved as brand truth.
+      const suggestion = guardBrandText(rawSuggestion, allowedClaims)
       return NextResponse.json({ suggestion }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
@@ -285,6 +304,10 @@ Rules:
     } catch {
       suggestions = []
     }
+
+    // PR-G: same deterministic truth guard for array suggestions (hooks, angles,
+    // advantages, etc.) — keeps user-provided figures, scrubs invented ones.
+    suggestions = guardBrandList(suggestions, allowedClaims)
 
     return NextResponse.json({ suggestions }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {

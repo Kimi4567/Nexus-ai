@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
+import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 
 export async function POST(req: NextRequest) {
   // Hoisted so any failure below the deduction refunds the user.
@@ -55,7 +57,14 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: `You are a content intelligence analyst specializing in brand voice and marketing patterns.
 Analyze content samples to extract reusable brand intelligence.
-Return ONLY valid JSON. Be specific — extract actual hooks and angles from the text, not generic descriptions.`,
+Return ONLY valid JSON. Be specific — extract actual hooks and angles from the text, not generic descriptions.
+
+${UNSUPPORTED_CLAIMS_RULES}
+
+ANALYZER RULES — extract ONLY from the provided samples:
+- Do NOT add claims, metrics, testimonials, case studies, or results that are not present in the samples.
+- Do NOT convert ad-style copy into proven business facts. A hook that says "double your sales" is the sample's wording, not a verified result.
+- If the samples contain numbers/claims, you may quote them as the brand's own copy — but never invent new ones.`,
           },
           {
             role: 'user',
@@ -95,7 +104,12 @@ Return JSON with this exact structure:
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
 
-    return NextResponse.json({ extracted, samplesAnalyzed: validSamples.length })
+    // PR-G: deterministic truth guard. The submitted samples are the allowed
+    // source — wording quoted from them is preserved; any invented metrics,
+    // proof, or automation claims beyond the samples are scrubbed/downgraded.
+    const guarded = guardExtracted(extracted, [combined])
+
+    return NextResponse.json({ extracted: guarded, samplesAnalyzed: validSamples.length })
   } catch (error) {
     console.error('[brand/analyze-content]', error)
     if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS')
