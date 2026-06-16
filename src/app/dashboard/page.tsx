@@ -13,6 +13,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, getBrandReadinessCopy, BrandReadinessResult, BrandReadinessStatus } from '@/lib/brandReadiness'
+import { getBrandMemoryStatusCopy, type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { useRouter } from 'next/navigation'
@@ -21,7 +22,7 @@ import {
   Sparkles, Rocket, Zap,
   ArrowUpRight, AlertTriangle, CheckCircle2,
   Target, Bell,
-  Send, X,
+  Send, X, Clock, Circle,
   BarChart3, ChevronRight, Plus, Flame, Shield,
 } from 'lucide-react'
 import {
@@ -118,6 +119,8 @@ interface MarketingIntelligenceBrief {
     publishing: boolean
     learning: boolean
   }
+  // PR-1N: display-only publishing state for the Operating Brief publishing tile.
+  publishingState?: PublishingState
 }
 
 // BETA: AGENT_DEFS (the decorative "AI squad" card data) removed along with the
@@ -791,11 +794,29 @@ export default function DashboardPage() {
                           { key: 'learning', en: 'Learning', ar: 'تعلم' },
                         ].map(step => {
                           const active = intelligence.loop[step.key as keyof MarketingIntelligenceBrief['loop']]
+                          // PR-1N: the publishing tile must not read as "published ✓"
+                          // unless content is genuinely live. It stays "engaged"
+                          // (so Loop coverage still matches) but switches to an
+                          // in-progress treatment for scheduled/pending/channel-only.
+                          let tone: 'done' | 'progress' | 'ready' | 'idle' = active ? 'done' : 'idle'
+                          if (step.key === 'publishing' && active) {
+                            const ps = intelligence.publishingState ?? 'none'
+                            tone = ps === 'live' ? 'done'
+                              : (ps === 'scheduled' || ps === 'pending') ? 'progress'
+                              : 'ready'
+                          }
+                          const tint = {
+                            done:     { bg: '#ECFDF5', border: 'rgba(16,185,129,0.18)', icon: '#059669', text: 'var(--nx-text-2)', Icon: CheckCircle2 },
+                            progress: { bg: '#FFFBEB', border: 'rgba(217,119,6,0.18)',  icon: '#D97706', text: 'var(--nx-text-2)', Icon: Clock },
+                            ready:    { bg: '#F8FAFC', border: 'rgba(100,116,139,0.18)', icon: '#94A3B8', text: 'var(--nx-text-2)', Icon: Circle },
+                            idle:     { bg: '#F9FAFB', border: 'rgba(15,23,42,0.08)',    icon: '#CBD5E1', text: 'var(--nx-text-4)', Icon: CheckCircle2 },
+                          }[tone]
+                          const StepIcon = tint.Icon
                           return (
                             <div key={step.key} className="rounded-xl px-3 py-2 flex items-center gap-2"
-                              style={{ background: active ? '#ECFDF5' : '#F9FAFB', border: `1px solid ${active ? 'rgba(16,185,129,0.18)' : 'rgba(15,23,42,0.08)'}` }}>
-                              <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: active ? '#059669' : '#CBD5E1' }} />
-                              <span className="text-[11px]" style={{ color: active ? 'var(--nx-text-2)' : 'var(--nx-text-4)' }}>
+                              style={{ background: tint.bg, border: `1px solid ${tint.border}` }}>
+                              <StepIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: tint.icon }} />
+                              <span className="text-[11px]" style={{ color: tint.text }}>
                                 {ar ? step.ar : step.en}
                               </span>
                             </div>
@@ -810,11 +831,21 @@ export default function DashboardPage() {
                       </p>
                       <div className="space-y-2">
                         {intelligence.signals.slice(0, 4).map(signal => {
-                          const color = signal.severity === 'good' ? '#10B981' : signal.severity === 'watch' ? '#EAB308' : '#F43F5E'
+                          // PR-1N: the Brand memory check must mirror the SAME maturity
+                          // status the Brand Brain card shows (active/building/needs_data),
+                          // never an 8-field "100%" that contradicts a 72/Building brain.
+                          let value = ar ? signal.valueAr : signal.value
+                          let severity = signal.severity
+                          if (signal.id === 'brand') {
+                            const bm = getBrandMemoryStatusCopy(brandStatus)
+                            value = ar ? bm.valueAr : bm.value
+                            severity = bm.severity
+                          }
+                          const color = severity === 'good' ? '#10B981' : severity === 'watch' ? '#EAB308' : '#F43F5E'
                           return (
                             <div key={signal.id} className="flex items-center justify-between gap-3 text-[11px]">
                               <span className="truncate" style={{ color: 'var(--nx-text-4)' }}>{ar ? signal.labelAr : signal.label}</span>
-                              <span className="font-bold shrink-0" style={{ color }}>{ar ? signal.valueAr : signal.value}</span>
+                              <span className="font-bold shrink-0" style={{ color }}>{value}</span>
                             </div>
                           )
                         })}

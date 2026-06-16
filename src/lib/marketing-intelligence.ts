@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { derivePublishingState, type PublishingState } from '@/lib/operatingBriefStatus'
 
 type SignalSeverity = 'good' | 'watch' | 'risk'
 type ActionPriority = 'high' | 'medium' | 'low'
@@ -46,6 +47,13 @@ export interface MarketingIntelligenceBrief {
     publishing: boolean
     learning: boolean
   }
+  /**
+   * PR-1N — display-only publishing state for the Operating Brief publishing tile.
+   * Derived from real post counts (published/scheduled/draft); does NOT feed the
+   * maturity score or the `loop` coverage math. Keeps the tile from reading as
+   * "published ✓" when nothing is actually live.
+   */
+  publishingState: PublishingState
 }
 
 type BrandProfileSnapshot = {
@@ -169,6 +177,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       signals: [],
       risks: [{ id: 'no-workspace', title: 'No workspace yet', titleAr: 'لا توجد مساحة عمل', detail: 'Campaigns, analytics, and learning need a workspace anchor.', detailAr: 'الحملات والتحليلات والتعلم تحتاج مساحة عمل أساسية.' }],
       loop: { strategy: false, content: false, publishing: false, learning: false },
+      publishingState: 'none',
     }
   }
 
@@ -500,5 +509,11 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     signals,
     risks: risks.slice(0, 3),
     loop,
+    // Display-only (PR-1N): honest publishing tile state from real counts.
+    publishingState: derivePublishingState({
+      published: publishedPosts,
+      scheduled: scheduledPosts,
+      pending: draftPosts,
+    }),
   }
 }
