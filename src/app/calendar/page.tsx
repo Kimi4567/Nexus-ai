@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
 import { deriveDisplayState, statusLabelKey } from '@/lib/postStatus'
 import { isAutoPublished } from '@/lib/postVisibility'
+import { getPublishingStateSummary } from '@/lib/contentCounts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -490,6 +491,10 @@ function CalendarPageInner() {
   const autoPublished = posts.filter(p => isAutoPublished(p))
   const failed     = posts.filter(p => p.status === 'FAILED')
 
+  // PR-1J: honest, tested lifecycle counts. `notScheduled` = generated/approved
+  // content that has no schedule yet — it must never read as scheduled or published.
+  const queueSummary = getPublishingStateSummary(posts)
+
   const handleDelete = async (id: string) => {
     setDeletingId(id)
     await fetch(`/api/schedule?id=${id}`, {
@@ -661,12 +666,13 @@ function CalendarPageInner() {
               </div>
             )}
 
-            {/* Stats */}
+            {/* Stats — these count posts scheduled/planned for the VIEWED month,
+                not whether content exists. The empty-state note below keeps that honest. */}
             <div className="grid grid-cols-3 gap-3 mb-3">
               {[
-                { label: 'Posts This Month', value: calStats.total,     color: 'text-slate-950'  },
-                { label: 'Campaigns this month', value: calStats.campaigns,  color: 'text-indigo-600' },
-                { label: 'Platforms',        value: calStats.platforms,  color: 'text-amber-600'  },
+                { label: locale === 'ar' ? 'بوستات هذا الشهر' : 'Posts this month',   value: calStats.total,     color: 'text-slate-950'  },
+                { label: locale === 'ar' ? 'حملات هذا الشهر'  : 'Campaigns this month', value: calStats.campaigns,  color: 'text-indigo-600' },
+                { label: locale === 'ar' ? 'المنصات'          : 'Platforms',          value: calStats.platforms,  color: 'text-amber-600'  },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
@@ -674,6 +680,18 @@ function CalendarPageInner() {
                 </div>
               ))}
             </div>
+
+            {/* PR-1J — honest empty state: a 0 here means "nothing scheduled/planned
+                for this month", NOT "you have no campaigns or content". Never let the
+                calendar imply the user's campaign/content disappeared. */}
+            {calStats.total === 0 && campaigns.length > 0 && (
+              <div className="rounded-xl px-4 py-3 mb-3 text-xs leading-relaxed text-slate-600"
+                style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}>
+                {locale === 'ar'
+                  ? `لا توجد بوستات مجدولة لهذا الشهر. لديك ${campaigns.length} حملة بمحتوى — المحتوى المعتمد غير مجدول بعد. قم بجدولة البوستات من مركز المحتوى لتظهر هنا.`
+                  : `No posts scheduled for this month. You have ${campaigns.length} campaign${campaigns.length > 1 ? 's' : ''} with content — approved content isn't scheduled yet. Schedule posts from the Content Hub to see them here.`}
+              </div>
+            )}
 
             {/* Legend */}
             <div className="flex items-center gap-4 mb-5 px-1">
@@ -1000,9 +1018,11 @@ function CalendarPageInner() {
         {activeTab === 'queue' && (
           <div className="max-w-4xl">
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
+            {/* Stats — lifecycle order, honest (PR-1J): "Not scheduled" = generated
+                content with no schedule yet; it is never shown as scheduled/published. */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {[
+                { label: locale === 'ar' ? 'غير مجدولة' : 'Not scheduled', value: queueSummary.notScheduled, color: 'text-slate-600' },
                 { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
                 { label: scT?.statAutoPublished as string || 'Published automatically', value: autoPublished.length, color: 'text-green-700'   },
                 { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
