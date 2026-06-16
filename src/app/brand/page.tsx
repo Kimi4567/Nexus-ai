@@ -392,10 +392,9 @@ function BrandSummaryCard({
 
         {/* CTA footer */}
         <div className="px-6 pb-6 flex items-center gap-3">
-          {/* PR-A: strategy-first CTA. Route unchanged — /dashboard?runStrategy=1
-              opens the Run Full Strategy flow (the current strategy entry point);
-              /strategy still redirects to /campaigns so it is intentionally NOT used. */}
-          <a href="/dashboard?runStrategy=1"
+          {/* PR-D: strategy-first CTA now routes to the real /strategy page (the
+              official next stage after Brand Brain), not the run-full modal. */}
+          <a href="/strategy"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
             style={{ background: '#111827', color: '#FFFFFF' }}>
             <Sparkles size={15}/> {t('brand.summaryCtaLabel')}

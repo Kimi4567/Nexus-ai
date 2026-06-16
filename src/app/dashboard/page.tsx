@@ -437,11 +437,11 @@ export default function DashboardPage() {
                   : t('dashboard.subtitle')}
               </p>
             </div>
-            {/* Strategy-first hierarchy: exactly ONE filled primary action
-                (Run Full Strategy) + one quiet secondary (New Content Plan).
-                Strategy is the signature action of a strategist-led marketing OS —
-                it puts the brand brain to work and feeds the rest of the loop.
-                The manual refresh button was removed (auto-refresh every 5 min). */}
+            {/* PR-D: Strategy is the official next stage after Brand Brain. The
+                primary action now ROUTES to the real /strategy page (the decision
+                stage) instead of opening the run-full modal directly — so it no
+                longer feels like a backend operation and nothing auto-runs. The
+                run-full modal is still reachable from /strategy's own CTA. */}
             <div className="flex items-center gap-2">
               <NexusButton
                 variant="ghost"
@@ -454,11 +454,12 @@ export default function DashboardPage() {
               <NexusButton
                 variant="primary"
                 size="sm"
-                onClick={() => setRunStrategyOpen(true)}
+                href="/strategy"
                 icon={<Sparkles className="w-3.5 h-3.5" />}
               >
-                <span className="hidden sm:inline">{t('runStrategy.btnDashboard')}</span>
-                <span className="sm:hidden">{t('runStrategy.btnDashboard')}</span>
+                {(stats?.campaigns ?? 0) > 0
+                  ? (ar ? 'عرض الاستراتيجية' : 'View strategy')
+                  : (ar ? 'إنشاء أول استراتيجية' : 'Create your first strategy')}
               </NexusButton>
             </div>
           </div>
