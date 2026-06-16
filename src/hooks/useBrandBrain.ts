@@ -167,6 +167,13 @@ export function useBrandBrain() {
   const [maturity, setMaturity] = useState<BrandMaturityResult | null>(null)
 
   const fetchBrand = useCallback(async () => {
+    // PR-E: every fetch attempt (initial load, auth-token-ready re-fetch, or an
+    // explicit Retry) returns the UI to the loading state and clears any stale
+    // error. This prevents the transient "Could not load your Brand Brain" flash
+    // when the first request runs before the auth header is ready and a retry is
+    // already in flight. Real errors are still surfaced if the attempt fails.
+    setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/brand', {
         headers: { Authorization: authHeader() },
