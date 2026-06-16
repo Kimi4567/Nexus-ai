@@ -18,6 +18,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandReadinessCopy, BrandReadinessStatus } from '@/lib/brandReadiness'
@@ -61,6 +62,7 @@ function textLabel(p: unknown): string {
 export default function StrategyPage() {
   const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
+  const router = useRouter()
   const ar = locale === 'ar'
 
   const [loading, setLoading] = useState(true)
@@ -97,6 +99,12 @@ export default function StrategyPage() {
     if (!authLoading && isAuthenticated) load()
   }, [authLoading, isAuthenticated, load])
 
+  // Standard app auth gate (same pattern as the dashboard): once auth has
+  // resolved with no user, send them to login instead of hanging on a spinner.
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/auth/login')
+  }, [authLoading, isAuthenticated, router])
+
   // ── Derived, truthful state (no invention) ──────────────────────────────────
   const hasStrategy = total > 0
   const recent = campaigns[0]
@@ -131,6 +139,10 @@ export default function StrategyPage() {
   const card = 'rounded-2xl p-5 sm:p-6'
   const cardStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' } as const
   const sectionLabel = 'text-[10px] font-bold uppercase tracking-wider'
+
+  // Redirecting to login — render nothing (avoids an infinite spinner when
+  // there is no authenticated session).
+  if (!authLoading && !isAuthenticated) return null
 
   if (authLoading || loading) {
     return (
