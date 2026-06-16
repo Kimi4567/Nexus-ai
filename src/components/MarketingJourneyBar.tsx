@@ -56,11 +56,14 @@ const STEPS: Step[] = [
     ctaAr: 'فتح مركز المحتوى',
   },
   {
+    // PR-1J: this step completes when social accounts are CONNECTED (hasConnections),
+    // not when posts are scheduled — so the label must say "Connect Accounts", never
+    // imply scheduling is done. Scheduling is surfaced honestly on the Calendar.
     id: 4,
-    labelEn: 'Connect & Schedule',
-    labelAr: 'اتصل وجدول',
-    descEn: 'Connect your social accounts and schedule your first post',
-    descAr: 'اربط حساباتك الاجتماعية وجدول أول بوست',
+    labelEn: 'Connect Accounts',
+    labelAr: 'ربط الحسابات',
+    descEn: 'Connect your social accounts so you can schedule and publish your content',
+    descAr: 'اربط حساباتك الاجتماعية حتى تتمكن من جدولة محتواك ونشره',
     icon: '📡',
     href: '/connections',
     ctaEn: 'Connect Accounts',
