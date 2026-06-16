@@ -13,6 +13,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
+import { guardExtracted } from '@/lib/ai/brandTruthGuard'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,7 +126,14 @@ export async function POST(req: NextRequest) {
             role: 'system',
             content: `You are a brand intelligence analyst. Extract structured brand data from website content.
 Return ONLY valid JSON with no markdown. Be specific and factual — only extract what's clearly present.
-If a field can't be determined, omit it or use an empty array.`,
+If a field can't be determined, omit it or use an empty array.
+
+${UNSUPPORTED_CLAIMS_RULES}
+
+SCANNER RULES — summarize only what the website copy actually says:
+- Do NOT infer performance results, market proof, platform readiness, live automation, paid-ads capability, or publishing capability unless the page explicitly states it.
+- Do NOT invent metrics, percentages, testimonials, or case studies that are not in the copy.
+- When something is implied but not stated, prefer "appears to…" / "based on the website copy…" or leave the field blank.`,
           },
           {
             role: 'user',
@@ -170,7 +179,12 @@ Return JSON with this exact structure:
       return NextResponse.json({ error: 'Failed to parse AI response', refunded: !!chargedUserId }, { status: 500 })
     }
 
-    return NextResponse.json({ extracted, pagesScanned: pages.length })
+    // PR-G: deterministic truth guard. The website text (`combined`) is the
+    // allowed source — figures/claims literally on the site are preserved; any
+    // model-invented metrics, proof, or automation claims are scrubbed/downgraded.
+    const guarded = guardExtracted(extracted, [combined])
+
+    return NextResponse.json({ extracted: guarded, pagesScanned: pages.length })
   } catch (error) {
     console.error('[brand/scan-website]', error)
     // Refund — charged-but-failed scan must not cost the user (skip unlimited plans)
