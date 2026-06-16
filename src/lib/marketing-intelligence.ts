@@ -300,14 +300,20 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     ))
   }
   if (totalCampaigns === 0) {
+    // PR-F: Strategy-first journey. With no campaigns yet, the next step is to
+    // turn the Brand Brain into a plan on the Strategy page — NOT to jump
+    // straight into campaign creation. This routes to /strategy only (a planning
+    // entry point); it does not create a campaign, does not open Run Full
+    // Strategy, and triggers no generation. Campaign-launch guidance returns via
+    // the later states once a strategy/campaign exists.
     actions.push(action(
-      'launch-first-campaign',
+      'create-first-strategy',
       'high',
-      '/campaigns/new?from=brief',
-      'Launch the first campaign',
-      'أطلق أول حملة',
-      'A live campaign gives NEXUS the strategy and content surface it needs to start coordinating execution.',
-      'الحملة الأولى تمنح NEXUS سطح الاستراتيجية والمحتوى اللازم لبدء التنسيق والتنفيذ.'
+      '/strategy',
+      'Create your first strategy',
+      'إنشاء أول استراتيجية',
+      'Turn your Brand Brain into a clear plan first. On the Strategy page, NEXUS organizes your organic content plan and paid campaign planning before any campaign is launched.',
+      'حوّل ذاكرة علامتك التجارية إلى خطة واضحة أولاً. في صفحة الاستراتيجية، ينظّم NEXUS خطة المحتوى العضوي وتخطيط الحملات المدفوعة قبل إطلاق أي حملة.'
     ))
   }
   if (totalCampaigns > 0 && !hasStrategy) {
