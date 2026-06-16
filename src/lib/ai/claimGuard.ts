@@ -1,0 +1,123 @@
+/**
+ * PR-1K — Unsupported-claim guard.
+ *
+ * Deterministic, pattern-based detector for marketing claims that NEXUS must not
+ * present as fact unless the product has evidence/source data. This is NOT a full
+ * fact-checking system — it is a conservative safety net that runs AFTER the LLM
+ * Sentinel review so risky claims can never silently pass (the LLM is fallible;
+ * "30% productivity gain" slipped through once).
+ *
+ * Philosophy (rule: conservative is better than impressive): when in doubt, flag.
+ * Numbers/percentages/guarantees/social-proof/awards are flagged as "needs
+ * evidence" unless a caller can prove the data exists. Pure + dependency-free, so
+ * it is fully unit-testable and safe to call from server agents.
+ */
+
+export type ClaimCategory =
+  | 'percentage'      // "30%", "25%"
+  | 'multiplier'      // "2x", "10x", "3 times faster"
+  | 'performance'     // "boost sales", "increase revenue", "cut costs"
+  | 'guarantee'       // "guaranteed", "proven results", "will deliver"
+  | 'socialProof'     // "trusted by thousands", "customers love us"
+  | 'award'           // "#1", "award-winning", "best-in-class"
+  | 'caseStudy'       // "helped companies achieve", "real customers achieved"
+  | 'platformStatus'  // "published automatically", "campaign is live"
+
+export interface ClaimFinding {
+  category: ClaimCategory
+  /** the exact offending text matched */
+  match: string
+  /** short surrounding context for the UI */
+  excerpt: string
+}
+
+export interface ClaimScanResult {
+  /** true when at least one unsupported claim pattern was found */
+  hasUnsupportedClaims: boolean
+  findings: ClaimFinding[]
+}
+
+const PATTERNS: { category: ClaimCategory; re: RegExp }[] = [
+  // Any bare percentage reads as an unsubstantiated stat unless sourced.
+  { category: 'percentage', re: /\b\d{1,3}(?:\.\d+)?\s?%/g },
+  // Multipliers: 2x / 10x / 3 times faster|more|better.
+  { category: 'multiplier', re: /\b\d+(?:\.\d+)?x\b/gi },
+  { category: 'multiplier', re: /\b\d+\s+times\s+(?:faster|more|better|higher|stronger|cheaper)\b/gi },
+  // Hard commercial-outcome verbs paired with a money/growth metric.
+  { category: 'performance', re: /\b(?:boost|increase|grow|double|triple|skyrocket|maximi[sz]e|cut|slash|reduce)\s+(?:your\s+)?(?:sales|revenue|profits?|roi|conversions?|leads?|traffic|income|costs?)\b/gi },
+  // Guarantees / proof language.
+  { category: 'guarantee', re: /\b(?:guarantee[ds]?|guaranteed\s+results|proven\s+results|proven\s+to|risk[-\s]?free|will\s+deliver(?:\s+results)?|100%\s+guaranteed)\b/gi },
+  // Social proof without a cited source.
+  { category: 'socialProof', re: /\b(?:trusted|used|loved)\s+by\s+(?:thousands|millions|hundreds|leading|top|over\s+\d+)\b/gi },
+  { category: 'socialProof', re: /\b(?:thousands|millions)\s+of\s+(?:customers|users|businesses|companies|brands)\b/gi },
+  { category: 'socialProof', re: /\bcustomers\s+love\s+(?:us|it|our)\b/gi },
+  { category: 'socialProof', re: /\bjoin\s+(?:thousands|millions)\b/gi },
+  // Awards / superlative rankings.
+  { category: 'award', re: /(?:^|[^\w])#1\b/gi },
+  { category: 'award', re: /\b(?:award[-\s]?winning|best[-\s]?in[-\s]?class|industry[-\s]?leading|world[-\s]?class|top[-\s]?rated|number\s+one)\b/gi },
+  // Case-study style outcome claims.
+  { category: 'caseStudy', re: /\bhelped\s+(?:companies|businesses|clients|teams|brands)\s+(?:achieve|grow|increase|save|boost|double|triple)\b/gi },
+  { category: 'caseStudy', re: /\b(?:real\s+customers\s+achieved|our\s+clients\s+(?:saw|achieved|grew))\b/gi },
+  // Platform/status claims that require real platform confirmation.
+  { category: 'platformStatus', re: /\b(?:published\s+automatically|auto[-\s]?published|campaign\s+is\s+live|ads?\s+are\s+(?:running|live)|now\s+live\s+on)\b/gi },
+]
+
+function makeExcerpt(text: string, index: number, matchLen: number): string {
+  const start = Math.max(0, index - 24)
+  const end = Math.min(text.length, index + matchLen + 24)
+  const prefix = start > 0 ? '…' : ''
+  const suffix = end < text.length ? '…' : ''
+  return (prefix + text.slice(start, end).trim() + suffix).replace(/\s+/g, ' ')
+}
+
+/**
+ * Scan text (or an array of strings) for unsupported marketing claims.
+ * Returns every distinct finding with its category and a short excerpt.
+ */
+export function detectUnsupportedClaims(input: string | Array<string | null | undefined> | null | undefined): ClaimScanResult {
+  const parts = Array.isArray(input) ? input : [input]
+  const findings: ClaimFinding[] = []
+  const seen = new Set<string>()
+
+  for (const part of parts) {
+    if (typeof part !== 'string' || !part.trim()) continue
+    for (const { category, re } of PATTERNS) {
+      re.lastIndex = 0
+      let m: RegExpExecArray | null
+      while ((m = re.exec(part)) !== null) {
+        const match = m[0].trim()
+        const key = `${category}::${match.toLowerCase()}::${m.index}::${part.slice(0, 12)}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        findings.push({ category, match, excerpt: makeExcerpt(part, m.index, m[0].length) })
+        if (m.index === re.lastIndex) re.lastIndex++ // guard against zero-length loops
+      }
+    }
+  }
+
+  return { hasUnsupportedClaims: findings.length > 0, findings }
+}
+
+/** Human-readable label for a claim category (English; UI may localize). */
+export function claimCategoryLabel(category: ClaimCategory): string {
+  switch (category) {
+    case 'percentage':     return 'unverified percentage'
+    case 'multiplier':     return 'unverified multiplier'
+    case 'performance':    return 'unverified performance/ROI claim'
+    case 'guarantee':      return 'guarantee / proof claim'
+    case 'socialProof':    return 'unsourced social proof'
+    case 'award':          return 'award / ranking claim'
+    case 'caseStudy':      return 'case-study outcome claim'
+    case 'platformStatus': return 'unconfirmed platform status'
+  }
+}
+
+/**
+ * Build short, deterministic compliance-warning strings from findings, suitable
+ * for appending to Sentinel's complianceWarnings. Each says WHY it was flagged.
+ */
+export function buildClaimWarnings(result: ClaimScanResult): string[] {
+  return result.findings.map(
+    f => `Unsupported claim — needs evidence before it can be used (${claimCategoryLabel(f.category)}): "${f.match}"`,
+  )
+}

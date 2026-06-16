@@ -56,6 +56,24 @@ SPECIFICITY RULES — every output must pass all of these:
 8. STAY IN INDUSTRY: All examples, references, and analogies must match the brand's actual industry. Never import framing from unrelated industries.
 `.trim()
 
+// ── Unsupported-claim safety (PR-1K) ────────────────────────────────────────────
+// NEXUS must never present invented metrics or proof as fact. Generators stay
+// conservative; Sentinel's deterministic guard is the backstop.
+
+export const UNSUPPORTED_CLAIMS_RULES = `
+CLAIM SAFETY — never present invented proof as fact. Conservative beats impressive:
+- NO invented numbers: no percentages ("30% more"), multipliers ("2x", "10x"), or
+  "X times faster" unless that exact figure is given to you in the brand/source data.
+- NO performance/ROI promises: avoid "boost sales", "increase revenue", "cut costs",
+  "guaranteed results", "proven results", "will deliver".
+- NO unsourced social proof: no "trusted by thousands", "customers love us", "join thousands".
+- NO awards/superlatives as fact: no "#1", "award-winning", "best-in-class".
+- NO platform-status claims you can't see: no "published automatically", "ads are running",
+  "campaign is live" unless real platform data confirms it.
+- Instead use honest, capability framing: "designed to help", "can help", "may improve",
+  "aims to reduce", "built for", "intended to support". State value without faking proof.
+`.trim()
+
 // ── Chain-of-thought instruction ───────────────────────────────────────────────
 // Forces the model to reason before generating, producing more grounded outputs.
 
@@ -89,6 +107,8 @@ export function buildQualitySystemPrompt(role: string, extra = ''): string {
 ${BANNED_PHRASES}
 
 ${SPECIFICITY_RULES}
+
+${UNSUPPORTED_CLAIMS_RULES}
 
 ${extra}
 
