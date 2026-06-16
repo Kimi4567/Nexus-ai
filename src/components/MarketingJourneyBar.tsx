@@ -34,15 +34,18 @@ const STEPS: Step[] = [
     ctaAr: 'إعداد Brand Brain',
   },
   {
+    // PR-D: Strategy is the official stage after Brand Brain. Label/route/CTA only —
+    // completion still keys off `hasCampaigns` (a strategy produces a campaign), so
+    // the underlying journey logic is unchanged.
     id: 2,
-    labelEn: 'First Campaign',
-    labelAr: 'أول حملة',
-    descEn: 'Create a content plan — AI builds strategy + posts for you',
-    descAr: 'أنشئ خطة محتوى — الذكاء الاصطناعي يبني الاستراتيجية والبوستات',
+    labelEn: 'Strategy',
+    labelAr: 'الاستراتيجية',
+    descEn: 'Turn your Brand Brain into a clear organic and paid marketing plan',
+    descAr: 'حوّل ذاكرة علامتك التجارية إلى خطة واضحة للمحتوى العضوي والإعلانات المدفوعة',
     icon: '🎯',
-    href: '/campaigns/new',
-    ctaEn: 'Create Campaign',
-    ctaAr: 'إنشاء حملة',
+    href: '/strategy',
+    ctaEn: 'Create your first strategy',
+    ctaAr: 'إنشاء أول استراتيجية',
   },
   {
     id: 3,

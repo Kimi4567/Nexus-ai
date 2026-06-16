@@ -144,6 +144,13 @@ const Icons = {
       <path d="M6 8.5h4M7 6.5h2" strokeLinecap="round"/>
     </svg>
   ),
+  strategy: (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="6.5" />
+      <circle cx="8" cy="8" r="3" />
+      <circle cx="8" cy="8" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  ),
   score: (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 12.5h12" strokeLinecap="round" />
@@ -292,6 +299,10 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
         {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
         <NavItem href="/brand" label={t('sidebar.brand')}
           icon={Icons.brain} dot={pendingProposals > 0 ? '#f59e0b' : undefined} {...sharedProps} />
+        {/* PR-D: Strategy stage — sits between Brand Brain and Campaigns so the
+            real /strategy page is discoverable in the natural journey. */}
+        <NavItem href="/strategy" label={locale === 'ar' ? 'الاستراتيجية' : 'Strategy'}
+          icon={Icons.strategy} {...sharedProps} />
         <NavItem href="/campaigns" label={locale === 'ar' ? 'الحملات' : 'Campaigns'}
           icon={Icons.campaigns} {...sharedProps} />
         <NavItem href="/content-hub" label={locale === 'ar' ? 'مركز المحتوى' : 'Content Hub'}
