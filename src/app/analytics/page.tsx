@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { mapBrandIndustryToAnalytics } from '@/lib/analyticsIndustry'
 import Link from 'next/link'
 import {
   Loader2, BarChart2, Wand2, Sparkles, TrendingUp,
@@ -227,12 +228,15 @@ export default function PulsePage() {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
-  const { brandContext } = useBrandBrain()
+  const { brand, brandContext } = useBrandBrain()
 
   // ── AI Analysis state ────────────────────────────────────────────────────
   const [analysisType, setAnalysisType] = useState<AnalysisType>('performance')
   const [period, setPeriod] = useState<Period>('30d')
-  const [industry, setIndustry] = useState('ecommerce')
+  // PR-1L: never default to a guessed sector. Start unset; derive from the real
+  // Brand Brain industry once it loads (unless the user picks one manually).
+  const [industry, setIndustry] = useState('')
+  const [industryTouched, setIndustryTouched] = useState(false)
   const [prompt, setPrompt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [result, setResult] = useState('')
@@ -261,6 +265,14 @@ export default function PulsePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated])
 
+  // PR-1L: seed the sector from the real Brand Brain industry (truthful default).
+  // If the brand has no/unknown industry, stays '' (unset) — never "E-commerce".
+  useEffect(() => {
+    if (industryTouched) return
+    const mapped = mapBrandIndustryToAnalytics(brand?.industry)
+    if (mapped) setIndustry(mapped)
+  }, [brand, industryTouched])
+
   if (authLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7]">
       <Loader2 className="animate-spin" size={32} style={{ color: '#0EA5E9' }} />
@@ -276,12 +288,15 @@ export default function PulsePage() {
     { id: 'forecast',     labelKey: 'analytics.tabForecast',    icon: Zap },
   ]
 
+  // PR-1L: pass a truthful sector to the analyst — the selected sector, else the
+  // real brand industry, else "not specified". Never a hardcoded "ecommerce".
+  const sectorForPrompt = industry || brand?.industry || 'not specified'
   const systemPrompts: Record<AnalysisType, string> = {
-    performance: `${brandContext}You are PULSE, an expert marketing analyst. Period: ${period}. Sector: ${industry}. Analyze the brand's campaign performance and provide: key KPIs, strengths, weaknesses, and specific actionable recommendations.`,
-    competitors:  `${brandContext}You are PULSE, a competitor intelligence expert. Sector: ${industry}. Provide a competitor analysis for the brand above: who their real competitors are, their strengths and weaknesses, and differentiation opportunities.`,
-    trends:       `${brandContext}You are PULSE, a market trends analyst. Sector: ${industry}. Reveal the most relevant trends for the brand above: content trends, ad formats, audience behavior, and upcoming seasonal opportunities.`,
-    content:      `${brandContext}You are PULSE, a content performance analyst. Sector: ${industry}. Period: ${period}. Analyze the optimal content strategy for this brand: best posting times, content types, effective hashtags, and platform-specific tactics.`,
-    forecast:     `${brandContext}You are PULSE, a marketing forecasting specialist. Sector: ${industry}. Based on the brand data above, forecast performance for the next 3 months and provide a proactive action plan.`,
+    performance: `${brandContext}You are PULSE, an expert marketing analyst. Period: ${period}. Sector: ${sectorForPrompt}. Analyze the brand's campaign performance and provide: key KPIs, strengths, weaknesses, and specific actionable recommendations.`,
+    competitors:  `${brandContext}You are PULSE, a competitor intelligence expert. Sector: ${sectorForPrompt}. Provide a competitor analysis for the brand above: who their real competitors are, their strengths and weaknesses, and differentiation opportunities.`,
+    trends:       `${brandContext}You are PULSE, a market trends analyst. Sector: ${sectorForPrompt}. Reveal the most relevant trends for the brand above: content trends, ad formats, audience behavior, and upcoming seasonal opportunities.`,
+    content:      `${brandContext}You are PULSE, a content performance analyst. Sector: ${sectorForPrompt}. Period: ${period}. Analyze the optimal content strategy for this brand: best posting times, content types, effective hashtags, and platform-specific tactics.`,
+    forecast:     `${brandContext}You are PULSE, a marketing forecasting specialist. Sector: ${sectorForPrompt}. Based on the brand data above, forecast performance for the next 3 months and provide a proactive action plan.`,
   }
 
   async function generate() {
@@ -597,8 +612,9 @@ export default function PulsePage() {
                     <PulseSelect
                       label={t('analytics.industryLabel') as string}
                       value={industry}
-                      onChange={setIndustry}
+                      onChange={(v: string) => { setIndustry(v); setIndustryTouched(true) }}
                       options={[
+                        { value: '',           label: ar ? 'لم يتم تحديد المجال' : 'Industry not set' },
                         { value: 'ecommerce',  label: t('analytics.industryEcommerce') as string },
                         { value: 'food',       label: t('analytics.industryFood') as string },
                         { value: 'fashion',    label: t('analytics.industryFashion') as string },
@@ -608,6 +624,14 @@ export default function PulsePage() {
                         { value: 'education',  label: t('analytics.industryEducation') as string },
                         { value: 'services',   label: t('analytics.industryServices') as string },
                       ]} />
+                    {/* PR-1L: honest unset state — never imply an industry we can't prove. */}
+                    {industry === '' && (
+                      <p className="text-[11px] text-slate-400 leading-snug -mt-2">
+                        {ar
+                          ? 'أضفه في ذاكرة العلامة التجارية لتحسين التحليلات.'
+                          : 'Add it in Brand Brain for sharper analytics.'}
+                      </p>
+                    )}
                     <PulseSelect<Period>
                       label={t('analytics.periodLabel') as string}
                       value={period}
