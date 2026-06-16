@@ -3,6 +3,7 @@ import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { buildStrategyPrompt, guardGeneratedStrategy, extractAllowedNumbers } from '@/lib/ai/strategyGenerateGuard'
 
 async function callOpenAI(prompt: string): Promise<any> {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -68,78 +69,9 @@ Description: ${brand.description || 'Not specified'}
 
     const langInstruction = getLanguageInstruction(language || 'ar')
 
-    const prompt = `You are a world-class marketing strategist specializing in the MENA region (Saudi Arabia, UAE, Egypt, and broader Arab world). Create a detailed ${days}-day marketing strategy.
-
-${langInstruction}
-
-${brandContext ? `BRAND CONTEXT:\n${brandContext}\n` : ''}
-GOAL: ${goal}
-TIMEFRAME: ${days} days
-PRIMARY PLATFORM: ${platform || 'Multi-platform (Instagram, Facebook, LinkedIn)'}
-BUDGET LEVEL: ${budget || 'Bootstrap (organic only)'}
-
-Return a JSON object with this EXACT structure:
-{
-  "title": "عنوان استراتيجي للخطة (بالعربية)",
-  "summary": "ملخص تنفيذي من جملتين (بالعربية)",
-  "goal": "${goal}",
-  "timeframe": "${days} days",
-  "themes": [
-    {
-      "week": 1,
-      "title": "Theme title",
-      "focus": "What this week focuses on",
-      "contentIdeas": ["idea 1", "idea 2", "idea 3"]
-    }
-  ],
-  "pillars": [
-    {
-      "name": "Content pillar name",
-      "description": "What this pillar covers",
-      "percentage": 30,
-      "examples": ["example 1", "example 2"]
-    }
-  ],
-  "kpis": [
-    {
-      "metric": "KPI name",
-      "target": "Specific target",
-      "how": "How to measure"
-    }
-  ],
-  "tactics": [
-    {
-      "platform": "Platform name",
-      "frequency": "X times per week",
-      "bestTime": "Best posting time",
-      "contentType": "Type of content",
-      "tip": "Platform-specific tip"
-    }
-  ],
-  "weeklyPlan": [
-    {
-      "week": 1,
-      "theme": "Week theme",
-      "posts": [
-        {
-          "day": "Monday",
-          "platform": "Instagram",
-          "type": "Reel",
-          "hook": "Post hook/title",
-          "caption": "Short caption idea"
-        }
-      ]
-    }
-  ],
-  "quickWins": ["Quick win you can do today", "Quick win 2", "Quick win 3"],
-  "budget": {
-    "organic": "Organic strategy advice",
-    "paid": "Paid/boost advice if budget allows",
-    "tools": ["Free tool 1", "Free tool 2"]
-  }
-}
-
-Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts per week. Make everything specific and actionable for the MENA market. Return only valid JSON.`
+    // PR-C — safety-guarded prompt: English/neutral JSON-schema hints (no hard-coded
+    // Arabic leaking into EN output), qualitative KPIs, conservative paid wording.
+    const prompt = buildStrategyPrompt({ days, weeks, goal, platform, budget, brandContext, langInstruction })
 
     // ── Deduct credits before AI call ────────────────────────────
     const credit = await checkAndDeductCredits(user.id, 'CAMPAIGN_GENERATION')
@@ -153,6 +85,10 @@ Generate ${Math.min(weeks, 4)} week themes and weeklyPlan entries with 5-7 posts
       if (credit.creditsUsed > 0) await refundCredits(user.id, 'CAMPAIGN_GENERATION')
       throw genErr
     }
+
+    // PR-C — defence-in-depth: neutralize any fabricated KPI/budget numbers the
+    // model still emitted. Only the user-provided budget is allowed to appear.
+    strategy = guardGeneratedStrategy(strategy, extractAllowedNumbers(budget))
 
     return NextResponse.json({ strategy })
   } catch (err: any) {
