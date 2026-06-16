@@ -17,6 +17,7 @@
 
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
+import { detectUnsupportedClaims, buildClaimWarnings, claimCategoryLabel } from '@/lib/ai/claimGuard'
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 
@@ -269,18 +270,55 @@ If the campaign passes all checks cleanly: riskScore should be under 25, brandCo
     ? result.recommendedFixes.filter((f: any) => typeof f === 'string' && f.trim())
     : []
 
-  // Status: needs_attention if riskScore >= 40 OR any compliance warnings
+  // ── PR-1K: deterministic unsupported-claim guard ─────────────────────────────
+  // The LLM review above can miss invented metrics/guarantees ("30% productivity
+  // gain" once slipped through). Run a conservative pattern scan over the ACTUAL
+  // content and force-flag anything risky so it can never silently pass review.
+  // This adds no OpenAI call, no credit cost, no data mutation — display/safety only.
+  const claimScan = detectUnsupportedClaims([
+    ...(c.topHooks || []),
+    ...(c.ctaVariations || []),
+    ...(c.captionFormulas || []),
+    ...(c.adCopyVariants || []),
+    c.scriptTemplate,
+    ...(c.contentAngles || []),
+    s.keyMessage,
+    s.positioning,
+    s.differentiation,
+    ...((input.calendar || []).flatMap((p: any) => [p?.hook, p?.caption, p?.cta])),
+  ])
+
+  const claimWarnings = buildClaimWarnings(claimScan)
+  const allWarnings = [...warnings, ...claimWarnings]
+
+  // Any unsupported claim is, at minimum, a "review recommended" risk (>= 40) and
+  // always sets needs_attention — never let the score say "clean" while a flagged
+  // claim exists.
+  const finalRiskScore = claimScan.hasUnsupportedClaims ? Math.max(riskScore, 40) : riskScore
+
+  let claimSafetyNotes: string = result.claimSafetyNotes || ''
+  if (claimScan.hasUnsupportedClaims) {
+    const detail = claimScan.findings
+      .map(f => `"${f.match}" (${claimCategoryLabel(f.category)})`)
+      .join('; ')
+    claimSafetyNotes =
+      `${claimSafetyNotes ? claimSafetyNotes.trim() + ' ' : ''}` +
+      `Automated guard flagged claim(s) that need evidence before they can be used: ${detail}. ` +
+      `Soften to "designed to help / can help / may improve" or add a verifiable source.`
+  }
+
+  // Status: needs_attention if riskScore >= 40 OR any compliance/claim warnings.
   const status: 'passed' | 'needs_attention' =
-    riskScore >= 40 || warnings.length > 0 ? 'needs_attention' : 'passed'
+    finalRiskScore >= 40 || allWarnings.length > 0 ? 'needs_attention' : 'passed'
 
   return {
     status,
-    riskScore,
+    riskScore: finalRiskScore,
     brandConsistencyScore: brandScore,
     summary: result.summary || '',
-    claimSafetyNotes: result.claimSafetyNotes || '',
+    claimSafetyNotes,
     toneConsistencyNotes: result.toneConsistencyNotes || '',
-    complianceWarnings: warnings,
+    complianceWarnings: allWarnings,
     recommendedFixes: fixes,
     reviewedAt: new Date().toISOString(),
   }
