@@ -12,7 +12,7 @@ import { derivePlatformReadiness } from '@/lib/platformReadiness'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { getBrandBrainReadiness, BrandReadinessResult } from '@/lib/brandReadiness'
+import { getBrandBrainReadiness, getBrandReadinessCopy, BrandReadinessResult, BrandReadinessStatus } from '@/lib/brandReadiness'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -180,6 +180,9 @@ export default function DashboardPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [brandReadiness, setBrandReadiness] = useState<BrandReadinessResult | null>(null)
+  // PR-1I: readiness MESSAGING is driven by the real maturity status (same value
+  // the Brand Brain page shows), NOT the functional brandReadiness.ready gate.
+  const [brandStatus, setBrandStatus] = useState<BrandReadinessStatus | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
   const [brandLoaded, setBrandLoaded] = useState(false)
   const [upgradeBannerDismissed, setUpgradeBannerDismissed] = useState(false)
@@ -288,6 +291,7 @@ export default function DashboardPage() {
       .then(data => {
         if (data) {
           setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+          setBrandStatus(data.maturity?.status ?? null)
           setBrandName(data.brandProfile?.brandName || null)
         }
       })
@@ -421,8 +425,11 @@ export default function DashboardPage() {
                 {' '}<span style={{ color: 'var(--nx-text-3)' }}>👋</span>
               </h1>
               <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>
-                {brandReadiness?.ready && brandName
-                  ? (ar ? `عقل ${brandName} جاهز — الوكلاء يعرفون علامتك التجارية` : `${brandName}'s brain is ready — all agents know your brand`)
+                {/* PR-1I: never claim "ready / all agents know your brand" unless the
+                    real maturity status is 'active'. Below that, say partial/incomplete.
+                    While the status is still loading, fall back to the neutral subtitle. */}
+                {brandStatus
+                  ? getBrandReadinessCopy(brandStatus, locale, brandName).summary
                   : t('dashboard.subtitle')}
               </p>
             </div>

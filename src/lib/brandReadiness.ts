@@ -118,6 +118,86 @@ export function getBrandBrainReadiness(
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// PR-1I — Brand Brain readiness MESSAGING (one source of truth)
+//
+// Every surface that *describes* how ready the Brand Brain is (Dashboard summary
+// line, Analytics System Insights, any "brain ready" banner) must derive its copy
+// from the SAME maturity status the Brand Brain page shows — never from the
+// functional getBrandBrainReadiness() gate above, and never from an invented
+// score. `status` is produced by calculateBrandMaturity() (brandMaturity.ts) using
+// the real thresholds: 'active' = score ≥ 80, 'building' = 50–79, 'needs_data' < 50.
+// Only 'active' may say "ready" / "all agents know your brand"; below that the copy
+// must say partial/incomplete. This guarantees Dashboard, Analytics, and the Brand
+// Brain page can never contradict each other.
+// ════════════════════════════════════════════════════════════════════════════
+
+/** Maturity status from calculateBrandMaturity() — the readiness source of truth. */
+export type BrandReadinessStatus = 'needs_data' | 'building' | 'active'
+
+export interface BrandReadinessCopy {
+  status: BrandReadinessStatus
+  /** true only when the brand is genuinely complete (status === 'active'). */
+  isComplete: boolean
+  /** Short status label, localized — aligned with the Brand Brain page tiers. */
+  label: string
+  /** Full sentence for the Dashboard brain-summary line, localized. */
+  summary: string
+}
+
+/**
+ * Map a Brand Brain maturity status to honest, localized readiness copy.
+ *
+ * Pure + display-only: never reads or mutates a profile, score, or ledger.
+ *
+ * @param status     maturity status from calculateBrandMaturity() / /api/brand `maturity.status`
+ * @param locale     'ar' (default) or 'en'
+ * @param brandName  optional — personalizes the "ready" summary only
+ */
+export function getBrandReadinessCopy(
+  status: BrandReadinessStatus | null | undefined,
+  locale?: string,
+  brandName?: string | null,
+): BrandReadinessCopy {
+  const ar = !locale || locale.toLowerCase().startsWith('ar')
+  const s: BrandReadinessStatus = status ?? 'needs_data'
+
+  if (s === 'active') {
+    return {
+      status: s,
+      isComplete: true,
+      label: ar ? 'عقل نشط' : 'Active Brain',
+      summary: brandName
+        ? (ar
+            ? `عقل ${brandName} جاهز — الوكلاء يعرفون علامتك التجارية`
+            : `${brandName}'s brain is ready — all agents know your brand`)
+        : (ar
+            ? 'ذاكرة العلامة التجارية جاهزة — الوكلاء يعرفون علامتك التجارية'
+            : 'Brand Brain is ready — all agents know your brand'),
+    }
+  }
+
+  if (s === 'building') {
+    return {
+      status: s,
+      isComplete: false,
+      label: ar ? 'قيد البناء' : 'Building',
+      summary: ar
+        ? 'ذاكرة العلامة التجارية مكتملة جزئياً — لدى NEXUS بعض المعلومات عن علامتك، لكن النتائج قد تتحسن بعد إكمال الملف.'
+        : 'Brand Brain is partially configured — NEXUS has some brand context, but outputs may improve after completing your profile.',
+    }
+  }
+
+  return {
+    status: 'needs_data',
+    isComplete: false,
+    label: ar ? 'يحتاج بيانات' : 'Needs Data',
+    summary: ar
+      ? 'ذاكرة العلامة التجارية تحتاج مزيداً من المعلومات — أكمل ملف علامتك لتفعيل نتائج أفضل.'
+      : 'Brand Brain needs more information — complete your brand profile for better output.',
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // PR-2A — Capability-based strategy readiness
 //
 // Tells NEXUS (and the user) which kinds of strategy it has enough data to
