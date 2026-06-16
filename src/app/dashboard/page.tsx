@@ -425,7 +425,7 @@ export default function DashboardPage() {
                 </span>
               </div>
               <h1 className="text-2xl font-bold font-heading mb-1" style={{ color: 'var(--nx-text-1)' }}>
-                {displayName ? `${t('dashboard.greeting')}، ${displayName}` : t('dashboard.commandCenter')}
+                {displayName ? `${t('dashboard.greeting')}${ar ? '،' : ','} ${displayName}` : t('dashboard.commandCenter')}
                 {' '}<span style={{ color: 'var(--nx-text-3)' }}>👋</span>
               </h1>
               <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>

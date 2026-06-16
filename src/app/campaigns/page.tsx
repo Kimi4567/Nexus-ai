@@ -258,6 +258,12 @@ export default function CampaignsPage() {
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-amber" />
         </div>
+      ) : loadError && campaigns.length === 0 ? (
+        /* PR-E: truthful loading/error/empty/loaded separation. When the fetch
+           failed and we have no rows, the zero state is NOT confirmed — so do
+           not render the "No campaigns yet" empty state. The error banner above
+           (with Retry) is the single source of truth for this case. */
+        null
       ) : campaigns.length === 0 ? (
         <div className="p-16 text-center" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '16px', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
           <Megaphone className="w-14 h-14 mx-auto mb-4 opacity-20" />
