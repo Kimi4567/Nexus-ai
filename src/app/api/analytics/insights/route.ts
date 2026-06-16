@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { calculateBrandMaturity } from '@/lib/brandMaturity'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -49,6 +50,7 @@ export async function GET(req: Request) {
       recentCampaigns,
       brandProfile,
       totalVisuals,
+      acceptedLearningCount,
     ] = await Promise.all([
       prisma.campaign.count({ where: { workspaceId: workspace.id } }).catch(() => 0),
       prisma.campaign.count({ where: { workspaceId: workspace.id, status: 'DRAFT' } }).catch(() => 0),
@@ -63,6 +65,9 @@ export async function GET(req: Request) {
       db.generatedVisual?.count({
         where: { workspaceId: workspace.id, isArchived: false, status: 'COMPLETED' },
       }).catch(() => 0) ?? 0,
+      // PR-1I: same learning signal the Brand Brain page/score uses, so the
+      // readiness status here can never disagree with /api/brand or the Dashboard.
+      db.brainLearning?.count({ where: { workspaceId: workspace.id, status: 'accepted' } }).catch(() => 0) ?? 0,
     ])
 
     // ── Generate rule-based insights ────────────────────────────
@@ -77,14 +82,20 @@ export async function GET(req: Request) {
         href: '/brand',
       })
     } else {
-      const fields = [
-        brandProfile.brandName,
-        brandProfile.toneKeywords?.length,
-        brandProfile.targetAudience,
-        brandProfile.coreOffer,
-      ]
-      const filled = fields.filter(Boolean).length
-      if (filled < 3) {
+      // PR-1I: readiness state derives from the SAME maturity status the Brand
+      // Brain page + Dashboard use (calculateBrandMaturity → 'active' ≥ 80,
+      // 'building' 50–79, 'needs_data' < 50). Never claim "ready/active" while the
+      // brand is still partial, so Analytics can't contradict the other surfaces.
+      const { status } = calculateBrandMaturity(brandProfile, { acceptedLearningCount })
+      if (status === 'active') {
+        insights.push({
+          id: 'brand-active',
+          type: 'success',
+          icon: '🧠',
+          message: `Brand voice active — AI campaigns using your ${brandProfile.toneKeywords?.[0] || 'custom'} tone`,
+          href: '/brand',
+        })
+      } else if (status === 'building') {
         insights.push({
           id: 'brand-incomplete',
           type: 'action',
@@ -94,10 +105,10 @@ export async function GET(req: Request) {
         })
       } else {
         insights.push({
-          id: 'brand-active',
-          type: 'success',
+          id: 'brand-needs-data',
+          type: 'warning',
           icon: '🧠',
-          message: `Brand voice active — AI campaigns using your ${brandProfile.toneKeywords?.[0] || 'custom'} tone`,
+          message: 'Brand memory needs more information — complete your profile to enable sharper AI output',
           href: '/brand',
         })
       }
