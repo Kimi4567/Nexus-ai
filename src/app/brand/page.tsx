@@ -11,7 +11,7 @@ import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
-  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X, Rocket,
+  CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X,
   Upload, ImageIcon, Link2, FileText, ScanSearch, ChevronRight
 } from 'lucide-react'
 
@@ -325,7 +325,12 @@ function BrandSummaryCard({
               </div>
               <div>
                 <h2 className="text-lg font-black text-slate-950">{t('brand.summaryTitle')}</h2>
-                <p className="text-xs mt-0.5 text-slate-500">{t('brand.summarySubtitle')}</p>
+                {/* PR-A: status-aware subtitle — never claims "ready" while the
+                    Brand Brain is still Building (score < 80). Uses the same score
+                    shown on this page (getBrandCompleteness) so copy matches the bar. */}
+                <p className="text-xs mt-0.5 text-slate-500">
+                  {score >= 80 ? t('brand.summarySubtitleActive') : t('brand.summarySubtitleBuilding')}
+                </p>
               </div>
             </div>
             <button onClick={onClose} className="p-1.5 rounded-lg transition-all text-slate-400 hover:text-slate-700 hover:bg-slate-100">
@@ -387,10 +392,13 @@ function BrandSummaryCard({
 
         {/* CTA footer */}
         <div className="px-6 pb-6 flex items-center gap-3">
+          {/* PR-A: strategy-first CTA. Route unchanged — /dashboard?runStrategy=1
+              opens the Run Full Strategy flow (the current strategy entry point);
+              /strategy still redirects to /campaigns so it is intentionally NOT used. */}
           <a href="/dashboard?runStrategy=1"
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all"
             style={{ background: '#111827', color: '#FFFFFF' }}>
-            <Rocket size={15}/> {t('brand.summaryCtaLabel')}
+            <Sparkles size={15}/> {t('brand.summaryCtaLabel')}
           </a>
           <button onClick={onClose}
             className="px-4 py-3 rounded-xl text-sm font-semibold transition-all"
