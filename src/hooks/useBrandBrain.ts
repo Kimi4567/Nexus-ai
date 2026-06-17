@@ -53,6 +53,9 @@ export interface BrandProfile {
   salesCycleLength?: string | null
   seasonality?: string | null
   pastAdResults?: string | null
+  // PR-H2 — Brand Brain v2 (additive)
+  languagePreference?: string | null   // "en" | "ar" | "both" — user-chosen
+  verifiedProof?: string[]             // user-confirmed proof points only
 }
 
 const ARRAY_FIELDS: (keyof BrandProfile)[] = [
@@ -70,6 +73,7 @@ const ARRAY_FIELDS: (keyof BrandProfile)[] = [
   'competitors',
   'contentSamples',
   'customerObjections',
+  'verifiedProof',
 ]
 
 function toStringArray(value: unknown): string[] {
