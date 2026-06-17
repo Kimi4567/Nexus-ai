@@ -61,8 +61,11 @@ function ScoreRing({ score }: { score: number }) {
   const r = 44
   const circ = 2 * Math.PI * r
   const offset = circ - (score / 100) * circ
-  const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
-  const glow  = score >= 80 ? 'rgba(16,185,129,0.5)' : score >= 50 ? 'rgba(245,158,11,0.5)' : 'rgba(239,68,68,0.5)'
+  // PR-L — maturity is a long-term depth signal, not a pass/fail. Low maturity
+  // uses a calm slate (not alarmist red) so an early-but-complete brand never
+  // looks like it is failing.
+  const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
+  const glow  = score >= 80 ? 'rgba(16,185,129,0.45)' : score >= 50 ? 'rgba(245,158,11,0.4)' : 'rgba(100,116,139,0.35)'
   return (
     <div className="relative flex items-center justify-center" style={{ width: 100, height: 100 }}>
       <svg width="100" height="100" style={{ transform: 'rotate(-90deg)' }}>
@@ -809,7 +812,7 @@ function BrandBrainInner() {
   })
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
   const currentStep    = STEPS[currentStepIdx] ?? STEPS[0]
-  const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
+  const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
 
   if (authLoading || loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#06071A' }}>
@@ -864,7 +867,11 @@ function BrandBrainInner() {
       )}
       <div className="relative min-h-screen" dir={dir}>
 
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+        {/* PR-L — flex column so enrichment tools (Scanner/Analyzer/Learned) can be
+            ordered BELOW the core brand profile via CSS order, without moving large
+            JSX blocks. Core sections keep source order (order:0); enrichment = 49-52;
+            footer = 60. Width stays max-w-4xl this phase (widening is Phase 2). */}
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
           {fromBrief && !briefBannerDismissed && (
@@ -947,10 +954,16 @@ function BrandBrainInner() {
                   <div className="flex items-end gap-3">
                     <div className="flex flex-col items-center gap-1.5">
                     <ScoreRing score={score} />
+                    {/* PR-L — framed as long-term maturity (depth of learning), NOT
+                        setup status. Calm wording so a complete-but-early brand is
+                        never told it "Needs Data". */}
                     <span className="text-xs font-bold" style={{ color: scoreColor }}>
-                      {score >= 80 ? t('brand.scoreActiveBrain') :
-                       score >= 50 ? t('brand.scoreBuilding') :
-                       t('brand.scoreNeedsData')}
+                      {score >= 80 ? (locale === 'ar' ? 'ذاكرة ناضجة' : 'Mature') :
+                       score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') :
+                       (locale === 'ar' ? 'مبكرة' : 'Early')}
+                    </span>
+                    <span className="text-[9px] text-slate-400">
+                      {locale === 'ar' ? 'نضج الذاكرة' : 'Brand Brain maturity'}
                     </span>
                   </div>
                   <ScoreSparkline history={scoreHistory} />
@@ -992,7 +1005,7 @@ function BrandBrainInner() {
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
                   <div className="h-full rounded-full transition-all duration-700"
-                    style={{ width:`${score}%`, background:score>=80?'linear-gradient(90deg,#10b981,#059669)':score>=50?'linear-gradient(90deg,#f59e0b,#d97706)':'linear-gradient(90deg,#ef4444,#dc2626)' }}/>
+                    style={{ width:`${score}%`, background:score>=80?'linear-gradient(90deg,#10b981,#059669)':score>=50?'linear-gradient(90deg,#f59e0b,#d97706)':'linear-gradient(90deg,#94a3b8,#64748b)' }}/>
                 </div>
                 <p className="text-[10px] mt-1.5 text-slate-400">
                   {locale === 'ar'
@@ -1006,57 +1019,107 @@ function BrandBrainInner() {
                 </div>
               </div>
 
-              {/* Next step — one clear instruction based on completion state */}
-              <div className="flex items-center gap-2 mt-4 px-4 py-3 rounded-xl"
-                style={{ background:'#F5F3FF', border:'1px solid rgba(94,92,230,0.18)' }}>
-                <Sparkles size={14} style={{ color:'#5E5CE6' }} className="flex-shrink-0"/>
-                {score >= 80 ? (
-                  <p className="text-xs text-slate-600">
-                    {locale === 'ar' ? 'ذاكرة علامتك جاهزة. الخطوة التالية: ' : 'Your brand memory is ready. Next step: '}
-                    <button onClick={() => router.push('/campaigns/new')} className="font-bold underline" style={{ color:'#5E5CE6' }}>
-                      {locale === 'ar' ? 'أنشئ حملة' : 'create a campaign'}
-                    </button>
-                    {locale === 'ar' ? ' — سيستخدم NEXUS هذه الذاكرة.' : ' — NEXUS will use this memory.'}
-                  </p>
-                ) : missing.length > 0 ? (
-                  <p className="text-xs text-slate-600">
-                    {locale === 'ar' ? 'الخطوة التالية: أكمل ' : 'Next step: complete '}
-                    <span className="font-semibold" style={{ color:'#5E5CE6' }}>
-                      {missing.slice(0,2).join(locale==='ar'?'، ':' & ')}
-                    </span>
-                    {locale === 'ar'
-                      ? ' — أو امسح موقعك أدناه لتعبئتها تلقائياً.'
-                      : ' — or scan your website below to auto-fill it.'}
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-600">
-                    {locale === 'ar'
-                      ? 'الخطوة التالية: راجع الحقول وفعّل الحفظ لتقوية ذاكرة العلامة.'
-                      : 'Next step: review your fields and save to strengthen your brand memory.'}
-                  </p>
-                )}
-              </div>
+              {/* PR-L — single, indicator-driven next-action card (replaces the old
+                  generic "Next step" banner + the alarmist low-completeness warning).
+                  Leads with the honest positive, then names the real next gap from the
+                  same separated indicators shown above. Display only — reads existing
+                  indicator state, never mutates data or recomputes scores. */}
+              {(() => {
+                const organic = brandIndicators.organicReadiness
+                const paid = brandIndicators.paidReadiness
+                const ar = locale === 'ar'
+                const LABELS: Record<string, { en: string; ar: string }> = {
+                  brandName: { en: 'brand name', ar: 'اسم العلامة' },
+                  industry: { en: 'industry', ar: 'المجال' },
+                  description: { en: 'business description', ar: 'وصف النشاط' },
+                  primaryOffer: { en: 'primary offer', ar: 'العرض الأساسي' },
+                  targetAudience: { en: 'target audience', ar: 'الجمهور المستهدف' },
+                  audiencePainPoints: { en: 'audience pain points', ar: 'نقاط ألم الجمهور' },
+                  businessGoal: { en: 'business goal', ar: 'الهدف التجاري' },
+                  topPlatforms: { en: 'platforms', ar: 'المنصات' },
+                  marketingBudget: { en: 'monthly budget', ar: 'الميزانية الشهرية' },
+                  conversionDestination: { en: 'conversion destination', ar: 'وجهة التحويل' },
+                  audienceLocation: { en: 'location', ar: 'الموقع الجغرافي' },
+                  pixel: { en: 'tracking / pixel', ar: 'التتبع / البكسل' },
+                }
+                const labelFor = (keys: string[]) =>
+                  keys.map(k => LABELS[k] ? (ar ? LABELS[k].ar : LABELS[k].en) : k)
+                     .join(ar ? '، ' : ', ')
 
-              {score < 60 && (
-                <div className="flex items-center gap-2 mt-4 px-4 py-3 rounded-xl"
-                  style={{ background:'#FFFBEB', border:'1px solid rgba(245,158,11,0.22)' }}>
-                  <AlertTriangle size={14} className="text-amber-500 flex-shrink-0"/>
-                  <p className="text-xs text-amber-800">{t('brand.lowCompletenessWarning')}</p>
-                </div>
-              )}
+                return (
+                  <div className="mt-4 rounded-2xl p-4 sm:p-5 space-y-2.5"
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={14} style={{ color: '#5E5CE6' }} className="flex-shrink-0" />
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                        {ar ? 'الخطوة التالية' : 'Your next step'}
+                      </span>
+                    </div>
+
+                    {!organic.ready ? (
+                      <p className="text-sm text-slate-700 leading-relaxed">
+                        {ar
+                          ? `أكمل أساس المحتوى العضوي بإضافة: ${labelFor(organic.missingKeys)} — ثم احفظ لتثبيته.`
+                          : `Finish your organic foundation by adding: ${labelFor(organic.missingKeys)} — then save to lock it in.`}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-700 leading-relaxed">
+                          <span className="font-semibold text-emerald-600">
+                            {ar ? 'أساسك العضوي جاهز.' : 'Your organic foundation is ready.'}
+                          </span>{' '}
+                          <button onClick={() => router.push('/strategy')} className="font-semibold underline" style={{ color: '#5E5CE6' }}>
+                            {ar ? 'أنشئ أول استراتيجية' : 'Create your first strategy'}
+                          </button>
+                          {ar ? ' — سيستخدم NEXUS ذاكرة علامتك.' : ' — NEXUS will use your brand memory.'}
+                        </p>
+                        {!paid.ready && (
+                          <p className="text-[13px] leading-relaxed" style={{ color: '#b45309' }}>
+                            {ar
+                              ? `المدفوع تخطيط فقط — لتجهيزه أضف: ${labelFor(paid.missingKeys)}. لا تُطلق إعلانات ولا تُصرف ميزانية دون موافقتك.`
+                              : `Paid is planning-only — to prepare it, add: ${labelFor(paid.missingKeys)}. No ads run and no budget is spent without your approval.`}
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    <p className="text-[12px] text-slate-400 leading-relaxed">
+                      {ar
+                        ? 'ثراء الذاكرة ينمو مع موافقتك على المحتوى وتعديل المسودات وتشغيل الحملات وجمع النتائج — ليس مطلوباً للبدء.'
+                        : 'Memory richness grows as you approve content, edit drafts, run campaigns, and gather results — it’s not required to start.'}
+                    </p>
+                  </div>
+                )
+              })()}
             </div>
           </div>
 
           {/* ══════════════════════════════════════════════════════
-              WHAT NEXUS LEARNED — timeline (Operator Foundation PR-1B)
+              GROW YOUR BRAND BRAIN — enrichment group (moved below the core
+              profile via CSS order). Heading (49) → Learned (50) → Scanner (51)
+              → Analyzer (52). These enrich the brand; they are not the main task.
               ══════════════════════════════════════════════════════ */}
-          <BrainTimeline onUpdate={refreshBrainAfterLearning} />
+          <div style={{ order: 49 }} className="pt-2">
+            <h2 className="text-sm font-bold text-slate-950">
+              {locale === 'ar' ? 'طوّر ذاكرة علامتك' : 'Grow your Brand Brain'}
+            </h2>
+            <p className="text-xs mt-0.5 text-slate-500">
+              {locale === 'ar'
+                ? 'أدوات اختيارية تثري ذاكرة علامتك بمرور الوقت — ليست مطلوبة للبدء.'
+                : 'Optional tools that enrich your brand memory over time — not required to start.'}
+            </p>
+          </div>
+
+          {/* WHAT NEXUS LEARNED — timeline (Operator Foundation PR-1B) */}
+          <div style={{ order: 50 }}>
+            <BrainTimeline onUpdate={refreshBrainAfterLearning} />
+          </div>
 
           {/* ══════════════════════════════════════════════════════
               WEBSITE INTELLIGENCE SCANNER
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+            style={{ order: 51, background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #8b5cf6 100%)' }} />
             <div className="p-5">
               {/* Header */}
@@ -1192,7 +1255,7 @@ function BrandBrainInner() {
               CONTENT SAMPLES ANALYZER
               ══════════════════════════════════════════════════════ */}
           <div className="rounded-2xl overflow-hidden"
-            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+            style={{ order: 52, background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)' }} />
             <div className="p-5">
               {/* Header */}
@@ -1985,10 +2048,10 @@ function BrandBrainInner() {
               <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
                 <div className="flex items-center gap-2 mb-1">
                   <BarChart2 size={16} style={{ color: '#5E5CE6' }} />
-                  <h3 className="text-sm font-bold text-slate-950">{ar ? 'جاهزية الاستراتيجية' : 'Strategy readiness'}</h3>
+                  <h3 className="text-sm font-bold text-slate-950">{ar ? 'تفاصيل الجاهزية والبيانات الاختيارية' : 'Readiness detail & optional data'}</h3>
                 </div>
                 <p className="text-[12px] text-slate-500 mb-4">
-                  {ar ? 'ما الذي يملك NEXUS بيانات كافية لإنتاجه بثقة — وما الذي ينقصه.' : 'What NEXUS has enough data to produce confidently — and what is still missing.'}
+                  {ar ? 'تفصيل لحالة ذاكرة العلامة بالأعلى — وما يمكنك إضافته لفتح تخطيط المدفوع ومؤشرات الأداء.' : 'A detailed breakdown of the Brand Brain status above — and the optional data you can add to unlock paid & KPI planning.'}
                 </p>
 
                 <div className="grid sm:grid-cols-2 gap-2 mb-5">
@@ -2043,27 +2106,15 @@ function BrandBrainInner() {
             )
           })()}
 
-          {/* ══════════════════════════════════════════════════════
-              AGENT INJECTION GRID
-              ══════════════════════════════════════════════════════ */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { color:'#f59e0b', icon:Brain,     label:'NEX Studio',  descKey:'brand.nexCardDesc'      },
-              { color:'#06b6d4', icon:Zap,       label:'VEX Ads',     descKey:'brand.vexCardDesc'      },
-              { color:'#8b5cf6', icon:BarChart2, label:'PULSE',       descKey:'brand.pulseCardDesc'    },
-              { color:'#10b981', icon:Target,    label:'Sentinel',    descKey:'brand.sentinelCardDesc' },
-            ].map((c,i) => (
-              <div key={i} className="rounded-xl p-4 transition-all duration-200"
-                style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
-                  style={{ background:`${c.color}12`, border:`1px solid ${c.color}22` }}>
-                  <c.icon size={16} style={{ color:c.color }}/>
-                </div>
-                <p className="text-xs font-bold text-slate-950 mb-1">{c.label}</p>
-                <p className="text-[11px] leading-relaxed text-slate-500">{t(c.descKey)}</p>
-              </div>
-            ))}
-          </div>
+          {/* PR-L — the 4 static, non-actionable agent cards (NEX/VEX/PULSE/Sentinel)
+              are replaced by one quiet footer line. They were decorative, visually
+              noisy, and mildly overclaimed; this keeps the "what it powers" signal
+              without the decoration. order:60 keeps it last, below the enrichment group. */}
+          <p style={{ order: 60 }} className="text-center text-[11px] text-slate-400 pt-1 pb-2">
+            {locale === 'ar'
+              ? 'ذاكرة علامتك تُشغّل NEX Studio · VEX Ads · PULSE · Sentinel'
+              : 'Your Brand Brain powers NEX Studio · VEX Ads · PULSE · Sentinel'}
+          </p>
 
         </div>
       </div>
