@@ -43,7 +43,6 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
   const ar = locale === 'ar'
   const dark = theme === 'dark'
 
-  const textMain = dark ? 'rgba(255,255,255,0.92)' : 'var(--nx-text-1, #0f172a)'
   const textSub = dark ? 'rgba(255,255,255,0.55)' : 'var(--nx-text-3, #64748b)'
   const cardBg = dark ? 'rgba(255,255,255,0.03)' : 'var(--nx-surface-2, #f8fafc)'
   const cardBorder = dark ? 'rgba(255,255,255,0.08)' : 'var(--nx-border, #e2e8f0)'
