@@ -13,6 +13,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
+import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
     const selectedMediaIds = Array.isArray(body?.mediaIds)
       ? (body.mediaIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0)
       : undefined
+    // PR-I — generation-time strategy intent (chosen in the modal; safe defaults).
+    const { strategyType, strategyDuration } = normalizeStrategyIntent(body?.strategyType, body?.strategyDuration)
 
     // -- Unified credit check + deduction ------------------------------------
     const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY')
@@ -130,6 +133,9 @@ export async function POST(req: NextRequest) {
         : undefined,
       // Language preference -- drives AI output language
       language,
+      // PR-I — strategy intent (generation-time choice; not persisted to Brand Brain)
+      strategyType,
+      strategyDuration,
       // Campaign memory: inject past learnings for this workspace
       pastLearnings: formatMemoriesForPrompt(
         await getRelevantMemories({

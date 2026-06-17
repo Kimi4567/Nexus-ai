@@ -159,6 +159,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // Language selection — user picks before running strategy
   const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
   const [langConfirmed, setLangConfirmed] = useState(false)
+  // PR-I — generation-time strategy intent (not persisted; defaults Organic / 90 days).
+  const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
+  const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('90')
   // Cost confirmation — shown after language selection, before media check
   const [costConfirmed, setCostConfirmed] = useState(false)
   const [creditBalance, setCreditBalance] = useState<number | null>(null)
@@ -276,7 +279,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           'Content-Type': 'application/json',
           Authorization: authHeaderRef.current(),
         },
-        body: JSON.stringify({ language: selectedLanguage, mediaIds: selectedMediaIds }),
+        body: JSON.stringify({ language: selectedLanguage, mediaIds: selectedMediaIds, strategyType, strategyDuration }),
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
         .then(({ ok, data: d }) => {
@@ -563,6 +566,52 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   </button>
                 )
               })}
+            </div>
+
+            {/* PR-I — Strategy Type + Duration (generation-time choice) */}
+            <div className="mb-3">
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {locale === 'ar' ? 'نوع الاستراتيجية' : 'Strategy type'}
+              </div>
+              <div className="flex gap-1.5">
+                {([
+                  ['organic', locale === 'ar' ? 'عضوي' : 'Organic'],
+                  ['paid', locale === 'ar' ? 'مدفوع' : 'Paid'],
+                  ['full', locale === 'ar' ? 'كاملة' : 'Full'],
+                ] as const).map(([v, l]) => (
+                  <button key={v} onClick={() => setStrategyType(v)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: strategyType === v ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${strategyType === v ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.1)'}`,
+                      color: strategyType === v ? '#C4B5FD' : 'rgba(255,255,255,0.6)',
+                    }}>{l}</button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {locale === 'ar' ? 'المدة' : 'Duration'}
+              </div>
+              <div className="flex gap-1.5">
+                {([
+                  ['30', locale === 'ar' ? '30 يوم' : '30d'],
+                  ['90', locale === 'ar' ? '90 يوم' : '90d'],
+                  ['180', locale === 'ar' ? '6 أشهر' : '6mo'],
+                  ['custom', locale === 'ar' ? 'مخصص' : 'Custom'],
+                ] as const).map(([v, l]) => (
+                  <button key={v} onClick={() => setStrategyDuration(v)}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background: strategyDuration === v ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${strategyDuration === v ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.1)'}`,
+                      color: strategyDuration === v ? '#C4B5FD' : 'rgba(255,255,255,0.6)',
+                    }}>{l}</button>
+                ))}
+              </div>
+              <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {locale === 'ar' ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, first 30 actionable.'}
+              </p>
             </div>
 
             {/* Start button */}
