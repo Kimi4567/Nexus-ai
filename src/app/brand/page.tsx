@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
+import { commitTag } from '@/lib/tagInput'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
@@ -115,7 +116,9 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
   const accent = accentColor || '#f59e0b'
   const isAr = locale === 'ar'
   const safeValues = Array.isArray(values) ? values.filter((v): v is string => typeof v === 'string') : []
-  const add = (val: string) => { const v = val.trim(); if (v && !safeValues.includes(v)) onChange([...safeValues, v]); setInput('') }
+  // PR-H1: Enter, comma, and blur all commit through the shared pure helper so
+  // typed text is never silently lost. Only fire onChange when it actually adds.
+  const add = (val: string) => { const next = commitTag(safeValues, val); if (next.length !== safeValues.length) onChange(next); setInput('') }
   const remove = (i: number) => onChange(safeValues.filter((_, idx) => idx !== i))
   return (
     <div className="flex flex-col gap-2">
@@ -157,11 +160,20 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
         {!suggesting && (
           <input value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key==='Enter'||e.key===','){e.preventDefault();add(input)} }}
+            // PR-H1 Tag Input Safety: commit any pending text on blur so it is
+            // never silently lost when the user clicks Save All, presses Next, or
+            // taps elsewhere. Blur fires before those click handlers run, so the
+            // committed value is in state before save/navigation reads it.
+            onBlur={() => add(input)}
             placeholder={safeValues.length ? '' : placeholder}
             className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-slate-400"
             style={{ color: '#0F172A' }} />
         )}
       </div>
+      {/* PR-H1: clear affordance — typed text becomes a chip on Enter/comma/blur. */}
+      <p className="text-[10px]" style={{ color: '#94A3B8' }}>
+        {isAr ? 'اضغط Enter للإضافة' : 'Press Enter to add'}
+      </p>
     </div>
   )
 }
@@ -1599,9 +1611,9 @@ function BrandBrainInner() {
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
                     values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}
                     onSuggest={() => handleSuggest('avoidKeywords')} suggesting={suggesting==='avoidKeywords'} locale={locale}/>
-                  <TagInput label={t('brand.voiceHooksLabel')} placeholder={t('brand.voiceHooksPlaceholder')}
-                    values={form.winningHooks||[]} onChange={v=>set('winningHooks',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('winningHooks')} suggesting={suggesting==='winningHooks'} locale={locale}/>
+                  {/* PR-H1: winningHooks moved out of the beginner input path into the
+                      read-only Learned Memory view — these are observed over time, not
+                      asked upfront. */}
                 </div>
               )}
 
@@ -1627,11 +1639,8 @@ function BrandBrainInner() {
                       ))}
                     </div>
                   </Field>
-                  <TagInput label={t('brand.platformsAnglesLabel')} placeholder={t('brand.platformsAnglesPlaceholder')}
-                    values={form.winningAngles||[]} onChange={v=>set('winningAngles',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('winningAngles')} suggesting={suggesting==='winningAngles'} locale={locale}/>
-                  <TagInput label={t('brand.platformsFailedLabel')} placeholder={t('brand.platformsFailedPlaceholder')}
-                    values={form.failedAngles||[]} onChange={v=>set('failedAngles',v)} accentColor={currentStep.color} locale={locale}/>
+                  {/* PR-H1: winningAngles & failedAngles moved out of the beginner
+                      input path into the read-only Learned Memory view. */}
                 </div>
               )}
 
@@ -1706,6 +1715,54 @@ function BrandBrainInner() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ══ PR-H1: Learned Memory (READ-ONLY) ══
+              Hooks, angles, and failed angles are LEARNED over time from real
+              activity — shown read-only here, never asked as upfront beginner
+              inputs. Editing happens via usage + the Content Analyzer, not here. */}
+          <div className="rounded-2xl p-5" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <Brain size={16} style={{ color:'#5E5CE6' }} />
+              <h3 className="text-sm font-bold text-slate-950">{locale==='ar' ? 'الذاكرة المكتسبة' : 'Learned Memory'}</h3>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
+                {locale==='ar' ? 'للقراءة فقط' : 'Read-only'}
+              </span>
+            </div>
+            <p className="text-[12px] text-slate-500 mb-4">
+              {locale==='ar'
+                ? 'يتعلّمها NEXUS من نشاطك الحقيقي بمرور الوقت — لا تُطلب منك مسبقاً.'
+                : 'NEXUS learns these from your real activity over time — not asked upfront.'}
+            </p>
+            {(() => {
+              const groups: Array<[string, string, string[]]> = [
+                [locale==='ar'?'هوكس ناجحة':'Winning hooks',   '#10b981', form.winningHooks  || []],
+                [locale==='ar'?'زوايا ناجحة':'Winning angles',  '#06b6d4', form.winningAngles || []],
+                [locale==='ar'?'زوايا لم تنجح':'Failed angles', '#f59e0b', form.failedAngles  || []],
+              ]
+              const anything = groups.some(g => g[2].length > 0)
+              if (!anything) return (
+                <p className="text-[12px] text-slate-400">
+                  {locale==='ar'
+                    ? 'لا شيء بعد — ستظهر هنا مع نشر المحتوى وتحليله.'
+                    : 'Nothing yet — these appear as you publish content and NEXUS analyzes what works.'}
+                </p>
+              )
+              return (
+                <div className="space-y-3">
+                  {groups.filter(g => g[2].length > 0).map(([label, color, vals], gi) => (
+                    <div key={gi}>
+                      <p className="text-[11px] font-semibold mb-1.5" style={{ color:'#64748b' }}>{label}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {vals.map((v, i) => (
+                          <span key={i} className="text-xs px-2.5 py-1 rounded-full" style={{ background:`${color}12`, border:`1px solid ${color}30`, color }}>{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           {/* ══ Strategy readiness + data requirements (PR-2A) ══
