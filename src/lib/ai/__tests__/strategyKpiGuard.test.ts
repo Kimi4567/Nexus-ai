@@ -28,6 +28,26 @@ describe('guardKpiTarget — strips unsupported performance numbers', () => {
     expect(guardKpiTarget('2x return')).toMatch(/baseline needed/i)
   })
 
+  it('PR-I.1 — strips unsupported engagement/reach count targets (views, impressions, clicks, visits, downloads, followers)', () => {
+    expect(guardKpiTarget('Achieve 500 views per video')).toMatch(/baseline needed/i)
+    expect(guardKpiTarget('Achieve 500 views per video')).not.toMatch(/500/)
+    expect(guardKpiTarget('Get 1,000 impressions')).toBe('Baseline needed — target to define after first 30 days')
+    expect(guardKpiTarget('Generate 300 clicks')).toMatch(/Generate — baseline needed/)
+    expect(guardKpiTarget('Drive 200 website visits')).toMatch(/Drive — baseline needed/)
+    expect(guardKpiTarget('Gain 100 followers')).toMatch(/baseline needed/i)
+    expect(guardKpiTarget('Get 50 downloads')).toBe('Baseline needed — target to define after first 30 days')
+    expect(guardKpiTarget('Reach 2,000 video views')).not.toMatch(/2,000/)
+  })
+
+  it('PR-I.1 — preserves the 30-day timeframe while scrubbing the count', () => {
+    // timeframe must survive even when no count number is present
+    expect(guardKpiTarget('Increase engagement over 30 days')).toBe('Increase engagement over 30 days')
+    // and survive in free-text alongside a scrubbed count
+    const out = guardResultText('Reach 5,000 impressions in 30 days')
+    expect(out).not.toContain('5,000')
+    expect(out).toContain('30 days')
+  })
+
   it('preserves non-numeric directional KPIs', () => {
     expect(guardKpiTarget('Grow brand awareness')).toBe('Grow brand awareness')
     expect(guardKpiTarget('Sign-ups for trials')).toBe('Sign-ups for trials')

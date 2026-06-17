@@ -10,7 +10,9 @@
  *
  * What counts as a performance number (scrubbed unless user/analytics-supported):
  *   percentages, currency, multipliers (2x), ROI/ROAS/CPL/CPA/CPM/CPC/CTR,
- *   "increase/improve/grow… by N", and counts ("20 leads", "50 sign-ups").
+ *   "increase/improve/grow… by N", and engagement/reach counts ("20 leads",
+ *   "50 sign-ups", "500 views", "1,000 impressions", "300 clicks", "200 visits",
+ *   "100 followers", "50 downloads", shares/saves/comments/likes).
  * What is preserved: calendar timeframes (30 days, 90 days, 3 months, Q1) and
  *   any number the user actually provided (passed via `allowed`).
  *
@@ -28,7 +30,7 @@ const PERF_PATTERNS: RegExp[] = [
   /\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b[^.\n]{0,12}?[\d.,]+/gi, // ROAS 3.2
   /[\d.,]+[^.\n]{0,12}?\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b/gi, // 3.2 ROAS
   /\b(?:increase|improve|grow|reduce|boost|raise|lower|drive|generate|reach|add|gain|cut|save)\b[^.\n]{0,16}?[\d.,]+/gi, // increase by 20
-  /[\d.,]+(?:[^.\n]{0,15}?)\b(?:leads?|sales?|sign[\s-]?ups?|customers?|conversions?|subscribers?|followers?|clients?|orders?|deals?|bookings?)\b/gi, // 200 new leads / 50 sign-ups
+  /[\d.,]+(?:[^.\n]{0,15}?)\b(?:leads?|sales?|sign[\s-]?ups?|customers?|conversions?|subscribers?|followers?|clients?|orders?|deals?|bookings?|views?|impressions?|clicks?|visits?|visitors?|downloads?|installs?|shares?|saves?|comments?|likes?|reactions?|opens?|sessions?)\b/gi, // 200 new leads / 50 sign-ups / 500 views / 1,000 impressions / 300 clicks / 200 website visits
   /\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b/gi, // bare perf acronyms — scrubbed only when the line already has an unsupported number (gate requires a digit)
 ]
 
