@@ -17,6 +17,7 @@ import { runReportingAgent, getPeriodLabel, ReportingInput } from './reporting'
 import { saveCampaignMemory } from '@/lib/campaign-memory'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
+import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import type { StrategyReadinessContext } from './strategist'
 
 // Re-export for API routes
@@ -147,6 +148,12 @@ export async function runFullAgency(
     strategy = applyServerReadiness(strategy, capabilities, {
       hasHistoricalData, allowedCompetitors, allowedNumbers,
     })
+    // 2c. PR-I — KPI Truth Guard. applyServerReadiness flags KPIs as hypotheses but
+    //     does NOT scrub the KPI/metric `target` strings, so invented figures like
+    //     "Increase by 20%" leaked through. This strips unsupported performance
+    //     numbers from KPI targets / success metrics / estimated results, keeping
+    //     only user/analytics-provided numbers (allowedNumbers) and calendar timeframes.
+    strategy = guardStrategyKpis(strategy as unknown as Record<string, unknown>, allowedNumbers) as unknown as StrategyOutput
     strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.

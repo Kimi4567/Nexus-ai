@@ -49,6 +49,9 @@ export interface BusinessBrief {
   planTier?: string
   // Media library context: describes existing assets the user has uploaded
   mediaContext?: string
+  // PR-I — generation-time strategy intent (chosen in RunFullStrategyModal, not persisted).
+  strategyType?: 'organic' | 'paid' | 'full'   // default 'organic'
+  strategyDuration?: '30' | '90' | '180' | 'custom'  // default '90' (first 30 days actionable)
 }
 
 export interface FunnelStrategy {
@@ -404,6 +407,14 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     `Target Audience: ${brief.targetAudience}`,
     `Monthly Budget: $${brief.monthlyBudget} USD`,
     `Primary Goal: ${brief.primaryGoal || 'generate qualified leads'}`,
+    `Strategy Type: ${brief.strategyType || 'organic'} — ${
+      brief.strategyType === 'paid'
+        ? 'focus on the paid campaign plan; keep organic light'
+        : brief.strategyType === 'full'
+          ? 'cover both organic content and paid campaign planning'
+          : 'focus on the ORGANIC content plan; do NOT over-build paid details'
+    }`,
+    `Strategy Duration: ${brief.strategyDuration && brief.strategyDuration !== 'custom' ? brief.strategyDuration + ' days' : (brief.strategyDuration === 'custom' ? 'custom horizon' : '90 days')} — plan to this horizon and make the FIRST 30 days concretely actionable`,
     brief.planTier ? `User Plan Tier: ${brief.planTier} — scale the strategy scope to match this plan's quota (see Plan Context above)` : '',
     brief.region ? `Region/Market: ${brief.region}` : '',
     brief.primaryOffer ? `Core Offer: ${brief.primaryOffer}` : '',
