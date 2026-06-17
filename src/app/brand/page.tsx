@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
+import { getBrandIndicators } from '@/lib/brandIndicators'
+import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
 import { commitTag } from '@/lib/tagInput'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
@@ -801,6 +803,10 @@ function BrandBrainInner() {
   }
 
   const { score, missing } = getBrandCompleteness(form, locale)
+  // PR-J — separated, honest indicators (same source the campaign Strategy panel uses).
+  const brandIndicators = getBrandIndicators(form, {
+    acceptedLearningCount: typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0,
+  })
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
   const currentStep    = STEPS[currentStepIdx] ?? STEPS[0]
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444'
@@ -969,12 +975,14 @@ function BrandBrainInner() {
                 </div>
               </div>
 
-              {/* Progress bar + missing */}
+              {/* Brand Brain maturity bar (overall: completeness + learned memory) */}
               <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
                     <Sparkles size={12} className="text-amber-400" />
-                    <span className="text-xs font-semibold text-slate-600">{t('brand.completeness')}</span>
+                    <span className="text-xs font-semibold text-slate-600">
+                      {locale === 'ar' ? 'نضج ذاكرة العلامة (شامل)' : 'Brand Brain maturity (overall)'}
+                    </span>
                   </div>
                   {missing.length > 0 && (
                     <span className="text-xs text-slate-500">
@@ -985,6 +993,16 @@ function BrandBrainInner() {
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
                   <div className="h-full rounded-full transition-all duration-700"
                     style={{ width:`${score}%`, background:score>=80?'linear-gradient(90deg,#10b981,#059669)':score>=50?'linear-gradient(90deg,#f59e0b,#d97706)':'linear-gradient(90deg,#ef4444,#dc2626)' }}/>
+                </div>
+                <p className="text-[10px] mt-1.5 text-slate-400">
+                  {locale === 'ar'
+                    ? 'مقياس شامل يجمع اكتمال الحقول والذاكرة المكتسبة. للجاهزية الفعلية راجع المؤشرات أدناه.'
+                    : 'A blended measure of field completeness + learned memory. For true readiness, see the indicators below.'}
+                </p>
+
+                {/* PR-J — separated honest indicators (completeness / organic / paid / memory) */}
+                <div className="mt-4">
+                  <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="light" completeHref="#" />
                 </div>
               </div>
 

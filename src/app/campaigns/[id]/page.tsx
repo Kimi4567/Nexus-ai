@@ -17,6 +17,8 @@ import StrategyActionCard from '@/components/StrategyActionCard'
 import StrategicVerdictCard from '@/components/StrategicVerdictCard'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import { getBrandIndicators } from '@/lib/brandIndicators'
+import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import PlatformNativeCard from '@/components/PlatformNativeCard'
@@ -1511,13 +1513,14 @@ function CampaignDetailPageInner() {
 
                 {/* ── Strategy TL;DR Intelligence Card ────────────────────── */}
                 {(engineScore > 0 || strategy.keyMessage || topHooks.length > 0) && (() => {
-                  const brandFields: Array<keyof BrandDNAData> = ['brandName','industry','toneKeywords','targetAudience','writingStyle','uniqueAdvantages','audiencePainPoints','topPlatforms']
-                  const brandFilled = brandDNA ? brandFields.filter(k => {
-                    const v = (brandDNA as any)[k]
-                    return Array.isArray(v) ? v.length > 0 : !!v
-                  }).length : 0
-                  const brandTotal = brandFields.length
-                  const brandPct = Math.round((brandFilled / brandTotal) * 100)
+                  // PR-J — separated, honest Brand Brain indicators (single source of
+                  // truth, identical to the Brand Brain page). Replaces the old ad-hoc
+                  // filled/8-fields "Brand Brain %" that conflicted with the brand page.
+                  const brandIndicators = getBrandIndicators(brandDNA as any, {
+                    hasPixel: confidenceReport?.byCapability?.retargeting === 'high',
+                    acceptedLearningCount: typeof (brandDNA as any)?.acceptedLearningCount === 'number'
+                      ? (brandDNA as any).acceptedLearningCount : 0,
+                  })
                   const confColor = engineScore >= 75 ? '#10b981' : engineScore >= 50 ? '#f59e0b' : '#ef4444'
                   // Honest label: this bar reflects Brand-Brain/strategy readiness (a
                   // completeness score), NOT a model confidence value. Worded accordingly.
@@ -1582,27 +1585,10 @@ function CampaignDetailPageInner() {
                             )}
                           </div>
                         )}
-                        {/* Brand Brain completeness */}
+                        {/* PR-J — Brand Brain separated indicators (one source of truth) */}
                         {brandDNA && (
-                          <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs">🧬</span>
-                              <span className="text-[10px] text-gray-400">{locale === 'ar' ? 'اكتمال Brand Brain' : 'Brand Brain'}</span>
-                              <div className="flex items-center gap-0.5">
-                                {brandFields.map((k, i) => {
-                                  const v = (brandDNA as any)[k]
-                                  const filled = Array.isArray(v) ? v.length > 0 : !!v
-                                  return <div key={i} className="w-1.5 h-2.5 rounded-sm" style={{ background: filled ? '#8b5cf6' : 'rgba(255,255,255,0.08)' }} />
-                                })}
-                              </div>
-                              <span className="text-[10px] font-bold" style={{ color: brandPct >= 70 ? '#10b981' : brandPct >= 40 ? '#f59e0b' : '#ef4444' }}>{brandPct}%</span>
-                            </div>
-                            {brandPct < 100 && (
-                              <a href="/brand" className="text-[9px] font-semibold px-2 py-0.5 rounded-lg transition-opacity hover:opacity-80"
-                                style={{ background: 'rgba(139,92,246,0.12)', color: 'rgba(139,92,246,0.9)', border: '1px solid var(--nx-border-dark)' }}>
-                                {locale === 'ar' ? 'أكمل الملف ←' : 'Complete Profile →'}
-                              </a>
-                            )}
+                          <div className="pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                            <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="dark" completeHref="/brand" />
                           </div>
                         )}
                       </div>

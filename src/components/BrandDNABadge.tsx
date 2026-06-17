@@ -67,12 +67,10 @@ const ATTRIBUTE_CONFIG: Array<{
     color: '#10b981',
     getValue: b => b.topPlatforms?.slice(0, 3).join(' · ') || null,
   },
-  {
-    key: 'pricePoint',
-    labelAr: 'السعر', labelEn: 'Price',
-    color: '#f97316',
-    getValue: b => b.pricePoint || null,
-  },
+  // PR-J — price tier intentionally NOT surfaced as a "Brand DNA" fact here.
+  // pricePoint is often AI-inferred (website scan) rather than user-confirmed, so
+  // showing a single word like "luxury" read as verified truth. It still lives in
+  // Brand Brain for the user to set; we just don't present it as authoritative DNA.
 ]
 
 export default function BrandDNABadge({ brand, locale = 'ar' }: Props) {
