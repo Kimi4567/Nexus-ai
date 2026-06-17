@@ -97,6 +97,8 @@ export async function POST(req: NextRequest) {
       businessGoal, marketingBudget, conversionDestination, leadHandling,
       customerObjections, complianceNotes, averageOrderValue, grossMargin,
       customerLifetimeValue, salesCycleLength, seasonality, pastAdResults,
+      // PR-H2 — Brand Brain v2 (additive, nullable/default-safe)
+      languagePreference, verifiedProof,
     } = body
 
     const profileData = {
@@ -140,6 +142,9 @@ export async function POST(req: NextRequest) {
       salesCycleLength: salesCycleLength || null,
       seasonality: seasonality || null,
       pastAdResults: pastAdResults || null,
+      // PR-H2 — language preference (user-chosen) + verified proof (user-confirmed only)
+      languagePreference: languagePreference || null,
+      verifiedProof: toStringArray(verifiedProof),
     }
 
     let brandProfile = null

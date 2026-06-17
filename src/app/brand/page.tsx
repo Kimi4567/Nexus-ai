@@ -471,7 +471,16 @@ function BrandBrainInner() {
     customerObjections: [], complianceNotes: '',
     averageOrderValue: '', grossMargin: '', customerLifetimeValue: '',
     salesCycleLength: '', seasonality: '', pastAdResults: '',
+    // PR-H2 — Brand Brain v2 (persisted)
+    languagePreference: '', verifiedProof: [],
   })
+  // PR-H2 — Strategy intent (visible choices). UI-only in PR-H2 — NOT wired to
+  // generation (that is PR-I) and NOT persisted to a DB column yet.
+  const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
+  const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('90')
+  // PR-H2: campaign objective is UI-only here (no Brand Brain column; persistence/
+  // wiring deferred to PR-I per scope).
+  const [campaignObjective, setCampaignObjective] = useState<'leads' | 'sales' | 'awareness' | 'traffic' | ''>('')
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
   const [scoreHistory, setScoreHistory]   = useState<number[]>([])
@@ -1764,6 +1773,133 @@ function BrandBrainInner() {
               )
             })()}
           </div>
+
+          {/* ══ PR-H2: Goals & Strategy + Verified Proof ══
+              Visible strategy intent (type/duration) + output language + paid setup
+              (conditional) + user-confirmed proof. Strategy type/duration are UI-only
+              here (NOT wired to generation — that is PR-I). Paid stays planning-only. */}
+          {(() => {
+            const ar = locale === 'ar'
+            const pill = (selected: boolean, color = '#5E5CE6') => ({
+              background: selected ? `${color}12` : '#FFFFFF',
+              border: `1px solid ${selected ? color + '45' : 'rgba(15,23,42,0.10)'}`,
+              color: selected ? color : '#64748b',
+            }) as React.CSSProperties
+            const labelCls = 'block text-xs font-semibold uppercase tracking-wider mb-2'
+            const caps = getStrategyCapabilities(form)
+            return (
+              <div className="rounded-2xl p-5 space-y-5" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+                <div className="flex items-center gap-2">
+                  <Target size={16} style={{ color:'#5E5CE6' }} />
+                  <h3 className="text-sm font-bold text-slate-950">{ar ? 'الأهداف ونوع الاستراتيجية' : 'Goals & Strategy'}</h3>
+                </div>
+
+                {/* Main business goal (promoted out of the hidden accordion) */}
+                <Field label={ar ? 'الهدف التجاري الرئيسي' : 'Main business goal'}>
+                  <NxInput value={form.businessGoal||''} onChange={v=>set('businessGoal',v)}
+                    placeholder={ar ? 'مثال: المزيد من المشتركين المدفوعين' : 'e.g. more paying subscribers'} accentColor="#5E5CE6"/>
+                </Field>
+
+                {/* Strategy type */}
+                <div>
+                  <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'نوع الاستراتيجية' : 'Strategy type'}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {([['organic', ar?'عضوي فقط':'Organic only'],['paid', ar?'مدفوع فقط':'Paid only'],['full', ar?'استراتيجية كاملة':'Full strategy']] as const).map(([v,l])=>(
+                      <button key={v} onClick={()=>setStrategyType(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(strategyType===v)}>
+                        {strategyType===v&&'● '}{l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Strategy duration */}
+                <div>
+                  <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'مدة الاستراتيجية' : 'Strategy duration'}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {([['30', ar?'30 يوماً':'30 days'],['90', ar?'90 يوماً':'90 days'],['180', ar?'6 أشهر':'6 months'],['custom', ar?'مخصص':'Custom']] as const).map(([v,l])=>(
+                      <button key={v} onClick={()=>setStrategyDuration(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(strategyDuration===v)}>
+                        {strategyDuration===v&&'● '}{l}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, with the first 30 days actionable.'}</p>
+                </div>
+
+                {/* Output language preference (persisted; user-chosen) */}
+                <div>
+                  <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'لغة المخرجات' : 'Output language'}</label>
+                  <div className="flex flex-wrap gap-2">
+                    {([['en','English'],['ar','العربية'],['both', ar?'كلاهما':'Both']] as const).map(([v,l])=>(
+                      <button key={v} onClick={()=>set('languagePreference', v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(form.languagePreference===v, '#06b6d4')}>
+                        {form.languagePreference===v&&'● '}{l}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'اختيارك أنت — لا يُستنتَج من لغة الواجهة.' : 'Your choice — not inferred from the interface language.'}</p>
+                </div>
+
+                {/* Conditional: Organic content setup */}
+                {(strategyType==='organic' || strategyType==='full') && (
+                  <div className="rounded-xl px-3 py-2.5" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
+                    <p className="text-[12px] font-semibold text-slate-700 mb-0.5">{ar ? 'إعداد المحتوى العضوي' : 'Organic content setup'}</p>
+                    <p className="text-[11px] text-slate-500">{ar ? 'منصاتك ونبرتك من الأقسام أعلاه تُستخدم لبناء خطة المحتوى العضوي.' : 'Your platforms and voice from the sections above power the organic content plan.'}</p>
+                  </div>
+                )}
+
+                {/* Conditional: Paid campaign setup */}
+                {(strategyType==='paid' || strategyType==='full') && (
+                  <div className="rounded-xl px-3 py-3 space-y-3" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
+                    <p className="text-[12px] font-semibold text-slate-700">{ar ? 'إعداد الحملة المدفوعة' : 'Paid campaign setup'}</p>
+                    <Field label={ar ? 'الميزانية الشهرية' : 'Monthly budget'}>
+                      <NxInput value={form.marketingBudget||''} onChange={v=>set('marketingBudget',v)}
+                        placeholder={ar ? 'مثال: 1000$ شهرياً' : 'e.g. $1,000 / month'} accentColor="#5E5CE6"/>
+                    </Field>
+                    <Field label={ar ? 'وجهة التحويل' : 'Conversion destination'}>
+                      <NxInput value={form.conversionDestination||''} onChange={v=>set('conversionDestination',v)}
+                        placeholder={ar ? 'صفحة هبوط / نموذج / واتساب' : 'landing page / form / WhatsApp'} accentColor="#5E5CE6"/>
+                    </Field>
+                    <div>
+                      <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'هدف الحملة' : 'Campaign objective'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {([['leads', ar?'عملاء محتملون':'Leads'],['sales', ar?'مبيعات':'Sales'],['awareness', ar?'وعي':'Awareness'],['traffic', ar?'زيارات':'Traffic']] as const).map(([v,l])=>(
+                          <button key={v} onClick={()=>setCampaignObjective(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(campaignObjective===v, '#f59e0b')}>
+                            {campaignObjective===v&&'● '}{l}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ مع الاستراتيجية لاحقاً.' : 'Saved with the strategy later.'}</p>
+                    </div>
+                    <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
+                      <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'تخطيط فقط — غير جاهز للإطلاق' : 'Planning only — not launch-ready'}</p>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        {ar
+                          ? 'لن يتم إنفاق أي ميزانية أو إطلاق إعلانات دون موافقتك الصريحة. اربط البكسل/حساب الإعلانات وتتبّع التحويل في صفحة الربط للجاهزية.'
+                          : 'No budget is spent and no ads launch without your explicit approval. Connect your pixel / ad account and conversion tracking in Connections to become launch-ready.'}
+                      </p>
+                      {!caps.paidStrategy.ready && (
+                        <p className="text-[11px] mt-1" style={{ color:'#b45309' }}>
+                          {ar ? 'ما زال ناقصاً: الميزانية ووجهة التحويل والموقع والعرض.' : 'Still missing: budget, conversion destination, location, and offer.'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Verified Proof (user-confirmed only) */}
+                <div>
+                  <TagInput
+                    label={ar ? 'إثبات موثّق — مؤكَّد منك فقط' : 'Verified proof — user-confirmed only'}
+                    placeholder={ar ? 'أضف شهادة/نتيجة حقيقية ثم Enter' : 'Add a real, verified proof point, then Enter'}
+                    values={form.verifiedProof||[]} onChange={v=>set('verifiedProof',v)} accentColor="#10b981" locale={locale}/>
+                  <p className="text-[11px] text-slate-400 mt-1.5">
+                    {ar
+                      ? 'أضف فقط شهادات/نتائج/أرقاماً حقيقية يمكنك تأكيدها. NEXUS لا يضيف إثباتات مفترضة أو شهادات وهمية.'
+                      : 'Add only real testimonials/results/numbers you can verify. NEXUS never adds assumed proof or fake testimonials.'}
+                  </p>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* ══ Strategy readiness + data requirements (PR-2A) ══
               Capture-only + advisory. Optional fields; never block the organic flow.

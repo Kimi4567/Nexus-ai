@@ -636,6 +636,11 @@ model BrandProfile {
   seasonality           String?   @db.Text   // demand timing notes
   pastAdResults         String?   @db.Text   // free-text CPL/CPA/ROAS history (structured later)
 
+  // ── Brand Brain v2 (PR-H2) ──────────────────────────────────────────────────
+  // Additive, nullable/default-safe. User-chosen; never inferred.
+  languagePreference    String?              // "en" | "ar" | "both" — chosen by the user, NOT the UI locale
+  verifiedProof         String[]  @default([]) // user-confirmed proof points only (no AI-suggested/fake testimonials)
+
   // Website & content intelligence (auto-scanned)
   websiteUrl    String?                          // brand's main website URL
   contentSamples String[]  @default([])          // up to 3 pasted best-performing content pieces
