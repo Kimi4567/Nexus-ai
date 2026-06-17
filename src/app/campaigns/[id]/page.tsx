@@ -14,11 +14,10 @@ import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
 import StrategySection from '@/components/StrategySection'
 import StrategyActionCard from '@/components/StrategyActionCard'
-import StrategicVerdictCard from '@/components/StrategicVerdictCard'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getBrandIndicators } from '@/lib/brandIndicators'
-import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
+import StrategyBrief from '@/components/StrategyBrief'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import PlatformNativeCard from '@/components/PlatformNativeCard'
@@ -1494,107 +1493,44 @@ function CampaignDetailPageInner() {
                     : 'Based on your Brand Brain — review it before turning it into content.'}
                 </p>
 
-                {/* PR-2B2C — Derived Strategic Verdict + Top 3 Decisions (client-side, no generation) */}
-                {(strategy.positioning || strategy.keyMessage || strategy.differentiation || strategy.targetAudienceRefined) && (
-                  <StrategicVerdictCard
+                {/* PR-K — premium operator brief (replaces the Strategic Verdict + the
+                    dense "Strategy Intelligence" TL;DR card). Calm, action-first, Apple-
+                    level: direction, why-it-fits, 90-day, first-30-days, pillars, next
+                    step, honest measurement/paid, and the PR-J indicators — all from
+                    existing data, no generation, no new numbers, nothing mutated. */}
+                {(strategy.positioning || strategy.keyMessage || strategy.differentiation || strategy.targetAudienceRefined || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                  <StrategyBrief
                     locale={locale === 'ar' ? 'ar' : 'en'}
-                    positioning={strategy.positioning}
-                    keyMessage={strategy.keyMessage}
-                    differentiation={(strategy as any).differentiation}
-                    targetAudienceRefined={strategy.targetAudienceRefined}
-                    topSegment={audienceSegmentsDetailed[0]?.segment || null}
-                    audienceLocation={(brandDNA as any)?.audienceLocation || null}
-                    confidenceReport={confidenceReport}
-                    missingDataKeys={missingDataKeys}
-                    hasFunnel={funnelStages.length > 0}
+                    verdict={{
+                      locale: locale === 'ar' ? 'ar' : 'en',
+                      positioning: strategy.positioning,
+                      keyMessage: strategy.keyMessage,
+                      differentiation: (strategy as any).differentiation,
+                      targetAudienceRefined: strategy.targetAudienceRefined,
+                      topSegment: audienceSegmentsDetailed[0]?.segment || null,
+                      audienceLocation: (brandDNA as any)?.audienceLocation || null,
+                      confidenceReport,
+                      missingDataKeys,
+                      hasFunnel: funnelStages.length > 0,
+                      kpisAreHypotheses: (strategy.kpis || []).some((k: any) => k?.isHypothesis) || successMetricsDetailed.some((m: any) => m?.isHypothesis),
+                    }}
+                    brandName={(brandDNA as any)?.brandName || null}
+                    industry={(brandDNA as any)?.industry || null}
+                    primaryOffer={(brandDNA as any)?.primaryOffer || null}
+                    targetAudience={(brandDNA as any)?.targetAudience || null}
+                    first30={(weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan : weeklyPlan)
+                      .map((w: any) => ({ week: w?.week ?? '', objective: w?.objective || w?.keyMessage || '' }))}
+                    contentPillars={strategy.contentPillars || []}
+                    nextBestAction={strategy.nextBestAction}
                     kpisAreHypotheses={(strategy.kpis || []).some((k: any) => k?.isHypothesis) || successMetricsDetailed.some((m: any) => m?.isHypothesis)}
+                    paidPlanningOnly={Boolean(confidenceReport) && confidenceReport?.byCapability?.paidStrategy !== 'high'}
+                    indicators={getBrandIndicators(brandDNA as any, {
+                      hasPixel: confidenceReport?.byCapability?.retargeting === 'high',
+                      acceptedLearningCount: typeof (brandDNA as any)?.acceptedLearningCount === 'number'
+                        ? (brandDNA as any).acceptedLearningCount : 0,
+                    })}
                   />
                 )}
-
-                {/* ── Strategy TL;DR Intelligence Card ────────────────────── */}
-                {(engineScore > 0 || strategy.keyMessage || topHooks.length > 0) && (() => {
-                  // PR-J — separated, honest Brand Brain indicators (single source of
-                  // truth, identical to the Brand Brain page). Replaces the old ad-hoc
-                  // filled/8-fields "Brand Brain %" that conflicted with the brand page.
-                  const brandIndicators = getBrandIndicators(brandDNA as any, {
-                    hasPixel: confidenceReport?.byCapability?.retargeting === 'high',
-                    acceptedLearningCount: typeof (brandDNA as any)?.acceptedLearningCount === 'number'
-                      ? (brandDNA as any).acceptedLearningCount : 0,
-                  })
-                  const confColor = engineScore >= 75 ? '#10b981' : engineScore >= 50 ? '#f59e0b' : '#ef4444'
-                  // Honest label: this bar reflects Brand-Brain/strategy readiness (a
-                  // completeness score), NOT a model confidence value. Worded accordingly.
-                  const confLabel = engineScore >= 75 ? (locale === 'ar' ? 'جاهزية عالية' : 'High readiness') : engineScore >= 50 ? (locale === 'ar' ? 'جاهزية متوسطة' : 'Moderate readiness') : (locale === 'ar' ? 'جاهزية مبدئية' : 'Early readiness')
-                  const topAngle = contentAnglesDetailed[0]?.angle || contentAnglesDetailed[0]?.title || null
-                  return (
-                    <div className="rounded-2xl overflow-hidden"
-                      style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                      {/* Header bar */}
-                      <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(139,92,246,0.12)', background: 'rgba(139,92,246,0.06)' }}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">🧠</span>
-                          <span className="text-[10px] uppercase tracking-widest font-bold" style={{ color: 'var(--nx-accent)' }}>
-                            {locale === 'ar' ? 'ملخص الاستراتيجية' : 'Strategy Intelligence'}
-                          </span>
-                        </div>
-                        {/* PR-2B2A — single trust signal: show the engineScore readiness
-                            chip ONLY for old strategies. When confidenceReport exists, the
-                            calm "Confidence & Data Gaps" block below is the one signal. */}
-                        {!confidenceReport && (
-                          <div className="flex items-center gap-1.5">
-                            <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                              <div className="h-full rounded-full transition-all duration-700" style={{ width: `${engineScore}%`, background: confColor }} />
-                            </div>
-                            <span className="text-[10px] font-black" style={{ color: confColor }}>{engineScore}%</span>
-                            <span className="text-[10px] font-semibold" style={{ color: confColor }}>{confLabel}</span>
-                          </div>
-                        )}
-                      </div>
-                      {/* Content grid */}
-                      <div className="p-4 grid grid-cols-1 gap-3">
-                        {/* Key Message */}
-                        {strategy.keyMessage && (
-                          <div className="flex gap-3 items-start">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-xs" style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>💬</div>
-                            <div className="min-w-0">
-                              <p className="text-[9px] uppercase tracking-widest font-bold mb-0.5" style={{ color: 'rgba(139,92,246,0.8)' }}>
-                                {locale === 'ar' ? 'الرسالة الجوهرية' : 'Core Message'}
-                              </p>
-                              <p className="text-white text-sm font-semibold leading-snug">"{strategy.keyMessage}"</p>
-                            </div>
-                          </div>
-                        )}
-                        {/* Top Hook + Top Angle in a 2-col row */}
-                        {(topHooks[0] || topAngle) && (
-                          <div className={`grid gap-3 ${topHooks[0] && topAngle ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                            {topHooks[0] && (
-                              <div className="rounded-xl p-3" style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.15)' }}>
-                                <p className="text-[9px] uppercase tracking-widest font-bold mb-1" style={{ color: 'rgba(6,182,212,0.8)' }}>
-                                  {locale === 'ar' ? 'أقوى هوك' : 'Top Hook'}
-                                </p>
-                                <p className="text-gray-200 text-xs leading-relaxed line-clamp-3">{topHooks[0]}</p>
-                              </div>
-                            )}
-                            {topAngle && (
-                              <div className="rounded-xl p-3" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                                <p className="text-[9px] uppercase tracking-widest font-bold mb-1" style={{ color: 'rgba(245,158,11,0.8)' }}>
-                                  {locale === 'ar' ? 'الزاوية الأقوى' : 'Primary Angle'}
-                                </p>
-                                <p className="text-gray-200 text-xs leading-relaxed line-clamp-3">{topAngle}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {/* PR-J — Brand Brain separated indicators (one source of truth) */}
-                        {brandDNA && (
-                          <div className="pt-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
-                            <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="dark" completeHref="/brand" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })()}
 
                 {/* PR-2B2B1 — Consolidated one-primary-CTA Action Card (replaces the
                     non-actionable Next Best Action banner). Uses existing handlers only. */}
