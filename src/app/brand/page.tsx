@@ -1361,7 +1361,7 @@ function BrandBrainInner() {
               right active-section content. Replaces the full-width horizontal
               stepper so editing feels like a workspace, not an endless form.
               ══════════════════════════════════════════════════════ */}
-          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
 
             {/* ── Sticky left rail ── */}
             <aside className="lg:sticky lg:top-6 self-start space-y-3">
