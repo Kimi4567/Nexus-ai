@@ -148,3 +148,37 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 })
+
+// ── PR-S1c-3 — generation contract reaches the strategist ──────────────────
+describe('POST /api/strategy/run-full — generation contract (S1c-3)', () => {
+  const briefArg = () => mockRunFullAgency.mock.calls[0]?.[1] as Record<string, any>
+
+  it('1+2. builds deliverables from the order and attaches generationInstructions to the brief', async () => {
+    await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
+    expect(mockRunFullAgency).toHaveBeenCalledTimes(1)
+    const brief = briefArg()
+    expect(typeof brief.generationInstructions).toBe('string')
+    expect(brief.generationInstructions).toMatch(/FIRST 30 DAYS ONLY/i)
+    expect(brief.strategyDeliverables).toBeTruthy()
+    expect(brief.strategyDeliverables.supported).toBe(true)
+    // counts come from the contract, not the AI
+    expect(brief.organicPostCount).toBe(16) // Organic Standard band-top
+    expect(brief.detailedCalendarDays).toBe(30)
+    expect(brief.roadmapMonths).toBe(3)
+    expect(brief.strategyOrder.goal).toBe('leads') // order goal enriched from goalOverride
+  })
+
+  it('paid order carries paid planning-only scope into generationInstructions', async () => {
+    await POST(makeReq({ strategyType: 'paid', strategyDuration: '90', contentIntensity: 'standard' }))
+    const brief = briefArg()
+    expect(brief.generationInstructions).toMatch(/PLANNING-ONLY/i)
+    expect(brief.organicPostCount).toBe(0)
+  })
+
+  it('13. custom > 180 still blocked (422) before any deliverables/generation', async () => {
+    const res = await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 365, contentIntensity: 'standard' }))
+    expect(res.status).toBe(422)
+    expect(mockRunFullAgency).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+  })
+})

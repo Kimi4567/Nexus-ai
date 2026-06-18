@@ -19,6 +19,8 @@ import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { checkAndLog } from '@/lib/outputGuardrails'
 import { getPlanContext } from './planContext'
 import { normalizeStrategyOutput } from '@/lib/strategyNormalize'
+// PR-S1c-3 — deterministic Strategy Order + Deliverables Contract types (display/scope only).
+import type { StrategyOrder, StrategyDeliverables } from '@/lib/strategy/strategyOrder'
 
 // ── Preserved interfaces (backwards compat) ──────────────────────────────────
 
@@ -52,6 +54,23 @@ export interface BusinessBrief {
   // PR-I — generation-time strategy intent (chosen in RunFullStrategyModal, not persisted).
   strategyType?: 'organic' | 'paid' | 'full'   // default 'organic'
   strategyDuration?: '30' | '90' | '180' | 'custom'  // default '90' (first 30 days actionable)
+
+  // ── PR-S1c-3 — deterministic generation contract (the order the user reviewed & paid for).
+  //    All optional + additive (back-compat). Computed server-side in /api/strategy/run-full
+  //    from getStrategyDeliverables(order, planContext); the AI never decides these. When
+  //    `generationInstructions` is present, the strategist treats it as a BINDING scope.
+  strategyOrder?: StrategyOrder
+  strategyDeliverables?: StrategyDeliverables
+  /** Single source-of-truth scope string from the deliverables contract. */
+  generationInstructions?: string
+  /** Fixed organic post count for the detailed window (intensity → request → plan cap). */
+  organicPostCount?: number
+  /** Days that get a detailed day-by-day calendar (always ≤ 30). */
+  detailedCalendarDays?: number
+  /** Planning-horizon roadmap length in months (1 / 2 / 3 / 6). */
+  roadmapMonths?: number
+  /** True when the requested intensity exceeded the plan quota and was capped. */
+  planCapApplied?: boolean
 }
 
 export interface FunnelStrategy {
@@ -362,19 +381,49 @@ async function callOpenAI(systemPrompt: string, userPrompt: string, maxTokens = 
   return JSON.parse(content)
 }
 
-// ── Main agent function ───────────────────────────────────────────────────────
+// ── Prompt builder (pure) ─────────────────────────────────────────────────────
 
-export async function runStrategistAgent(
+/**
+ * PR-S1c-3 — pure prompt builder, extracted so the BINDING generation-scope
+ * contract is unit-testable without calling OpenAI. When `brief.generationInstructions`
+ * is present (set server-side in /api/strategy/run-full from getStrategyDeliverables),
+ * it is injected as a binding scope block that overrides any softer guidance. When
+ * absent, the prompts are byte-for-byte the previous behavior (back-compat).
+ */
+export function buildStrategistPrompts(
   brief: BusinessBrief,
   brandContext?: string,
   language?: string,
-  readiness?: StrategyReadinessContext
-): Promise<StrategyOutput> {
+  readiness?: StrategyReadinessContext,
+): { systemPrompt: string; userPrompt: string } {
   const langInstruction = getLanguageInstruction(language ?? brief.language)
   const planContext = getPlanContext(brief.planTier)
 
+  // ── PR-S1c-3 — binding scope from the deterministic deliverables contract. The
+  //    counts/scope come from getStrategyDeliverables — never from the model. This
+  //    block is authoritative; the softer Strategy Type/Duration lines below defer to it.
+  const d = brief.strategyDeliverables
+  const bindingScope = brief.generationInstructions
+    ? [
+        '',
+        '',
+        'BINDING GENERATION SCOPE (highest priority — overrides any conflicting guidance below):',
+        'The following scope is binding. Do not exceed it. If something is outside scope, label it as "not included".',
+        brief.generationInstructions,
+        (brief.roadmapMonths ?? 1) > 1
+          ? `This is a ${brief.roadmapMonths}-month roadmap. Generate a DETAILED day-by-day plan for the FIRST ${brief.detailedCalendarDays ?? 30} DAYS ONLY (weeklyExecutionPlan covers those ~4 weeks). Represent months 2+ ONLY as themes / backlog / future monthly cycles inside narrative fields (e.g. contentPillars, executionAssumptions, roadmap language) — never as per-day posts for the full horizon.`
+          : '',
+        'Do NOT imply that all days across the planning horizon are scheduled or published.',
+        'Platform variants are ADAPTATIONS of the same content per channel — not separate additional posts.',
+        'Never claim ads will launch, budget will be spent, campaigns will be activated, or that posts are scheduled/published — nothing is published or activated without explicit user approval.',
+        d?.excludedDeliverables?.length
+          ? `Explicitly NOT included (label as "not included" if referenced): ${d.excludedDeliverables.join('; ')}.`
+          : '',
+      ].filter(Boolean).join('\n')
+    : ''
+
   const systemPrompt = `${langInstruction}
-${planContext}
+${planContext}${bindingScope}
 
 You are an expert marketing strategist. Build a complete, specific, actionable marketing strategy for the brand below.
 
@@ -547,6 +596,19 @@ Return JSON with these exact fields — all specific to this brand:
   "competitorAnalysisComplete": false,
   "confidenceReport": { "overall": "high|medium|low", "byCapability": { "contentStrategy": "high|low|none" } }
 }`
+
+  return { systemPrompt, userPrompt }
+}
+
+// ── Main agent function ───────────────────────────────────────────────────────
+
+export async function runStrategistAgent(
+  brief: BusinessBrief,
+  brandContext?: string,
+  language?: string,
+  readiness?: StrategyReadinessContext
+): Promise<StrategyOutput> {
+  const { systemPrompt, userPrompt } = buildStrategistPrompts(brief, brandContext, language, readiness)
 
   const output = normalizeStrategyOutput(await callOpenAI(systemPrompt, userPrompt, 7500)) as StrategyOutput
 
