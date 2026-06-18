@@ -73,21 +73,9 @@ function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>{label}</label>
-        {onSuggest && (
-          <button onClick={onSuggest} disabled={suggesting}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-            style={{
-              background: suggesting ? `${accent}10` : `${accent}15`,
-              border: `1px solid ${accent}35`,
-              color: accent,
-              boxShadow: suggesting ? 'none' : `0 0 8px ${accent}15`,
-            }}>
-            {suggesting
-              ? <Loader2 size={11} className="animate-spin"/>
-              : <Wand2 size={11}/>}
-            {suggesting ? '...' : 'AI'}
-          </button>
-        )}
+        {/* PR-M3.0 — field-level AI Assist button removed. Brand Brain is no longer
+            filled by per-field AI guesses; assisted setup is centralized through the
+            Website Scanner / Content Analyzer (draft → review → apply). */}
       </div>
       <div className="flex flex-wrap gap-1.5 p-3 rounded-xl min-h-[52px]"
         style={{ background: '#FFFFFF', border: `1px solid ${suggesting ? accent+'40' : 'rgba(15,23,42,0.10)'}`, transition: 'border-color 0.3s' }}>
@@ -136,21 +124,7 @@ function Field({ label, children, onSuggest, suggesting, accentColor }: {
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#64748B' }}>{label}</label>
-        {onSuggest && (
-          <button onClick={onSuggest} disabled={suggesting}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
-            style={{
-              background: suggesting ? `${accent}10` : `${accent}15`,
-              border: `1px solid ${accent}35`,
-              color: accent,
-              boxShadow: suggesting ? 'none' : `0 0 8px ${accent}15`,
-            }}>
-            {suggesting
-              ? <Loader2 size={11} className="animate-spin"/>
-              : <Wand2 size={11}/>}
-            {suggesting ? '...' : 'AI'}
-          </button>
-        )}
+        {/* PR-M3.0 — field-level AI Assist button removed (see TagInput note). */}
       </div>
       {children}
     </div>
@@ -1494,8 +1468,7 @@ function BrandBrainInner() {
                     </div>
                   </Field>
                   <Field label={t('brand.identityDescLabel')}
-                    onSuggest={() => handleSuggestText('description')}
-                    suggesting={suggesting === 'description'} accentColor={currentStep.color}>
+                    accentColor={currentStep.color}>
                     <NxInput textarea value={form.description||''} onChange={v=>set('description',v)}
                       placeholder={t('brand.identityDescPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
@@ -1514,8 +1487,7 @@ function BrandBrainInner() {
               {step === 'product' && (
                 <div className="space-y-5">
                   <Field label={t('brand.productPrimaryLabel')}
-                    onSuggest={() => handleSuggestText('primaryOffer')}
-                    suggesting={suggesting === 'primaryOffer'} accentColor={currentStep.color}>
+                    accentColor={currentStep.color}>
                     <NxInput textarea value={form.primaryOffer||''} onChange={v=>set('primaryOffer',v)}
                       placeholder={t('brand.productPrimaryPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
@@ -1526,22 +1498,21 @@ function BrandBrainInner() {
                   )}
                   <TagInput label={t('brand.productSecondaryLabel')} placeholder={t('brand.productSecondaryPlaceholder')}
                     values={form.secondaryOffers||[]} onChange={v=>set('secondaryOffers',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('secondaryOffers')} suggesting={suggesting==='secondaryOffers'} locale={locale}/>
+                    locale={locale}/>
                   <Field label={t('brand.productPriceLabel')}>
                     <RadioGroup options={PRICE_OPTIONS.map(o=>({v:o.v,l:locale==='ar'?o.l:o.lEn}))}
                       value={form.pricePoint||''} onChange={v=>set('pricePoint',v)} color={currentStep.color}/>
                   </Field>
                   <TagInput label={t('brand.productAdvantagesLabel')} placeholder={t('brand.productAdvantagesPlaceholder')}
                     values={form.uniqueAdvantages||[]} onChange={v=>set('uniqueAdvantages',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('uniqueAdvantages')} suggesting={suggesting==='uniqueAdvantages'} locale={locale}/>
+                    locale={locale}/>
                 </div>
               )}
 
               {step === 'audience' && (
                 <div className="space-y-5">
                   <Field label={t('brand.audienceDescLabel')}
-                    onSuggest={() => handleSuggestText('targetAudience')}
-                    suggesting={suggesting === 'targetAudience'} accentColor={currentStep.color}>
+                    accentColor={currentStep.color}>
                     <NxInput textarea value={form.targetAudience||''} onChange={v=>set('targetAudience',v)}
                       placeholder={t('brand.audienceDescPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
@@ -1574,10 +1545,10 @@ function BrandBrainInner() {
                   </div>
                   <TagInput label={t('brand.audiencePainLabel')} placeholder={t('brand.audiencePainPlaceholder')}
                     values={form.audiencePainPoints||[]} onChange={v=>set('audiencePainPoints',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('audiencePainPoints')} suggesting={suggesting==='audiencePainPoints'} locale={locale}/>
+                    locale={locale}/>
                   <TagInput label={t('brand.audienceDesireLabel')} placeholder={t('brand.audienceDesirePlaceholder')}
                     values={form.audienceDesires||[]} onChange={v=>set('audienceDesires',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('audienceDesires')} suggesting={suggesting==='audienceDesires'} locale={locale}/>
+                    locale={locale}/>
                 </div>
               )}
 
@@ -1588,8 +1559,7 @@ function BrandBrainInner() {
                       selected={form.toneKeywords||[]} onChange={v=>set('toneKeywords',v)} color={currentStep.color}/>
                   </Field>
                   <Field label={t('brand.voiceStyleLabel')}
-                    onSuggest={() => handleSuggestText('writingStyle')}
-                    suggesting={suggesting === 'writingStyle'} accentColor={currentStep.color}>
+                    accentColor={currentStep.color}>
                     <NxInput value={form.writingStyle||''} onChange={v=>set('writingStyle',v)}
                       placeholder={t('brand.voiceStylePlaceholder')} accentColor={currentStep.color}/>
                   </Field>
@@ -1600,7 +1570,7 @@ function BrandBrainInner() {
                   )}
                   <TagInput label={t('brand.voiceAvoidLabel')} placeholder={t('brand.voiceAvoidPlaceholder')}
                     values={form.avoidKeywords||[]} onChange={v=>set('avoidKeywords',v)} accentColor={currentStep.color}
-                    onSuggest={() => handleSuggest('avoidKeywords')} suggesting={suggesting==='avoidKeywords'} locale={locale}/>
+                    locale={locale}/>
                   {/* PR-H1: winningHooks moved out of the beginner input path into the
                       read-only Learned Memory view — these are observed over time, not
                       asked upfront. */}
@@ -1656,8 +1626,7 @@ function BrandBrainInner() {
 
                   {/* ── Competitor Notes (freeform context) ─────────── */}
                   <Field label={t('brand.competitorsNotesLabel')}
-                    onSuggest={() => handleSuggestText('competitorNotes')}
-                    suggesting={suggesting === 'competitorNotes'} accentColor={currentStep.color}>
+                    accentColor={currentStep.color}>
                     <NxInput textarea value={form.competitorNotes||''} onChange={v=>set('competitorNotes',v)}
                       placeholder={t('brand.competitorsNotesPlaceholder')} accentColor={currentStep.color}/>
                   </Field>
