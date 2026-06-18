@@ -19,6 +19,11 @@ import { useAuth } from '@/lib/auth-context'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '@/lib/brandReadiness'
+import { useBillingStatus } from '@/lib/useBillingStatus'
+// PR-S1b — deterministic Strategy Order Review (display-only; no generation/pricing change).
+import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
+import type { StrategyOrder, ContentIntensity } from '@/lib/strategy/strategyOrder'
+import { INTENSITY_RANGE_LABEL, intensityLabel, tierToPostsPerMonth } from '@/lib/strategy/strategyOrderDisplay'
 import {
   Cpu, BarChart3, Film, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
@@ -111,6 +116,8 @@ function saveStrategyHandoff(campaignId: string, data: { language: string; selec
 export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Props) {
   const { authHeader } = useAuth()
   const { t, dir, locale } = useI18n()
+  // PR-S1b — current plan tier (for the deterministic Order Review's plan-cap). Display only.
+  const { status: billingStatus } = useBillingStatus()
 
   // Close from success screen — clear cache so next open starts a fresh run
   const handleCloseFromSuccess = () => {
@@ -162,6 +169,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // PR-I — generation-time strategy intent (not persisted; defaults Organic / 90 days).
   const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
   const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('90')
+  // PR-S1b — content intensity (review-only; NOT sent to the backend body — that is S1c).
+  const [contentIntensity, setContentIntensity] = useState<ContentIntensity>('standard')
+  // PR-S1b — custom horizon in days, only used when strategyDuration === 'custom'.
+  const [customDurationDays, setCustomDurationDays] = useState<number>(45)
   // Cost confirmation — shown after language selection, before media check
   const [costConfirmed, setCostConfirmed] = useState(false)
   const [creditBalance, setCreditBalance] = useState<number | null>(null)
@@ -612,6 +623,45 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
                 {locale === 'ar' ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, first 30 actionable.'}
               </p>
+              {/* PR-S1b — custom horizon (days) input, shown only for Custom. Review-only. */}
+              {strategyDuration === 'custom' && (
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="number" min={1} max={365} value={customDurationDays}
+                    onChange={e => setCustomDurationDays(Math.max(1, Math.floor(Number(e.target.value) || 0)))}
+                    className="w-24 px-2.5 py-1.5 rounded-lg text-xs text-white bg-transparent outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.25)' }}
+                    dir="ltr"
+                  />
+                  <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {locale === 'ar' ? 'يوم (حتى 180؛ أطول من ذلك يحتاج عرض سعر مخصص)' : 'days (up to 180; longer needs a custom quote)'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* PR-S1b — Content intensity picker (review-only; not sent to backend in S1b). */}
+            <div className="mb-5">
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {locale === 'ar' ? 'كثافة المحتوى' : 'Content intensity'}
+              </div>
+              <div className="flex gap-1.5">
+                {(['light', 'standard', 'growth', 'daily'] as const).map(v => (
+                  <button key={v} onClick={() => setContentIntensity(v)}
+                    className="flex-1 py-2 rounded-lg text-[11px] font-semibold transition-all leading-tight"
+                    style={{
+                      background: contentIntensity === v ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${contentIntensity === v ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.1)'}`,
+                      color: contentIntensity === v ? '#C4B5FD' : 'rgba(255,255,255,0.6)',
+                    }}>
+                    {intensityLabel(v, locale)}
+                    <span className="block text-[9px] font-normal opacity-70">{INTENSITY_RANGE_LABEL[v]}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {locale === 'ar' ? 'منشورات عضوية شهرياً (قد تُقيَّد حسب خطتك).' : 'Organic posts / month (may be capped by your plan).'}
+              </p>
             </div>
 
             {/* Start button */}
@@ -631,6 +681,33 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           const isUnlimited = creditBalance === -1
           const balanceAfter = isUnlimited ? -1 : creditBalance !== null ? Math.max(0, creditBalance - COST) : null
           const canAfford = isUnlimited || (creditBalance !== null && creditBalance >= COST)
+
+          // ── PR-S1b — deterministic Order Review (display-only). Counts come from the
+          //    pure contract, never the AI. Plan quota (if known) caps organic posts.
+          const ar = locale === 'ar'
+          const orderLanguage: StrategyOrder['language'] = ar ? 'ar' : 'en'
+          const horizonDays =
+            strategyDuration === 'custom' ? customDurationDays : Number(strategyDuration)
+          const order: StrategyOrder = {
+            strategyType,
+            durationPreset: strategyDuration,
+            durationDays: horizonDays,
+            contentIntensity,
+            goal: '',
+            language: orderLanguage,
+          }
+          const postsPerMonth = tierToPostsPerMonth(billingStatus?.plan)
+          const deliverables = getStrategyDeliverables(
+            order,
+            typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined,
+          )
+          const includesPaid = strategyType === 'paid' || strategyType === 'full'
+          const includesOrganic = strategyType === 'organic' || strategyType === 'full'
+          const typeLabel = ar
+            ? { organic: 'عضوية', paid: 'مدفوعة', full: 'كاملة' }[strategyType]
+            : { organic: 'Organic', paid: 'Paid', full: 'Full' }[strategyType]
+          // S1b can only proceed to generation for supported orders.
+          const canGenerate = canAfford && deliverables.supported
 
           return (
             <div className="p-6">
@@ -711,24 +788,145 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 </div>
               </div>
 
-              {/* What's included */}
-              <div className="rounded-xl p-3 mb-4"
-                style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#10B981' }}>
-                  {locale === 'ar' ? 'ماذا يشمل هذا التشغيل' : "What's included"}
-                </p>
-                <div className="grid grid-cols-2 gap-1">
-                  {(locale === 'ar'
-                    ? ['تشخيص العلامة', 'التموضع والرسائل', 'شرائح الجمهور', 'زوايا المحتوى والهوكات', 'خطة 4 أسابيع', 'الخطوة التالية']
-                    : ['Brand diagnosis', 'Positioning & messaging', 'Audience segments', 'Content angles & hooks', '4-week plan', 'Next best action']
-                  ).map(item => (
-                    <div key={item} className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
-                      {item}
-                    </div>
-                  ))}
+              {/* ── PR-S1b — Strategy Order Review (deterministic; counts from the contract) ── */}
+              <p className="text-[11px] leading-relaxed mb-2.5" style={{ color: 'var(--nx-text-3)' }}>
+                {ar
+                  ? 'ذاكرة العلامة التجارية تحفظ تفضيلاتك الافتراضية. يمكنك مراجعة وتعديل هذا الطلب قبل توليد الاستراتيجية.'
+                  : 'Your Brand Brain gives NEXUS default preferences. You can review and adjust this order before generating.'}
+              </p>
+
+              {!deliverables.supported ? (
+                /* Unsupported (custom > 180 days) — block generation before any charge. */
+                <div className="rounded-xl p-3 mb-4 flex items-start gap-2"
+                  style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.28)' }}>
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF6B35' }} />
+                  <p className="text-[11px] leading-relaxed" style={{ color: '#FCA5A5' }}>
+                    {ar
+                      ? `الخطط الأطول من 180 يوماً غير مدعومة بعد. تواصل مع الدعم للحصول على عرض سعر مخصّص — لن يتم خصم أي كريديت.`
+                      : `Strategies longer than 180 days aren’t supported yet. Contact support for a custom quote — no credits will be charged.`}
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Order chips */}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {[
+                      typeLabel,
+                      ar ? `أفق ${deliverables.planningHorizonDays} يوم` : `${deliverables.planningHorizonDays}-day horizon`,
+                      ar ? `${deliverables.roadmapMonths} شهر خريطة طريق` : `${deliverables.roadmapMonths}-mo roadmap`,
+                      ar ? `تقويم تفصيلي ${deliverables.detailedCalendarDays} يوم` : `${deliverables.detailedCalendarDays}-day detailed`,
+                      includesOrganic ? `${intensityLabel(contentIntensity, locale)} · ${INTENSITY_RANGE_LABEL[contentIntensity]}` : null,
+                    ].filter(Boolean).map((chip, i) => (
+                      <span key={i} className="px-2 py-1 rounded-lg text-[10px] font-semibold"
+                        style={{ background: 'rgba(139,92,246,0.12)', color: '#C4B5FD', border: '1px solid rgba(139,92,246,0.25)' }}>
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Multi-month roadmap explanation */}
+                  {deliverables.planningHorizonDays > 30 && (
+                    <p className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--nx-text-3)' }}>
+                      {ar
+                        ? 'خطط 90 و180 يوم تشمل خريطة طريق كاملة، وتقويم محتوى تفصيلي لأول 30 يوم فقط. يتم توليد تقاويم الشهور التالية لاحقًا بناءً على الأداء والتعلم.'
+                        : '90/180-day strategies include a full roadmap and a detailed first 30-day content calendar. Future monthly calendars are generated later as NEXUS learns from performance.'}
+                    </p>
+                  )}
+
+                  {/* Included */}
+                  <div className="rounded-xl p-3 mb-2"
+                    style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#10B981' }}>
+                      {ar ? 'ما الذي ستحصل عليه' : "What you'll get"}
+                    </p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {includesOrganic && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                          <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                          {ar
+                            ? `منشورات عضوية لأول 30 يوم: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`
+                            : `Organic posts for the first 30 days: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`}
+                        </div>
+                      )}
+                      {includesPaid && (
+                        <>
+                          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                            {ar ? `نسخ إعلانية: ${deliverables.paidAdVariationCount}` : `Ad copy variations: ${deliverables.paidAdVariationCount}`}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                            {ar ? `بريفات إبداعية: ${deliverables.creativeBriefCount}` : `Creative briefs: ${deliverables.creativeBriefCount}`}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                            {ar ? `فرضيات جمهور: ${deliverables.audienceHypothesisCount}` : `Audience hypotheses: ${deliverables.audienceHypothesisCount}`}
+                          </div>
+                        </>
+                      )}
+                      {deliverables.includedDeliverables.slice(0, 6).map(item => (
+                        <div key={item} className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                          <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Excluded */}
+                  {deliverables.excludedDeliverables.length > 0 && (
+                    <div className="rounded-xl p-3 mb-2"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(139,92,246,0.1)' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        {ar ? 'غير مشمول' : 'Not included'}
+                      </p>
+                      <div className="grid grid-cols-1 gap-1">
+                        {deliverables.excludedDeliverables.slice(0, 6).map(item => (
+                          <div key={item} className="flex items-center gap-1.5 text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            <XCircle className="w-3 h-3 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Platform-variants note */}
+                  {includesOrganic && (
+                    <p className="text-[10px] leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      {ar
+                        ? 'نسخ المنصات هي تكييفات لكل قناة، وليست منشورات إضافية منفصلة.'
+                        : 'Platform variants are adaptations for each channel, not separate extra posts.'}
+                    </p>
+                  )}
+
+                  {/* Plan-cap callout */}
+                  {deliverables.planCapApplied && (
+                    <div className="rounded-xl px-3 py-2.5 mb-2 flex items-start gap-2"
+                      style={{ background: 'rgba(255,184,0,0.08)', border: '1px solid rgba(255,184,0,0.28)' }}>
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
+                      <p className="text-[11px] leading-relaxed" style={{ color: '#FFD47A' }}>
+                        {ar
+                          ? `اخترت كثافة ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]} شهرياً)، لكن خطتك الحالية تسمح بـ${deliverables.planCappedOrganicPostCount} منشوراً — لذلك سيتم توليد ${deliverables.organicPostCount}. قم بالترقية لفتح المزيد.`
+                          : `You chose ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]}/mo), but your current plan allows ${deliverables.planCappedOrganicPostCount} — so ${deliverables.organicPostCount} posts will be generated. Upgrade to unlock more.`}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Paid planning-only callout */}
+                  {includesPaid && (
+                    <div className="rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2"
+                      style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
+                      <Shield className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FF6B35' }} />
+                      <p className="text-[11px] leading-relaxed" style={{ color: '#FCA5A5' }}>
+                        {ar
+                          ? 'الاستراتيجية المدفوعة للتخطيط فقط. لن يطلق NEXUS إعلانات أو يصرف ميزانية أو ينشر أو يفعّل حملات بدون موافقة صريحة.'
+                          : 'Paid strategy is planning-only. NEXUS will not launch ads, spend budget, publish, or activate campaigns without explicit approval.'}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* PR-2A — honest scope note: budget/KPI/paid planning depend on Brand Brain data */}
               <div className="rounded-xl px-3 py-2.5 mb-3 flex items-start gap-2"
@@ -755,13 +953,20 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               )}
 
               {/* Actions */}
-              {canAfford ? (
+              {!deliverables.supported ? (
+                /* PR-S1b — custom > 180 days: block generation before any charge. */
+                <button disabled
+                  className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mb-2 cursor-not-allowed"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  {ar ? 'غير متاح — يتطلب عرض سعر مخصص' : 'Unavailable — needs a custom quote'}
+                </button>
+              ) : canGenerate ? (
                 <button
                   onClick={() => setCostConfirmed(true)}
                   className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
                   style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' }}>
                   <Rocket className="w-4 h-4" />
-                  {locale === 'ar' ? 'تأكيد وتشغيل الاستراتيجية' : `Confirm & Run — ${COST} credits`}
+                  {ar ? `توليد الاستراتيجية — ${COST} كريديت` : `Generate strategy — ${COST} credits`}
                 </button>
               ) : (
                 <button
