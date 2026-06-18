@@ -56,62 +56,6 @@ const PRICE_OPTIONS = [
 const AGE_OPTIONS_AR = ['13-17','18-24','25-34','35-44','45-54','55+','جميع الأعمار']
 const AGE_OPTIONS_EN = ['13-17','18-24','25-34','35-44','45-54','55+','All ages']
 
-/* ── Score Ring SVG ───────────────────────────────────────────── */
-function ScoreRing({ score }: { score: number }) {
-  const r = 44
-  const circ = 2 * Math.PI * r
-  const offset = circ - (score / 100) * circ
-  // PR-L — maturity is a long-term depth signal, not a pass/fail. Low maturity
-  // uses a calm slate (not alarmist red) so an early-but-complete brand never
-  // looks like it is failing.
-  const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
-  const glow  = score >= 80 ? 'rgba(16,185,129,0.45)' : score >= 50 ? 'rgba(245,158,11,0.4)' : 'rgba(100,116,139,0.35)'
-  return (
-    <div className="relative flex items-center justify-center" style={{ width: 100, height: 100 }}>
-      <svg width="100" height="100" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(15,23,42,0.08)" strokeWidth="7"/>
-        <circle cx="50" cy="50" r={r} fill="none" stroke={color}
-          strokeWidth="7" strokeLinecap="round"
-          strokeDasharray={circ} strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 1s ease, stroke 0.5s ease', filter: `drop-shadow(0 0 8px ${glow})` }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-black tabular-nums" style={{ color, lineHeight: 1 }}>{score}</span>
-        <span className="text-[10px] font-semibold" style={{ color: '#94A3B8' }}>/ 100</span>
-      </div>
-    </div>
-  )
-}
-
-/* ── Score Sparkline SVG ──────────────────────────────────────── */
-function ScoreSparkline({ history }: { history: number[] }) {
-  if (history.length < 2) return null
-  const W = 90; const H = 32; const pad = 4
-  const min = Math.min(...history); const max = Math.max(...history)
-  const range = Math.max(max - min, 10)
-  const pts = history.map((v, i) => {
-    const x = pad + (i / (history.length - 1)) * (W - pad * 2)
-    const y = H - pad - ((v - min) / range) * (H - pad * 2)
-    return `${x},${y}`
-  })
-  const last = pts[pts.length - 1].split(',')
-  const trend = history[history.length - 1] >= history[0]
-  const color = trend ? '#10b981' : '#f97316'
-  return (
-    <div className="flex flex-col items-center gap-0.5">
-      <svg width={W} height={H} className="overflow-visible">
-        <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="1.5"
-          strokeLinejoin="round" strokeLinecap="round" opacity="0.7" />
-        <circle cx={last[0]} cy={last[1]} r="3" fill={color} />
-      </svg>
-      <span className="text-[9px] font-semibold" style={{ color: '#94A3B8' }}>
-        {trend ? '▲' : '▼'} {history.length}d
-      </span>
-    </div>
-  )
-}
-
 /* ── Sub-components ───────────────────────────────────────────── */
 function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest, suggesting, locale }: {
   label: string; placeholder: string; values: string[]; onChange: (v: string[]) => void;
@@ -488,8 +432,6 @@ function BrandBrainInner() {
   const [campaignObjective, setCampaignObjective] = useState<'leads' | 'sales' | 'awareness' | 'traffic' | ''>('')
   const [logoUploading, setLogoUploading] = useState(false)
   const [logoError, setLogoError]         = useState<string | null>(null)
-  const [scoreHistory, setScoreHistory]   = useState<number[]>([])
-  const [scoreRefresh, setScoreRefresh]   = useState(0)
 
   // ── Website Scanner state ─────────────────────────────────────
   const [websiteUrl, setWebsiteUrl]           = useState('')
@@ -540,22 +482,8 @@ function BrandBrainInner() {
 
   const { authHeader } = useAuth()
 
-  // ── Fetch score history for sparkline ────────────────────────
-  useEffect(() => {
-    fetch('/api/brain/score-history', { headers: { Authorization: authHeader() } })
-      .then(r => r.ok ? r.json() : { snapshots: [] })
-      .then(d => {
-        if (Array.isArray(d.snapshots) && d.snapshots.length > 0) {
-          setScoreHistory(d.snapshots.map((s: { score: number }) => s.score))
-        }
-      })
-      .catch(() => null)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saved, scoreRefresh]) // re-fetch after saves and accepted learning proposals
-
   const refreshBrainAfterLearning = () => {
     refetch()
-    setScoreRefresh(v => v + 1)
   }
 
   // ── handleSuggestText: for plain text fields ──────────────────
