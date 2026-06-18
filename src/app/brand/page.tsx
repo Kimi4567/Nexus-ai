@@ -928,9 +928,17 @@ function BrandBrainInner() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums"
-                        style={{ background: `${scoreColor}14`, color: scoreColor, border: `1px solid ${scoreColor}33` }}>
-                        {score} · {score >= 80 ? (locale === 'ar' ? 'ناضجة' : 'Mature') : score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') : (locale === 'ar' ? 'مبكرة' : 'Early')}
+                      {/* PR-N1 — stage-first: lead with the maturity STAGE; the 45/100
+                          number is secondary/muted. Chip tooltip + the "Why?" disclosure
+                          below explain that maturity = depth (setup + learned memory),
+                          NOT setup completeness and NOT organic readiness. Math unchanged. */}
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
+                        style={{ background: `${scoreColor}14`, color: scoreColor, border: `1px solid ${scoreColor}33` }}
+                        title={locale === 'ar'
+                          ? 'نضج ذاكرة العلامة: عمق طويل المدى (إعدادك المحفوظ + ما تعلّمته NEXUS بمرور الوقت). ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
+                          : 'Brand Brain maturity: long-term depth — your saved setup plus what NEXUS learns over time. Not setup completeness, not organic readiness.'}>
+                        {score >= 80 ? (locale === 'ar' ? 'ناضجة' : 'Mature') : score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') : (locale === 'ar' ? 'مبكرة' : 'Early')}
+                        <span className="font-semibold tabular-nums opacity-60">{score}/100</span>
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
@@ -961,6 +969,21 @@ function BrandBrainInner() {
                   </button>
                 </div>
               </div>
+
+              {/* PR-N1 — compact "Why this?" disclosure for the maturity stage. Collapsed
+                  by default (no clutter); explains 45-vs-100% so it never reads as a
+                  contradiction. Display/copy only — no math. */}
+              <details className="group">
+                <summary className="cursor-pointer select-none list-none inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-700">
+                  <span>{locale === 'ar' ? 'لماذا النضج «مبكر» مع اكتمال 100%؟' : 'Why is maturity “Early” when completeness is 100%?'}</span>
+                  <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="mt-2 text-[12px] text-slate-500 leading-relaxed" style={{ maxWidth: '72ch' }}>
+                  {locale === 'ar'
+                    ? 'النضج يقيس العمق طويل المدى — إعدادك المحفوظ + ما تعلّمته NEXUS بمرور الوقت. لذلك قد يكون اكتمال إعداد علامتك 100% بينما يبقى النضج «مبكراً»، لأن الذاكرة تنمو من الحملات والنشر والنتائج الحقيقية. كما يمكن أن تكون استراتيجيتك العضوية «جاهزة» بينما ذاكرتك طويلة المدى لا تزال تتكوّن. النضج ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
+                    : 'Maturity measures long-term depth — your saved setup plus what NEXUS learns over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from real campaigns, publishing, and results. Likewise your organic strategy can be “Ready” while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
+                </p>
+              </details>
 
               {/* PR-L — single, indicator-driven next-action card (replaces the old
                   generic "Next step" banner + the alarmist low-completeness warning).
