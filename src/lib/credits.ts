@@ -232,12 +232,24 @@ export type CreditCheckResult = CreditDeductionOk | InsufficientCreditsError
  *   if (!credit.ok) return NextResponse.json(credit, { status: 402 })
  *   // ... proceed with AI work ...
  *   return NextResponse.json({ ..., creditsRemaining: credit.creditsRemaining })
+ *
+ * Variable pricing (PR-S1c-2): pass `costOverride` to charge a server-computed
+ * amount instead of the fixed CREDIT_COSTS[action]. The override MUST be derived
+ * from validated server-side input (never a client-supplied price). `action`
+ * still drives the transaction-log label. When the override is omitted or
+ * invalid (non-finite / negative), the fixed action cost is used — so every
+ * existing caller keeps its current behavior unchanged. The returned
+ * `creditsUsed` reflects the amount ACTUALLY deducted, so refund-on-failure via
+ * `credit.creditsUsed` stays exact for variable charges.
  */
 export async function checkAndDeductCredits(
   userId: string,
   action: CreditAction,
+  costOverride?: number,
 ): Promise<CreditCheckResult> {
-  const cost = CREDIT_COSTS[action]
+  const hasValidOverride =
+    typeof costOverride === 'number' && Number.isFinite(costOverride) && costOverride >= 0
+  const cost = hasValidOverride ? Math.floor(costOverride) : CREDIT_COSTS[action]
 
   // ── Fetch user ─────────────────────────────────────────────────────────────
   let user = await prisma.user.findUnique({

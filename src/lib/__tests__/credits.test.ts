@@ -142,6 +142,93 @@ describe('checkAndDeductCredits', () => {
   })
 })
 
+// ── PR-S1c-2 — variable cost via costOverride ──────────────────────────────
+describe('checkAndDeductCredits — costOverride (variable strategy pricing)', () => {
+  it('10. deducts the exact override amount (not the fixed action cost)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'PRO', aiCredits: 100,
+      monthlyGenerations: 5, email: 'a@b.com', name: 'A',
+    })
+
+    // RUN_FULL_STRATEGY fixed cost is 8; override with a variable 18.
+    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY', 18)
+
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.creditsUsed).toBe(18)
+      expect(res.creditsRemaining).toBe(100 - 18)
+    }
+    // Atomic guard must use the override amount (gte 18 / decrement 18).
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u1', aiCredits: { gte: 18 } },
+        data: expect.objectContaining({ aiCredits: { decrement: 18 } }),
+      }),
+    )
+  })
+
+  it('11. with no override, still uses the fixed CREDIT_COSTS action cost', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'PRO', aiCredits: 100,
+      monthlyGenerations: 5, email: 'a@b.com', name: 'A',
+    })
+
+    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY')
+
+    expect(res.ok).toBe(true)
+    if (res.ok) expect(res.creditsUsed).toBe(CREDIT_COSTS.RUN_FULL_STRATEGY) // 8
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u1', aiCredits: { gte: CREDIT_COSTS.RUN_FULL_STRATEGY } },
+      }),
+    )
+  })
+
+  it('12. unlimited plans never charge, even with an override (creditsUsed: 0)', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'ACTIVE', aiCredits: -1,
+      monthlyGenerations: 10, email: 'a@b.com', name: 'A',
+    })
+
+    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY', 22)
+
+    expect(res.ok).toBe(true)
+    if (res.ok) {
+      expect(res.isUnlimited).toBe(true)
+      expect(res.creditsUsed).toBe(0)
+    }
+    expect(mockPrisma.user.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('insufficient credits uses the override as requiredCredits', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'STARTER', aiCredits: 10,
+      monthlyGenerations: 5, email: 'a@b.com', name: 'A',
+    })
+
+    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY', 18) // can't afford 18
+
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.error).toBe('INSUFFICIENT_CREDITS')
+      expect(res.requiredCredits).toBe(18)
+      expect(res.currentCredits).toBe(10)
+    }
+    expect(mockPrisma.user.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('ignores an invalid override (negative / NaN) and falls back to fixed cost', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'PRO', aiCredits: 100,
+      monthlyGenerations: 5, email: 'a@b.com', name: 'A',
+    })
+
+    const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY', -5)
+    expect(res.ok).toBe(true)
+    if (res.ok) expect(res.creditsUsed).toBe(CREDIT_COSTS.RUN_FULL_STRATEGY) // 8
+  })
+})
+
 describe('refundCredits', () => {
   it('credits the action cost back and logs a REFUND transaction', async () => {
     await refundCredits('u1', 'IMAGE_GENERATION')
