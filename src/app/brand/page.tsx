@@ -378,6 +378,14 @@ function BrandBrainInner() {
   // Display/UX only: field state (`form`), Save, score/readiness and Scanner/Analyzer
   // behaviour are all untouched — this only gates which section is visible.
   const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'review'>('start')
+  // PR-M3.1.2 — two-path Start screen. Assisted-card inputs use isolated local state
+  // (NOT the Scanner/Analyzer state) — display/IA only, nothing is scanned/analyzed/
+  // applied/saved here. The real Create-draft → review → apply flow is PR-M3.3.
+  const ASSIST_SCAN_COST = 3
+  const ASSIST_ANALYZE_COST = 2
+  const [assistUrl, setAssistUrl] = useState('')
+  const [assistContent, setAssistContent] = useState('')
+  const [assistDraftNotice, setAssistDraftNotice] = useState(false)
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
@@ -978,50 +986,100 @@ function BrandBrainInner() {
               <p className="text-sm text-slate-500 mt-1">
                 {locale === 'ar' ? 'اختر طريقة البدء — يمكنك تغييرها في أي وقت.' : 'Choose how you’d like to start — you can change this anytime.'}
               </p>
-              <div className="grid sm:grid-cols-3 gap-3 mt-6">
-                <button onClick={() => setWizardStage('edit')}
-                  className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
-                  style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.25)' }}>
-                    <Brain size={17} style={{ color:'#f59e0b' }} />
-                  </div>
-                  <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'ابدأ يدوياً' : 'Start manually'}</p>
-                  <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'املأ تفاصيل علامتك خطوة بخطوة.' : 'Fill in your brand details step by step.'}</p>
-                </button>
-                <button onClick={() => setWizardStage('edit')}
-                  className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
-                  style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
-                      <ScanSearch size={17} style={{ color:'#64748b' }} />
+              {(() => {
+                const ar = locale === 'ar'
+                const scanCost = assistUrl.trim() ? ASSIST_SCAN_COST : 0
+                const analyzeCost = assistContent.trim() ? ASSIST_ANALYZE_COST : 0
+                const total = scanCost + analyzeCost
+                const safety = ar
+                  ? ['يُنشئ NEXUS مسودة لمراجعتك.', 'لا يُحفظ شيء تلقائياً.', 'لا يُطبَّق شيء على ذاكرة علامتك حتى توافق عليه.', 'تظهر تكلفة الكردت قبل أي إجراء.']
+                  : ['NEXUS creates a draft for your review.', 'Nothing is saved automatically.', 'Nothing is applied to Brand Brain until you approve it.', 'Credit costs are shown before any action.']
+                return (
+                <div className="grid lg:grid-cols-[1.6fr_1fr] gap-3 mt-6 items-start">
+
+                  {/* ── ASSISTED SETUP ── */}
+                  <div className="rounded-2xl p-5" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                    <div className="flex items-center gap-2.5 mb-1">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.25)' }}>
+                        <ScanSearch size={17} style={{ color:'#f59e0b' }} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-950">{ar ? 'دع NEXUS يُجهّز مسودة ذاكرة علامتك' : 'Let NEXUS draft your Brand Brain'}</p>
                     </div>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
-                      3 {locale === 'ar' ? 'كردت' : 'credits'}
-                    </span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'مسح موقعي الإلكتروني' : 'Scan my website'}</p>
-                  <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'يقرأ NEXUS موقعك ويُجهّز مسودة حقول لمراجعتك.' : 'NEXUS reads your site and drafts fields for your review.'}</p>
-                </button>
-                <button onClick={() => setWizardStage('edit')}
-                  className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
-                  style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
-                      <FileText size={17} style={{ color:'#64748b' }} />
+                    <p className="text-xs text-slate-500 mb-4">{ar ? 'من موقعك أو من محتوى موجود — تراجعه قبل تطبيق أي شيء.' : 'From your website or existing content — you review it before anything is applied.'}</p>
+
+                    {/* Website URL */}
+                    <label className="block text-[11px] font-semibold tracking-wide text-slate-500 mb-1">{ar ? 'رابط الموقع الإلكتروني' : 'WEBSITE URL'}</label>
+                    <div className="flex items-center gap-2 px-3 rounded-xl mb-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.10)', height:42 }}>
+                      <Link2 size={14} style={{ color:'#64748B', flexShrink:0 }} />
+                      <input value={assistUrl} onChange={e => { setAssistUrl(e.target.value); setAssistDraftNotice(false) }}
+                        placeholder={ar ? 'https://your-brand.com' : 'https://your-brand.com'} dir="ltr"
+                        className="flex-1 bg-transparent outline-none text-sm text-slate-900 placeholder:text-slate-400" />
                     </div>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
-                      2 {locale === 'ar' ? 'كردت' : 'credits'}
-                    </span>
+
+                    {/* Content samples */}
+                    <label className="block text-[11px] font-semibold tracking-wide text-slate-500 mb-1">{ar ? 'عيّنات من محتواك' : 'CONTENT SAMPLES'}</label>
+                    <textarea value={assistContent} onChange={e => { setAssistContent(e.target.value); setAssistDraftNotice(false) }}
+                      rows={3} placeholder={ar ? 'الصق أفضل منشور/إعلان/بريد أدّى أداءً جيداً…' : 'Paste a caption, ad, email or post that performed well…'}
+                      className="w-full rounded-xl px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 outline-none mb-3 resize-y" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.10)' }} />
+
+                    {/* Credit breakdown */}
+                    <div className="rounded-xl px-3 py-2 mb-3 space-y-1" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.06)' }}>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-slate-500">{ar ? 'مسح الموقع' : 'Website scan'}</span>
+                        <span className={assistUrl.trim() ? 'font-semibold text-slate-700' : 'text-slate-400'}>{ASSIST_SCAN_COST} {ar ? 'كردت' : 'credits'}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-slate-500">{ar ? 'تحليل المحتوى' : 'Content analysis'}</span>
+                        <span className={assistContent.trim() ? 'font-semibold text-slate-700' : 'text-slate-400'}>{ASSIST_ANALYZE_COST} {ar ? 'كردت' : 'credits'}</span>
+                      </div>
+                    </div>
+
+                    {/* Create draft button (dynamic total, disabled when nothing provided) */}
+                    <button onClick={() => setAssistDraftNotice(true)} disabled={total === 0}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed"
+                      style={ total === 0
+                        ? { background:'#E2E8F0', color:'#94A3B8' }
+                        : { background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' } }>
+                      {ar ? 'إنشاء مسودة' : 'Create draft'}{total > 0 ? ` · ${total} ${ar ? 'كردت' : 'credits'}` : ''}
+                    </button>
+
+                    {/* PR-M3.1.2 — display-only placeholder; the review-before-apply flow is PR-M3.3.
+                        No scan/analyze/apply/save runs here and no credits are spent. */}
+                    {assistDraftNotice && (
+                      <div className="mt-3 rounded-xl px-3 py-2.5 text-[12px] leading-relaxed" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.20)', color:'#92400e' }}>
+                        {ar
+                          ? 'خطوة مراجعة المسودة قادمة قريباً — سيتحوّل موقعك ومحتواك إلى اقتراحات تراجعها قبل تطبيق أي حقل. في الوقت الحالي يمكنك الإعداد يدوياً.'
+                          : 'Draft review is coming next — your website and content will become suggestions you review before any field is applied. For now you can set up manually.'}
+                      </div>
+                    )}
+
+                    {/* Safety copy */}
+                    <ul className="mt-3 space-y-1">
+                      {safety.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[11px] text-slate-500">
+                          <Check size={12} style={{ color:'#16a34a' }} className="flex-shrink-0 mt-0.5" /> {s}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'حلّل محتوى موجوداً' : 'Analyze existing content'}</p>
-                  <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'الصق أفضل محتواك ليُجهّز NEXUS مسودة نبرة وزوايا لمراجعتك.' : 'Paste your best content; NEXUS drafts tone & hooks for your review.'}</p>
-                </button>
-              </div>
-              <p className="text-[12px] text-slate-400 mt-5 leading-relaxed">
-                {locale === 'ar'
-                  ? 'الإعداد المُساعد يُنشئ مسودة لمراجعتك — لا يُحفظ شيء تلقائياً، وتظهر تكلفة الكردت قبل أي إجراء. ستجد الماسح والمحلّل ضمن «طوّر ذاكرة علامتك».'
-                  : 'Assisted setup creates a draft for your review — nothing is saved automatically, and credit costs are shown before any action. You’ll find the Scanner and Analyzer under “Improve your Brand Brain.”'}
-              </p>
+
+                  {/* ── MANUAL SETUP ── */}
+                  <button onClick={() => setWizardStage('edit')}
+                    className="text-start rounded-2xl p-5 transition-all hover:border-amber-300 h-full flex flex-col"
+                    style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
+                      <Brain size={17} style={{ color:'#64748b' }} />
+                    </div>
+                    <p className="text-sm font-bold text-slate-950">{ar ? 'ابدأ يدوياً' : 'Start manually'}</p>
+                    <p className="text-xs text-slate-500 mt-1 flex-1">{ar ? 'املأ ذاكرة علامتك خطوة بخطوة.' : 'Fill your Brand Brain step by step.'}</p>
+                    <span className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold self-start" style={{ background:'#0f172a', color:'#ffffff' }}>
+                      {ar ? 'ابدأ يدوياً' : 'Start manually'} <ArrowLeft size={14} className="rtl:rotate-180" />
+                    </span>
+                  </button>
+
+                </div>
+                )
+              })()}
             </div>
           )}
 
