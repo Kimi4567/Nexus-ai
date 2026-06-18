@@ -22,7 +22,7 @@ import {
    BRAND BRAIN — Premium Visual Redesign
    ═══════════════════════════════════════════════════════════════ */
 
-type StepId = 'identity' | 'product' | 'audience' | 'voice' | 'platforms' | 'competitors'
+type StepId = 'identity' | 'product' | 'audience' | 'voice' | 'platforms' | 'competitors' | 'goals'
 
 interface Step {
   id: StepId
@@ -40,6 +40,9 @@ const STEPS: Step[] = [
   { id: 'voice',       labelKey: 'brand.stepVoiceLabel',       descKey: 'brand.stepVoiceDesc',       icon: Mic,     color: '#10b981', fieldCheck: 'writingStyle'    },
   { id: 'platforms',   labelKey: 'brand.stepPlatformsLabel',   descKey: 'brand.stepPlatformsDesc',   icon: Globe,   color: '#ec4899', fieldCheck: 'topPlatforms'    },
   { id: 'competitors', labelKey: 'brand.stepCompetitorsLabel', descKey: 'brand.stepCompetitorsDesc', icon: Target,  color: '#f97316', fieldCheck: 'competitorNotes' },
+  // PR-M3.2 — Goals & Strategy is now a real wizard step (step 7). labelKey/descKey
+  // are rendered via inline EN/AR fallbacks below (no i18n file change).
+  { id: 'goals',       labelKey: 'brand.stepGoalsLabel',       descKey: 'brand.stepGoalsDesc',       icon: Target,  color: '#5E5CE6', fieldCheck: 'businessGoal'    },
 ]
 
 const INDUSTRIES_AR = ['تجارة إلكترونية','مطاعم وأغذية','موضة وأزياء','صحة وجمال','تقنية وتطبيقات','عقارات','تعليم وتدريب','خدمات مهنية','سياحة وسفر','رياضة ولياقة','ديكور وأثاث','سيارات','آخر']
@@ -386,6 +389,9 @@ function BrandBrainInner() {
   const [assistUrl, setAssistUrl] = useState('')
   const [assistContent, setAssistContent] = useState('')
   const [assistDraftNotice, setAssistDraftNotice] = useState(false)
+  // PR-M3.2 — Scanner/Analyzer/learned-timeline group is no longer shown in Edit or
+  // Review (kept in code, reserved for Assisted setup + PR-M3.3's review-before-apply).
+  const SHOW_BRAND_IMPROVE_GROUP = false
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
@@ -905,7 +911,9 @@ function BrandBrainInner() {
                   Leads with the honest positive, then names the real next gap from the
                   same separated indicators shown above. Display only — reads existing
                   indicator state, never mutates data or recomputes scores. */}
-              {wizardStage !== 'start' && (() => {
+              {/* PR-M3.2 — this "what NEXUS knows / what's missing" card now belongs to
+                  the Review & Readiness step only (removed from Edit to keep edit focused). */}
+              {wizardStage === 'review' && (() => {
                 const organic = brandIndicators.organicReadiness
                 const paid = brandIndicators.paidReadiness
                 const ar = locale === 'ar'
@@ -1111,6 +1119,18 @@ function BrandBrainInner() {
                   </p>
                 )}
               </div>
+
+              {/* PR-M3.2 — "What NEXUS has learned" kept here as an optional collapsed
+                  block (moved out of Edit). Display only — no scan/analyze/apply. */}
+              <details className="group mt-5 rounded-xl overflow-hidden" style={{ border:'1px solid rgba(15,23,42,0.08)' }}>
+                <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'ما تعلّمته NEXUS' : 'What NEXUS has learned'}</span>
+                  <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-2 pb-2">
+                  <BrainTimeline onUpdate={refreshBrainAfterLearning} />
+                </div>
+              </details>
             </div>
           )}
 
@@ -1122,7 +1142,12 @@ function BrandBrainInner() {
           {/* PR-M2.1 — "Improve your Brand Brain": one collapsed group holding the
               optional enrichment tools as accordion rows. Collapsed by default so the
               default page stays short. Theme polish is reserved for PR-M2.2. */}
-          {wizardStage !== 'start' && (
+          {/* PR-M3.2 — Scanner / Analyzer / learned timeline are removed from Edit AND
+              Review (no lower-page clutter). They belong to the Start-screen Assisted
+              setup path + the real review-before-apply flow in PR-M3.3, so this whole
+              group is gated off for now (code preserved for M3.3). "What NEXUS has
+              learned" is surfaced instead as a collapsed block inside Review & Readiness. */}
+          {SHOW_BRAND_IMPROVE_GROUP && (
           <details style={{ order: 49 }} className="group pt-2">
             <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
               style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
@@ -1467,11 +1492,21 @@ function BrandBrainInner() {
                         <s.icon size={14} style={{ color: active ? s.color : completed ? s.color+'bb' : '#94A3B8' }}/>
                       </div>
                       <span className="text-[10px] font-mono flex-shrink-0" style={{ color: active ? s.color+'99' : 'rgba(71,85,105,0.45)' }}>0{idx+1}</span>
-                      <span className="text-[13px] font-semibold leading-tight flex-1 min-w-0 truncate" style={{ color: active ? '#0f172a' : '#475569' }}>{t(s.labelKey)}</span>
+                      <span className="text-[13px] font-semibold leading-tight flex-1 min-w-0 truncate" style={{ color: active ? '#0f172a' : '#475569' }}>{s.id === 'goals' ? (locale === 'ar' ? 'الأهداف والاستراتيجية' : 'Goals & Strategy') : t(s.labelKey)}</span>
                       {completed && <Check size={13} style={{ color: s.color }} strokeWidth={3} className="flex-shrink-0"/>}
                     </button>
                   )
                 })}
+                {/* PR-M3.2 — step 8: Review & Readiness (enters the review stage) */}
+                <button onClick={() => setWizardStage('review')}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-start"
+                  style={{ background: 'transparent', border: '1px solid transparent' }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <CheckCircle2 size={14} style={{ color: '#94A3B8' }}/>
+                  </div>
+                  <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'rgba(71,85,105,0.45)' }}>08</span>
+                  <span className="text-[13px] font-semibold leading-tight flex-1 min-w-0 truncate" style={{ color: '#475569' }}>{locale === 'ar' ? 'المراجعة والجاهزية' : 'Review & Readiness'}</span>
+                </button>
               </nav>
               {/* Readiness summary */}
               <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
@@ -1506,12 +1541,13 @@ function BrandBrainInner() {
                 <currentStep.icon size={22} style={{ color:currentStep.color }}/>
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-bold text-slate-950">{t(currentStep.labelKey)}</h2>
-                <p className="text-xs mt-0.5 text-slate-500">{t(currentStep.descKey)}</p>
+                <h2 className="text-lg font-bold text-slate-950">{currentStep.id === 'goals' ? (locale === 'ar' ? 'الأهداف والاستراتيجية' : 'Goals & Strategy') : t(currentStep.labelKey)}</h2>
+                <p className="text-xs mt-0.5 text-slate-500">{currentStep.id === 'goals' ? (locale === 'ar' ? 'حدّد هدفك ونوع استراتيجيتك ولغة المخرجات.' : 'Set your goal, strategy type, and output language.') : t(currentStep.descKey)}</p>
               </div>
+              {/* PR-M3.2 — denominator is STEPS.length + 1 so Review & Readiness counts as the final step (X / 8). */}
               <div className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
                 style={{ background:`${currentStep.color}0e`, color:`${currentStep.color}bb`, border:`1px solid ${currentStep.color}20` }}>
-                {currentStepIdx+1} / {STEPS.length}
+                {currentStepIdx+1} / {STEPS.length + 1}
               </div>
             </div>
 
@@ -1793,6 +1829,119 @@ function BrandBrainInner() {
                 </div>
               )}
 
+              {/* PR-M3.2 — Goals & Strategy is now step 7 (relocated from the old review
+                  stage). Existing fields/state only; paid stays planning-only. */}
+              {step === 'goals' && (() => {
+                const ar = locale === 'ar'
+                const pill = (selected: boolean, color = '#5E5CE6') => ({
+                  background: selected ? `${color}12` : '#FFFFFF',
+                  border: `1px solid ${selected ? color + '45' : 'rgba(15,23,42,0.10)'}`,
+                  color: selected ? color : '#64748b',
+                }) as React.CSSProperties
+                const labelCls = 'block text-xs font-semibold uppercase tracking-wider mb-2'
+                const caps = getStrategyCapabilities(form)
+                return (
+                  <div className="space-y-5">
+                    <Field label={ar ? 'الهدف التجاري الرئيسي' : 'Main business goal'}>
+                      <NxInput value={form.businessGoal||''} onChange={v=>set('businessGoal',v)}
+                        placeholder={ar ? 'مثال: المزيد من المشتركين المدفوعين' : 'e.g. more paying subscribers'} accentColor="#5E5CE6"/>
+                    </Field>
+
+                    <div>
+                      <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'نوع الاستراتيجية' : 'Strategy type'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {([['organic', ar?'عضوي فقط':'Organic only'],['paid', ar?'مدفوع فقط':'Paid only'],['full', ar?'استراتيجية كاملة':'Full strategy']] as const).map(([v,l])=>(
+                          <button key={v} onClick={()=>setStrategyType(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(strategyType===v)}>
+                            {strategyType===v&&'● '}{l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'مدة الاستراتيجية' : 'Strategy duration'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {([['30', ar?'30 يوماً':'30 days'],['90', ar?'90 يوماً':'90 days'],['180', ar?'6 أشهر':'6 months'],['custom', ar?'مخصص':'Custom']] as const).map(([v,l])=>(
+                          <button key={v} onClick={()=>setStrategyDuration(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(strategyDuration===v)}>
+                            {strategyDuration===v&&'● '}{l}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, with the first 30 days actionable.'}</p>
+                    </div>
+
+                    <div>
+                      <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'لغة المخرجات' : 'Output language'}</label>
+                      <div className="flex flex-wrap gap-2">
+                        {([['en','English'],['ar','العربية'],['both', ar?'كلاهما':'Both']] as const).map(([v,l])=>(
+                          <button key={v} onClick={()=>set('languagePreference', v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(form.languagePreference===v, '#06b6d4')}>
+                            {form.languagePreference===v&&'● '}{l}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'اختيارك أنت — لا يُستنتَج من لغة الواجهة.' : 'Your choice — not inferred from the interface language.'}</p>
+                    </div>
+
+                    {(strategyType==='organic' || strategyType==='full') && (
+                      <div className="rounded-xl px-3 py-2.5" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
+                        <p className="text-[12px] font-semibold text-slate-700 mb-0.5">{ar ? 'إعداد المحتوى العضوي' : 'Organic content setup'}</p>
+                        <p className="text-[11px] text-slate-500">{ar ? 'منصاتك ونبرتك من الأقسام أعلاه تُستخدم لبناء خطة المحتوى العضوي.' : 'Your platforms and voice from the sections above power the organic content plan.'}</p>
+                      </div>
+                    )}
+
+                    {(strategyType==='paid' || strategyType==='full') && (
+                      <div className="rounded-xl px-3 py-3 space-y-3" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
+                        <p className="text-[12px] font-semibold text-slate-700">{ar ? 'إعداد الحملة المدفوعة' : 'Paid campaign setup'}</p>
+                        <Field label={ar ? 'الميزانية الشهرية' : 'Monthly budget'}>
+                          <NxInput value={form.marketingBudget||''} onChange={v=>set('marketingBudget',v)}
+                            placeholder={ar ? 'مثال: 1000$ شهرياً' : 'e.g. $1,000 / month'} accentColor="#5E5CE6"/>
+                        </Field>
+                        <Field label={ar ? 'وجهة التحويل' : 'Conversion destination'}>
+                          <NxInput value={form.conversionDestination||''} onChange={v=>set('conversionDestination',v)}
+                            placeholder={ar ? 'صفحة هبوط / نموذج / واتساب' : 'landing page / form / WhatsApp'} accentColor="#5E5CE6"/>
+                        </Field>
+                        <div>
+                          <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'هدف الحملة' : 'Campaign objective'}</label>
+                          <div className="flex flex-wrap gap-2">
+                            {([['leads', ar?'عملاء محتملون':'Leads'],['sales', ar?'مبيعات':'Sales'],['awareness', ar?'وعي':'Awareness'],['traffic', ar?'زيارات':'Traffic']] as const).map(([v,l])=>(
+                              <button key={v} onClick={()=>setCampaignObjective(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(campaignObjective===v, '#f59e0b')}>
+                                {campaignObjective===v&&'● '}{l}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ مع الاستراتيجية لاحقاً.' : 'Saved with the strategy later.'}</p>
+                        </div>
+                        <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
+                          <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'تخطيط فقط — غير جاهز للإطلاق' : 'Planning only — not launch-ready'}</p>
+                          <p className="text-[11px] text-slate-600 mt-0.5">
+                            {ar
+                              ? 'لن يتم إنفاق أي ميزانية أو إطلاق إعلانات دون موافقتك الصريحة. اربط البكسل/حساب الإعلانات وتتبّع التحويل في صفحة الربط للجاهزية.'
+                              : 'No budget is spent and no ads launch without your explicit approval. Connect your pixel / ad account and conversion tracking in Connections to become launch-ready.'}
+                          </p>
+                          {!caps.paidStrategy.ready && (
+                            <p className="text-[11px] mt-1" style={{ color:'#b45309' }}>
+                              {ar ? 'ما زال ناقصاً: الميزانية ووجهة التحويل والموقع والعرض.' : 'Still missing: budget, conversion destination, location, and offer.'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <TagInput
+                        label={ar ? 'إثبات موثّق — مؤكَّد منك فقط' : 'Verified proof — user-confirmed only'}
+                        placeholder={ar ? 'أضف شهادة/نتيجة حقيقية ثم Enter' : 'Add a real, verified proof point, then Enter'}
+                        values={form.verifiedProof||[]} onChange={v=>set('verifiedProof',v)} accentColor="#10b981" locale={locale}/>
+                      <p className="text-[11px] text-slate-400 mt-1.5">
+                        {ar
+                          ? 'أضف فقط شهادات/نتائج/أرقاماً حقيقية يمكنك تأكيدها. NEXUS لا يضيف إثباتات مفترضة أو شهادات وهمية.'
+                          : 'Add only real testimonials/results/numbers you can verify. NEXUS never adds assumed proof or fake testimonials.'}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* ── Navigation ─────────────────────────────────── */}
               <div className="flex items-center justify-between pt-5"
                 style={{ borderTop:'1px solid rgba(15,23,42,0.08)' }}>
@@ -1841,132 +1990,8 @@ function BrandBrainInner() {
               to consolidate learned surfaces. "What NEXUS has learned" (BrainTimeline)
               inside the "Improve your Brand Brain" group is now the single learned view. */}
 
-          {/* ══ PR-H2: Goals & Strategy + Verified Proof ══
-              Visible strategy intent (type/duration) + output language + paid setup
-              (conditional) + user-confirmed proof. Strategy type/duration are UI-only
-              here (NOT wired to generation — that is PR-I). Paid stays planning-only. */}
-          {wizardStage === 'review' && (() => {
-            const ar = locale === 'ar'
-            const pill = (selected: boolean, color = '#5E5CE6') => ({
-              background: selected ? `${color}12` : '#FFFFFF',
-              border: `1px solid ${selected ? color + '45' : 'rgba(15,23,42,0.10)'}`,
-              color: selected ? color : '#64748b',
-            }) as React.CSSProperties
-            const labelCls = 'block text-xs font-semibold uppercase tracking-wider mb-2'
-            const caps = getStrategyCapabilities(form)
-            return (
-              <div className="rounded-2xl p-5 space-y-5" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-                <div className="flex items-center gap-2">
-                  <Target size={16} style={{ color:'#5E5CE6' }} />
-                  <h3 className="text-sm font-bold text-slate-950">{ar ? 'الأهداف ونوع الاستراتيجية' : 'Goals & Strategy'}</h3>
-                </div>
-
-                {/* Main business goal (promoted out of the hidden accordion) */}
-                <Field label={ar ? 'الهدف التجاري الرئيسي' : 'Main business goal'}>
-                  <NxInput value={form.businessGoal||''} onChange={v=>set('businessGoal',v)}
-                    placeholder={ar ? 'مثال: المزيد من المشتركين المدفوعين' : 'e.g. more paying subscribers'} accentColor="#5E5CE6"/>
-                </Field>
-
-                {/* Strategy type */}
-                <div>
-                  <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'نوع الاستراتيجية' : 'Strategy type'}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {([['organic', ar?'عضوي فقط':'Organic only'],['paid', ar?'مدفوع فقط':'Paid only'],['full', ar?'استراتيجية كاملة':'Full strategy']] as const).map(([v,l])=>(
-                      <button key={v} onClick={()=>setStrategyType(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(strategyType===v)}>
-                        {strategyType===v&&'● '}{l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Strategy duration */}
-                <div>
-                  <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'مدة الاستراتيجية' : 'Strategy duration'}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {([['30', ar?'30 يوماً':'30 days'],['90', ar?'90 يوماً':'90 days'],['180', ar?'6 أشهر':'6 months'],['custom', ar?'مخصص':'Custom']] as const).map(([v,l])=>(
-                      <button key={v} onClick={()=>setStrategyDuration(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(strategyDuration===v)}>
-                        {strategyDuration===v&&'● '}{l}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, with the first 30 days actionable.'}</p>
-                </div>
-
-                {/* Output language preference (persisted; user-chosen) */}
-                <div>
-                  <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'لغة المخرجات' : 'Output language'}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {([['en','English'],['ar','العربية'],['both', ar?'كلاهما':'Both']] as const).map(([v,l])=>(
-                      <button key={v} onClick={()=>set('languagePreference', v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(form.languagePreference===v, '#06b6d4')}>
-                        {form.languagePreference===v&&'● '}{l}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-slate-400 mt-1.5">{ar ? 'اختيارك أنت — لا يُستنتَج من لغة الواجهة.' : 'Your choice — not inferred from the interface language.'}</p>
-                </div>
-
-                {/* Conditional: Organic content setup */}
-                {(strategyType==='organic' || strategyType==='full') && (
-                  <div className="rounded-xl px-3 py-2.5" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
-                    <p className="text-[12px] font-semibold text-slate-700 mb-0.5">{ar ? 'إعداد المحتوى العضوي' : 'Organic content setup'}</p>
-                    <p className="text-[11px] text-slate-500">{ar ? 'منصاتك ونبرتك من الأقسام أعلاه تُستخدم لبناء خطة المحتوى العضوي.' : 'Your platforms and voice from the sections above power the organic content plan.'}</p>
-                  </div>
-                )}
-
-                {/* Conditional: Paid campaign setup */}
-                {(strategyType==='paid' || strategyType==='full') && (
-                  <div className="rounded-xl px-3 py-3 space-y-3" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.06)' }}>
-                    <p className="text-[12px] font-semibold text-slate-700">{ar ? 'إعداد الحملة المدفوعة' : 'Paid campaign setup'}</p>
-                    <Field label={ar ? 'الميزانية الشهرية' : 'Monthly budget'}>
-                      <NxInput value={form.marketingBudget||''} onChange={v=>set('marketingBudget',v)}
-                        placeholder={ar ? 'مثال: 1000$ شهرياً' : 'e.g. $1,000 / month'} accentColor="#5E5CE6"/>
-                    </Field>
-                    <Field label={ar ? 'وجهة التحويل' : 'Conversion destination'}>
-                      <NxInput value={form.conversionDestination||''} onChange={v=>set('conversionDestination',v)}
-                        placeholder={ar ? 'صفحة هبوط / نموذج / واتساب' : 'landing page / form / WhatsApp'} accentColor="#5E5CE6"/>
-                    </Field>
-                    <div>
-                      <label className={labelCls} style={{ color:'#64748B' }}>{ar ? 'هدف الحملة' : 'Campaign objective'}</label>
-                      <div className="flex flex-wrap gap-2">
-                        {([['leads', ar?'عملاء محتملون':'Leads'],['sales', ar?'مبيعات':'Sales'],['awareness', ar?'وعي':'Awareness'],['traffic', ar?'زيارات':'Traffic']] as const).map(([v,l])=>(
-                          <button key={v} onClick={()=>setCampaignObjective(v)} className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all" style={pill(campaignObjective===v, '#f59e0b')}>
-                            {campaignObjective===v&&'● '}{l}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ مع الاستراتيجية لاحقاً.' : 'Saved with the strategy later.'}</p>
-                    </div>
-                    <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
-                      <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'تخطيط فقط — غير جاهز للإطلاق' : 'Planning only — not launch-ready'}</p>
-                      <p className="text-[11px] text-slate-600 mt-0.5">
-                        {ar
-                          ? 'لن يتم إنفاق أي ميزانية أو إطلاق إعلانات دون موافقتك الصريحة. اربط البكسل/حساب الإعلانات وتتبّع التحويل في صفحة الربط للجاهزية.'
-                          : 'No budget is spent and no ads launch without your explicit approval. Connect your pixel / ad account and conversion tracking in Connections to become launch-ready.'}
-                      </p>
-                      {!caps.paidStrategy.ready && (
-                        <p className="text-[11px] mt-1" style={{ color:'#b45309' }}>
-                          {ar ? 'ما زال ناقصاً: الميزانية ووجهة التحويل والموقع والعرض.' : 'Still missing: budget, conversion destination, location, and offer.'}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Verified Proof (user-confirmed only) */}
-                <div>
-                  <TagInput
-                    label={ar ? 'إثبات موثّق — مؤكَّد منك فقط' : 'Verified proof — user-confirmed only'}
-                    placeholder={ar ? 'أضف شهادة/نتيجة حقيقية ثم Enter' : 'Add a real, verified proof point, then Enter'}
-                    values={form.verifiedProof||[]} onChange={v=>set('verifiedProof',v)} accentColor="#10b981" locale={locale}/>
-                  <p className="text-[11px] text-slate-400 mt-1.5">
-                    {ar
-                      ? 'أضف فقط شهادات/نتائج/أرقاماً حقيقية يمكنك تأكيدها. NEXUS لا يضيف إثباتات مفترضة أو شهادات وهمية.'
-                      : 'Add only real testimonials/results/numbers you can verify. NEXUS never adds assumed proof or fake testimonials.'}
-                  </p>
-                </div>
-              </div>
-            )
-          })()}
+          {/* PR-M3.2 — Goals & Strategy (formerly a review-stage block) is now wizard
+              step 7, rendered inside the workspace step card above. */}
 
           {/* ══ Strategy readiness + data requirements (PR-2A) ══
               Capture-only + advisory. Optional fields; never block the organic flow.
