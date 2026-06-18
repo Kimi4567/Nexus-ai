@@ -1,0 +1,278 @@
+/**
+ * PR-S1a — Deliverables Contract (pure, deterministic).
+ *
+ * getStrategyDeliverables(order, planContext?) turns a confirmed StrategyOrder
+ * into a deterministic set of deliverables + generation instructions. ALL counts
+ * come from here — never from the AI. No I/O, no credits, no generation, no
+ * persistence. This is the single source of truth for "what will be generated"
+ * shown before any charge (UI wiring is a later PR).
+ *
+ * Core rules enforced here:
+ *  - Duration is a PLANNING HORIZON. Only the first ≤30 days get a detailed
+ *    content calendar; 90/180-day plans are roadmap + first-30-days-detailed.
+ *  - Content intensity sets the organic post target; the plan quota CAPS it.
+ *  - Paid is planning-only (never launch/spend/publish/activation/fake metrics).
+ *  - Full aligns organic + paid (shared angles/funnel/retargeting) without
+ *    blindly doubling output.
+ *  - Custom > 180 days is unsupported (custom quote) — caller must block charge.
+ */
+
+import type {
+  StrategyOrder,
+  StrategyDeliverables,
+  PlanContextLike,
+  ContentIntensity,
+  StrategyLanguage,
+} from './strategyOrder'
+
+export const MAX_SUPPORTED_DAYS = 180
+export const MAX_DETAILED_CALENDAR_DAYS = 30
+
+/** Intensity → representative monthly organic post target (top of each band). */
+export const INTENSITY_POST_TARGET: Record<ContentIntensity, number> = {
+  light: 10,    // 8–10
+  standard: 16, // 12–16
+  growth: 25,   // 20–25
+  daily: 30,    // 30
+}
+
+/** Intensity → human band label (for explanations). */
+const INTENSITY_BAND: Record<ContentIntensity, string> = {
+  light: '8–10',
+  standard: '12–16',
+  growth: '20–25',
+  daily: '30',
+}
+
+// Paid deliverable counts — representative values inside the product's bands.
+const PAID_AD_ANGLE_COUNT = 4        // 3–5
+const PAID_AD_COPY_VARIATIONS = 9    // 6–12
+const PAID_CREATIVE_BRIEFS = 4       // 3–5
+const PAID_AUDIENCE_HYPOTHESES = 3   // 2–3
+
+const DEFAULT_PLATFORM_VARIANTS = 3
+
+/** Resolve the effective horizon in days from preset/custom inputs. */
+function resolveHorizonDays(order: StrategyOrder): number {
+  if (order.durationPreset === '30') return 30
+  if (order.durationPreset === '90') return 90
+  if (order.durationPreset === '180') return 180
+  // custom — clamp to a sane positive integer
+  const d = Math.floor(order.durationDays)
+  return Number.isFinite(d) && d > 0 ? d : 0
+}
+
+/** Horizon (days) → roadmap length in months, per the duration buckets. */
+function roadmapMonthsFor(days: number): number {
+  if (days <= 30) return 1
+  if (days <= 60) return 2
+  if (days <= 90) return 3
+  return 6 // 91–180
+}
+
+function joinLines(lines: Array<string | false | null | undefined>): string {
+  return lines.filter((l): l is string => typeof l === 'string' && l.length > 0).join(' ')
+}
+
+/**
+ * Build the contract. Pure: same inputs → same output, no side effects.
+ */
+export function getStrategyDeliverables(
+  order: StrategyOrder,
+  planContext?: PlanContextLike,
+): StrategyDeliverables {
+  const horizon = resolveHorizonDays(order)
+  const ar = order.language === 'ar'
+  const both = order.language === 'both'
+
+  // ── Unsupported: custom > 180 days (or non-positive) → block before charging ──
+  if (horizon > MAX_SUPPORTED_DAYS || horizon <= 0) {
+    const reason =
+      horizon > MAX_SUPPORTED_DAYS
+        ? `Planning horizons over ${MAX_SUPPORTED_DAYS} days are not supported yet — request a custom quote / contact support.`
+        : 'A valid positive planning horizon is required.'
+    const explEn = horizon > MAX_SUPPORTED_DAYS
+      ? `Strategies longer than ${MAX_SUPPORTED_DAYS} days aren’t supported yet. Please contact support for a custom quote — nothing has been generated or charged.`
+      : 'Please choose a valid duration — nothing has been generated or charged.'
+    const explAr = horizon > MAX_SUPPORTED_DAYS
+      ? `الخطط الأطول من ${MAX_SUPPORTED_DAYS} يوماً غير مدعومة بعد. تواصل مع الدعم للحصول على عرض سعر مخصّص — لم يتم توليد أو خصم أي شيء.`
+      : 'يرجى اختيار مدة صحيحة — لم يتم توليد أو خصم أي شيء.'
+    return {
+      supported: false,
+      unsupportedReason: reason,
+      planningHorizonDays: horizon,
+      detailedCalendarDays: 0,
+      roadmapMonths: 0,
+      organicPostCount: 0,
+      requestedOrganicPostCount: 0,
+      planCappedOrganicPostCount: planContext?.postsPerMonth ?? null,
+      planCapApplied: false,
+      platformVariantCount: 0,
+      paidAdVariationCount: 0,
+      creativeBriefCount: 0,
+      audienceHypothesisCount: 0,
+      includedDeliverables: [],
+      excludedDeliverables: [],
+      userExplanation: both ? `${explEn} ${explAr}` : ar ? explAr : explEn,
+      generationInstructions: 'DO NOT GENERATE. Unsupported planning horizon — requires a custom quote.',
+    }
+  }
+
+  const detailedCalendarDays = Math.min(MAX_DETAILED_CALENDAR_DAYS, horizon)
+  const roadmapMonths = roadmapMonthsFor(horizon)
+  const isMultiMonth = horizon > 30
+  const hasExtension = horizon > 30 && horizon <= 60 // 31–60 → first 30 detailed + weekly extension
+
+  const includesOrganic = order.strategyType === 'organic' || order.strategyType === 'full'
+  const includesPaid = order.strategyType === 'paid' || order.strategyType === 'full'
+
+  // ── Organic post count (intensity → request → plan cap) ──
+  const requestedOrganicPostCount = includesOrganic ? INTENSITY_POST_TARGET[order.contentIntensity] : 0
+  const quota = typeof planContext?.postsPerMonth === 'number' ? planContext.postsPerMonth : null
+  const planCappedOrganicPostCount = quota
+  const planCapApplied = includesOrganic && quota !== null && requestedOrganicPostCount > quota
+  const organicPostCount = includesOrganic
+    ? (quota !== null ? Math.min(requestedOrganicPostCount, quota) : requestedOrganicPostCount)
+    : 0
+
+  const platformVariantCount = includesOrganic
+    ? (typeof planContext?.platformCount === 'number' && planContext.platformCount > 0
+        ? planContext.platformCount
+        : DEFAULT_PLATFORM_VARIANTS)
+    : 0
+
+  const paidAdVariationCount = includesPaid ? PAID_AD_COPY_VARIATIONS : 0
+  const creativeBriefCount = includesPaid ? PAID_CREATIVE_BRIEFS : 0
+  const audienceHypothesisCount = includesPaid ? PAID_AUDIENCE_HYPOTHESES : 0
+
+  // ── Included / excluded deliverables ──
+  const included: string[] = []
+  const excluded: string[] = []
+
+  if (includesOrganic) {
+    if (isMultiMonth) {
+      included.push(`${roadmapMonths}-month organic roadmap`)
+      included.push('Detailed first 30-day content calendar')
+      included.push(`Organic posts for the first 30 days (${organicPostCount})`)
+      included.push('Weekly themes for the first 30 days')
+      included.push('Months 2+ as themes / backlog / future monthly cycles (not pre-generated posts)')
+      if (hasExtension) included.push('Weekly extension outline beyond the detailed 30 days')
+    } else {
+      included.push(`Detailed ${detailedCalendarDays}-day strategy`)
+      included.push('First-month content calendar')
+      included.push(`Organic posts (${organicPostCount})`)
+      included.push('Weekly themes')
+    }
+    included.push('Captions / CTA direction')
+    included.push('Platform recommendations')
+    excluded.push('Pre-generated posts for every day of the full horizon')
+  }
+
+  if (includesPaid) {
+    included.push('Campaign objective')
+    included.push('Funnel structure')
+    included.push(`Audience hypotheses (${audienceHypothesisCount})`)
+    included.push(`Ad angles (${PAID_AD_ANGLE_COUNT})`)
+    included.push(`Ad copy variations (${paidAdVariationCount})`)
+    included.push(`Creative briefs (${creativeBriefCount})`)
+    included.push('Budget split')
+    included.push('Tracking checklist')
+    included.push('Launch blockers')
+    included.push('Planning-only warning')
+    // Paid is planning-only — these are always excluded.
+    excluded.push('Ad launch')
+    excluded.push('Ad spend')
+    excluded.push('Publishing')
+    excluded.push('Campaign activation')
+    excluded.push('Performance projections / invented metrics')
+  }
+
+  if (order.strategyType === 'full') {
+    included.push('Shared message angles across organic + paid')
+    included.push('Funnel alignment (organic ↔ paid)')
+    included.push('Retargeting direction')
+    included.push('Creative angle alignment')
+  }
+
+  if (order.strategyType === 'organic') {
+    excluded.push('Paid campaign plan')
+  }
+  if (order.strategyType === 'paid') {
+    excluded.push('Organic content calendar')
+  }
+
+  // ── User explanation (localized) ──
+  const horizonNote = isMultiMonth
+    ? {
+        en: `Your ${horizon}-day plan includes a full ${roadmapMonths}-month roadmap and a detailed content calendar for the first 30 days only. Future monthly calendars are generated later as NEXUS learns from performance.`,
+        ar: `خطتك لمدة ${horizon} يوماً تشمل خريطة طريق كاملة لمدة ${roadmapMonths} أشهر، وتقويم محتوى تفصيلي لأول 30 يوماً فقط. تُولَّد تقاويم الشهور التالية لاحقاً بناءً على الأداء والتعلّم.`,
+      }
+    : {
+        en: `Your ${horizon}-day plan includes a detailed strategy and content calendar for the full ${detailedCalendarDays} days.`,
+        ar: `خطتك لمدة ${horizon} يوماً تشمل استراتيجية وتقويم محتوى تفصيلي لكامل الـ${detailedCalendarDays} يوماً.`,
+      }
+
+  const capNote = planCapApplied
+    ? {
+        en: ` You chose ${order.contentIntensity} intensity (${INTENSITY_BAND[order.contentIntensity]} posts/month), but your current plan allows ${quota} posts/month — so ${organicPostCount} posts will be generated. Upgrade to unlock more.`,
+        ar: ` اخترت كثافة ${order.contentIntensity} (${INTENSITY_BAND[order.contentIntensity]} منشوراً شهرياً)، لكن خطتك الحالية تسمح بـ${quota} منشوراً شهرياً — لذلك سيتم توليد ${organicPostCount} منشوراً. قم بالترقية لفتح المزيد.`,
+      }
+    : { en: '', ar: '' }
+
+  const paidNote = includesPaid
+    ? {
+        en: ' Paid is planning-only — no ads are launched, no budget is spent, and nothing is published without your explicit approval.',
+        ar: ' المدفوع تخطيط فقط — لا تُطلَق إعلانات، ولا تُصرَف ميزانية، ولا يُنشَر شيء دون موافقتك الصريحة.',
+      }
+    : { en: '', ar: '' }
+
+  const explEn = joinLines([horizonNote.en, capNote.en, paidNote.en])
+  const explAr = joinLines([horizonNote.ar, capNote.ar, paidNote.ar])
+  const userExplanation = both ? `${explEn} ${explAr}` : ar ? explAr : explEn
+
+  // ── Generation instructions (single source of scope truth for the agents) ──
+  const giParts: string[] = []
+  giParts.push(`Strategy type: ${order.strategyType}. Planning horizon: ${horizon} days. Goal: ${order.goal || 'unspecified'}.`)
+  if (isMultiMonth) {
+    giParts.push(
+      `Produce a ${roadmapMonths}-month roadmap, but generate a DETAILED day-by-day content calendar for the FIRST ${detailedCalendarDays} DAYS ONLY. Months 2+ must be themes / backlog / future cycles — do NOT generate posts for every day of the full ${horizon}-day horizon.`,
+    )
+    if (hasExtension) giParts.push('Add a lightweight weekly extension outline for the days beyond the detailed 30, without per-day posts.')
+  } else {
+    giParts.push(`Generate a detailed strategy and content calendar for the full ${detailedCalendarDays} days.`)
+  }
+  if (includesOrganic) {
+    giParts.push(
+      `Organic: generate exactly ${organicPostCount} post ideas for the detailed window (this number is fixed by the order — do NOT decide the count yourself).` +
+        (planCapApplied ? ` (Requested intensity ${requestedOrganicPostCount} was capped by the plan quota ${quota}.)` : ''),
+    )
+  }
+  if (includesPaid) {
+    giParts.push(
+      `Paid is PLANNING-ONLY: campaign objective, funnel, ${audienceHypothesisCount} audience hypotheses, ${PAID_AD_ANGLE_COUNT} ad angles, ${paidAdVariationCount} ad-copy variations, ${creativeBriefCount} creative briefs, budget split, tracking checklist, launch blockers. Never describe how to launch/activate ads, never spend budget, never publish, never invent performance numbers.`,
+    )
+  }
+  if (order.strategyType === 'full') {
+    giParts.push('Full strategy: ALIGN organic and paid (shared message angles, funnel alignment, retargeting direction, creative-angle alignment). Do NOT blindly double outputs — one aligned plan with shared assets.')
+  }
+  const generationInstructions = giParts.join(' ')
+
+  return {
+    supported: true,
+    planningHorizonDays: horizon,
+    detailedCalendarDays,
+    roadmapMonths,
+    organicPostCount,
+    requestedOrganicPostCount,
+    planCappedOrganicPostCount,
+    planCapApplied,
+    platformVariantCount,
+    paidAdVariationCount,
+    creativeBriefCount,
+    audienceHypothesisCount,
+    includedDeliverables: included,
+    excludedDeliverables: excluded,
+    userExplanation,
+    generationInstructions,
+  }
+}
