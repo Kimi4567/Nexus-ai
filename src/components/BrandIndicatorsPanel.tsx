@@ -16,6 +16,7 @@
  * light Brand Brain page. No data fetching, no side effects.
  */
 
+import { ChevronDown } from 'lucide-react'
 import type { BrandIndicators } from '@/lib/brandIndicators'
 
 type Theme = 'dark' | 'light'
@@ -44,6 +45,7 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
   const dark = theme === 'dark'
 
   const textSub = dark ? 'rgba(255,255,255,0.55)' : 'var(--nx-text-3, #64748b)'
+  const textMain = dark ? 'rgba(255,255,255,0.9)' : 'var(--nx-text-1, #0f172a)'
   const cardBg = dark ? 'rgba(255,255,255,0.03)' : 'var(--nx-surface-2, #f8fafc)'
   const cardBorder = dark ? 'rgba(255,255,255,0.08)' : 'var(--nx-border, #e2e8f0)'
   const trackBg = dark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'
@@ -140,6 +142,35 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
           </p>
         </Cell>
       </div>
+
+      {/* PR-N1 — per-indicator explainers: what affects this, what does not, and why
+          AI can't inflate it. Collapsed by default to stay calm; works light + dark. */}
+      <details className="mt-3 group">
+        <summary className="cursor-pointer select-none list-none inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: textSub }}>
+          <span>{ar ? 'ما الذي يؤثر على هذه المؤشرات؟' : 'What affects these?'}</span>
+          <ChevronDown size={11} className="transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-2 space-y-2 text-[11px] leading-relaxed" style={{ color: textSub }}>
+          {([
+            ar
+              ? ['اكتمال العلامة', 'يتأثر بحقول علامتك الأساسية المحفوظة فقط. لا تؤثر فيه اقتراحات الذكاء الاصطناعي أو الماسح أو المحلّل إلا إذا حفظتها بنفسك.']
+              : ['Brand completeness', 'affected by your saved core Brand Brain fields only. AI suggestions, Scanner, or Analyzer don’t change it unless you save them.'],
+            ar
+              ? ['جاهزية المحتوى العضوي', 'تتأثر بالحد الأدنى لحقول الاستراتيجية العضوية. لا تعني أن الإعلانات المدفوعة جاهزة، ولا تَعِد بأي أداء.']
+              : ['Organic readiness', 'affected by the minimum organic field set. It does not mean paid ads are ready, and promises no performance.'],
+            ar
+              ? ['جاهزية المدفوع', 'تخطيط فقط — تحتاج ميزانية ووجهة تحويل وموقعاً/هدفاً وتتبعاً عند الحاجة. لا تُشغَّل إعلانات ولا تُصرف ميزانية دون موافقتك.']
+              : ['Paid readiness', 'planning only — needs budget, conversion destination, location/objective, and tracking where relevant. No ads run and no budget is spent without your approval.'],
+            ar
+              ? ['ثراء الذاكرة', 'ينمو من الموافقات والتعديلات والحملات والنشر والنتائج الحقيقية. ليس مؤشر جاهزية، ولا يعني أن إعدادك ناقص.']
+              : ['Memory richness', 'grows from real approvals, edits, campaigns, publishing, and results. It’s not a readiness signal and doesn’t mean your setup is incomplete.'],
+          ] as [string, string][]).map(([label, body], i) => (
+            <p key={i}>
+              <span className="font-semibold" style={{ color: textMain }}>{label}: </span>{body}
+            </p>
+          ))}
+        </div>
+      </details>
     </div>
   )
 }
