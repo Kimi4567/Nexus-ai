@@ -373,6 +373,11 @@ function BrandBrainInner() {
   }, [authLoading, isAuthenticated, router])
 
   const [step, setStep]     = useState<StepId>('identity')
+  // PR-M3.1 — guided wizard shell. 'start' = setup-choice screen, 'edit' = the
+  // existing one-step-at-a-time workspace (unchanged), 'review' = readiness summary.
+  // Display/UX only: field state (`form`), Save, score/readiness and Scanner/Analyzer
+  // behaviour are all untouched — this only gates which section is visible.
+  const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'review'>('start')
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
@@ -892,7 +897,7 @@ function BrandBrainInner() {
                   Leads with the honest positive, then names the real next gap from the
                   same separated indicators shown above. Display only — reads existing
                   indicator state, never mutates data or recomputes scores. */}
-              {(() => {
+              {wizardStage !== 'start' && (() => {
                 const organic = brandIndicators.organicReadiness
                 const paid = brandIndicators.paidReadiness
                 const ar = locale === 'ar'
@@ -962,6 +967,95 @@ function BrandBrainInner() {
             </div>
           </div>
 
+          {/* PR-M3.1 — Start screen: guided setup choices. "Start manually" enters the
+              step editor; the assisted options point to the (unchanged) Website Scanner /
+              Content Analyzer, which create a draft for review and never auto-save. */}
+          {wizardStage === 'start' && (
+            <div className="rounded-2xl p-6 sm:p-8" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+              <h2 className="text-lg font-bold text-slate-950">
+                {locale === 'ar' ? 'لنبدأ ببناء ذاكرة علامتك' : 'Let’s build your Brand Brain'}
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {locale === 'ar' ? 'اختر طريقة البدء — يمكنك تغييرها في أي وقت.' : 'Choose how you’d like to start — you can change this anytime.'}
+              </p>
+              <div className="grid sm:grid-cols-3 gap-3 mt-6">
+                <button onClick={() => setWizardStage('edit')}
+                  className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
+                  style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.25)' }}>
+                    <Brain size={17} style={{ color:'#f59e0b' }} />
+                  </div>
+                  <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'ابدأ يدوياً' : 'Start manually'}</p>
+                  <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'املأ تفاصيل علامتك خطوة بخطوة.' : 'Fill in your brand details step by step.'}</p>
+                </button>
+                <button onClick={() => setWizardStage('edit')}
+                  className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
+                  style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
+                      <ScanSearch size={17} style={{ color:'#64748b' }} />
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
+                      3 {locale === 'ar' ? 'كردت' : 'credits'}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'مسح موقعي الإلكتروني' : 'Scan my website'}</p>
+                  <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'يقرأ NEXUS موقعك ويُجهّز مسودة حقول لمراجعتك.' : 'NEXUS reads your site and drafts fields for your review.'}</p>
+                </button>
+                <button onClick={() => setWizardStage('edit')}
+                  className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
+                  style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
+                      <FileText size={17} style={{ color:'#64748b' }} />
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
+                      2 {locale === 'ar' ? 'كردت' : 'credits'}
+                    </span>
+                  </div>
+                  <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'حلّل محتوى موجوداً' : 'Analyze existing content'}</p>
+                  <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'الصق أفضل محتواك ليُجهّز NEXUS مسودة نبرة وزوايا لمراجعتك.' : 'Paste your best content; NEXUS drafts tone & hooks for your review.'}</p>
+                </button>
+              </div>
+              <p className="text-[12px] text-slate-400 mt-5 leading-relaxed">
+                {locale === 'ar'
+                  ? 'الإعداد المُساعد يُنشئ مسودة لمراجعتك — لا يُحفظ شيء تلقائياً، وتظهر تكلفة الكردت قبل أي إجراء. ستجد الماسح والمحلّل ضمن «طوّر ذاكرة علامتك».'
+                  : 'Assisted setup creates a draft for your review — nothing is saved automatically, and credit costs are shown before any action. You’ll find the Scanner and Analyzer under “Improve your Brand Brain.”'}
+              </p>
+            </div>
+          )}
+
+          {/* PR-M3.1 — Review & Readiness step. Reuses the same honest indicators as the
+              rail / campaign panel; display-only, no recompute. */}
+          {wizardStage === 'review' && (
+            <div className="rounded-2xl p-6" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <h2 className="text-lg font-bold text-slate-950">{locale === 'ar' ? 'المراجعة والجاهزية' : 'Review & Readiness'}</h2>
+                <button onClick={() => setWizardStage('edit')} className="text-xs font-semibold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1">
+                  <ArrowRight size={13} className="rtl:rotate-180" /> {locale === 'ar' ? 'العودة للتحرير' : 'Back to editing'}
+                </button>
+              </div>
+              <p className="text-sm text-slate-500 mb-4">
+                {locale === 'ar' ? 'هذا ما تعرفه NEXUS عن علامتك حتى الآن.' : 'Here’s what NEXUS knows about your brand so far.'}
+              </p>
+              <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="light" completeHref="#" />
+              <div className="mt-5">
+                {brandIndicators.organicReadiness.ready ? (
+                  <button onClick={() => router.push('/strategy')}
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all"
+                    style={{ background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' }}>
+                    {locale === 'ar' ? 'أنشئ أول استراتيجية' : 'Create your first strategy'}
+                    <ArrowLeft size={15} className="rtl:rotate-180" />
+                  </button>
+                ) : (
+                  <p className="text-[13px]" style={{ color:'#b45309' }}>
+                    {locale === 'ar' ? 'أكمل الأساس العضوي لتفعيل إنشاء الاستراتيجية.' : 'Complete your organic foundation to enable strategy creation.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ══════════════════════════════════════════════════════
               GROW YOUR BRAND BRAIN — enrichment group (moved below the core
               profile via CSS order). Heading (49) → Learned (50) → Scanner (51)
@@ -970,6 +1064,7 @@ function BrandBrainInner() {
           {/* PR-M2.1 — "Improve your Brand Brain": one collapsed group holding the
               optional enrichment tools as accordion rows. Collapsed by default so the
               default page stays short. Theme polish is reserved for PR-M2.2. */}
+          {wizardStage !== 'start' && (
           <details style={{ order: 49 }} className="group pt-2">
             <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
               style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
@@ -1284,7 +1379,8 @@ function BrandBrainInner() {
           </details>
 
             </div>{/* ── end Improve group rows ── */}
-          </details>{/* ── end Improve your Brand Brain group ── */}
+          </details>
+          )}{/* ── end Improve your Brand Brain group ── */}
 
           {/* ══════════════════════════════════════════════════════
               PR-M1 — WORKSPACE GRID
@@ -1292,6 +1388,7 @@ function BrandBrainInner() {
               right active-section content. Replaces the full-width horizontal
               stepper so editing feels like a workspace, not an endless form.
               ══════════════════════════════════════════════════════ */}
+          {wizardStage === 'edit' && (
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
 
             {/* ── Sticky left rail ── */}
@@ -1666,10 +1763,12 @@ function BrandBrainInner() {
                     {t('brand.navNext')} <ArrowLeft size={14}/>
                   </button>
                 ) : (
-                  <button onClick={handleSave} disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-60"
+                  /* PR-M3.1 — last step advances to the Review & Readiness screen.
+                     Saving stays available via "Save All" in the rail (handleSave). */
+                  <button onClick={() => setWizardStage('review')}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
                     style={{ background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a', boxShadow:'0 0 24px rgba(245,158,11,0.25)' }}>
-                    <Zap size={14}/> {t('brand.navSaveActivate')}
+                    {locale === 'ar' ? 'المراجعة والجاهزية' : 'Review & Readiness'} <ArrowLeft size={14}/>
                   </button>
                 )}
               </div>
@@ -1677,7 +1776,8 @@ function BrandBrainInner() {
           </div>
 
             </div>{/* ── end right workspace content ── */}
-          </div>{/* ── end PR-M1 workspace grid ── */}
+          </div>
+          )}{/* ── end PR-M1 workspace grid ── */}
 
           {/* PR-M2.1 — the standalone read-only "Learned Memory" chips card was removed
               to consolidate learned surfaces. "What NEXUS has learned" (BrainTimeline)
@@ -1687,7 +1787,7 @@ function BrandBrainInner() {
               Visible strategy intent (type/duration) + output language + paid setup
               (conditional) + user-confirmed proof. Strategy type/duration are UI-only
               here (NOT wired to generation — that is PR-I). Paid stays planning-only. */}
-          {(() => {
+          {wizardStage === 'review' && (() => {
             const ar = locale === 'ar'
             const pill = (selected: boolean, color = '#5E5CE6') => ({
               background: selected ? `${color}12` : '#FFFFFF',
@@ -1813,7 +1913,7 @@ function BrandBrainInner() {
           {/* ══ Strategy readiness + data requirements (PR-2A) ══
               Capture-only + advisory. Optional fields; never block the organic flow.
               No generation logic reads these — they drive calm readiness warnings. */}
-          {(() => {
+          {wizardStage === 'review' && (() => {
             const ar = locale === 'ar'
             const caps = getStrategyCapabilities(form)
             const items = [caps.contentStrategy, caps.fullStrategy, caps.paidStrategy, caps.kpiBudget, caps.funnel, caps.competitorAnalysis, caps.retargeting]
