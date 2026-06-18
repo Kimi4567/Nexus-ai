@@ -17,7 +17,8 @@
  */
 
 import { useState } from 'react'
-import { Check, ArrowRight, ShieldCheck, Globe, FileText, AlertTriangle } from 'lucide-react'
+import { Check, ArrowRight, ShieldCheck, Globe, FileText, AlertTriangle, Repeat, RotateCcw } from 'lucide-react'
+import { SCALAR_FIELDS, ARRAY_FIELDS, APPEND_FIELDS } from '@/lib/brand/applySuggestions'
 
 export type SuggestionBasis = 'extracted' | 'inferred' | 'observed' | 'missing'
 export type SuggestionConfidence = 'high' | 'medium' | 'low'
@@ -32,6 +33,8 @@ export interface AssistSuggestion {
   currentValue: string
   /** Proposed value from the (future) scan/analyze */
   suggestedValue: string
+  /** Raw array items (PR-M3.3D) — used so array applies merge real items, not a split string. */
+  items?: string[]
   /** Short evidence snippet / source quote (optional; placeholder in the shell) */
   evidence?: string
   /** Optional per-field safety note from the server (e.g. "limited support — review"). */
@@ -60,6 +63,8 @@ export default function ReviewSuggestions({
   safetyNotes,
   creditNote,
   partialNote,
+  onApply,
+  appliedToDraft,
 }: {
   suggestions: AssistSuggestion[]
   sourcesUsed: SuggestionSource[]
@@ -73,12 +78,20 @@ export default function ReviewSuggestions({
   creditNote?: string
   /** PR-M3.3C — partial-success message when one route failed (display only). */
   partialNote?: string
+  /** PR-M3.3D — apply the selected suggestions to the LOCAL form draft only (no save). */
+  onApply?: (selected: AssistSuggestion[], replaceFields: Set<string>) => void
+  /** PR-M3.3D — true once the parent has applied the draft (shows the applied banner). */
+  appliedToDraft?: boolean
 }) {
   const ar = locale === 'ar'
-  // Local-only selection — never applied to Brand Brain in this shell.
+  // Local-only selection — applied to the parent's LOCAL form draft only (never saved here).
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(suggestions.filter(defaultSelected).map(s => s.field)),
   )
+  // PR-M3.3D — non-empty scalar fields the user explicitly chose to Replace (default: keep).
+  const [replace, setReplace] = useState<Set<string>>(new Set())
+  // PR-M3.3D — two-step apply: show a confirmation summary before applying to the draft.
+  const [confirming, setConfirming] = useState(false)
   const toggle = (field: string) =>
     setSelected(prev => {
       const next = new Set(prev)
@@ -86,6 +99,28 @@ export default function ReviewSuggestions({
       else next.add(field)
       return next
     })
+  const toggleReplace = (field: string) =>
+    setReplace(prev => {
+      const next = new Set(prev)
+      if (next.has(field)) next.delete(field)
+      else next.add(field)
+      return next
+    })
+
+  // ── PR-M3.3D apply categorization (display + payload) ──
+  const isScalar = (f: string) => SCALAR_FIELDS.has(f)
+  const isArray  = (f: string) => ARRAY_FIELDS.has(f)
+  const isAppend = (f: string) => APPEND_FIELDS.has(f)
+  const selectedList = suggestions.filter(s => selected.has(s.field))
+  const fillList    = selectedList.filter(s => isScalar(s.field) && s.currentValue.trim().length === 0)
+  const replaceList = selectedList.filter(s => isScalar(s.field) && s.currentValue.trim().length > 0 && replace.has(s.field))
+  const keepList    = selectedList.filter(s => isScalar(s.field) && s.currentValue.trim().length > 0 && !replace.has(s.field))
+  const mergeList   = selectedList.filter(s => isArray(s.field))
+  const appendList  = selectedList.filter(s => isAppend(s.field))
+  const skippedLowInferred = suggestions.filter(s => !selected.has(s.field) && (s.confidence === 'low' || s.basis === 'inferred')).length
+  // "Effective" = will actually change the draft (kept-non-empty scalars are no-ops).
+  const effectiveCount = fillList.length + replaceList.length + mergeList.length + appendList.length
+  const canApply = !!onApply && !appliedToDraft && effectiveCount > 0
 
   const basisLabel = (b: SuggestionBasis) =>
     ar
@@ -106,7 +141,11 @@ export default function ReviewSuggestions({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-slate-950">{ar ? 'راجِع مسودة ذاكرة علامتك' : 'Review your Brand Brain draft'}</h2>
-            <p className="text-sm text-slate-500 mt-1">{ar ? 'لم يُطبَّق أي شيء بعد.' : 'Nothing has been applied yet.'}</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {appliedToDraft
+                ? (ar ? 'طُبّق على المسودة — لم يُحفظ بعد (اضغط «حفظ الكل»).' : 'Applied to draft — not saved yet (click Save All).')
+                : (ar ? 'لم يُطبَّق أي شيء بعد.' : 'Nothing has been applied yet.')}
+            </p>
           </div>
           <button onClick={onBack} className="text-xs font-semibold text-slate-500 hover:text-slate-800 inline-flex items-center gap-1 flex-shrink-0">
             <ArrowRight size={13} className="rtl:rotate-180" /> {ar ? 'العودة للإعداد المُساعد' : 'Back to Assisted setup'}
@@ -185,7 +224,37 @@ export default function ReviewSuggestions({
                     </p>
                   )}
 
-                  {hasCurrent && (
+                  {/* PR-M3.3D — non-empty SCALAR + selected → explicit Keep/Replace (default Keep). */}
+                  {hasCurrent && isSel && isScalar(s.field) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-slate-500">{ar ? 'لديك قيمة بالفعل:' : 'You already have a value:'}</span>
+                      <button onClick={() => { if (replace.has(s.field)) toggleReplace(s.field) }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold"
+                        style={ !replace.has(s.field)
+                          ? { background:'rgba(16,185,129,0.10)', color:'#16a34a', border:'1px solid rgba(16,185,129,0.3)' }
+                          : { background:'#F8FAFC', color:'#64748b', border:'1px solid rgba(15,23,42,0.10)' } }>
+                        {!replace.has(s.field) && <Check size={11} />} {ar ? 'الإبقاء على الحالية' : 'Keep existing'}
+                      </button>
+                      <button onClick={() => { if (!replace.has(s.field)) toggleReplace(s.field) }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold"
+                        style={ replace.has(s.field)
+                          ? { background:'rgba(245,158,11,0.12)', color:'#b45309', border:'1px solid rgba(245,158,11,0.35)' }
+                          : { background:'#F8FAFC', color:'#64748b', border:'1px solid rgba(15,23,42,0.10)' } }>
+                        <Repeat size={11} /> {ar ? 'استبدال بالمقترح' : 'Replace with suggestion'}
+                      </button>
+                    </div>
+                  )}
+                  {hasCurrent && isSel && isArray(s.field) && (
+                    <p className="text-[11px] mt-2" style={{ color:'#64748b' }}>
+                      {ar ? 'سيُدمج مع قيمك الحالية — لن يُحذف شيء.' : 'Will merge with your existing items — nothing is removed.'}
+                    </p>
+                  )}
+                  {hasCurrent && isSel && isAppend(s.field) && (
+                    <p className="text-[11px] mt-2" style={{ color:'#64748b' }}>
+                      {ar ? 'سيُضاف إلى ملاحظاتك الحالية — لن يُستبدل شيء.' : 'Will be appended to your existing notes — nothing is replaced.'}
+                    </p>
+                  )}
+                  {hasCurrent && !isSel && (
                     <p className="text-[11px] mt-2" style={{ color:'#64748b' }}>
                       {ar ? 'لديك قيمة بالفعل — الإبقاء عليها هو الوضع الافتراضي.' : 'You already have a value — keeping it is the default.'}
                     </p>
@@ -242,21 +311,89 @@ export default function ReviewSuggestions({
         </div>
       )}
 
-      {/* ── Apply (disabled no-op in M3.3A) + safety footer ── */}
+      {/* ── PR-M3.3D — Apply selected → confirmation summary → apply to LOCAL draft (no save) ── */}
       <div className="rounded-2xl p-5" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-        <button disabled
-          className="w-full inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold cursor-not-allowed"
-          style={{ background:'#E2E8F0', color:'#94A3B8' }}>
-          {ar ? `تطبيق المحدّد (${selected.size})` : `Apply selected (${selected.size})`}
-        </button>
-        <p className="text-[12px] text-slate-500 mt-3 flex items-start gap-2">
-          <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
-          {ar ? 'تطبيق الحقول المحدّدة سيُفعَّل في خطوة لاحقة. لا شيء يُطبَّق على ذاكرة علامتك الآن.' : 'Applying selected fields will be enabled in a later step. Nothing is applied to your Brand Brain now.'}
-        </p>
-        <p className="text-[12px] text-slate-500 mt-1.5 flex items-start gap-2">
-          <ShieldCheck size={13} className="flex-shrink-0 mt-0.5" style={{ color:'#16a34a' }} />
-          {ar ? 'لا استبدال بدون موافقتك — حقولك الحالية محمية.' : 'No overwrite without your approval — your existing fields are protected.'}
-        </p>
+        {appliedToDraft ? (
+          /* Applied-to-draft banner — explicitly NOT saved. */
+          <div>
+            <p className="text-sm font-bold flex items-center gap-2" style={{ color:'#16a34a' }}>
+              <Check size={15} /> {ar ? 'طُبّق على المسودة — لم يُحفظ بعد' : 'Applied to draft — not saved yet'}
+            </p>
+            <p className="text-[13px] text-slate-600 mt-1.5">
+              {ar ? 'راجِع تغييراتك ثم اضغط «حفظ الكل» لتخزينها. ما زال بإمكانك التعديل قبل الحفظ.' : 'Review your changes and click Save All to store them. You can still edit before saving.'}
+            </p>
+            <p className="text-[12px] text-slate-400 mt-2 flex items-start gap-2">
+              <ShieldCheck size={13} className="flex-shrink-0 mt-0.5" style={{ color:'#16a34a' }} />
+              {ar ? 'لم يُحفظ شيء في قاعدة البيانات — «حفظ الكل» هو خطوة الحفظ الوحيدة.' : 'Nothing was saved to the database — Save All is the only step that persists.'}
+            </p>
+          </div>
+        ) : confirming ? (
+          /* Confirmation summary before applying. */
+          <div>
+            <p className="text-sm font-bold text-slate-950 mb-2">{ar ? 'قبل التطبيق على المسودة' : 'Before applying to your draft'}</p>
+            <ul className="space-y-1 text-[12px] text-slate-600">
+              {fillList.length > 0 && (
+                <li className="flex items-start gap-1.5"><Check size={12} className="flex-shrink-0 mt-0.5 text-emerald-600" />
+                  {ar ? `ملء ${fillList.length} حقل فارغ` : `Fill ${fillList.length} empty field${fillList.length === 1 ? '' : 's'}`}: {fillList.map(s => s.label).join(', ')}</li>
+              )}
+              {mergeList.length > 0 && (
+                <li className="flex items-start gap-1.5"><Check size={12} className="flex-shrink-0 mt-0.5 text-emerald-600" />
+                  {ar ? `دمج ${mergeList.length} قائمة` : `Merge ${mergeList.length} list${mergeList.length === 1 ? '' : 's'}`}: {mergeList.map(s => s.label).join(', ')}</li>
+              )}
+              {appendList.length > 0 && (
+                <li className="flex items-start gap-1.5"><Check size={12} className="flex-shrink-0 mt-0.5 text-emerald-600" />
+                  {ar ? 'إضافة إلى الملاحظات الاستراتيجية' : 'Append to strategic notes'}</li>
+              )}
+              {replaceList.length > 0 && (
+                <li className="flex items-start gap-1.5"><Repeat size={12} className="flex-shrink-0 mt-0.5" style={{ color:'#b45309' }} />
+                  <span style={{ color:'#b45309' }}>{ar ? `استبدال ${replaceList.length} حقل غير فارغ` : `Replace ${replaceList.length} non-empty field${replaceList.length === 1 ? '' : 's'}`}: {replaceList.map(s => s.label).join(', ')}</span></li>
+              )}
+              {keepList.length > 0 && (
+                <li className="flex items-start gap-1.5 text-slate-400">
+                  {ar ? `الإبقاء على ${keepList.length} حقل غير فارغ (لن يتغيّر)` : `Keep ${keepList.length} non-empty field${keepList.length === 1 ? '' : 's'} (unchanged)`}</li>
+              )}
+              {skippedLowInferred > 0 && (
+                <li className="flex items-start gap-1.5 text-slate-400">
+                  {ar ? `تخطّي ${skippedLowInferred} اقتراح منخفض/مُستنتَج` : `Skipping ${skippedLowInferred} low/inferred suggestion${skippedLowInferred === 1 ? '' : 's'}`}</li>
+              )}
+            </ul>
+            <p className="text-[12px] mt-3 flex items-start gap-2" style={{ color:'#b45309' }}>
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
+              {ar ? 'يُطبَّق على المسودة المحلية فقط — لا يُحفظ في قاعدة البيانات.' : 'This applies to your local draft only — it does not save to the database.'}
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <button onClick={() => { onApply?.(selectedList, replace); setConfirming(false) }}
+                className="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold"
+                style={{ background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' }}>
+                <Check size={14} /> {ar ? 'تطبيق على المسودة' : 'Apply to draft'}
+              </button>
+              <button onClick={() => setConfirming(false)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600"
+                style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
+                <RotateCcw size={13} /> {ar ? 'إلغاء' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Idle: enabled only when there are effective (changing) selections. */
+          <div>
+            <button onClick={() => setConfirming(true)} disabled={!canApply}
+              className="w-full inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed"
+              style={ canApply
+                ? { background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' }
+                : { background:'#E2E8F0', color:'#94A3B8' } }>
+              {ar ? `تطبيق المحدّد على المسودة (${effectiveCount})` : `Apply selected to draft (${effectiveCount})`}
+            </button>
+            <p className="text-[12px] text-slate-500 mt-3 flex items-start gap-2">
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
+              {ar ? 'يُطبَّق على المسودة المحلية فقط — لا شيء يُحفظ حتى تضغط «حفظ الكل».' : 'Applies to your local draft only — nothing is saved until you click Save All.'}
+            </p>
+            <p className="text-[12px] text-slate-500 mt-1.5 flex items-start gap-2">
+              <ShieldCheck size={13} className="flex-shrink-0 mt-0.5" style={{ color:'#16a34a' }} />
+              {ar ? 'لا استبدال بدون موافقتك — حقولك الحالية محمية.' : 'No overwrite without your approval — your existing fields are protected.'}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

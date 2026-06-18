@@ -13,6 +13,7 @@ import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
 import { type AssistFieldSuggestion } from '@/lib/ai/assistSuggestions'
 import { fieldLabel, isRenderableField } from '@/lib/brand/assistFieldLabels'
+import { applySelectedSuggestionsToDraft } from '@/lib/brand/applySuggestions'
 import { commitTag } from '@/lib/tagInput'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
@@ -758,12 +759,32 @@ function BrandBrainInner() {
     label: fieldLabel(s.field, locale),
     currentValue: cvOf((form as Record<string, unknown>)[s.field]),
     suggestedValue: s.suggested,
+    items: Array.isArray(s.items) ? s.items : undefined,
     evidence: s.evidence || undefined,
     safetyNote: s.safetyNote || undefined,
     basis: s.basis,
     confidence: s.confidence,
     source: s.source,
   })
+
+  // ── PR-M3.3D — Apply selected suggestions to the LOCAL form draft only. NEVER saves.
+  //    Persistence stays a separate explicit "Save All" (handleSave). No applyScanResult/
+  //    applyAnalyzeResult; field-specific no-overwrite rules live in the pure helper.
+  const [appliedToDraft, setAppliedToDraft] = useState(false)
+  const handleApplyToDraft = (chosen: AssistSuggestion[], replaceFields: Set<string>) => {
+    setForm(f => applySelectedSuggestionsToDraft(
+      f,
+      chosen.map(c => ({
+        field: c.field,
+        suggestedValue: c.suggestedValue,
+        items: c.items,
+        basis: c.basis,
+        confidence: c.confidence,
+      })),
+      replaceFields,
+    ))
+    setAppliedToDraft(true) // shows "Applied to draft — not saved yet"; user still clicks Save All
+  }
 
   const handleCreateDraft = async () => {
     if (creatingDraft) return // re-entrancy guard — no double-charge, no auto-retry
@@ -777,6 +798,7 @@ function BrandBrainInner() {
 
     // Reset + show the review view in a loading state.
     setCreatingDraft(true)
+    setAppliedToDraft(false) // PR-M3.3D — a fresh draft starts un-applied
     setDraftError(null)
     setDraftSuggestions([])
     setDraftMissing([])
@@ -1298,6 +1320,8 @@ function BrandBrainInner() {
                 safetyNotes={draftSafetyNotes}
                 creditNote={draftCreditNote || undefined}
                 partialNote={draftPartialNote || undefined}
+                onApply={handleApplyToDraft}
+                appliedToDraft={appliedToDraft}
               />
             )
           )}
