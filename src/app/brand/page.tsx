@@ -2,7 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import { BrainTimeline } from '@/components/brain/BrainTimeline'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -378,6 +378,29 @@ function BrandBrainInner() {
   // Display/UX only: field state (`form`), Save, score/readiness and Scanner/Analyzer
   // behaviour are all untouched — this only gates which section is visible.
   const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'review'>('start')
+  // PR-M3.1.1 — which Start-screen choice the user picked. 'scanner'/'analyzer' enter
+  // the editor AND reveal (open + scroll to) the matching enrichment panel below; we
+  // only expand the existing native <details> — we NEVER auto-run scan/analyze.
+  const [wizardStartIntent, setWizardStartIntent] = useState<'manual' | 'scanner' | 'analyzer' | null>(null)
+  const improveGroupRef = useRef<HTMLDetailsElement>(null)
+  const scannerRowRef = useRef<HTMLDetailsElement>(null)
+  const analyzerRowRef = useRef<HTMLDetailsElement>(null)
+  // Reveal-only: opens the Improve group + the chosen tool row and scrolls to it.
+  // Does NOT trigger the scan/analyze handlers and spends no credits.
+  const revealAssistedPanel = (intent: 'scanner' | 'analyzer') => {
+    if (improveGroupRef.current) improveGroupRef.current.open = true
+    const row = intent === 'scanner' ? scannerRowRef.current : analyzerRowRef.current
+    if (row) {
+      row.open = true
+      requestAnimationFrame(() => row.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+    }
+  }
+  useEffect(() => {
+    if (wizardStage === 'edit' && (wizardStartIntent === 'scanner' || wizardStartIntent === 'analyzer')) {
+      revealAssistedPanel(wizardStartIntent)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardStage, wizardStartIntent])
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
   const [saved, setSaved]   = useState(false)
   const [showSummary, setShowSummary] = useState(false)
@@ -979,7 +1002,7 @@ function BrandBrainInner() {
                 {locale === 'ar' ? 'اختر طريقة البدء — يمكنك تغييرها في أي وقت.' : 'Choose how you’d like to start — you can change this anytime.'}
               </p>
               <div className="grid sm:grid-cols-3 gap-3 mt-6">
-                <button onClick={() => setWizardStage('edit')}
+                <button onClick={() => { setWizardStartIntent('manual'); setWizardStage('edit') }}
                   className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
                   style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.25)' }}>
@@ -988,7 +1011,7 @@ function BrandBrainInner() {
                   <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'ابدأ يدوياً' : 'Start manually'}</p>
                   <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'املأ تفاصيل علامتك خطوة بخطوة.' : 'Fill in your brand details step by step.'}</p>
                 </button>
-                <button onClick={() => setWizardStage('edit')}
+                <button onClick={() => { setWizardStartIntent('scanner'); setWizardStage('edit') }}
                   className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
                   style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
                   <div className="flex items-center justify-between mb-3">
@@ -1002,7 +1025,7 @@ function BrandBrainInner() {
                   <p className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'مسح موقعي الإلكتروني' : 'Scan my website'}</p>
                   <p className="text-xs text-slate-500 mt-1">{locale === 'ar' ? 'يقرأ NEXUS موقعك ويُجهّز مسودة حقول لمراجعتك.' : 'NEXUS reads your site and drafts fields for your review.'}</p>
                 </button>
-                <button onClick={() => setWizardStage('edit')}
+                <button onClick={() => { setWizardStartIntent('analyzer'); setWizardStage('edit') }}
                   className="text-start rounded-2xl p-4 transition-all hover:border-amber-300"
                   style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
                   <div className="flex items-center justify-between mb-3">
@@ -1056,6 +1079,57 @@ function BrandBrainInner() {
             </div>
           )}
 
+          {/* PR-M3.1.1 — assisted-setup notice. Shown in the editor when the user picked
+              "Scan my website" or "Analyze existing content" on the Start screen. Names the
+              chosen tool, its credit cost, and the safety guarantees, and offers a button to
+              jump to the (already revealed) panel. Display/copy only — nothing runs here. */}
+          {wizardStage === 'edit' && (wizardStartIntent === 'scanner' || wizardStartIntent === 'analyzer') && (() => {
+            const ar = locale === 'ar'
+            const isScan = wizardStartIntent === 'scanner'
+            const title = isScan
+              ? (ar ? 'إعداد مُساعد · مسح الموقع الإلكتروني' : 'Assisted setup · Website Scanner')
+              : (ar ? 'إعداد مُساعد · تحليل المحتوى' : 'Assisted setup · Content Analyzer')
+            const credits = isScan ? 3 : 2
+            const points = isScan
+              ? (ar
+                  ? ['لا يتم المسح حتى تؤكد', 'الماسح يُنشئ مسودة للمراجعة', 'لا يُحفظ شيء تلقائياً']
+                  : ['Nothing is scanned until you confirm', 'Scanner creates a draft for review', 'Nothing is saved automatically'])
+              : (ar
+                  ? ['لا يتم التحليل حتى تؤكد', 'المحلّل يُنشئ اقتراحات للمراجعة', 'لا يُحفظ شيء تلقائياً']
+                  : ['Nothing is analyzed until you confirm', 'Analyzer creates suggestions for review', 'Nothing is saved automatically'])
+            return (
+              <div className="mt-4 rounded-2xl p-4 sm:p-5" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isScan ? <ScanSearch size={16} style={{ color:'#64748b' }} /> : <FileText size={16} style={{ color:'#64748b' }} />}
+                    <span className="text-sm font-bold text-slate-950">{title}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
+                      {credits} {ar ? 'كردت' : 'credits'}
+                    </span>
+                  </div>
+                  <button onClick={() => setWizardStartIntent('manual')} className="text-xs font-semibold text-slate-400 hover:text-slate-700 inline-flex items-center gap-1 flex-shrink-0">
+                    {ar ? 'متابعة يدوياً' : 'Continue manually'} <X size={13} />
+                  </button>
+                </div>
+                <ul className="mt-2.5 space-y-1">
+                  {points.map((p, i) => (
+                    <li key={i} className="flex items-center gap-2 text-[12px] text-slate-500">
+                      <Check size={13} style={{ color:'#16a34a' }} className="flex-shrink-0" /> {p}
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={() => revealAssistedPanel(isScan ? 'scanner' : 'analyzer')}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                  style={{ background:'#0f172a', color:'#ffffff' }}>
+                  {isScan
+                    ? (ar ? 'الانتقال إلى الماسح' : 'Go to Website Scanner')
+                    : (ar ? 'الانتقال إلى المحلّل' : 'Go to Content Analyzer')}
+                  <ArrowLeft size={14} className="rtl:rotate-180" />
+                </button>
+              </div>
+            )
+          })()}
+
           {/* ══════════════════════════════════════════════════════
               GROW YOUR BRAND BRAIN — enrichment group (moved below the core
               profile via CSS order). Heading (49) → Learned (50) → Scanner (51)
@@ -1065,7 +1139,7 @@ function BrandBrainInner() {
               optional enrichment tools as accordion rows. Collapsed by default so the
               default page stays short. Theme polish is reserved for PR-M2.2. */}
           {wizardStage !== 'start' && (
-          <details style={{ order: 49 }} className="group pt-2">
+          <details ref={improveGroupRef} style={{ order: 49 }} className="group pt-2">
             <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
               style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
               <span className="min-w-0">
@@ -1097,7 +1171,7 @@ function BrandBrainInner() {
               </details>
 
               {/* WEBSITE SCANNER — accordion row (input hidden until opened) */}
-              <details className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
+              <details ref={scannerRowRef} className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
                 <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="text-sm font-bold text-slate-950">
@@ -1227,7 +1301,7 @@ function BrandBrainInner() {
           </details>
 
           {/* CONTENT ANALYZER — accordion row (textareas hidden until opened) */}
-          <details className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
+          <details ref={analyzerRowRef} className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
             <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
               <span className="flex items-center gap-2 min-w-0">
                 <span className="text-sm font-bold text-slate-950">
