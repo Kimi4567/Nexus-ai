@@ -913,69 +913,42 @@ function BrandBrainInner() {
             {/* Gradient top bar */}
             <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #06b6d4 100%)' }} />
 
-            <div className="p-6">
-              {/* Eyebrow */}
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-1 h-3.5 rounded-full" style={{ background: 'linear-gradient(180deg, #f59e0b, #f59e0b80)' }} />
-                <span className="text-xs font-mono font-bold tracking-[0.2em] uppercase" style={{ color: 'rgba(245,158,11,0.65)' }}>
-                  NEXUS BRAND BRAIN
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between gap-6 flex-wrap">
-                {/* Icon + title */}
-                <div className="flex items-center gap-5">
-                  <div className="relative flex-shrink-0">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}>
-                      <Brain size={30} className="text-amber-400" />
-                    </div>
-                    {score >= 80 && (
-                      <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
-                        style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 0 14px rgba(16,185,129,0.5)' }}>
-                        <Check size={12} className="text-white" strokeWidth={3} />
-                      </div>
-                    )}
+            <div className="p-5 space-y-4">
+              {/* PR-M1 — compact workspace header. Replaces the tall hero (big ring,
+                  sparkline, full maturity bar, 4-indicator panel). The maturity number
+                  is kept as a calm chip (math unchanged); the readiness indicators now
+                  live in the sticky rail below. */}
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}>
+                    <Brain size={22} className="text-amber-400" />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-3 mb-1.5">
-                      <h1 className="text-3xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold"
-                        style={{ background: 'rgba(245,158,11,0.1)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' }}>
-                        {t('brand.badgeMemory')}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h1 className="text-xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold tabular-nums"
+                        style={{ background: `${scoreColor}14`, color: scoreColor, border: `1px solid ${scoreColor}33` }}>
+                        {score} · {score >= 80 ? (locale === 'ar' ? 'ناضجة' : 'Mature') : score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') : (locale === 'ar' ? 'مبكرة' : 'Early')}
                       </span>
                     </div>
-                    <p className="text-sm max-w-xs text-slate-500">{t('brand.aiInjected')}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {(() => {
+                        const o = brandIndicators.organicReadiness, p = brandIndicators.paidReadiness, m = brandIndicators.memoryRichness
+                        const memLvl = m.level === 'high' ? (locale === 'ar' ? 'غنية' : 'rich') : m.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'building') : (locale === 'ar' ? 'مبكرة' : 'early')
+                        return [
+                          o.ready ? (locale === 'ar' ? 'العضوي جاهز' : 'Organic ready') : (locale === 'ar' ? 'العضوي غير مكتمل' : 'Organic incomplete'),
+                          p.ready ? (locale === 'ar' ? 'المدفوع جاهز' : 'Paid ready') : (locale === 'ar' ? 'المدفوع تخطيط فقط' : 'Paid planning-only'),
+                          (locale === 'ar' ? 'الذاكرة ' : 'Memory ') + memLvl,
+                        ].join('  ·  ')
+                      })()}
+                    </p>
                   </div>
                 </div>
-
-                {/* Score ring + save */}
-                <div className="flex items-center gap-6">
-                  <div className="flex items-end gap-3">
-                    <div className="flex flex-col items-center gap-1.5">
-                    <ScoreRing score={score} />
-                    {/* PR-L — framed as long-term maturity (depth of learning), NOT
-                        setup status. Calm wording so a complete-but-early brand is
-                        never told it "Needs Data". */}
-                    <span className="text-xs font-bold" style={{ color: scoreColor }}>
-                      {score >= 80 ? (locale === 'ar' ? 'ذاكرة ناضجة' : 'Mature') :
-                       score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') :
-                       (locale === 'ar' ? 'مبكرة' : 'Early')}
-                    </span>
-                    <span className="text-[9px] text-slate-400">
-                      {locale === 'ar' ? 'نضج الذاكرة' : 'Brand Brain maturity'}
-                    </span>
-                  </div>
-                  <ScoreSparkline history={scoreHistory} />
-                  </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={handleSave} disabled={saving}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-60"
-                    style={{
-                      background: saved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                      color: saved ? '#10b981' : '#0a0a0a',
-                      boxShadow: 'none',
-                      border: saved ? '1px solid rgba(16,185,129,0.35)' : 'none',
-                    }}>
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-60"
+                    style={{ background: saved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: saved ? '#10b981' : '#0a0a0a', border: saved ? '1px solid rgba(16,185,129,0.35)' : 'none' }}>
                     {saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>}
                     {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
                   </button>
@@ -985,37 +958,6 @@ function BrandBrainInner() {
                     <BarChart2 size={13} />
                     {locale === 'ar' ? 'سجل النمو' : 'Score History'}
                   </button>
-                </div>
-              </div>
-
-              {/* Brand Brain maturity bar (overall: completeness + learned memory) */}
-              <div className="mt-5 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-amber-400" />
-                    <span className="text-xs font-semibold text-slate-600">
-                      {locale === 'ar' ? 'نضج ذاكرة العلامة (شامل)' : 'Brand Brain maturity (overall)'}
-                    </span>
-                  </div>
-                  {missing.length > 0 && (
-                    <span className="text-xs text-slate-500">
-                      {t('brand.missing')} {missing.slice(0,3).join(locale==='ar'?'، ':' · ')}{missing.length>3?'...':''}
-                    </span>
-                  )}
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#E2E8F0' }}>
-                  <div className="h-full rounded-full transition-all duration-700"
-                    style={{ width:`${score}%`, background:score>=80?'linear-gradient(90deg,#10b981,#059669)':score>=50?'linear-gradient(90deg,#f59e0b,#d97706)':'linear-gradient(90deg,#94a3b8,#64748b)' }}/>
-                </div>
-                <p className="text-[10px] mt-1.5 text-slate-400">
-                  {locale === 'ar'
-                    ? 'مقياس شامل يجمع اكتمال الحقول والذاكرة المكتسبة. للجاهزية الفعلية راجع المؤشرات أدناه.'
-                    : 'A blended measure of field completeness + learned memory. For true readiness, see the indicators below.'}
-                </p>
-
-                {/* PR-J — separated honest indicators (completeness / organic / paid / memory) */}
-                <div className="mt-4">
-                  <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="light" completeHref="#" />
                 </div>
               </div>
 
@@ -1414,51 +1356,52 @@ function BrandBrainInner() {
           </div>
 
           {/* ══════════════════════════════════════════════════════
-              STEP STEPPER
+              PR-M1 — WORKSPACE GRID
+              Sticky left rail (vertical step nav + readiness summary + save) ·
+              right active-section content. Replaces the full-width horizontal
+              stepper so editing feels like a workspace, not an endless form.
               ══════════════════════════════════════════════════════ */}
-          <div className="rounded-2xl p-3"
-            style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="flex gap-1.5 overflow-x-auto">
-              {STEPS.map((s, idx) => {
-                const active    = step === s.id
-                const fieldVal  = form[s.fieldCheck]
-                const completed = fieldVal && (Array.isArray(fieldVal) ? (fieldVal as string[]).length > 0 : String(fieldVal).length > 0)
-                return (
-                  <button key={s.id} onClick={() => setStep(s.id)}
-                    className="flex-1 min-w-[80px] flex flex-col items-center gap-2 px-2 py-3 rounded-xl transition-all duration-200"
-                    style={{
-                      background: active ? `${s.color}10` : '#FFFFFF',
-                      border: `1px solid ${active ? s.color+'35' : 'rgba(15,23,42,0.08)'}`,
-                      boxShadow: 'none',
-                    }}>
-                    <div className="relative">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200"
-                        style={{
-                          background: active ? `${s.color}14` : completed ? `${s.color}0e` : '#F8FAFC',
-                          border: `1px solid ${active ? s.color+'40' : completed ? s.color+'25' : 'rgba(15,23,42,0.08)'}`,
-                        }}>
-                        <s.icon size={16} style={{ color: active ? s.color : completed ? s.color+'bb' : '#334155' }}/>
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+
+            {/* ── Sticky left rail ── */}
+            <aside className="lg:sticky lg:top-6 self-start space-y-3">
+              {/* Vertical step navigation */}
+              <nav className="rounded-2xl p-2 space-y-0.5"
+                style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+                {STEPS.map((s, idx) => {
+                  const active    = step === s.id
+                  const fieldVal  = form[s.fieldCheck]
+                  const completed = fieldVal && (Array.isArray(fieldVal) ? (fieldVal as string[]).length > 0 : String(fieldVal).length > 0)
+                  return (
+                    <button key={s.id} onClick={() => setStep(s.id)}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-start"
+                      style={{ background: active ? `${s.color}10` : 'transparent', border:`1px solid ${active ? s.color+'30' : 'transparent'}` }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: active ? `${s.color}14` : completed ? `${s.color}0e` : '#F8FAFC', border:`1px solid ${active ? s.color+'40' : completed ? s.color+'25' : 'rgba(15,23,42,0.08)'}` }}>
+                        <s.icon size={14} style={{ color: active ? s.color : completed ? s.color+'bb' : '#94A3B8' }}/>
                       </div>
-                      {completed && !active && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center"
-                          style={{ background: s.color, boxShadow:`0 0 6px ${s.color}60` }}>
-                          <Check size={9} className="text-white" strokeWidth={3}/>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-center">
-                      <div className="text-[10px] font-mono mb-0.5" style={{ color: active ? s.color+'99' : 'rgba(71,85,105,0.5)' }}>
-                        0{idx+1}
-                      </div>
-                      <div className="text-xs font-semibold leading-tight" style={{ color: active ? s.color : completed ? '#64748b' : '#334155' }}>
-                        {t(s.labelKey)}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+                      <span className="text-[10px] font-mono flex-shrink-0" style={{ color: active ? s.color+'99' : 'rgba(71,85,105,0.45)' }}>0{idx+1}</span>
+                      <span className="text-[13px] font-semibold leading-tight flex-1 min-w-0 truncate" style={{ color: active ? '#0f172a' : '#475569' }}>{t(s.labelKey)}</span>
+                      {completed && <Check size={13} style={{ color: s.color }} strokeWidth={3} className="flex-shrink-0"/>}
+                    </button>
+                  )
+                })}
+              </nav>
+              {/* Readiness summary */}
+              <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+                <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="light" completeHref="#" />
+              </div>
+              {/* Save (always reachable) */}
+              <button onClick={handleSave} disabled={saving}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-60"
+                style={{ background: saved ? 'rgba(16,185,129,0.12)' : '#111827', color: saved ? '#10b981' : '#FFFFFF', border: saved ? '1px solid rgba(16,185,129,0.3)' : 'none' }}>
+                {saving ? <Loader2 size={14} className="animate-spin"/> : saved ? <CheckCircle2 size={14}/> : <Save size={14}/>}
+                {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
+              </button>
+            </aside>
+
+            {/* ── Right workspace content (active step) ── */}
+            <div className="min-w-0 space-y-5">
 
           {/* ══════════════════════════════════════════════════════
               STEP CONTENT CARD
@@ -1806,6 +1749,9 @@ function BrandBrainInner() {
               </div>
             </div>
           </div>
+
+            </div>{/* ── end right workspace content ── */}
+          </div>{/* ── end PR-M1 workspace grid ── */}
 
           {/* ══ PR-H1: Learned Memory (READ-ONLY) ══
               Hooks, angles, and failed angles are LEARNED over time from real
