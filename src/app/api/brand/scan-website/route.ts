@@ -15,6 +15,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
+import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -184,7 +185,22 @@ Return JSON with this exact structure:
     // model-invented metrics, proof, or automation claims are scrubbed/downgraded.
     const guarded = guardExtracted(extracted, [combined])
 
-    return NextResponse.json({ extracted: guarded, pagesScanned: pages.length })
+    // PR-M3.3B — additive, evidence-based suggestion contract (back-compat: `extracted`
+    // kept). Deterministic builder runs AFTER the guard; assigns basis/confidence/
+    // evidence and reports missing fields. No client wiring / apply / save here.
+    const { suggestions, missing, safetyNotes } = buildAssistSuggestions(guarded, {
+      source: 'website',
+      sourceText: combined,
+      sourceRef: base,
+    })
+
+    return NextResponse.json({
+      extracted: guarded,
+      suggestions,
+      missing,
+      safetyNotes,
+      pagesScanned: pages.length,
+    })
   } catch (error) {
     console.error('[brand/scan-website]', error)
     // Refund — charged-but-failed scan must not cost the user (skip unlimited plans)

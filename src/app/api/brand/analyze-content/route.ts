@@ -15,6 +15,7 @@ import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { UNSUPPORTED_CLAIMS_RULES } from '@/lib/ai/promptRules'
 import { guardExtracted } from '@/lib/ai/brandTruthGuard'
+import { buildAssistSuggestions } from '@/lib/ai/assistSuggestions'
 
 export async function POST(req: NextRequest) {
   // Hoisted so any failure below the deduction refunds the user.
@@ -109,7 +110,22 @@ Return JSON with this exact structure:
     // proof, or automation claims beyond the samples are scrubbed/downgraded.
     const guarded = guardExtracted(extracted, [combined])
 
-    return NextResponse.json({ extracted: guarded, samplesAnalyzed: validSamples.length })
+    // PR-M3.3B — additive, evidence-based suggestion contract (back-compat: `extracted`
+    // kept). Content patterns are `observed`, not `extracted`. Builder runs AFTER the
+    // guard; no client wiring / apply / save here.
+    const { suggestions, missing, safetyNotes } = buildAssistSuggestions(guarded, {
+      source: 'content',
+      sourceText: combined,
+      sourceRef: `${validSamples.length} content sample(s)`,
+    })
+
+    return NextResponse.json({
+      extracted: guarded,
+      suggestions,
+      missing,
+      safetyNotes,
+      samplesAnalyzed: validSamples.length,
+    })
   } catch (error) {
     console.error('[brand/analyze-content]', error)
     if (chargedUserId) await refundCredits(chargedUserId, 'CONTENT_ANALYSIS')
