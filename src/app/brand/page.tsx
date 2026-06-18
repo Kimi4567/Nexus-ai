@@ -10,6 +10,7 @@ import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandP
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { getBrandIndicators } from '@/lib/brandIndicators'
 import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
+import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
 import { commitTag } from '@/lib/tagInput'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
@@ -380,7 +381,9 @@ function BrandBrainInner() {
   // existing one-step-at-a-time workspace (unchanged), 'review' = readiness summary.
   // Display/UX only: field state (`form`), Save, score/readiness and Scanner/Analyzer
   // behaviour are all untouched — this only gates which section is visible.
-  const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'review'>('start')
+  // PR-M3.3A — 'assistReview' renders the (display-only) Review Suggestions shell
+  // reached from the Assisted-setup "Create draft" button. No scan/analyze/apply runs.
+  const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'review' | 'assistReview'>('start')
   // PR-M3.1.2 — two-path Start screen. Assisted-card inputs use isolated local state
   // (NOT the Scanner/Analyzer state) — display/IA only, nothing is scanned/analyzed/
   // applied/saved here. The real Create-draft → review → apply flow is PR-M3.3.
@@ -1042,24 +1045,16 @@ function BrandBrainInner() {
                       </div>
                     </div>
 
-                    {/* Create draft button (dynamic total, disabled when nothing provided) */}
-                    <button onClick={() => setAssistDraftNotice(true)} disabled={total === 0}
+                    {/* Create draft button (dynamic total, disabled when nothing provided).
+                        PR-M3.3A — opens the display-only Review Suggestions shell ('assistReview').
+                        No scan/analyze/apply/save runs and no credits are spent. */}
+                    <button onClick={() => setWizardStage('assistReview')} disabled={total === 0}
                       className="w-full inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed"
                       style={ total === 0
                         ? { background:'#E2E8F0', color:'#94A3B8' }
                         : { background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' } }>
                       {ar ? 'إنشاء مسودة' : 'Create draft'}{total > 0 ? ` · ${total} ${ar ? 'كردت' : 'credits'}` : ''}
                     </button>
-
-                    {/* PR-M3.1.2 — display-only placeholder; the review-before-apply flow is PR-M3.3.
-                        No scan/analyze/apply/save runs here and no credits are spent. */}
-                    {assistDraftNotice && (
-                      <div className="mt-3 rounded-xl px-3 py-2.5 text-[12px] leading-relaxed" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.20)', color:'#92400e' }}>
-                        {ar
-                          ? 'خطوة مراجعة المسودة قادمة قريباً — سيتحوّل موقعك ومحتواك إلى اقتراحات تراجعها قبل تطبيق أي حقل. في الوقت الحالي يمكنك الإعداد يدوياً.'
-                          : 'Draft review is coming next — your website and content will become suggestions you review before any field is applied. For now you can set up manually.'}
-                      </div>
-                    )}
 
                     {/* Safety copy */}
                     <ul className="mt-3 space-y-1">
@@ -1090,6 +1085,28 @@ function BrandBrainInner() {
               })()}
             </div>
           )}
+
+          {/* PR-M3.3A — Assisted Review Suggestions shell (display-only). Mock/no-op data;
+              reads form values for "current value" but NEVER mutates them, calls no API,
+              spends no credits, and applies nothing. Reached from "Create draft". */}
+          {wizardStage === 'assistReview' && (() => {
+            const ar = locale === 'ar'
+            const cv = (v: unknown) => Array.isArray(v) ? (v as unknown[]).filter(Boolean).join(', ') : (v ? String(v) : '')
+            const sources: SuggestionSource[] = []
+            if (assistUrl.trim()) sources.push('website')
+            if (assistContent.trim()) sources.push('content')
+            if (sources.length === 0) sources.push('website')
+            const mock: AssistSuggestion[] = [
+              { field:'description',        label: ar?'وصف النشاط':'Business description',  currentValue: cv(form.description),        suggestedValue: ar?'مُشغّل تسويق بالذكاء الاصطناعي للشركات الصغيرة والمتوسطة — يخطّط وينشئ ويساعد على التنفيذ.':'AI marketing operator for SMEs that plans, creates and helps execute campaigns.', basis:'extracted', confidence:'high',   source:'website' },
+              { field:'targetAudience',     label: ar?'الجمهور المستهدف':'Target audience',  currentValue: cv(form.targetAudience),     suggestedValue: ar?'شركات صغيرة ومتوسطة بلا فريق تسويق داخلي.':'Small and medium businesses without an in-house marketing team.', basis:'extracted', confidence:'medium', source:'website' },
+              { field:'winningHooks',       label: ar?'خطافات ناجحة':'Winning hooks',        currentValue: cv(form.winningHooks),       suggestedValue: ar?'«توقّف عن التخمين في تسويقك — دع NEXUS يخطّط له.»':'"Stop guessing your marketing — let NEXUS plan it."', basis:'observed',  confidence:'high',   source:'content' },
+              { field:'audiencePainPoints', label: ar?'نقاط ألم الجمهور':'Audience pain points', currentValue: cv(form.audiencePainPoints), suggestedValue: ar?'لا وقت لتخطيط المحتوى؛ حيرة فيما يُنشر.':'No time to plan content; unsure what to post.', basis:'observed',  confidence:'medium', source:'content' },
+              { field:'pricePoint',         label: ar?'مستوى السعر':'Price point',           currentValue: cv(form.pricePoint),         suggestedValue: ar?'بريميوم':'premium', basis:'inferred',  confidence:'low',    source:'website' },
+            ]
+            return (
+              <ReviewSuggestions suggestions={mock} sourcesUsed={sources} locale={locale} onBack={() => setWizardStage('start')} />
+            )
+          })()}
 
           {/* PR-M3.1 — Review & Readiness step. Reuses the same honest indicators as the
               rail / campaign panel; display-only, no recompute. */}
