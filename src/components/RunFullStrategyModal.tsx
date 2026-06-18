@@ -20,8 +20,11 @@ import UpgradeModal from '@/components/UpgradeModal'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '@/lib/brandReadiness'
 import { useBillingStatus } from '@/lib/useBillingStatus'
-// PR-S1b — deterministic Strategy Order Review (display-only; no generation/pricing change).
+// PR-S1b — deterministic Strategy Order Review (display-only; no generation change).
 import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
+// PR-S1c-2 — variable strategy pricing (display side). The SAME pure function runs
+// server-side before deduction, so the displayed price equals the charged price.
+import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
 import type { StrategyOrder, ContentIntensity } from '@/lib/strategy/strategyOrder'
 import { INTENSITY_RANGE_LABEL, intensityLabel, tierToPostsPerMonth } from '@/lib/strategy/strategyOrderDisplay'
 import {
@@ -127,14 +130,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
   // Start a new strategy run from the success screen.
   // Routes back through the cost-confirmation gate so a second run can never
-  // silently spend another 8 credits — the user must re-confirm the cost first.
+  // silently spend more credits — the user must re-confirm the (variable) cost first.
   // The phase is set EXPLICITLY to 'cost_confirm' (not inferred from a cleared
   // result / reset flag). No generation starts and no credits are spent here;
   // the run only begins after the user re-confirms on the cost screen.
   const handleRunAgain = () => {
     clearResultCache()
     setResult(null)
-    setCostConfirmed(false)   // require a fresh 8-credit confirmation
+    setCostConfirmed(false)   // require a fresh cost confirmation
     setCreditBalance(null)    // re-fetch balance on the cost screen
     setCurrentStep(0)
     setPhase('cost_confirm')  // explicit route back to the cost-confirmation gate
@@ -290,7 +293,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           'Content-Type': 'application/json',
           Authorization: authHeaderRef.current(),
         },
-        body: JSON.stringify({ language: selectedLanguage, mediaIds: selectedMediaIds, strategyType, strategyDuration }),
+        // PR-S1c-2 — send contentIntensity + customDurationDays so the backend can
+        // rebuild the order and RECOMPUTE the cost. No client price is ever sent;
+        // the server is the single source of truth for the charged amount.
+        body: JSON.stringify({
+          language: selectedLanguage,
+          mediaIds: selectedMediaIds,
+          strategyType,
+          strategyDuration,
+          contentIntensity,
+          customDurationDays,
+        }),
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
         .then(({ ok, data: d }) => {
@@ -677,11 +690,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
         {/* ========== COST CONFIRMATION PHASE ========== */}
         {phase === 'cost_confirm' && (() => {
-          const COST = 8
-          const isUnlimited = creditBalance === -1
-          const balanceAfter = isUnlimited ? -1 : creditBalance !== null ? Math.max(0, creditBalance - COST) : null
-          const canAfford = isUnlimited || (creditBalance !== null && creditBalance >= COST)
-
           // ── PR-S1b — deterministic Order Review (display-only). Counts come from the
           //    pure contract, never the AI. Plan quota (if known) caps organic posts.
           const ar = locale === 'ar'
@@ -696,6 +704,18 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             goal: '',
             language: orderLanguage,
           }
+
+          // ── PR-S1c-2 — variable cost. getStrategyCreditCost is the SAME pure
+          //    function the backend runs before deduction, so the displayed price
+          //    equals the charged price. Unsupported orders (custom > 180) yield
+          //    cost:null → COST falls back to 0 and the unsupported UI branch below
+          //    blocks Generate before any charge.
+          const pricing = getStrategyCreditCost(order)
+          const COST = pricing.cost ?? 0
+          const isUnlimited = creditBalance === -1
+          const balanceAfter = isUnlimited ? -1 : creditBalance !== null ? Math.max(0, creditBalance - COST) : null
+          const canAfford = isUnlimited || (creditBalance !== null && creditBalance >= COST)
+
           const postsPerMonth = tierToPostsPerMonth(billingStatus?.plan)
           const deliverables = getStrategyDeliverables(
             order,

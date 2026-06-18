@@ -14,6 +14,8 @@ import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
 import { checkAndDeductCredits } from '@/lib/credits'
 import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
+// PR-S1c-2 — server-side order normalization + variable charge (never trust client price).
+import { resolveStrategyCharge } from '@/lib/strategy/normalizeStrategyOrder'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
@@ -41,8 +43,37 @@ export async function POST(req: NextRequest) {
     // PR-I — generation-time strategy intent (chosen in the modal; safe defaults).
     const { strategyType, strategyDuration } = normalizeStrategyIntent(body?.strategyType, body?.strategyDuration)
 
-    // -- Unified credit check + deduction ------------------------------------
-    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY')
+    // ── PR-S1c-2 — variable strategy pricing ───────────────────────────────
+    // Rebuild a validated StrategyOrder from the body and RECOMPUTE the cost
+    // server-side. The client only displays a price; it is never trusted here.
+    // The body's contentIntensity/customDurationDays feed the order; any
+    // client-supplied price is ignored.
+    const charge = resolveStrategyCharge({
+      strategyType: body?.strategyType,
+      strategyDuration: body?.strategyDuration,
+      contentIntensity: body?.contentIntensity,
+      customDurationDays: body?.customDurationDays,
+      language: body?.language,
+    })
+
+    // Unsupported (custom > 180 days, or non-positive) → block BEFORE any
+    // deduction. No credits are ever charged for an unsupported order.
+    if (!charge.supported || charge.cost == null) {
+      return NextResponse.json(
+        {
+          error: 'UNSUPPORTED_DURATION',
+          message:
+            'Strategies longer than 180 days are not supported yet. Contact support for a custom quote — no credits were charged.',
+          supported: false,
+        },
+        { status: 422 },
+      )
+    }
+
+    // -- Unified credit check + deduction (variable, server-computed cost) ----
+    // Pass the recomputed cost as the override so the amount DEDUCTED equals the
+    // amount the UI displayed (both call getStrategyCreditCost on the same order).
+    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', charge.cost)
     if (!credit.ok) {
       return NextResponse.json(credit, { status: 402 })
     }
@@ -182,7 +213,12 @@ export async function POST(req: NextRequest) {
     const success = result.strategyCreated && !!campaign?.id
 
     // ── Credit refund on complete failure ──────────────────────────────────
-    // If strategy itself failed (no campaign created), refund the credits
+    // If strategy itself failed (no campaign created), refund the credits.
+    // PR-S1c-2: refund MUST use credit.creditsUsed (the actual variable amount
+    // deducted) — NOT refundCredits(userId, 'RUN_FULL_STRATEGY'), which would
+    // refund the fixed CREDIT_COSTS.RUN_FULL_STRATEGY (8) and over/under-refund a
+    // variable charge. creditsUsed is 0 for unlimited plans, so the guard below
+    // correctly skips the refund for them.
     if (!success && credit.creditsUsed > 0) {
       try {
         await prisma.user.update({
