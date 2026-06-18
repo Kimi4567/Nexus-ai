@@ -993,51 +993,63 @@ function BrandBrainInner() {
               profile via CSS order). Heading (49) → Learned (50) → Scanner (51)
               → Analyzer (52). These enrich the brand; they are not the main task.
               ══════════════════════════════════════════════════════ */}
-          <div style={{ order: 49 }} className="pt-2">
-            <h2 className="text-sm font-bold text-slate-950">
-              {locale === 'ar' ? 'طوّر ذاكرة علامتك' : 'Grow your Brand Brain'}
-            </h2>
-            <p className="text-xs mt-0.5 text-slate-500">
-              {locale === 'ar'
-                ? 'أدوات اختيارية تثري ذاكرة علامتك بمرور الوقت — ليست مطلوبة للبدء.'
-                : 'Optional tools that enrich your brand memory over time — not required to start.'}
-            </p>
-          </div>
+          {/* PR-M2.1 — "Improve your Brand Brain": one collapsed group holding the
+              optional enrichment tools as accordion rows. Collapsed by default so the
+              default page stays short. Theme polish is reserved for PR-M2.2. */}
+          <details style={{ order: 49 }} className="group pt-2">
+            <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-slate-950">
+                  {locale === 'ar' ? 'طوّر ذاكرة علامتك' : 'Improve your Brand Brain'}
+                </span>
+                <span className="block text-xs mt-0.5 text-slate-500">
+                  {locale === 'ar'
+                    ? 'أدوات اختيارية تثري ذاكرة علامتك — ليست مطلوبة للبدء.'
+                    : 'Optional tools that enrich your brand memory — not required to start.'}
+                </span>
+              </span>
+              <ChevronDown size={16} className="flex-shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+            </summary>
 
-          {/* WHAT NEXUS LEARNED — timeline (Operator Foundation PR-1B) */}
-          <div style={{ order: 50 }}>
-            <BrainTimeline onUpdate={refreshBrainAfterLearning} />
-          </div>
+            <div className="mt-3 flex flex-col gap-3">
+
+              {/* WHAT NEXUS HAS LEARNED — single consolidated learned surface (BrainTimeline) */}
+              <details className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
+                <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="text-sm font-bold text-slate-950">
+                    {locale === 'ar' ? 'ما تعلّمته NEXUS' : 'What NEXUS has learned'}
+                  </span>
+                  <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open/row:rotate-180" />
+                </summary>
+                <div className="px-2 pb-2">
+                  <BrainTimeline onUpdate={refreshBrainAfterLearning} />
+                </div>
+              </details>
+
+              {/* WEBSITE SCANNER — accordion row (input hidden until opened) */}
+              <details className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
+                <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-bold text-slate-950">
+                      {locale === 'ar' ? 'مسح الموقع الإلكتروني' : 'Website Scanner'}
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(15,23,42,0.05)', color: '#64748b', border: '1px solid rgba(15,23,42,0.08)' }}>
+                      3 {locale === 'ar' ? 'كردت' : 'credits'} · {locale === 'ar' ? 'اختياري' : 'optional'}
+                    </span>
+                  </span>
+                  <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open/row:rotate-180" />
+                </summary>
 
           {/* ══════════════════════════════════════════════════════
               WEBSITE INTELLIGENCE SCANNER
               ══════════════════════════════════════════════════════ */}
-          <div className="rounded-2xl overflow-hidden"
-            style={{ order: 51, background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #06b6d4 0%, #8b5cf6 100%)' }} />
-            <div className="p-5">
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-4">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#ECFEFF', border: '1px solid rgba(8,145,178,0.18)' }}>
-                  <ScanSearch size={17} style={{ color: '#06b6d4' }} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-950">
-                      {locale === 'ar' ? 'مسح الموقع الإلكتروني' : 'Website Intelligence Scanner'}
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: 'rgba(6,182,212,0.12)', color: '#67e8f9', border: '1px solid rgba(6,182,212,0.2)' }}>
-                      3 {locale === 'ar' ? 'كردت' : 'credits'}
-                    </span>
-                  </div>
-                  <p className="text-xs mt-0.5 text-slate-500">
-                    {locale === 'ar'
-                      ? 'أدخل رابط موقعك — سيحلله الذكاء الاصطناعي ويملأ Brand Brain تلقائياً'
-                      : 'Enter your website URL — AI reads your pages and auto-fills Brand Brain fields'}
-                  </p>
-                </div>
-              </div>
+            <div className="px-4 pb-4 pt-1">
+              <p className="text-xs mb-3 text-slate-500">
+                {locale === 'ar'
+                  ? 'أدخل رابط موقعك — سيحلله الذكاء الاصطناعي ويملأ Brand Brain تلقائياً'
+                  : 'Enter your website URL — AI reads your pages and auto-fills Brand Brain fields'}
+              </p>
 
               {/* URL input + scan button */}
               <div className="flex gap-2">
@@ -1143,37 +1155,27 @@ function BrandBrainInner() {
                 </div>
               )}
             </div>
-          </div>
+          </details>
 
-          {/* ══════════════════════════════════════════════════════
-              CONTENT SAMPLES ANALYZER
-              ══════════════════════════════════════════════════════ */}
-          <div className="rounded-2xl overflow-hidden"
-            style={{ order: 52, background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)' }} />
-            <div className="p-5">
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
-                  <FileText size={17} style={{ color: '#a78bfa' }} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-950">
-                      {locale === 'ar' ? 'تحليل المحتوى الناجح' : 'Content Samples Analyzer'}
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold" style={{ background: '#F5F3FF', color: '#5E5CE6', border: '1px solid rgba(94,92,230,0.18)' }}>
-                      2 {locale === 'ar' ? 'كردت' : 'credits'}
-                    </span>
-                  </div>
-                  <p className="text-xs mt-0.5 text-slate-500">
-                    {locale === 'ar'
-                      ? 'الصق أفضل محتواك — سيستخرج الذكاء أنماط الـ hooks والأسلوب والزوايا الناجحة'
-                      : 'Paste your best-performing content — AI extracts hooks, angles, and tone patterns'}
-                  </p>
-                </div>
-              </div>
+          {/* CONTENT ANALYZER — accordion row (textareas hidden until opened) */}
+          <details className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
+            <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-bold text-slate-950">
+                  {locale === 'ar' ? 'تحليل المحتوى الناجح' : 'Content Analyzer'}
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(15,23,42,0.05)', color: '#64748b', border: '1px solid rgba(15,23,42,0.08)' }}>
+                  2 {locale === 'ar' ? 'كردت' : 'credits'} · {locale === 'ar' ? 'اختياري' : 'optional'}
+                </span>
+              </span>
+              <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open/row:rotate-180" />
+            </summary>
+            <div className="px-4 pb-4 pt-1">
+              <p className="text-xs mb-3 text-slate-500">
+                {locale === 'ar'
+                  ? 'الصق أفضل محتواك — سيستخرج الذكاء أنماط الـ hooks والأسلوب والزوايا الناجحة'
+                  : 'Paste your best-performing content — AI extracts hooks, angles, and tone patterns'}
+              </p>
 
               {/* 3 text areas */}
               <div className="space-y-2 mb-3">
@@ -1305,7 +1307,10 @@ function BrandBrainInner() {
                 </div>
               )}
             </div>
-          </div>
+          </details>
+
+            </div>{/* ── end Improve group rows ── */}
+          </details>{/* ── end Improve your Brand Brain group ── */}
 
           {/* ══════════════════════════════════════════════════════
               PR-M1 — WORKSPACE GRID
@@ -1705,53 +1710,9 @@ function BrandBrainInner() {
             </div>{/* ── end right workspace content ── */}
           </div>{/* ── end PR-M1 workspace grid ── */}
 
-          {/* ══ PR-H1: Learned Memory (READ-ONLY) ══
-              Hooks, angles, and failed angles are LEARNED over time from real
-              activity — shown read-only here, never asked as upfront beginner
-              inputs. Editing happens via usage + the Content Analyzer, not here. */}
-          <div className="rounded-2xl p-5" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-            <div className="flex items-center gap-2 mb-1">
-              <Brain size={16} style={{ color:'#5E5CE6' }} />
-              <h3 className="text-sm font-bold text-slate-950">{locale==='ar' ? 'الذاكرة المكتسبة' : 'Learned Memory'}</h3>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background:'rgba(15,23,42,0.05)', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>
-                {locale==='ar' ? 'للقراءة فقط' : 'Read-only'}
-              </span>
-            </div>
-            <p className="text-[12px] text-slate-500 mb-4">
-              {locale==='ar'
-                ? 'يتعلّمها NEXUS من نشاطك الحقيقي بمرور الوقت — لا تُطلب منك مسبقاً.'
-                : 'NEXUS learns these from your real activity over time — not asked upfront.'}
-            </p>
-            {(() => {
-              const groups: Array<[string, string, string[]]> = [
-                [locale==='ar'?'هوكس ناجحة':'Winning hooks',   '#10b981', form.winningHooks  || []],
-                [locale==='ar'?'زوايا ناجحة':'Winning angles',  '#06b6d4', form.winningAngles || []],
-                [locale==='ar'?'زوايا لم تنجح':'Failed angles', '#f59e0b', form.failedAngles  || []],
-              ]
-              const anything = groups.some(g => g[2].length > 0)
-              if (!anything) return (
-                <p className="text-[12px] text-slate-400">
-                  {locale==='ar'
-                    ? 'لا شيء بعد — ستظهر هنا مع نشر المحتوى وتحليله.'
-                    : 'Nothing yet — these appear as you publish content and NEXUS analyzes what works.'}
-                </p>
-              )
-              return (
-                <div className="space-y-3">
-                  {groups.filter(g => g[2].length > 0).map(([label, color, vals], gi) => (
-                    <div key={gi}>
-                      <p className="text-[11px] font-semibold mb-1.5" style={{ color:'#64748b' }}>{label}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {vals.map((v, i) => (
-                          <span key={i} className="text-xs px-2.5 py-1 rounded-full" style={{ background:`${color}12`, border:`1px solid ${color}30`, color }}>{v}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
+          {/* PR-M2.1 — the standalone read-only "Learned Memory" chips card was removed
+              to consolidate learned surfaces. "What NEXUS has learned" (BrainTimeline)
+              inside the "Improve your Brand Brain" group is now the single learned view. */}
 
           {/* ══ PR-H2: Goals & Strategy + Verified Proof ══
               Visible strategy intent (type/duration) + output language + paid setup
@@ -1943,11 +1904,15 @@ function BrandBrainInner() {
               </div>
             )
             return (
-              <div className="rounded-2xl p-5" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <BarChart2 size={16} style={{ color: '#5E5CE6' }} />
-                  <h3 className="text-sm font-bold text-slate-950">{ar ? 'تفاصيل الجاهزية والبيانات الاختيارية' : 'Readiness detail & optional data'}</h3>
-                </div>
+              <details className="group rounded-2xl overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+                <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-5 py-4">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <BarChart2 size={16} style={{ color: '#5E5CE6' }} />
+                    <h3 className="text-sm font-bold text-slate-950">{ar ? 'تفاصيل الجاهزية والبيانات الاختيارية' : 'Readiness detail & optional data'}</h3>
+                  </span>
+                  <ChevronDown size={16} className="flex-shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="px-5 pb-5">
                 <p className="text-[12px] text-slate-500 mb-4">
                   {ar ? 'تفصيل لحالة ذاكرة العلامة بالأعلى — وما يمكنك إضافته لفتح تخطيط المدفوع ومؤشرات الأداء.' : 'A detailed breakdown of the Brand Brain status above — and the optional data you can add to unlock paid & KPI planning.'}
                 </p>
@@ -2000,7 +1965,8 @@ function BrandBrainInner() {
                 <p className="text-[11px] text-slate-400 mt-3">
                   {ar ? 'هذه الحقول اختيارية ولا تمنع استراتيجيتك العضوية الحالية.' : 'These fields are optional and never block your current organic strategy.'}
                 </p>
-              </div>
+                </div>
+              </details>
             )
           })()}
 
