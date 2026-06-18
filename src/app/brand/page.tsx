@@ -870,8 +870,9 @@ function BrandBrainInner() {
         {/* PR-L — flex column so enrichment tools (Scanner/Analyzer/Learned) can be
             ordered BELOW the core brand profile via CSS order, without moving large
             JSX blocks. Core sections keep source order (order:0); enrichment = 49-52;
-            footer = 60. Width stays max-w-4xl this phase (widening is Phase 2). */}
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-5">
+            footer = 60. PR-M1.1 widened the shell to max-w-6xl so the desktop
+            workspace uses the viewport without large empty side-bands. */}
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-5">
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
           {fromBrief && !briefBannerDismissed && (
