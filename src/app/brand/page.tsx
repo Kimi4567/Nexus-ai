@@ -11,6 +11,8 @@ import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { getBrandIndicators } from '@/lib/brandIndicators'
 import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
+import { type AssistFieldSuggestion } from '@/lib/ai/assistSuggestions'
+import { fieldLabel, isRenderableField } from '@/lib/brand/assistFieldLabels'
 import { commitTag } from '@/lib/tagInput'
 import {
   Loader2, Brain, Check, ChevronDown, Save,
@@ -392,6 +394,17 @@ function BrandBrainInner() {
   const [assistUrl, setAssistUrl] = useState('')
   const [assistContent, setAssistContent] = useState('')
   const [assistDraftNotice, setAssistDraftNotice] = useState(false)
+  // PR-M3.3C — real Create-draft → scan/analyze → review state. These hold ONLY the
+  // returned suggestions for display in the Review Suggestions shell. They are NEVER
+  // written back to `form`; Apply stays disabled (apply-on-approval is PR-M3.3D).
+  const [creatingDraft, setCreatingDraft]       = useState(false)
+  const [draftError, setDraftError]             = useState<string | null>(null)
+  const [draftSuggestions, setDraftSuggestions] = useState<AssistSuggestion[]>([])
+  const [draftMissing, setDraftMissing]         = useState<string[]>([])
+  const [draftSafetyNotes, setDraftSafetyNotes] = useState<string[]>([])
+  const [draftCreditNote, setDraftCreditNote]   = useState('')
+  const [draftPartialNote, setDraftPartialNote] = useState<string | null>(null)
+  const [draftSources, setDraftSources]         = useState<SuggestionSource[]>([])
   // PR-M3.2 — Scanner/Analyzer/learned-timeline group is no longer shown in Edit or
   // Review (kept in code, reserved for Assisted setup + PR-M3.3's review-before-apply).
   const SHOW_BRAND_IMPROVE_GROUP = false
@@ -729,6 +742,159 @@ function BrandBrainInner() {
     setAnalyzeResult(null)
   }
 
+  // ── PR-M3.3C — Assisted "Create draft": run the real Scanner/Analyzer routes and
+  //    populate the Review Suggestions shell. This NEVER applies, saves, or mutates
+  //    Brand Brain (no setForm). Apply stays disabled (apply-on-approval = PR-M3.3D).
+  //    Credits are deducted/refunded entirely server-side inside the routes; the
+  //    client only DISPLAYS what was charged/refunded.
+  const ar = locale === 'ar'
+  const cvOf = (v: unknown): string =>
+    Array.isArray(v) ? (v as unknown[]).filter(Boolean).map(String).join(', ') : (v ? String(v) : '')
+
+  // Map a (server-built, guarded) suggestion → the presentational shell shape.
+  // No confidence upgrade, no invented evidence — pure projection.
+  const toShell = (s: AssistFieldSuggestion): AssistSuggestion => ({
+    field: s.field,
+    label: fieldLabel(s.field, locale),
+    currentValue: cvOf((form as Record<string, unknown>)[s.field]),
+    suggestedValue: s.suggested,
+    evidence: s.evidence || undefined,
+    safetyNote: s.safetyNote || undefined,
+    basis: s.basis,
+    confidence: s.confidence,
+    source: s.source,
+  })
+
+  const handleCreateDraft = async () => {
+    if (creatingDraft) return // re-entrancy guard — no double-charge, no auto-retry
+    const url = assistUrl.trim()
+    const content = assistContent.trim()
+    if (!url && !content) return
+
+    const sources: SuggestionSource[] = []
+    if (url) sources.push('website')
+    if (content) sources.push('content')
+
+    // Reset + show the review view in a loading state.
+    setCreatingDraft(true)
+    setDraftError(null)
+    setDraftSuggestions([])
+    setDraftMissing([])
+    setDraftSafetyNotes([])
+    setDraftCreditNote('')
+    setDraftPartialNote(null)
+    setDraftSources(sources)
+    setWizardStage('assistReview')
+
+    type Outcome = {
+      kind: 'website' | 'content'; cost: number; ok: boolean; status: number; refunded: boolean
+      suggestions: AssistFieldSuggestion[]; missing: string[]; safetyNotes: string[]; errorMsg: string
+    }
+    const runRoute = async (
+      kind: 'website' | 'content', endpoint: string, payload: unknown, cost: number,
+    ): Promise<Outcome> => {
+      const base: Outcome = { kind, cost, ok: false, status: 0, refunded: false, suggestions: [], missing: [], safetyNotes: [], errorMsg: '' }
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json().catch(() => ({} as Record<string, unknown>))
+        if (!res.ok) {
+          const msg = res.status === 402
+            ? (ar ? 'رصيد غير كافٍ — يرجى الترقية' : 'Not enough credits — please upgrade')
+            : res.status === 422
+              ? (ar ? 'تعذّر قراءة الموقع — قد يحتاج إلى JavaScript' : 'Could not read the website — it may require JavaScript')
+              : (typeof (data as Record<string, unknown>).error === 'string'
+                  ? String((data as Record<string, unknown>).error)
+                  : (ar ? 'فشل التحليل' : 'Analysis failed'))
+          return { ...base, status: res.status, refunded: !!(data as Record<string, unknown>).refunded, errorMsg: msg }
+        }
+        const d = data as Record<string, unknown>
+        return {
+          ...base, ok: true, status: res.status,
+          suggestions: Array.isArray(d.suggestions) ? (d.suggestions as AssistFieldSuggestion[]) : [],
+          missing: Array.isArray(d.missing) ? (d.missing as string[]) : [],
+          safetyNotes: Array.isArray(d.safetyNotes) ? (d.safetyNotes as string[]) : [],
+        }
+      } catch {
+        return { ...base, errorMsg: ar ? 'تعذّر الاتصال، حاول مرة أخرى' : 'Connection failed, please try again' }
+      }
+    }
+
+    try {
+      const tasks: Promise<Outcome>[] = []
+      if (url) tasks.push(runRoute('website', '/api/brand/scan-website', { url }, ASSIST_SCAN_COST))
+      if (content) {
+        const samples = content.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).slice(0, 3)
+        tasks.push(runRoute('content', '/api/brand/analyze-content', { samples: samples.length ? samples : [content] }, ASSIST_ANALYZE_COST))
+      }
+      const outcomes = await Promise.all(tasks) // runRoute never rejects
+      const okOutcomes = outcomes.filter(o => o.ok)
+      const failed = outcomes.filter(o => !o.ok)
+
+      // Merge suggestions across sources, deduped by field. Client allowlist + never-show
+      // set are enforced here (defense-in-depth on top of the server policy).
+      const rankBasis = (b: string) => (b === 'inferred' ? 1 : 0)
+      const rankConf = (c: string) => ({ high: 0, medium: 1, low: 2 } as Record<string, number>)[c] ?? 2
+      const score = (s: AssistFieldSuggestion) => rankBasis(s.basis) * 10 + rankConf(s.confidence)
+      const byField = new Map<string, AssistFieldSuggestion>()
+      for (const o of okOutcomes) {
+        for (const s of o.suggestions) {
+          if (!isRenderableField(s.field)) continue
+          const existing = byField.get(s.field)
+          if (!existing) { byField.set(s.field, s); continue }
+          // Both sources suggested this field. For array fields, union items; otherwise
+          // keep the stronger (lower-score) entry. Never upgrade basis/confidence.
+          if (existing.items || s.items) {
+            const items = Array.from(new Set([...(existing.items || []), ...(s.items || [])])).filter(Boolean)
+            const stronger = score(s) < score(existing) ? s : existing
+            byField.set(s.field, {
+              ...stronger,
+              items,
+              suggested: items.join(', '),
+              evidence: [existing.evidence, s.evidence].filter(Boolean).join(' · ').slice(0, 180),
+            })
+          } else {
+            byField.set(s.field, score(s) < score(existing) ? s : existing)
+          }
+        }
+      }
+      const merged = Array.from(byField.values()).sort((a, b) => score(a) - score(b))
+      setDraftSuggestions(merged.map(toShell))
+
+      const missingFields = Array.from(new Set(okOutcomes.flatMap(o => o.missing)))
+        .filter(isRenderableField)
+        .filter(f => !byField.has(f))
+      setDraftMissing(missingFields.map(f => fieldLabel(f, locale)))
+      setDraftSafetyNotes(Array.from(new Set(okOutcomes.flatMap(o => o.safetyNotes))))
+
+      // Honest credit messaging from real outcomes.
+      const charged = okOutcomes.reduce((n, o) => n + o.cost, 0)
+      const refunded = failed.filter(o => o.refunded).reduce((n, o) => n + o.cost, 0)
+      let note = charged > 0
+        ? (ar ? `تم خصم ${charged} كردت.` : `Charged ${charged} credit${charged === 1 ? '' : 's'}.`)
+        : ''
+      if (refunded > 0) note += (note ? ' ' : '') + (ar ? `وتمّ ردّ ${refunded} كردت عن خطوة فشلت.` : `Refunded ${refunded} credit${refunded === 1 ? '' : 's'} for the step that failed.`)
+      setDraftCreditNote(note)
+
+      const whichLabel = (k: 'website' | 'content') =>
+        k === 'website' ? (ar ? 'مسح الموقع' : 'Website scan') : (ar ? 'تحليل المحتوى' : 'Content analysis')
+
+      if (okOutcomes.length === 0) {
+        // Total failure — no cards.
+        const msgs = outcomes.map(o => `${whichLabel(o.kind)}: ${o.errorMsg}${o.refunded ? (ar ? ' (تمّ الردّ)' : ' (refunded)') : ''}`)
+        setDraftError(msgs.join(' · '))
+      } else if (failed.length > 0) {
+        const f = failed[0]
+        setDraftPartialNote(`${whichLabel(f.kind)}: ${f.errorMsg}${f.refunded ? (ar ? ' (تمّ الردّ)' : ' (refunded)') : ''}`)
+      }
+    } finally {
+      setCreatingDraft(false)
+    }
+  }
+
   const { score, missing } = getBrandCompleteness(form, locale)
   // PR-J — separated, honest indicators (same source the campaign Strategy panel uses).
   const brandIndicators = getBrandIndicators(form, {
@@ -1046,14 +1212,18 @@ function BrandBrainInner() {
                     </div>
 
                     {/* Create draft button (dynamic total, disabled when nothing provided).
-                        PR-M3.3A — opens the display-only Review Suggestions shell ('assistReview').
-                        No scan/analyze/apply/save runs and no credits are spent. */}
-                    <button onClick={() => setWizardStage('assistReview')} disabled={total === 0}
+                        PR-M3.3C — runs the REAL Scanner/Analyzer routes (credits deducted
+                        server-side), then opens the Review Suggestions shell with the returned
+                        suggestions for review. Nothing is applied or saved — Apply stays
+                        disabled (apply-on-approval is PR-M3.3D). */}
+                    <button onClick={handleCreateDraft} disabled={total === 0 || creatingDraft}
                       className="w-full inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed"
-                      style={ total === 0
+                      style={ total === 0 || creatingDraft
                         ? { background:'#E2E8F0', color:'#94A3B8' }
                         : { background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' } }>
-                      {ar ? 'إنشاء مسودة' : 'Create draft'}{total > 0 ? ` · ${total} ${ar ? 'كردت' : 'credits'}` : ''}
+                      {creatingDraft
+                        ? <><Loader2 size={15} className="animate-spin" /> {ar ? 'جارٍ إنشاء المسودة…' : 'Creating draft…'}</>
+                        : <>{ar ? 'إنشاء مسودة' : 'Create draft'}{total > 0 ? ` · ${total} ${ar ? 'كردت' : 'credits'}` : ''}</>}
                     </button>
 
                     {/* Safety copy */}
@@ -1086,27 +1256,51 @@ function BrandBrainInner() {
             </div>
           )}
 
-          {/* PR-M3.3A — Assisted Review Suggestions shell (display-only). Mock/no-op data;
-              reads form values for "current value" but NEVER mutates them, calls no API,
-              spends no credits, and applies nothing. Reached from "Create draft". */}
-          {wizardStage === 'assistReview' && (() => {
-            const ar = locale === 'ar'
-            const cv = (v: unknown) => Array.isArray(v) ? (v as unknown[]).filter(Boolean).join(', ') : (v ? String(v) : '')
-            const sources: SuggestionSource[] = []
-            if (assistUrl.trim()) sources.push('website')
-            if (assistContent.trim()) sources.push('content')
-            if (sources.length === 0) sources.push('website')
-            const mock: AssistSuggestion[] = [
-              { field:'description',        label: ar?'وصف النشاط':'Business description',  currentValue: cv(form.description),        suggestedValue: ar?'مُشغّل تسويق بالذكاء الاصطناعي للشركات الصغيرة والمتوسطة — يخطّط وينشئ ويساعد على التنفيذ.':'AI marketing operator for SMEs that plans, creates and helps execute campaigns.', basis:'extracted', confidence:'high',   source:'website' },
-              { field:'targetAudience',     label: ar?'الجمهور المستهدف':'Target audience',  currentValue: cv(form.targetAudience),     suggestedValue: ar?'شركات صغيرة ومتوسطة بلا فريق تسويق داخلي.':'Small and medium businesses without an in-house marketing team.', basis:'extracted', confidence:'medium', source:'website' },
-              { field:'winningHooks',       label: ar?'خطافات ناجحة':'Winning hooks',        currentValue: cv(form.winningHooks),       suggestedValue: ar?'«توقّف عن التخمين في تسويقك — دع NEXUS يخطّط له.»':'"Stop guessing your marketing — let NEXUS plan it."', basis:'observed',  confidence:'high',   source:'content' },
-              { field:'audiencePainPoints', label: ar?'نقاط ألم الجمهور':'Audience pain points', currentValue: cv(form.audiencePainPoints), suggestedValue: ar?'لا وقت لتخطيط المحتوى؛ حيرة فيما يُنشر.':'No time to plan content; unsure what to post.', basis:'observed',  confidence:'medium', source:'content' },
-              { field:'pricePoint',         label: ar?'مستوى السعر':'Price point',           currentValue: cv(form.pricePoint),         suggestedValue: ar?'بريميوم':'premium', basis:'inferred',  confidence:'low',    source:'website' },
-            ]
-            return (
-              <ReviewSuggestions suggestions={mock} sourcesUsed={sources} locale={locale} onBack={() => setWizardStage('start')} />
+          {/* PR-M3.3C — Assisted Review Suggestions. Real Scanner/Analyzer suggestions
+              (server-built, guarded, evidence-based) rendered for review. The client
+              NEVER applies, saves, or mutates Brand Brain here — Apply stays disabled
+              (apply-on-approval is PR-M3.3D). Loading / error / partial-success handled. */}
+          {wizardStage === 'assistReview' && (
+            creatingDraft ? (
+              <div className="rounded-2xl p-10 flex flex-col items-center justify-center text-center" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+                <Loader2 size={26} className="animate-spin text-amber-500 mb-3" />
+                <p className="text-sm font-semibold text-slate-700">
+                  {ar ? 'يقرأ NEXUS مصادرك ويُجهّز مسودة للمراجعة…' : 'NEXUS is reading your sources and preparing a draft to review…'}
+                </p>
+                <p className="text-[12px] text-slate-400 mt-1">
+                  {ar ? 'لا يُطبَّق ولا يُحفظ شيء — ستراجع كل اقتراح أولاً.' : 'Nothing is applied or saved — you’ll review every suggestion first.'}
+                </p>
+              </div>
+            ) : draftError ? (
+              <div className="rounded-2xl p-6" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-amber-500" />
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-slate-950">{ar ? 'تعذّر إنشاء المسودة' : 'Couldn’t create the draft'}</h2>
+                    <p className="text-sm text-slate-600 mt-1 break-words">{draftError}</p>
+                    {draftCreditNote && <p className="text-[12px] text-slate-500 mt-2">{draftCreditNote}</p>}
+                    <p className="text-[12px] text-slate-400 mt-2">{ar ? 'لم يُطبَّق ولم يُحفظ أي شيء على ذاكرة علامتك.' : 'Nothing was applied or saved to your Brand Brain.'}</p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center gap-3">
+                  <button onClick={() => setWizardStage('start')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold" style={{ background:'#0f172a', color:'#fff' }}>
+                    <ArrowRight size={13} className="rtl:rotate-180" /> {ar ? 'العودة للإعداد المُساعد' : 'Back to Assisted setup'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ReviewSuggestions
+                suggestions={draftSuggestions}
+                sourcesUsed={draftSources.length ? draftSources : ['website']}
+                locale={locale}
+                onBack={() => setWizardStage('start')}
+                missing={draftMissing}
+                safetyNotes={draftSafetyNotes}
+                creditNote={draftCreditNote || undefined}
+                partialNote={draftPartialNote || undefined}
+              />
             )
-          })()}
+          )}
 
           {/* PR-M3.1 — Review & Readiness step. Reuses the same honest indicators as the
               rail / campaign panel; display-only, no recompute. */}

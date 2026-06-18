@@ -34,6 +34,8 @@ export interface AssistSuggestion {
   suggestedValue: string
   /** Short evidence snippet / source quote (optional; placeholder in the shell) */
   evidence?: string
+  /** Optional per-field safety note from the server (e.g. "limited support — review"). */
+  safetyNote?: string
   basis: SuggestionBasis
   confidence: SuggestionConfidence
   source: SuggestionSource
@@ -54,11 +56,23 @@ export default function ReviewSuggestions({
   sourcesUsed,
   locale,
   onBack,
+  missing,
+  safetyNotes,
+  creditNote,
+  partialNote,
 }: {
   suggestions: AssistSuggestion[]
   sourcesUsed: SuggestionSource[]
   locale?: string
   onBack: () => void
+  /** PR-M3.3C — localized labels of fields the source did not support (display only). */
+  missing?: string[]
+  /** PR-M3.3C — aggregate safety notes from the server (display only). */
+  safetyNotes?: string[]
+  /** PR-M3.3C — honest "charged N credits" message (display only). */
+  creditNote?: string
+  /** PR-M3.3C — partial-success message when one route failed (display only). */
+  partialNote?: string
 }) {
   const ar = locale === 'ar'
   // Local-only selection — never applied to Brand Brain in this shell.
@@ -113,6 +127,17 @@ export default function ReviewSuggestions({
             {ar ? `محدّد: ${selected.size}/${suggestions.length}` : `Selected: ${selected.size}/${suggestions.length}`}
           </span>
         </div>
+
+        {/* ── Honest credit + partial-success notes (PR-M3.3C, display only) ── */}
+        {creditNote && (
+          <p className="text-[12px] text-slate-500 mt-3">{creditNote}</p>
+        )}
+        {partialNote && (
+          <p className="text-[12px] mt-1.5 flex items-start gap-2" style={{ color:'#b45309' }}>
+            <AlertTriangle size={13} className="flex-shrink-0 mt-0.5 text-amber-500" />
+            {partialNote}
+          </p>
+        )}
       </div>
 
       {/* ── Suggestion cards ── */}
@@ -153,6 +178,13 @@ export default function ReviewSuggestions({
                     </p>
                   </div>
 
+                  {s.safetyNote && (
+                    <p className="text-[11px] mt-2 flex items-start gap-1.5" style={{ color:'#b45309' }}>
+                      <AlertTriangle size={11} className="flex-shrink-0 mt-0.5 text-amber-500" />
+                      {s.safetyNote}
+                    </p>
+                  )}
+
                   {hasCurrent && (
                     <p className="text-[11px] mt-2" style={{ color:'#64748b' }}>
                       {ar ? 'لديك قيمة بالفعل — الإبقاء عليها هو الوضع الافتراضي.' : 'You already have a value — keeping it is the default.'}
@@ -173,6 +205,42 @@ export default function ReviewSuggestions({
           )
         })}
       </div>
+
+      {/* ── Not found yet (missing[]) + Review carefully (safetyNotes[]) — PR-M3.3C ── */}
+      {((missing && missing.length > 0) || (safetyNotes && safetyNotes.length > 0)) && (
+        <div className="rounded-2xl p-5 space-y-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
+          {missing && missing.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide text-slate-400 mb-1.5">
+                {ar ? 'لم يُعثر عليها بعد — أضِفها يدوياً' : 'NOT FOUND YET — ADD MANUALLY'}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {missing.map((m, i) => (
+                  <span key={`${m}-${i}`} className="px-2 py-0.5 rounded text-[11px] font-medium" style={{ background:'#F1F5F9', color:'#64748b', border:'1px solid rgba(15,23,42,0.08)' }}>{m}</span>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1.5">
+                {ar ? 'لم تُختلَق هذه الحقول — اتركها فارغة أو أكملها بنفسك.' : 'These were not invented — leave them empty or fill them in yourself.'}
+              </p>
+            </div>
+          )}
+          {safetyNotes && safetyNotes.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold tracking-wide mb-1.5" style={{ color:'#b45309' }}>
+                {ar ? 'راجِع بعناية' : 'REVIEW CAREFULLY'}
+              </p>
+              <ul className="space-y-1">
+                {safetyNotes.map((n, i) => (
+                  <li key={i} className="text-[11px] text-slate-500 flex items-start gap-1.5">
+                    <AlertTriangle size={11} className="flex-shrink-0 mt-0.5 text-amber-500" />
+                    {n}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Apply (disabled no-op in M3.3A) + safety footer ── */}
       <div className="rounded-2xl p-5" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
