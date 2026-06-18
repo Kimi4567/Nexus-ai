@@ -23,7 +23,7 @@ import {
   ArrowUpRight, AlertTriangle, CheckCircle2,
   Target, Bell,
   Send, X, Clock, Circle,
-  BarChart3, ChevronRight, Plus, Flame, Shield,
+  BarChart3, ChevronRight, ChevronDown, Plus, Flame, Shield,
 } from 'lucide-react'
 import {
   NexusMetricCard,
@@ -713,7 +713,7 @@ export default function DashboardPage() {
                   <div className="w-full sm:w-auto sm:min-w-[170px]">
                     <div className="flex items-end justify-between gap-3 mb-2">
                       <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
-                        {ar ? 'جاهزية نظام التسويق' : 'Marketing system readiness'}
+                        {ar ? 'تقدّم نظام التسويق' : 'Marketing system progress'}
                       </span>
                       <span className="text-2xl font-bold" style={{ color: '#06B6D4' }}>{intelligence.maturityScore}</span>
                     </div>
@@ -726,6 +726,36 @@ export default function DashboardPage() {
                         ? 'مبني على إعداد البراند، نشاط الحملات، جاهزية المنصات، وتغطية التعلّم — وليس على نتائج الأداء.'
                         : 'Based on your brand setup, campaign activity, platform readiness, and learning coverage — not performance results.'}
                     </p>
+                    {/* PR-N3 — disambiguate this progress score from Brand Brain maturity (45)
+                        and Brand completeness (100%). Copy/display only; the number is unchanged. */}
+                    <details className="group mt-2">
+                      <summary className="cursor-pointer select-none list-none inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
+                        <span>{ar ? 'لماذا هذا الرقم؟' : 'Why this?'}</span>
+                        <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="mt-2 space-y-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                        <p>
+                          {ar
+                            ? 'هذا الرقم مؤشر تقدّم: يعكس مقدار ما تم إعداده وتفعيله من نظام التسويق — إعداد البراند، الاستراتيجية، المحتوى، سير عمل النشر، تغطية التعلّم، ونشاط الحملات.'
+                            : 'This is a progress score: it reflects how much of your marketing operating system is set up and active — brand setup, strategy, content, the publishing workflow, learning coverage, and campaign activity.'}
+                        </p>
+                        <p>
+                          {ar
+                            ? 'إنه ليس نتائج أداء، وليس عائداً على الاستثمار أو عملاء محتملين أو إيرادات أو مشاهدات أو متابعين أو تحويلات.'
+                            : 'It is not performance results, and not ROI, leads, revenue, views, followers, or conversions.'}
+                        </p>
+                        <p>
+                          {ar
+                            ? 'وهو مختلف عن مقاييس ذاكرة العلامة: نضج ذاكرة العلامة (45) يعني عمق ذاكرة العلامة طويل المدى، واكتمال العلامة (100%) يعني اكتمال الحقول الأساسية المحفوظة.'
+                            : 'It is different from your Brand Brain metrics: Brand Brain maturity (45) means long-term brand memory depth, and Brand completeness (100%) means your core saved fields are complete.'}
+                        </p>
+                        <p>
+                          {ar
+                            ? 'الإعلانات المدفوعة تبقى تخطيطاً فقط — غير جاهزة للإطلاق ما لم تكتمل المتطلبات.'
+                            : 'Paid ads remain planning-only — not launch-ready unless the prerequisites are met.'}
+                        </p>
+                      </div>
+                    </details>
                   </div>
                 </div>
 
