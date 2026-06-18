@@ -16,6 +16,9 @@ import { checkAndDeductCredits } from '@/lib/credits'
 import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
 // PR-S1c-2 — server-side order normalization + variable charge (never trust client price).
 import { resolveStrategyCharge } from '@/lib/strategy/normalizeStrategyOrder'
+// PR-S1c-3 — deterministic deliverables contract → binding generation scope.
+import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
+import { tierToPostsPerMonth } from '@/lib/strategy/strategyOrderDisplay'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
@@ -121,10 +124,10 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Get user preferences for language detection
+    // Get user preferences for language detection + plan tier for the deliverables contract
     const freshUser = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { preferences: true },
+      select: { preferences: true, subscriptionStatus: true },
     })
 
     // Language detection: body -> user preferences -> fallback 'ar'
@@ -133,6 +136,20 @@ export async function POST(req: NextRequest) {
       (body?.language as string | undefined) ||
       userPrefs?.language ||
       'ar'
+
+    // ── PR-S1c-3 — deterministic deliverables contract → BINDING generation scope ──
+    // Reuse the SAME validated order that priced the run (charge.order), enrich its
+    // goal, and resolve the plan quota via the SAME helper the modal used
+    // (tierToPostsPerMonth) so the post count shown in the review equals the count
+    // the generation is told to produce. Counts/scope come from getStrategyDeliverables
+    // — never from the AI. (Custom > 180 was already 422-blocked above, so the contract
+    // here is always supported; the unsupported branch returns DO-NOT-GENERATE anyway.)
+    const order = { ...charge.order, goal: charge.order.goal || goalOverride }
+    const postsPerMonth = tierToPostsPerMonth(freshUser?.subscriptionStatus)
+    const deliverables = getStrategyDeliverables(
+      order,
+      typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined,
+    )
 
     // Build brief from full Brand Brain data -- inject everything
     const brief = {
@@ -167,6 +184,15 @@ export async function POST(req: NextRequest) {
       // PR-I — strategy intent (generation-time choice; not persisted to Brand Brain)
       strategyType,
       strategyDuration,
+      // PR-S1c-3 — deterministic generation contract (the order the user reviewed & paid for).
+      // The strategist treats generationInstructions as BINDING scope; counts come from here.
+      strategyOrder: order,
+      strategyDeliverables: deliverables,
+      generationInstructions: deliverables.generationInstructions,
+      organicPostCount: deliverables.organicPostCount,
+      detailedCalendarDays: deliverables.detailedCalendarDays,
+      roadmapMonths: deliverables.roadmapMonths,
+      planCapApplied: deliverables.planCapApplied,
       // Campaign memory: inject past learnings for this workspace
       pastLearnings: formatMemoriesForPrompt(
         await getRelevantMemories({
