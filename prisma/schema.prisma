@@ -506,6 +506,10 @@ model CreditTransaction {
 
   createdAt   DateTime  @default(now())
 
+  // B1c-a — per-grant allocations for this debit (one debit can span several grants).
+  // Foundation only; no runtime reader/writer until B1c-b.
+  grantAllocations CreditTransactionGrantAllocation[]
+
   @@index([userId])
   @@index([userId, createdAt])
 }
@@ -1922,6 +1926,9 @@ model CreditGrant {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
+  // B1c-a — debits that drew down this grant (foundation only; no reader until B1c-b).
+  transactionAllocations CreditTransactionGrantAllocation[]
+
   // Idempotency: at most one grant per (user, source) — makes the backfill and
   // per-cycle/per-purchase grants safe to re-run.
   @@unique([userId, source])
@@ -1930,4 +1937,29 @@ model CreditGrant {
   @@index([userId, type, status])
   @@index([source])
   @@index([billingCycleId])
+}
+
+// B1c-a — Allocation ledger: links one CreditTransaction (debit) to the
+// CreditGrant row(s) it drew from, with the amount taken from each. One debit
+// can span multiple grants (e.g. cost 14 = 5 from grant A + 9 from grant B), so
+// a single CreditTransaction.grantId is intentionally NOT used. Enables exact
+// source-aware refunds in B1c-c. FOUNDATION ONLY — no runtime code reads or
+// writes this table until B1c-b (grant-based deduction behind CREDIT_WALLET_ENABLED).
+// Apply to the DB via prisma/migrations/credit_transaction_grant_allocation.sql
+// in the Supabase SQL Editor (this repo does not use prisma migrate for prod).
+model CreditTransactionGrantAllocation {
+  id                  String            @id @default(cuid())
+
+  creditTransactionId String
+  creditTransaction   CreditTransaction @relation(fields: [creditTransactionId], references: [id], onDelete: Cascade)
+
+  creditGrantId       String
+  creditGrant         CreditGrant       @relation(fields: [creditGrantId], references: [id], onDelete: Cascade)
+
+  amount              Int                                  // credits drawn from this grant for the debit
+
+  createdAt           DateTime          @default(now())
+
+  @@index([creditTransactionId])
+  @@index([creditGrantId])
 }
