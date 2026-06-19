@@ -18,6 +18,13 @@ import {
   type RefundSourceGrant,
   type RefundAllocationInput,
 } from '@/lib/credits/wallet'
+// B1d-b — create matching CreditGrant rows in parallel with aiCredits writes
+// (flag-independent, additive; never changes the scalar balance or read path).
+import {
+  ensureGrant,
+  buildStarterGrant,
+  buildBonusGrant,
+} from '@/lib/credits/creditGrants'
 
 // ── Credit cost map ────────────────────────────────────────────────────────────
 // All AI actions and their credit costs.
@@ -305,18 +312,26 @@ export async function checkAndDeductCredits(
   // ── First-time FREE user: grant starter credits ────────────────────────────
   const isFree = user.subscriptionStatus === 'FREE'
   if (isFree && user.aiCredits === 0 && user.monthlyGenerations === 0) {
-    user = await prisma.user.update({
-      where: { id: userId },
-      data: { aiCredits: FREE_STARTER_CREDITS },
-      select: {
-        id: true,
-        subscriptionStatus: true,
-        aiCredits: true,
-        monthlyGenerations: true,
-        email: true,
-        name: true,
-      },
-    })
+    // B1d-b: grant the starter credits AND create a matching TRIAL grant in ONE
+    // transaction. The aiCredits result is identical to before (FREE_STARTER_CREDITS);
+    // the grant is idempotent (source 'starter:initial') and never read while the
+    // wallet flag is OFF.
+    user = (await (prisma as any).$transaction(async (tx: any) => {
+      const updated = await tx.user.update({
+        where: { id: userId },
+        data: { aiCredits: FREE_STARTER_CREDITS },
+        select: {
+          id: true,
+          subscriptionStatus: true,
+          aiCredits: true,
+          monthlyGenerations: true,
+          email: true,
+          name: true,
+        },
+      })
+      await ensureGrant(buildStarterGrant(userId), tx)
+      return updated
+    })) as NonNullable<typeof user>
   }
 
   const currentCredits = user.aiCredits
@@ -522,17 +537,36 @@ async function _deductFromGrants(
 /**
  * Add credits to a user's balance and log the transaction.
  * Used for refunds, referral bonuses, and admin top-ups.
+ *
+ * B1d-b: pass a STABLE `source` to also create a matching non-expiring MANUAL
+ * CreditGrant (idempotent via the source). Omit `source` (the default) to keep
+ * the exact original behavior — a bare increment + log with no grant. Callers
+ * must supply a deterministic key (never a timestamp), so retries don't mint
+ * duplicate grants. The grant is never read while the wallet flag is OFF.
  */
 export async function addCredits(
   userId: string,
   amount: number,
   description: string,
   entityType = 'bonus',
+  source?: string,
 ): Promise<void> {
-  await prisma.user.update({
-    where: { id: userId },
-    data: { aiCredits: { increment: amount } },
-  })
+  if (source) {
+    // Atomic: increment + matching MANUAL grant together.
+    await (prisma as any).$transaction(async (tx: any) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { aiCredits: { increment: amount } },
+      })
+      await ensureGrant(buildBonusGrant(userId, 'MANUAL', amount, source), tx)
+    })
+  } else {
+    // Original behavior — unchanged.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiCredits: { increment: amount } },
+    })
+  }
   await _logTransaction(userId, 'CREDIT', amount, description, undefined, entityType)
 }
 

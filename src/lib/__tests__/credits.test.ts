@@ -24,9 +24,11 @@ const { mockPrisma } = vi.hoisted(() => ({
       updateMany: vi.fn(),
     },
     creditTransaction: { create: vi.fn() },
+    creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
     usage: { upsert: vi.fn() },
     generatedVisual: { count: vi.fn() },
-    // Present so we can assert the grant/wallet path is NEVER entered while the
+    // Used by the B1d-b parallel-grant writes (starter / addCredits-with-source)
+    // and to assert the wallet deduction path is NEVER entered while the
     // CREDIT_WALLET_ENABLED flag is OFF (its default in this suite).
     $transaction: vi.fn(),
   },
@@ -39,6 +41,7 @@ vi.mock('@/lib/email/resend', () => ({
 
 import {
   checkAndDeductCredits,
+  addCredits,
   refundCredits,
   checkDailyImageCap,
   countImagesToday,
@@ -50,9 +53,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   // Sensible defaults for the non-asserted side-effect writes.
   mockPrisma.creditTransaction.create.mockResolvedValue({})
+  mockPrisma.creditGrant.createMany.mockResolvedValue({ count: 1 })
   mockPrisma.usage.upsert.mockResolvedValue({})
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.user.updateMany.mockResolvedValue({ count: 1 })
+  // Interactive transaction runs its callback against the same mock surface, so
+  // tx.user.update === mockPrisma.user.update etc. (B1d-b parallel-grant writes).
+  mockPrisma.$transaction.mockImplementation(async (cb: (t: typeof mockPrisma) => unknown) => cb(mockPrisma))
 })
 
 describe('checkAndDeductCredits', () => {
@@ -244,6 +251,92 @@ describe('checkAndDeductCredits — costOverride (variable strategy pricing)', (
     const res = await checkAndDeductCredits('u1', 'RUN_FULL_STRATEGY', -5)
     expect(res.ok).toBe(true)
     if (res.ok) expect(res.creditsUsed).toBe(CREDIT_COSTS.RUN_FULL_STRATEGY) // 8
+  })
+})
+
+// ── B1d-b — parallel starter grant on first-time FREE ──────────────────────
+describe('checkAndDeductCredits — B1d-b starter grant', () => {
+  it('first-time FREE user gets a starter TRIAL grant in the same transaction', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'FREE', aiCredits: 0,
+      monthlyGenerations: 0, email: 'a@b.com', name: 'A',
+    })
+    mockPrisma.user.update.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'FREE', aiCredits: FREE_STARTER_CREDITS,
+      monthlyGenerations: 0, email: 'a@b.com', name: 'A',
+    })
+
+    const res = await checkAndDeductCredits('u1', 'CHAT_MESSAGE') // cost 1
+
+    expect(res.ok).toBe(true)
+    // aiCredits behavior identical: starts 10, deducts 1 → 9
+    if (res.ok) expect(res.creditsRemaining).toBe(FREE_STARTER_CREDITS - CREDIT_COSTS.CHAT_MESSAGE)
+    // Grant created in a transaction with the right shape.
+    expect(mockPrisma.$transaction).toHaveBeenCalled()
+    expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({
+          userId: 'u1', type: 'TRIAL', amount: 10, remaining: 10,
+          source: 'starter:initial', status: 'ACTIVE',
+        })],
+        skipDuplicates: true,
+      }),
+    )
+    // 14-day expiry present.
+    const arg = mockPrisma.creditGrant.createMany.mock.calls[0][0] as any
+    expect(arg.data[0].expiresAt instanceof Date).toBe(true)
+    // No reset of any grants in B1d-b.
+    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('non-first-time FREE user does not create a starter grant', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'FREE', aiCredits: 8,
+      monthlyGenerations: 3, email: 'a@b.com', name: 'A',
+    })
+
+    await checkAndDeductCredits('u1', 'CHAT_MESSAGE')
+
+    expect(mockPrisma.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+  })
+})
+
+// ── B1d-b — addCredits optional source ─────────────────────────────────────
+describe('addCredits — B1d-b optional source', () => {
+  it('without source: increments + logs, creates NO grant (unchanged)', async () => {
+    await addCredits('u1', 25, 'Bonus')
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'u1' }, data: { aiCredits: { increment: 25 } },
+    })
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(mockPrisma.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalled() // _logTransaction unchanged
+  })
+
+  it('with a stable source: atomic increment + one MANUAL grant', async () => {
+    await addCredits('u1', 25, 'Promo', 'bonus', 'manual:promo7')
+
+    expect(mockPrisma.$transaction).toHaveBeenCalled()
+    expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({
+          userId: 'u1', type: 'MANUAL', amount: 25, remaining: 25,
+          source: 'manual:promo7', expiresAt: null, status: 'ACTIVE',
+        })],
+        skipDuplicates: true,
+      }),
+    )
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalled()
+    // No allocation writes, no reset.
+    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('repeated addCredits with the same source relies on skipDuplicates (idempotent)', async () => {
+    await addCredits('u1', 25, 'Promo', 'bonus', 'manual:promo7')
+    const arg = mockPrisma.creditGrant.createMany.mock.calls[0][0] as any
+    expect(arg.skipDuplicates).toBe(true) // (userId, source) uniqueness prevents a duplicate grant
   })
 })
 
