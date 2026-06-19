@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { PLAN_CREDITS as STRIPE_PLAN_CREDITS } from '@/lib/stripe'
+import { ensureMonthlyGrant } from '@/lib/credits/creditGrants'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +17,10 @@ const PLAN_CREDITS: Record<string, number> = {
   PRO:      STRIPE_PLAN_CREDITS['pro']      ?? 300,
   BUSINESS: STRIPE_PLAN_CREDITS['business'] ?? 1000,
   AGENCY:   STRIPE_PLAN_CREDITS['agency']   ?? 1000,
+}
+
+function isValidDate(value: Date | null | undefined): value is Date {
+  return value instanceof Date && Number.isFinite(value.getTime())
 }
 
 export async function GET(req: NextRequest) {
@@ -29,6 +34,9 @@ export async function GET(req: NextRequest) {
 
   let resetCount = 0
   let errorCount = 0
+  let grantCreatedCount = 0
+  let grantSkippedCount = 0
+  let grantErrorCount = 0
 
   try {
     // Find all active paid subscriptions
@@ -41,6 +49,9 @@ export async function GET(req: NextRequest) {
         userId: true,
         plan: true,
         monthlyCredits: true,
+        stripeId: true,
+        currentPeriodStart: true,
+        currentPeriodEnd: true,
       },
     })
 
@@ -54,6 +65,30 @@ export async function GET(req: NextRequest) {
           data: { aiCredits: credits },
         })
         resetCount++
+
+        const canCreateMonthlyGrant =
+          credits > 0 &&
+          Boolean(sub.stripeId) &&
+          isValidDate(sub.currentPeriodStart) &&
+          isValidDate(sub.currentPeriodEnd)
+
+        if (!canCreateMonthlyGrant) {
+          grantSkippedCount++
+          continue
+        }
+
+        try {
+          const { created } = await ensureMonthlyGrant(sub.userId, {
+            stripeSubscriptionId: sub.stripeId as string,
+            currentPeriodStart: sub.currentPeriodStart as Date,
+            currentPeriodEnd: sub.currentPeriodEnd as Date,
+            amount: credits,
+          })
+          if (created) grantCreatedCount++
+        } catch (grantError: any) {
+          grantErrorCount++
+          console.error(`[CreditReset] Grant sync failed for userId=${sub.userId}:`, grantError.message)
+        }
       } catch (e: any) {
         console.error(`[CreditReset] Failed for userId=${sub.userId}:`, e.message)
         errorCount++
@@ -67,6 +102,9 @@ export async function GET(req: NextRequest) {
       processed: activeSubs.length,
       reset: resetCount,
       errors: errorCount,
+      grantsCreated: grantCreatedCount,
+      grantsSkipped: grantSkippedCount,
+      grantErrors: grantErrorCount,
       timestamp: new Date().toISOString(),
     })
   } catch (err: any) {
