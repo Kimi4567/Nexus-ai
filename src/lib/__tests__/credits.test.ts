@@ -26,6 +26,9 @@ const { mockPrisma } = vi.hoisted(() => ({
     creditTransaction: { create: vi.fn() },
     usage: { upsert: vi.fn() },
     generatedVisual: { count: vi.fn() },
+    // Present so we can assert the grant/wallet path is NEVER entered while the
+    // CREDIT_WALLET_ENABLED flag is OFF (its default in this suite).
+    $transaction: vi.fn(),
   },
 }))
 
@@ -139,6 +142,21 @@ describe('checkAndDeductCredits', () => {
 
     expect(res.ok).toBe(false)
     if (!res.ok) expect(res.error).toBe('INSUFFICIENT_CREDITS')
+  })
+
+  it('with the wallet flag OFF (default), never enters the grant transaction path', async () => {
+    // CREDIT_WALLET_ENABLED is unset in this suite → scalar path only.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: 'u1', subscriptionStatus: 'STARTER', aiCredits: 50,
+      monthlyGenerations: 5, email: 'a@b.com', name: 'A',
+    })
+
+    const res = await checkAndDeductCredits('u1', 'IMAGE_GENERATION')
+
+    expect(res.ok).toBe(true)
+    // Scalar atomic guard used; grant-based $transaction wallet path untouched.
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
   })
 })
 

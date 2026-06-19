@@ -10,6 +10,11 @@
 
 import { prisma } from '@/lib/prisma'
 import { sendCreditsLowEmail } from '@/lib/email/resend'
+import {
+  isCreditWalletEnabled,
+  selectGrantsToSpend,
+  type SpendableGrant,
+} from '@/lib/credits/wallet'
 
 // ── Credit cost map ────────────────────────────────────────────────────────────
 // All AI actions and their credit costs.
@@ -208,6 +213,13 @@ export interface CreditDeductionOk {
   creditsUsed: number
   /** true for paid plans that have aiCredits = -1 (unlimited) */
   isUnlimited: boolean
+  /**
+   * The CreditTransaction id for this debit, when known. Populated only by the
+   * grant-based wallet path (B1c-b, flag ON) — the scalar path logs the
+   * transaction fire-and-forget and leaves this undefined. Additive and
+   * optional; existing callers ignore it. B1c-c will use it for refund-to-source.
+   */
+  transactionId?: string
 }
 
 export interface InsufficientCreditsError {
@@ -306,18 +318,51 @@ export async function checkAndDeductCredits(
 
   const currentCredits = user.aiCredits
 
+  // ── Deduction path selection (B1c-b) ───────────────────────────────────────
+  // Default (flag unset/false) = legacy scalar User.aiCredits path, byte-identical
+  // to before. Flag ON = grant-based deduction from the CreditGrant ledger, with
+  // User.aiCredits maintained as a cache so the rest of the app is unaffected.
+  if (isCreditWalletEnabled()) {
+    return _deductFromGrants(userId, action, cost, currentCredits, isFree, user.email, user.name)
+  }
+  return _deductScalar(userId, action, cost, currentCredits, isFree, user.email, user.name)
+}
+
+// ── Internal: insufficient-credits result (shared by both deduction paths) ────
+
+function _insufficient(
+  cost: number,
+  currentCredits: number,
+  isFree: boolean,
+): InsufficientCreditsError {
+  return {
+    ok: false,
+    error: 'INSUFFICIENT_CREDITS',
+    message: isFree
+      ? `You've used all your free credits. Upgrade to continue.`
+      : 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
+    requiredCredits: cost,
+    currentCredits,
+    upgradeUrl: '/billing',
+  }
+}
+
+// ── Internal: legacy scalar deduction (default path — flag OFF) ───────────────
+// Behaviour-preserving extraction of the original deduction logic. No change to
+// the atomic race guard, usage tracking, transaction log, or low-credits email.
+
+async function _deductScalar(
+  userId: string,
+  action: CreditAction,
+  cost: number,
+  currentCredits: number,
+  isFree: boolean,
+  email: string | null,
+  name: string | null,
+): Promise<CreditCheckResult> {
   // ── Insufficient credits ───────────────────────────────────────────────────
   if (currentCredits < cost) {
-    return {
-      ok: false,
-      error: 'INSUFFICIENT_CREDITS',
-      message: isFree
-        ? `You've used all your free credits. Upgrade to continue.`
-        : 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
-      requiredCredits: cost,
-      currentCredits,
-      upgradeUrl: '/billing',
-    }
+    return _insufficient(cost, currentCredits, isFree)
   }
 
   // ── Atomic deduction ──────────────────────────────────────────────────────
@@ -334,16 +379,7 @@ export async function checkAndDeductCredits(
 
   if (deducted.count === 0) {
     // Lost the race — credits were already consumed by a concurrent request
-    return {
-      ok: false,
-      error: 'INSUFFICIENT_CREDITS',
-      message: isFree
-        ? `You've used all your free credits. Upgrade to continue.`
-        : 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
-      requiredCredits: cost,
-      currentCredits,
-      upgradeUrl: '/billing',
-    }
+    return _insufficient(cost, currentCredits, isFree)
   }
 
   const newCredits = Math.max(0, currentCredits - cost)
@@ -356,15 +392,126 @@ export async function checkAndDeductCredits(
 
   // ── Low-credits warning email ──────────────────────────────────────────────
   // Fire when balance drops below threshold (e.g. can't afford another generation).
-  if (newCredits < LOW_CREDITS_THRESHOLD && user.email) {
+  if (newCredits < LOW_CREDITS_THRESHOLD && email) {
     sendCreditsLowEmail(
-      user.email,
-      user.name || user.email.split('@')[0],
+      email,
+      name || email.split('@')[0],
       newCredits,
     ).catch((e: Error) => console.error('[Credits low email]', e.message))
   }
 
   return { ok: true, creditsRemaining: newCredits, creditsUsed: cost, isUnlimited: false }
+}
+
+// ── Internal: grant-based deduction (B1c-b — flag ON only) ────────────────────
+// Spends from CreditGrant rows in soonest-expiry-first order, maintaining
+// User.aiCredits as an exact cache. All ledger writes happen in ONE interactive
+// transaction with SELECT ... FOR UPDATE row locks, so concurrent requests can't
+// double-spend a grant and an insufficient balance produces ZERO writes.
+
+async function _deductFromGrants(
+  userId: string,
+  action: CreditAction,
+  cost: number,
+  currentCredits: number,
+  isFree: boolean,
+  email: string | null,
+  name: string | null,
+): Promise<CreditCheckResult> {
+  // Run the whole spend as one atomic transaction. A thrown DB error rolls the
+  // transaction back (no partial writes) and propagates — exactly like the
+  // scalar path's awaited updateMany. `prisma as any` keeps this independent of
+  // the generated client types (matching the rest of this file's ledger calls).
+  const outcome: { ok: true; newCredits: number; transactionId: string } | { ok: false } =
+    await (prisma as any).$transaction(async (tx: any) => {
+      const now = new Date()
+
+      // Lock this user's eligible grants for the duration of the transaction so
+      // a concurrent debit can't draw from the same remaining balance.
+      const rows: SpendableGrant[] = await tx.$queryRawUnsafe(
+        `SELECT "id", "type", "remaining", "expiresAt", "status", "createdAt"
+           FROM "CreditGrant"
+          WHERE "userId" = $1
+            AND "status" = 'ACTIVE'
+            AND "remaining" > 0
+            AND ("expiresAt" IS NULL OR "expiresAt" > now())
+          FOR UPDATE`,
+        userId,
+      )
+
+      const plan = selectGrantsToSpend(rows, cost, now)
+      if (!plan.ok) {
+        // Not enough eligible credit — return WITHOUT any write (transaction
+        // commits with no changes).
+        return { ok: false as const }
+      }
+
+      // Decrement each drawn grant by its slice.
+      for (const a of plan.allocations) {
+        await tx.creditGrant.update({
+          where: { id: a.grantId },
+          data: { remaining: { decrement: a.amount } },
+        })
+      }
+
+      // Keep the User.aiCredits cache in exact sync, and bump generations as today.
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          aiCredits: { decrement: cost },
+          monthlyGenerations: { increment: 1 },
+        },
+      })
+
+      // The debit ledger row (same shape/label as the scalar path's _logTransaction).
+      const txn = await tx.creditTransaction.create({
+        data: {
+          userId,
+          action,
+          description: ACTION_LABELS[action] || action,
+          amount: -cost,
+          entityId: null,
+          entityType: null,
+        },
+      })
+
+      // Per-grant allocation rows linking this debit to the grants it drew from.
+      if (plan.allocations.length > 0) {
+        await tx.creditTransactionGrantAllocation.createMany({
+          data: plan.allocations.map((a) => ({
+            creditTransactionId: txn.id,
+            creditGrantId: a.grantId,
+            amount: a.amount,
+          })),
+        })
+      }
+
+      return { ok: true as const, newCredits: Math.max(0, currentCredits - cost), transactionId: txn.id }
+    })
+
+  if (!outcome.ok) {
+    return _insufficient(cost, currentCredits, isFree)
+  }
+
+  // ── Track usage (non-blocking, same as scalar path) ────────────────────────
+  await _trackUsage(userId, cost)
+
+  // ── Low-credits warning email (same threshold/behaviour as scalar path) ─────
+  if (outcome.newCredits < LOW_CREDITS_THRESHOLD && email) {
+    sendCreditsLowEmail(
+      email,
+      name || email.split('@')[0],
+      outcome.newCredits,
+    ).catch((e: Error) => console.error('[Credits low email]', e.message))
+  }
+
+  return {
+    ok: true,
+    creditsRemaining: outcome.newCredits,
+    creditsUsed: cost,
+    isUnlimited: false,
+    transactionId: outcome.transactionId,
+  }
 }
 
 // ── Public: add credits (refunds, bonuses, admin top-up) ──────────────────────
