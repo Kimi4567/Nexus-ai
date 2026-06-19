@@ -262,12 +262,38 @@ export async function POST(req: NextRequest) {
         const plan    = sub.metadata?.plan ?? planFromPriceId(priceId)
         const credits = creditsForPlan(plan)
 
-        await prisma.user.update({
-          where: { id: userId },
-          data:  {
-            subscriptionStatus: 'ACTIVE',
-            aiCredits: credits === -1 ? 999999 : credits,
-          },
+        // B1d-c-2: only create a MONTHLY grant when the existing logic grants a
+        // finite positive allowance AND the cycle dates are valid numbers. An
+        // invalid/missing period must NOT throw or block the aiCredits update.
+        const startSec = (sub as any).current_period_start
+        const endSec   = (sub as any).current_period_end
+        const periodValid =
+          Number.isFinite(startSec) && Number.isFinite(endSec)
+        const wantsGrant = credits > 0 && periodValid
+
+        // Interactive transaction (B1d-c-2): the EXACT same aiCredits overwrite as
+        // before, PLUS a parallel MONTHLY CreditGrant for the renewed cycle. The
+        // aiCredits behavior and the forced-ACTIVE status are unchanged.
+        await (prisma as any).$transaction(async (tx: any) => {
+          await tx.user.update({
+            where: { id: userId },
+            data:  {
+              subscriptionStatus: 'ACTIVE',
+              aiCredits: credits === -1 ? 999999 : credits,
+            },
+          })
+          if (wantsGrant) {
+            await ensureMonthlyGrant(
+              userId,
+              {
+                stripeSubscriptionId: sub.id,
+                currentPeriodStart: new Date(startSec * 1000),
+                currentPeriodEnd: new Date(endSec * 1000),
+                amount: credits,
+              },
+              tx,
+            )
+          }
         })
         console.log(`[Webhook] Credits renewed for userId=${userId} plan=${plan} credits=${credits}`)
         break

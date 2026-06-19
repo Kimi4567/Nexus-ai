@@ -24,7 +24,8 @@ const { mockPrisma, tx, stripe, mockStripeHelpers } = vi.hoisted(() => {
     stripe,
     mockPrisma: {
       $transaction: vi.fn(async (cb: (t: typeof tx) => unknown) => cb(tx)),
-      user: { findUnique: vi.fn() },
+      user: { findUnique: vi.fn(), update: vi.fn() },
+      subscription: { updateMany: vi.fn() },
     },
     mockStripeHelpers: {
       isBillingConfigured: vi.fn(() => true),
@@ -71,6 +72,8 @@ beforeEach(() => {
   tx.user.update.mockResolvedValue({})
   tx.creditGrant.createMany.mockResolvedValue({ count: 1 })
   tx.creditGrant.updateMany.mockResolvedValue({ count: 0 })
+  mockPrisma.user.update.mockResolvedValue({})
+  mockPrisma.subscription.updateMany.mockResolvedValue({ count: 1 })
   stripe.subscriptions.retrieve.mockResolvedValue(stripeSub('active'))
 })
 
@@ -148,5 +151,110 @@ describe('billing webhook — B1d-c-1 MONTHLY grant on provision', () => {
     const data = (tx.user.update.mock.calls[0][0] as any).data
     expect(data.aiCredits).toBeUndefined()
     expect(data.subscriptionStatus).toBe('PAST_DUE')
+  })
+})
+
+// ── B1d-c-2 — invoice.payment_succeeded renewal MONTHLY grant ───────────────
+describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
+  const invoiceEvent = (id: string) => ({
+    type: 'invoice.payment_succeeded', id,
+    data: { object: { subscription: 'sub_1' } },
+  })
+
+  it('renewal overwrites aiCredits AND creates a MONTHLY grant + reset', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue(invoiceEvent('inv_1'))
+
+    await POST(makeReq())
+
+    // aiCredits overwrite unchanged (forced ACTIVE → 150).
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u1' },
+      data: { subscriptionStatus: 'ACTIVE', aiCredits: 150 },
+    }))
+    // MONTHLY grant with correct source/billingCycleId/expiry/amount.
+    expect(tx.creditGrant.createMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: [expect.objectContaining({
+        userId: 'u1', type: 'MONTHLY', amount: 150, remaining: 150,
+        source: SOURCE, billingCycleId: SOURCE, status: 'ACTIVE',
+      })],
+      skipDuplicates: true,
+    }))
+    const arg = tx.creditGrant.createMany.mock.calls[0][0] as any
+    expect(arg.data[0].expiresAt).toEqual(new Date(SECS_END * 1000))
+    // Reset prior non-purchased EXCEPT the new MONTHLY (created === true).
+    expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' }, source: { not: SOURCE } },
+      data: { status: 'RESET', remaining: 0 },
+    })
+  })
+
+  it('duplicate same-cycle invoice does not duplicate the grant or reset again', async () => {
+    tx.creditGrant.createMany.mockResolvedValueOnce({ count: 0 }) // already exists
+    stripe.webhooks.constructEvent.mockReturnValue(invoiceEvent('inv_2'))
+
+    await POST(makeReq())
+
+    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('unlimited (credits -1) sets aiCredits 999999 but creates no MONTHLY grant', async () => {
+    mockStripeHelpers.PLAN_CREDITS.pro = -1
+    stripe.webhooks.constructEvent.mockReturnValue(invoiceEvent('inv_3'))
+
+    await POST(makeReq())
+
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: { subscriptionStatus: 'ACTIVE', aiCredits: 999999 },
+    }))
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+    mockStripeHelpers.PLAN_CREDITS.pro = 150 // restore
+  })
+
+  it('missing invoice.subscription → no transaction, no grant', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'invoice.payment_succeeded', id: 'inv_4', data: { object: {} },
+    })
+
+    await POST(makeReq())
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+  })
+
+  it('missing userId on the subscription → no transaction, no grant', async () => {
+    stripe.subscriptions.retrieve.mockResolvedValueOnce({ ...stripeSub('active'), metadata: {} })
+    stripe.webhooks.constructEvent.mockReturnValue(invoiceEvent('inv_5'))
+
+    await POST(makeReq())
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('invalid/missing current_period dates → aiCredits still overwritten, grant skipped', async () => {
+    stripe.subscriptions.retrieve.mockResolvedValueOnce({
+      ...stripeSub('active'),
+      current_period_start: undefined,
+      current_period_end: undefined,
+    })
+    stripe.webhooks.constructEvent.mockReturnValue(invoiceEvent('inv_6'))
+
+    await POST(makeReq())
+
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: { subscriptionStatus: 'ACTIVE', aiCredits: 150 },
+    }))
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled() // grant safely skipped
+  })
+
+  it('invoice.payment_failed does not create or reset any grant', async () => {
+    stripe.subscriptions.retrieve.mockResolvedValueOnce(stripeSub('past_due'))
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'invoice.payment_failed', id: 'inv_7', data: { object: { subscription: 'sub_1' } },
+    })
+
+    await POST(makeReq())
+
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 })
