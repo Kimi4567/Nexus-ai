@@ -203,18 +203,55 @@ export async function ensureGrant(
 /**
  * Mark a user's ACTIVE, NON-PURCHASED grants as spent: status RESET, remaining 0.
  * This is the "monthly reset / no rollover" primitive — PURCHASED grants are left
- * untouched (they survive renewals). Used by B1d-c later; NOT called at runtime
- * in B1d-a. Never touches User.aiCredits.
+ * untouched (they survive renewals). Never touches User.aiCredits.
+ *
+ * `exceptSource` (B1d-c): when given, the grant with that source is EXCLUDED from
+ * the reset — used by `ensureMonthlyGrant` so the just-created MONTHLY grant for
+ * the current cycle is not itself reset. (In Postgres, `source != x` also
+ * excludes NULL-source rows; every grant we create carries a source.)
  *
  * Returns `{ resetCount }` (rows affected).
  */
 export async function resetNonPurchasedGrants(
   userId: string,
   tx?: unknown,
+  exceptSource?: string,
 ): Promise<{ resetCount: number }> {
+  const where: Record<string, unknown> = {
+    userId,
+    status: 'ACTIVE',
+    type: { not: 'PURCHASED' },
+  }
+  if (exceptSource) where.source = { not: exceptSource }
   const res = await client(tx).creditGrant.updateMany({
-    where: { userId, status: 'ACTIVE', type: { not: 'PURCHASED' } },
+    where,
     data: { status: 'RESET', remaining: 0 },
   })
   return { resetCount: ((res as { count?: number })?.count ?? 0) }
+}
+
+/**
+ * Provision one billing cycle's MONTHLY grant (B1d-c). Idempotent per cycle:
+ *
+ *   1. Create the cycle's MONTHLY grant (idempotent via @@unique([userId, source])).
+ *   2. ONLY if it was newly created, RESET the user's prior ACTIVE non-PURCHASED
+ *      grants (excluding this new MONTHLY) — the "no rollover" reset that mirrors
+ *      today's aiCredits overwrite. PURCHASED is never reset.
+ *
+ * Create-first + the `created` flag (decided atomically by the unique constraint)
+ * mean a duplicate webhook / Stripe retry / same-cycle re-provision neither
+ * duplicates the grant nor resets a second time, and the new grant is never wiped.
+ * Never touches User.aiCredits. Caller passes the plan allowance as `amount`.
+ */
+export async function ensureMonthlyGrant(
+  userId: string,
+  args: MonthlyGrantArgs,
+  tx?: unknown,
+): Promise<{ created: boolean }> {
+  const source = monthlySource(args.stripeSubscriptionId, args.currentPeriodStart)
+  const { created } = await ensureGrant(buildMonthlyGrant(userId, args), tx)
+  if (created) {
+    await resetNonPurchasedGrants(userId, tx, source)
+  }
+  return { created }
 }

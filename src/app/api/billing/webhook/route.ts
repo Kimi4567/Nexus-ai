@@ -19,6 +19,9 @@ import {
   planFromPriceId,
 } from '@/lib/stripe'
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
+// B1d-c-1 — create the cycle's MONTHLY CreditGrant in parallel with the existing
+// aiCredits overwrite (flag-independent, additive; never read while the flag is OFF).
+import { ensureMonthlyGrant } from '@/lib/credits/creditGrants'
 import Stripe from 'stripe'
 
 /** Credits allocated by plan name */
@@ -56,8 +59,12 @@ async function provisionSubscription(
   const monthlyExports  = (p === 'agency' || p === 'business') ? 999999 : p === 'pro' ? 100 : 20
   const maxTeamMembers  = (p === 'agency' || p === 'business') ? 20     : p === 'pro' ? 5   : 1
 
-  await prisma.$transaction([
-    prisma.subscription.upsert({
+  // Interactive transaction (B1d-c-1): the subscription upsert + the EXACT same
+  // aiCredits overwrite as before, PLUS a parallel MONTHLY CreditGrant for the
+  // billing cycle when the subscription is ACTIVE. The aiCredits behavior and the
+  // ACTIVE-only condition are unchanged.
+  await (prisma as any).$transaction(async (tx: any) => {
+    await tx.subscription.upsert({
       where:  { userId },
       create: {
         userId,
@@ -86,8 +93,8 @@ async function provisionSubscription(
         currentPeriodEnd,
         cancelledAt:       null,
       },
-    }),
-    prisma.user.update({
+    })
+    await tx.user.update({
       where: { id: userId },
       data: {
         subscriptionStatus: statusEnum as 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'EXPIRED' | 'FREE',
@@ -97,8 +104,23 @@ async function provisionSubscription(
           aiCredits: credits === -1 ? 999999 : credits,
         }),
       },
-    }),
-  ])
+    })
+    // Parallel MONTHLY grant — only when the existing logic actually grants
+    // credits (ACTIVE) and the allowance is a finite positive amount. Unlimited
+    // (credits === -1) is left to the scalar aiCredits path; no MONTHLY grant.
+    if (statusEnum === 'ACTIVE' && credits > 0) {
+      await ensureMonthlyGrant(
+        userId,
+        {
+          stripeSubscriptionId: stripeSubId,
+          currentPeriodStart,
+          currentPeriodEnd,
+          amount: credits,
+        },
+        tx,
+      )
+    }
+  })
 }
 
 export async function POST(req: NextRequest) {
