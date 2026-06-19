@@ -12,7 +12,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCreditsForTransaction } from '@/lib/credits'
+// B1c-c-1 — allocation-aware refund-to-source for the wallet path (flag-gated).
+import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
 // PR-S1c-2 — server-side order normalization + variable charge (never trust client price).
 import { resolveStrategyCharge } from '@/lib/strategy/normalizeStrategyOrder'
@@ -246,14 +248,26 @@ export async function POST(req: NextRequest) {
     // variable charge. creditsUsed is 0 for unlimited plans, so the guard below
     // correctly skips the refund for them.
     if (!success && credit.creditsUsed > 0) {
-      try {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { aiCredits: { increment: credit.creditsUsed } },
+      if (isCreditWalletEnabled() && credit.transactionId) {
+        // Wallet ON (B1c-c-1): restore the exact amounts to their source grants
+        // via the debit's allocation rows. Does NOT also run the scalar increment.
+        await refundCreditsForTransaction({
+          userId: user.id,
+          transactionId: credit.transactionId,
+          reason: 'Run Full Strategy failed',
         })
-        console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${user.id}`)
-      } catch (refundErr) {
-        console.error('[strategy/run-full] Credit refund failed:', refundErr)
+        console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${user.id} (wallet)`)
+      } else {
+        // Flag OFF — unchanged exact scalar refund (no REFUND ledger row, as today).
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { aiCredits: { increment: credit.creditsUsed } },
+          })
+          console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${user.id}`)
+        } catch (refundErr) {
+          console.error('[strategy/run-full] Credit refund failed:', refundErr)
+        }
       }
     }
     // ──────────────────────────────────────────────────────────────────────

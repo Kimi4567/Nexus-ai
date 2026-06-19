@@ -13,7 +13,10 @@ import { sendCreditsLowEmail } from '@/lib/email/resend'
 import {
   isCreditWalletEnabled,
   selectGrantsToSpend,
+  planRefundToSource,
   type SpendableGrant,
+  type RefundSourceGrant,
+  type RefundAllocationInput,
 } from '@/lib/credits/wallet'
 
 // ── Credit cost map ────────────────────────────────────────────────────────────
@@ -576,6 +579,130 @@ export async function refundCredits(
     )
   } catch (e) {
     console.error('[refundCredits] failed (non-fatal):', (e as Error).message)
+  }
+}
+
+// ── Public: allocation-aware refund-to-source (B1c-c-1 — wallet path) ──────────
+
+/**
+ * Refund a specific debit transaction back to the CreditGrant rows it drew from.
+ *
+ * This is the grant-wallet counterpart to `refundCredits`. Callers use it ONLY
+ * when CREDIT_WALLET_ENABLED is ON and they hold the debit's `transactionId`
+ * (returned by `checkAndDeductCredits`). Legacy scalar `refundCredits` is
+ * unchanged and still used when the flag is OFF.
+ *
+ * Guarantees (all inside ONE transaction; the debit row is locked FOR UPDATE so
+ * concurrent refunds of the SAME debit serialize):
+ *   - Restores the exact per-grant amounts to still-active source grants (capped
+ *     at each grant's original size); spillover/expired sources mint ONE new
+ *     short-lived REFUND grant (14-day expiry) — never reviving an expired one.
+ *   - Increments the User.aiCredits cache by the exact refunded total.
+ *   - Writes a REFUND CreditTransaction linked to the debit
+ *     (entityType='credit_transaction', entityId=debit.id).
+ *   - Idempotent: if a REFUND already links this debit, it no-ops.
+ *   - No-ops safely for a missing transaction, a non-debit (amount >= 0), or a
+ *     transaction owned by another user. Never throws.
+ *
+ * No schema change: double-refund prevention reuses entityId/entityType.
+ */
+export async function refundCreditsForTransaction(
+  args: { userId: string; transactionId: string; reason?: string },
+): Promise<void> {
+  const { userId, transactionId, reason } = args
+  try {
+    await (prisma as any).$transaction(async (tx: any) => {
+      // 1. Lock the debit row for the duration so two refunds of the same debit
+      //    can't both proceed (the second sees the REFUND row and no-ops).
+      const debitRows: Array<{ id: string; userId: string; amount: number }> =
+        await tx.$queryRawUnsafe(
+          `SELECT "id", "userId", "amount" FROM "CreditTransaction" WHERE "id" = $1 FOR UPDATE`,
+          transactionId,
+        )
+      const debit = debitRows[0]
+
+      // 2/3. Must exist, belong to the user, and be a debit (amount < 0).
+      if (!debit || debit.userId !== userId || debit.amount >= 0) return
+
+      // 4. Double-refund guard — an existing REFUND linked to this debit.
+      const already = await tx.creditTransaction.findFirst({
+        where: { action: 'REFUND', entityType: 'credit_transaction', entityId: debit.id },
+        select: { id: true },
+      })
+      if (already) return
+
+      // 5. Allocation rows for this debit.
+      const allocs: RefundAllocationInput[] = await tx.creditTransactionGrantAllocation.findMany({
+        where: { creditTransactionId: debit.id },
+        select: { creditGrantId: true, amount: true },
+      })
+
+      const now = new Date()
+      let refundTotal = 0
+      let newRefundGrantAmount = 0
+
+      if (allocs.length > 0) {
+        // 6. Restore to source. Lock the involved grants so the cap stays exact
+        //    under concurrent refunds touching the same grant.
+        const grantIds = allocs.map((a) => a.creditGrantId)
+        const grants: RefundSourceGrant[] = await tx.$queryRawUnsafe(
+          `SELECT "id", "amount", "remaining", "status", "expiresAt"
+             FROM "CreditGrant" WHERE "id" = ANY($1) FOR UPDATE`,
+          grantIds,
+        )
+        const plan = planRefundToSource(allocs, grants, now)
+        refundTotal = plan.refundTotal
+        newRefundGrantAmount = plan.newRefundGrantAmount
+        for (const r of plan.perGrantRestores) {
+          await tx.creditGrant.update({
+            where: { id: r.grantId },
+            data: { remaining: { increment: r.amount } },
+          })
+        }
+      } else {
+        // 7. No allocations (e.g. an old/scalar debit) → refund the full amount
+        //    into a fresh REFUND grant. Exact and safe.
+        refundTotal = Math.abs(debit.amount)
+        newRefundGrantAmount = refundTotal
+      }
+
+      // 8. Mint ONE new REFUND grant for the non-restorable portion.
+      if (newRefundGrantAmount > 0) {
+        await tx.creditGrant.create({
+          data: {
+            userId,
+            type: 'REFUND',
+            status: 'ACTIVE',
+            amount: newRefundGrantAmount,
+            remaining: newRefundGrantAmount,
+            expiresAt: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+            source: `refund:credit_transaction:${debit.id}`,
+          },
+        })
+      }
+
+      if (refundTotal > 0) {
+        // 9. Keep the aiCredits cache exactly in step.
+        await tx.user.update({
+          where: { id: userId },
+          data: { aiCredits: { increment: refundTotal } },
+        })
+        // 10. REFUND ledger row linked to the original debit.
+        await tx.creditTransaction.create({
+          data: {
+            userId,
+            action: 'REFUND',
+            amount: refundTotal, // positive = credited back
+            description: reason ? `Refund — ${reason}` : 'Refund',
+            entityId: debit.id,
+            entityType: 'credit_transaction',
+          },
+        })
+      }
+    })
+  } catch (e) {
+    // 11. Never throw — a failed refund must not mask the original error.
+    console.error('[refundCreditsForTransaction] failed (non-fatal):', (e as Error).message)
   }
 }
 
