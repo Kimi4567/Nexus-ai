@@ -14,6 +14,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { REFERRAL_BONUS_CREDITS } from '@/lib/stripe'
+// B1d-b — create matching REFERRAL grants in parallel with the aiCredits bonuses
+// (idempotent per side; flag-independent; no change to amounts/messages/status).
+import { ensureGrant, buildBonusGrant, referralSource } from '@/lib/credits/creditGrants'
 
 export async function POST(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
@@ -48,22 +51,36 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cannot refer yourself' }, { status: 400 })
     }
 
-    // Award credits to new user + link referral
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        referredById: referrer.id,
-        aiCredits: { increment: REFERRAL_BONUS_CREDITS },
-      },
-    })
-
-    // Award credits to referrer
-    await prisma.user.update({
-      where: { id: referrer.id },
-      data: {
-        aiCredits: { increment: REFERRAL_BONUS_CREDITS },
-        referralCreditsEarned: { increment: REFERRAL_BONUS_CREDITS },
-      },
+    // Award credits to BOTH users + create matching REFERRAL grants — all in ONE
+    // transaction (B1d-b). The aiCredits increments are identical to before; the
+    // grants are idempotent (deterministic per-side source) and never read while
+    // the wallet flag is OFF.
+    const base = referralSource(referrer.id, user.id) // referral:${referrerId}:${referredId}
+    await (prisma as any).$transaction(async (tx: any) => {
+      // New (referred) user — link referral + bonus
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          referredById: referrer.id,
+          aiCredits: { increment: REFERRAL_BONUS_CREDITS },
+        },
+      })
+      // Referrer — bonus + earned counter
+      await tx.user.update({
+        where: { id: referrer.id },
+        data: {
+          aiCredits: { increment: REFERRAL_BONUS_CREDITS },
+          referralCreditsEarned: { increment: REFERRAL_BONUS_CREDITS },
+        },
+      })
+      await ensureGrant(
+        buildBonusGrant(user.id, 'REFERRAL', REFERRAL_BONUS_CREDITS, `${base}:referred`),
+        tx,
+      )
+      await ensureGrant(
+        buildBonusGrant(referrer.id, 'REFERRAL', REFERRAL_BONUS_CREDITS, `${base}:referrer`),
+        tx,
+      )
     })
 
     console.log(`[Referral] ${user.id} claimed code ${referralCode} → referrer ${referrer.id} both get +${REFERRAL_BONUS_CREDITS} credits`)
