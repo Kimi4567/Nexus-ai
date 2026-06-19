@@ -21,7 +21,7 @@ import {
 import { sendUpgradeConfirmationEmail } from '@/lib/email/resend'
 // B1d-c-1 — create the cycle's MONTHLY CreditGrant in parallel with the existing
 // aiCredits overwrite (flag-independent, additive; never read while the flag is OFF).
-import { ensureMonthlyGrant } from '@/lib/credits/creditGrants'
+import { ensureMonthlyGrant, voidNonPurchasedGrants } from '@/lib/credits/creditGrants'
 import Stripe from 'stripe'
 
 /** Credits allocated by plan name */
@@ -234,16 +234,21 @@ export async function POST(req: NextRequest) {
           break
         }
 
-        await prisma.$transaction([
-          prisma.subscription.updateMany({
+        // Interactive transaction (B1d-c-3): the EXACT same cancel behavior as
+        // before (status CANCELLED, aiCredits = 0), PLUS voiding the user's
+        // ACTIVE non-PURCHASED grants so a cancelled user has no spendable
+        // monthly/trial/referral/manual/migrated balance. PURCHASED untouched.
+        await (prisma as any).$transaction(async (tx: any) => {
+          await tx.subscription.updateMany({
             where: { userId, stripeId: sub.id },
             data:  { status: 'CANCELLED', cancelledAt: new Date() },
-          }),
-          prisma.user.update({
+          })
+          await tx.user.update({
             where: { id: userId },
             data:  { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
-          }),
-        ])
+          })
+          await voidNonPurchasedGrants(userId, tx)
+        })
         console.log(`[Webhook] Subscription cancelled for userId=${userId}`)
         break
       }
