@@ -144,3 +144,93 @@ export function selectGrantsToSpend(
 
   return { ok: true, allocations, totalSpent: cost - outstanding }
 }
+
+// ── Refund-to-source planner (B1c-c-1) ───────────────────────────────────────
+// When a flag-ON debit fails, we restore the exact amounts it drew from each
+// CreditGrant. This pure planner decides, per allocation, how much goes BACK to
+// the original grant vs. into a fresh short-lived REFUND grant — without ever
+// inflating a grant beyond its original size or reviving an expired one.
+
+/** The minimal CreditGrant projection needed to decide a refund. */
+export interface RefundSourceGrant {
+  id: string
+  amount: number // original grant size — refund into it is capped at this
+  remaining: number
+  status: string // ACTIVE | EXPIRED | RESET | VOID
+  expiresAt: Date | null
+}
+
+/** One debit→grant allocation row to be reversed. */
+export interface RefundAllocationInput {
+  creditGrantId: string
+  amount: number
+}
+
+export interface RefundPlan {
+  /** Amounts to ADD BACK to specific (still-active) grants' `remaining`. */
+  perGrantRestores: Array<{ grantId: string; amount: number }>
+  /** Amount that can't go to source → mint ONE new REFUND grant for this. */
+  newRefundGrantAmount: number
+  /** Total being refunded = Σ allocation amounts (restores + new grant). */
+  refundTotal: number
+}
+
+/**
+ * Plan how to reverse a set of debit allocations back to their source grants.
+ *
+ * Rules:
+ * - Source grant ACTIVE and not expired at `now` → restore up to its remaining
+ *   headroom (`amount − remaining`); never exceed `grant.amount`. Any overflow
+ *   beyond the cap spills into `newRefundGrantAmount` (kept exact, not dropped).
+ * - Source grant EXPIRED / RESET / VOID / missing → the whole allocation amount
+ *   goes to `newRefundGrantAmount` (a fresh short-lived grant; the original is
+ *   never revived).
+ * - Invariant: Σ(perGrantRestores) + newRefundGrantAmount === refundTotal.
+ *
+ * Pure: no DB, no I/O. `now` is injected for deterministic tests.
+ */
+export function planRefundToSource(
+  allocations: RefundAllocationInput[],
+  grants: RefundSourceGrant[],
+  now: Date = new Date(),
+): RefundPlan {
+  const grantById = new Map(grants.map((g) => [g.id, g]))
+  // Track remaining headroom per grant as we restore, so multiple allocations
+  // to the same grant can't collectively push it past its original size.
+  const headroom = new Map<string, number>()
+  const restoresByGrant = new Map<string, number>()
+  let newRefundGrantAmount = 0
+  let refundTotal = 0
+
+  for (const a of allocations) {
+    const amt = a.amount
+    if (amt <= 0) continue
+    refundTotal += amt
+
+    const g = grantById.get(a.creditGrantId)
+    const eligible =
+      !!g &&
+      g.status === 'ACTIVE' &&
+      (g.expiresAt === null || g.expiresAt.getTime() > now.getTime())
+
+    if (!g || !eligible) {
+      newRefundGrantAmount += amt
+      continue
+    }
+
+    if (!headroom.has(g.id)) headroom.set(g.id, Math.max(0, g.amount - g.remaining))
+    const room = headroom.get(g.id) as number
+    const restorable = Math.min(amt, room)
+    if (restorable > 0) {
+      restoresByGrant.set(g.id, (restoresByGrant.get(g.id) ?? 0) + restorable)
+      headroom.set(g.id, room - restorable)
+    }
+    const overflow = amt - restorable
+    if (overflow > 0) newRefundGrantAmount += overflow
+  }
+
+  const perGrantRestores = Array.from(restoresByGrant.entries()).map(
+    ([grantId, amount]) => ({ grantId, amount }),
+  )
+  return { perGrantRestores, newRefundGrantAmount, refundTotal }
+}

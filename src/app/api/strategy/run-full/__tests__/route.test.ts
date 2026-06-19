@@ -15,13 +15,15 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const {
-  mockGetAuthUser, mockAiRateLimitDb, mockCheckAndDeduct,
+  mockGetAuthUser, mockAiRateLimitDb, mockCheckAndDeduct, mockRefundForTxn, mockIsWalletEnabled,
   mockRunFullAgency, mockReadiness, mockGetMemories, mockFormatMemories,
   mockPrisma,
 } = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockAiRateLimitDb: vi.fn(),
   mockCheckAndDeduct: vi.fn(),
+  mockRefundForTxn: vi.fn(),
+  mockIsWalletEnabled: vi.fn(),
   mockRunFullAgency: vi.fn(),
   mockReadiness: vi.fn(),
   mockGetMemories: vi.fn(),
@@ -37,7 +39,11 @@ const {
 
 vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
-vi.mock('@/lib/credits', () => ({ checkAndDeductCredits: mockCheckAndDeduct }))
+vi.mock('@/lib/credits', () => ({
+  checkAndDeductCredits: mockCheckAndDeduct,
+  refundCreditsForTransaction: mockRefundForTxn,
+}))
+vi.mock('@/lib/credits/wallet', () => ({ isCreditWalletEnabled: mockIsWalletEnabled }))
 vi.mock('@/lib/agents/orchestrator', () => ({ runFullAgency: mockRunFullAgency }))
 vi.mock('@/lib/brandReadiness', () => ({ getBrandBrainReadiness: mockReadiness }))
 vi.mock('@/lib/campaign-memory', () => ({
@@ -60,6 +66,8 @@ beforeEach(() => {
   mockGetAuthUser.mockResolvedValue({ id: 'u1' })
   mockAiRateLimitDb.mockResolvedValue({ ok: true })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 14, creditsRemaining: 86, isUnlimited: false })
+  mockIsWalletEnabled.mockReturnValue(false) // flag OFF by default (production state)
+  mockRefundForTxn.mockResolvedValue(undefined)
   mockReadiness.mockReturnValue({ ready: true, missingRequired: [], score: 80 })
   mockGetMemories.mockResolvedValue([])
   mockFormatMemories.mockReturnValue(undefined)
@@ -145,6 +153,61 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
+  // ── B1c-c-1 — refund path selection by CREDIT_WALLET_ENABLED ───────────────
+  it('flag OFF → scalar refund only; refundCreditsForTransaction is NOT called', async () => {
+    mockIsWalletEnabled.mockReturnValue(false)
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false, transactionId: 'txn_should_be_ignored' })
+    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockPrisma.campaign.findFirst.mockResolvedValue(null)
+
+    await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'u1' }, data: { aiCredits: { increment: 18 } } }),
+    )
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('flag ON + transactionId → refundCreditsForTransaction with the debit id; no scalar increment', async () => {
+    mockIsWalletEnabled.mockReturnValue(true)
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false, transactionId: 'txn_99' })
+    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockPrisma.campaign.findFirst.mockResolvedValue(null)
+
+    await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
+
+    expect(mockRefundForTxn).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'u1', transactionId: 'txn_99' }),
+    )
+    // Wallet path must NOT also run the scalar increment.
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('flag ON but no transactionId → falls back to scalar increment', async () => {
+    mockIsWalletEnabled.mockReturnValue(true)
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false }) // no transactionId
+    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockPrisma.campaign.findFirst.mockResolvedValue(null)
+
+    await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
+
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'u1' }, data: { aiCredits: { increment: 18 } } }),
+    )
+  })
+
+  it('flag ON + transactionId but success → no refund at all', async () => {
+    mockIsWalletEnabled.mockReturnValue(true)
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 14, creditsRemaining: 86, isUnlimited: false, transactionId: 'txn_ok' })
+    // default mockRunFullAgency = strategyCreated true, campaign found → success
+
+    await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
+
+    expect(mockRefundForTxn).not.toHaveBeenCalled()
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
   })
 })
