@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import * as ai from '@/lib/ai/adapter'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
@@ -16,14 +16,15 @@ export async function POST(req: NextRequest) {
   const rl = await aiRateLimitDb(userId)
   if (!rl.ok) return NextResponse.json({ error: rl.message }, { status: 429 })
 
-  // ── Unified credit check + deduction ────────────────────────────────────────
-  const credit = await checkAndDeductCredits(userId, 'CAMPAIGN_GENERATION')
-  if (!credit.ok) {
-    return NextResponse.json(credit, { status: 402 })
+  let body: any
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
-  // ────────────────────────────────────────────────────────────────────────────
-
-  const body = await req.json()
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
   const { campaignId, language } = body
   if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
@@ -52,6 +53,15 @@ export async function POST(req: NextRequest) {
     language: language || 'ar',
     pastLearnings,
   }
+
+  // ── Unified credit check + deduction ────────────────────────────────────────
+  // Deduct only after cheap validation and ownership checks pass. The next step
+  // is the expensive AI/provider work.
+  const credit = await checkAndDeductCredits(userId, 'CAMPAIGN_GENERATION')
+  if (!credit.ok) {
+    return NextResponse.json(credit, { status: 402 })
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   try {
     // Run both AI calls in parallel — halves execution time vs sequential
@@ -117,7 +127,17 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Generate failed:', error)
     // Refund — failed generation must not charge the user (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'CAMPAIGN_GENERATION')
+    if (credit.creditsUsed > 0) {
+      if (credit.transactionId) {
+        await refundCreditsForTransaction({
+          userId,
+          transactionId: credit.transactionId,
+          reason: 'Campaign generation failed',
+        })
+      } else {
+        await refundCredits(userId, 'CAMPAIGN_GENERATION')
+      }
+    }
     return NextResponse.json({ error: 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
 }
