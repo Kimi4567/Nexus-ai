@@ -30,6 +30,7 @@ import {
   ensureGrant,
   resetNonPurchasedGrants,
   ensureMonthlyGrant,
+  voidNonPurchasedGrants,
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
 
@@ -226,5 +227,40 @@ describe('ensureMonthlyGrant', () => {
     expect(tx.creditGrant.createMany).toHaveBeenCalledTimes(1)
     expect(tx.creditGrant.updateMany).toHaveBeenCalledTimes(1) // reset ran (created)
     expect(mockPrisma.creditGrant.createMany).not.toHaveBeenCalled()
+  })
+})
+
+// ── B1d-c-3 — voidNonPurchasedGrants (cancellation) ────────────────────────
+describe('voidNonPurchasedGrants', () => {
+  it('VOIDs ACTIVE non-PURCHASED grants to remaining 0', async () => {
+    mockPrisma.creditGrant.updateMany.mockResolvedValueOnce({ count: 2 })
+    const res = await voidNonPurchasedGrants('u1')
+    expect(res.voidCount).toBe(2)
+    expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' } },
+      data: { status: 'VOID', remaining: 0 },
+    })
+  })
+
+  it('leaves PURCHASED grants untouched (filter excludes them)', async () => {
+    await voidNonPurchasedGrants('u1')
+    const arg = mockPrisma.creditGrant.updateMany.mock.calls[0][0] as any
+    expect(arg.where.type).toEqual({ not: 'PURCHASED' })
+    expect(arg.where.status).toBe('ACTIVE')
+    expect(arg.data.status).toBe('VOID')
+  })
+
+  it('is idempotent (re-running voids nothing) and never touches User.aiCredits', async () => {
+    mockPrisma.creditGrant.updateMany.mockResolvedValueOnce({ count: 0 })
+    const res = await voidNonPurchasedGrants('u1')
+    expect(res.voidCount).toBe(0)
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('uses the provided transaction client', async () => {
+    const tx = { creditGrant: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } }
+    await voidNonPurchasedGrants('u1', tx)
+    expect(tx.creditGrant.updateMany).toHaveBeenCalledTimes(1)
+    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
   })
 })

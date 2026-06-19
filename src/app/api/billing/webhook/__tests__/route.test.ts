@@ -11,7 +11,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 const { mockPrisma, tx, stripe, mockStripeHelpers } = vi.hoisted(() => {
   const tx = {
-    subscription: { upsert: vi.fn() },
+    subscription: { upsert: vi.fn(), updateMany: vi.fn() },
     user: { update: vi.fn() },
     creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
   }
@@ -72,6 +72,7 @@ beforeEach(() => {
   tx.user.update.mockResolvedValue({})
   tx.creditGrant.createMany.mockResolvedValue({ count: 1 })
   tx.creditGrant.updateMany.mockResolvedValue({ count: 0 })
+  tx.subscription.updateMany.mockResolvedValue({ count: 1 })
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.subscription.updateMany.mockResolvedValue({ count: 1 })
   stripe.subscriptions.retrieve.mockResolvedValue(stripeSub('active'))
@@ -256,5 +257,57 @@ describe('billing webhook — B1d-c-2 renewal MONTHLY grant', () => {
 
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
     expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+})
+
+// ── B1d-c-3 — subscription.deleted voids non-purchased grants ───────────────
+describe('billing webhook — B1d-c-3 cancellation voids grants', () => {
+  const deletedEvent = () => ({
+    type: 'customer.subscription.deleted', id: 'evt_del',
+    data: { object: { id: 'sub_1', metadata: { userId: 'u1' } } },
+  })
+
+  it('cancellation keeps aiCredits=0 AND voids ACTIVE non-PURCHASED grants', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue(deletedEvent())
+
+    await POST(makeReq())
+
+    // Existing cancel behavior unchanged.
+    expect(tx.subscription.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'u1', stripeId: 'sub_1' },
+      data: expect.objectContaining({ status: 'CANCELLED' }),
+    }))
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u1' },
+      data: { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
+    }))
+    // Grants VOIDed; PURCHASED excluded by the filter.
+    expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' } },
+      data: { status: 'VOID', remaining: 0 },
+    })
+    // No grant creation on cancel.
+    expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+  })
+
+  it('missing userId → no transaction, no void', async () => {
+    stripe.webhooks.constructEvent.mockReturnValue({
+      type: 'customer.subscription.deleted', id: 'evt_del2',
+      data: { object: { id: 'sub_1', metadata: {} } },
+    })
+
+    await POST(makeReq())
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(tx.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('repeat cancellation is idempotent (void matches nothing)', async () => {
+    tx.creditGrant.updateMany.mockResolvedValueOnce({ count: 0 }) // already voided
+    stripe.webhooks.constructEvent.mockReturnValue(deletedEvent())
+
+    await POST(makeReq()) // must not throw
+
+    expect(tx.user.update).toHaveBeenCalled()
   })
 })

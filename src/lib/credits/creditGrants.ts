@@ -255,3 +255,27 @@ export async function ensureMonthlyGrant(
   }
   return { created }
 }
+
+/**
+ * Cancellation primitive (B1d-c-3): VOID a user's ACTIVE NON-PURCHASED grants
+ * (status VOID, remaining 0). This mirrors today's `aiCredits = 0` on
+ * `subscription.deleted` so a cancelled user has no spendable monthly/trial/
+ * referral/manual/migrated balance. PURCHASED grants are left untouched (they
+ * survive a cancellation; reserved for B1e). Never touches User.aiCredits.
+ *
+ * Idempotent: re-running on an already-cancelled user matches no ACTIVE
+ * non-PURCHASED grants and voids nothing. Distinct status (VOID) from the
+ * monthly-renewal RESET so credit history can tell cancellation apart.
+ *
+ * Returns `{ voidCount }` (rows affected).
+ */
+export async function voidNonPurchasedGrants(
+  userId: string,
+  tx?: unknown,
+): Promise<{ voidCount: number }> {
+  const res = await client(tx).creditGrant.updateMany({
+    where: { userId, status: 'ACTIVE', type: { not: 'PURCHASED' } },
+    data: { status: 'VOID', remaining: 0 },
+  })
+  return { voidCount: ((res as { count?: number })?.count ?? 0) }
+}
