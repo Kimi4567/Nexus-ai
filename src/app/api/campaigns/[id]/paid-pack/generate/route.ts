@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -76,15 +76,12 @@ export async function POST(
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Check credits — single atomic deduction (6 credits for the full pack)
-    const creditResult = await checkAndDeductCredits(user.id, 'PAID_PACK_GENERATE')
-    if (!creditResult.ok) {
-      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
-    }
+    const campaignId = params.id
+    if (!campaignId) return NextResponse.json({ error: 'Campaign id required' }, { status: 400 })
 
     // Fetch campaign + brand profile
     const campaign = await prisma.campaign.findFirst({
-      where: { id: params.id, workspace: { ownerId: user.id } },
+      where: { id: campaignId, workspace: { ownerId: user.id } },
       include: { workspace: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -98,7 +95,7 @@ export async function POST(
 
     // Fetch existing pack for context (objective, platforms, budget)
     const existingPack = await db.paidCampaignPack.findUnique({
-      where: { campaignId: params.id },
+      where: { campaignId },
     })
 
     const objective = existingPack?.objective ?? 'TRAFFIC'
@@ -313,70 +310,98 @@ Generate a complete paid campaign pack as JSON with this exact structure:
   }
 }`
 
-    const raw = await callGPT(systemPrompt, userPrompt)
-    let generated: {
-      audienceBrief?: Record<string, unknown>
-      copyVariants?: unknown[]
-      budgetInsights?: Record<string, unknown>
-      platformGuides?: Record<string, unknown>
+    // Check credits — single atomic deduction (6 credits for the full pack).
+    // Deduct only after cheap auth, ownership, campaign, brand, and pack context
+    // checks pass. The next step is the expensive provider generation call.
+    const creditResult = await checkAndDeductCredits(user.id, 'PAID_PACK_GENERATE')
+    if (!creditResult.ok) {
+      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
+    }
+
+    const refundPaidPack = async () => {
+      if (creditResult.creditsUsed <= 0) return
+      if (creditResult.transactionId) {
+        await refundCreditsForTransaction({
+          userId: user.id,
+          transactionId: creditResult.transactionId,
+          reason: 'Paid campaign pack generation failed',
+        })
+      } else {
+        await refundCredits(user.id, 'PAID_PACK_GENERATE')
+      }
     }
 
     try {
-      generated = JSON.parse(raw)
-    } catch {
-      return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
+      const raw = await callGPT(systemPrompt, userPrompt)
+      let generated: {
+        audienceBrief?: Record<string, unknown>
+        copyVariants?: unknown[]
+        budgetInsights?: Record<string, unknown>
+        platformGuides?: Record<string, unknown>
+      }
+
+      try {
+        generated = JSON.parse(raw)
+      } catch {
+        await refundPaidPack()
+        return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
+      }
+
+      // Calculate estimated reach
+      const estimatedReach = estimateReach(dailyBudget, durationDays, platforms)
+
+      // Generate UTM params
+      const slug = buildSlug(campaign.name)
+      const utmParams = {
+        source: '{platform}',  // replaced per-platform in UI
+        medium: 'paid_social',
+        campaign: slug,
+        content: '{variant_id}',
+        term: '{audience_segment}',
+        examples: platforms.reduce((acc: Record<string, string>, p: string) => {
+          acc[p] = `utm_source=${p}&utm_medium=paid_social&utm_campaign=${slug}&utm_content=v1&utm_term=${p}_audience`
+          return acc
+        }, {}),
+      }
+
+      // Save to DB
+      const pack = await db.paidCampaignPack.upsert({
+        where: { campaignId },
+        update: {
+          audienceBrief: generated.audienceBrief ?? {},
+          copyVariants: generated.copyVariants ?? [],
+          estimatedReach,
+          utmParams,
+          platformGuides: generated.platformGuides ?? {},
+          budgetInsights: generated.budgetInsights ?? {},
+          status: 'GENERATED',
+          generatedAt: new Date(),
+        },
+        create: {
+          campaignId,
+          workspaceId: campaign.workspaceId,
+          objective,
+          platforms,
+          dailyBudget,
+          durationDays,
+          currency,
+          audienceBrief: generated.audienceBrief ?? {},
+          copyVariants: generated.copyVariants ?? [],
+          estimatedReach,
+          utmParams,
+          platformGuides: generated.platformGuides ?? {},
+          budgetInsights: generated.budgetInsights ?? {},
+          status: 'GENERATED',
+          generatedAt: new Date(),
+        },
+      })
+
+      return NextResponse.json({ pack, success: true })
+    } catch (err) {
+      console.error('[paid-pack/generate]', err)
+      await refundPaidPack()
+      return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
     }
-
-    // Calculate estimated reach
-    const estimatedReach = estimateReach(dailyBudget, durationDays, platforms)
-
-    // Generate UTM params
-    const slug = buildSlug(campaign.name)
-    const utmParams = {
-      source: '{platform}',  // replaced per-platform in UI
-      medium: 'paid_social',
-      campaign: slug,
-      content: '{variant_id}',
-      term: '{audience_segment}',
-      examples: platforms.reduce((acc: Record<string, string>, p: string) => {
-        acc[p] = `utm_source=${p}&utm_medium=paid_social&utm_campaign=${slug}&utm_content=v1&utm_term=${p}_audience`
-        return acc
-      }, {}),
-    }
-
-    // Save to DB
-    const pack = await db.paidCampaignPack.upsert({
-      where: { campaignId: params.id },
-      update: {
-        audienceBrief: generated.audienceBrief ?? {},
-        copyVariants: generated.copyVariants ?? [],
-        estimatedReach,
-        utmParams,
-        platformGuides: generated.platformGuides ?? {},
-        budgetInsights: generated.budgetInsights ?? {},
-        status: 'GENERATED',
-        generatedAt: new Date(),
-      },
-      create: {
-        campaignId: params.id,
-        workspaceId: campaign.workspaceId,
-        objective,
-        platforms,
-        dailyBudget,
-        durationDays,
-        currency,
-        audienceBrief: generated.audienceBrief ?? {},
-        copyVariants: generated.copyVariants ?? [],
-        estimatedReach,
-        utmParams,
-        platformGuides: generated.platformGuides ?? {},
-        budgetInsights: generated.budgetInsights ?? {},
-        status: 'GENERATED',
-        generatedAt: new Date(),
-      },
-    })
-
-    return NextResponse.json({ pack, success: true })
   } catch (err) {
     console.error('[paid-pack/generate]', err)
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 })
