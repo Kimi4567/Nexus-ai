@@ -29,6 +29,7 @@ import {
   buildBonusGrant,
   ensureGrant,
   resetNonPurchasedGrants,
+  ensureMonthlyGrant,
   STARTER_CREDITS,
 } from '@/lib/credits/creditGrants'
 
@@ -165,5 +166,65 @@ describe('resetNonPurchasedGrants', () => {
     expect(res.resetCount).toBe(2)
     expect(tx.creditGrant.updateMany).toHaveBeenCalledTimes(1)
     expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('B1d-c: exceptSource excludes that grant from the reset', async () => {
+    await resetNonPurchasedGrants('u1', undefined, 'monthly:sub_1:2026-06-01T00:00:00.000Z')
+    const arg = mockPrisma.creditGrant.updateMany.mock.calls[0][0] as any
+    expect(arg.where.source).toEqual({ not: 'monthly:sub_1:2026-06-01T00:00:00.000Z' })
+    expect(arg.where.type).toEqual({ not: 'PURCHASED' })
+    expect(arg.where.status).toBe('ACTIVE')
+  })
+})
+
+// ── B1d-c — ensureMonthlyGrant (provision one cycle, idempotent) ────────────
+describe('ensureMonthlyGrant', () => {
+  const monthly = {
+    stripeSubscriptionId: 'sub_9',
+    currentPeriodStart: new Date('2026-06-01T00:00:00.000Z'),
+    currentPeriodEnd: new Date('2026-07-01T00:00:00.000Z'),
+    amount: 150,
+  }
+  const SOURCE = 'monthly:sub_9:2026-06-01T00:00:00.000Z'
+
+  it('creates the MONTHLY grant (correct source/billingCycleId/expiry/amount)', async () => {
+    mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 1 })
+    const res = await ensureMonthlyGrant('u1', monthly)
+    expect(res.created).toBe(true)
+    expect(mockPrisma.creditGrant.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [expect.objectContaining({
+          userId: 'u1', type: 'MONTHLY', amount: 150, remaining: 150,
+          source: SOURCE, billingCycleId: SOURCE, status: 'ACTIVE',
+        })],
+        skipDuplicates: true,
+      }),
+    )
+    const arg = mockPrisma.creditGrant.createMany.mock.calls[0][0] as any
+    expect(arg.data[0].expiresAt).toEqual(monthly.currentPeriodEnd)
+  })
+
+  it('when newly created, resets prior non-purchased grants EXCEPT the new MONTHLY', async () => {
+    mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 1 })
+    await ensureMonthlyGrant('u1', monthly)
+    expect(mockPrisma.creditGrant.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' }, source: { not: SOURCE } },
+      data: { status: 'RESET', remaining: 0 },
+    })
+  })
+
+  it('duplicate same-cycle provision does NOT create a duplicate and does NOT reset again', async () => {
+    mockPrisma.creditGrant.createMany.mockResolvedValueOnce({ count: 0 }) // already exists
+    const res = await ensureMonthlyGrant('u1', monthly)
+    expect(res.created).toBe(false)
+    expect(mockPrisma.creditGrant.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('uses the provided transaction client', async () => {
+    const tx = { creditGrant: { createMany: vi.fn().mockResolvedValue({ count: 1 }), updateMany: vi.fn().mockResolvedValue({ count: 0 }) } }
+    await ensureMonthlyGrant('u1', monthly, tx)
+    expect(tx.creditGrant.createMany).toHaveBeenCalledTimes(1)
+    expect(tx.creditGrant.updateMany).toHaveBeenCalledTimes(1) // reset ran (created)
+    expect(mockPrisma.creditGrant.createMany).not.toHaveBeenCalled()
   })
 })
