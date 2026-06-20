@@ -1040,6 +1040,9 @@ function BrandBrainInner() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
+                      {/* PX-2B.1 — name the concept explicitly so the number is read as
+                          memory maturity (depth), never as setup completeness. */}
+                      <span className="text-[11px] font-semibold text-slate-400">{locale === 'ar' ? 'نضج الذاكرة' : 'Memory maturity'}</span>
                       {/* PR-N1 — stage-first: lead with the maturity STAGE; the 45/100
                           number is secondary/muted. Chip tooltip + the "Why?" disclosure
                           below explain that maturity = depth (setup + learned memory),

@@ -21,7 +21,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { getBrandReadinessCopy, BrandReadinessStatus } from '@/lib/brandReadiness'
+import { getStrategyCapabilities, BrandReadinessStatus } from '@/lib/brandReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import AppShell from '@/components/AppShell'
 import {
@@ -68,6 +68,10 @@ export default function StrategyPage() {
   const [loading, setLoading] = useState(true)
   const [brandStatus, setBrandStatus] = useState<BrandReadinessStatus | null>(null)
   const [brandName, setBrandName] = useState<string>('')
+  // PX-2B.1 — capability-specific readiness reuses the SAME brand profile already
+  // returned by GET /api/brand (no extra request, no new math, no new score).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [brandProfile, setBrandProfile] = useState<any>(null)
   const [campaigns, setCampaigns] = useState<CampaignLite[]>([])
   const [total, setTotal] = useState(0)
 
@@ -87,6 +91,7 @@ export default function StrategyPage() {
         const d = await bRes.json()
         setBrandStatus(d.maturity?.status ?? null)
         setBrandName(d.brandProfile?.brandName ?? '')
+        setBrandProfile(d.brandProfile ?? null)
       }
     } catch {
       /* non-fatal — render honest empty states */
@@ -126,8 +131,28 @@ export default function StrategyPage() {
   ].map(textLabel).filter(Boolean).slice(0, 4)
   const hasOrganicData = pillars.length > 0 || hooks.length > 0 || ctas.length > 0 || !platformSummary.isEmpty
 
-  const brandCopy = brandStatus ? getBrandReadinessCopy(brandStatus, locale, brandName) : null
   const brandActive = brandStatus === 'active'
+  // PX-2B.1 — capability-specific, LABEL-ONLY readiness from the same utility
+  // /brand uses (getStrategyCapabilities). This prevents a coarse "needs data"
+  // here from conflicting with "organic ready" on /brand. The headline is the
+  // memory maturity STAGE (Early/Developing/Strong), never a bare number.
+  const caps = getStrategyCapabilities(brandProfile)
+  const memStage = brandStatus === 'active'
+    ? (ar ? 'قوية' : 'Strong')
+    : brandStatus === 'building'
+      ? (ar ? 'قيد التطوّر' : 'Developing')
+      : (ar ? 'مبكرة' : 'Early')
+  const capRows: { label: string; value: string; ready?: boolean }[] = [
+    { label: ar ? 'العضوي' : 'Organic',
+      value: caps.contentStrategy.ready ? (ar ? 'جاهز لموجز أولي' : 'Ready for an initial brief') : (ar ? 'يحتاج بيانات أساسية' : 'Needs core data'),
+      ready: caps.contentStrategy.ready },
+    { label: ar ? 'الاستراتيجية الكاملة' : 'Full strategy',
+      value: caps.fullStrategy.ready ? (ar ? 'جاهزة' : 'Ready') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
+      ready: caps.fullStrategy.ready },
+    { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', value: ar ? 'للتخطيط فقط' : 'Planning-only' },
+    { label: ar ? 'التحليلات' : 'Analytics', value: ar ? 'غير متصلة' : 'Not connected' },
+    { label: ar ? 'النشر التلقائي' : 'Auto-publishing', value: ar ? 'غير مفعّل' : 'Not enabled' },
+  ]
 
   const strategyStatusText = !hasStrategy
     ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'No strategy created yet')
@@ -180,12 +205,21 @@ export default function StrategyPage() {
           {/* Status row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <div className={card} style={cardStyle}>
-              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'ذاكرة العلامة' : 'Brand Brain'}</p>
+              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'ذاكرة العلامة التجارية' : 'Brand Memory'}</p>
               <div className="flex items-center gap-2 mt-2">
                 <Brain className="w-4 h-4 flex-shrink-0" style={{ color: brandActive ? '#10b981' : '#f59e0b' }} />
                 <span className="text-sm font-bold" style={{ color: brandActive ? '#059669' : '#d97706' }}>
-                  {brandCopy ? brandCopy.label : (ar ? 'يحتاج إعداد' : 'Needs setup')}
+                  {memStage}
                 </span>
+              </div>
+              {/* PX-2B.1 — capability-specific readiness; never a bare "Ready". */}
+              <div className="mt-3 space-y-1.5">
+                {capRows.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <span className="text-[12px]" style={{ color: '#64748b' }}>{r.label}</span>
+                    <span className="text-[12px] font-semibold" style={{ color: r.ready ? '#059669' : '#475569' }}>{r.value}</span>
+                  </div>
+                ))}
               </div>
               {!brandActive && (
                 <Link href="/brand" className="inline-flex items-center gap-1 text-xs font-semibold mt-3" style={{ color: '#8B5CF6' }}>
