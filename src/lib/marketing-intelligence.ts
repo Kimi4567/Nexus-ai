@@ -405,9 +405,15 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       severity: Object.values(loop).every(Boolean) ? 'good' : 'watch',
     },
     {
+      // PX-2B.2 — label aligned with /brand and /strategy ("Brand Memory").
+      // The value/severity below are the brief's internal default; the dashboard
+      // OVERRIDES this signal with the maturity STATUS (Early/Developing/Strong)
+      // via getBrandMemoryStatusCopy(brandStatus), so the scoreBrandReadiness()
+      // percentage is never user-facing. brandScore stays internal (maturity
+      // ordering + action thresholds), its math unchanged.
       id: 'brand',
-      label: 'Brand memory',
-      labelAr: 'ذاكرة العلامة',
+      label: 'Brand Memory',
+      labelAr: 'ذاكرة العلامة التجارية',
       value: `${brandScore}%`,
       valueAr: `${brandScore}%`,
       severity: brandScore >= 70 ? 'good' : brandScore >= 40 ? 'watch' : 'risk',
