@@ -15,7 +15,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-import { checkAndDeductCredits, checkDailyImageCap, refundCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  checkDailyImageCap,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import {
   buildImagePrompt,
   generateWithDallE,
@@ -32,6 +38,15 @@ import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
 const db = prisma as any
 
 export const maxDuration = 60 // Vercel function timeout
+
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'IMAGE_GENERATION', reason)
+}
 
 export async function POST(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -199,7 +214,7 @@ export async function POST(req: NextRequest) {
       })
     } catch (genErr: any) {
       // Refund — failed generation must not charge the user (skip unlimited plans)
-      if (credit.creditsUsed > 0) await refundCredits(userId, 'IMAGE_GENERATION')
+      await refundDeductedCredits(userId, credit, genErr.message || 'Generation failed')
       return NextResponse.json({ error: genErr.message || 'Generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
     }
   }
@@ -279,7 +294,7 @@ export async function POST(req: NextRequest) {
     }).catch(() => {})
 
     // Refund — the user must not be charged for a failed image (skip unlimited plans)
-    if (credit.creditsUsed > 0) await refundCredits(userId, 'IMAGE_GENERATION')
+    await refundDeductedCredits(userId, credit, err.message || 'Image generation failed')
 
     return NextResponse.json({ error: err.message || 'Image generation failed', refunded: credit.creditsUsed > 0 }, { status: 500 })
   }
