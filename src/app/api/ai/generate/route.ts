@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
-import { checkAndDeductCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -41,6 +46,15 @@ const DEMO_LEGACY: Record<LegacyAction, string> = {
   video_script: `🎬 سكريبت فيديو — وضع العرض التجريبي\n\n[مشهد ١ - ٥ ثواني]\nنص: "هل سئمت من إدارة التسويق يدوياً؟"\n\n[مشهد ٢ - ١٥ ثانية]\nنص: "NEXUS AI — ٤ وكلاء يُديرون تسويقك ٢٤/٧"\n\n[مشهد ٣ - ٥ ثواني]\nنص: "ابدأ مجاناً الآن"`,
   ad_copy: `📢 نسخ إعلانية — وضع العرض التجريبي\n\n📌 النسخة ١:\nالعنوان: "فريقك التسويقي الكامل في منصة واحدة"\nالنص: NEX يُنتج، VEX يُعلن، PULSE يُحلل، Sentinel يُراقب.\nCTA: جرّب مجاناً ←`,
   analyze: `📊 تحليل — وضع العرض التجريبي\n\nنسبة النقر: ٤.٢٪ ✅\nتوصيات:\n١. زِد الميزانية على Facebook\n٢. اختبر audience ٢٥-٣٤ سنة`,
+}
+
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'AD_COPY', reason)
 }
 
 // ── Main handler ───────────────────────────────────────────────
@@ -88,9 +102,11 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Credit deduction (before OpenAI call) ─────────────────────
+  let credit: CreditDeductionOk | null = null
   if (apiKey) {
-    const credit = await checkAndDeductCredits(userId, 'AD_COPY')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    const creditResult = await checkAndDeductCredits(userId, 'AD_COPY')
+    if (!creditResult.ok) return NextResponse.json(creditResult, { status: 402 })
+    credit = creditResult
   }
 
   // No API key → demo/mock mode
@@ -124,6 +140,7 @@ export async function POST(req: NextRequest) {
     if (!response.ok) {
       const err = await response.json().catch(() => ({}))
       console.error('[ai/generate] OpenAI error:', response.status, err)
+      if (credit) await refundDeductedCredits(userId, credit, `OpenAI error ${response.status}`)
       return NextResponse.json(
         { error: `OpenAI error ${response.status}. Check API key and quota.` },
         { status: 502 }
@@ -138,6 +155,7 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[ai/generate] Unexpected error:', err)
+    if (credit) await refundDeductedCredits(userId, credit, 'Unexpected AI generation failure')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
