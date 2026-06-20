@@ -14,12 +14,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
 type Params = { params: { id: string } }
+type ImageCreditReservation = {
+  postId: string
+  creditsUsed: number
+  transactionId?: string
+  refunded: boolean
+}
 
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
@@ -97,6 +103,22 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
   return uploadData.secure_url as string
 }
 
+async function refundImageReservation(
+  userId: string,
+  reservation: ImageCreditReservation | undefined,
+  reason: string,
+) {
+  if (!reservation || reservation.refunded || reservation.creditsUsed <= 0) return
+  reservation.refunded = true
+
+  if (reservation.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: reservation.transactionId, reason })
+    return
+  }
+
+  await refundCredits(userId, 'IMAGE_GENERATION', reason)
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest, { params }: Params) {
@@ -132,20 +154,34 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ success: true, generated: 0, message: 'No pending posts to generate' })
     }
 
-    // Check credits — 1 credit per image (IMAGE_GENERATION cost = 3)
-    // We check once for the batch; each image costs 3 credits
-    let creditsWereCharged = false
+    // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied
+    // to its post so a partial batch failure refunds only the failed image.
+    const creditReservations: ImageCreditReservation[] = []
+    const reservationsByPostId = new Map<string, ImageCreditReservation>()
     for (let i = 0; i < Math.min(postsToGenerate.length, 5); i++) {
+      const post = postsToGenerate[i]
       const creditCheck = await checkAndDeductCredits(userId, 'IMAGE_GENERATION')
       if (!creditCheck.ok) {
-        // Mark remaining as PENDING (not started)
+        await Promise.all(
+          creditReservations.map((reservation) =>
+            refundImageReservation(userId, reservation, 'Batch image credit reservation failed'),
+          ),
+        )
         return NextResponse.json({
           error: creditCheck.error ?? 'Insufficient credits',
           code: 'INSUFFICIENT_CREDITS',
-          generated: i,
+          generated: 0,
         }, { status: 402 })
       }
-      creditsWereCharged = creditCheck.creditsUsed > 0
+
+      const reservation: ImageCreditReservation = {
+        postId: post.id,
+        creditsUsed: creditCheck.creditsUsed,
+        transactionId: creditCheck.transactionId,
+        refunded: false,
+      }
+      creditReservations.push(reservation)
+      reservationsByPostId.set(post.id, reservation)
     }
 
     // Mark all as GENERATING
@@ -158,6 +194,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const results: Array<{ id: string; success: boolean; imageUrl?: string; error?: string }> = []
 
     for (const post of postsToGenerate) {
+      const reservation = reservationsByPostId.get(post.id)
       try {
         const rawUrl = await generateImage(post.imagePrompt!, post.platform)
 
@@ -177,9 +214,9 @@ export async function POST(req: NextRequest, { params }: Params) {
         results.push({ id: post.id, success: true, imageUrl: finalUrl })
       } catch (err: any) {
         console.error(`[Content Hub] Image generation failed for ${post.id}:`, err)
-        await (prisma.socialPost as any).update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
         // Refund this post's image credit — a failed image must not be charged
-        if (creditsWereCharged) await refundCredits(userId, 'IMAGE_GENERATION')
+        await refundImageReservation(userId, reservation, err.message ?? 'Image generation failed')
+        await (prisma.socialPost as any).update({ where: { id: post.id }, data: { generationStatus: 'FAILED' } })
         results.push({ id: post.id, success: false, error: err.message })
       }
     }
