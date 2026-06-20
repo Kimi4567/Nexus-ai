@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { getDashboardStage, getOnboardingVisibility } from '@/lib/dashboardOnboarding'
+import { getDashboardStage, getOnboardingVisibility, isEarlyOperatingMode } from '@/lib/dashboardOnboarding'
 
 const NEW = { hasCampaigns: false, brandReady: false, hasBrandName: false, brandLoaded: true }
 const ACTIVATING = { hasCampaigns: false, brandReady: true, hasBrandName: true, brandLoaded: true }
@@ -83,5 +83,45 @@ describe('getOnboardingVisibility', () => {
     expect(mid.showWelcome).toBe(false)
     expect(mid.showChecklist).toBe(false)
     expect(mid.showJourneyBar).toBe(false)
+  })
+})
+
+describe('isEarlyOperatingMode', () => {
+  it('1. zero campaigns + no published/scheduled execution ⇒ early operating mode', () => {
+    expect(isEarlyOperatingMode({
+      publishedPostsTotal: 0,
+      publishingState: 'none',
+      campaignStatuses: [],
+    })).toBe(true)
+  })
+
+  it('2. draft campaigns only + no published/scheduled execution ⇒ early operating mode', () => {
+    expect(isEarlyOperatingMode({
+      publishedPostsTotal: 0,
+      publishingState: 'none',
+      campaignStatuses: ['DRAFT', 'DRAFT'],
+    })).toBe(true)
+  })
+
+  it('3. published or scheduled content exists ⇒ normal dashboard behavior', () => {
+    expect(isEarlyOperatingMode({
+      publishedPostsTotal: 1,
+      publishingState: 'live',
+      campaignStatuses: ['DRAFT'],
+    })).toBe(false)
+
+    expect(isEarlyOperatingMode({
+      publishedPostsTotal: 0,
+      publishingState: 'scheduled',
+      campaignStatuses: ['DRAFT'],
+    })).toBe(false)
+  })
+
+  it('4. active campaign exists ⇒ normal dashboard behavior even before publication', () => {
+    expect(isEarlyOperatingMode({
+      publishedPostsTotal: 0,
+      publishingState: 'none',
+      campaignStatuses: ['DRAFT', 'ACTIVE'],
+    })).toBe(false)
   })
 })

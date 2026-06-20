@@ -321,10 +321,10 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       'run-full-strategy',
       'high',
       '/dashboard?runStrategy=1',
-      'Run full strategy',
-      'شغّل الاستراتيجية الكاملة',
-      'Campaigns exist, but the strategy loop is not confirmed yet. Run the full strategy workflow before approving execution.',
-      'توجد حملات، لكن حلقة الاستراتيجية غير مؤكدة بعد. شغّل مسار الاستراتيجية الكاملة قبل الموافقة على التنفيذ.'
+      'Open the strategy workflow',
+      'افتح مسار الاستراتيجية',
+      'Campaigns exist, but the strategy loop is not confirmed yet. Review the strategy workflow before approving execution.',
+      'توجد حملات، لكن حلقة الاستراتيجية غير مؤكدة بعد. راجع مسار الاستراتيجية قبل الموافقة على التنفيذ.'
     ))
   }
   if (totalCampaigns > 0 && recentPosts.length === 0) {
