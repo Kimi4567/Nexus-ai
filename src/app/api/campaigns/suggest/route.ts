@@ -8,7 +8,12 @@ import {
   buildBrandContextBlock,
   type BrandContextData,
 } from '@/lib/ai/promptRules'
-import { checkAndDeductCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 
 /* ═══════════════════════════════════════════════════════════════
    POST /api/campaigns/suggest
@@ -22,7 +27,19 @@ import { checkAndDeductCredits } from '@/lib/credits'
      audience    → target audience description
    ═══════════════════════════════════════════════════════════════ */
 
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'AD_COPY', reason)
+}
+
 export async function POST(req: NextRequest) {
+  let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
+
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,10 +51,6 @@ export async function POST(req: NextRequest) {
     const { field, name, description, goal, locale } = body
 
     if (!field) return NextResponse.json({ error: 'field required' }, { status: 400 })
-
-    // FLOW-03 fix: deduct 1 credit per AI suggest call
-    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     const isAr = locale === 'ar'
     const lang = isAr ? 'Arabic' : 'English'
@@ -127,6 +140,12 @@ Rules:
     const prompt = prompts[field]
     if (!prompt) return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
 
+    // FLOW-03 fix: deduct 1 credit per AI suggest call
+    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    chargedUserId = user.id
+    chargedCredit = credit
+
     // Add variation tag so the AI always produces a fresh result
     const variationTag = `[Variation ${Math.floor(Math.random() * 9999)}]`
     const freshPrompt = `${prompt}\n\n${variationTag}`
@@ -147,6 +166,10 @@ Rules:
         temperature: 0.85,  // High enough for real variety on repeated clicks
       }),
     })
+    if (!res.ok) {
+      await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+      return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
+    }
 
     const completion = await res.json()
     const suggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
@@ -157,6 +180,9 @@ Rules:
     })
   } catch (error) {
     console.error('POST /api/campaigns/suggest error:', error)
+    if (chargedUserId && chargedCredit) {
+      await refundDeductedCredits(chargedUserId, chargedCredit, 'Campaign suggestion failed')
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

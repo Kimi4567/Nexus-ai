@@ -8,7 +8,12 @@ import {
   buildBrandContextBlock,
   type BrandContextData,
 } from '@/lib/ai/promptRules'
-import { checkAndDeductCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { guardBrandText, guardBrandList } from '@/lib/ai/brandTruthGuard'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -63,7 +68,19 @@ OUTPUT RULES:
 - Return ONLY what was requested — no intro, no explanation, no preamble`
 }
 
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'AD_COPY', reason)
+}
+
 export async function POST(req: NextRequest) {
+  let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
+
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -88,10 +105,6 @@ export async function POST(req: NextRequest) {
     } = body
 
     if (!field) return NextResponse.json({ error: 'field required' }, { status: 400 })
-
-    // FLOW-03 fix: deduct 1 credit per AI suggest call (AD_COPY tier — same as VEX)
-    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
-    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
 
     const isAr = locale === 'ar'
     const lang = isAr ? 'Arabic' : 'English'
@@ -239,6 +252,17 @@ Rules:
     // ── Route to appropriate handler ──────────────────────────────
     // Variation tag forces a fresh result on every click
     const variationTag = `[Variation ${Math.floor(Math.random() * 9999)}]`
+    const arrayPrompt = arrayFieldPrompts[field]
+
+    if (!textFieldPrompts[field] && !arrayPrompt) {
+      return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
+    }
+
+    // FLOW-03 fix: deduct 1 credit per AI suggest call (AD_COPY tier — same as VEX)
+    const credit = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!credit.ok) return NextResponse.json(credit, { status: 402 })
+    chargedUserId = user.id
+    chargedCredit = credit
 
     if (textFieldPrompts[field]) {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -254,6 +278,10 @@ Rules:
           temperature: 0.85,
         }),
       })
+      if (!res.ok) {
+        await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+        return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
+      }
       const completion = await res.json()
       const rawSuggestion: string = completion.choices?.[0]?.message?.content?.trim() || ''
       // PR-G: deterministic truth guard — scrub invented metrics, downgrade fake
@@ -261,9 +289,6 @@ Rules:
       const suggestion = guardBrandText(rawSuggestion, allowedClaims)
       return NextResponse.json({ suggestion }, { headers: { 'Cache-Control': 'no-store' } })
     }
-
-    const arrayPrompt = arrayFieldPrompts[field]
-    if (!arrayPrompt) return NextResponse.json({ error: 'Unknown field' }, { status: 400 })
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -278,6 +303,10 @@ Rules:
         temperature: 0.85,
       }),
     })
+    if (!res.ok) {
+      await refundDeductedCredits(user.id, credit, `OpenAI error ${res.status}`)
+      return NextResponse.json({ error: `OpenAI error ${res.status}` }, { status: 502 })
+    }
     const completion = await res.json()
 
     const raw: string = completion.choices?.[0]?.message?.content?.trim() || '[]'
@@ -312,6 +341,9 @@ Rules:
     return NextResponse.json({ suggestions }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (error) {
     console.error('POST /api/brand/suggest error:', error)
+    if (chargedUserId && chargedCredit) {
+      await refundDeductedCredits(chargedUserId, chargedCredit, 'Brand suggestion failed')
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
