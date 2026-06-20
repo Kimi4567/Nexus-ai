@@ -24,6 +24,7 @@
  */
 
 export type DashboardStage = 'loading' | 'new' | 'activating' | 'established'
+export type DashboardPublishingState = 'live' | 'scheduled' | 'pending' | 'none' | null | undefined
 
 export interface OnboardingInputs {
   /** stats.campaigns > 0 — the strongest signal of a returning user. */
@@ -44,6 +45,15 @@ export interface OnboardingVisibility {
   showChecklist: boolean
   /** Compact, data-driven Marketing Journey bar (self-hides when funnel complete). */
   showJourneyBar: boolean
+}
+
+export interface EarlyOperatingModeInputs {
+  /** Real published content count from /api/dashboard/stats. */
+  publishedPostsTotal?: number | null
+  /** Existing Operating Brief publishing state. `scheduled` and `live` count as execution. */
+  publishingState?: DashboardPublishingState
+  /** Current campaign statuses already loaded for the dashboard list. */
+  campaignStatuses?: Array<string | null | undefined> | null
 }
 
 /**
@@ -78,4 +88,24 @@ export function getOnboardingVisibility(inputs: OnboardingInputs): OnboardingVis
     // we never briefly render step 1 for someone who's further along.
     showJourneyBar: stage !== 'loading',
   }
+}
+
+/**
+ * D1.1 — Early Operating Mode.
+ *
+ * Campaign records alone do not prove the product is operating. Draft/test
+ * campaigns can exist while there is still no real marketing execution. Keep the
+ * dashboard in a calm, guided mode until we see execution evidence:
+ * published content, scheduled content, or an ACTIVE campaign.
+ */
+export function isEarlyOperatingMode({
+  publishedPostsTotal,
+  publishingState,
+  campaignStatuses,
+}: EarlyOperatingModeInputs): boolean {
+  const hasPublishedContent = Math.max(0, Math.trunc(publishedPostsTotal ?? 0)) > 0
+  const hasScheduledOrLiveContent = publishingState === 'scheduled' || publishingState === 'live'
+  const hasActiveCampaign = (campaignStatuses ?? []).some(status => status === 'ACTIVE')
+
+  return !hasPublishedContent && !hasScheduledOrLiveContent && !hasActiveCampaign
 }

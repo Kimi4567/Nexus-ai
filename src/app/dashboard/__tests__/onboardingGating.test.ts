@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const SRC = readFileSync(resolve(process.cwd(), 'src/app/dashboard/page.tsx'), 'utf8')
+const INTELLIGENCE_SRC = readFileSync(resolve(process.cwd(), 'src/lib/marketing-intelligence.ts'), 'utf8')
 
 describe('Dashboard onboarding gating', () => {
   it('routes all three onboarding surfaces through getOnboardingVisibility', () => {
@@ -37,5 +38,47 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/setWorkspaceGate\('error'\)/)
     expect(SRC).toMatch(/We could not verify your workspace/)
     expect(SRC).toMatch(/إعادة المحاولة/)
+  })
+
+  it('D1.1 detects early execution mode from existing dashboard data only', () => {
+    expect(SRC).toMatch(/isEarlyOperatingMode/)
+    expect(SRC).toMatch(/const isEarlyExecutionDashboard = Boolean\(stats && isEarlyOperatingMode/)
+    expect(SRC).toMatch(/const publishingState = intelligence\?\.publishingState \?\? 'none'/)
+    expect(SRC).toMatch(/publishedPostsTotal: stats\.publishedPostsTotal/)
+    expect(SRC).toMatch(/campaignStatuses: campaigns\.map\(c => c\.status\)/)
+  })
+
+  it('D1.1 makes the early operating next step the first major dashboard surface', () => {
+    const focusIndex = SRC.indexOf('Early Operating Mode')
+    const journeyIndex = SRC.indexOf('Marketing Journey Bar')
+    const statsIndex = SRC.indexOf('Stats Row')
+    const briefIndex = SRC.indexOf('Marketing Operating Brief')
+
+    expect(focusIndex).toBeGreaterThan(-1)
+    expect(focusIndex).toBeLessThan(journeyIndex)
+    expect(focusIndex).toBeLessThan(statsIndex)
+    expect(focusIndex).toBeLessThan(briefIndex)
+    expect(SRC).toMatch(/Your next step/)
+    expect(SRC).toMatch(/This is the most useful next step based on what NEXUS currently knows/)
+    expect(SRC).toMatch(/Open the strategy workflow/)
+    expect(SRC).toMatch(/افتح مسار الاستراتيجية/)
+    expect(SRC).toMatch(/nextBestAction\.id === 'run-full-strategy'/)
+    expect(INTELLIGENCE_SRC).toMatch(/'Open the strategy workflow'/)
+    expect(INTELLIGENCE_SRC).toMatch(/'افتح مسار الاستراتيجية'/)
+    expect(INTELLIGENCE_SRC).not.toMatch(/'Run full strategy'/)
+    expect(INTELLIGENCE_SRC).not.toMatch(/'شغّل الاستراتيجية الكاملة'/)
+  })
+
+  it('D1.1 demotes competing early operating dashboard surfaces', () => {
+    expect(SRC).toMatch(/onboarding\.showJourneyBar && !isEarlyExecutionDashboard/)
+    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">/)
+    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<NexusGlassCard padding="lg">/)
+    expect(SRC).toMatch(/href=\{isEarlyExecutionDashboard \? '\/strategy' : '\/campaigns\/new'\}/)
+    expect(SRC).toMatch(/!isEarlyExecutionDashboard && <BrainLearnedSummary/)
+    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div ref=\{suggestionsSectionRef\}/)
+    expect(SRC).toMatch(/\{!isEarlyExecutionDashboard && <span style=\{\{ color: 'var\(--nx-text-3\)' \}\}> 👋<\/span>\}/)
+    expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div className="flex items-center gap-2">/)
+    expect(SRC).toMatch(/Active campaigns/)
+    expect(SRC).toMatch(/الحملات النشطة/)
   })
 })

@@ -5,7 +5,7 @@ import MarketingJourneyBar from '@/components/MarketingJourneyBar'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
 import OnboardingChecklist from '@/components/OnboardingChecklist'
-import { getOnboardingVisibility } from '@/lib/dashboardOnboarding'
+import { getOnboardingVisibility, isEarlyOperatingMode } from '@/lib/dashboardOnboarding'
 import BrainLearnedSummary from '@/components/brain/BrainLearnedSummary'
 import PlatformReadinessStrip from '@/components/PlatformReadinessStrip'
 import { derivePlatformReadiness } from '@/lib/platformReadiness'
@@ -457,6 +457,19 @@ export default function DashboardPage() {
     hasBrandName: !!brandName,
     brandLoaded,
   })
+  const publishingState = intelligence?.publishingState ?? 'none'
+  const isEarlyExecutionDashboard = Boolean(stats && isEarlyOperatingMode({
+    publishedPostsTotal: stats.publishedPostsTotal,
+    publishingState,
+    campaignStatuses: campaigns.map(c => c.status),
+  }))
+  const earlyActionIsStrategy = intelligence?.nextBestAction.href === '/strategy' || intelligence?.nextBestAction.id === 'run-full-strategy'
+  const earlyActionTitle = earlyActionIsStrategy
+    ? (ar ? 'افتح مسار الاستراتيجية' : 'Open the strategy workflow')
+    : (ar ? intelligence?.nextBestAction.titleAr : intelligence?.nextBestAction.title)
+  const earlyActionCta = earlyActionIsStrategy
+    ? (ar ? 'افتح مسار الاستراتيجية' : 'Open strategy workflow')
+    : (ar ? 'افتح الخطوة' : 'Open next step')
 
   // ── Pre-render workspace gate ──
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
@@ -501,7 +514,7 @@ export default function DashboardPage() {
               </div>
               <h1 className="text-2xl font-bold font-heading mb-1" style={{ color: 'var(--nx-text-1)' }}>
                 {displayName ? `${t('dashboard.greeting')}${ar ? '،' : ','} ${displayName}` : t('dashboard.commandCenter')}
-                {' '}<span style={{ color: 'var(--nx-text-3)' }}>👋</span>
+                {!isEarlyExecutionDashboard && <span style={{ color: 'var(--nx-text-3)' }}> 👋</span>}
               </h1>
               <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>
                 {/* PR-1I: never claim "ready / all agents know your brand" unless the
@@ -517,32 +530,119 @@ export default function DashboardPage() {
                 stage) instead of opening the run-full modal directly — so it no
                 longer feels like a backend operation and nothing auto-runs. The
                 run-full modal is still reachable from /strategy's own CTA. */}
-            <div className="flex items-center gap-2">
-              <NexusButton
-                variant="ghost"
-                size="sm"
-                href="/campaigns/new"
-                icon={<Rocket className="w-3.5 h-3.5" />}
-              >
-                {t('dashboard.createCampaign')}
-              </NexusButton>
-              <NexusButton
-                variant="primary"
-                size="sm"
-                href="/strategy"
-                icon={<Sparkles className="w-3.5 h-3.5" />}
-              >
-                {(stats?.campaigns ?? 0) > 0
-                  ? (ar ? 'عرض الاستراتيجية' : 'View strategy')
-                  : (ar ? 'إنشاء أول استراتيجية' : 'Create your first strategy')}
-              </NexusButton>
-            </div>
+            {!isEarlyExecutionDashboard && (
+              <div className="flex items-center gap-2">
+                <NexusButton
+                  variant="ghost"
+                  size="sm"
+                  href="/campaigns/new"
+                  icon={<Rocket className="w-3.5 h-3.5" />}
+                >
+                  {t('dashboard.createCampaign')}
+                </NexusButton>
+                <NexusButton
+                  variant="primary"
+                  size="sm"
+                  href="/strategy"
+                  icon={<Sparkles className="w-3.5 h-3.5" />}
+                >
+                  {(stats?.campaigns ?? 0) > 0
+                    ? (ar ? 'عرض الاستراتيجية' : 'View strategy')
+                    : (ar ? 'إنشاء أول استراتيجية' : 'Create your first strategy')}
+                </NexusButton>
+              </div>
+            )}
           </div>
+
+          {/* ── Early Operating Mode ──
+              A pre-execution workspace should see one operator recommendation before
+              dashboard counters, platform checks, or empty monitoring surfaces. */}
+          {isEarlyExecutionDashboard && intelligence && (
+            <div className="rounded-2xl overflow-hidden"
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 12px 36px rgba(15,23,42,0.06)' }}>
+              <div className="p-5 sm:p-6">
+                <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#5E5CE6' }}>
+                      {ar ? 'خطوتك التالية' : 'Your next step'}
+                    </p>
+                    <h2 className="text-xl sm:text-2xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>
+                      {earlyActionTitle}
+                    </h2>
+                    <p className="text-sm leading-relaxed max-w-2xl mb-4" style={{ color: 'var(--nx-text-3)' }}>
+                      {ar
+                        ? 'هذه هي الخطوة الأنسب الآن بناءً على ما يعرفه NEXUS عن نشاطك. ستظهر المقاييس والرؤى بعد إنشاء حملات أو محتوى فعلي.'
+                        : 'This is the most useful next step based on what NEXUS currently knows about your business. Metrics and insights will appear after you create real campaigns or content.'}
+                    </p>
+                    <p className="text-sm leading-relaxed max-w-2xl mb-5" style={{ color: 'var(--nx-text-2)' }}>
+                      {ar ? intelligence.nextBestAction.reasonAr : intelligence.nextBestAction.reason}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={actOnBriefNow}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition"
+                        style={{ background: '#5E5CE6' }}>
+                        {earlyActionCta} <ArrowUpRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="w-full lg:w-[260px] rounded-2xl p-4"
+                    style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                    <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: '#64748B' }}>
+                      {ar ? 'ما يعرفه NEXUS الآن' : 'What NEXUS knows now'}
+                    </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'ذاكرة العلامة' : 'Brand memory'}</span>
+                        <span className="text-xs font-bold" style={{ color: '#D97706' }}>
+                          {ar ? getBrandMemoryStatusCopy(brandStatus).valueAr : getBrandMemoryStatusCopy(brandStatus).value}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'الحملات النشطة' : 'Active campaigns'}</span>
+                        <span className="text-xs font-bold" style={{ color: '#0F172A' }}>0</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'رصيد AI' : 'AI credits'}</span>
+                        <span className="text-xs font-bold" style={{ color: '#0F172A' }}>
+                          {stats?.isUnlimited ? '∞' : (stats?.creditsRemaining ?? 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isEarlyExecutionDashboard && !intelligence && insights.length > 0 && (
+            <div className="rounded-2xl p-5 flex items-start gap-4"
+              style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 8px 24px rgba(15,23,42,0.06)' }}>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(94,92,230,0.1)', border: '1px solid rgba(94,92,230,0.22)' }}>
+                <ArrowUpRight className="w-5 h-5" style={{ color: '#5E5CE6' }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#5E5CE6' }}>
+                  {ar ? 'خطوتك التالية' : 'Your next step'}
+                </p>
+                <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--nx-text-2)' }}>
+                  {insights[0].text}
+                </p>
+                <Link href={insights[0].href}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition"
+                  style={{ background: '#5E5CE6' }}>
+                  {insights[0].action} <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* ── Marketing Journey Bar ──
               The single compact next-action surface. Hidden during the brief
               brand-loading window so we don't flash step 1 for a returning user. */}
-          {onboarding.showJourneyBar && (
+          {onboarding.showJourneyBar && !isEarlyExecutionDashboard && (
             <MarketingJourneyBar
               brandReady={brandReadiness?.ready ?? false}
               hasCampaigns={(stats?.campaigns ?? 0) > 0}
@@ -554,7 +654,7 @@ export default function DashboardPage() {
           )}
 
           {/* ── Platform Readiness strip (Operator Foundation PR-1A) ── */}
-          <div className="mt-4">
+          <div className={isEarlyExecutionDashboard ? '' : 'mt-4'}>
             <PlatformReadinessStrip
               states={derivePlatformReadiness(socialAccounts)}
               t={t as (k: string) => string}
@@ -562,7 +662,7 @@ export default function DashboardPage() {
           </div>
 
           {/* ── First-Login Welcome Banner — brand-new users only ── */}
-          {onboarding.showWelcome && !welcomeDismissed && (
+          {onboarding.showWelcome && !welcomeDismissed && !isEarlyExecutionDashboard && (
             <div className="rounded-2xl overflow-hidden bg-white" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8B5CF6, #F97316, #10B981)' }} />
               <div className="p-5 flex items-start justify-between gap-4">
@@ -619,7 +719,7 @@ export default function DashboardPage() {
 
 
           {/* ── Onboarding Checklist — brand-new users only ── */}
-          {onboarding.showChecklist && (
+          {onboarding.showChecklist && !isEarlyExecutionDashboard && (
             <OnboardingChecklist
               stats={stats ? {
                 campaigns: stats.campaigns,
@@ -668,6 +768,7 @@ export default function DashboardPage() {
           )}
 
           {/* ── Stats Row ── */}
+          {!isEarlyExecutionDashboard && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <NexusMetricCard
               label={t('dashboard.statCampaignLabel')}
@@ -730,12 +831,13 @@ export default function DashboardPage() {
               )}
             </NexusMetricCard>
           </div>
+          )}
 
           {/* ── Next Best Action (fallback) ──
               Guarantees one clear next step even before the server-driven
               Marketing Operating Brief loads (new users / API hiccup).
               Hidden once `intelligence` is present to avoid duplication. */}
-          {!intelligence && insights.length > 0 && (
+          {!isEarlyExecutionDashboard && !intelligence && insights.length > 0 && (
             <div className="rounded-2xl p-5 flex items-start gap-4"
               style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 8px 24px rgba(15,23,42,0.06)' }}>
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -759,7 +861,7 @@ export default function DashboardPage() {
           )}
 
           {/* ── Marketing Operating Brief ── */}
-          {intelligence && (
+          {!isEarlyExecutionDashboard && intelligence && (
             <div className="rounded-2xl overflow-hidden"
               style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 12px 36px rgba(15,23,42,0.08)' }}>
               <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #06b6d4, #8b5cf6, #10b981)' }} />
@@ -992,12 +1094,14 @@ export default function DashboardPage() {
               status data if needed. */}
 
           {/* ── What NEXUS Learned — one compact summary line (Operator Foundation PR-1B) ── */}
-          <BrainLearnedSummary />
+          {!isEarlyExecutionDashboard && <BrainLearnedSummary />}
 
           {/* ── Sprint B: AI Suggestions Feed ── */}
-          <div ref={suggestionsSectionRef} className="scroll-mt-6">
-            <SuggestionsWidget refreshKey={suggestionsKey} />
-          </div>
+          {!isEarlyExecutionDashboard && (
+            <div ref={suggestionsSectionRef} className="scroll-mt-6">
+              <SuggestionsWidget refreshKey={suggestionsKey} />
+            </div>
+          )}
 
           {/* ── Main Grid ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1027,9 +1131,18 @@ export default function DashboardPage() {
                     <Plus className="w-6 h-6" style={{ color: 'rgba(139,92,246,0.4)' }} />
                   </div>
                   <p className="text-sm font-semibold mb-1" style={{ color: 'var(--nx-text-2)' }}>{t('dashboard.noCampaigns')}</p>
-                  <p className="text-xs mb-5 max-w-[200px] mx-auto" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.noCampaignsDesc')}</p>
-                  <NexusButton variant="primary" size="sm" href="/campaigns/new" icon={<Rocket className="w-4 h-4" />}>
-                    {t('dashboard.createCampaign')}
+                  <p className="text-xs mb-5 max-w-[260px] mx-auto" style={{ color: 'var(--nx-text-4)' }}>
+                    {isEarlyExecutionDashboard
+                      ? (ar ? 'ابدأ بالاستراتيجية أولاً، ثم ستظهر الحملات هنا بعد إنشائها.' : 'Start with strategy first. Campaigns will appear here after you create them.')
+                      : t('dashboard.noCampaignsDesc')}
+                  </p>
+                  <NexusButton
+                    variant="primary"
+                    size="sm"
+                    href={isEarlyExecutionDashboard ? '/strategy' : '/campaigns/new'}
+                    icon={<Rocket className="w-4 h-4" />}
+                  >
+                    {isEarlyExecutionDashboard ? (ar ? 'إنشاء أول استراتيجية' : 'Create your first strategy') : t('dashboard.createCampaign')}
                   </NexusButton>
                 </div>
               ) : (
@@ -1070,6 +1183,7 @@ export default function DashboardPage() {
             <div className="space-y-4">
 
               {/* AI Insights */}
+              {!isEarlyExecutionDashboard && (
               <NexusGlassCard padding="lg">
                 <div className="flex items-center gap-2 mb-4">
                   <Flame className="w-4 h-4" style={{ color: '#F97316' }} />
@@ -1097,8 +1211,10 @@ export default function DashboardPage() {
                   </div>
                 )}
               </NexusGlassCard>
+              )}
 
               {/* Alerts */}
+              {!isEarlyExecutionDashboard && (
               <NexusGlassCard padding="lg">
                 <div className="flex items-center gap-2 mb-4">
                   <Bell className="w-4 h-4" style={{ color: '#10B981' }} />
@@ -1142,6 +1258,7 @@ export default function DashboardPage() {
                   </div>
                 )}
               </NexusGlassCard>
+              )}
             </div>
           </div>
 
