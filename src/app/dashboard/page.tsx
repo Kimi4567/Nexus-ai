@@ -316,7 +316,7 @@ export default function DashboardPage() {
       text:   isAr ? 'لم تربط أي منصة بعد — اربط Meta لجدولة المنشورات، ولرؤية الأداء عند توفر البيانات' : 'No platform connected yet — connect Meta to schedule posts and, once data is available, see performance',
       action: isAr ? 'ربط المنصات الآن' : 'Connect Platforms Now', href: '/connections' })
     if (stats.campaigns === 0) built.push({ id: '2', priority: 'high',
-      text:   isAr ? 'أنشئ أول حملة — Nexus سيبني لك استراتيجية كاملة ومحتوى جاهز' : 'Create your first campaign — Nexus will build a full strategy and ready-to-use content',
+      text:   isAr ? 'أنشئ أول حملة — سيساعدك NEXUS على التخطيط وإنشاء مسودات محتوى، وكل خطوة تبقى تحت موافقتك.' : 'Create your first campaign — NEXUS helps you plan and draft content, with your approval at every step.',
       action: isAr ? 'خطة محتوى جديدة' : 'New Content Plan', href: '/campaigns/new' })
     if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') built.push({ id: '3', priority: 'high',
       text:   isAr ? `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة` : `Only ${stats.creditsRemaining} AI credits left — upgrade for unlimited power`,

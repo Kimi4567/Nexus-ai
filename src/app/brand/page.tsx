@@ -896,9 +896,9 @@ function BrandBrainInner() {
       const charged = okOutcomes.reduce((n, o) => n + o.cost, 0)
       const refunded = failed.filter(o => o.refunded).reduce((n, o) => n + o.cost, 0)
       let note = charged > 0
-        ? (ar ? `تم خصم ${charged} كردت.` : `Charged ${charged} credit${charged === 1 ? '' : 's'}.`)
+        ? (ar ? `تم خصم ${charged} رصيد.` : `Charged ${charged} credit${charged === 1 ? '' : 's'}.`)
         : ''
-      if (refunded > 0) note += (note ? ' ' : '') + (ar ? `وتمّ ردّ ${refunded} كردت عن خطوة فشلت.` : `Refunded ${refunded} credit${refunded === 1 ? '' : 's'} for the step that failed.`)
+      if (refunded > 0) note += (note ? ' ' : '') + (ar ? `وتمّ ردّ ${refunded} رصيد عن خطوة فشلت.` : `Refunded ${refunded} credit${refunded === 1 ? '' : 's'} for the step that failed.`)
       setDraftCreditNote(note)
 
       const whichLabel = (k: 'website' | 'content') =>
@@ -1040,6 +1040,9 @@ function BrandBrainInner() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h1 className="text-xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
+                      {/* PX-2B.1 — name the concept explicitly so the number is read as
+                          memory maturity (depth), never as setup completeness. */}
+                      <span className="text-[11px] font-semibold text-slate-400">{locale === 'ar' ? 'نضج الذاكرة' : 'Memory maturity'}</span>
                       {/* PR-N1 — stage-first: lead with the maturity STAGE; the 45/100
                           number is secondary/muted. Chip tooltip + the "Why?" disclosure
                           below explain that maturity = depth (setup + learned memory),
@@ -1174,6 +1177,192 @@ function BrandBrainInner() {
             </div>
           </div>
 
+          {/* ══════════════════════════════════════════════════════
+              PX-2A — BRAND MEMORY TRUTH SUMMARY
+              Consolidated, honest operating-memory surface. Display-only:
+              reads existing saved fields + capability utilities. Creates NO
+              assumptions, calls NO AI, introduces NO new score (status labels
+              only). Sits after the maturity header, before the wizard.
+              ══════════════════════════════════════════════════════ */}
+          {(() => {
+            const ar = locale === 'ar'
+            const caps = getStrategyCapabilities(form)
+            const memLevel = brandIndicators.memoryRichness.level
+            const learnedCount = typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0
+            const filledStr = (v: unknown) => typeof v === 'string' && v.trim().length > 0
+            const filledArr = (v: unknown) => Array.isArray(v) && v.length > 0
+            const langLabel = (v?: string | null) =>
+              v === 'ar' ? (ar ? 'العربية' : 'Arabic')
+              : v === 'en' ? (ar ? 'الإنجليزية' : 'English')
+              : v === 'both' ? (ar ? 'العربية والإنجليزية' : 'Arabic and English')
+              : null
+
+            // ── Card 1: Known facts (saved, user-provided) ──
+            const known: { label: string; value: string }[] = []
+            const pushKnown = (label: string, value?: string | null) => {
+              if (value && value.trim()) known.push({ label, value: value.trim() })
+            }
+            pushKnown(ar ? 'اسم العلامة' : 'Brand name', form.brandName)
+            pushKnown(ar ? 'المجال' : 'Industry', form.industry)
+            pushKnown(ar ? 'وصف النشاط' : 'Business summary', form.description)
+            pushKnown(ar ? 'الجمهور المستهدف' : 'Target audience', form.targetAudience)
+            pushKnown(ar ? 'العرض الأساسي' : 'Primary offer', form.primaryOffer)
+            pushKnown(ar ? 'الموقع / السوق' : 'Location / market', form.audienceLocation)
+            const lang = langLabel(form.languagePreference)
+            if (lang) known.push({ label: ar ? 'لغة العملاء' : 'Customer language', value: lang })
+            if (filledArr(form.topPlatforms)) {
+              known.push({ label: ar ? 'المنصات' : 'Platforms', value: (form.topPlatforms as string[]).join(ar ? '، ' : ', ') })
+            }
+
+            // ── Card 2: Missing information (field-derived, with business value) ──
+            const missingItems: string[] = []
+            if (!filledArr(form.competitors) && !filledStr(form.competitorNotes))
+              missingItems.push(ar ? 'المنافسون — يساعد ذلك NEXUS على تحسين التمركز والرسائل.' : 'Competitors — help NEXUS sharpen positioning and messaging.')
+            if (!filledArr(form.verifiedProof))
+              missingItems.push(ar ? 'إثبات أو أمثلة موثّقة — يعزّز المصداقية في المحتوى.' : 'Proof or verified examples — strengthen credibility in content.')
+            if (!filledArr(form.contentSamples))
+              missingItems.push(ar ? 'أمثلة محتوى سابقة — تساعد في الحفاظ على نبرة العلامة التجارية.' : 'Past content examples — help keep your brand voice consistent.')
+            if (!filledStr(form.writingStyle))
+              missingItems.push(ar ? 'أسلوب الكتابة والنبرة — يجعل المحتوى متّسقاً مع صوت علامتك.' : 'Voice & writing style — keep content consistent with your brand.')
+            if (!filledStr(form.logoUrl) && !filledArr(form.colorPalette))
+              missingItems.push(ar ? 'أصول بصرية — توجّه التصاميم والصور المقترحة.' : 'Visual assets — guide suggested designs and images.')
+            if (!filledArr(form.audiencePainPoints))
+              missingItems.push(ar ? 'نقاط ألم الجمهور — تساعد في كتابة رسائل تلامس الاحتياج.' : 'Audience pain points — help write messages that resonate.')
+            if (!filledArr(form.audienceDesires))
+              missingItems.push(ar ? 'رغبات الجمهور — تحسّن زوايا المحتوى والعروض.' : 'Audience desires — improve content angles and offers.')
+
+            // ── Readiness rows (existing capability utilities; status labels only) ──
+            type Tone = 'good' | 'neutral'
+            const rows: { label: string; text: string; tone: Tone }[] = [
+              { label: ar ? 'الاستراتيجية العضوية' : 'Organic strategy',
+                text: caps.contentStrategy.ready ? (ar ? 'جاهزة لموجز أولي' : 'Ready for an initial brief') : (ar ? 'تحتاج بيانات' : 'Needs data'),
+                tone: caps.contentStrategy.ready ? 'good' : 'neutral' },
+              { label: ar ? 'الاستراتيجية الكاملة' : 'Full strategy',
+                text: caps.fullStrategy.ready ? (ar ? 'جاهزة' : 'Ready') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
+                tone: caps.fullStrategy.ready ? 'good' : 'neutral' },
+              { label: ar ? 'خطة المحتوى' : 'Content plan',
+                text: caps.contentStrategy.ready ? (ar ? 'جاهزة مبدئيًا' : 'Initially ready') : (ar ? 'تحتاج بيانات' : 'Needs data'),
+                tone: caps.contentStrategy.ready ? 'good' : 'neutral' },
+              { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', text: ar ? 'للتخطيط فقط' : 'Planning-only', tone: 'neutral' },
+              { label: ar ? 'النشر التلقائي' : 'Auto-publishing', text: ar ? 'غير مفعّل' : 'Not enabled', tone: 'neutral' },
+              { label: ar ? 'التحليلات' : 'Analytics', text: ar ? 'غير متصلة' : 'Not connected', tone: 'neutral' },
+              { label: ar ? 'ذاكرة التعلّم' : 'Learning memory',
+                text: memLevel === 'low' ? (ar ? 'مبكرة' : 'Early') : (ar ? 'تتطور' : 'Developing'), tone: 'neutral' },
+            ]
+
+            const cardWrap = 'rounded-xl p-4'
+            const cardStyle = { background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.07)' } as const
+            const cardTitle = 'text-[13px] font-bold text-slate-900 mb-2.5'
+            const helperText = 'text-[12.5px] text-slate-500 leading-relaxed'
+
+            return (
+              <div className="rounded-2xl overflow-hidden"
+                style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+                <div className="p-5 sm:p-6">
+                  {/* Header + single action */}
+                  <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div className="min-w-0">
+                      <h2 className="text-lg font-bold text-slate-950">{ar ? 'ذاكرة العلامة التجارية' : 'Brand Memory'}</h2>
+                      <p className="text-[13px] text-slate-500 leading-relaxed mt-1" style={{ maxWidth: '70ch' }}>
+                        {ar
+                          ? 'هذه هي المعلومات التي يعتمد عليها NEXUS في الاستراتيجيات والمحتوى والتوصيات. كلما أصبحت الذاكرة أوضح، أصبحت النتائج أدق.'
+                          : 'This is the information NEXUS uses to guide strategies, content, and recommendations. The clearer the memory, the more useful the output.'}
+                      </p>
+                    </div>
+                    <button onClick={() => setWizardStage('edit')}
+                      className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white flex-shrink-0 transition-opacity hover:opacity-90"
+                      style={{ background: '#5E5CE6' }}>
+                      {ar ? 'تحسين ذاكرة العلامة التجارية' : 'Improve Brand Memory'}
+                    </button>
+                  </div>
+
+                  {/* 4 truth cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Card 1 — Known */}
+                    <div className={cardWrap} style={cardStyle}>
+                      <p className={cardTitle}>{ar ? 'ما يعرفه NEXUS' : 'What NEXUS knows'}</p>
+                      {known.length === 0 ? (
+                        <p className={helperText}>{ar ? 'أضف المزيد من التفاصيل حتى يتمكن NEXUS من فهم نشاطك بدقة أكبر.' : 'Add more details so NEXUS can understand your business more accurately.'}</p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {known.map((k, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[12.5px]">
+                              <span className="font-medium text-slate-500 flex-shrink-0">{k.label}:</span>
+                              <span className="text-slate-800 min-w-0 break-words">{k.value}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Card 2 — Missing */}
+                    <div className={cardWrap} style={cardStyle}>
+                      <p className={cardTitle}>{ar ? 'ما يحتاج إلى توضيح' : 'What still needs clarification'}</p>
+                      {missingItems.length === 0 ? (
+                        <p className={helperText}>{ar ? 'ذاكرتك مكتملة بما يكفي للبدء. يمكنك دائماً إضافة تفاصيل أعمق لتحسين النتائج.' : 'Your memory is complete enough to start. You can always add deeper detail to improve results.'}</p>
+                      ) : (
+                        <ul className="space-y-1.5">
+                          {missingItems.map((m, i) => (
+                            <li key={i} className="flex items-start gap-2 text-[12.5px] text-slate-600 leading-relaxed">
+                              <span className="mt-1.5 w-1 h-1 rounded-full flex-shrink-0" style={{ background: '#CBD5E1' }} />
+                              <span>{m}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Card 3 — Assumptions / needs confirmation (truthful empty state) */}
+                    <div className={cardWrap} style={cardStyle}>
+                      <p className={cardTitle}>{ar ? 'ما يحتاج إلى تأكيد' : 'What needs confirmation'}</p>
+                      <p className={helperText}>
+                        {ar
+                          ? 'لا توجد افتراضات بانتظار التأكيد الآن. عندما يقترح NEXUS معلومة مستنتجة، ستظهر هنا قبل استخدامها بثقة.'
+                          : 'There are no assumptions awaiting confirmation right now. When NEXUS suggests inferred information, it will appear here before it is treated as reliable.'}
+                      </p>
+                    </div>
+
+                    {/* Card 4 — Learned memory (real accepted-learning count, else empty) */}
+                    <div className={cardWrap} style={cardStyle}>
+                      <p className={cardTitle}>{ar ? 'ما تعلّمه NEXUS' : 'What NEXUS has learned'}</p>
+                      {learnedCount > 0 ? (
+                        <p className="text-[12.5px] text-slate-600 leading-relaxed">
+                          {ar
+                            ? `طبّقت ذاكرة علامتك ${learnedCount} معلومة متعلّمة حتى الآن. سيتعلّم NEXUS من التفاعلات والنتائج المتاحة مع مرور الوقت.`
+                            : `Your brand memory has applied ${learnedCount} learned insight${learnedCount === 1 ? '' : 's'} so far. NEXUS will learn from available interactions and results over time.`}
+                        </p>
+                      ) : (
+                        <p className={helperText}>
+                          {ar
+                            ? 'لم تتكوّن ذاكرة تعلّم كافية بعد. سيتعلّم NEXUS من التفاعلات والنتائج المتاحة مع مرور الوقت.'
+                            : 'NEXUS has not built enough learning memory yet. It will learn from available interactions and results over time.'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Readiness panel — honest status labels (no new number) */}
+                  <div className="mt-4 rounded-xl p-4" style={cardStyle}>
+                    <p className="text-[13px] font-bold text-slate-900 mb-3">{ar ? 'الجاهزية الحالية' : 'Current readiness'}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2.5">
+                      {rows.map((r, i) => (
+                        <div key={i} className="flex items-center justify-between gap-3">
+                          <span className="text-[12.5px] text-slate-600">{r.label}</span>
+                          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap"
+                            style={r.tone === 'good'
+                              ? { background: '#ECFDF5', color: '#059669', border: '1px solid rgba(16,185,129,0.22)' }
+                              : { background: '#FFFFFF', color: '#475569', border: '1px solid rgba(15,23,42,0.10)' }}>
+                            {r.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* PR-M3.1 — Start screen: guided setup choices. "Start manually" enters the
               step editor; the assisted options point to the (unchanged) Website Scanner /
               Content Analyzer, which create a draft for review and never auto-save. */}
@@ -1191,7 +1380,7 @@ function BrandBrainInner() {
                 const analyzeCost = assistContent.trim() ? ASSIST_ANALYZE_COST : 0
                 const total = scanCost + analyzeCost
                 const safety = ar
-                  ? ['يُنشئ NEXUS مسودة لمراجعتك.', 'لا يُحفظ شيء تلقائياً.', 'لا يُطبَّق شيء على ذاكرة علامتك حتى توافق عليه.', 'تظهر تكلفة الكردت قبل أي إجراء.']
+                  ? ['يُنشئ NEXUS مسودة لمراجعتك.', 'لا يُحفظ شيء تلقائياً.', 'لا يُطبَّق شيء على ذاكرة علامتك حتى توافق عليه.', 'تظهر تكلفة الرصيد قبل أي إجراء.']
                   : ['NEXUS creates a draft for your review.', 'Nothing is saved automatically.', 'Nothing is applied to Brand Brain until you approve it.', 'Credit costs are shown before any action.']
                 return (
                 <div className="grid lg:grid-cols-[1.6fr_1fr] gap-3 mt-6 items-start">
@@ -1225,11 +1414,11 @@ function BrandBrainInner() {
                     <div className="rounded-xl px-3 py-2 mb-3 space-y-1" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.06)' }}>
                       <div className="flex items-center justify-between text-[12px]">
                         <span className="text-slate-500">{ar ? 'مسح الموقع' : 'Website scan'}</span>
-                        <span className={assistUrl.trim() ? 'font-semibold text-slate-700' : 'text-slate-400'}>{ASSIST_SCAN_COST} {ar ? 'كردت' : 'credits'}</span>
+                        <span className={assistUrl.trim() ? 'font-semibold text-slate-700' : 'text-slate-400'}>{ASSIST_SCAN_COST} {ar ? 'رصيد' : 'credits'}</span>
                       </div>
                       <div className="flex items-center justify-between text-[12px]">
                         <span className="text-slate-500">{ar ? 'تحليل المحتوى' : 'Content analysis'}</span>
-                        <span className={assistContent.trim() ? 'font-semibold text-slate-700' : 'text-slate-400'}>{ASSIST_ANALYZE_COST} {ar ? 'كردت' : 'credits'}</span>
+                        <span className={assistContent.trim() ? 'font-semibold text-slate-700' : 'text-slate-400'}>{ASSIST_ANALYZE_COST} {ar ? 'رصيد' : 'credits'}</span>
                       </div>
                     </div>
 
@@ -1245,7 +1434,7 @@ function BrandBrainInner() {
                         : { background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a' } }>
                       {creatingDraft
                         ? <><Loader2 size={15} className="animate-spin" /> {ar ? 'جارٍ إنشاء المسودة…' : 'Creating draft…'}</>
-                        : <>{ar ? 'إنشاء مسودة' : 'Create draft'}{total > 0 ? ` · ${total} ${ar ? 'كردت' : 'credits'}` : ''}</>}
+                        : <>{ar ? 'إنشاء مسودة' : 'Create draft'}{total > 0 ? ` · ${total} ${ar ? 'رصيد' : 'credits'}` : ''}</>}
                     </button>
 
                     {/* Safety copy */}
@@ -1422,7 +1611,7 @@ function BrandBrainInner() {
                       {locale === 'ar' ? 'مسح الموقع الإلكتروني' : 'Website Scanner'}
                     </span>
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(15,23,42,0.05)', color: '#64748b', border: '1px solid rgba(15,23,42,0.08)' }}>
-                      3 {locale === 'ar' ? 'كردت' : 'credits'} · {locale === 'ar' ? 'اختياري' : 'optional'}
+                      3 {locale === 'ar' ? 'رصيد' : 'credits'} · {locale === 'ar' ? 'اختياري' : 'optional'}
                     </span>
                   </span>
                   <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open/row:rotate-180" />
@@ -1552,7 +1741,7 @@ function BrandBrainInner() {
                   {locale === 'ar' ? 'تحليل المحتوى الناجح' : 'Content Analyzer'}
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(15,23,42,0.05)', color: '#64748b', border: '1px solid rgba(15,23,42,0.08)' }}>
-                  2 {locale === 'ar' ? 'كردت' : 'credits'} · {locale === 'ar' ? 'اختياري' : 'optional'}
+                  2 {locale === 'ar' ? 'رصيد' : 'credits'} · {locale === 'ar' ? 'اختياري' : 'optional'}
                 </span>
               </span>
               <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open/row:rotate-180" />

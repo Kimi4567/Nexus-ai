@@ -20,7 +20,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,18 +61,25 @@ const CTA_OPTIONS = {
   LINKEDIN: ['Learn More', 'Register', 'Sign Up', 'Subscribe', 'Request Demo', 'Download'],
 }
 
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'AD_COPY', reason)
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
+
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
-    if (!creditResult.ok) {
-      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
-    }
 
     // Accept optional language override from client
     const body = await req.json().catch(() => ({}))
@@ -231,11 +243,19 @@ Generate 5 high-converting ad copy variants in JSON:
   }
 }`
 
+    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!creditResult.ok) {
+      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
+    }
+    chargedUserId = user.id
+    chargedCredit = creditResult
+
     const raw = await callGPT(systemPrompt, userPrompt)
     let generated: { variants?: unknown[]; ab_test_recommendation?: unknown; creative_specs?: unknown }
     try {
       generated = JSON.parse(raw)
     } catch {
+      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
@@ -276,6 +296,9 @@ Generate 5 high-converting ad copy variants in JSON:
     })
   } catch (err) {
     console.error('[generate-copy]', err)
+    if (chargedUserId && chargedCredit) {
+      await refundDeductedCredits(chargedUserId, chargedCredit, 'Copy generation failed')
+    }
     return NextResponse.json({ error: 'Copy generation failed' }, { status: 500 })
   }
 }
