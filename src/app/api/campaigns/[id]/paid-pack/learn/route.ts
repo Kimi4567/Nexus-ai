@@ -12,7 +12,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
-import { checkAndDeductCredits } from '@/lib/credits'
+import {
+  checkAndDeductCredits,
+  refundCredits,
+  refundCreditsForTransaction,
+  type CreditDeductionOk,
+} from '@/lib/credits'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -35,18 +40,25 @@ async function callGPT(system: string, user: string): Promise<string> {
   return data.choices?.[0]?.message?.content ?? '{}'
 }
 
+async function refundDeductedCredits(userId: string, credit: CreditDeductionOk, reason: string) {
+  if (credit.creditsUsed <= 0) return
+  if (credit.transactionId) {
+    await refundCreditsForTransaction({ userId, transactionId: credit.transactionId, reason })
+    return
+  }
+  await refundCredits(userId, 'AD_COPY', reason)
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  let chargedUserId: string | null = null
+  let chargedCredit: CreditDeductionOk | null = null
+
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
-    if (!creditResult.ok) {
-      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
-    }
 
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: user.id } },
@@ -122,6 +134,13 @@ Extract learnings as JSON:
   }
 }`
 
+    const creditResult = await checkAndDeductCredits(user.id, 'AD_COPY')
+    if (!creditResult.ok) {
+      return NextResponse.json({ error: 'Insufficient credits', upgradeRequired: true }, { status: 402 })
+    }
+    chargedUserId = user.id
+    chargedCredit = creditResult
+
     const raw = await callGPT(systemPrompt, userPrompt)
     let parsed: {
       learnings?: Record<string, unknown>
@@ -137,6 +156,7 @@ Extract learnings as JSON:
     try {
       parsed = JSON.parse(raw)
     } catch {
+      await refundDeductedCredits(user.id, creditResult, 'AI returned invalid JSON')
       return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
     }
 
@@ -193,6 +213,9 @@ Extract learnings as JSON:
     })
   } catch (err) {
     console.error('[paid-pack/learn]', err)
+    if (chargedUserId && chargedCredit) {
+      await refundDeductedCredits(chargedUserId, chargedCredit, 'Learning extraction failed')
+    }
     return NextResponse.json({ error: 'Learning extraction failed' }, { status: 500 })
   }
 }
