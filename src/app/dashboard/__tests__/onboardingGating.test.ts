@@ -24,4 +24,18 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/NexusMetricCard/)
     expect(SRC).toMatch(/dashboard\.statCampaignLabel/)
   })
+
+  it('D0.3 gates dashboard rendering until workspace check completes', () => {
+    expect(SRC).toMatch(/WorkspaceGateState = 'checking' \| 'hasWorkspace' \| 'noWorkspace' \| 'error'/)
+    expect(SRC).toMatch(/workspaceGate === 'checking'/)
+    expect(SRC).toMatch(/workspaceGate === 'error'/)
+    expect(SRC).toMatch(/router\.replace\('\/onboarding'\)/)
+    expect(SRC).not.toMatch(/router\.push\('\/onboarding'\)/)
+  })
+
+  it('D0.3 does not treat workspace fetch failure as onboarding', () => {
+    expect(SRC).toMatch(/setWorkspaceGate\('error'\)/)
+    expect(SRC).toMatch(/We could not verify your workspace/)
+    expect(SRC).toMatch(/إعادة المحاولة/)
+  })
 })

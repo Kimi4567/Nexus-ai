@@ -123,6 +123,8 @@ interface MarketingIntelligenceBrief {
   publishingState?: PublishingState
 }
 
+type WorkspaceGateState = 'checking' | 'hasWorkspace' | 'noWorkspace' | 'error'
+
 // BETA: AGENT_DEFS (the decorative "AI squad" card data) removed along with the
 // squad grid — it linked to pages hidden for beta and showed non-real statuses.
 
@@ -146,6 +148,46 @@ const ALERT_ICONS = {
   warning:  <AlertTriangle className="w-4 h-4 text-amber-400" />,
   info:     <Bell className="w-4 h-4" style={{ color: '#A78BFA' }} />,
   success:  <CheckCircle2 className="w-4 h-4 text-emerald-400" />,
+}
+
+function DashboardGateSurface({
+  mode,
+  ar,
+  onRetry,
+}: {
+  mode: 'loading' | 'error'
+  ar: boolean
+  onRetry?: () => void
+}) {
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#F8FAFC', color: '#0F172A' }}>
+      <div className="w-full max-w-sm text-center rounded-2xl bg-white px-6 py-7"
+        style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 8px 24px rgba(15,23,42,0.06)' }}>
+        {mode === 'loading' ? (
+          <>
+            <div className="w-10 h-10 mx-auto mb-4 rounded-full border-2 border-slate-200 border-t-[#5E5CE6] animate-spin" />
+            <p className="text-[13px] font-medium" style={{ color: '#64748B' }}>
+              {ar ? 'جار التحقق من مساحة العمل...' : 'Checking your workspace...'}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-[14px] font-semibold mb-2" style={{ color: '#0F172A' }}>
+              {ar ? 'تعذر التحقق من مساحة العمل.' : 'We could not verify your workspace.'}
+            </p>
+            <p className="text-[13px] mb-5" style={{ color: '#64748B' }}>
+              {ar ? 'حاول مرة أخرى.' : 'Please try again.'}
+            </p>
+            <button type="button" onClick={onRetry}
+              className="px-4 py-2 rounded-xl text-[13px] font-semibold text-white transition-colors"
+              style={{ background: '#5E5CE6' }}>
+              {ar ? 'إعادة المحاولة' : 'Retry'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─────────────────────────────────────────────
@@ -191,23 +233,55 @@ export default function DashboardPage() {
   const [brandLoaded, setBrandLoaded] = useState(false)
   const [upgradeBannerDismissed, setUpgradeBannerDismissed] = useState(false)
   const [welcomeDismissed, setWelcomeDismissed] = useState(true) // true until localStorage checked
+  const [workspaceGate, setWorkspaceGate] = useState<WorkspaceGateState>('checking')
+  const [workspaceGateRetry, setWorkspaceGateRetry] = useState(0)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
   }, [authLoading, isAuthenticated, router])
 
-  // New user: if no workspace exists → redirect to onboarding
+  // D0.3 — pre-render workspace gate.
+  // A logged-in user with no workspace must reach onboarding without seeing the
+  // dashboard cockpit first. A failed check is not treated as "no workspace".
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (authLoading) return
+    if (!isAuthenticated) {
+      setWorkspaceGate('checking')
+      return
+    }
+    const token = authHeader()
+    if (!token) {
+      setWorkspaceGate('checking')
+      return
+    }
+
+    let cancelled = false
+    setWorkspaceGate('checking')
+
     fetch('/api/workspaces', { headers: { Authorization: authHeader() } })
-      .then(r => r.json())
-      .then((data: unknown) => {
-        if (Array.isArray(data) && data.length === 0) {
-          router.push('/onboarding')
-        }
+      .then(r => {
+        if (!r.ok) throw new Error('workspace-check-failed')
+        return r.json()
       })
-      .catch(() => {})
-  }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
+      .then((data: unknown) => {
+        if (cancelled) return
+        if (Array.isArray(data) && data.length === 0) {
+          setWorkspaceGate('noWorkspace')
+          router.replace('/onboarding')
+          return
+        }
+        if (Array.isArray(data) && data.length > 0) {
+          setWorkspaceGate('hasWorkspace')
+          return
+        }
+        setWorkspaceGate('error')
+      })
+      .catch(() => {
+        if (!cancelled) setWorkspaceGate('error')
+      })
+
+    return () => { cancelled = true }
+  }, [authLoading, isAuthenticated, authHeader, router, workspaceGateRetry])
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
@@ -275,6 +349,7 @@ export default function DashboardPage() {
   }, [authHeader])
 
   useEffect(() => {
+    if (workspaceGate !== 'hasWorkspace') return
     fetch('/api/social/accounts', { headers: { Authorization: authHeader() } })
       .then(r => r.json())
       .then(d => {
@@ -283,13 +358,17 @@ export default function DashboardPage() {
         setHasConnections(accts.length > 0)
       })
       .catch(() => { setSocialAccounts([]); setHasConnections(false) })
-  }, [authHeader])
+  }, [authHeader, workspaceGate])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (workspaceGate !== 'hasWorkspace') return
+    load()
+  }, [load, workspaceGate])
 
   // Brand readiness — single fetch on mount after auth confirmed
   useEffect(() => {
     if (!isAuthenticated) return
+    if (workspaceGate !== 'hasWorkspace') return
     fetch('/api/brand', { headers: { Authorization: authHeader() } })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -301,12 +380,13 @@ export default function DashboardPage() {
       })
       .catch(() => {})
       .finally(() => setBrandLoaded(true))
-  }, [isAuthenticated]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, workspaceGate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (workspaceGate !== 'hasWorkspace') return
     const iv = setInterval(() => load(true), 5 * 60 * 1000)
     return () => clearInterval(iv)
-  }, [load])
+  }, [load, workspaceGate])
 
   useEffect(() => {
     if (!stats) return
@@ -378,24 +458,19 @@ export default function DashboardPage() {
     brandLoaded,
   })
 
-  // ── Loading state ──
-  if (authLoading || loading) {
-    return (
-      <AppShell>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto mb-3 relative">
-              <div className="absolute inset-0 rounded-full border-2 border-[rgba(139,92,246,0.2)] border-t-[#8B5CF6] animate-spin" />
-              <Sparkles className="w-5 h-5 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: '#8B5CF6' }} />
-            </div>
-            <p className="text-[13px]" style={{ color: 'var(--nx-text-3)' }}>{t('common.loading')}</p>
-          </div>
-        </div>
-      </AppShell>
-    )
+  // ── Pre-render workspace gate ──
+  if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
+    return <DashboardGateSurface mode="loading" ar={ar} />
   }
-
+  if (workspaceGate === 'error') {
+    return <DashboardGateSurface mode="error" ar={ar} onRetry={() => setWorkspaceGateRetry(v => v + 1)} />
+  }
   if (!isAuthenticated) return null
+
+  // ── Loading state ──
+  if (loading) {
+    return <DashboardGateSurface mode="loading" ar={ar} />
+  }
 
   // Overflow-safe credit display: clamps the bar to 100% and, when the balance
   // exceeds the monthly grant (rollover / bonus / refunds), avoids the confusing
