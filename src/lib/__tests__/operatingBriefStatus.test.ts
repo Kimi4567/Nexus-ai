@@ -67,23 +67,24 @@ describe('getPublishingStatusCopy (PR-1N)', () => {
 })
 
 describe('getBrandMemoryStatusCopy (PR-1N)', () => {
-  it('active → Active / good', () => {
+  // PX-2B.2 — stage wording aligned with /brand and /strategy (Early/Developing/Strong).
+  it('active → Strong / good', () => {
     const c = getBrandMemoryStatusCopy('active')
-    expect(c.value).toBe('Active')
+    expect(c.value).toBe('Strong')
     expect(c.severity).toBe('good')
   })
-  it('building → Building / watch (never "100%"/complete)', () => {
+  it('building → Developing / watch (never "100%"/complete)', () => {
     const c = getBrandMemoryStatusCopy('building')
-    expect(c.value).toBe('Building')
+    expect(c.value).toBe('Developing')
     expect(c.severity).toBe('watch')
     expect(c.value).not.toMatch(/100%|complete/i)
   })
-  it('needs_data / null / undefined → needs more info / risk', () => {
+  it('needs_data / null / undefined → Early (informational, not a red error)', () => {
     for (const s of ['needs_data', null, undefined] as const) {
       const c = getBrandMemoryStatusCopy(s)
       expect(c.status).toBe('needs_data')
-      expect(c.value).toMatch(/needs more info/i)
-      expect(c.severity).toBe('risk')
+      expect(c.value).toMatch(/early/i)
+      expect(c.severity).toBe('watch')
     }
   })
   it('never emits a percentage as the value', () => {

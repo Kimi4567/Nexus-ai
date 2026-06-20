@@ -89,11 +89,16 @@ export interface BrandMemoryStatusCopy {
  */
 export function getBrandMemoryStatusCopy(status: BrandMemoryStatus): BrandMemoryStatusCopy {
   switch (status) {
+    // PX-2B.2 — align the dashboard Brand Memory signal with the SAME memory
+    // maturity stage language used on /brand and /strategy (Early / Developing /
+    // Strong). This is the maturity STATUS, never a percentage and never the
+    // scoreBrandReadiness() value. "Early" is informational (watch), not a red
+    // error — early memory is normal and not required to start.
     case 'active':
-      return { status: 'active', value: 'Active', valueAr: 'نشطة', severity: 'good' }
+      return { status: 'active', value: 'Strong', valueAr: 'قوية', severity: 'good' }
     case 'building':
-      return { status: 'building', value: 'Building', valueAr: 'قيد البناء', severity: 'watch' }
+      return { status: 'building', value: 'Developing', valueAr: 'قيد التطوّر', severity: 'watch' }
     default:
-      return { status: 'needs_data', value: 'Needs more info', valueAr: 'يحتاج بيانات', severity: 'risk' }
+      return { status: 'needs_data', value: 'Early', valueAr: 'مبكرة', severity: 'watch' }
   }
 }
