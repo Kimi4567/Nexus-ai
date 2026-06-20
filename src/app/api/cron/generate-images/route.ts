@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
-import { checkAndDeductCredits } from '@/lib/credits'
+import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +26,13 @@ export const dynamic = 'force-dynamic'
 const CLOUDINARY_CLOUD  = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
 const CLOUDINARY_KEY    = process.env.CLOUDINARY_API_KEY
 const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
+
+type ImageCreditReservation = {
+  userId: string
+  creditsUsed: number
+  transactionId?: string
+  refunded: boolean
+}
 
 /**
  * Generate image — auto-detects provider:
@@ -117,6 +124,25 @@ async function uploadToCloudinary(imageUrl: string, postId: string): Promise<str
   return uploadData.secure_url as string
 }
 
+async function refundImageReservation(
+  reservation: ImageCreditReservation | undefined,
+  reason: string,
+) {
+  if (!reservation || reservation.refunded || reservation.creditsUsed <= 0) return
+  reservation.refunded = true
+
+  if (reservation.transactionId) {
+    await refundCreditsForTransaction({
+      userId: reservation.userId,
+      transactionId: reservation.transactionId,
+      reason,
+    })
+    return
+  }
+
+  await refundCredits(reservation.userId, 'IMAGE_GENERATION', reason)
+}
+
 export async function GET(req: NextRequest) {
   // Verify cron secret
   const authHeader = req.headers.get('authorization')
@@ -152,6 +178,7 @@ export async function GET(req: NextRequest) {
 
   const results = await Promise.allSettled(
     posts.map(async (post) => {
+      let creditReservation: ImageCreditReservation | undefined
       try {
         const prompt = post.imagePrompt!
         const platform: string = post.platform || 'META'
@@ -165,6 +192,12 @@ export async function GET(req: NextRequest) {
           if (!creditResult.ok) {
             console.warn(`[Cron generate-images] Skipped post ${post.id} — user ${ownerId} has insufficient credits (${creditResult.currentCredits} remaining, need ${creditResult.requiredCredits})`)
             return { postId: post.id, status: 'skipped_no_credits', creditsRemaining: creditResult.currentCredits }
+          }
+          creditReservation = {
+            userId: ownerId,
+            creditsUsed: creditResult.creditsUsed,
+            transactionId: creditResult.transactionId,
+            refunded: false,
           }
           console.log(`[Cron generate-images] Deducted IMAGE_GENERATION credits from ${ownerId} — ${creditResult.creditsRemaining} remaining`)
         } else {
@@ -203,6 +236,7 @@ export async function GET(req: NextRequest) {
         return { postId: post.id, status: 'ok', url: finalUrl }
       } catch (err: any) {
         console.error(`[Cron generate-images] Failed for post ${post.id}:`, err)
+        await refundImageReservation(creditReservation, err.message ?? 'Cron image generation failed')
         return { postId: post.id, status: 'failed', error: err.message }
       }
     })
