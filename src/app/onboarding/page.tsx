@@ -24,6 +24,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
 
 // ── Option lists (no emojis) ────────────────────────────────────────────────
 const INDUSTRIES: { value: string; ar: string; en: string }[] = [
@@ -73,7 +74,7 @@ const PLATFORMS: { value: string; ar: string; en: string }[] = [
   { value: 'none',      ar: 'لا شيء بعد', en: 'None yet' },
 ]
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
 
 // ── Calm building-block components (defined OUTSIDE the page component so they
 //    are not remounted on every keystroke) ─────────────────────────────────
@@ -154,6 +155,7 @@ export default function OnboardingPage() {
   const [saveError, setSaveError] = useState(false)
 
   // ── Starter fields (minimum useful Brand Brain layer) ──
+  const [firstIntent, setFirstIntent] = useState('')
   const [businessName, setBusinessName] = useState('')
   const [industry, setIndustry] = useState('')
   const [region, setRegion] = useState('')
@@ -211,11 +213,12 @@ export default function OnboardingPage() {
       })
 
       // 2) Save the starter fields as Brand Brain memory. No strategy is created.
-      const statusOpt = MARKETING_STATUS.find(s => s.value === marketingStatus)
-      const statusLabel = ar ? 'الوضع التسويقي الحالي' : 'Current marketing status'
-      const strategicNotes = statusOpt
-        ? `${statusLabel}: ${ar ? statusOpt.ar : statusOpt.en}`
-        : null
+      const strategicNotes = buildOnboardingStrategicNotes({
+        firstIntent,
+        marketingStatus,
+        marketingStatusOptions: MARKETING_STATUS,
+        locale: ar ? 'ar' : 'en',
+      })
 
       await fetch('/api/brand', {
         method: 'POST',
@@ -278,12 +281,12 @@ export default function OnboardingPage() {
             {ar ? `مرحبًا${displayName ? ` ${displayName}` : ''}` : `Welcome${displayName ? `, ${displayName}` : ''}`}
           </p>
           <h1 className="text-[22px] sm:text-[24px] font-bold leading-snug mb-2" style={{ color: '#0F172A' }}>
-            {ar ? 'لنبدأ بفهم نشاطك التجاري' : 'Let’s understand your business first'}
+            {ar ? 'لنبدأ ببناء ذاكرة علامتك التجارية' : 'Let’s start building your Brand Brain'}
           </h1>
           <p className="text-[14px] leading-relaxed mb-6" style={{ color: '#475569' }}>
             {ar
-              ? 'يحتاج NEXUS إلى بعض المعلومات الأساسية قبل أن يقترح اتجاهًا تسويقيًا أو خطة محتوى مناسبة لنشاطك.'
-              : 'NEXUS needs a few essential details before it can suggest a useful marketing direction or content plan for your business.'}
+              ? 'سنبدأ ببناء ذاكرة علامتك التجارية حتى يستطيع NEXUS فهم نشاطك واقتراح الخطوة التسويقية المناسبة.'
+              : 'We’ll start building your Brand Brain so NEXUS can understand your business and recommend the right marketing next step.'}
           </p>
 
           <div className="rounded-xl p-4 mb-5" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.07)' }}>
@@ -305,12 +308,12 @@ export default function OnboardingPage() {
 
           <p className="text-[13px] leading-relaxed mb-6" style={{ color: '#475569' }}>
             {ar
-              ? 'هذه المعلومات ستكون بداية ذاكرة علامتك التجارية، وهي الأساس الذي يعتمد عليه NEXUS في الاستراتيجيات والمحتوى والتوصيات القادمة.'
-              : 'These details become the start of your Brand Brain — the foundation NEXUS uses for future strategies, content, and recommendations.'}
+              ? 'لن ينشر NEXUS أي محتوى أو ينفق أي ميزانية بدون موافقتك.'
+              : 'NEXUS will not publish content or spend budget without your approval.'}
           </p>
 
           <PrimaryButton onClick={() => { setStep(1); setView('steps') }}>
-            {ar ? 'ابدأ تعريف نشاطك التجاري' : 'Start business setup'}
+            {ar ? 'ابدأ ذاكرة علامتك' : 'Start Brand Brain setup'}
           </PrimaryButton>
           <div className="mt-1.5">
             <QuietButton onClick={() => setView('limited')}>
@@ -321,8 +324,8 @@ export default function OnboardingPage() {
           <p className="text-[12px] leading-relaxed mt-4 pt-4 text-center"
             style={{ color: '#94A3B8', borderTop: '1px solid rgba(15,23,42,0.06)' }}>
             {ar
-              ? 'لن ينشئ NEXUS استراتيجية كاملة أو ينشر أي محتوى قبل أن تكون المعلومات والموافقات المطلوبة واضحة.'
-              : 'NEXUS will not create a full strategy or publish content until the required information and approvals are clear.'}
+              ? 'هذه الخطوة تحفظ الطبقة الأولى من ذاكرة العلامة فقط. لا يتم إنشاء استراتيجية كاملة أو تشغيل نشر أو إعلانات.'
+              : 'This step only saves the first layer of brand memory. It does not create a full strategy, publish content, or run ads.'}
           </p>
         </Panel>
       </Shell>
@@ -345,7 +348,7 @@ export default function OnboardingPage() {
               : 'NEXUS needs essential information before it can provide recommendations or content suited to your business.'}
           </p>
           <PrimaryButton onClick={() => { setStep(1); setView('steps') }}>
-            {ar ? 'ابدأ تعريف نشاطك التجاري' : 'Start business setup'}
+            {ar ? 'ابدأ ذاكرة علامتك' : 'Start Brand Brain setup'}
           </PrimaryButton>
           <div className="mt-1.5">
             <QuietButton onClick={() => router.push('/dashboard')}>
@@ -362,6 +365,7 @@ export default function OnboardingPage() {
   // ════════════════════════════════════════════════════════════════════════
   if (view === 'summary') {
     const industryLabel = INDUSTRIES.find(i => i.value === industry)
+    const intentLabel = FIRST_INTENTS.find(i => i.value === firstIntent)
     const goalLabel = GOALS.find(g => g.value === goal)
     const langLabel = LANGUAGES.find(l => l.value === customerLanguage)
     const statusLabel = MARKETING_STATUS.find(s => s.value === marketingStatus)
@@ -371,6 +375,7 @@ export default function OnboardingPage() {
 
     const known: { label: string; value: string }[] = []
     const push = (label: string, value?: string | null) => { if (value && value.trim()) known.push({ label, value: value.trim() }) }
+    push(ar ? 'أول مساعدة مطلوبة' : 'First requested help', intentLabel ? (ar ? intentLabel.ar : intentLabel.en) : '')
     push(ar ? 'اسم النشاط' : 'Business name', businessName)
     push(ar ? 'المجال' : 'Industry', industryLabel ? (ar ? industryLabel.ar : industryLabel.en) : '')
     push(ar ? 'المنطقة / السوق' : 'Region / market', region)
@@ -412,8 +417,8 @@ export default function OnboardingPage() {
           </h1>
           <p className="text-[13px] leading-relaxed" style={{ color: '#64748B' }}>
             {ar
-              ? 'هذا ما حفظه NEXUS حتى الآن. لا توجد استراتيجية كاملة بعد — فقط الأساس الذي ستُبنى عليه التوصيات.'
-              : 'This is what NEXUS has saved so far. There is no full strategy yet — only the foundation future recommendations will build on.'}
+              ? 'بدأت ذاكرة علامتك التجارية. هذا ما حفظه NEXUS حتى الآن، وما زال يحتاج إلى توضيح قبل أن تصبح التوصيات أعمق.'
+              : 'Your Brand Brain has started. This is what NEXUS has saved so far, and what still needs clarification before recommendations become deeper.'}
           </p>
         </div>
 
@@ -479,17 +484,12 @@ export default function OnboardingPage() {
             </p>
             <p className="text-[13px] leading-relaxed mb-4" style={{ color: '#475569' }}>
               {ar
-                ? 'بناءً على المعلومات الحالية، يستطيع NEXUS توجيهك إلى الخطوة التالية المناسبة داخل لوحة التحكم. سيتم إنشاء الموجز التشغيلي الكامل في مرحلة لاحقة عندما يكون مساره واضحًا ومبنيًا على بيانات كافية.'
-                : 'Based on the information available, NEXUS can guide you to the next appropriate step in the dashboard. A dedicated operating brief flow should be added later once it is clearly defined and based on sufficient data.'}
+                ? 'بناءً على ذاكرة علامتك الحالية، الخطوة التالية هي فتح مسار الاستراتيجية. يمكن لـ NEXUS إنشاء موجز استراتيجية أولي اعتمادًا على المعلومات المتاحة، مع توضيح أي نقاط ما زالت تحتاج إلى تأكيد.'
+                : 'Based on your Brand Brain, the next step is to open the strategy workflow. NEXUS can create an initial strategy brief using the information available, while clearly marking anything that still needs confirmation.'}
             </p>
-            <PrimaryButton onClick={() => router.push('/dashboard')}>
-              {ar ? 'عرض الخطوة التالية' : 'View next step'}
+            <PrimaryButton onClick={() => router.push('/strategy')}>
+              {ar ? 'افتح مسار الاستراتيجية' : 'Open strategy workflow'}
             </PrimaryButton>
-            <div className="mt-1.5">
-              <QuietButton onClick={() => router.push('/brand')}>
-                {ar ? 'عرض ذاكرة العلامة' : 'View Brand Brain'}
-              </QuietButton>
-            </div>
           </div>
         </div>
       </Shell>
@@ -499,7 +499,8 @@ export default function OnboardingPage() {
   // ════════════════════════════════════════════════════════════════════════
   // STEPS 1–4
   // ════════════════════════════════════════════════════════════════════════
-  const canContinueStep1 = businessName.trim().length > 0 && industry.length > 0
+  const canContinueStep1 = firstIntent.length > 0
+  const canContinueStep2 = businessName.trim().length > 0 && industry.length > 0
   const goNext = () => {
     if (step < TOTAL_STEPS) setStep(step + 1)
     else handleSaveBrandBrain()
@@ -510,13 +511,15 @@ export default function OnboardingPage() {
   }
 
   const stepTitles: Record<number, { t: string; h: string }> = {
-    1: ar ? { t: 'أساسيات النشاط', h: 'عرّف NEXUS بنشاطك ومجاله وموقعه.' }
+    1: ar ? { t: 'الخطوة التي تريدها أولًا', h: 'اختر ما تريد من NEXUS مساعدتك فيه الآن. هذا يوجّه الرحلة فقط ولا يشغّل أي توليد.' }
+          : { t: 'Your first priority', h: 'Choose what you want NEXUS to help with now. This only guides the journey; it does not trigger generation.' },
+    2: ar ? { t: 'أساسيات النشاط', h: 'عرّف NEXUS بنشاطك ومجاله وموقعه.' }
           : { t: 'Business basics', h: 'Tell NEXUS your business, its field, and where it operates.' },
-    2: ar ? { t: 'الهدف واتجاه السوق', h: 'ما لغة عملائك، وما الهدف التسويقي الأهم لك الآن.' }
+    3: ar ? { t: 'الهدف واتجاه السوق', h: 'ما لغة عملائك، وما الهدف التسويقي الأهم لك الآن.' }
           : { t: 'Goal and market direction', h: 'Your customers’ language and the marketing goal that matters most now.' },
-    3: ar ? { t: 'الجمهور والعرض', h: 'من هو عميلك المثالي، وما الذي يميّزك.' }
+    4: ar ? { t: 'الجمهور والعرض', h: 'من هو عميلك المثالي، وما الذي يميّزك.' }
           : { t: 'Audience and offer', h: 'Who your ideal customer is, and what makes you different.' },
-    4: ar ? { t: 'الوضع التسويقي الحالي', h: 'أين أنت الآن، وعلى أي منصات تنشط.' }
+    5: ar ? { t: 'الوضع التسويقي الحالي', h: 'أين أنت الآن، وعلى أي منصات تنشط.' }
           : { t: 'Current marketing status', h: 'Where you are today, and which platforms you’re active on.' },
   }
 
@@ -537,8 +540,29 @@ export default function OnboardingPage() {
         <h2 className="text-[19px] font-bold mb-1" style={{ color: '#0F172A' }}>{stepTitles[step].t}</h2>
         <p className="text-[13px] leading-relaxed mb-6" style={{ color: '#64748B' }}>{stepTitles[step].h}</p>
 
-        {/* ── Step 1: Business basics ── */}
+        {/* ── Step 1: First intent ── */}
         {step === 1 && (
+          <div className="space-y-4">
+            <div>
+              <FieldLabel>{ar ? 'ما الذي تريد من NEXUS مساعدتك فيه أولًا؟' : 'What do you want NEXUS to help with first?'}</FieldLabel>
+              <Helper>
+                {ar
+                  ? 'سيستخدم NEXUS هذا الاختيار لتوجيه الخطوة التالية بعد حفظ ذاكرة علامتك. لن يبدأ أي توليد أو نشر الآن.'
+                  : 'NEXUS uses this choice to guide the next step after saving your Brand Brain. No generation or publishing starts now.'}
+              </Helper>
+              <div className="grid grid-cols-1 gap-2">
+                {FIRST_INTENTS.map(i => (
+                  <Chip key={i.value} active={firstIntent === i.value} onClick={() => setFirstIntent(i.value)}>
+                    {ar ? i.ar : i.en}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2: Business basics ── */}
+        {step === 2 && (
           <div className="space-y-5">
             <div>
               <FieldLabel>{ar ? 'اسم النشاط التجاري' : 'Business name'}</FieldLabel>
@@ -563,8 +587,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Step 2: Goal and market direction ── */}
-        {step === 2 && (
+        {/* ── Step 3: Goal and market direction ── */}
+        {step === 3 && (
           <div className="space-y-6">
             <div>
               <FieldLabel>{ar ? 'اللغة الأساسية لعملائك' : 'Main customer language'}</FieldLabel>
@@ -589,8 +613,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Step 3: Audience and offer ── */}
-        {step === 3 && (
+        {/* ── Step 4: Audience and offer ── */}
+        {step === 4 && (
           <div className="space-y-5">
             <div>
               <FieldLabel>{ar ? 'المنتج أو الخدمة الأساسية' : 'Main product or service'}</FieldLabel>
@@ -615,8 +639,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Step 4: Current marketing status ── */}
-        {step === 4 && (
+        {/* ── Step 5: Current marketing status ── */}
+        {step === 5 && (
           <div className="space-y-6">
             <div>
               <FieldLabel>{ar ? 'وضعك التسويقي الحالي' : 'Your current marketing status'}</FieldLabel>
@@ -650,7 +674,7 @@ export default function OnboardingPage() {
 
         {/* Navigation */}
         <div className="mt-7">
-          <PrimaryButton onClick={goNext} disabled={saving || (step === 1 && !canContinueStep1)}>
+          <PrimaryButton onClick={goNext} disabled={saving || (step === 1 && !canContinueStep1) || (step === 2 && !canContinueStep2)}>
             {saving
               ? (ar ? 'جارٍ الحفظ…' : 'Saving…')
               : step < TOTAL_STEPS
