@@ -25,6 +25,7 @@
 
 export type DashboardStage = 'loading' | 'new' | 'activating' | 'established'
 export type DashboardPublishingState = 'live' | 'scheduled' | 'pending' | 'none' | null | undefined
+export type DashboardStrategyCtaState = 'create_first_strategy' | 'review_draft_strategy' | 'review_content_plan'
 
 export interface OnboardingInputs {
   /** stats.campaigns > 0 — the strongest signal of a returning user. */
@@ -54,6 +55,22 @@ export interface EarlyOperatingModeInputs {
   publishingState?: DashboardPublishingState
   /** Current campaign statuses already loaded for the dashboard list. */
   campaignStatuses?: Array<string | null | undefined> | null
+}
+
+export interface DashboardStrategyCtaInputs {
+  /** Real campaign count from /api/dashboard/stats. */
+  campaignCount?: number | null
+  /** Real SocialPost row count from /api/dashboard/stats. */
+  contentPostsTotal?: number | null
+}
+
+export interface DashboardStrategyCta {
+  state: DashboardStrategyCtaState
+  label: string
+  labelAr: string
+  reason: string
+  reasonAr: string
+  href: string
 }
 
 /**
@@ -108,4 +125,52 @@ export function isEarlyOperatingMode({
   const hasActiveCampaign = (campaignStatuses ?? []).some(status => status === 'ACTIVE')
 
   return !hasPublishedContent && !hasScheduledOrLiveContent && !hasActiveCampaign
+}
+
+/**
+ * OP-D1.1 — Dashboard → Strategy CTA contract.
+ *
+ * This intentionally uses only dashboard data we can trust:
+ * - campaign count proves a strategy/campaign record exists;
+ * - SocialPost row count proves a generated content plan exists.
+ *
+ * It does not infer scheduled/published/live state.
+ */
+export function getDashboardStrategyCta({
+  campaignCount,
+  contentPostsTotal,
+}: DashboardStrategyCtaInputs): DashboardStrategyCta {
+  const campaigns = Math.max(0, Math.trunc(campaignCount ?? 0))
+  const contentPosts = Math.max(0, Math.trunc(contentPostsTotal ?? 0))
+
+  if (campaigns > 0 && contentPosts > 0) {
+    return {
+      state: 'review_content_plan',
+      label: 'Review content plan',
+      labelAr: 'راجع خطة المحتوى',
+      reason: 'Content plan rows exist. Review the plan before scheduling or publishing.',
+      reasonAr: 'توجد صفوف خطة محتوى. راجع الخطة قبل الجدولة أو النشر.',
+      href: '/content-hub',
+    }
+  }
+
+  if (campaigns > 0) {
+    return {
+      state: 'review_draft_strategy',
+      label: 'Review draft strategy',
+      labelAr: 'راجع الاستراتيجية المسودة',
+      reason: 'A strategy or campaign draft already exists. Review it before generating or scheduling content.',
+      reasonAr: 'توجد استراتيجية أو حملة مسودة. راجعها قبل إنشاء المحتوى أو جدولته.',
+      href: '/strategy',
+    }
+  }
+
+  return {
+    state: 'create_first_strategy',
+    label: 'Create first strategy',
+    labelAr: 'أنشئ أول استراتيجية',
+    reason: 'Start with a first marketing strategy. NEXUS will ask for approval before any execution.',
+    reasonAr: 'ابدأ بأول استراتيجية تسويقية. سيطلب NEXUS موافقتك قبل أي تنفيذ.',
+    href: '/dashboard?runStrategy=1',
+  }
 }

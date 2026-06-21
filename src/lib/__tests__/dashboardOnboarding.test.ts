@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { getDashboardStage, getOnboardingVisibility, isEarlyOperatingMode } from '@/lib/dashboardOnboarding'
+import { getDashboardStage, getDashboardStrategyCta, getOnboardingVisibility, isEarlyOperatingMode } from '@/lib/dashboardOnboarding'
 
 const NEW = { hasCampaigns: false, brandReady: false, hasBrandName: false, brandLoaded: true }
 const ACTIVATING = { hasCampaigns: false, brandReady: true, hasBrandName: true, brandLoaded: true }
@@ -123,5 +123,41 @@ describe('isEarlyOperatingMode', () => {
       publishingState: 'none',
       campaignStatuses: ['DRAFT', 'ACTIVE'],
     })).toBe(false)
+  })
+})
+
+describe('getDashboardStrategyCta', () => {
+  it('1. no campaign ⇒ Create first strategy via the existing dashboard strategy modal entry', () => {
+    const cta = getDashboardStrategyCta({ campaignCount: 0, contentPostsTotal: 0 })
+
+    expect(cta.state).toBe('create_first_strategy')
+    expect(cta.label).toBe('Create first strategy')
+    expect(cta.labelAr).toBe('أنشئ أول استراتيجية')
+    expect(cta.href).toBe('/dashboard?runStrategy=1')
+  })
+
+  it('2. draft/generated campaign exists without real content rows ⇒ Review draft strategy', () => {
+    const cta = getDashboardStrategyCta({ campaignCount: 1, contentPostsTotal: 0 })
+
+    expect(cta.state).toBe('review_draft_strategy')
+    expect(cta.label).toBe('Review draft strategy')
+    expect(cta.labelAr).toBe('راجع الاستراتيجية المسودة')
+    expect(cta.href).toBe('/strategy')
+  })
+
+  it('3. real content plan rows exist ⇒ Review content plan', () => {
+    const cta = getDashboardStrategyCta({ campaignCount: 2, contentPostsTotal: 8 })
+
+    expect(cta.state).toBe('review_content_plan')
+    expect(cta.label).toBe('Review content plan')
+    expect(cta.labelAr).toBe('راجع خطة المحتوى')
+    expect(cta.href).toBe('/content-hub')
+  })
+
+  it('4. does not claim content exists from campaign count alone', () => {
+    const cta = getDashboardStrategyCta({ campaignCount: 3, contentPostsTotal: 0 })
+
+    expect(cta.label).not.toMatch(/content/i)
+    expect(cta.href).toBe('/strategy')
   })
 })
