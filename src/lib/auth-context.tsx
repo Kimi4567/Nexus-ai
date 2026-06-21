@@ -21,7 +21,7 @@ interface AuthContextType {
   loading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string, options?: { name?: string }) => Promise<void>
+  signup: (email: string, password: string, options?: { name?: string }) => Promise<{ needsEmailConfirmation: boolean }>
   logout: () => Promise<void>
   /** Returns "Bearer <access_token>" or "" if not authenticated */
   authHeader: () => string
@@ -124,12 +124,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     options?: { name?: string },
   ) => {
-    const { error } = await supabase.auth.signUp({
+    const emailRedirectTo = typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/login`
+      : undefined
+
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name: options?.name } },
+      options: {
+        data: { name: options?.name },
+        emailRedirectTo,
+      },
     })
     if (error) throw error
+    return { needsEmailConfirmation: !data.session }
   }, [])
 
   const logout = useCallback(async () => {
