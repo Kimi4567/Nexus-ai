@@ -925,6 +925,13 @@ function BrandBrainInner() {
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
   const currentStep    = STEPS[currentStepIdx] ?? STEPS[0]
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
+  const hasExistingBrandMemory = Boolean(
+    form.brandName?.trim() ||
+    form.industry?.trim() ||
+    form.primaryOffer?.trim() ||
+    form.targetAudience?.trim() ||
+    form.businessGoal?.trim()
+  )
 
   if (authLoading || loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#06071A' }}>
@@ -1369,11 +1376,28 @@ function BrandBrainInner() {
           {wizardStage === 'start' && (
             <div className="rounded-2xl p-6 sm:p-8" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
               <h2 className="text-lg font-bold text-slate-950">
-                {locale === 'ar' ? 'لنبدأ ببناء ذاكرة علامتك' : 'Let’s build your Brand Brain'}
+                {hasExistingBrandMemory
+                  ? (locale === 'ar' ? 'راجع ذاكرة علامتك وأكمل ما ينقصها' : 'Review your Brand Brain and complete what’s missing')
+                  : (locale === 'ar' ? 'لنبدأ ببناء ذاكرة علامتك' : 'Let’s build your Brand Brain')}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
-                {locale === 'ar' ? 'اختر طريقة البدء — يمكنك تغييرها في أي وقت.' : 'Choose how you’d like to start — you can change this anytime.'}
+                {hasExistingBrandMemory
+                  ? (locale === 'ar'
+                      ? 'أضاف الإعداد الأول الطبقة الأولى من ذاكرة علامتك. يمكنك تعديلها أو تحسينها قبل فتح مسار الاستراتيجية.'
+                      : 'Your initial setup created the first layer of Brand Brain. You can edit or improve it before opening the strategy workflow.')
+                  : (locale === 'ar' ? 'اختر طريقة البدء — يمكنك تغييرها في أي وقت.' : 'Choose how you’d like to start — you can change this anytime.')}
               </p>
+              {hasExistingBrandMemory && (
+                <div className="mt-4 rounded-xl p-3 flex items-start gap-2.5"
+                  style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.08)' }}>
+                  <CheckCircle2 size={15} className="flex-shrink-0 mt-0.5 text-slate-500" />
+                  <p className="text-[12px] leading-relaxed text-slate-500">
+                    {locale === 'ar'
+                      ? 'هذه ليست بداية جديدة. المعلومات التي أدخلتها أثناء الإعداد موجودة هنا للمراجعة والتحسين، ولن يتم نشر محتوى أو إنفاق ميزانية من هذه الصفحة.'
+                      : 'This is not a fresh start. The details you added during setup are here to review and improve, and this page does not publish content or spend budget.'}
+                  </p>
+                </div>
+              )}
               {(() => {
                 const ar = locale === 'ar'
                 const scanCost = assistUrl.trim() ? ASSIST_SCAN_COST : 0
@@ -1454,10 +1478,16 @@ function BrandBrainInner() {
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
                       <Brain size={17} style={{ color:'#64748b' }} />
                     </div>
-                    <p className="text-sm font-bold text-slate-950">{ar ? 'ابدأ يدوياً' : 'Start manually'}</p>
-                    <p className="text-xs text-slate-500 mt-1 flex-1">{ar ? 'املأ ذاكرة علامتك خطوة بخطوة.' : 'Fill your Brand Brain step by step.'}</p>
+                    <p className="text-sm font-bold text-slate-950">
+                      {hasExistingBrandMemory ? (ar ? 'راجع التفاصيل المحفوظة' : 'Review saved details') : (ar ? 'ابدأ يدوياً' : 'Start manually')}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 flex-1">
+                      {hasExistingBrandMemory
+                        ? (ar ? 'المعلومات الحالية مملوءة مسبقاً. عدّلها أو أضف ما ينقصها.' : 'Your current details are prefilled. Edit them or add what is missing.')
+                        : (ar ? 'املأ ذاكرة علامتك خطوة بخطوة.' : 'Fill your Brand Brain step by step.')}
+                    </p>
                     <span className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold self-start" style={{ background:'#0f172a', color:'#ffffff' }}>
-                      {ar ? 'ابدأ يدوياً' : 'Start manually'} <ArrowLeft size={14} className="rtl:rotate-180" />
+                      {hasExistingBrandMemory ? (ar ? 'مراجعة التفاصيل' : 'Review details') : (ar ? 'ابدأ يدوياً' : 'Start manually')} <ArrowLeft size={14} className="rtl:rotate-180" />
                     </span>
                   </button>
 
