@@ -271,6 +271,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   if (!isAuthenticated) return null
 
   const sharedProps = { pathname, collapsed, onClick: click }
+  const shouldShowEmptyCredits = isEmpty && isPaid
+  const shouldShowFreeTrialReady = isEmpty && !isPaid
 
   return (
     <aside dir={dir} className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
@@ -354,13 +356,15 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           <Link href="/billing"
             className="flex flex-col gap-1.5 px-3 py-2.5 rounded-[9px] mb-2 transition-all"
             style={{
-              background: isEmpty ? '#FEF2F2' : isLow ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF',
-              border: isEmpty ? '1px solid rgba(239,68,68,0.22)' : isLow ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)',
+              background: shouldShowEmptyCredits ? '#FEF2F2' : isLow ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF',
+              border: shouldShowEmptyCredits ? '1px solid rgba(239,68,68,0.22)' : isLow ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)',
             }}>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold" style={{ color: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6' }}>
-                {isEmpty
+              <span className="text-[11px] font-semibold" style={{ color: shouldShowEmptyCredits ? '#EF4444' : isLow ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6' }}>
+                {shouldShowEmptyCredits
                   ? (locale === 'ar' ? '⚠ لا يوجد رصيد' : '⚠ No credits left')
+                  : shouldShowFreeTrialReady
+                  ? (locale === 'ar' ? 'رصيد التجربة جاهز' : 'Free trial credits ready')
                   : isLow
                   ? (locale === 'ar' ? `⚠ ${creditsRemaining} رصيد متبقٍ` : `⚠ ${creditsRemaining} credits left`)
                   : isPaid
@@ -369,14 +373,14 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                       : (locale === 'ar' ? `✓ ${creditsRemaining} رصيد متبقٍ` : `✓ ${creditsRemaining} credits left`))
                   : `⚡ ${t('sidebar.upgradePro')}`}
               </span>
-              {!isPaid && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#111827', color: 'white' }}>PRO</span>}
+              {!isPaid && !shouldShowFreeTrialReady && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#111827', color: 'white' }}>Upgrade</span>}
             </div>
             {!isUnlimited && (
               <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.max(0, Math.min(100, (creditsRemaining / Math.max(creditsMax, 1)) * 100))}%`,
-                    background: isEmpty ? '#EF4444' : isLow ? '#F59E0B' : '#5E5CE6',
+                    background: shouldShowEmptyCredits ? '#EF4444' : isLow ? '#F59E0B' : '#5E5CE6',
                   }} />
               </div>
             )}
