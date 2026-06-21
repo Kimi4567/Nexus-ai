@@ -59,8 +59,20 @@ export default function RegisterPage() {
       setDone(result.needsEmailConfirmation ? 'verify' : 'active')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ''
-      if (msg.includes('already registered')) setError(errorsT?.emailUsed || '')
-      else setError(errorsT?.generic || '')
+      const lowerMsg = msg.toLowerCase()
+      if (lowerMsg.includes('already registered') || lowerMsg.includes('already exists') || lowerMsg.includes('user exists')) {
+        setError(errorsT?.emailUsed || '')
+      } else if (lowerMsg.includes('signup') && lowerMsg.includes('disabled')) {
+        setError(errorsT?.signupDisabled || errorsT?.serviceUnavailable || '')
+      } else if (lowerMsg.includes('invalid email')) {
+        setError(errorsT?.invalidEmail || errorsT?.generic || '')
+      } else if (lowerMsg.includes('rate limit') || lowerMsg.includes('too many')) {
+        setError(errorsT?.rateLimit || errorsT?.generic || '')
+      } else if (lowerMsg.includes('email') && (lowerMsg.includes('send') || lowerMsg.includes('smtp') || lowerMsg.includes('provider'))) {
+        setError(errorsT?.emailDelivery || errorsT?.generic || '')
+      } else {
+        setError(errorsT?.generic || '')
+      }
       setLoading(false)
     }
   }
