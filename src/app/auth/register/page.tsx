@@ -28,7 +28,7 @@ export default function RegisterPage() {
   const [agreeCookies, setAgreeCookies] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [done, setDone] = useState(false)
+  const [done, setDone] = useState<'idle' | 'verify' | 'active'>('idle')
 
   const authT = t('auth.register')
   const errorsT = authT?.errors || {}
@@ -48,7 +48,7 @@ export default function RegisterPage() {
     if (!agreeCookies) { setError(errorsT?.cookiesRequired || ''); return }
     setLoading(true)
     try {
-      await signup(email, password, { name })
+      const result = await signup(email, password, { name })
       localStorage.setItem('nexus_consent', JSON.stringify({ terms: true, privacy: true, cookies: true, timestamp: new Date().toISOString(), email }))
       // Fire welcome email — non-blocking, never fails registration
       fetch('/api/auth/welcome', {
@@ -56,7 +56,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name }),
       }).catch(() => {})
-      setDone(true)
+      setDone(result.needsEmailConfirmation ? 'verify' : 'active')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ''
       if (msg.includes('already registered')) setError(errorsT?.emailUsed || '')
@@ -81,17 +81,31 @@ export default function RegisterPage() {
               style={{ background: 'linear-gradient(135deg,#8B5CF6,#10B981)' }}>N</div>
             <span className="text-2xl font-extrabold tracking-wider font-heading text-gradient">NEXUS AI</span>
           </Link>
-          {done ? (
+          {done !== 'idle' ? (
             <div className="text-center">
-              <h2 className="text-2xl font-bold font-heading mb-3 text-slate-950">{authT?.verifyTitle}</h2>
-              <p className="text-text-secondary text-sm mb-2">{authT?.verifySent}</p>
+              <h2 className="text-2xl font-bold font-heading mb-3 text-slate-950">
+                {done === 'verify'
+                  ? authT?.verifyTitle
+                  : (isRTL ? 'تم إنشاء الحساب' : 'Account created')}
+              </h2>
+              <p className="text-text-secondary text-sm mb-2">
+                {done === 'verify'
+                  ? authT?.verifySent
+                  : (isRTL ? 'تم تفعيل حسابك ويمكنك المتابعة الآن.' : 'Your account is active. You can continue now.')}
+              </p>
               <p className="text-accent-purple font-semibold mb-6">{email}</p>
-              <p className="text-text-muted text-sm mb-6">{authT?.verifyCheck}</p>
+              <p className="text-text-muted text-sm mb-6">
+                {done === 'verify'
+                  ? authT?.verifyCheck
+                  : (isRTL ? 'إذا لم تنتقل تلقائيًا، استخدم الزر بالأسفل لبدء إعداد Brand Brain.' : 'If you are not redirected automatically, use the button below to start Brand Brain setup.')}
+              </p>
               {/* Next steps hint */}
               <div className="rounded-xl px-4 py-3 mb-6 text-left"
                 style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
                 <p className="text-xs font-bold text-accent-purple mb-2">
-                  {isRTL ? 'بعد التحقق من البريد ستتمكن من:' : 'After verifying your email you\'ll:'}
+                  {done === 'verify'
+                    ? (isRTL ? 'بعد التحقق من البريد ستتمكن من:' : 'After verifying your email you\'ll:')
+                    : (isRTL ? 'الخطوة التالية:' : 'Next step:')}
                 </p>
                 <div className="space-y-1">
                   {(isRTL ? [
@@ -107,8 +121,10 @@ export default function RegisterPage() {
                   ))}
                 </div>
               </div>
-              <Link href="/auth/login" className="btn-gradient block w-full py-3 text-white font-bold rounded-xl text-center hover:-translate-y-0.5 transition">
-                {authT?.verifyCta} →
+              <Link href={done === 'verify' ? '/auth/login' : '/onboarding'} className="btn-gradient block w-full py-3 text-white font-bold rounded-xl text-center hover:-translate-y-0.5 transition">
+                {done === 'verify'
+                  ? authT?.verifyCta
+                  : (isRTL ? 'ابدأ إعداد Brand Brain' : 'Start Brand Brain setup')} →
               </Link>
             </div>
           ) : (
