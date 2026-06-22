@@ -10,6 +10,7 @@ import { deriveDisplayState, statusLabelKey } from '@/lib/postStatus'
 import { isAutoPublished } from '@/lib/postVisibility'
 import { getPublishingStateSummary } from '@/lib/contentCounts'
 import { getPostClaimRisk } from '@/lib/ai/claimGuard'
+import { getCalendarMonthTruth, getCalendarTruthText, isRealCalendarPost } from '@/lib/calendarTruth'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -288,7 +289,7 @@ function convertScheduledToCalendarPosts(
   campaigns: any[]
 ): CalendarPost[] {
   return scheduledPosts
-    .filter(p => p.scheduledAt && p.status !== 'FAILED')
+    .filter(isRealCalendarPost)
     .map(p => {
       const d = new Date(p.scheduledAt)
       if (isNaN(d.getTime())) return null
@@ -403,37 +404,31 @@ function CalendarPageInner() {
   }, [isAuthenticated])
 
   // ── Calendar derived state ─────────────────────────────────────────────────
-  const allPosts = useMemo(() => {
+  const strategyPlanPosts = useMemo(() => {
     const out: CalendarPost[] = []
-    // 1. AI-planned posts from campaign aiOutput
     campaigns.forEach((c, i) => out.push(...extractPostsFromCampaign(c, i)))
-    // 2. Approved + scheduled SocialPost records — overlay on calendar grid
-    const scheduledCalPosts = convertScheduledToCalendarPosts(posts, campaigns)
-    // Avoid exact duplicates: skip if same campaignId + date + platform already exists from aiOutput
-    scheduledCalPosts.forEach(sp => {
-      const isDuplicate = out.some(
-        p =>
-          p.source === 'campaign_ai_output' &&
-          p.date === sp.date &&
-          p.platform.toLowerCase() === sp.platform.toLowerCase() &&
-          p.campaignId === sp.campaignId
-      )
-      if (!isDuplicate) out.push(sp)
-    })
     return out
-  }, [campaigns, posts])
+  }, [campaigns])
+
+  const allPosts = useMemo(
+    () => convertScheduledToCalendarPosts(posts, campaigns),
+    [campaigns, posts]
+  )
 
   const monthPosts = useMemo(
     () => allPosts.filter(p => p.month === viewMonth && p.year === viewYear),
     [allPosts, viewMonth, viewYear]
   )
 
+  const monthStrategyIdeas = useMemo(
+    () => strategyPlanPosts.filter(p => p.month === viewMonth && p.year === viewYear),
+    [strategyPlanPosts, viewMonth, viewYear]
+  )
+
   useEffect(() => {
     if (loadingCal) return
     if (hasAutoJumpedRef.current) return
-    const pushedPosts = allPosts.filter(
-      p => p.source === 'campaign_ai_output' || p.source === 'scheduled' || p.source === 'published'
-    )
+    const pushedPosts = allPosts
     if (pushedPosts.length === 0) return
     const curMonth = now.getMonth()
     const curYear  = now.getFullYear()
@@ -470,15 +465,21 @@ function CalendarPageInner() {
   }
 
   const selectedDayPosts = selectedDay ? getPostsForDay(selectedDay) : []
+  const selectedDayStrategyIdeas = selectedDay
+    ? monthStrategyIdeas.filter(p => p.day === selectedDay)
+    : []
 
   const platformBreakdown = monthPosts.reduce((acc, p) => {
     acc[p.platform] = (acc[p.platform] || 0) + 1
     return acc
   }, {} as Record<string, number>)
 
+  const calendarTruth = getCalendarMonthTruth(posts, viewMonth, viewYear)
   const calStats = {
-    total: monthPosts.length,
-    platforms: Object.keys(platformBreakdown).length,
+    total: calendarTruth.postsThisMonth,
+    scheduled: calendarTruth.scheduled,
+    published: calendarTruth.published,
+    platforms: calendarTruth.platforms,
     campaigns: new Set(monthPosts.map(p => p.campaignId)).size,
   }
 
@@ -589,11 +590,13 @@ function CalendarPageInner() {
               <span className="text-slate-600">Calendar</span>
             </div>
             <h1 className="text-3xl font-bold text-slate-950 mb-1">
-              {activeTab === 'timeline' ? 'Content Calendar' : 'Publishing Queue'}
+              {activeTab === 'timeline'
+                ? (locale === 'ar' ? getCalendarTruthText('plannedTab', locale) : 'Content Calendar')
+                : getCalendarTruthText('scheduledTab', locale)}
             </h1>
             <p className="text-slate-500">
               {activeTab === 'timeline'
-                ? 'Your AI-planned content pipeline across all campaigns.'
+                ? getCalendarTruthText('subtitle', locale)
                 : (scT?.queueSubtitle as string || 'Scheduled posts and automatic publishing through your connected accounts.')}
             </p>
           </div>
@@ -623,7 +626,7 @@ function CalendarPageInner() {
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-950'
             }`}>
-            📅 {locale === 'ar' ? 'الجدول الزمني' : 'Strategy Timeline'}
+            📅 {getCalendarTruthText('plannedTab', locale)}
           </button>
           <button
             onClick={() => setActiveTab('queue')}
@@ -632,7 +635,7 @@ function CalendarPageInner() {
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-950'
             }`}>
-            📤 {locale === 'ar' ? 'قائمة النشر' : 'Publishing Queue'}
+            📤 {getCalendarTruthText('scheduledTab', locale)}
             {scheduled.length > 0 && (
               <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(15,23,42,0.12)', color: 'inherit' }}>
                 {scheduled.length}
@@ -653,8 +656,8 @@ function CalendarPageInner() {
                   <span>📅</span>
                   <span>
                     {locale === 'ar'
-                      ? `تم الانتقال إلى ${autoJumpBanner} — هذا هو الشهر الذي تم جدولة محتواك فيه`
-                      : `Jumped to ${autoJumpBanner} — that's where your scheduled content landed`
+                      ? `تم الانتقال إلى ${autoJumpBanner} — توجد منشورات مجدولة أو منشورة فعليًا في هذا الشهر`
+                      : `Jumped to ${autoJumpBanner} — this month has real scheduled or published posts`
                     }
                   </span>
                 </div>
@@ -667,13 +670,18 @@ function CalendarPageInner() {
               </div>
             )}
 
-            {/* Stats — these count posts scheduled/planned for the VIEWED month,
-                not whether content exists. The empty-state note below keeps that honest. */}
+            <div className="rounded-xl px-4 py-3 mb-3 text-xs leading-relaxed text-slate-600"
+              style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
+              {getCalendarTruthText('plannedHelper', locale)}
+            </div>
+
+            {/* Stats count real SocialPost/content rows only. Strategy ideas never
+                inflate scheduled, published, platform, or monthly post counts. */}
             <div className="grid grid-cols-3 gap-3 mb-3">
               {[
-                { label: locale === 'ar' ? 'بوستات هذا الشهر' : 'Posts this month',   value: calStats.total,     color: 'text-slate-950'  },
-                { label: locale === 'ar' ? 'حملات هذا الشهر'  : 'Campaigns this month', value: calStats.campaigns,  color: 'text-indigo-600' },
-                { label: locale === 'ar' ? 'المنصات'          : 'Platforms',          value: calStats.platforms,  color: 'text-amber-600'  },
+                { label: locale === 'ar' ? 'منشورات هذا الشهر' : 'Posts this month', value: calStats.total, color: 'text-slate-950' },
+                { label: locale === 'ar' ? 'مجدولة' : 'Scheduled', value: calStats.scheduled, color: 'text-orange-600' },
+                { label: locale === 'ar' ? 'منشورة' : 'Published', value: calStats.published, color: 'text-green-700' },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
                   <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
@@ -682,31 +690,30 @@ function CalendarPageInner() {
               ))}
             </div>
 
-            {/* PR-1J — honest empty state: a 0 here means "nothing scheduled/planned
-                for this month", NOT "you have no campaigns or content". Never let the
-                calendar imply the user's campaign/content disappeared. */}
+            {/* A 0 here means no real SocialPost rows are scheduled/published. Draft
+                campaign plans can exist, but they are not generated posts to schedule. */}
             {calStats.total === 0 && campaigns.length > 0 && (
               <div className="rounded-xl px-4 py-3 mb-3 text-xs leading-relaxed text-slate-600"
                 style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}>
-                {locale === 'ar'
-                  ? `لا توجد بوستات مجدولة لهذا الشهر. لديك ${campaigns.length} حملة بمحتوى — المحتوى المعتمد غير مجدول بعد. قم بجدولة البوستات من مركز المحتوى لتظهر هنا.`
-                  : `No posts scheduled for this month. You have ${campaigns.length} campaign${campaigns.length > 1 ? 's' : ''} with content — approved content isn't scheduled yet. Schedule posts from the Content Hub to see them here.`}
+                {getCalendarTruthText('noGeneratedPlan', locale)}
               </div>
             )}
 
             {/* Legend */}
             <div className="flex items-center gap-4 mb-5 px-1">
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400" />
-                <span className="text-[11px] text-slate-500">✦ AI Planned</span>
-              </div>
+              {monthStrategyIdeas.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400" />
+                  <span className="text-[11px] text-slate-500">✦ {getCalendarTruthText('legendPlanned', locale)}</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <span className="text-[11px] text-slate-500">🕐 Scheduled</span>
+                <span className="text-[11px] text-slate-500">🕐 {getCalendarTruthText('legendScheduled', locale)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" />
-                <span className="text-[11px] text-slate-500">✅ Published</span>
+                <span className="text-[11px] text-slate-500">✅ {getCalendarTruthText('legendPublished', locale)}</span>
               </div>
             </div>
 
@@ -811,7 +818,7 @@ function CalendarPageInner() {
                     {selectedDayPosts.length === 0 ? (
                       <div className="text-center py-6">
                         <div className="text-2xl mb-2">📅</div>
-                        <p className="text-sm text-slate-500">{calT?.emptyDay as string || 'No posts scheduled'}</p>
+                        <p className="text-sm text-slate-500">{getCalendarTruthText('noGeneratedScheduled', locale)}</p>
                         <Link href="/campaigns/new"
                           className="inline-block mt-3 text-xs text-accent hover:underline">
                           {calT?.btnNewCampaign as string || 'Create campaign'}
@@ -845,7 +852,7 @@ function CalendarPageInner() {
                                     manual vs auto. AI-planned campaign content stays as such. */}
                                 {isAiPlanned ? (
                                   <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full font-semibold bg-cyan-500/15 text-cyan-400">
-                                    ✦ AI Planned
+                                    ✦ {getCalendarTruthText('legendPlanned', locale)}
                                   </span>
                                 ) : (isPublished || isScheduled) && post.publishStatus ? (() => {
                                   const ds = deriveDisplayState({ status: post.publishStatus, publishMode: post.publishMode, platformPostId: post.platformPostId, platformUrl: post.platformUrl })
@@ -918,10 +925,36 @@ function CalendarPageInner() {
                   </div>
                 ) : (
                   <div className="rounded-2xl p-5" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
-                    <h3 className="font-bold text-slate-950 mb-1">Select a day</h3>
+                    <h3 className="font-bold text-slate-950 mb-1">{locale === 'ar' ? 'اختر يومًا' : 'Select a day'}</h3>
                     <p className="text-sm text-slate-500">
-                      Click any day to see your AI-planned content. Each coloured pill is a post from a campaign.
+                      {getCalendarTruthText('dayHelper', locale)}
                     </p>
+                  </div>
+                )}
+
+                {/* Strategy ideas are deliberately separate from real scheduled/published posts. */}
+                {monthStrategyIdeas.length > 0 && (
+                  <div className="rounded-2xl p-5" style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.16)' }}>
+                    <h3 className="font-bold text-slate-950 mb-1 text-sm">{getCalendarTruthText('plannedTab', locale)}</h3>
+                    <p className="text-xs text-slate-500 mb-4">{getCalendarTruthText('plannedHelper', locale)}</p>
+                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                      {(selectedDay ? selectedDayStrategyIdeas : monthStrategyIdeas).slice(0, 6).map(idea => (
+                        <Link key={idea.id} href={`/campaigns/${idea.campaignId}`}
+                          className="block rounded-xl bg-white px-3 py-2 hover:opacity-80 transition-opacity"
+                          style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 mb-0.5">
+                            <span className="w-2 h-2 rounded-full" style={{ background: idea.campaignColor }} />
+                            <span>{MONTHS[idea.month]} {idea.day}</span>
+                            <span>·</span>
+                            <span>{idea.platform}</span>
+                          </div>
+                          <p className="text-xs font-semibold text-slate-800 line-clamp-2">{idea.topic}</p>
+                        </Link>
+                      ))}
+                      {selectedDay && selectedDayStrategyIdeas.length === 0 && (
+                        <p className="text-xs text-slate-500">{locale === 'ar' ? 'لا توجد أفكار استراتيجية لهذا اليوم.' : 'No strategy ideas for this day.'}</p>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -932,7 +965,7 @@ function CalendarPageInner() {
                     <div className="space-y-2">
                       {campaigns.slice(0, 6).map((c, i) => {
                         const color = CAMPAIGN_COLORS[i % CAMPAIGN_COLORS.length]
-                        const count = monthPosts.filter(p => p.campaignId === c.id).length
+                        const count = monthStrategyIdeas.filter(p => p.campaignId === c.id).length
                         return (
                           <Link key={c.id} href={`/campaigns/${c.id}`}
                             className="flex items-center gap-2 group hover:opacity-80 transition-opacity">
@@ -940,7 +973,9 @@ function CalendarPageInner() {
                             <span className="text-xs text-slate-600 truncate flex-1 group-hover:text-slate-950 transition-colors">
                               {c.title || c.name || 'Campaign'}
                             </span>
-                            <span className="text-[10px] text-slate-400 flex-shrink-0">{count} posts</span>
+                            <span className="text-[10px] text-slate-400 flex-shrink-0">
+                              {locale === 'ar' ? `${count} فكرة` : `${count} ideas`}
+                            </span>
                           </Link>
                         )
                       })}
@@ -955,7 +990,7 @@ function CalendarPageInner() {
                 <div className="rounded-2xl p-5" style={{ background: 'white', border: '1px solid rgba(15,23,42,0.08)' }}>
                   <h3 className="font-bold text-slate-950 mb-4 text-sm">{calT?.platformBreakdown as string || 'Platform Breakdown'}</h3>
                   {monthPosts.length === 0 ? (
-                    <p className="text-sm text-slate-500">{calT?.emptyMonth as string || 'No posts this month'}</p>
+                    <p className="text-sm text-slate-500">{getCalendarTruthText('noGeneratedScheduled', locale)}</p>
                   ) : (
                     <div className="space-y-3">
                       {Object.entries(platformBreakdown)
@@ -994,10 +1029,14 @@ function CalendarPageInner() {
                   </div>
                   <p className="text-sm text-slate-700 leading-relaxed">
                     {monthPosts.length === 0
-                      ? calT?.pulseEmpty as string || 'No posts scheduled yet. Create a campaign to start filling your calendar.'
+                      ? getCalendarTruthText('noGeneratedScheduled', locale)
                       : monthPosts.length < 12
-                        ? (calT?.pulseLow as string)?.replace('{count}', String(monthPosts.length)) || `${monthPosts.length} posts planned this month. Consider adding more to stay consistent.`
-                        : (calT?.pulseGood as string)?.replace('{count}', String(monthPosts.length))?.replace('{platforms}', String(calStats.platforms)) || `${monthPosts.length} posts across ${calStats.platforms} platforms. Great consistency!`
+                        ? (locale === 'ar'
+                          ? `${monthPosts.length} منشورات مجدولة أو منشورة فعليًا هذا الشهر.`
+                          : `${monthPosts.length} real scheduled or published posts this month.`)
+                        : (locale === 'ar'
+                          ? `${monthPosts.length} منشورات مجدولة أو منشورة فعليًا عبر ${calStats.platforms} منصات.`
+                          : `${monthPosts.length} real scheduled or published posts across ${calStats.platforms} platforms.`)
                     }
                   </p>
                   {campaigns.length === 0 && (
@@ -1185,7 +1224,7 @@ function CalendarPageInner() {
                 <div className="text-4xl mb-4">📤</div>
                 <h2 className="font-bold text-slate-950 mb-2">{scT?.emptyTitle as string || 'No scheduled posts'}</h2>
                 <p className="text-sm text-slate-500 mb-6">
-                  {scT?.emptyDesc as string || 'Schedule posts to your connected social accounts and they\'ll appear here.'}
+                  {getCalendarTruthText('scheduledEmpty', locale)}
                 </p>
                 <button onClick={() => setShowModal(true)}
                   className="px-5 py-2.5 bg-accent text-white font-bold rounded-xl text-sm hover:bg-accent/90 transition-all">
@@ -1200,12 +1239,14 @@ function CalendarPageInner() {
                 {scT?.tipTitle as string || 'Pro Tip'}
               </div>
               <p className="text-sm text-slate-700 leading-relaxed">
-                {scT?.tipDesc as string || 'Use the Strategy Timeline tab to plan content with AI, then schedule directly from your campaign\'s Content Hub.'}
+                {locale === 'ar'
+                  ? 'راجع أفكار الاستراتيجية بشكل منفصل، ثم جدول المنشورات المعتمدة من مركز المحتوى عند توفرها.'
+                  : 'Review strategy ideas separately, then schedule approved posts from the Content Hub when real content is available.'}
               </p>
               <button
                 onClick={() => setActiveTab('timeline')}
                 className="inline-flex items-center gap-1 mt-3 text-xs text-accent hover:underline font-medium">
-                {locale === 'ar' ? 'عرض الجدول الزمني' : 'View Strategy Timeline'} →
+                {getCalendarTruthText('plannedTab', locale)} →
               </button>
             </div>
           </div>
