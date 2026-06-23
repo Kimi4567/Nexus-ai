@@ -7,18 +7,24 @@
  * - Publish now (immediate) or Schedule (future date/time)
  * - Shows published posts history for this campaign
  * - Sprint R
+ * - OP-D1.3: Locked-state honesty — shows honest publish readiness state
  */
 
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
   Send, Clock, CheckCircle2, XCircle, Loader2,
   Image as ImageIcon, ChevronDown,
   ExternalLink, AlertCircle, RefreshCw, Zap,
+  Lock, Info,
 } from 'lucide-react'
+import {
+  derivePublishReadiness,
+  getConnectedPublishLockReason,
+} from '@/lib/publishReadiness'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +64,9 @@ interface SocialPublisherProps {
   captionFormulas?: string[]
   ctaVariations?: string[]
   keyMessage?: string
+  // OP-D1.3: publish readiness inputs
+  socialPostCount?: number
+  campaignStatus?: string
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -69,6 +78,8 @@ export default function SocialPublisher({
   captionFormulas = [],
   ctaVariations = [],
   keyMessage,
+  socialPostCount = 0,
+  campaignStatus = 'DRAFT',
 }: SocialPublisherProps) {
   const { authHeader } = useAuth()
   const { locale, dir } = useI18n()
@@ -102,6 +113,32 @@ export default function SocialPublisher({
   const [loadingPosts, setLoadingPosts] = useState(false)
 
   const ar = locale === 'ar'
+
+  // ── OP-D1.3: Publish readiness derivation (pure, client-side) ──────────
+
+  const hasGeneratedPosts = socialPostCount > 0
+  const hasApprovedPosts = useMemo(
+    () => posts.some(p => p.status === 'APPROVED' || p.status === 'SCHEDULED' || p.status === 'PUBLISHED'),
+    [posts]
+  )
+  const connectedAccountExists = accounts.length > 0
+  // OP-D1.3: platform is "ready" only when we have a connected account with at least one page.
+  // The deeper permission verification (Meta App Review) is handled as a separate warning.
+  const platformReady = connectedAccountExists && selectedAccount != null && selectedAccount.pages.length > 0
+
+  const readiness = useMemo(() => derivePublishReadiness({
+    hasGeneratedPosts,
+    hasApprovedPosts,
+    connectedAccountExists,
+    platformReady,
+    autopilotEnabled: false, // SocialPublisher does not manage autopilot
+    campaignStatus,
+  }), [hasGeneratedPosts, hasApprovedPosts, connectedAccountExists, platformReady, campaignStatus])
+
+  const connectedLockReason = useMemo(
+    () => getConnectedPublishLockReason(connectedAccountExists, platformReady),
+    [connectedAccountExists, platformReady]
+  )
 
   // ── Load accounts ────────────────────────────────────────────────────────
 
@@ -320,7 +357,13 @@ export default function SocialPublisher({
 
   // ── Main UI ──────────────────────────────────────────────────────────────
 
-  const canPublish = selectedAccount && selectedPage && caption.trim().length > 0
+  // OP-D1.3: Mechanical can-publish check (account + page + caption)
+  const canPublishMechanically = selectedAccount && selectedPage && caption.trim().length > 0
+
+  // OP-D1.3: Visual lock state — the button is mechanically enabled but visually
+  // reflects the honest readiness state. When not in connected_ready or auto_ready,
+  // the button uses a de-emphasized style to signal "manual / limited" mode.
+  const isFullyReady = readiness.state === 'connected_ready' || readiness.state === 'auto_ready'
 
   return (
     <div className="space-y-5" dir={dir}>
@@ -345,6 +388,93 @@ export default function SocialPublisher({
           <RefreshCw className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {/* ── OP-D1.3: Locked-state honesty banner ───────────────────────── */}
+      {readiness.state === 'no_content' && (
+        <div className="rounded-xl px-4 py-3 flex items-start gap-3"
+          style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.18)' }}>
+          <Lock className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-red-300">
+              {ar ? 'النشر مقفل — لا يوجد محتوى معتمد' : 'Publishing locked — no approved content'}
+            </p>
+            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              {ar
+                ? 'أنشئ خطة محتوى في Content Hub واعتمدها قبل النشر.'
+                : 'Generate a content plan in the Content Hub and approve it before publishing.'}
+            </p>
+            <a href={`/campaigns/${campaignId}/content-hub`}
+              className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-accent hover:text-accent/80 transition-colors">
+              {ar ? 'Content Hub →' : 'Content Hub →'}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+      )}
+
+      {readiness.state === 'draft_unapproved' && (
+        <div className="rounded-xl px-4 py-3 flex items-start gap-3"
+          style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}>
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-amber-300">
+              {ar ? 'محتوى بانتظار الاعتماد' : 'Content awaiting approval'}
+            </p>
+            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              {ar
+                ? 'اعتمد المحتوى في Content Hub قبل أن تتمكن من النشر.'
+                : 'Approve content in the Content Hub before you can publish.'}
+            </p>
+            <a href={`/campaigns/${campaignId}/content-hub`}
+              className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-accent hover:text-accent/80 transition-colors">
+              {ar ? 'Content Hub →' : 'Content Hub →'}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+      )}
+
+      {readiness.state === 'manual_only' && (
+        <div className="rounded-xl px-4 py-3 flex items-start gap-3"
+          style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)' }}>
+          <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-blue-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-blue-300">
+              {ar ? 'النشر اليدني متاح — النشر التلقائي مقفل' : 'Manual publishing available — auto-publish locked'}
+            </p>
+            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              {readiness.reasonEn}
+            </p>
+            {connectedLockReason && (
+              <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                {ar ? connectedLockReason.ar : connectedLockReason.en}
+              </p>
+            )}
+            <a href="/connections"
+              className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-accent hover:text-accent/80 transition-colors">
+              {ar ? 'إدارة الاتصالات →' : 'Manage Connections →'}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+      )}
+
+      {(readiness.state === 'connected_ready' || readiness.state === 'auto_ready') && (
+        <div className="rounded-xl px-4 py-3 flex items-start gap-3"
+          style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-green-400" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-green-300">
+              {readiness.state === 'auto_ready'
+                ? (ar ? 'النشر التلقائي نشط' : 'Auto-publish active')
+                : (ar ? 'النشر المتصل جاهز' : 'Connected publishing ready')}
+            </p>
+            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+              {ar ? readiness.reasonAr : readiness.reasonEn}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Account + Page selector */}
       <div className="bg-dark-tertiary rounded-2xl p-4 space-y-3">
@@ -483,6 +613,15 @@ export default function SocialPublisher({
           )}
         </div>
 
+        {/* OP-D1.3: Strategy suggestions label — clarifies these are NOT publish-ready */}
+        {allSuggestions.length > 0 && (
+          <p className="text-[11px] text-gray-600 leading-snug">
+            {ar
+              ? 'الاقتراحات من استراتيجية الحملة — ليست محتوى جاهز للنشر.'
+              : 'Suggestions are from campaign strategy — not publish-ready content.'}
+          </p>
+        )}
+
         {/* Suggestions */}
         {showSuggestions && allSuggestions.length > 0 && (
           <div className="bg-dark-tertiary rounded-xl p-3 space-y-2 border border-accent/20">
@@ -562,6 +701,22 @@ export default function SocialPublisher({
         </div>
       </div>
 
+      {/* OP-D1.3: Publish mode label — manual vs connected */}
+      <div className="flex items-center gap-2">
+        {!isFullyReady ? (
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-medium">
+            {ar ? 'وضع النشر اليدني' : 'Manual publishing mode'}
+          </span>
+        ) : (
+          <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 font-medium">
+            {ar ? 'النشر المتصل جاهز' : 'Connected publishing ready'}
+          </span>
+        )}
+        <span className="text-[11px] text-gray-600">
+          {ar ? '— النشر الفعلي عند الضغط فقط' : '— actual publish only on button click'}
+        </span>
+      </div>
+
       {/* Schedule datetime */}
       {mode === 'schedule' && (
         <input
@@ -610,11 +765,15 @@ export default function SocialPublisher({
         </div>
       )}
 
-      {/* Publish button */}
+      {/* Publish button — OP-D1.3: honest visual state */}
       <button
         onClick={handlePublish}
-        disabled={!canPublish || publishing || (platform === 'INSTAGRAM' && !imageUrl)}
-        className="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed bg-accent hover:bg-accent/90 text-black"
+        disabled={!canPublishMechanically || publishing || (platform === 'INSTAGRAM' && !imageUrl)}
+        className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
+          isFullyReady
+            ? 'bg-accent hover:bg-accent/90 text-black'
+            : 'bg-blue-600/80 hover:bg-blue-600 text-white'
+        }`}
       >
         {publishing ? (
           <>
@@ -629,18 +788,29 @@ export default function SocialPublisher({
         ) : (
           <>
             <Send className="w-4 h-4" />
-            {ar ? 'انشر الآن' : 'Publish Now'}
-            {selectedPage && <span className="text-xs opacity-70">→ {selectedPage.name}</span>}
+            {isFullyReady
+              ? (ar ? 'انشر الآن' : 'Publish Now')
+              : (ar ? 'نشر يدوي' : 'Publish Manually')
+            }
+            {selectedPage && isFullyReady && <span className="text-xs opacity-70">→ {selectedPage.name}</span>}
           </>
         )}
       </button>
 
-      {/* Honest publishing note (Meta review-safe): no automatic posting */}
-      <p className="text-[11px] text-gray-500 text-center leading-snug">
-        {ar
-          ? 'تُنشر المنشورات فقط عند الضغط على "نشر" — لا يوجد نشر تلقائي.'
-          : 'Posts publish only when you click Publish — no automatic posting.'}
-      </p>
+      {/* OP-D1.3: Honest publishing notes */}
+      <div className="space-y-1.5">
+        <p className="text-[11px] text-gray-500 text-center leading-snug">
+          {ar
+            ? 'تُنشر المنشورات فقط عند الضغط على "نشر" — لا يوجد نشر تلقائي.'
+            : 'Posts publish only when you click Publish — no automatic posting.'}
+        </p>
+        {/* OP-D1.3: Approval does not publish reminder */}
+        <p className="text-[11px] text-gray-600 text-center leading-snug">
+          {ar
+            ? 'الاعتماد لا ينشر المنشور — النشر يتم فقط بالضغط على الزر أعلاه.'
+            : 'Approval does not publish this post — publishing happens only by clicking the button above.'}
+        </p>
+      </div>
 
       {/* Published history */}
       {posts.length > 0 && (
