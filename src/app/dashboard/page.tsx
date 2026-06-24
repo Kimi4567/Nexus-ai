@@ -16,6 +16,7 @@ import { getBrandBrainReadiness, getBrandReadinessCopy, BrandReadinessResult, Br
 import { getBrandMemoryStatusCopy, type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
+import { getFirstUserJourneyStep, type StrategyState } from '@/lib/firstUserJourney'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -470,27 +471,25 @@ export default function DashboardPage() {
     campaignCount: stats?.campaigns ?? campaigns.length,
     contentPostsTotal: stats?.contentPostsTotal ?? 0,
   })
-  const earlyActionIsStrategy = intelligence?.nextBestAction.href === '/strategy' || intelligence?.nextBestAction.id === 'run-full-strategy'
-    || intelligence?.nextBestAction.id === 'create-first-strategy'
-    || intelligence?.nextBestAction.href === '/dashboard?runStrategy=1'
-  const earlyActionHref = earlyActionIsStrategy
-    ? dashboardStrategyCta.href
-    : intelligence?.nextBestAction.href
-  const earlyActionTitle = earlyActionIsStrategy
-    ? (ar ? dashboardStrategyCta.labelAr : dashboardStrategyCta.label)
-    : (ar ? intelligence?.nextBestAction.titleAr : intelligence?.nextBestAction.title)
-  const earlyActionCta = earlyActionIsStrategy
-    ? (ar ? dashboardStrategyCta.labelAr : dashboardStrategyCta.label)
-    : (ar ? 'افتح الخطوة' : 'Open next step')
-  const earlyActionReason = earlyActionIsStrategy
-    ? (ar ? dashboardStrategyCta.reasonAr : dashboardStrategyCta.reason)
-    : (ar ? intelligence?.nextBestAction.reasonAr : intelligence?.nextBestAction.reason)
-  const briefActionTitle = earlyActionIsStrategy
-    ? (ar ? dashboardStrategyCta.labelAr : dashboardStrategyCta.label)
-    : (ar ? intelligence?.nextBestAction.titleAr : intelligence?.nextBestAction.title)
-  const briefActionReason = earlyActionIsStrategy
-    ? (ar ? dashboardStrategyCta.reasonAr : dashboardStrategyCta.reason)
-    : (ar ? intelligence?.nextBestAction.reasonAr : intelligence?.nextBestAction.reason)
+  const totalCampaigns = stats?.campaigns ?? campaigns.length
+  const totalContentPosts = stats?.contentPostsTotal ?? 0
+  const strategyState: StrategyState = totalCampaigns === 0 ? 'none' : (totalContentPosts > 0 ? 'approved' : 'draft')
+  const firstJourneyStep = getFirstUserJourneyStep({
+    brandBrainReady: brandReadiness?.ready ?? false,
+    strategyState,
+    hasCampaignOrContent: totalCampaigns > 0 || totalContentPosts > 0,
+    hasContent: totalContentPosts > 0,
+    contentApproved: campaigns.some(c => c.status === 'ACTIVE') || (stats?.publishedPostsTotal ?? 0) > 0,
+  })
+  const earlyActionIsStrategy =
+    firstJourneyStep.id === 'CREATE_FIRST_STRATEGY' ||
+    firstJourneyStep.id === 'REVIEW_DRAFT_STRATEGY'
+  const earlyActionHref = firstJourneyStep.href
+  const earlyActionTitle = ar ? firstJourneyStep.titleAr : firstJourneyStep.title
+  const earlyActionCta = ar ? firstJourneyStep.buttonAr : firstJourneyStep.button
+  const earlyActionReason = ar ? firstJourneyStep.helperAr : firstJourneyStep.helper
+  const briefActionTitle = earlyActionTitle
+  const briefActionReason = earlyActionReason
 
   // ── Pre-render workspace gate ──
   if (authLoading || workspaceGate === 'checking' || workspaceGate === 'noWorkspace') {
@@ -698,31 +697,15 @@ export default function DashboardPage() {
                         : `Welcome${displayName ? `, ${displayName}` : ''} to NEXUS AI 👋`}
                     </p>
                     <p className="text-[13px] text-slate-500 mb-3 leading-relaxed">
-                      {ar
-                        ? 'مساعدك التسويقي بالذكاء الاصطناعي — يضع الاستراتيجية، ويكتب المحتوى، ويساعدك على النشر. ابدأ من الخطوة الأولى في الأسفل.'
-                        : 'Your AI marketing assistant — it plans strategy, drafts content, and helps you publish. Follow the steps below to get started.'}
+                      {ar ? firstJourneyStep.helperAr : firstJourneyStep.helper}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      <a href="/brand"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100 text-slate-700"
-                        style={{ border: '1px solid rgba(15,23,42,0.1)' }}
+                      <a href={firstJourneyStep.href}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all text-white"
+                        style={{ background: '#5E5CE6' }}
                         onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
                       >
-                        🧠 {ar ? 'Brand Brain' : 'Brand Brain'}
-                      </a>
-                      <a href="/campaigns/new"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100 text-slate-700"
-                        style={{ border: '1px solid rgba(15,23,42,0.1)' }}
-                        onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
-                      >
-                        🎯 {ar ? 'أول حملة' : 'First campaign'}
-                      </a>
-                      <a href="/connections"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:bg-slate-100 text-slate-700"
-                        style={{ border: '1px solid rgba(15,23,42,0.1)' }}
-                        onClick={() => { localStorage.setItem('nexus_welcome_v1', '1'); setWelcomeDismissed(true) }}
-                      >
-                        📡 {ar ? 'ربط المنصات' : 'Connect platforms'}
+                        {ar ? firstJourneyStep.buttonAr : firstJourneyStep.button}
                       </a>
                     </div>
                   </div>
@@ -973,7 +956,7 @@ export default function DashboardPage() {
                         onClick={() => openDashboardAction(earlyActionHref)}
                         className="inline-flex items-center gap-1 text-[11px] font-bold"
                         style={{ color: '#5E5CE6' }}>
-                        {earlyActionIsStrategy ? (ar ? dashboardStrategyCta.labelAr : dashboardStrategyCta.label) : (ar ? 'افتح الخطوة' : 'Open next step')} <ArrowUpRight className="w-3 h-3" />
+                        {earlyActionCta} <ArrowUpRight className="w-3 h-3" />
                       </button>
                       {intelligence.nextBestAction.id !== 'review-suggestions' && (
                         <button

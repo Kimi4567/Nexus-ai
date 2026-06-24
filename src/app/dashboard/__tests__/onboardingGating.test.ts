@@ -65,7 +65,7 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/dashboardStrategyCta\.label/)
     expect(SRC).not.toMatch(/Open strategy workflow/)
     expect(SRC).not.toMatch(/Open the strategy workflow/)
-    expect(SRC).toMatch(/nextBestAction\.id === 'run-full-strategy'/)
+    expect(SRC).toMatch(/getFirstUserJourneyStep/)
     expect(INTELLIGENCE_SRC).toMatch(/'Open the strategy workflow'/)
     expect(INTELLIGENCE_SRC).toMatch(/'افتح مسار الاستراتيجية'/)
     expect(INTELLIGENCE_SRC).not.toMatch(/'Run full strategy'/)
