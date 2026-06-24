@@ -1,11 +1,7 @@
 'use client'
 
 /**
- * Billing page — Research-backed 3-tier pricing (updated June 2025)
- * Plans: Free $0 · Starter $19 · Growth $49 · Agency $99
- * Credits: 10 (one-time) · 50/mo · 150/mo · 500/mo
- * Research: HubSpot — 16+ posts/month = 4.5× more leads
- * Starter is deliberately below 16/mo threshold → natural Growth upgrade
+ * Billing page — plan and credits transparency.
  */
 
 import { useAuth } from '@/lib/auth-context'
@@ -14,6 +10,7 @@ import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import CreditHistoryModal from '@/components/CreditHistoryModal'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
+import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
@@ -21,14 +18,7 @@ import {
   MessageSquare, FileText, Gift, TrendingUp, Zap, History,
 } from 'lucide-react'
 
-// ─── Plan definitions (research-backed June 2025) ─────────────────────────────
-//
-// Pricing logic:
-//   Starter ($19) = 10 posts/mo → BELOW the 16-post lead-gen threshold (by design)
-//   Growth  ($49) = 25 posts/mo → CROSSES the 16-post threshold (+4.5× leads)
-//   Agency  ($99) = 60 posts/mo → 3-4 clients at 16-20/mo each (optimal agency load)
-//
-// This creates a real, research-grounded upgrade reason at every tier.
+// ─── Plan definitions ───────────────────────────────────────────────────────────
 
 const PLANS = [
   {
@@ -78,8 +68,8 @@ const PLANS = [
     badgeEn: null as string | null,
     descAr: 'ابدأ ببناء حضور منتظم على منصتين',
     descEn: 'Build consistent presence on 1-2 platforms',
-    upgradeHintAr: '10 بوستات/شهر = حضور ثابت. للوصول لعتبة الـ16+ بوست التي تولّد 4.5× أضعاف العملاء، جرّب Growth.' as string | null,
-    upgradeHintEn: '10 posts/month builds a steady presence. To cross the 16+ posts threshold that generates 4.5× more leads, upgrade to Growth.' as string | null,
+    upgradeHintAr: '10 بوستات/شهر مناسبة للبداية. عندما تحتاج وتيرة أعلى، يمكنك الترقية إلى Growth.' as string | null,
+    upgradeHintEn: '10 posts/month is ideal to start. Upgrade to Growth when you need a higher publishing pace.' as string | null,
     limitsAr: [
       '50 رصيد AI / شهر (يتجدد شهرياً)',
       'مساحة عمل واحدة (براند واحد)',
@@ -114,20 +104,20 @@ const PLANS = [
     featured: true,
     badgeAr: 'الأكثر شعبية',
     badgeEn: 'Most Popular',
-    descAr: '25 بوست/شهر = يتجاوز عتبة الـ16+ بوست (×4.5 عملاء)',
-    descEn: '25 posts/month — crosses the lead-gen threshold',
+    descAr: 'للفرق التي تنشر باستمرار عبر أكثر من قناة',
+    descEn: 'For teams publishing consistently across channels',
     upgradeHintAr: null as string | null,
     upgradeHintEn: null as string | null,
     limitsAr: [
       '150 رصيد AI / شهر (يتجدد شهرياً)',
       '3 مساحات عمل (3 براندات)',
       '5 حملات / شهر',
-      '25 بوست / شهر — يتجاوز عتبة الـ16+ بوست',
-      'جميع المنصات (غير محدود)',
+      '25 بوست / شهر',
+      'المنصات المدعومة حسب إعدادات مساحة العمل',
       'Brand Brain الكامل + ذاكرة الحملات',
       'تحميل الميديا + طبقات البراند',
       'اختبار A/B + إعادة كتابة بالـ AI',
-      'تحليلات متقدمة + لوحة ROI',
+      'تحليلات متقدمة',
       'تصدير PDF + DOCX',
       'دعم بريد إلكتروني بأولوية',
     ],
@@ -135,12 +125,12 @@ const PLANS = [
       '150 AI credits / month (renews monthly)',
       '3 workspaces (3 brands)',
       '5 campaigns / month',
-      '25 AI posts / month — crosses the 16+ lead-gen threshold',
-      'All social platforms (unlimited)',
+      '25 AI posts / month',
+      'Supported social platforms based on workspace setup',
       'Full Brand Brain + Campaign Memory',
       'Media uploads + Brand overlays',
       'A/B Testing + AI Rewrite',
-      'Analytics + ROI Dashboard',
+      'Advanced analytics',
       'PDF + DOCX export',
       'Priority email support',
     ],
@@ -156,8 +146,8 @@ const PLANS = [
     featured: false,
     badgeAr: 'للوكالات',
     badgeEn: 'For agencies',
-    descAr: '10 براندات × 16-20 بوست / شهر = أقصى أداء للوكالة',
-    descEn: '10 clients × 16-20 posts/month = max agency ROI',
+    descAr: 'للوكالات التي تدير عدة براندات من مكان واحد',
+    descEn: 'For agencies managing multiple brands from one workspace',
     upgradeHintAr: null as string | null,
     upgradeHintEn: null as string | null,
     limitsAr: [
@@ -165,24 +155,24 @@ const PLANS = [
       '10 مساحات عمل (10 براندات أو عملاء)',
       'حملات غير محدودة / شهر',
       '60 بوست / شهر',
-      'جميع المنصات + نشر متعدد الحسابات',
+      'المنصات المدعومة + نشر متعدد الحسابات حسب الإتاحة',
       'مقعدان للفريق مضمّنان (+$19/إضافي)',
       'تقارير White-label (شعارك)',
-      'وصول API',
+      'وصول API (حسب إتاحة البيتا)',
       'تحليلات متقدمة',
-      'دعم مخصص عبر Slack + جلسة اونبوردنج',
+      'قنوات دعم أولوية (حسب إتاحة البيتا)',
     ],
     limitsEn: [
       '500 AI credits / month (renews monthly)',
       '10 workspaces (10 brands / clients)',
       'Unlimited campaigns / month',
       '60 AI posts / month',
-      'All platforms + multi-account publishing',
+      'Supported platforms + multi-account publishing as available',
       '2 team seats included (+$19/extra)',
       'White-label reports (your logo)',
-      'API access',
+      'API access (as available in beta)',
       'Advanced analytics',
-      'Dedicated Slack support + onboarding call',
+      'Priority support channels (as available in beta)',
     ],
   },
 ]
@@ -263,8 +253,8 @@ const FAQS = [
   {
     qAr: 'لماذا Starter أقل من 16 بوست / شهر؟',
     qEn: 'Why is Starter below 16 posts / month?',
-    aAr: 'هذا مقصود. البحث يُثبت أن 16+ بوست/شهر = 4.5× أضعاف العملاء المحتملين (HubSpot). Starter يُعطيك حضوراً ثابتاً على منصة أو اثنتين — لكن Growth هو الذي يتجاوز هذا الحاجز ويُطلق تأثير الزخم الحقيقي.',
-    aEn: 'Intentional. Research proves that 16+ posts/month = 4.5× more leads (HubSpot State of Marketing). Starter gives you a consistent presence on 1-2 platforms — but Growth is what crosses the threshold and unlocks the compounding lead-gen effect.',
+    aAr: 'هذا مقصود. Starter مناسب لبداية ثابتة على منصة أو منصتين، وGrowth مناسب عندما تحتاج وتيرة نشر أعلى وتغطية قنوات أوسع.',
+    aEn: 'Starter is designed for a steady start on 1-2 platforms. Growth is for teams that need a higher publishing pace and broader channel coverage.',
   },
   {
     qAr: 'هل تتجدد الأرصدة كل شهر؟',
@@ -275,8 +265,8 @@ const FAQS = [
   {
     qAr: 'ما الفرق بين Growth وAgency؟',
     qEn: 'What is the difference between Growth and Agency?',
-    aAr: 'Growth = براند واحد يُريد الحصول على أقصى نتائج (25 بوست/شهر عبر 3 مساحات عمل). Agency = 10 عملاء أو براندات مع 60 بوست/شهر — يعني 16-20 بوست/شهر لكل عميل، وهو المعدل الأمثل.',
-    aEn: 'Growth = one brand maximizing results (25 posts/month across 3 workspaces). Agency = 10 clients or brands with 60 posts/month — roughly 16-20 posts/month per client, which is the research-optimal level.',
+    aAr: 'Growth مناسب لبراند واحد يحتاج وتيرة محتوى أسرع. Agency مناسب لفرق تدير عدة عملاء أو براندات من مكان واحد.',
+    aEn: 'Growth is built for one brand with a faster content pace. Agency is built for multi-client teams that manage multiple brands from one place.',
   },
   {
     qAr: 'ماذا يحدث إذا نفدت أرصدتي قبل نهاية الشهر؟',
@@ -380,6 +370,17 @@ export default function BillingPage() {
   const currentCredits = billingStatus?.credits?.remaining ?? 0
   const monthlyCredits = billingStatus?.credits?.max ?? 20
 
+  const billingDisplay = getBillingDisplayTruth({
+    plan: billingStatus?.plan,
+    status: billingStatus?.status,
+    hasActiveSubscription: billingStatus?.hasActiveSubscription,
+    creditsRemaining: billingStatus?.credits?.remaining,
+    creditsMax: billingStatus?.credits?.max,
+    billingLoaded: !loading,
+    billingEnabled: billingStatus?.billingEnabled,
+    locale: ar ? 'ar' : 'en',
+  })
+
   // Honest, overflow-safe credit display. When the balance exceeds the monthly
   // grant (rollover / bonus / refunds), we show "N credits" + an explanation
   // instead of a confusing "246 / 150" with an overflowing bar.
@@ -431,16 +432,11 @@ export default function BillingPage() {
                 </p>
                 <div className="flex items-center gap-2">
                   <span className="text-xl font-bold text-slate-950">
-                    {ar
-                      ? PLANS.find(p => p.id === currentPlan)?.nameAr ?? currentPlan
-                      : PLANS.find(p => p.id === currentPlan)?.nameEn ?? currentPlan
-                    }
+                    {billingDisplay.planLabel}
                   </span>
-                  {currentPlan !== 'free' && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
-                      {ar ? 'نشط' : 'Active'}
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${billingDisplay.statusTone === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : billingDisplay.statusTone === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-200' : billingDisplay.statusTone === 'danger' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                      {billingDisplay.statusLabel}
                     </span>
-                  )}
                 </div>
               </div>
 
@@ -460,13 +456,14 @@ export default function BillingPage() {
                     }}
                   />
                 </div>
+                <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">{billingDisplay.creditHelper}</p>
                 {creditDisp.secondary && (
-                  <p className="text-[11px] text-slate-400 mt-1.5 leading-snug">{creditDisp.secondary}</p>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">{creditDisp.secondary}</p>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
-                {currentPlan !== 'free' && (
+                {billingDisplay.showManageSubscription && (
                   <button
                     onClick={handlePortal}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:border-violet-300 hover:text-slate-950 hover:bg-slate-50 text-sm transition-all"
@@ -652,12 +649,12 @@ export default function BillingPage() {
                 {ar ? (
                   <>
                     <span className="text-slate-950 font-semibold">Growth (150 رصيد)</span> = 30 حملة كاملة · أو 50 صورة · أو 18 استراتيجية كاملة · أو أي مزيج —
-                    {' '}<span className="text-violet-700">بالإضافة إلى 25 بوست/شهر تتجاوز عتبة الـ16+ بوست (+4.5× عملاء)</span>
+                     {' '}<span className="text-violet-700">وتناسب فرقًا تحتاج وتيرة نشر أعلى عبر قنوات متعددة</span>
                   </>
                 ) : (
                   <>
                     <span className="text-slate-950 font-semibold">Growth (150 credits)</span> = 30 campaigns · or 50 images · or 18 full strategies · or any mix —
-                    {' '}<span className="text-violet-700">plus 25 posts/month that cross the 16+ post lead-gen threshold (+4.5× leads)</span>
+                     {' '}<span className="text-violet-700">built for teams that need a higher publishing pace across channels</span>
                   </>
                 )}
               </div>
@@ -726,7 +723,7 @@ export default function BillingPage() {
                   },
                   {
                     labelAr: 'المنصات الاجتماعية', labelEn: 'Social platforms',
-                    free: '1', starter: '2', pro: ar ? 'الكل' : 'All', biz: ar ? 'الكل' : 'All',
+                    free: '1', starter: '2', pro: ar ? 'حسب الإتاحة' : 'As available', biz: ar ? 'حسب الإتاحة' : 'As available',
                   },
                   {
                     labelAr: 'Brand Brain + وكلاء AI', labelEn: 'Brand Brain + AI agents',
@@ -750,7 +747,7 @@ export default function BillingPage() {
                   },
                   {
                     labelAr: 'الدعم', labelEn: 'Support',
-                    free: ar ? 'مجتمعي' : 'Community', starter: ar ? 'إيميل' : 'Email', pro: ar ? 'إيميل أولوية' : 'Priority email', biz: ar ? 'Slack مخصص' : 'Dedicated Slack',
+                    free: ar ? 'مجتمعي' : 'Community', starter: ar ? 'إيميل' : 'Email', pro: ar ? 'إيميل أولوية' : 'Priority email', biz: ar ? 'قنوات أولوية (حسب الإتاحة)' : 'Priority channels (as available)',
                   },
                 ].map(row => (
                   <tr key={ar ? row.labelAr : row.labelEn}>
@@ -770,8 +767,8 @@ export default function BillingPage() {
             <TrendingUp className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
             <p className="text-sm text-slate-600">
               {ar
-                ? <><span className="text-amber-800 font-semibold">لماذا 16+ بوست/شهر يُغيّر كل شيء؟</span> بحث HubSpot على 13,000+ شركة: الشركات التي تنشر 16+ بوست/شهر تحصل على <span className="text-amber-800 font-semibold">4.5× أضعاف العملاء المحتملين</span> مقارنة بمن ينشرون أقل من ذلك. خطة Growth تُعطيك 25 بوست/شهر — أول خطة تتجاوز هذا الحاجز.</>
-                : <><span className="text-amber-800 font-semibold">Why does 16+ posts/month change everything?</span> HubSpot research across 13,000+ companies: brands publishing 16+ posts/month get <span className="text-amber-800 font-semibold">4.5× more leads</span> than those publishing less. Growth gives you 25 posts/month — the first plan to cross this threshold.</>
+                ? <><span className="text-amber-800 font-semibold">ملاحظة عن وتيرة النشر:</span> زيادة وتيرة المحتوى قد تحسن النتائج، لكن الأداء يختلف حسب السوق وجودة المحتوى والقنوات.</>
+                : <><span className="text-amber-800 font-semibold">Publishing pace note:</span> A higher posting cadence can improve outcomes, but results vary by market, channel mix, and content quality.</>
               }
             </p>
           </div>

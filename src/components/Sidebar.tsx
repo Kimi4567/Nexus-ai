@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import React from 'react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -236,7 +237,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const email = user?.email || ''
   const initial = displayName.charAt(0).toUpperCase()
 
-  const { creditsRemaining, creditsMax, isUnlimited, isPaid, isLow, isEmpty, loading: billingLoading } = useBillingStatus()
+  const { status: billingStatus, creditsRemaining, creditsMax, isUnlimited, loading: billingLoading } = useBillingStatus()
 
   // Fetch pending Brain proposals count for sidebar dot
   React.useEffect(() => {
@@ -271,8 +272,21 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   if (!isAuthenticated) return null
 
   const sharedProps = { pathname, collapsed, onClick: click }
-  const shouldShowEmptyCredits = isEmpty && isPaid
-  const shouldShowFreeTrialReady = isEmpty && !isPaid
+
+  const billingTruth = getBillingDisplayTruth({
+    plan: billingStatus?.plan,
+    status: billingStatus?.status,
+    hasActiveSubscription: billingStatus?.hasActiveSubscription,
+    creditsRemaining: billingStatus?.credits?.remaining,
+    creditsMax: billingStatus?.credits?.max,
+    billingLoaded: !billingLoading,
+    locale,
+  })
+
+  const isPaid = billingTruth.showManageSubscription
+  const cardBg = billingTruth.isZeroCredits ? '#FEF2F2' : billingTruth.isLowCredits ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF'
+  const cardBorder = billingTruth.isZeroCredits ? '1px solid rgba(239,68,68,0.22)' : billingTruth.isLowCredits ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)'
+  const titleColor = billingTruth.isZeroCredits ? '#EF4444' : billingTruth.isLowCredits ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6'
 
   return (
     <aside dir={dir} className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
@@ -356,37 +370,33 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           <Link href="/billing"
             className="flex flex-col gap-1.5 px-3 py-2.5 rounded-[9px] mb-2 transition-all"
             style={{
-              background: shouldShowEmptyCredits ? '#FEF2F2' : isLow ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF',
-              border: shouldShowEmptyCredits ? '1px solid rgba(239,68,68,0.22)' : isLow ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)',
+              background: cardBg,
+              border: cardBorder,
             }}>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold" style={{ color: shouldShowEmptyCredits ? '#EF4444' : isLow ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6' }}>
-                {shouldShowEmptyCredits
-                  ? (locale === 'ar' ? '⚠ لا يوجد رصيد' : '⚠ No credits left')
-                  : shouldShowFreeTrialReady
-                  ? (locale === 'ar' ? 'رصيد التجربة جاهز' : 'Free trial credits ready')
-                  : isLow
+              <span className="text-[11px] font-semibold" style={{ color: titleColor }}>
+                {billingTruth.isUnknown
+                  ? (locale === 'ar' ? 'ℹ حالة الخطة غير متاحة الآن' : 'ℹ Plan status unavailable')
+                  : isUnlimited
+                  ? (locale === 'ar' ? '✓ رصيد غير محدود' : '✓ Unlimited credits')
+                  : billingTruth.isLowCredits
                   ? (locale === 'ar' ? `⚠ ${creditsRemaining} رصيد متبقٍ` : `⚠ ${creditsRemaining} credits left`)
-                  : isPaid
-                  ? (isUnlimited
-                      ? (locale === 'ar' ? '✓ رصيد غير محدود' : '✓ Unlimited credits')
-                      : (locale === 'ar' ? `✓ ${creditsRemaining} رصيد متبقٍ` : `✓ ${creditsRemaining} credits left`))
-                  : `⚡ ${t('sidebar.upgradePro')}`}
+                  : billingTruth.isZeroCredits
+                  ? (locale === 'ar' ? '⚠ لا يوجد رصيد' : '⚠ No credits left')
+                  : (locale === 'ar' ? `✓ ${creditsRemaining} رصيد متبقٍ` : `✓ ${creditsRemaining} credits left`)}
               </span>
-              {!isPaid && !shouldShowFreeTrialReady && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#111827', color: 'white' }}>Upgrade</span>}
+              {billingTruth.showUpgrade && !billingTruth.isUnknown && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#111827', color: 'white' }}>Upgrade</span>}
             </div>
             {!isUnlimited && (
               <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${Math.max(0, Math.min(100, (creditsRemaining / Math.max(creditsMax, 1)) * 100))}%`,
-                    background: shouldShowEmptyCredits ? '#EF4444' : isLow ? '#F59E0B' : '#5E5CE6',
+                    background: billingTruth.isZeroCredits ? '#EF4444' : billingTruth.isLowCredits ? '#F59E0B' : '#5E5CE6',
                   }} />
               </div>
             )}
-            {!isPaid && (
-              <div className="text-[10px] leading-none text-text-muted">{t('sidebar.unlockAll')}</div>
-            )}
+            <div className="text-[10px] leading-none text-text-muted">{billingTruth.creditHelper}</div>
           </Link>
         )}
 
