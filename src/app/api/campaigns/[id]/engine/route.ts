@@ -4,6 +4,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { deriveCampaignEngineState, runCampaignEngine } from '@/lib/campaign-engine'
+import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 
 // Strategy generation makes two GPT-4o-mini calls; give the function headroom so
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
@@ -33,6 +34,47 @@ export async function POST(req: NextRequest, { params }: Params) {
   const body = await req.json().catch(() => ({}))
   const force = body.force === true
   const language = body.language || 'ar'
+
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: params.id, workspace: { ownerId: userId } },
+    include: {
+      workspace: {
+        include: {
+          brandProfile: true,
+        },
+      },
+    },
+  })
+
+  if (!campaign) {
+    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
+  }
+
+  const brandProfile = campaign.workspace?.brandProfile
+  if (!brandProfile) {
+    return NextResponse.json(
+      {
+        error: 'NO_BRAND_PROFILE',
+        message: 'Brand Brain not set up. Please complete your brand profile first.',
+        redirectUrl: '/brand',
+      },
+      { status: 422 },
+    )
+  }
+
+  const readiness = getBrandBrainReadiness(brandProfile as any)
+  if (!readiness.ready) {
+    return NextResponse.json(
+      {
+        error: 'BRAND_BRAIN_INCOMPLETE',
+        message: `Brand Brain is missing required fields: ${readiness.missingRequired.join(', ')}.`,
+        missingRequired: readiness.missingRequired,
+        score: readiness.score,
+        redirectUrl: '/brand',
+      },
+      { status: 422 },
+    )
+  }
 
   const credit = await checkAndDeductCredits(userId, 'RUN_FULL_STRATEGY')
   if (!credit.ok) return NextResponse.json(credit, { status: 402 })

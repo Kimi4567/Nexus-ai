@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
         activities: {
           create: {
             type: 'created',
-            description: `Campaign "${name}" created and AI content generated`,
+            description: `Campaign "${name}" created as a draft`,
           },
         },
       },

@@ -75,15 +75,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // -- Unified credit check + deduction (variable, server-computed cost) ----
-    // Pass the recomputed cost as the override so the amount DEDUCTED equals the
-    // amount the UI displayed (both call getStrategyCreditCost on the same order).
-    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', charge.cost)
-    if (!credit.ok) {
-      return NextResponse.json(credit, { status: 402 })
-    }
-    // ------------------------------------------------------------------------
-
     // Get workspace
     const workspace = await prisma.workspace.findFirst({
       where: { ownerId: user.id },
@@ -125,6 +116,15 @@ export async function POST(req: NextRequest) {
         { status: 422 }
       )
     }
+
+    // -- Unified credit check + deduction (variable, server-computed cost) ----
+    // Charge only after workspace, Brand Brain profile, readiness, and order
+    // validation have passed. Early setup failures must never spend credits.
+    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', charge.cost)
+    if (!credit.ok) {
+      return NextResponse.json(credit, { status: 402 })
+    }
+    // ------------------------------------------------------------------------
 
     // Get user preferences for language detection + plan tier for the deliverables contract
     const freshUser = await prisma.user.findUnique({

@@ -133,7 +133,32 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const workspaceId = campaign.workspaceId
 
-    // ── 2. Check plan quota ────────────────────────────────────────────────
+    // ── 2. Require real strategy evidence before spending credits ──────────
+    const aiOutput = campaign.aiOutput as any
+    const strategy = aiOutput?.strategy ?? aiOutput ?? {}
+
+    const hasRealStrategyEvidence =
+      !!aiOutput &&
+      typeof aiOutput === 'object' &&
+      (
+        typeof strategy.keyMessage === 'string' && strategy.keyMessage.trim().length > 0 ||
+        typeof strategy.coreMessage === 'string' && strategy.coreMessage.trim().length > 0 ||
+        typeof strategy.primaryOffer === 'string' && strategy.primaryOffer.trim().length > 0 ||
+        Array.isArray(strategy.contentPillars) && strategy.contentPillars.length > 0
+      )
+
+    if (!hasRealStrategyEvidence) {
+      return NextResponse.json(
+        {
+          error: 'STRATEGY_REQUIRED',
+          message: 'Run or review a strategy before generating a content plan.',
+          action: 'RUN_STRATEGY_FIRST',
+        },
+        { status: 422 },
+      )
+    }
+
+    // ── 3. Check plan quota ────────────────────────────────────────────────
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
       select: { subscriptionStatus: true },
@@ -148,7 +173,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const planName = isActive ? planRaw : 'free'
     const quota = PLAN_QUOTAS[planName] ?? PLAN_QUOTAS['free']
 
-    // ── 3. Deduct credits (flat 2 credits per content plan generation) ────
+    // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
     const creditCheck = await checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')
     if (!creditCheck.ok) {
       return NextResponse.json(
@@ -157,10 +182,6 @@ export async function POST(req: NextRequest, { params }: Params) {
       )
     }
     contentPlanCharged = creditCheck.creditsUsed > 0 // skip refund for unlimited plans
-
-    // ── 4. Read strategy from aiOutput ────────────────────────────────────
-    const aiOutput = campaign.aiOutput as any
-    const strategy = aiOutput?.strategy ?? aiOutput ?? {}
 
     const brandName    = campaign.workspace?.name ?? 'Brand'
     const campaignName = campaign.name ?? 'Campaign'
