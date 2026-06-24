@@ -13,6 +13,7 @@ export type PublishReason =
   | 'CONTENT_NOT_APPROVED'
   | 'NO_ACCOUNT'
   | 'NO_PAGE'
+  | 'SCHEDULE_TIME_REQUIRED'
   | 'INSTAGRAM_BUSINESS_REQUIRED'
   | 'INSTAGRAM_IMAGE_REQUIRED'
   | 'READY_MANUAL'
@@ -75,6 +76,13 @@ const COPY: Record<
     copy: {
       en: 'Connect a publishing account before posting.',
       ar: 'اربط حساب نشر قبل إرسال المنشور.',
+    },
+  },
+  SCHEDULE_TIME_REQUIRED: {
+    title: { en: 'Schedule time required', ar: 'مطلوب وقت للجدولة' },
+    copy: {
+      en: 'Select a scheduled time before scheduling.',
+      ar: 'حدد وقت الجدولة قبل جدولة المنشور.',
     },
   },
   INSTAGRAM_BUSINESS_REQUIRED: {
@@ -146,7 +154,7 @@ export function getPublishReadiness(input: PublishReadinessInput): PublishReadin
   if (platform === 'INSTAGRAM' && !hasImage) return locked('INSTAGRAM_IMAGE_REQUIRED')
 
   // Gate 6: schedule mode requires a date/time
-  if (mode === 'schedule' && !hasScheduledAt) return locked('NO_PAGE')
+  if (mode === 'schedule' && !hasScheduledAt) return locked('SCHEDULE_TIME_REQUIRED')
 
   // Ready
   const reason: PublishReason = mode === 'schedule' ? 'READY_SCHEDULE' : 'READY_MANUAL'

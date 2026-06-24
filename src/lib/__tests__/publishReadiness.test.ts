@@ -114,5 +114,8 @@ describe('getPublishReadiness — gate ordering', () => {
   it('schedule mode without scheduledAt is locked', () => {
     const r = getPublishReadiness({ ...base, mode: 'schedule', hasScheduledAt: false })
     expect(r.status).toBe('locked')
+    expect(r.reason).toBe('SCHEDULE_TIME_REQUIRED')
+    expect(r.copy.en).toBe('Select a scheduled time before scheduling.')
+    expect(r.copy.ar).toBe('حدد وقت الجدولة قبل جدولة المنشور.')
   })
 })
