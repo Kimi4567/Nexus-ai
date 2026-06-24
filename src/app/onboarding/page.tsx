@@ -25,6 +25,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
+import { getFirstUserJourneyStep } from '@/lib/firstUserJourney'
 
 // ── Option lists (no emojis) ────────────────────────────────────────────────
 const INDUSTRIES: { value: string; ar: string; en: string }[] = [
@@ -409,6 +410,14 @@ export default function OnboardingPage() {
           { label: 'Learning memory', state: 'Early' },
         ]
 
+    const recommendedStep = getFirstUserJourneyStep({
+      brandBrainReady: true,
+      strategyState: 'none',
+      hasCampaignOrContent: false,
+      hasContent: false,
+      contentApproved: false,
+    })
+
     return (
       <Shell dir={dir}>
         <div className="mb-5">
@@ -483,12 +492,10 @@ export default function OnboardingPage() {
               {ar ? 'الخطوة المقترحة' : 'Recommended next step'}
             </p>
             <p className="text-[13px] leading-relaxed mb-4" style={{ color: '#475569' }}>
-              {ar
-                ? 'بناءً على ذاكرة علامتك الحالية، الخطوة التالية هي فتح مسار الاستراتيجية. يمكن لـ NEXUS إنشاء موجز استراتيجية أولي اعتمادًا على المعلومات المتاحة، مع توضيح أي نقاط ما زالت تحتاج إلى تأكيد.'
-                : 'Based on your Brand Brain, the next step is to open the strategy workflow. NEXUS can create an initial strategy brief using the information available, while clearly marking anything that still needs confirmation.'}
+              {ar ? recommendedStep.helperAr : recommendedStep.helper}
             </p>
-            <PrimaryButton onClick={() => router.push('/strategy')}>
-              {ar ? 'افتح مسار الاستراتيجية' : 'Open strategy workflow'}
+            <PrimaryButton onClick={() => router.push(recommendedStep.href)}>
+              {ar ? recommendedStep.buttonAr : recommendedStep.button}
             </PrimaryButton>
           </div>
         </div>
