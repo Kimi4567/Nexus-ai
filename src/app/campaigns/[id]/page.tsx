@@ -2972,6 +2972,7 @@ function CampaignDetailPageInner() {
                   <SocialPublisher
                     campaignId={campaign.id}
                     campaignName={campaign.name}
+                    contentApproved={campaign.status === 'ACTIVE' || approvalState === 'done'}
                     topHooks={topHooks}
                     captionFormulas={captionFormulas}
                     ctaVariations={ctaVariations}
