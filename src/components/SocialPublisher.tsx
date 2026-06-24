@@ -17,8 +17,9 @@ import { useI18n } from '@/lib/i18n-context'
 import {
   Send, Clock, CheckCircle2, XCircle, Loader2,
   Image as ImageIcon, ChevronDown,
-  ExternalLink, AlertCircle, RefreshCw, Zap,
+  ExternalLink, AlertCircle, RefreshCw, Zap, Lock,
 } from 'lucide-react'
+import { getPublishReadiness } from '@/lib/publishReadiness'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,8 @@ interface PublishedPost {
 interface SocialPublisherProps {
   campaignId: string
   campaignName: string
+  /** True when campaign is ACTIVE or approvalState === 'done' */
+  contentApproved?: boolean
   // Content suggestions from strategy
   topHooks?: string[]
   captionFormulas?: string[]
@@ -65,6 +68,7 @@ interface SocialPublisherProps {
 export default function SocialPublisher({
   campaignId,
   campaignName,
+  contentApproved = false,
   topHooks = [],
   captionFormulas = [],
   ctaVariations = [],
@@ -320,7 +324,19 @@ export default function SocialPublisher({
 
   // ── Main UI ──────────────────────────────────────────────────────────────
 
-  const canPublish = selectedAccount && selectedPage && caption.trim().length > 0
+  // ── Readiness (pure, no side effects) ───────────────────────────────────
+  const readiness = getPublishReadiness({
+    contentApproved,
+    accountCount: accounts.length,
+    hasPage: !!selectedPage,
+    pageHasIgAccount: !!(selectedPage?.igAccountId),
+    platform,
+    hasImage: imageUrl.trim().length > 0,
+    mode,
+    hasScheduledAt: scheduledAt.trim().length > 0,
+  })
+
+  const canPublish = readiness.status === 'ready' && caption.trim().length > 0
 
   return (
     <div className="space-y-5" dir={dir}>
@@ -610,10 +626,39 @@ export default function SocialPublisher({
         </div>
       )}
 
-      {/* Publish button */}
+      {/* ── Readiness banner (OP-D1.3) ───────────────────────────────────── */}
+      {readiness.status === 'locked' ? (
+        <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl"
+          style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)' }}>
+          <Lock className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-red-400" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-red-400">
+              {ar ? readiness.title.ar : readiness.title.en}
+            </p>
+            <p className="text-[11px] text-gray-400 leading-snug mt-0.5">
+              {ar ? readiness.copy.ar : readiness.copy.en}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl"
+          style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)' }}>
+          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-green-400" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-green-400">
+              {ar ? readiness.title.ar : readiness.title.en}
+            </p>
+            <p className="text-[11px] text-gray-400 leading-snug mt-0.5">
+              {ar ? readiness.copy.ar : readiness.copy.en}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Publish button — disabled unless readiness is ready AND caption present */}
       <button
         onClick={handlePublish}
-        disabled={!canPublish || publishing || (platform === 'INSTAGRAM' && !imageUrl)}
+        disabled={!canPublish || publishing}
         className="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed bg-accent hover:bg-accent/90 text-black"
       >
         {publishing ? (
@@ -621,26 +666,24 @@ export default function SocialPublisher({
             <Loader2 className="w-4 h-4 animate-spin" />
             {ar ? 'جاري النشر...' : 'Publishing...'}
           </>
+        ) : readiness.status === 'locked' ? (
+          <>
+            <Lock className="w-4 h-4" />
+            {ar ? 'محظور' : 'Locked'}
+          </>
         ) : mode === 'schedule' ? (
           <>
             <Clock className="w-4 h-4" />
-            {ar ? 'جدولة المنشور' : 'Schedule Post'}
+            {ar ? (readiness.buttonLabel?.ar ?? 'جدولة المنشور') : (readiness.buttonLabel?.en ?? 'Schedule Post')}
           </>
         ) : (
           <>
             <Send className="w-4 h-4" />
-            {ar ? 'انشر الآن' : 'Publish Now'}
+            {ar ? (readiness.buttonLabel?.ar ?? 'انشر الآن') : (readiness.buttonLabel?.en ?? 'Publish now')}
             {selectedPage && <span className="text-xs opacity-70">→ {selectedPage.name}</span>}
           </>
         )}
       </button>
-
-      {/* Honest publishing note (Meta review-safe): no automatic posting */}
-      <p className="text-[11px] text-gray-500 text-center leading-snug">
-        {ar
-          ? 'تُنشر المنشورات فقط عند الضغط على "نشر" — لا يوجد نشر تلقائي.'
-          : 'Posts publish only when you click Publish — no automatic posting.'}
-      </p>
 
       {/* Published history */}
       {posts.length > 0 && (
