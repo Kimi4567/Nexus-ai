@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
   title: 'Strategy — Nexus AI',
@@ -6,4 +7,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 }
 
-export { default } from './page'
+export default function StrategyLayout({ children }: { children: ReactNode }) {
+  return children
+}

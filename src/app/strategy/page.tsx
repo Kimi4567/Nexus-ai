@@ -147,22 +147,18 @@ export default function StrategyPage() {
       }
     : hasDraftStrategy
       ? {
-          label: hasOrganicData
-            ? (ar ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub')
-            : (ar ? 'مراجعة الاستراتيجية' : 'Review strategy'),
+          label: ar ? 'مراجعة الاستراتيجية' : 'Review strategy',
           description: hasOrganicData
-            ? (ar ? 'تابع من الاستراتيجية الحالية إلى مسار المحتوى.' : 'Continue from the existing strategy into content.')
+            ? (ar ? 'راجع المسودة الحالية كخطة تسويق قبل تحويلها إلى محتوى.' : 'Review the current draft as a marketing plan before turning it into content.')
             : (ar ? 'راجع المسودة الحالية قبل تحويلها إلى محتوى.' : 'Review the current draft before turning it into content.'),
-          href: hasOrganicData ? '/content-hub' : '/campaigns',
+          href: recent?.id ? `/strategy/${recent.id}` : '/campaigns',
         }
       : {
-          label: hasOrganicData
-            ? (ar ? 'فتح مركز المحتوى' : 'Open Content Hub')
-            : (ar ? 'عرض الحملات' : 'View campaigns'),
+          label: ar ? 'مراجعة الاستراتيجية' : 'Review strategy',
           description: hasOrganicData
-            ? (ar ? 'حوّل اتجاه الاستراتيجية إلى محتوى عضوي.' : 'Turn the strategy direction into organic content.')
+            ? (ar ? 'راجع اتجاه الاستراتيجية ثم تابع إلى المحتوى العضوي.' : 'Review the strategy direction, then continue into organic content.')
             : (ar ? 'تابع من الاستراتيجية الحالية.' : 'Continue from the existing strategy.'),
-          href: hasOrganicData ? '/content-hub' : '/campaigns',
+          href: recent?.id ? `/strategy/${recent.id}` : '/campaigns',
         }
 
   const nextSteps = !hasStrategy
@@ -362,7 +358,7 @@ export default function StrategyPage() {
                   { label: ar ? 'اتجاه الاستراتيجية' : 'Strategy direction', value: strategyStatusText },
                   { label: ar ? 'خطة المحتوى العضوي' : 'Organic content plan', value: ar ? 'متاحة للمراجعة' : 'Available to review' },
                   { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: ar ? 'تخطيط فقط' : 'Planning-only' },
-                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub' },
+                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? 'مراجعة الاستراتيجية' : 'Review strategy' },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl px-3 py-3" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.06)' }}>
                     <p className="text-[11px] font-semibold" style={{ color: '#94a3b8' }}>{item.label}</p>
