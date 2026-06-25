@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
@@ -12,12 +12,8 @@ import SocialPublisher from '@/components/SocialPublisher'
 import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
-import StrategySection from '@/components/StrategySection'
-import StrategyActionCard from '@/components/StrategyActionCard'
 import CampaignProofOfWork from '@/components/campaign/CampaignProofOfWork'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
-import { getBrandIndicators } from '@/lib/brandIndicators'
-import StrategyBrief from '@/components/StrategyBrief'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import PlatformNativeCard from '@/components/PlatformNativeCard'
@@ -82,6 +78,85 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
     >
       {copied ? '✓' : label}
     </button>
+  )
+}
+
+function StrategyDocSection({
+  eyebrow,
+  title,
+  description,
+  children,
+  action,
+}: {
+  eyebrow?: string
+  title: string
+  description?: string
+  children: ReactNode
+  action?: ReactNode
+}) {
+  return (
+    <section className="rounded-[22px] border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-6">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          {eyebrow && (
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{eyebrow}</p>
+          )}
+          <h2 className="mt-1 text-lg font-semibold leading-tight text-slate-950">{title}</h2>
+          {description && <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function StrategyDocCard({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string
+  value?: ReactNode
+  tone?: 'default' | 'muted' | 'warning' | 'positive'
+}) {
+  if (!value) return null
+  const toneClass = tone === 'warning'
+    ? 'border-amber-200 bg-amber-50 text-amber-950'
+    : tone === 'positive'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+      : tone === 'muted'
+        ? 'border-slate-200 bg-slate-50 text-slate-600'
+        : 'border-slate-200 bg-slate-50 text-slate-800'
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <div className="mt-1 text-sm leading-6">{value}</div>
+    </div>
+  )
+}
+
+function StrategyDocList({
+  items,
+  ordered = false,
+}: {
+  items: ReactNode[]
+  ordered?: boolean
+}) {
+  const clean = items.filter(Boolean)
+  if (!clean.length) return null
+  const Tag = ordered ? 'ol' : 'ul'
+  return (
+    <Tag className="space-y-2">
+      {clean.map((item, i) => (
+        <li key={i} className="flex items-start gap-3 text-sm leading-6 text-slate-700">
+          <span className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">
+            {ordered ? i + 1 : '•'}
+          </span>
+          <span>{item}</span>
+        </li>
+      ))}
+    </Tag>
   )
 }
 
@@ -1482,956 +1557,560 @@ function CampaignDetailPageInner() {
 
             {/* ── Tab 0: Strategy (Strategist) ─────────────────────────────── */}
             {activeTab === 0 && (
-              <div className="space-y-3">
-                <AgentBanner idx={0} />
-                <BrandDNABadge brand={brandDNA} locale={locale} />
-
-                {/* Honest provenance + review cue (PR-1 trust copy) */}
-                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nx-text-4)' }}>
-                  {locale === 'ar'
-                    ? 'مبني على Brand Brain الخاص بك — راجِعه قبل تحويله إلى محتوى.'
-                    : 'Based on your Brand Brain — review it before turning it into content.'}
-                </p>
-
-                {/* PR-K — premium operator brief (replaces the Strategic Verdict + the
-                    dense "Strategy Intelligence" TL;DR card). Calm, action-first, Apple-
-                    level: direction, why-it-fits, 90-day, first-30-days, pillars, next
-                    step, honest measurement/paid, and the PR-J indicators — all from
-                    existing data, no generation, no new numbers, nothing mutated. */}
-                {(strategy.positioning || strategy.keyMessage || strategy.differentiation || strategy.targetAudienceRefined || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
-                  <StrategyBrief
-                    locale={locale === 'ar' ? 'ar' : 'en'}
-                    verdict={{
-                      locale: locale === 'ar' ? 'ar' : 'en',
-                      positioning: strategy.positioning,
-                      keyMessage: strategy.keyMessage,
-                      differentiation: (strategy as any).differentiation,
-                      targetAudienceRefined: strategy.targetAudienceRefined,
-                      topSegment: audienceSegmentsDetailed[0]?.segment || null,
-                      audienceLocation: (brandDNA as any)?.audienceLocation || null,
-                      confidenceReport,
-                      missingDataKeys,
-                      hasFunnel: funnelStages.length > 0,
-                      kpisAreHypotheses: (strategy.kpis || []).some((k: any) => k?.isHypothesis) || successMetricsDetailed.some((m: any) => m?.isHypothesis),
-                    }}
-                    brandName={(brandDNA as any)?.brandName || null}
-                    industry={(brandDNA as any)?.industry || null}
-                    primaryOffer={(brandDNA as any)?.primaryOffer || null}
-                    targetAudience={(brandDNA as any)?.targetAudience || null}
-                    first30={(weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan : weeklyPlan)
-                      .map((w: any) => ({ week: w?.week ?? '', objective: w?.objective || w?.keyMessage || '' }))}
-                    contentPillars={strategy.contentPillars || []}
-                    nextBestAction={strategy.nextBestAction}
-                    kpisAreHypotheses={(strategy.kpis || []).some((k: any) => k?.isHypothesis) || successMetricsDetailed.some((m: any) => m?.isHypothesis)}
-                    paidPlanningOnly={Boolean(confidenceReport) && confidenceReport?.byCapability?.paidStrategy !== 'high'}
-                    indicators={getBrandIndicators(brandDNA as any, {
-                      hasPixel: confidenceReport?.byCapability?.retargeting === 'high',
-                      acceptedLearningCount: typeof (brandDNA as any)?.acceptedLearningCount === 'number'
-                        ? (brandDNA as any).acceptedLearningCount : 0,
-                    })}
-                  />
-                )}
-
-                {/* PR-2B2B1 — Consolidated one-primary-CTA Action Card (replaces the
-                    non-actionable Next Best Action banner). Uses existing handlers only. */}
-                <StrategyActionCard
-                  locale={locale === 'ar' ? 'ar' : 'en'}
-                  nextBestAction={strategy.nextBestAction}
-                  engineRunning={engineRunning}
-                  brandBaseReady={brandDNA ? getBrandBrainReadiness(brandDNA as any).ready : true}
-                  sentinelPassed={sentinelStatus === 'passed'}
-                  isApproved={campaign.status === 'ACTIVE' || approvalState === 'done'}
-                  hasContentPlan={hasContentCalendar}
-                  hasPosts={(campaign.socialPostCount ?? 0) > 0}
-                  reviewing={sentinelState === 'reviewing'}
-                  approving={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
-                  missingDataKeys={missingDataKeys}
-                  paidGated={Boolean(confidenceReport) && confidenceReport?.byCapability?.paidStrategy !== 'high'}
-                  contentHubHref={`/campaigns/${campaignId}/content-hub`}
-                  contentHubBuildHref={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
-                  onReview={handleSentinelReview}
-                  onApprove={handleApproveAndLaunch}
-                />
-
-                {/* Strategy readiness — single calm trust signal (PR-2B2A) */}
-                {(confidenceReport || missingDataLabels.length > 0 || assumptions.length > 0) && (
-                  <div className="rounded-2xl p-5 space-y-3.5"
-                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] uppercase tracking-widest font-semibold text-gray-400">
-                        {locale === 'ar' ? 'جاهزية الاستراتيجية' : 'Strategy Readiness'}
-                      </span>
-                      {confidenceReport?.overall && (
-                        <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                          style={{ color: confLevelColor(confidenceReport.overall), background: `${confLevelColor(confidenceReport.overall)}14` }}>
-                          {confLevelLabel(confidenceReport.overall)}
+              <div className="space-y-5">
+                <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="max-w-3xl">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                          {locale === 'ar' ? 'مبني على Brand Brain' : 'Generated from Brand Brain'}
                         </span>
-                      )}
-                    </div>
-                    {missingDataLabels.length > 0 && (
-                      <div>
-                        <p className="text-[12px] text-gray-400 leading-relaxed">
-                          <span className="font-medium text-gray-300">{locale === 'ar' ? 'بيانات ناقصة: ' : 'Not enough data on: '}</span>
-                          {missingDataLabels.join(locale === 'ar' ? '، ' : ', ')}.
-                        </p>
-                        <a href="/brand" className="inline-block mt-2 text-[11px] px-2.5 py-1 rounded-lg transition hover:opacity-80"
-                          style={{ background: 'rgba(139,92,246,0.1)', color: 'rgba(139,92,246,0.95)' }}>
-                          {locale === 'ar' ? 'أكمل في Brand Brain ←' : '→ Complete in Brand Brain'}
-                        </a>
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {locale === 'ar' ? 'موجز استراتيجية' : 'Strategy brief'}
+                        </span>
                       </div>
-                    )}
-                    {competitorAnalysisComplete === false && (
-                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                      <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+                        {campaign.name}
+                      </h1>
+                      <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
                         {locale === 'ar'
-                          ? 'تحليل المنافسين غير مكتمل — لم تُضَف منافسون. لن يخترع NEXUS منافسين.'
-                          : 'Competitor analysis is incomplete — no competitors provided. NEXUS will not invent competitors.'}
+                          ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل تحويلها إلى خطة محتوى.'
+                          : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before turning it into content planning.'}
                       </p>
-                    )}
-                    {assumptions.length > 0 && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">{locale === 'ar' ? 'افتراضات' : 'Assumptions'}</p>
-                        <ul className="space-y-1">
-                          {assumptions.map((a: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2 text-[11px] text-gray-400">
-                              <span className="text-gray-600 mt-0.5 flex-shrink-0">≈</span>{a}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ══ CHAPTER 01 — THE BRIEF ═══════════════════════════════════ */}
-                {(strategy.diagnosis || businessObjective) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>01</span>
-                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterBrief || 'The Brief'}</span>
-                  </div>
-                )}
-
-                {/* Diagnosis + inline diagnosis details */}
-                {strategy.diagnosis && (
-                  <div className="rounded-2xl p-5 space-y-3"
-                    style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}>
-                    <div className="flex items-start gap-3">
-                      <span className="text-lg flex-shrink-0">🔎</span>
-                      <div>
-                        <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1">{cdT?.sectionDiagnosis || 'Marketing Diagnosis'}</p>
-                        <p className="text-gray-700 text-sm leading-relaxed max-w-[72ch]">{strategy.diagnosis}</p>
-                      </div>
-                    </div>
-                    {diagnosisDetails && (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-amber-500/10">
-                        {[
-                          { label: cdT?.diagStage || 'Stage', value: diagnosisDetails.stage, color: 'text-amber-400' },
-                          { label: cdT?.diagBottleneck || 'Bottleneck', value: diagnosisDetails.bottleneck, color: 'text-orange-400' },
-                          { label: cdT?.diagTrustGap || 'Trust Gap', value: diagnosisDetails.trustGap, color: 'text-red-400' },
-                          { label: cdT?.diagRisk || 'Main Risk', value: diagnosisDetails.mainRisk, color: 'text-red-400' },
-                          { label: cdT?.diagPaidAdsReady || 'Paid Ads Ready', value: diagnosisDetails.readyForPaidAds ? '✓ Yes' : '✗ Not yet', color: diagnosisDetails.readyForPaidAds ? 'text-green-400' : 'text-amber-400' },
-                          diagnosisDetails.readyForPaidAdsReason ? { label: 'Why', value: diagnosisDetails.readyForPaidAdsReason, color: 'text-gray-400' } : null,
-                        ].filter(Boolean).map((item: any, i: number) => (
-                          <div key={i} className="bg-dark/60 rounded-lg p-2.5 border border-dark-tertiary">
-                            <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
-                            <p className={`text-xs font-semibold leading-snug ${item.color}`}>{item.value}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Business Objective */}
-                {businessObjective && (
-                  <div className="nx-card p-5">
-                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-                      {cdT?.sectionBusinessObjective || 'Business Objective'}
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {[
-                        { label: cdT?.businessObjPrimary || 'Business Goal', value: businessObjective.primary, icon: '🏆' },
-                        { label: cdT?.businessObjMarketing || 'Marketing Goal', value: businessObjective.marketing, icon: '📣' },
-                        { label: cdT?.businessObjConversion || 'Conversion Action', value: businessObjective.conversionAction, icon: '⚡' },
-                        { label: cdT?.businessObjAction || 'Expected Action', value: businessObjective.expectedUserAction, icon: '👆' },
-                        { label: cdT?.businessObjWhyNow || 'Why Now', value: businessObjective.whyNow, icon: '⏰' },
-                        { label: cdT?.businessObjSuccess30 || 'Win in 30 Days', value: businessObjective.successIn30Days, icon: '📅' },
-                      ].filter(item => item.value).map((item, i) => (
-                        <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{item.icon} {item.label}</p>
-                          <p className="text-sm text-gray-800 leading-snug">{item.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ══ CHAPTER 02 — THE STRATEGY ════════════════════════════════ */}
-                {(strategy.keyMessage || strategy.positioning || strategy.differentiation || audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0 || strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>02</span>
-                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterStrategy || 'The Strategy'}</span>
-                  </div>
-                )}
-
-                {/* Key Message — flagship */}
-                {strategy.keyMessage && (
-                  <div className="nx-card p-5">
-                    <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-widest mb-2">{cdT?.sectionKeyMessage || 'Core Message'}</p>
-                    <p className="text-[var(--nx-text-1)] text-xl font-bold leading-relaxed mb-3">"{strategy.keyMessage}"</p>
-                    <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
-                  </div>
-                )}
-
-                {/* Positioning + Differentiation — side by side */}
-                {(strategy.positioning || strategy.differentiation) && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {strategy.positioning && (
-                      <div className="nx-card p-4">
-                        <p className="text-[10px] text-[var(--nx-text-3)] font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionPositioning || 'Positioning'}</p>
-                        <p className="text-[var(--nx-text-2)] text-sm leading-relaxed">{strategy.positioning}</p>
-                      </div>
-                    )}
-                    {strategy.differentiation && (
-                      <div className="nx-card p-4">
-                        <p className="text-[10px] text-[var(--nx-text-3)] font-bold uppercase tracking-wide mb-2 flex items-center gap-1.5">{cdT?.sectionDifferentiation || 'Differentiation'}</p>
-                        <p className="text-[var(--nx-text-2)] text-sm leading-relaxed">{strategy.differentiation}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Audience Segments */}
-                {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
-                  <div className="nx-card p-5">
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--nx-text-1)]">
-                      {cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}
-                    </h3>
-                    {audienceSegmentsDetailed.length > 0 ? (
-                      <div className="space-y-3">
-                        {audienceSegmentsDetailed.map((seg: any, i: number) => (
-                          <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xs font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">#{i + 1}</span>
-                              <p className="text-sm font-bold text-[var(--nx-text-1)]">{seg.segment}</p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
-                              {seg.situation && (
-                                <div className="col-span-2">
-                                  <span className="text-gray-600 text-[9px] uppercase tracking-wide">Situation: </span>
-                                  <span className="text-[var(--nx-text-2)]">{seg.situation}</span>
-                                </div>
-                              )}
-                              {seg.pain && <div><span className="text-red-600 text-[9px] uppercase">Pain: </span><span className="text-[var(--nx-text-2)]">{seg.pain}</span></div>}
-                              {seg.desiredOutcome && <div><span className="text-emerald-600 text-[9px] uppercase">Wants: </span><span className="text-[var(--nx-text-2)]">{seg.desiredOutcome}</span></div>}
-                              {seg.objection && <div><span className="text-amber-600 text-[9px] uppercase">Objection: </span><span className="text-[var(--nx-text-2)]">{seg.objection}</span></div>}
-                              {seg.message && (
-                                <div className="col-span-2">
-                                  <span className="text-indigo-600 text-[9px] uppercase">Message: </span>
-                                  <span className="text-[var(--nx-text-2)] font-medium">{seg.message}</span>
-                                </div>
-                              )}
-                            </div>
-                            {(seg.platform || seg.format || seg.cta) && (
-                              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-dark-tertiary text-xs">
-                                {seg.platform && <span className="text-[var(--nx-text-3)]">📱 {seg.platform}</span>}
-                                {seg.format && <span className="text-[var(--nx-text-3)]">📄 {seg.format}</span>}
-                                {seg.cta && <span className="text-accent font-semibold ml-auto">{seg.cta}</span>}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {audienceSegments.map((seg: string, i: number) => (
-                          <div key={i} className="flex items-start gap-2 bg-dark rounded-xl p-3 border border-dark-tertiary text-sm">
-                            <span className="text-accent font-bold flex-shrink-0">{i + 1}</span>
-                            <span className="text-[var(--nx-text-2)]">{seg}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Value Propositions */}
-                {(strategy.valueProps?.length > 0 || strategy.estimatedResults) && (
-                  <div className="nx-card p-5">
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-[var(--nx-text-1)]">{cdT?.sectionValueProps || 'Value Propositions'}</h3>
-                    {strategy.valueProps?.length > 0 ? (
-                      <ul className="space-y-1.5">
-                        {strategy.valueProps.map((vp: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-[var(--nx-text-2)] text-sm">
-                            <span className="text-accent mt-0.5 flex-shrink-0">→</span> {vp}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-[var(--nx-text-2)] text-sm max-w-[72ch]">{strategy.estimatedResults}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* ══ TOP HOOKS — Copyable scroll-stopping lines ══════════════ */}
-                {topHooks.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                      {cdT?.sectionTopHooks || 'Top Hooks'}
-                    </h3>
-                    <div className="space-y-2">
-                      {topHooks.slice(0, 6).map((hook: string, i: number) => (
-                        <div key={i} className="flex items-start gap-3 rounded-xl p-3 border border-dark-tertiary hover:border-accent/30 transition-colors" style={{ background: 'rgba(139,92,246,0.03)' }}>
-                          <span className="text-[10px] font-black text-accent/50 mt-0.5 w-4 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
-                          <p className="text-gray-200 text-sm flex-1 leading-snug">{hook}</p>
-                          <CopyBtn text={hook} label={cdT?.copyBtn || 'Copy'} />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* ══ CHAPTER 03 — EXECUTION PLAN ══════════════════════════════ */}
-                {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.contentPillars?.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>03</span>
-                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterExecution || 'Execution Plan'}</span>
-                  </div>
-                )}
-
-                {/* Funnel (PR-2B2A: collapsible) */}
-                {(funnelStages.length > 0 || strategy.funnelStrategy) && (
-                  <StrategySection title={cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Marketing Funnel'} icon="🔻" defaultOpen={false}>
-                    {funnelStages.length > 0 ? (
-                      <div className="space-y-2">
-                        {funnelStages.map((stage: any, i: number) => {
-                          const stageColors: Record<string, string> = {
-                            awareness: 'border-blue-500/25 bg-blue-500/5',
-                            consideration: 'border-purple-500/25 bg-purple-500/5',
-                            conversion: 'border-green-500/25 bg-green-500/5',
-                            followUp: 'border-amber-500/25 bg-amber-500/5',
-                          }
-                          const stageIcons: Record<string, string> = {
-                            awareness: '📢', consideration: '🤔', conversion: '✅', followUp: '🔄',
-                          }
-                          return (
-                            <div key={i} className={`rounded-xl p-3.5 border ${stageColors[stage.stage] || 'border-dark-tertiary bg-dark'}`}>
-                              <p className="font-bold text-xs uppercase tracking-wide text-white mb-2">
-                                {stageIcons[stage.stage] || '📌'} {stage.stage}
-                                {stage.productArea && <span className="ml-2 text-[10px] text-gray-600 normal-case font-normal">({stage.productArea})</span>}
-                              </p>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-1 text-xs">
-                                {stage.userMindset && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.funnelMindset || 'Mindset'}: </span><span className="text-gray-400 italic">{stage.userMindset}</span></div>}
-                                {stage.message && <div><span className="text-gray-600 text-[9px] uppercase">Message: </span><span className="text-gray-200 font-medium">{stage.message}</span></div>}
-                                {stage.contentType && <div><span className="text-gray-600 text-[9px] uppercase">Format: </span><span className="text-gray-400">{stage.contentType}</span></div>}
-                                {stage.platform && <div><span className="text-gray-600 text-[9px] uppercase">Platform: </span><span className="text-gray-400">{stage.platform}</span></div>}
-                                {stage.cta && <div><span className="text-gray-600 text-[9px] uppercase">CTA: </span><span className="text-accent font-semibold">{stage.cta}</span></div>}
-                                {stage.successMetric && <div><span className="text-gray-600 text-[9px] uppercase">{cdT?.weekSuccessMetric || 'Metric'}: </span><span className="text-gray-400">{stage.successMetric}</span></div>}
-                              </div>
-                              {stage.nextStep && (
-                                <p className="text-[10px] text-gray-500 mt-2 pt-2 border-t border-dark-tertiary/50">
-                                  → {cdT?.funnelNextStep || 'Next'}: {stage.nextStep}
-                                </p>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : strategy.funnelStrategy && (
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {([
-                          { key: 'awareness',     icon: '📢', label: cdT?.funnelAwareness     || 'Awareness',     color: 'border-blue-500/25 bg-blue-500/5 text-blue-400' },
-                          { key: 'consideration', icon: '🤔', label: cdT?.funnelConsideration || 'Consideration', color: 'border-purple-500/25 bg-purple-500/5 text-purple-400' },
-                          { key: 'conversion',    icon: '✅', label: cdT?.funnelConversion    || 'Conversion',    color: 'border-green-500/25 bg-green-500/5 text-green-400' },
-                          { key: 'retention',     icon: '🔄', label: cdT?.funnelRetention     || 'Retention',     color: 'border-amber-500/25 bg-amber-500/5 text-amber-400' },
-                        ] as const).map(({ key, icon, label, color }) => (
-                          strategy.funnelStrategy[key] && (
-                            <div key={key} className={`rounded-xl p-3.5 border ${color}`}>
-                              <p className="font-semibold text-xs uppercase tracking-wide mb-1.5">{icon} {label}</p>
-                              <p className="text-gray-300 text-xs leading-relaxed">{strategy.funnelStrategy[key]}</p>
-                            </div>
-                          )
-                        ))}
-                      </div>
-                    )}
-                  </StrategySection>
-                )}
-
-                {/* Channel Strategy — unified mix + detail (PR-2B2A: collapsible) */}
-                {(strategy.channelMix?.length > 0 || channelStrategy.length > 0) && (
-                  <StrategySection title={cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'} icon="📡" defaultOpen={false}>
-                    <div className="space-y-2.5">
-                      {channelStrategy.length > 0 ? (
-                        channelStrategy.map((ch: any, i: number) => {
-                          const mixData = strategy.channelMix?.find((m: any) =>
-                            m.platform?.toLowerCase() === ch.platform?.toLowerCase()
-                          )
-                          const pct = mixData?.budgetPercent || ch.budgetPercent
-                          return (
-                            <div key={i} className="bg-dark rounded-xl p-3.5 border border-dark-tertiary">
-                              <div className="flex items-center gap-3 mb-2">
-                                <span className="text-sm font-bold text-accent capitalize flex-1">{ch.platform}</span>
-                                {pct && (
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-20 bg-dark-tertiary rounded-full h-1">
-                                      <div className="h-1 rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: 'var(--accent)' }} />
-                                    </div>
-                                    <span className="text-xs text-accent font-bold w-8 text-right">{pct}%</span>
-                                  </div>
-                                )}
-                              </div>
-                              {(ch.role || ch.rationale || mixData?.rationale) && (
-                                <p className="text-xs text-gray-500 italic mb-1.5">{ch.role || ch.rationale || mixData?.rationale}</p>
-                              )}
-                              {(ch.contentType || ch.postingApproach || ch.cta) && (
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                                  {ch.contentType && <span className="text-gray-400">📄 {ch.contentType}</span>}
-                                  {ch.postingApproach && <span className="text-gray-500">{ch.postingApproach}</span>}
-                                  {ch.cta && <span className="text-accent font-semibold">{ch.cta}</span>}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })
-                      ) : (
-                        strategy.channelMix?.map((ch: any, i: number) => (
-                          <div key={i} className="flex items-center gap-4 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                            <span className="text-gray-300 font-semibold w-28 flex-shrink-0 capitalize text-sm">{ch.platform}</span>
-                            <div className="flex-1">
-                              <div className="w-full bg-dark-tertiary rounded-full h-1.5 mb-1">
-                                <div className="h-1.5 rounded-full" style={{ width: `${Math.min(ch.budgetPercent, 100)}%`, background: 'var(--accent)' }} />
-                              </div>
-                              <p className="text-xs text-gray-500">{ch.rationale}</p>
-                            </div>
-                            <span className="text-accent font-bold text-xs w-10 text-right">{ch.budgetPercent}%</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </StrategySection>
-                )}
-
-                {/* Content Pillars (PR-2B2A: collapsible) */}
-                {strategy.contentPillars?.length > 0 && (
-                  <StrategySection title={cdT?.sectionContentPillars || 'Content Pillars'} icon="📐" defaultOpen={false}>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                      {strategy.contentPillars.map((p: string, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-3 text-xs text-center text-gray-300 border border-dark-tertiary">{p}</div>
-                      ))}
-                    </div>
-                  </StrategySection>
-                )}
-
-                {/* Offer & CTA Strategy */}
-                {strategy.offerCTAStrategy && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">{cdT?.sectionOfferCTA || 'Offer & CTA'}</h3>
-                    <div className="space-y-2">
-                      {strategy.offerCTAStrategy.primaryCTA && (
-                        <div className="flex items-center gap-3 rounded-xl p-3 border border-accent/20" style={{ background: 'rgba(139,92,246,0.06)' }}>
-                          <span className="text-[10px] text-accent font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaPrimary || 'Primary CTA'}</span>
-                          <p className="text-white text-sm font-semibold flex-1">{strategy.offerCTAStrategy.primaryCTA}</p>
-                          <CopyBtn text={strategy.offerCTAStrategy.primaryCTA} label={cdT?.copyBtn || 'Copy'} />
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.secondaryCTA && (
-                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaSecondary || 'Secondary'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.secondaryCTA}</p>
-                          <CopyBtn text={strategy.offerCTAStrategy.secondaryCTA} label={cdT?.copyBtn || 'Copy'} />
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.leadMagnet && (
-                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-[10px] text-blue-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaLeadMagnet || 'Lead Magnet'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.leadMagnet}</p>
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.betaOffer && (
-                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-[10px] text-purple-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaBetaOffer || 'Beta Offer'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.betaOffer}</p>
-                        </div>
-                      )}
-                      {strategy.offerCTAStrategy.contactFlow && (
-                        <div className="flex items-center gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
-                          <span className="text-[10px] text-green-400 font-bold uppercase tracking-wide w-20 flex-shrink-0">{cdT?.ctaContactFlow || 'Contact Flow'}</span>
-                          <p className="text-gray-300 text-sm flex-1">{strategy.offerCTAStrategy.contactFlow}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Visual Direction */}
-                {strategy.visualDirection && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-2 flex items-center gap-2 text-purple-400">
-                      {cdT?.sectionVisualDirection || 'Visual Direction'}
-                    </h3>
-                    <p className="text-gray-300 text-sm leading-relaxed max-w-[72ch]">{strategy.visualDirection}</p>
-                  </div>
-                )}
-
-                {/* ══ 30-DAY / WEEKLY EXECUTION PLAN (PR-2B2A: collapsible) ══════════ */}
-                {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
-                  <StrategySection title={cdT?.sectionWeeklyPlan || '30-Day Execution Plan'} icon="📅" defaultOpen={false}>
-                    {weeklyExecutionPlan.length > 0 ? (
-                      <div className="space-y-3">
-                        {weeklyExecutionPlan.map((w: any) => (
-                          <div key={w.week} className="rounded-xl overflow-hidden border border-dark-tertiary">
-                            {/* Week header */}
-                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)' }}>
-                              <span className="text-[10px] font-black text-accent">W{w.week}</span>
-                              <span className="text-sm font-semibold text-white flex-1">{w.objective}</span>
-                              {w.cta && <span className="text-[10px] text-accent font-semibold hidden md:block">{w.cta}</span>}
-                            </div>
-                            {/* Week body */}
-                            <div className="px-4 py-3 space-y-2">
-                              {w.keyMessage && (
-                                <p className="text-xs text-gray-400 italic">"{w.keyMessage}"</p>
-                              )}
-                              {w.deliverables?.length > 0 && (
-                                <ul className="space-y-1">
-                                  {w.deliverables.map((d: string, di: number) => (
-                                    <li key={di} className="flex items-start gap-2 text-xs text-gray-300">
-                                      <span className="text-accent/60 mt-0.5 flex-shrink-0">→</span> {d}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                              <div className="flex items-center gap-3 pt-1">
-                                {w.platforms?.length > 0 && (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {w.platforms.map((p: string, pi: number) => (
-                                      <span key={pi} className="text-[10px] bg-dark rounded-md px-2 py-0.5 text-gray-500 border border-dark-tertiary">{p}</span>
-                                    ))}
-                                  </div>
-                                )}
-                                {w.successMetric && (
-                                  <span className="text-[10px] text-green-400 ml-auto">📈 {w.successMetric}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      /* Fallback: simple weeklyPlan array */
-                      <div className="space-y-3">
-                        {weeklyPlan.map((w: any) => (
-                          <div key={w.week} className="rounded-xl overflow-hidden border border-dark-tertiary">
-                            <div className="flex items-center gap-3 px-4 py-2.5" style={{ background: 'rgba(139,92,246,0.08)' }}>
-                              <span className="text-[10px] font-black text-accent">W{w.week}</span>
-                              <span className="text-sm font-semibold text-white flex-1">{w.objective}</span>
-                            </div>
-                            <div className="px-4 py-3 space-y-1">
-                              {w.keyMessage && <p className="text-xs text-gray-400 italic">"{w.keyMessage}"</p>}
-                              {w.deliverables?.length > 0 && (
-                                <ul className="space-y-1">
-                                  {w.deliverables.map((d: string, di: number) => (
-                                    <li key={di} className="flex items-start gap-2 text-xs text-gray-300">
-                                      <span className="text-accent/60 mt-0.5 flex-shrink-0">→</span> {d}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </StrategySection>
-                )}
-
-                {/* ══ CHAPTER 04 — METRICS & READINESS ════════════════════════ */}
-                {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0 || readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || doNotDoYet.length > 0 || riskNotes.length > 0 || adSetupPlan) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="font-black tabular-nums leading-none" style={{ fontSize: '24px', color: 'rgba(139,92,246,0.2)' }}>04</span>
-                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-600">{cdT?.chapterMetrics || 'Metrics & Readiness'}</span>
-                  </div>
-                )}
-
-                {/* KPIs + Success Metrics — unified */}
-                {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
-                  <div className="nx-card p-5">
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--nx-text-1)]">
-                      {cdT?.sectionKpis || 'KPIs & Metrics'}
-                    </h3>
-                    {strategy.kpis?.length > 0 && (
-                      <div className={`grid gap-2 mb-4 ${strategy.kpis.length <= 3 ? 'grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-                        {strategy.kpis.map((kpi: any, i: number) => (
-                          <div key={i} className="bg-dark rounded-xl p-3 border border-dark-tertiary text-center">
-                            <p className="text-accent font-bold text-lg">{kpi.target}</p>
-                            <p className="text-[var(--nx-text-2)] text-[10px] mt-0.5">{kpi.metric}</p>
-                            <p className="text-gray-600 text-[10px]">{kpi.timeframe}</p>
-                            {kpi.isHypothesis && (
-                              <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full text-amber-700" style={{ background: 'rgba(245,158,11,0.12)' }}>
-                                {locale === 'ar' ? 'فرضية — تحقّق بالبيانات' : 'Hypothesis'}
-                              </span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {successMetricsDetailed.length > 0 && (
-                      <div className="space-y-2">
-                        {(['lead', 'engagement', 'conversion', 'operational'] as const).map((cat) => {
-                          const catMetrics = successMetricsDetailed.filter((m: any) => m.category === cat)
-                          if (!catMetrics.length) return null
-                          const catLabels: Record<string, string> = {
-                            lead: cdT?.metricLead || 'Lead',
-                            engagement: cdT?.metricEngagement || 'Engagement',
-                            conversion: cdT?.metricConversion || 'Conversion',
-                            operational: cdT?.metricOperational || 'Operational',
-                          }
-                          const catColors: Record<string, string> = {
-                            lead: 'text-blue-600', engagement: 'text-pink-600',
-                            conversion: 'text-emerald-600', operational: 'text-amber-600',
-                          }
-                          return (
-                            <div key={cat}>
-                              <p className={`text-[10px] font-bold uppercase tracking-wide mb-1.5 ${catColors[cat]}`}>{catLabels[cat]}</p>
-                              <div className="grid grid-cols-2 gap-2">
-                                {catMetrics.map((m: any, idx: number) => (
-                                  <div key={idx} className="bg-dark rounded-xl p-3 border border-dark-tertiary flex items-center justify-between gap-2">
-                                    <div>
-                                      <p className="text-xs text-[var(--nx-text-2)]">{m.metric}</p>
-                                      <p className="text-[10px] text-gray-600">{m.timeframe}{m.isHypothesis ? (locale === 'ar' ? ' · فرضية' : ' · hypothesis') : ''}</p>
-                                    </div>
-                                    <span className={`text-sm font-bold flex-shrink-0 ${catColors[cat]}`}>{m.target}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
-                      <ul className="space-y-1.5">
-                        {successMetrics.map((metric: string, i: number) => (
-                          <li key={i} className="flex items-start gap-2 text-[var(--nx-text-2)] text-sm">
-                            <span className="text-emerald-600 mt-0.5 flex-shrink-0">✓</span> {metric}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {/* Launch Readiness */}
-                {readinessChecklist.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid var(--nx-border-dark)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                      {cdT?.sectionReadinessChecklist || 'Launch Readiness'}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {/* PR-2B2B1: status-only — actions consolidated into the Strategy Action Card */}
-                      {readinessChecklist.map((item: any, i: number) => (
-                          <div key={i} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
-                            item.done ? 'border-green-500/30 bg-green-500/5 text-green-400' : 'border-dark-tertiary text-gray-400'
-                          }`}>
-                            <span className="flex-shrink-0">{item.done ? '✓' : '○'}</span>
-                            <span className="flex-1">{item.label || item.item}</span>
-                            <span className="text-[10px] text-gray-600">{item.done ? (cdT?.readinessComplete || 'Done') : (locale === 'ar' ? 'قيد الانتظار' : 'Pending')}</span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Asset Requirements */}
-                {assetRequirements && (
-                  <div className="nx-card p-5">
-                    <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-[var(--nx-text-1)]">
-                      {cdT?.sectionAssetRequirements || 'Asset Requirements'}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {assetRequirements.mustHave?.length > 0 && (
-                        <div>
-                          <p className="text-xs text-red-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetMustHave || 'Must Have'}</p>
-                          <ul className="space-y-1">
-                            {assetRequirements.mustHave.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
-                                <span className="text-red-600 mt-0.5 flex-shrink-0">✦</span>{a}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {assetRequirements.niceToHave?.length > 0 && (
-                        <div>
-                          <p className="text-xs text-amber-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetNiceToHave || 'Nice to Have'}</p>
-                          <ul className="space-y-1">
-                            {assetRequirements.niceToHave.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
-                                <span className="text-amber-600/70 mt-0.5 flex-shrink-0">◦</span>{a}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {assetRequirements.forAds?.length > 0 && (
-                        <div>
-                          <p className="text-xs text-blue-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForAds || 'For Paid Ads'}</p>
-                          <ul className="space-y-1">
-                            {assetRequirements.forAds.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
-                                <span className="text-blue-600/70 mt-0.5 flex-shrink-0">◦</span>{a}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {assetRequirements.forProof?.length > 0 && (
-                        <div>
-                          <p className="text-xs text-emerald-600 font-bold uppercase tracking-wide mb-1.5">{cdT?.assetForProof || 'Social Proof'}</p>
-                          <ul className="space-y-1">
-                            {assetRequirements.forProof.map((a: string, i: number) => (
-                              <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
-                                <span className="text-emerald-600/70 mt-0.5 flex-shrink-0">◦</span>{a}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                    {assetRequirements.nextToCreate?.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-dark-tertiary">
-                        <p className="text-xs text-accent font-bold uppercase tracking-wide mb-2">{cdT?.assetNextToCreate || 'Create These First'}</p>
-                        <ol className="space-y-1">
-                          {assetRequirements.nextToCreate.map((a: string, i: number) => (
-                            <li key={i} className="text-xs text-[var(--nx-text-2)] flex items-start gap-1.5">
-                              <span className="text-accent font-bold w-4 flex-shrink-0">{i + 1}.</span>{a}
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    )}
-                    {assetRequirements.canStartWithoutNote && (
-                      <p className="text-xs text-[var(--nx-text-3)] mt-3 italic">
-                        {assetRequirements.canStartWithout
-                          ? `✓ ${cdT?.assetCanStart || 'Can start without these'}`
-                          : `⚠ ${cdT?.assetCannotStart || 'Required before starting'}`}: {assetRequirements.canStartWithoutNote}
+                      <p className="mt-3 text-xs text-slate-400">
+                        {locale === 'ar' ? 'آخر تحديث' : 'Last updated'}: {new Date(campaign.updatedAt).toLocaleDateString(locale === 'ar' ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Execution Checklist */}
-                {strategy.executionChecklist?.length > 0 && (
-                  <div className="rounded-2xl p-5" style={{ background: 'rgba(34,197,94,0.03)', border: '1px solid rgba(34,197,94,0.12)' }}>
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2 text-green-400">
-                      {cdT?.sectionExecutionChecklist || 'Execution Checklist'}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                      {strategy.executionChecklist.map((item: string, i: number) => (
-                        <div key={i} className="flex items-start gap-2 text-gray-300 text-xs">
-                          <span className="text-green-500 mt-0.5 flex-shrink-0">□</span> {item}
-                        </div>
-                      ))}
                     </div>
-                  </div>
-                )}
-
-                {/* Risks & Constraints — collapsible */}
-                {(doNotDoYet.length > 0 || riskNotes.length > 0 || executionAssumptions.length > 0) && (
-                  <details className="group">
-                    <summary className="flex items-center gap-2 cursor-pointer select-none list-none rounded-xl p-3 transition-colors hover:bg-red-500/5"
-                      style={{ border: '1px solid rgba(239,68,68,0.15)' }}>
-                      <span>⚠️</span>
-                      <span className="text-sm font-semibold text-red-400">{cdT?.sectionRiskNotes || 'Risks & Constraints'}</span>
-                      <span className="text-xs text-gray-600 ml-1">({doNotDoYet.length + riskNotes.length + executionAssumptions.length})</span>
-                      <span className="ml-auto text-gray-600 text-xs group-open:rotate-180 transition-transform duration-200">▾</span>
-                    </summary>
-                    <div className="mt-2 space-y-3">
-                      {doNotDoYet.length > 0 && (
-                        <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)' }}>
-                          <p className="text-xs text-red-400 font-bold uppercase tracking-wide mb-2">{cdT?.sectionDoNotDoYet || 'Do Not Do Yet'}</p>
-                          <ul className="space-y-1">
-                            {doNotDoYet.map((item: string, i: number) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-red-300/80">
-                                <span className="text-red-500 mt-0.5 flex-shrink-0">✗</span>{item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {riskNotes.length > 0 && (
-                        <ul className="space-y-1.5 px-1">
-                          {riskNotes.map((note: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2 text-gray-400 text-xs">
-                              <span className="text-red-400 mt-0.5 flex-shrink-0">!</span>{note}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      {executionAssumptions.length > 0 && (
-                        <ul className="space-y-1 px-1">
-                          {executionAssumptions.map((item: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2 text-gray-500 text-xs">
-                              <span className="text-gray-600 mt-0.5 flex-shrink-0">·</span>{item}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </details>
-                )}
-
-                {/* VEX Ad Setup Plan — React-state collapsible */}
-                {(() => {
-                  const hasAdContent = adSetupPlan && (
-                    adSetupPlan.testBudget || adSetupPlan.duration || adSetupPlan.targeting ||
-                    adSetupPlan.abTestPlan || adSetupPlan.landingPath || adSetupPlan.trackingRequired ||
-                    adSetupPlan.adCopyAngles?.length > 0 || adSetupPlan.notReadyIf?.length > 0 ||
-                    adSetupPlan.objective || adSetupPlan.platformPriority?.length > 0
-                  )
-                  // PR-1 honesty: don't render a "VEX Ad Setup Plan" panel (or a
-                  // regenerate-to-get-ads CTA that would spend credits) when no real ad
-                  // data exists. Paid ads planning isn't generated yet — say so calmly.
-                  if (!hasAdContent) {
-                    return (
-                      <div className="rounded-xl px-4 py-3 flex items-center gap-2.5"
-                        style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                        <span>📡</span>
-                        <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>
-                          {locale === 'ar'
-                            ? 'تخطيط الإعلانات المدفوعة غير مُفعّل بعد — أضِف الميزانية والموقع ووجهة التحويل في Brand Brain لتجهيزه.'
-                            : 'Paid ads planning is not active yet — add monthly budget, location, and a conversion destination in Brand Brain to prepare it.'}
-                        </p>
-                      </div>
-                    )
-                  }
-                  return (
-                    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.2)' }}>
-                      {/* Header — always clickable */}
-                      <button
-                        type="button"
-                        onClick={() => setAdSetupOpen(v => !v)}
-                        className="w-full flex items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-blue-500/5"
-                        style={{ background: 'transparent' }}
+                    <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                      <Link
+                        href={`/campaigns/${campaignId}/content-hub`}
+                        className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                       >
-                        <span>📡</span>
-                        <span className="text-sm font-semibold text-blue-400">{cdT?.sectionAdSetupPlan || 'VEX Ad Setup Plan'}</span>
-                        <span className="text-xs text-gray-600 ml-1">{cdT?.advanced || 'Advanced'}</span>
-                        <span className="ml-auto text-gray-500 text-sm transition-transform duration-200" style={{ transform: adSetupOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-                      </button>
+                        {hasContentCalendar
+                          ? (locale === 'ar' ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub')
+                          : (locale === 'ar' ? 'فتح مركز المحتوى' : 'Open Content Hub')}
+                      </Link>
+                      <Link
+                        href="/strategy"
+                        className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        {locale === 'ar' ? 'العودة إلى الاستراتيجية' : 'Back to Strategy'}
+                      </Link>
+                    </div>
+                  </div>
+                </section>
 
-                      {/* Body */}
-                      {adSetupOpen && (
-                        <div className="px-4 pb-4 pt-1" style={{ background: 'rgba(59,130,246,0.03)', borderTop: '1px solid rgba(59,130,246,0.1)' }}>
-                          {!hasAdContent ? (
-                            /* Empty state — campaign was generated before adSetupPlan schema */
-                            <div className="flex flex-col items-center gap-3 py-6 text-center">
-                              <span className="text-3xl">📡</span>
-                              <p className="text-sm text-gray-400 max-w-xs">
-                                {locale === 'ar' ? 'خطة الإعلانات غير متاحة لهذه الحملة. أعد تشغيل الاستراتيجية للحصول على خطة إعلانية كاملة.' : 'Ad setup plan not available for this campaign. Regenerate the strategy to get a full ad plan.'}
-                              </p>
-                              <button
-                                type="button"
-                                disabled={engineRunning}
-                                onClick={() => handleRunEngine(true)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
-                                style={{ background: 'linear-gradient(135deg,#3B82F6,#6366F1)' }}
-                              >
-                                {engineRunning ? (locale === 'ar' ? 'جارٍ التشغيل...' : 'Running...') : (locale === 'ar' ? '🔄 أعد تشغيل الاستراتيجية' : '🔄 Regenerate Strategy')}
-                              </button>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <StrategyDocCard
+                    label={locale === 'ar' ? 'المصدر' : 'Source'}
+                    value={locale === 'ar' ? 'Brand Brain وبيانات الحملة' : 'Brand Brain and campaign inputs'}
+                  />
+                  <StrategyDocCard
+                    label={locale === 'ar' ? 'الخطة العضوية' : 'Organic plan'}
+                    value={hasContentCalendar
+                      ? (locale === 'ar' ? 'متاحة للمراجعة في مركز المحتوى' : 'Available for review in Content Hub')
+                      : (locale === 'ar' ? 'جاهزة للتخطيط' : 'Ready for content planning')}
+                    tone="positive"
+                  />
+                  <StrategyDocCard
+                    label={locale === 'ar' ? 'الإعلانات المدفوعة' : 'Paid planning'}
+                    value={locale === 'ar' ? 'تخطيط فقط — لا صرف بدون موافقة صريحة' : 'Planning-only — no spend without explicit approval'}
+                    tone="warning"
+                  />
+                </div>
+
+                <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-5">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <StrategyDocCard
+                      label={locale === 'ar' ? 'التحليلات' : 'Analytics'}
+                      value={confidenceReport?.byCapability?.measurement === 'high'
+                        ? (locale === 'ar' ? 'بيانات متاحة جزئياً' : 'Partial data available')
+                        : (locale === 'ar' ? 'تحتاج خط أساس' : 'Baseline needed')}
+                      tone="muted"
+                    />
+                    <StrategyDocCard
+                      label={locale === 'ar' ? 'النشر' : 'Publishing'}
+                      value={locale === 'ar' ? 'غير مفعّل من هذه الاستراتيجية' : 'Not enabled from this strategy'}
+                      tone="muted"
+                    />
+                    <StrategyDocCard
+                      label={locale === 'ar' ? 'حدود التنفيذ' : 'Execution limits'}
+                      value={locale === 'ar' ? 'لا إعلانات ولا نشر بدون مراجعة صريحة' : 'No ads or publishing without explicit review'}
+                      tone="muted"
+                    />
+                  </div>
+                </div>
+
+                {(strategy.diagnosis || strategy.keyMessage || strategy.positioning || strategy.differentiation || strategy.targetAudienceRefined || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                  <StrategyDocSection
+                    eyebrow="01"
+                    title={locale === 'ar' ? 'الاستراتيجية التنفيذية' : 'Executive Strategy'}
+                    description={locale === 'ar'
+                      ? 'الاتجاه الأساسي، لماذا يناسب العلامة، وما يجب التركيز عليه أولاً.'
+                      : 'The core direction, why it fits the brand, and what to focus on first.'}
+                  >
+                    <div className="space-y-4">
+                      {strategy.keyMessage && (
+                        <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-5">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-500">
+                            {cdT?.sectionKeyMessage || 'Key Message'}
+                          </p>
+                          <p className="mt-2 text-xl font-semibold leading-8 text-slate-950">"{strategy.keyMessage}"</p>
+                          <div className="mt-3">
+                            <CopyBtn text={strategy.keyMessage} label={cdT?.copyBtn || 'Copy'} />
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <StrategyDocCard label={cdT?.sectionPositioning || 'Positioning'} value={strategy.positioning} />
+                        <StrategyDocCard label={cdT?.sectionDifferentiation || 'Differentiation'} value={strategy.differentiation} />
+                      </div>
+                      {strategy.nextBestAction && (
+                        <StrategyDocCard
+                          label={locale === 'ar' ? 'الخطوة التالية المقترحة' : 'Suggested next step'}
+                          value={strategy.nextBestAction}
+                          tone="muted"
+                        />
+                      )}
+                    </div>
+                  </StrategyDocSection>
+                )}
+
+                {(strategy.diagnosis || diagnosisDetails) && (
+                  <StrategyDocSection
+                    eyebrow="02"
+                    title={cdT?.sectionDiagnosis || 'Marketing Diagnosis'}
+                    description={strategy.diagnosis}
+                  >
+                    {diagnosisDetails && (
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                        <StrategyDocCard label={cdT?.diagStage || 'Business stage'} value={diagnosisDetails.stage} />
+                        <StrategyDocCard label={cdT?.diagBottleneck || 'Main bottleneck'} value={diagnosisDetails.bottleneck} />
+                        <StrategyDocCard label={cdT?.diagTrustGap || 'Trust gap'} value={diagnosisDetails.trustGap} tone="warning" />
+                        <StrategyDocCard label={cdT?.diagRisk || 'Main risk'} value={diagnosisDetails.mainRisk} tone="warning" />
+                        <StrategyDocCard
+                          label={locale === 'ar' ? 'جاهزية التخطيط المدفوع' : 'Paid planning status'}
+                          value={diagnosisDetails.readyForPaidAds
+                            ? (locale === 'ar' ? 'يمكن إعداد خطة للمراجعة' : 'Can prepare a plan for review')
+                            : (locale === 'ar' ? 'يحتاج إعداداً قبل الصرف' : 'Needs setup before any spend')}
+                          tone="warning"
+                        />
+                        <StrategyDocCard label={locale === 'ar' ? 'السبب' : 'Reason'} value={diagnosisDetails.readyForPaidAdsReason} />
+                      </div>
+                    )}
+                  </StrategyDocSection>
+                )}
+
+                {businessObjective && (
+                  <StrategyDocSection eyebrow="03" title={cdT?.sectionBusinessObjective || 'Business Objective'}>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {[
+                        { label: cdT?.businessObjPrimary || 'Business objective', value: businessObjective.primary },
+                        { label: cdT?.businessObjMarketing || 'Marketing objective', value: businessObjective.marketing },
+                        { label: cdT?.businessObjConversion || 'Conversion action', value: businessObjective.conversionAction },
+                        { label: cdT?.businessObjAction || 'Expected user action', value: businessObjective.expectedUserAction },
+                        { label: cdT?.businessObjWhyNow || 'Why now', value: businessObjective.whyNow },
+                        { label: cdT?.businessObjSuccess30 || 'Success definition', value: businessObjective.successIn30Days },
+                      ].map((item, i) => (
+                        <StrategyDocCard key={i} label={item.label} value={item.value} />
+                      ))}
+                    </div>
+                  </StrategyDocSection>
+                )}
+
+                {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
+                  <StrategyDocSection eyebrow="04" title={cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}>
+                    {audienceSegmentsDetailed.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                        {audienceSegmentsDetailed.map((seg: any, i: number) => (
+                          <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="text-sm font-semibold text-slate-950">{i + 1}. {seg.segment}</p>
+                            <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-700">
+                              <StrategyDocCard label="Situation" value={seg.situation} />
+                              <StrategyDocCard label="Pain" value={seg.pain} tone="warning" />
+                              <StrategyDocCard label="Want" value={seg.desiredOutcome} tone="positive" />
+                              <StrategyDocCard label="Objection" value={seg.objection} tone="warning" />
+                              <StrategyDocCard label="Message" value={seg.message} />
+                              <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                                {seg.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{seg.platform}</span>}
+                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{seg.format}</span>}
+                                {seg.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{seg.cta}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <StrategyDocList ordered items={audienceSegments.map((seg: string) => seg)} />
+                    )}
+                  </StrategyDocSection>
+                )}
+
+                {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0) && (
+                  <StrategyDocSection
+                    eyebrow="05"
+                    title={locale === 'ar' ? 'خطة المحتوى العضوي' : 'Organic Content Plan'}
+                    description={locale === 'ar'
+                      ? 'الرسائل والركائز والخطافات التي تحوّل الاستراتيجية إلى محتوى قابل للمراجعة.'
+                      : 'The messages, pillars, hooks, and angles that turn the strategy into reviewable content.'}
+                  >
+                    <div className="space-y-5">
+                      {strategy.contentPillars?.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionContentPillars || 'Content Pillars'}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {strategy.contentPillars.map((p: string, i: number) => (
+                              <span key={i} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700">{p}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults) && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionValueProps || 'Value Propositions'}</p>
+                          {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0) ? (
+                            <StrategyDocList items={(strategy.valueProps || strategy.valuePropositions).map((vp: string) => vp)} />
+                          ) : (
+                            <p className="text-sm leading-6 text-slate-700">{strategy.estimatedResults}</p>
+                          )}
+                        </div>
+                      )}
+                      {topHooks.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionTopHooks || 'Top Hooks'}</p>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            {topHooks.slice(0, 8).map((hook: string, i: number) => (
+                              <div key={i} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                                <span className="text-xs font-bold text-slate-400">{String(i + 1).padStart(2, '0')}</span>
+                                <p className="flex-1 text-sm leading-6 text-slate-700">{hook}</p>
+                                <CopyBtn text={hook} label={cdT?.copyBtn || 'Copy'} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {ctaVariations.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionCtaVariations || 'CTAs'}</p>
+                          <div className="flex flex-wrap gap-2">
+                            {ctaVariations.map((cta: string, i: number) => (
+                              <span key={i} className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700">{cta}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(contentAnglesDetailed.length > 0 || contentAngles.length > 0) && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</p>
+                          {contentAnglesDetailed.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              {contentAnglesDetailed.map((angle: any, i: number) => (
+                                <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                  <p className="text-sm font-semibold text-slate-950">{angle.title || `${locale === 'ar' ? 'زاوية' : 'Angle'} ${i + 1}`}</p>
+                                  {angle.hook && <p className="mt-2 text-sm leading-6 text-slate-700">"{angle.hook}"</p>}
+                                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                                    {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.pain}</span>}
+                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.format}</span>}
+                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.platform}</span>}
+                                    {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{angle.cta}</span>}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           ) : (
-                            <>
-                              {/* Quick stat chips */}
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3 mt-2">
-                                {[
-                                  { label: cdT?.adTestBudget || 'Test Budget', value: adSetupPlan.testBudget },
-                                  { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
-                                  { label: cdT?.adAbTest || 'A/B Test Plan', value: adSetupPlan.abTestPlan },
-                                  { label: cdT?.adLandingPath || 'Landing Path', value: adSetupPlan.landingPath },
-                                  { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
-                                  { label: 'Objective', value: adSetupPlan.objective },
-                                ].filter(item => item.value).map((item, i) => (
-                                  <div key={i} className="bg-dark rounded-lg p-2.5 border border-dark-tertiary">
-                                    <p className="text-[10px] text-gray-600 uppercase tracking-wide mb-0.5">{item.label}</p>
-                                    <p className="text-xs text-gray-200 leading-snug">{item.value}</p>
-                                  </div>
-                                ))}
-                              </div>
-
-                              {/* Platform priority */}
-                              {adSetupPlan.platformPriority?.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                  {adSetupPlan.platformPriority.map((p: string, i: number) => (
-                                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full text-blue-300" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                                      #{i + 1} {p}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Targeting */}
-                              {adSetupPlan.targeting && (
-                                <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
-                                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">{cdT?.adTargeting || 'Targeting'}</p>
-                                  <p className="text-sm text-gray-300">{adSetupPlan.targeting}</p>
-                                </div>
-                              )}
-
-                              {/* Exclusions */}
-                              {adSetupPlan.exclusions && (
-                                <div className="bg-dark rounded-xl p-3 border border-dark-tertiary mb-2">
-                                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Exclusions</p>
-                                  <p className="text-sm text-gray-300">{adSetupPlan.exclusions}</p>
-                                </div>
-                              )}
-
-                              {/* Ad Copy Angles */}
-                              {adSetupPlan.adCopyAngles?.length > 0 && (
-                                <div className="mb-2">
-                                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">Ad Copy Angles</p>
-                                  <div className="space-y-1">
-                                    {adSetupPlan.adCopyAngles.map((angle: string, i: number) => (
-                                      <div key={i} className="flex items-start gap-2 text-xs text-gray-300 bg-dark rounded-lg p-2 border border-dark-tertiary">
-                                        <span className="text-blue-400 font-bold flex-shrink-0">{i + 1}</span>{angle}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Creative formats */}
-                              {adSetupPlan.creativeFormats?.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mb-3">
-                                  <p className="w-full text-xs text-gray-500 uppercase tracking-wide mb-1">Creative Formats</p>
-                                  {adSetupPlan.creativeFormats.map((f: string, i: number) => (
-                                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full text-purple-300" style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.2)' }}>{f}</span>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Do not launch if */}
-                              {adSetupPlan.notReadyIf?.length > 0 && (
-                                <div className="rounded-lg p-3" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}>
-                                  <p className="text-xs text-amber-400 font-bold uppercase tracking-wide mb-1.5">{cdT?.adNotReadyIf || 'Do not launch ads if'}</p>
-                                  <ul className="space-y-0.5">
-                                    {adSetupPlan.notReadyIf.map((item: string, i: number) => (
-                                      <li key={i} className="text-xs text-amber-300/70 flex items-start gap-1.5">
-                                        <span className="flex-shrink-0">⚠</span>{item}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </>
+                            <StrategyDocList items={contentAngles.map((angle: string) => angle)} />
                           )}
                         </div>
                       )}
                     </div>
-                  )
-                })()}
+                  </StrategyDocSection>
+                )}
+
+                {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                  <StrategyDocSection eyebrow="06" title={cdT?.chapterExecution || 'Execution Plan'}>
+                    <div className="space-y-5">
+                      {(funnelStages.length > 0 || strategy.funnelStrategy) && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Funnel stages'}</p>
+                          {funnelStages.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              {funnelStages.map((stage: any, i: number) => (
+                                <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                  <p className="text-sm font-semibold capitalize text-slate-950">{stage.stage || `${locale === 'ar' ? 'مرحلة' : 'Stage'} ${i + 1}`}</p>
+                                  <div className="mt-3 grid gap-2">
+                                    <StrategyDocCard label={cdT?.funnelMindset || 'Mindset'} value={stage.userMindset} />
+                                    <StrategyDocCard label="Message" value={stage.message} />
+                                    <StrategyDocCard label="Format" value={stage.contentType} />
+                                    <StrategyDocCard label="Platform" value={stage.platform} />
+                                    <StrategyDocCard label="CTA" value={stage.cta} />
+                                    <StrategyDocCard label={cdT?.weekSuccessMetric || 'Metric'} value={stage.successMetric} tone="muted" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              {Object.entries(strategy.funnelStrategy || {}).map(([key, value]) => (
+                                value ? <StrategyDocCard key={key} label={key} value={String(value)} /> : null
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {(strategy.channelMix?.length > 0 || channelStrategy.length > 0) && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'}</p>
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            {(channelStrategy.length > 0 ? channelStrategy : strategy.channelMix).map((ch: any, i: number) => (
+                              <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-sm font-semibold capitalize text-slate-950">{ch.platform}</p>
+                                <p className="mt-1 text-sm leading-6 text-slate-600">{ch.role || ch.rationale || ch.postingApproach}</p>
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                                  {ch.contentType && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{ch.contentType}</span>}
+                                  {ch.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{ch.cta}</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {strategy.offerCTAStrategy && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionOfferCTA || 'Offer & CTA'}</p>
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            {[
+                              { label: cdT?.ctaPrimary || 'Primary CTA', value: strategy.offerCTAStrategy.primaryCTA },
+                              { label: cdT?.ctaSecondary || 'Secondary CTA', value: strategy.offerCTAStrategy.secondaryCTA },
+                              { label: cdT?.ctaLeadMagnet || 'Lead magnet', value: strategy.offerCTAStrategy.leadMagnet },
+                              { label: cdT?.ctaBetaOffer || 'Beta offer', value: strategy.offerCTAStrategy.betaOffer },
+                              { label: cdT?.ctaContactFlow || 'Contact flow', value: strategy.offerCTAStrategy.contactFlow },
+                            ].map((item, i) => (
+                              <StrategyDocCard key={i} label={item.label} value={item.value} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {strategy.visualDirection && (
+                        <StrategyDocCard label={cdT?.sectionVisualDirection || 'Visual Direction'} value={strategy.visualDirection} />
+                      )}
+                      {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionWeeklyPlan || '30-Day Execution Plan'}</p>
+                          <div className="space-y-3">
+                            {(weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan : weeklyPlan).map((w: any) => (
+                              <div key={w.week} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                  <p className="text-sm font-semibold text-slate-950">{locale === 'ar' ? 'الأسبوع' : 'Week'} {w.week}: {w.objective}</p>
+                                  {w.cta && <span className="text-xs font-semibold text-indigo-600">{w.cta}</span>}
+                                </div>
+                                {w.keyMessage && <p className="mt-2 text-sm leading-6 text-slate-600">"{w.keyMessage}"</p>}
+                                {w.deliverables?.length > 0 && (
+                                  <div className="mt-3">
+                                    <StrategyDocList items={w.deliverables.map((d: string) => d)} />
+                                  </div>
+                                )}
+                                {(w.platforms?.length > 0 || w.channels?.length > 0) && (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {(w.platforms || w.channels).map((p: string, pi: number) => (
+                                      <span key={pi} className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500">{p}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </StrategyDocSection>
+                )}
+
+                {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
+                  <StrategyDocSection
+                    eyebrow="07"
+                    title={cdT?.sectionKpis || 'KPIs & Metrics'}
+                    description={locale === 'ar'
+                      ? 'المؤشرات هنا فرضيات حتى يتم إنشاء خط أساس من بيانات حقيقية.'
+                      : 'These indicators are hypotheses until a real baseline is available.'}
+                  >
+                    <div className="space-y-5">
+                      {strategy.kpis?.length > 0 && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                          {strategy.kpis.map((kpi: any, i: number) => (
+                            <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-lg font-semibold text-slate-950">{kpi.target || (locale === 'ar' ? 'يُحدد لاحقاً' : 'Target to define')}</p>
+                              <p className="mt-1 text-sm text-slate-600">{kpi.metric}</p>
+                              <p className="mt-2 text-xs text-slate-400">{kpi.timeframe || (locale === 'ar' ? 'بعد أول 30 يوماً' : 'After the first 30 days')}</p>
+                              <span className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
+                                {locale === 'ar' ? 'فرضية' : 'Hypothesis'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {successMetricsDetailed.length > 0 && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          {successMetricsDetailed.map((m: any, i: number) => (
+                            <StrategyDocCard
+                              key={i}
+                              label={m.category || (locale === 'ar' ? 'مؤشر' : 'Metric')}
+                              value={`${m.metric}${m.target ? ` — ${m.target}` : ''}${m.timeframe ? ` (${m.timeframe})` : ''}`}
+                              tone="muted"
+                            />
+                          ))}
+                        </div>
+                      )}
+                      {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
+                        <StrategyDocList items={successMetrics.map((metric: string) => metric)} />
+                      )}
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
+                        {locale === 'ar'
+                          ? 'خط أساس مطلوب. تُعرّف الأهداف النهائية بعد أول 30 يوماً من البيانات.'
+                          : 'Baseline needed. Final targets should be defined after the first 30 days of real data.'}
+                      </div>
+                    </div>
+                  </StrategyDocSection>
+                )}
+
+                {(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan) && (
+                  <StrategyDocSection
+                    eyebrow="08"
+                    title={locale === 'ar' ? 'الجاهزية والتخطيط المدفوع' : 'Readiness & Paid Planning'}
+                    description={locale === 'ar'
+                      ? 'تخطيط فقط. لا يتم صرف ميزانية أو نشر محتوى من هذه الصفحة.'
+                      : 'Planning only. No budget is spent and no content goes out from this page.'}
+                  >
+                    <div className="space-y-5">
+                      {readinessChecklist.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</p>
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                            {readinessChecklist.map((item: any, i: number) => (
+                              <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                                <span className={`h-2.5 w-2.5 rounded-full ${item.done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                <span className="flex-1">{item.label || item.item}</span>
+                                <span className="text-xs text-slate-400">{item.done ? (cdT?.readinessComplete || 'Done') : (locale === 'ar' ? 'قيد الانتظار' : 'Pending')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {assetRequirements && (
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <StrategyDocCard label={cdT?.assetMustHave || 'Must have'} value={assetRequirements.mustHave?.length ? <StrategyDocList items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
+                          <StrategyDocCard label={cdT?.assetNiceToHave || 'Nice to have'} value={assetRequirements.niceToHave?.length ? <StrategyDocList items={assetRequirements.niceToHave.map((a: string) => a)} /> : null} />
+                          <StrategyDocCard label={cdT?.assetForAds || 'For paid planning'} value={assetRequirements.forAds?.length ? <StrategyDocList items={assetRequirements.forAds.map((a: string) => a)} /> : null} tone="warning" />
+                          <StrategyDocCard label={cdT?.assetForProof || 'Social proof'} value={assetRequirements.forProof?.length ? <StrategyDocList items={assetRequirements.forProof.map((a: string) => a)} /> : null} />
+                        </div>
+                      )}
+                      {strategy.executionChecklist?.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionExecutionChecklist || 'Execution Checklist'}</p>
+                          <StrategyDocList items={strategy.executionChecklist.map((item: string) => item)} />
+                        </div>
+                      )}
+                      {(() => {
+                        const hasAdContent = adSetupPlan && (
+                          adSetupPlan.testBudget || adSetupPlan.duration || adSetupPlan.targeting ||
+                          adSetupPlan.abTestPlan || adSetupPlan.landingPath || adSetupPlan.trackingRequired ||
+                          adSetupPlan.adCopyAngles?.length > 0 || adSetupPlan.notReadyIf?.length > 0 ||
+                          adSetupPlan.objective || adSetupPlan.platformPriority?.length > 0
+                        )
+                        if (!hasAdContent) {
+                          return (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                              {locale === 'ar'
+                                ? 'التخطيط المدفوع غير جاهز بعد — أضف الميزانية ووجهة التحويل والتحليلات في Brand Brain.'
+                                : 'Paid planning is not ready yet — add budget, conversion destination, and analytics context in Brand Brain.'}
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                            <button
+                              type="button"
+                              onClick={() => setAdSetupOpen(v => !v)}
+                              className="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-amber-950"
+                            >
+                              <span>{locale === 'ar' ? 'خطة مدفوعة للمراجعة' : 'Paid plan for review'}</span>
+                              <span className="text-xs text-amber-700">{adSetupOpen ? (locale === 'ar' ? 'إخفاء' : 'Hide') : (locale === 'ar' ? 'عرض' : 'Show')}</span>
+                            </button>
+                            {adSetupOpen && (
+                              <div className="mt-4 space-y-3">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                                  {[
+                                    { label: cdT?.adTestBudget || 'Test budget', value: adSetupPlan.testBudget },
+                                    { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
+                                    { label: cdT?.adAbTest || 'A/B test plan', value: adSetupPlan.abTestPlan },
+                                    { label: cdT?.adLandingPath || 'Landing path', value: adSetupPlan.landingPath },
+                                    { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
+                                    { label: 'Objective', value: adSetupPlan.objective },
+                                  ].map((item, i) => <StrategyDocCard key={i} label={item.label} value={item.value} />)}
+                                </div>
+                                <StrategyDocCard label={cdT?.adTargeting || 'Targeting'} value={adSetupPlan.targeting} />
+                                <StrategyDocCard label="Exclusions" value={adSetupPlan.exclusions} />
+                                {adSetupPlan.adCopyAngles?.length > 0 && (
+                                  <StrategyDocCard label="Ad copy angles" value={<StrategyDocList items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
+                                )}
+                                {adSetupPlan.notReadyIf?.length > 0 && (
+                                  <StrategyDocCard
+                                    label={locale === 'ar' ? 'لا تشغّل الإعلانات إذا' : 'Do not run ads if'}
+                                    value={<StrategyDocList items={adSetupPlan.notReadyIf.map((item: string) => item)} />}
+                                    tone="warning"
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  </StrategyDocSection>
+                )}
+
+                {(doNotDoYet.length > 0 || riskNotes.length > 0 || executionAssumptions.length > 0 || assumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false) && (
+                  <StrategyDocSection
+                    eyebrow="09"
+                    title={locale === 'ar' ? 'المخاطر والافتراضات والبيانات الناقصة' : 'Risks, Assumptions & Missing Data'}
+                    description={locale === 'ar'
+                      ? 'هذه الحدود تساعد على مراجعة الاستراتيجية بصدق قبل الانتقال إلى المحتوى.'
+                      : 'These limits keep the strategy honest before it moves into content planning.'}
+                  >
+                    <div className="space-y-4">
+                      {confidenceReport?.overall && (
+                        <StrategyDocCard label={locale === 'ar' ? 'الثقة' : 'Confidence'} value={confLevelLabel(confidenceReport.overall)} tone="muted" />
+                      )}
+                      {missingDataLabels.length > 0 && (
+                        <StrategyDocCard
+                          label={locale === 'ar' ? 'بيانات ناقصة' : 'Missing data'}
+                          value={<StrategyDocList items={missingDataLabels.map(label => label)} />}
+                          tone="warning"
+                        />
+                      )}
+                      {competitorAnalysisComplete === false && (
+                        <StrategyDocCard
+                          label={locale === 'ar' ? 'تحليل المنافسين' : 'Competitor analysis'}
+                          value={locale === 'ar'
+                            ? 'غير مكتمل — لم تُضف منافسين، ولن يتم اختراع منافسين.'
+                            : 'Incomplete — no competitors were provided, and competitors will not be invented.'}
+                          tone="warning"
+                        />
+                      )}
+                      {doNotDoYet.length > 0 && (
+                        <StrategyDocCard label={cdT?.sectionDoNotDoYet || 'Do not do yet'} value={<StrategyDocList items={doNotDoYet.map((item: string) => item)} />} tone="warning" />
+                      )}
+                      {riskNotes.length > 0 && (
+                        <StrategyDocCard label={cdT?.sectionRiskNotes || 'Risk notes'} value={<StrategyDocList items={riskNotes.map((note: string) => note)} />} tone="warning" />
+                      )}
+                      {executionAssumptions.length > 0 && (
+                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات التنفيذ' : 'Execution assumptions'} value={<StrategyDocList items={executionAssumptions.map((item: string) => item)} />} />
+                      )}
+                      {assumptions.length > 0 && (
+                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات' : 'Assumptions'} value={<StrategyDocList items={assumptions.map((item: string) => item)} />} />
+                      )}
+                    </div>
+                  </StrategyDocSection>
+                )}
               </div>
             )}
 
