@@ -152,7 +152,9 @@ function ProductPreview({ ar }: { ar: boolean }) {
                 <p className="text-[13px] font-semibold text-slate-500">{ar ? 'موجز التشغيل' : 'Operating brief'}</p>
                 <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{ar ? 'حملة شهرية جاهزة' : 'Monthly campaign ready'}</h3>
               </div>
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">Live</span>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">
+                {ar ? 'معاينة تجريبية' : 'Demo preview'}
+              </span>
             </div>
 
             <div className="space-y-3">
