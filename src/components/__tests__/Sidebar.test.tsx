@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Sidebar from '@/components/Sidebar'
 
 const billingState = vi.hoisted(() => ({
@@ -13,6 +13,12 @@ const billingState = vi.hoisted(() => ({
     isLow: false,
     isEmpty: true,
     loading: false,
+    status: {
+      plan: 'free',
+      status: 'active',
+      hasActiveSubscription: false,
+      credits: { remaining: 0, max: 10 },
+    },
   },
 }))
 
@@ -40,9 +46,14 @@ vi.mock('@/lib/i18n-context', () => ({
     dir: 'ltr',
     t: (key: string) => ({
       'sidebar.home': 'Home',
-      'sidebar.brand': 'Brand',
+      'sidebar.brand': 'Brand Brain',
+      'sidebar.strategy': 'Strategy',
+      'sidebar.campaigns': 'Campaigns',
+      'sidebar.contentHub': 'Content Hub',
+      'sidebar.calendar': 'Calendar',
       'sidebar.media': 'Media',
-      'sidebar.connect': 'Connect',
+      'sidebar.mediaLibrary': 'Media Library',
+      'sidebar.connections': 'Connections',
       'sidebar.badgeSetup': 'Setup',
       'sidebar.settings': 'Settings',
       'sidebar.billing': 'Billing',
@@ -50,6 +61,13 @@ vi.mock('@/lib/i18n-context', () => ({
       'sidebar.collapse': 'Collapse',
       'sidebar.upgradePro': 'Upgrade Pro',
       'sidebar.unlockAll': 'Unlock more with a paid plan',
+      'sidebar.analytics': 'Analytics',
+      'sidebar.sectionPlan': 'Plan',
+      'sidebar.sectionProduce': 'Produce',
+      'sidebar.sectionOperate': 'Operate',
+      'sidebar.sectionLearn': 'Learn',
+      'sidebar.sectionAccount': 'Account',
+      'sidebar.primaryNavigation': 'Primary navigation',
       'language.switchLabel': 'Arabic',
       'nav.logout': 'Log out',
     }[key] ?? key),
@@ -61,6 +79,10 @@ vi.mock('@/lib/useBillingStatus', () => ({
 }))
 
 describe('Sidebar credit presentation', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
   beforeEach(() => {
     billingState.value = {
       creditsRemaining: 0,
@@ -70,14 +92,19 @@ describe('Sidebar credit presentation', () => {
       isLow: false,
       isEmpty: true,
       loading: false,
+      status: {
+        plan: 'free',
+        status: 'active',
+        hasActiveSubscription: false,
+        credits: { remaining: 0, max: 10 },
+      },
     }
   })
 
-  it('shows calm trial copy for a non-paid zero-credit first-run state', () => {
+  it('shows honest zero-credit copy for a non-paid zero-credit state', () => {
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
-    expect(screen.getByText('Free trial credits ready')).toBeTruthy()
-    expect(screen.queryByText(/No credits left/i)).toBeNull()
+    expect(screen.getByText('⚠ No credits left')).toBeTruthy()
     expect(screen.queryByText('PRO')).toBeNull()
   })
 
@@ -90,10 +117,44 @@ describe('Sidebar credit presentation', () => {
       isLow: false,
       isEmpty: true,
       loading: false,
+      status: {
+        plan: 'growth',
+        status: 'active',
+        hasActiveSubscription: true,
+        credits: { remaining: 0, max: 150 },
+      },
     }
 
     render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
 
     expect(screen.getByText('⚠ No credits left')).toBeTruthy()
+  })
+
+  it('uses workflow navigation labels and keeps future modules out of primary navigation', () => {
+    render(<Sidebar collapsed={false} setCollapsed={() => {}} />)
+
+    expect(screen.getByText('Plan')).toBeTruthy()
+    expect(screen.getByText('Produce')).toBeTruthy()
+    expect(screen.getByText('Operate')).toBeTruthy()
+    expect(screen.getByText('Learn')).toBeTruthy()
+    expect(screen.getByText('Account')).toBeTruthy()
+
+    expect(screen.getByText('Home')).toBeTruthy()
+    expect(screen.getByText('Brand Brain')).toBeTruthy()
+    expect(screen.getByText('Strategy')).toBeTruthy()
+    expect(screen.getByText('Campaigns')).toBeTruthy()
+    expect(screen.getByText('Content Hub')).toBeTruthy()
+    expect(screen.getByText('Calendar')).toBeTruthy()
+    expect(screen.getByText('Media Library')).toBeTruthy()
+    expect(screen.getByText('Analytics')).toBeTruthy()
+    expect(screen.getByText('Connections')).toBeTruthy()
+    expect(screen.getAllByText('Billing').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Settings').length).toBeGreaterThan(0)
+
+    expect(screen.queryByText('Templates')).toBeNull()
+    expect(screen.queryByText('Score History')).toBeNull()
+    expect(screen.queryByText('NEX — Studio')).toBeNull()
+    expect(screen.queryByText('VEX — Ads')).toBeNull()
+    expect(screen.queryByText('Sentinel — Monitor')).toBeNull()
   })
 })

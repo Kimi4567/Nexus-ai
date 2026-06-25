@@ -20,6 +20,21 @@ interface SidebarProps {
   onMobileClose?: () => void
 }
 
+interface NavConfigItem {
+  href: string
+  labelKey: string
+  icon: React.ReactNode
+  badgeKey?: string
+  badgeColor?: string
+  dot?: string
+}
+
+interface NavGroupConfig {
+  key: string
+  labelKey: string
+  items: NavConfigItem[]
+}
+
 // ── Logo ───────────────────────────────────────────────────────
 function NexusLogo() {
   return (
@@ -152,16 +167,6 @@ const Icons = {
       <circle cx="8" cy="8" r="0.6" fill="currentColor" stroke="none" />
     </svg>
   ),
-  score: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M2 12.5h12" strokeLinecap="round" />
-      <path d="M4 10l2.5-3 2 2 3.5-5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="4" cy="10" r="1" fill="currentColor" stroke="none" />
-      <circle cx="6.5" cy="7" r="1" fill="currentColor" stroke="none" />
-      <circle cx="8.5" cy="9" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="4" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  ),
   calendar: (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <rect x="1.5" y="2.5" width="13" height="12" rx="1.5" />
@@ -176,49 +181,10 @@ const Icons = {
       <path d="M1.5 12.5l3-3 2.5 2 2-2 4 3.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
-  studio: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M2 3.5h12M2 3.5v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M6 6.5l4 2-4 2V6.5z" fill="currentColor" stroke="none"/>
-    </svg>
-  ),
-  sentinel: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <path d="M8 1.5L2 4v4c0 3.3 2.5 5.8 6 6.5 3.5-.7 6-3.2 6-6.5V4L8 1.5z" strokeLinejoin="round"/>
-      <path d="M5.5 8l1.5 1.5L10.5 6" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  ),
   analytics: (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 12.5l3.5-4 3 2.5 3-5 2.5 2" strokeLinecap="round" strokeLinejoin="round"/>
       <path d="M2 14.5h12" strokeLinecap="round"/>
-    </svg>
-  ),
-  vex: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <rect x="1.5" y="2" width="13" height="9" rx="1.5"/>
-      <path d="M5 13.5h6M8 11v2.5" strokeLinecap="round"/>
-      <path d="M5 5.5l1.5 2L8 5M9.5 5.5h2M9.5 7.5h1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  ),
-  schedule: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="8" cy="8" r="6.5"/>
-      <path d="M8 4.5V8l2.5 2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  ),
-  paidAds: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <rect x="1" y="3" width="14" height="10" rx="2"/>
-      <path d="M5 8h2.5M8.5 6.5l2 1.5-2 1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M5 10h3" strokeLinecap="round"/>
-    </svg>
-  ),
-  adAccounts: (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="8" cy="5" r="2.5"/>
-      <path d="M2.5 13c0-2.5 2.5-4 5.5-4s5.5 1.5 5.5 4" strokeLinecap="round"/>
-      <path d="M11.5 7.5l1 1 2-2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
 }
@@ -287,6 +253,53 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
   const cardBg = billingTruth.isZeroCredits ? '#FEF2F2' : billingTruth.isLowCredits ? '#FFFBEB' : isPaid ? '#ECFDF5' : '#F5F3FF'
   const cardBorder = billingTruth.isZeroCredits ? '1px solid rgba(239,68,68,0.22)' : billingTruth.isLowCredits ? '1px solid rgba(245,158,11,0.24)' : isPaid ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(94,92,230,0.18)'
   const titleColor = billingTruth.isZeroCredits ? '#EF4444' : billingTruth.isLowCredits ? '#F59E0B' : isPaid ? '#10B981' : '#8B5CF6'
+  const navGroups: NavGroupConfig[] = [
+    {
+      key: 'plan',
+      labelKey: 'sidebar.sectionPlan',
+      items: [
+        { href: '/dashboard', labelKey: 'sidebar.home', icon: Icons.dashboard },
+        { href: '/brand', labelKey: 'sidebar.brand', icon: Icons.brain, dot: pendingProposals > 0 ? '#f59e0b' : undefined },
+        { href: '/strategy', labelKey: 'sidebar.strategy', icon: Icons.strategy },
+      ],
+    },
+    {
+      key: 'produce',
+      labelKey: 'sidebar.sectionProduce',
+      items: [
+        { href: '/campaigns', labelKey: 'sidebar.campaigns', icon: Icons.campaigns },
+        {
+          href: '/content-hub',
+          labelKey: 'sidebar.contentHub',
+          icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>,
+        },
+        { href: '/calendar', labelKey: 'sidebar.calendar', icon: Icons.calendar },
+        { href: '/media', labelKey: 'sidebar.mediaLibrary', icon: Icons.media },
+      ],
+    },
+    {
+      key: 'operate',
+      labelKey: 'sidebar.sectionOperate',
+      items: [
+        { href: '/connections', labelKey: 'sidebar.connections', icon: Icons.connections, badgeKey: 'sidebar.badgeSetup', badgeColor: '#10B981' },
+      ],
+    },
+    {
+      key: 'learn',
+      labelKey: 'sidebar.sectionLearn',
+      items: [
+        { href: '/analytics', labelKey: 'sidebar.analytics', icon: Icons.analytics },
+      ],
+    },
+    {
+      key: 'account',
+      labelKey: 'sidebar.sectionAccount',
+      items: [
+        { href: '/billing', labelKey: 'sidebar.billing', icon: Icons.billing },
+        { href: '/settings', labelKey: 'sidebar.settings', icon: Icons.settings },
+      ],
+    },
+  ]
 
   return (
     <aside dir={dir} className={`h-full flex flex-col transition-all duration-200 ${collapsed ? 'w-16' : 'w-56'}`}
@@ -304,58 +317,30 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       </div>
 
       {/* Scrollable nav */}
-      <div className="flex-1 overflow-y-auto py-3 px-2">
+      <nav className="flex-1 overflow-y-auto py-3 px-2" aria-label={t('sidebar.primaryNavigation')}>
+        {navGroups.map((group) => (
+          <div key={group.key}>
+            {!collapsed && <SectionLabel>{t(group.labelKey)}</SectionLabel>}
+            {collapsed && group.key !== 'plan' && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
+            {group.items.map((item) => (
+              <NavItem
+                key={item.href}
+                href={item.href}
+                label={t(item.labelKey)}
+                icon={item.icon}
+                badge={item.badgeKey ? t(item.badgeKey) : undefined}
+                badgeColor={item.badgeColor}
+                dot={item.dot}
+                {...sharedProps}
+              />
+            ))}
+          </div>
+        ))}
 
-        {/* Home */}
-        <NavItem href="/dashboard" label={t('sidebar.home')}
-          icon={Icons.dashboard} {...sharedProps} />
-
-        {/* CREATE — build & manage content */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'إنشاء' : 'Create'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
-        <NavItem href="/brand" label={t('sidebar.brand')}
-          icon={Icons.brain} dot={pendingProposals > 0 ? '#f59e0b' : undefined} {...sharedProps} />
-        {/* PR-D: Strategy stage — sits between Brand Brain and Campaigns so the
-            real /strategy page is discoverable in the natural journey. */}
-        <NavItem href="/strategy" label={locale === 'ar' ? 'الاستراتيجية' : 'Strategy'}
-          icon={Icons.strategy} {...sharedProps} />
-        <NavItem href="/campaigns" label={locale === 'ar' ? 'الحملات' : 'Campaigns'}
-          icon={Icons.campaigns} {...sharedProps} />
-        <NavItem href="/content-hub" label={locale === 'ar' ? 'مركز المحتوى' : 'Content Hub'}
-          icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>}
-          {...sharedProps} />
-        <NavItem href="/calendar" label={locale === 'ar' ? 'التقويم' : 'Calendar'}
-          icon={Icons.calendar} {...sharedProps} />
-        <NavItem href="/media" label={t('sidebar.media')}
-          icon={Icons.media} {...sharedProps} />
-        <NavItem href="/templates" label={locale === 'ar' ? 'القوالب' : 'Templates'}
-          icon={<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="1" width="6" height="6" rx="1.5"/><rect x="9" y="1" width="6" height="6" rx="1.5"/><rect x="1" y="9" width="6" height="6" rx="1.5"/><rect x="9" y="9" width="6" height="6" rx="1.5"/></svg>}
-          {...sharedProps} />
-
-        {/* INTELLIGENCE — analyze & learn */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'ذكاء' : 'Intelligence'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
-        <NavItem href="/analytics" label={locale === 'ar' ? 'تحليلات' : 'Analytics'}
-          icon={Icons.analytics} {...sharedProps} />
-        <NavItem href="/brand/score-history" label={locale === 'ar' ? 'سجل السكور' : 'Score History'}
-          icon={Icons.score} {...sharedProps} />
-
-        {/* ─────────────────────────────────────────────────────────────────────
-            BETA: hidden from navigation until the golden path is proven.
-            Pages remain on disk; re-enable here when ready.
-              • /studio          (AI Studio)
-              • /sentinel        (standalone Sentinel — kept ONLY as inline campaign gate)
-              • /vex             (paid-ads agent)
-              • /paid-campaigns  (paid advertising)
-           ───────────────────────────────────────────────────────────────────── */}
-
-        {/* CONNECT — link social accounts */}
-        {!collapsed && <SectionLabel>{locale === 'ar' ? 'اتصال' : 'Connect'}</SectionLabel>}
-        {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(15,23,42,0.08)' }} />}
-        <NavItem href="/connections" label={t('sidebar.connect')}
-          icon={Icons.connections} badge={t('sidebar.badgeSetup')} badgeColor="#10B981" {...sharedProps} />
-
-      </div>
+        {/* Future modules intentionally stay out of primary navigation until they are
+            ready to be presented as real user-facing workflows:
+            /studio, /sentinel, /vex, /paid-campaigns, /templates, /brand/score-history. */}
+      </nav>
 
       {/* Bottom section */}
       <div className="flex-shrink-0 px-2 pb-3 space-y-0.5"
@@ -399,11 +384,6 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
             <div className="text-[10px] leading-none text-text-muted">{billingTruth.creditHelper}</div>
           </Link>
         )}
-
-        <NavItem href="/settings" label={t('sidebar.settings')}
-          icon={Icons.settings} {...sharedProps} />
-        <NavItem href="/billing" label={t('sidebar.billing')}
-          icon={Icons.billing} {...sharedProps} />
 
         {/* Collapse toggle */}
         <button onClick={() => setCollapsed(c => !c)}
