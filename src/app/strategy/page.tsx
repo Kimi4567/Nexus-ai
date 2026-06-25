@@ -24,9 +24,10 @@ import { useI18n } from '@/lib/i18n-context'
 import { getStrategyCapabilities, BrandReadinessStatus } from '@/lib/brandReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import AppShell from '@/components/AppShell'
+import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import {
   Sparkles, Loader2, ArrowRight, Megaphone, FileText, Layers,
-  ShieldCheck, Brain, CheckCircle2, Circle, Info,
+  ShieldCheck, Brain, CheckCircle2, Circle, Info, RefreshCw,
 } from 'lucide-react'
 
 interface CampaignLite {
@@ -38,6 +39,10 @@ interface CampaignLite {
   createdAt: string
   updatedAt: string
 }
+
+type StrategyPrimaryAction =
+  | { label: string; description: string; href: string }
+  | { label: string; description: string; onClick: () => void }
 
 function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : []
@@ -74,6 +79,7 @@ export default function StrategyPage() {
   const [brandProfile, setBrandProfile] = useState<any>(null)
   const [campaigns, setCampaigns] = useState<CampaignLite[]>([])
   const [total, setTotal] = useState(0)
+  const [runStrategyOpen, setRunStrategyOpen] = useState(false)
 
   const load = useCallback(async () => {
     if (!isAuthenticated) return
@@ -113,6 +119,7 @@ export default function StrategyPage() {
   // ── Derived, truthful state (no invention) ──────────────────────────────────
   const hasStrategy = total > 0
   const recent = campaigns[0]
+  const hasDraftStrategy = Boolean(recent?.status && recent.status.toLowerCase() === 'draft')
   const ai = (recent?.aiOutput ?? null) as Record<string, unknown> | null
   const strat = (ai?.strategy ?? ai ?? null) as Record<string, unknown> | null
 
@@ -130,6 +137,54 @@ export default function StrategyPage() {
     ...asArray(strat?.ctaVariations),
   ].map(textLabel).filter(Boolean).slice(0, 4)
   const hasOrganicData = pillars.length > 0 || hooks.length > 0 || ctas.length > 0 || !platformSummary.isEmpty
+  const primaryAction: StrategyPrimaryAction = !hasStrategy
+    ? {
+        label: ar ? 'إنشاء أول استراتيجية' : 'Create first strategy',
+        description: ar
+          ? 'سيتم تأكيد التكلفة قبل صرف أي رصيد.'
+          : 'Cost is confirmed before any credits are spent.',
+        onClick: () => setRunStrategyOpen(true),
+      }
+    : hasDraftStrategy
+      ? {
+          label: hasOrganicData
+            ? (ar ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub')
+            : (ar ? 'مراجعة الاستراتيجية' : 'Review strategy'),
+          description: hasOrganicData
+            ? (ar ? 'تابع من الاستراتيجية الحالية إلى مسار المحتوى.' : 'Continue from the existing strategy into content.')
+            : (ar ? 'راجع المسودة الحالية قبل تحويلها إلى محتوى.' : 'Review the current draft before turning it into content.'),
+          href: hasOrganicData ? '/content-hub' : '/campaigns',
+        }
+      : {
+          label: hasOrganicData
+            ? (ar ? 'فتح مركز المحتوى' : 'Open Content Hub')
+            : (ar ? 'عرض الحملات' : 'View campaigns'),
+          description: hasOrganicData
+            ? (ar ? 'حوّل اتجاه الاستراتيجية إلى محتوى عضوي.' : 'Turn the strategy direction into organic content.')
+            : (ar ? 'تابع من الاستراتيجية الحالية.' : 'Continue from the existing strategy.'),
+          href: hasOrganicData ? '/content-hub' : '/campaigns',
+        }
+
+  const nextSteps = !hasStrategy
+    ? [
+        ar ? 'أنشئ الاستراتيجية من ذاكرة العلامة التجارية' : 'Create strategy from Brand Brain',
+        ar ? 'راجع الاتجاه قبل تحويله إلى محتوى' : 'Review direction before turning it into content',
+        ar ? 'ولّد المحتوى إلى مركز المحتوى' : 'Generate content into Content Hub',
+        ar ? 'جهّز خطة الإعلانات المدفوعة بعد الجاهزية والموافقة' : 'Prepare paid planning only after readiness and approval',
+      ]
+    : hasDraftStrategy
+      ? [
+          ar ? 'راجع المسودة الحالية' : 'Review the current draft',
+          ar ? 'تابع إلى مركز المحتوى' : 'Continue to Content Hub',
+          ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
+          ar ? 'يبقى التخطيط المدفوع مرتبطاً بالموافقة' : 'Paid planning remains approval-gated',
+        ]
+      : [
+          ar ? 'تابع من الاستراتيجية الحالية' : 'Continue from the existing strategy',
+          ar ? 'راجع خطة المحتوى العضوي' : 'Review the organic content plan',
+          ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
+          ar ? 'استخدم التخطيط المدفوع فقط بعد الجاهزية والموافقة' : 'Use paid planning only after readiness and approval',
+        ]
 
   const brandActive = brandStatus === 'active'
   // PX-2B.1 — capability-specific, LABEL-ONLY readiness from the same utility
@@ -155,9 +210,9 @@ export default function StrategyPage() {
   ]
 
   const strategyStatusText = !hasStrategy
-    ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'No strategy created yet')
+    ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'Strategy not created yet')
     : recent?.status === 'DRAFT'
-      ? (ar ? 'مسودة استراتيجية متاحة' : 'Draft strategy available')
+      ? (ar ? 'مسودة استراتيجية جاهزة للمراجعة' : 'Draft strategy ready for review')
       : (ar ? `استراتيجية مرتبطة بحملة: ${recent?.name}` : `Strategy linked to campaign: ${recent?.name}`)
 
   // ── UI helpers ──────────────────────────────────────────────────────────────
@@ -237,38 +292,84 @@ export default function StrategyPage() {
                   {strategyStatusText}
                 </span>
               </div>
-              {hasStrategy && (
-                <Link href="/campaigns" className="inline-flex items-center gap-1 text-xs font-semibold mt-3" style={{ color: '#8B5CF6' }}>
-                  {ar ? 'عرض الحملات' : 'View campaigns'} <ArrowRight className="w-3 h-3" />
-                </Link>
-              )}
+              <p className="text-xs mt-3" style={{ color: '#64748b' }}>
+                {!hasStrategy
+                  ? (ar ? 'تستخدم الاستراتيجية ذاكرة العلامة كمصدر. لا يتم صرف الرصيد قبل تأكيد التكلفة.' : 'Strategy uses Brand Brain as its source. Credits are not spent before cost confirmation.')
+                  : hasDraftStrategy
+                    ? (ar ? 'المسودة موجودة ويمكن مراجعتها أو تحديثها.' : 'The draft exists and can be reviewed or updated.')
+                    : (ar ? 'تابع من الاتجاه الحالي إلى المحتوى العضوي والتخطيط المدفوع بالموافقة.' : 'Continue from the current direction into organic content and approval-gated paid planning.')}
+              </p>
             </div>
           </div>
 
-          {/* Primary empty state — only when no strategy/campaign exists */}
-          {!hasStrategy && (
-            <div className={`${card} mb-6 text-center`} style={{ ...cardStyle, background: '#FAFAFF', border: '1px solid rgba(139,92,246,0.18)' }}>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+          {/* Primary workstation entry — state-aware, opens strategy modal in place. */}
+          <div className={`${card} mb-6`} style={{ ...cardStyle, background: '#FAFAFF', border: '1px solid rgba(139,92,246,0.18)' }}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="min-w-0">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3"
                 style={{ background: 'rgba(139,92,246,0.10)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                <Sparkles className="w-6 h-6" style={{ color: '#8B5CF6' }} />
+                  <Sparkles className="w-6 h-6" style={{ color: '#8B5CF6' }} />
+                </div>
+                <h3 className="text-base font-bold" style={{ color: '#0f172a' }}>
+                  {!hasStrategy
+                    ? (ar ? 'أنشئ أول استراتيجية من ذاكرة العلامة.' : 'Create your first strategy from Brand Brain.')
+                    : hasDraftStrategy
+                      ? (ar ? 'مسودة الاستراتيجية جاهزة للمراجعة.' : 'Your strategy draft is ready for review.')
+                      : (ar ? 'استراتيجيتك جاهزة للمتابعة.' : 'Your strategy is ready to continue.')}
+                </h3>
+                <p className="text-sm mt-1 max-w-2xl" style={{ color: '#64748b' }}>
+                  {primaryAction.description}
+                </p>
               </div>
-              <h3 className="text-base font-bold" style={{ color: '#0f172a' }}>
-                {ar ? 'لم يتم إنشاء استراتيجية بعد.' : 'No strategy created yet.'}
-              </h3>
-              <p className="text-sm mt-1 max-w-xl mx-auto" style={{ color: '#64748b' }}>
-                {ar
-                  ? 'ابدأ بإنشاء أول استراتيجية من ذاكرة العلامة التجارية. سيستخدمها NEXUS لتنظيم المحتوى العضوي وتخطيط الحملات المدفوعة.'
-                  : 'Start by creating your first strategy from your Brand Brain. NEXUS will use it to organize organic content and paid campaign planning.'}
-              </p>
-              {/* CTA — routes to the current real strategy entry point only. It opens
-                  the Run Full Strategy flow on the dashboard; it does NOT auto-run
-                  anything here and spends no credits on this page. */}
-              <Link href="/dashboard?runStrategy=1"
-                className="inline-flex items-center justify-center gap-2 mt-4 px-5 py-2.5 rounded-xl text-sm font-bold"
-                style={{ background: '#111827', color: '#FFFFFF' }}>
-                <Sparkles className="w-4 h-4" />
-                {ar ? 'إنشاء أول استراتيجية' : 'Create your first strategy'}
-              </Link>
+              <div className="flex flex-col sm:items-end gap-2">
+                {'href' in primaryAction ? (
+                  <Link href={primaryAction.href}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
+                    style={{ background: '#111827', color: '#FFFFFF' }}>
+                    <ArrowRight className="w-4 h-4" />
+                    {primaryAction.label}
+                  </Link>
+                ) : (
+                  <button type="button" onClick={primaryAction.onClick}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
+                    style={{ background: '#111827', color: '#FFFFFF' }}>
+                    <Sparkles className="w-4 h-4" />
+                    {primaryAction.label}
+                  </button>
+                )}
+                <div className="flex flex-wrap justify-start sm:justify-end gap-2">
+                  <Link href="/brand" className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: '#8B5CF6' }}>
+                    {ar ? 'مراجعة ذاكرة العلامة' : 'Review Brand Brain'} <ArrowRight className="w-3 h-3" />
+                  </Link>
+                  {hasStrategy && (
+                    <button type="button" onClick={() => setRunStrategyOpen(true)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold"
+                      style={{ color: '#8B5CF6' }}>
+                      <RefreshCw className="w-3 h-3" />
+                      {ar ? 'تشغيل استراتيجية محدثة' : 'Run updated strategy'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {hasStrategy && hasOrganicData && (
+            <div className={`${card} mb-6`} style={cardStyle}>
+              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'التسلسل التشغيلي' : 'Workstation hierarchy'}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
+                {[
+                  { label: ar ? 'اتجاه الاستراتيجية' : 'Strategy direction', value: strategyStatusText },
+                  { label: ar ? 'خطة المحتوى العضوي' : 'Organic content plan', value: ar ? 'متاحة للمراجعة' : 'Available to review' },
+                  { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: ar ? 'تخطيط فقط' : 'Planning-only' },
+                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub' },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-xl px-3 py-3" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.06)' }}>
+                    <p className="text-[11px] font-semibold" style={{ color: '#94a3b8' }}>{item.label}</p>
+                    <p className="text-sm font-bold mt-1" style={{ color: '#334155' }}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -372,12 +473,7 @@ export default function StrategyPage() {
               <h2 className="text-sm font-bold" style={{ color: '#0f172a' }}>{ar ? 'الخطوات التالية' : 'Next steps'}</h2>
             </div>
             <ol className="space-y-2">
-              {[
-                ar ? 'أنشئ الاستراتيجية' : 'Create your strategy',
-                ar ? 'راجع خطة المحتوى العضوي' : 'Review the organic plan',
-                ar ? 'ولّد المحتوى إلى مركز المحتوى' : 'Generate content into Content Hub',
-                ar ? 'جهّز خطة الإعلانات المدفوعة بعد التحقق من الجاهزية والموافقة' : 'Prepare the paid plan only after readiness and approval',
-              ].map((s, i) => (
+              {nextSteps.map((s, i) => (
                 <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: '#334155' }}>
                   <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold"
                     style={{ background: '#F5F3FF', color: '#6d28d9', border: '1px solid rgba(139,92,246,0.18)' }}>{i + 1}</span>
@@ -389,6 +485,14 @@ export default function StrategyPage() {
 
         </div>
       </div>
+      <RunFullStrategyModal
+        isOpen={runStrategyOpen}
+        onClose={() => setRunStrategyOpen(false)}
+        onSuccess={() => {
+          setRunStrategyOpen(false)
+          load()
+        }}
+      />
     </AppShell>
   )
 }
