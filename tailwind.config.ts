@@ -12,6 +12,7 @@ const config: Config = {
         // ── NEXUS Core Palette ────────────────────────────────────────
         'nx-base':        '#F5F5F7',
         'nx-surface':     '#FFFFFF',
+        'nx-surface-2':   '#F8FAFC',
         'nx-elevated':    '#F9FAFB',
         'nx-panel':       '#FFFFFF',
         'nx-border':      'rgba(15,23,42,0.08)',
@@ -33,6 +34,22 @@ const config: Config = {
         'nx-text-2':      '#4B5563',
         'nx-text-3':      '#6B7280',
         'nx-text-4':      '#9CA3AF',
+
+        // ── Semantic UI state tokens ─────────────────────────────────
+        'nx-success':        '#059669',
+        'nx-success-bg':     '#ECFDF5',
+        'nx-success-border': 'rgba(16,185,129,0.18)',
+        'nx-warning':        '#D97706',
+        'nx-warning-bg':     '#FFFBEB',
+        'nx-warning-border': 'rgba(217,119,6,0.18)',
+        'nx-danger':         '#DC2626',
+        'nx-danger-bg':      '#FEF2F2',
+        'nx-danger-border':  'rgba(239,68,68,0.18)',
+        'nx-info':           '#2563EB',
+        'nx-info-bg':        '#EFF6FF',
+        'nx-info-border':    'rgba(37,99,235,0.16)',
+        'nx-neutral-bg':     '#F8FAFC',
+        'nx-neutral-border': 'rgba(15,23,42,0.08)',
 
         // ── Agent accent colors ───────────────────────────────────────
         'agent-brain':      '#5E5CE6',
