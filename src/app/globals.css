@@ -12,6 +12,7 @@
     /* ── Core surfaces ── */
     --nx-base:      #F5F5F7;
     --nx-surface:   #FFFFFF;
+    --nx-surface-2: #F8FAFC;
     --nx-elevated:  #F9FAFB;
     --nx-panel:     #FFFFFF;
 
@@ -34,6 +35,22 @@
     --nx-text-2: #4B5563;
     --nx-text-3: #6B7280;
     --nx-text-4: #9CA3AF;
+
+    /* ── Semantic UI states ── */
+    --nx-success: #059669;
+    --nx-success-bg: #ECFDF5;
+    --nx-success-border: rgba(16, 185, 129, 0.18);
+    --nx-warning: #D97706;
+    --nx-warning-bg: #FFFBEB;
+    --nx-warning-border: rgba(217, 119, 6, 0.18);
+    --nx-danger: #DC2626;
+    --nx-danger-bg: #FEF2F2;
+    --nx-danger-border: rgba(239, 68, 68, 0.18);
+    --nx-info: #2563EB;
+    --nx-info-bg: #EFF6FF;
+    --nx-info-border: rgba(37, 99, 235, 0.16);
+    --nx-neutral-bg: #F8FAFC;
+    --nx-neutral-border: rgba(15, 23, 42, 0.08);
 
     /* ── Dark-surface readability (PR-2C2A) ── */
     --nx-card-dark:          rgba(17,24,39,0.55);
@@ -259,12 +276,60 @@
   }
 
   /* ── Section header ────────────────────────────────────────── */
+  .nx-page {
+    min-height: 100vh;
+    background: var(--nx-base);
+    color: var(--nx-text-1);
+  }
+
+  .nx-page-inner {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px 16px;
+  }
+
+  @media (min-width: 640px) {
+    .nx-page-inner { padding: 40px 24px; }
+  }
+
+  .nx-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .nx-page-title {
+    color: var(--nx-text-1);
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .nx-page-subtitle {
+    color: var(--nx-text-3);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    margin-top: 4px;
+    max-width: 64ch;
+  }
+
   .nx-section-label {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--nx-text-3);
+  }
+
+  .nx-section-card {
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15,23,42,0.04);
   }
 
   /* ── Trust / safety note (PR-2C2A) — readable small print on dark ── */
@@ -323,6 +388,65 @@
   .nx-workflow-step.completed {
     border-color: rgba(16,185,129,0.3);
     background: rgba(16,185,129,0.04);
+  }
+
+  /* ── Shared badges / states ───────────────────────────────── */
+  .nx-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    border: 1px solid var(--nx-neutral-border);
+    background: var(--nx-neutral-bg);
+    color: var(--nx-text-2);
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .nx-status-badge[data-tone="success"] {
+    background: var(--nx-success-bg);
+    border-color: var(--nx-success-border);
+    color: var(--nx-success);
+  }
+  .nx-status-badge[data-tone="warning"] {
+    background: var(--nx-warning-bg);
+    border-color: var(--nx-warning-border);
+    color: var(--nx-warning);
+  }
+  .nx-status-badge[data-tone="danger"] {
+    background: var(--nx-danger-bg);
+    border-color: var(--nx-danger-border);
+    color: var(--nx-danger);
+  }
+  .nx-status-badge[data-tone="info"] {
+    background: var(--nx-info-bg);
+    border-color: var(--nx-info-border);
+    color: var(--nx-info);
+  }
+
+  .nx-empty-state {
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 16px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--nx-text-3);
+  }
+
+  .nx-loading-card,
+  .nx-error-card {
+    background: var(--nx-surface);
+    border: 1px solid var(--nx-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+    padding: 24px;
+  }
+
+  .nx-error-card {
+    border-color: var(--nx-danger-border);
+    background: var(--nx-danger-bg);
+    color: var(--nx-danger);
   }
 
   /* ── Dot indicator ─────────────────────────────────────────── */
