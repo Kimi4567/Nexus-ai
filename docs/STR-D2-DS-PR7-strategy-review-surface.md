@@ -2,28 +2,38 @@
 
 ## Objective
 
-Create a dedicated read-only strategy review surface so users can understand a generated strategy as a marketing brief before moving to content planning.
+Restore the Strategy generation journey so generated strategy output resolves to the existing rich Campaign Strategy tab.
+
+## Product Decision
+
+- The canonical rich strategy output currently lives in the Campaign detail Strategy tab at `/campaigns/[campaignId]?tab=strategy`.
+- `/strategy` remains the Strategy entry point and opens the existing `RunFullStrategyModal` for generation.
+- `RunFullStrategyModal` remains the core generation flow: language, strategy type, duration, content intensity, Brand Brain gate, media check, cost/credits confirmation, then `POST /api/strategy/run-full`.
+- No separate Strategy Review surface is canonical yet.
+- Future design-system work should redesign or extract the existing rich Campaign Strategy tab carefully, preserving its depth.
 
 ## Route Approach
 
-- Added `/strategy/[campaignId]`.
-- Kept `/strategy` as the create/update workstation from DS-PR6.
-- Updated `/strategy` so draft and existing strategies link to the dedicated review route when a campaign id is available.
+- `/strategy` review links now point to `/campaigns/[campaignId]?tab=strategy`.
+- `/strategy/[campaignId]` is retained only as a compatibility redirect to `/campaigns/[campaignId]?tab=strategy`.
+- The previous dedicated read-only review surface direction was abandoned.
 
 ## Data Source
 
-- Reads existing campaign data from `GET /api/campaigns`.
-- Uses `campaign.aiOutput.strategy` when present, otherwise falls back to existing top-level `aiOutput` fields.
-- Uses existing campaign fields such as name, status, goal, audience, platforms, and updated timestamp.
+- The rich Campaign Strategy tab reads existing campaign data and `campaign.aiOutput.strategy`.
+- The modal success path already sends users to `/campaigns/[campaignId]?tab=strategy`.
+- This fix aligns `/strategy` with that same destination.
 
 ## Missing Data Handling
 
-Missing strategy fields render honest limited states such as:
+Missing strategy fields should continue to render honest limited states in the rich Campaign Strategy tab. Future cleanup should preserve language such as:
 
 - “Not included in this strategy draft”
 - “No paid plan generated yet”
-- “Analytics not connected”
-- “Auto-publishing not enabled”
+- “Baseline needed”
+- “Target to define after first 30 days”
+- “Not connected”
+- “Not enabled”
 
 ## Safety Boundaries
 
@@ -32,19 +42,27 @@ Missing strategy fields render honest limited states such as:
 - No credit, billing, auth, campaign creation, publishing, cron, platform, schema, migration, or environment changes.
 - No `RunFullStrategyModal` changes.
 - No persisted approval system was added.
+- No campaign detail redesign was included.
 
 ## Review Sections
 
-- Strategy header and source
-- Executive direction
-- Audience and positioning
-- Organic plan
-- Paid planning as planning-only
-- Readiness and limits
-- Next action into Content Hub
+The existing rich Campaign Strategy tab preserves the valuable generated strategy content:
+
+- Marketing Diagnosis
+- Business Objective
+- Key Message
+- Positioning
+- Differentiation
+- Audience Segments
+- Value Propositions
+- Top Hooks
+- Execution Plan
+- KPIs / Metrics
+- Readiness Checklist
+- Risk & Compliance Notes
 
 ## Follow-Ups
 
-- Add a persisted strategy review state only after the product model supports it.
-- Add a first-class strategy detail API if the campaign list endpoint becomes too broad for this route.
+- Redesign or extract the existing rich Campaign Strategy tab into a premium strategy document in a future focused PR.
+- Keep Campaign Room execution cleanup separate from this journey restore.
 - Re-test Arabic locale switching once the app-level language toggle is reliable in browser QA.
