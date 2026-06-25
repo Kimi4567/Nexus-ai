@@ -70,7 +70,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased overflow-x-hidden min-h-screen bg-bg-base text-white" style={{ fontFamily: "'Inter', 'Noto Sans Arabic', system-ui, sans-serif", backgroundColor: '#0A0E27' }}>
+      <body className="antialiased overflow-x-hidden min-h-screen bg-slate-50 text-slate-950" style={{ fontFamily: "'Inter', 'Noto Sans Arabic', system-ui, sans-serif" }}>
         <Providers>
           <LanguageProvider>
             {children}
