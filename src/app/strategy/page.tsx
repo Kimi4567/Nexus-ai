@@ -151,14 +151,14 @@ export default function StrategyPage() {
           description: hasOrganicData
             ? (ar ? 'راجع المسودة الحالية كخطة تسويق قبل تحويلها إلى محتوى.' : 'Review the current draft as a marketing plan before turning it into content.')
             : (ar ? 'راجع المسودة الحالية قبل تحويلها إلى محتوى.' : 'Review the current draft before turning it into content.'),
-          href: recent?.id ? `/strategy/${recent.id}` : '/campaigns',
+          href: recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns',
         }
       : {
           label: ar ? 'مراجعة الاستراتيجية' : 'Review strategy',
           description: hasOrganicData
             ? (ar ? 'راجع اتجاه الاستراتيجية ثم تابع إلى المحتوى العضوي.' : 'Review the strategy direction, then continue into organic content.')
             : (ar ? 'تابع من الاستراتيجية الحالية.' : 'Continue from the existing strategy.'),
-          href: recent?.id ? `/strategy/${recent.id}` : '/campaigns',
+          href: recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns',
         }
 
   const nextSteps = !hasStrategy
