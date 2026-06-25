@@ -8,8 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
-import { getBrandIndicators } from '@/lib/brandIndicators'
-import BrandIndicatorsPanel from '@/components/BrandIndicatorsPanel'
+import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
 import { ErrorState } from '@/components/ui/ErrorState'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -28,7 +27,7 @@ import {
    BRAND BRAIN — Premium Visual Redesign
    ═══════════════════════════════════════════════════════════════ */
 
-type StepId = 'identity' | 'product' | 'audience' | 'voice' | 'platforms' | 'competitors' | 'goals'
+type StepId = 'identity' | 'product' | 'audience' | 'voice' | 'platforms' | 'competitors' | 'goals' | 'review'
 
 interface Step {
   id: StepId
@@ -47,6 +46,7 @@ const STEPS: Step[] = [
   { id: 'voice',       labelKey: 'brand.stepVoiceLabel',       descKey: 'brand.stepVoiceDesc',       icon: Mic,     color: '#5E5CE6', fieldCheck: 'writingStyle'    },
   { id: 'platforms',   labelKey: 'brand.stepPlatformsLabel',   descKey: 'brand.stepPlatformsDesc',   icon: Globe,   color: '#5E5CE6', fieldCheck: 'topPlatforms'    },
   { id: 'competitors', labelKey: 'brand.stepCompetitorsLabel', descKey: 'brand.stepCompetitorsDesc', icon: Target,  color: '#5E5CE6', fieldCheck: 'competitorNotes' },
+  { id: 'review',      labelKey: 'brand.stepReviewLabel',      descKey: 'brand.stepReviewDesc',      icon: CheckCircle2, color: '#5E5CE6', fieldCheck: 'brandName' },
 ]
 
 const STEP_COPY: Record<StepId, { label: { en: string; ar: string }; desc: { en: string; ar: string } }> = {
@@ -77,6 +77,10 @@ const STEP_COPY: Record<StepId, { label: { en: string; ar: string }; desc: { en:
   competitors: {
     label: { en: 'Competitors & Market Notes', ar: 'المنافسون وملاحظات السوق' },
     desc: { en: 'Add competitors and context for planning strategy and positioning.', ar: 'أضف المنافسين والسياق المطلوب للتخطيط وتحديد الموقع.' },
+  },
+  review: {
+    label: { en: 'Review & Readiness', ar: 'المراجعة والجاهزية' },
+    desc: { en: 'Review what NEXUS knows, what is missing, and the current readiness state.', ar: 'راجع ما يعرفه NEXUS وما ينقص وحالة الجاهزية الحالية.' },
   },
 }
 
@@ -193,6 +197,51 @@ function SuggestionCard({ suggestion, onAccept, onDismiss, accent, locale }: {
           style={{ color: '#64748b' }}>
           {locale === 'ar' ? 'تجاهل' : 'Dismiss'}
         </button>
+      </div>
+    </div>
+  )
+}
+
+function BrandStatusPanel({ indicators, locale }: { indicators: BrandIndicators; locale: string }) {
+  const ar = locale === 'ar'
+  const rows = [
+    {
+      label: ar ? 'اكتمال العلامة' : 'Brand completeness',
+      value: `${indicators.brandCompleteness.score}%`,
+      helper: ar ? 'حقول أساسية مؤكدة' : 'Core confirmed fields',
+    },
+    {
+      label: ar ? 'الجاهزية العضوية' : 'Organic readiness',
+      value: indicators.organicReadiness.ready ? (ar ? 'جاهزة' : 'Ready') : (ar ? 'تحتاج بيانات' : 'Needs data'),
+      helper: indicators.organicReadiness.ready ? (ar ? 'الأساس العضوي مكتمل' : 'Minimum organic set complete') : (ar ? 'أكمل الحقول الناقصة' : 'Complete missing fields'),
+    },
+    {
+      label: ar ? 'التخطيط المدفوع' : 'Paid planning',
+      value: indicators.paidReadiness.ready ? (ar ? 'جاهز للتخطيط' : 'Planning ready') : (ar ? 'تخطيط فقط' : 'Planning-only'),
+      helper: ar ? 'يتطلب موافقة قبل أي صرف' : 'Approval required before any spend',
+    },
+    {
+      label: ar ? 'ثراء الذاكرة' : 'Memory richness',
+      value: indicators.memoryRichness.level === 'high' ? (ar ? 'غنية' : 'Rich') : indicators.memoryRichness.level === 'medium' ? (ar ? 'تتكوّن' : 'Building') : (ar ? 'مبكرة' : 'Early'),
+      helper: ar ? 'تعلم مستقبلي منفصل عن الجاهزية' : 'Learning signal, separate from readiness',
+    },
+  ]
+
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+        {ar ? 'حالة Brand Brain' : 'Brand Brain status'}
+      </p>
+      <div className="space-y-2">
+        {rows.map(row => (
+          <div key={row.label} className="rounded-xl px-3 py-2" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.07)' }}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[12px] font-semibold text-slate-600">{row.label}</span>
+              <span className="text-[12px] font-bold text-slate-900">{row.value}</span>
+            </div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{row.helper}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -424,7 +473,8 @@ function BrandBrainInner() {
   // behaviour are all untouched — this only gates which section is visible.
   // PR-M3.3A — 'assistReview' renders the (display-only) Review Suggestions shell
   // reached from the Assisted-setup "Create draft" button. No scan/analyze/apply runs.
-  const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'review' | 'assistReview'>('start')
+  const [wizardStage, setWizardStage] = useState<'start' | 'edit' | 'assistReview'>('start')
+  const [assistOpen, setAssistOpen] = useState(false)
   // PR-M3.1.2 — two-path Start screen. Assisted-card inputs use isolated local state
   // (NOT the Scanner/Analyzer state) — display/IA only, nothing is scanned/analyzed/
   // applied/saved here. The real Create-draft → review → apply flow is PR-M3.3.
@@ -1157,7 +1207,7 @@ function BrandBrainInner() {
                   indicator state, never mutates data or recomputes scores. */}
               {/* PR-M3.2 — this "what NEXUS knows / what's missing" card now belongs to
                   the Review & Readiness step only (removed from Edit to keep edit focused). */}
-              {wizardStage === 'review' && (() => {
+              {false && (() => {
                 const organic = brandIndicators.organicReadiness
                 const paid = brandIndicators.paidReadiness
                 const ar = locale === 'ar'
@@ -1234,7 +1284,7 @@ function BrandBrainInner() {
               assumptions, calls NO AI, introduces NO new score (status labels
               only). Sits after the maturity header, before the wizard.
               ══════════════════════════════════════════════════════ */}
-          {(() => {
+          {false && (() => {
             const ar = locale === 'ar'
             const caps = getStrategyCapabilities(form)
             const memLevel = brandIndicators.memoryRichness.level
@@ -1270,7 +1320,7 @@ function BrandBrainInner() {
             pushKnown(3, ar ? 'أسلوب الكتابة' : 'Writing style', form.writingStyle)
             pushKnown(6, ar ? 'الهدف التجاري' : 'Business goal', form.businessGoal)
             const lang = langLabel(form.languagePreference)
-            if (lang) knownGroups[2].items.push({ label: ar ? 'لغة العملاء' : 'Customer language', value: lang })
+            if (typeof lang === 'string') knownGroups[2].items.push({ label: ar ? 'لغة العملاء' : 'Customer language', value: lang || '' })
             if (filledArr(form.topPlatforms)) {
               knownGroups[4].items.push({ label: ar ? 'المنصات' : 'Platforms', value: (form.topPlatforms as string[]).join(ar ? '، ' : ', ') })
             }
@@ -1397,11 +1447,11 @@ function BrandBrainInner() {
                     {/* Card 4 — Learned memory (real accepted-learning count, else empty) */}
                     <div className={cardWrap} style={cardStyle}>
                       <p className={cardTitle}>{ar ? 'ما تعلّمه NEXUS' : 'What NEXUS has learned'}</p>
-                      {learnedCount > 0 ? (
+                      {(learnedCount ?? 0) > 0 ? (
                         <p className="text-[12.5px] text-slate-600 leading-relaxed">
                           {ar
                             ? `طبّقت ذاكرة علامتك ${learnedCount} معلومة متعلّمة حتى الآن. سيتعلّم NEXUS من التفاعلات والنتائج المتاحة مع مرور الوقت.`
-                            : `Your brand memory has applied ${learnedCount} learned insight${learnedCount === 1 ? '' : 's'} so far. NEXUS will learn from available interactions and results over time.`}
+                            : `Your brand memory has applied ${learnedCount ?? 0} learned insight${learnedCount === 1 ? '' : 's'} so far. NEXUS will learn from available interactions and results over time.`}
                         </p>
                       ) : (
                         <p className={helperText}>
@@ -1442,27 +1492,38 @@ function BrandBrainInner() {
             <div className="rounded-2xl p-6 sm:p-8" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
               <h2 className="text-lg font-bold text-slate-950">
                 {hasExistingBrandMemory
-                  ? (locale === 'ar' ? 'راجع المناطق الناقصة في Brand Brain' : 'Review missing areas in your Brand Brain')
+                  ? (locale === 'ar' ? 'تم بدء Brand Brain بالفعل.' : 'Your Brand Brain is already started.')
                   : (locale === 'ar' ? 'ابنِ Brand Brain الخاص بك' : 'Build your Brand Brain')}
               </h2>
               <p className="text-sm text-slate-500 mt-1">
                 {hasExistingBrandMemory
                   ? (locale === 'ar'
-                      ? 'ملف الذاكرة موجود. يمكنك تحسينه أو مراجعة التفاصيل المحفوظة أو طلب مسودة اقتراحات من مصادر تختارها.'
-                      : 'Your memory file exists. You can improve it, review saved details, or ask NEXUS to suggest updates from sources you choose.')
-                  : (locale === 'ar' ? 'اختر طريقة البدء — يمكنك تغييرها في أي وقت.' : 'Choose how you’d like to start — you can change this anytime.')}
+                      ? 'راجع المناطق الناقصة، أو دع NEXUS يقترح تحديثات من مصادر تختارها.'
+                      : 'Review missing areas, or let NEXUS suggest updates from sources you choose.')
+                  : (locale === 'ar' ? 'ابدأ يدوياً أو دع NEXUS يجهز مسودة من موقعك أو محتواك.' : 'Start manually or let NEXUS draft from your website/content.')}
               </p>
-              {hasExistingBrandMemory && (
-                <div className="mt-4 rounded-xl p-3 flex items-start gap-2.5"
-                  style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.08)' }}>
-                  <CheckCircle2 size={15} className="flex-shrink-0 mt-0.5 text-slate-500" />
-                  <p className="text-[12px] leading-relaxed text-slate-500">
-                    {locale === 'ar'
-                      ? 'هذه ليست بداية جديدة. المعلومات التي أدخلتها أثناء الإعداد موجودة هنا للمراجعة والتحسين، ولن يتم نشر محتوى أو إنفاق ميزانية من هذه الصفحة.'
-                      : 'This is not a fresh start. The details you added during setup are here to review and improve, and this page does not publish content or spend budget.'}
-                  </p>
-                </div>
-              )}
+              <div className="mt-4 grid sm:grid-cols-4 gap-2">
+                {[
+                  [locale === 'ar' ? 'اكتمال العلامة' : 'Brand completeness', `${brandIndicators.brandCompleteness.score}%`],
+                  [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز' : 'Ready') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
+                  [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للتخطيط' : 'Planning ready') : (locale === 'ar' ? 'تخطيط فقط' : 'Planning-only')],
+                  [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl px-3 py-2" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.08)' }}>
+                    <p className="text-[11px] font-semibold text-slate-500">{label}</p>
+                    <p className="text-sm font-bold text-slate-900">{value}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 text-sm text-slate-600">
+                {hasExistingBrandMemory
+                  ? (locale === 'ar'
+                      ? 'أنشأ الإعداد الأول الطبقة الأولى من Brand Brain. أكملها قبل توليد الاستراتيجية.'
+                      : 'Your onboarding created the first layer of your Brand Brain. Complete it before generating strategy.')
+                  : (locale === 'ar'
+                      ? 'Brand Brain هو ملف الذاكرة الذي سيستخدمه NEXUS لتوجيه الاستراتيجية والمحتوى.'
+                      : 'Brand Brain is the memory file NEXUS will use to guide strategy and content.')}
+              </p>
               {(() => {
                 const ar = locale === 'ar'
                 const scanCost = assistUrl.trim() ? ASSIST_SCAN_COST : 0
@@ -1472,10 +1533,11 @@ function BrandBrainInner() {
                   ? ['يُنشئ NEXUS مسودة لمراجعتك.', 'لا يُحفظ شيء تلقائياً.', 'لا يُطبَّق شيء على ذاكرة علامتك حتى توافق عليه.', 'تظهر تكلفة الرصيد قبل أي إجراء.']
                   : ['NEXUS creates a draft for your review.', 'Nothing is saved automatically.', 'Nothing is applied to Brand Brain until you approve it.', 'Credit costs are shown before any action.']
                 return (
-                <div className="grid lg:grid-cols-[1.6fr_1fr] gap-3 mt-6 items-start">
+                <div className="grid lg:grid-cols-2 gap-3 mt-6 items-start">
 
                   {/* ── ASSISTED SETUP ── */}
-                  <div className="rounded-2xl p-5" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                  {assistOpen ? (
+                  <div className="rounded-2xl p-5 lg:order-last" style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
                     <div className="flex items-center gap-2.5 mb-1">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.25)' }}>
                         <ScanSearch size={17} style={{ color:'#f59e0b' }} />
@@ -1539,13 +1601,33 @@ function BrandBrainInner() {
                       ))}
                     </ul>
                   </div>
+                  ) : (
+                    <button onClick={() => setAssistOpen(true)}
+                      className="text-start rounded-2xl p-5 transition-all h-full flex flex-col lg:order-last"
+                      style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'#FFFBEB', border:'1px solid rgba(245,158,11,0.24)' }}>
+                        <ScanSearch size={17} style={{ color:'#d97706' }} />
+                      </div>
+                      <p className="text-sm font-bold text-slate-950">
+                        {hasExistingBrandMemory
+                          ? (ar ? 'اقترح تحديثات من الموقع أو المحتوى' : 'Suggest updates from website/content')
+                          : (ar ? 'دع NEXUS يجهّز مسودة' : 'Let NEXUS draft from website/content')}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 flex-1">
+                        {ar ? 'يفتح مساراً مركزاً للمصادر والمراجعة. لا يُحفظ شيء تلقائياً.' : 'Opens a focused source-and-review path. Nothing is saved automatically.'}
+                      </p>
+                      <span className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold self-start" style={{ background:'#FFFFFF', color:'#334155', border:'1px solid rgba(15,23,42,0.10)' }}>
+                        {ar ? 'فتح مسار الاقتراحات' : 'Open suggestions path'} <ArrowLeft size={14} className="rtl:rotate-180" />
+                      </span>
+                    </button>
+                  )}
 
                   {/* ── MANUAL SETUP ── */}
                   <button onClick={() => setWizardStage('edit')}
-                    className="text-start rounded-2xl p-5 transition-all hover:border-amber-300 h-full flex flex-col"
-                    style={{ background:'#FBFBFD', border:'1px solid rgba(15,23,42,0.10)' }}>
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
-                      <Brain size={17} style={{ color:'#64748b' }} />
+                    className="text-start rounded-2xl p-5 transition-all h-full flex flex-col lg:order-first"
+                    style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.10)' }}>
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background:'#FFFFFF', border:'1px solid rgba(94,92,230,0.18)' }}>
+                      <Brain size={17} style={{ color:'#5E5CE6' }} />
                     </div>
                     <p className="text-sm font-bold text-slate-950">
                       {hasExistingBrandMemory ? (ar ? 'حسّن Brand Brain هذا' : 'Improve this Brand Brain') : (ar ? 'املأ يدوياً' : 'Fill manually')}
@@ -1556,7 +1638,7 @@ function BrandBrainInner() {
                         : (ar ? 'املأ ذاكرة علامتك خطوة بخطوة.' : 'Fill your Brand Brain step by step.')}
                     </p>
                     <span className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold self-start" style={{ background:'#0f172a', color:'#ffffff' }}>
-                      {hasExistingBrandMemory ? (ar ? 'راجع التفاصيل المحفوظة' : 'Review saved details') : (ar ? 'املأ يدوياً' : 'Fill manually')} <ArrowLeft size={14} className="rtl:rotate-180" />
+                      {hasExistingBrandMemory ? (ar ? 'تحسين Brand Brain' : 'Improve this Brand Brain') : (ar ? 'مراجعة وإكمال يدوياً' : 'Review & complete manually')} <ArrowLeft size={14} className="rtl:rotate-180" />
                     </span>
                   </button>
 
@@ -1616,7 +1698,7 @@ function BrandBrainInner() {
 
           {/* PR-M3.1 — Review & Readiness step. Reuses the same honest indicators as the
               rail / campaign panel; display-only, no recompute. */}
-          {wizardStage === 'review' && (
+          {false && (
             <div className="rounded-2xl p-6" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
               <div className="flex items-center justify-between gap-3 mb-1">
                 <h2 className="text-lg font-bold text-slate-950">{locale === 'ar' ? 'المراجعة والجاهزية' : 'Review & Readiness'}</h2>
@@ -1627,7 +1709,7 @@ function BrandBrainInner() {
               <p className="text-sm text-slate-500 mb-4">
                 {locale === 'ar' ? 'هذا ما تعرفه NEXUS عن علامتك حتى الآن.' : 'Here’s what NEXUS knows about your brand so far.'}
               </p>
-              <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="light" completeHref="#" />
+              <BrandStatusPanel indicators={brandIndicators} locale={locale} />
               <div className="mt-5">
                 {brandIndicators.organicReadiness.ready ? (
                   <button onClick={() => router.push('/strategy')}
@@ -2021,20 +2103,10 @@ function BrandBrainInner() {
                     </button>
                   )
                 })}
-                {/* PR-M3.2 — step 8: Review & Readiness (enters the review stage) */}
-                <button onClick={() => setWizardStage('review')}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all duration-200 text-start"
-                  style={{ background: 'transparent', border: '1px solid transparent' }}>
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
-                    <CheckCircle2 size={14} style={{ color: '#94A3B8' }}/>
-                  </div>
-                  <span className="text-[10px] font-mono flex-shrink-0" style={{ color: 'rgba(71,85,105,0.45)' }}>08</span>
-                  <span className="text-[13px] font-semibold leading-tight flex-1 min-w-0 truncate" style={{ color: '#475569' }}>{locale === 'ar' ? 'المراجعة والجاهزية' : 'Review & Readiness'}</span>
-                </button>
               </nav>
               {/* Readiness summary */}
               <div className="rounded-2xl p-3" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)', boxShadow:'0 1px 2px rgba(15,23,42,0.04)' }}>
-                <BrandIndicatorsPanel indicators={brandIndicators} locale={locale} theme="light" completeHref="#" />
+                <BrandStatusPanel indicators={brandIndicators} locale={locale} />
               </div>
               {/* Save (always reachable) */}
               <button onClick={handleSave} disabled={saving}
@@ -2068,10 +2140,10 @@ function BrandBrainInner() {
                 <h2 className="text-lg font-bold text-slate-950">{getStepCopy(currentStep, locale).label}</h2>
                 <p className="text-xs mt-0.5 text-slate-500">{getStepCopy(currentStep, locale).desc}</p>
               </div>
-              {/* PR-M3.2 — denominator is STEPS.length + 1 so Review & Readiness counts as the final step (X / 8). */}
+              {/* Review & Readiness is the final workstation step. */}
               <div className="text-xs font-mono font-bold px-3 py-1.5 rounded-lg flex-shrink-0"
                 style={{ background:`${currentStep.color}0e`, color:`${currentStep.color}bb`, border:`1px solid ${currentStep.color}20` }}>
-                {currentStepIdx+1} / {STEPS.length + 1}
+                {currentStepIdx+1} / {STEPS.length}
               </div>
             </div>
 
@@ -2436,11 +2508,11 @@ function BrandBrainInner() {
                           <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ مع الاستراتيجية لاحقاً.' : 'Saved with the strategy later.'}</p>
                         </div>
                         <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
-                          <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'تخطيط فقط — غير جاهز للإطلاق' : 'Planning only — not launch-ready'}</p>
+                          <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'تخطيط فقط — يحتاج موافقة قبل التشغيل' : 'Planning only — approval required before running'}</p>
                           <p className="text-[11px] text-slate-600 mt-0.5">
                             {ar
                               ? 'لن يتم إنفاق أي ميزانية أو إطلاق إعلانات دون موافقتك الصريحة. اربط البكسل/حساب الإعلانات وتتبّع التحويل في صفحة الربط للجاهزية.'
-                              : 'No budget is spent and no ads launch without your explicit approval. Connect your pixel / ad account and conversion tracking in Connections to become launch-ready.'}
+                              : 'No budget is spent and no ads run without your explicit approval. Connect your pixel / ad account and conversion tracking in Connections before paid execution.'}
                           </p>
                           {!caps.paidStrategy.ready && (
                             <p className="text-[11px] mt-1" style={{ color:'#b45309' }}>
@@ -2461,6 +2533,152 @@ function BrandBrainInner() {
                           ? 'أضف فقط شهادات/نتائج/أرقاماً حقيقية يمكنك تأكيدها. NEXUS لا يضيف إثباتات مفترضة أو شهادات وهمية.'
                           : 'Add only real testimonials/results/numbers you can verify. NEXUS never adds assumed proof or fake testimonials.'}
                       </p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {step === 'review' && (() => {
+                const ar = locale === 'ar'
+                const filledStr = (v: unknown) => typeof v === 'string' && v.trim().length > 0
+                const filledArr = (v: unknown) => Array.isArray(v) && v.length > 0
+                const groups = [
+                  {
+                    title: ar ? 'النشاط' : 'Business',
+                    items: [
+                      [ar ? 'اسم العلامة' : 'Brand name', form.brandName],
+                      [ar ? 'المجال' : 'Industry', form.industry],
+                      [ar ? 'وصف النشاط' : 'Business summary', form.description],
+                    ],
+                  },
+                  {
+                    title: ar ? 'العرض' : 'Offer',
+                    items: [
+                      [ar ? 'العرض الأساسي' : 'Primary offer', form.primaryOffer],
+                      [ar ? 'التميّز' : 'Differentiators', filledArr(form.uniqueAdvantages) ? (form.uniqueAdvantages || []).join(ar ? '، ' : ', ') : ''],
+                    ],
+                  },
+                  {
+                    title: ar ? 'الجمهور' : 'Audience',
+                    items: [
+                      [ar ? 'الجمهور المستهدف' : 'Target audience', form.targetAudience],
+                      [ar ? 'السوق' : 'Market', form.audienceLocation],
+                    ],
+                  },
+                  {
+                    title: ar ? 'الصوت والقنوات' : 'Voice & channels',
+                    items: [
+                      [ar ? 'أسلوب الكتابة' : 'Writing style', form.writingStyle],
+                      [ar ? 'القنوات' : 'Channels', filledArr(form.topPlatforms) ? (form.topPlatforms || []).join(ar ? '، ' : ', ') : ''],
+                    ],
+                  },
+                  {
+                    title: ar ? 'المنافسون والأهداف' : 'Competitors & goals',
+                    items: [
+                      [ar ? 'المنافسون' : 'Competitors', filledArr(form.competitors) ? (form.competitors || []).join(ar ? '، ' : ', ') : form.competitorNotes],
+                      [ar ? 'الهدف التجاري' : 'Business goal', form.businessGoal],
+                    ],
+                  },
+                ].map(group => ({
+                  ...group,
+                  items: group.items.filter(([, value]) => typeof value === 'string' && value.trim().length > 0),
+                })).filter(group => group.items.length > 0)
+
+                const missingItems = [
+                  !filledStr(form.brandName) && (ar ? 'اسم العلامة' : 'Brand name'),
+                  !filledStr(form.industry) && (ar ? 'المجال' : 'Industry'),
+                  !filledStr(form.primaryOffer) && (ar ? 'العرض الأساسي' : 'Primary offer'),
+                  !filledStr(form.targetAudience) && (ar ? 'الجمهور المستهدف' : 'Target audience'),
+                  !filledStr(form.businessGoal) && (ar ? 'الهدف التجاري' : 'Business goal'),
+                  !filledStr(form.writingStyle) && (ar ? 'الصوت وأسلوب الكتابة' : 'Voice & writing style'),
+                  !filledArr(form.competitors) && !filledStr(form.competitorNotes) && (ar ? 'المنافسون أو ملاحظات السوق' : 'Competitors or market notes'),
+                  !filledArr(form.verifiedProof) && (ar ? 'إثبات موثّق' : 'Verified proof'),
+                ].filter(Boolean) as string[]
+
+                const learnedCount = typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0
+
+                return (
+                  <div className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div className="rounded-xl p-4" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.07)' }}>
+                        <p className="text-sm font-bold text-slate-950 mb-3">{ar ? 'ما يعرفه NEXUS' : 'What NEXUS knows'}</p>
+                        {groups.length === 0 ? (
+                          <p className="text-sm text-slate-500">{ar ? 'أضف الأساسيات حتى يصبح Brand Brain قابلاً للاستخدام.' : 'Add the basics so Brand Brain becomes usable.'}</p>
+                        ) : (
+                          <div className="grid gap-2">
+                            {groups.map(group => (
+                              <div key={group.title} className="rounded-lg bg-white px-3 py-2" style={{ border:'1px solid rgba(15,23,42,0.06)' }}>
+                                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{group.title}</p>
+                                <ul className="mt-1 space-y-1">
+                                  {group.items.map(([label, value]) => (
+                                    <li key={label} className="text-[12.5px] leading-relaxed">
+                                      <span className="font-medium text-slate-500">{label}: </span>
+                                      <span className="text-slate-800 break-words">{value}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-xl p-4" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.07)' }}>
+                          <p className="text-sm font-bold text-slate-950 mb-2">{ar ? 'ما يحتاج إلى توضيح' : 'What still needs clarification'}</p>
+                          {missingItems.length === 0 ? (
+                            <p className="text-sm text-slate-500">{ar ? 'الأساسيات مكتملة. يمكنك حفظ الملف أو إنشاء الاستراتيجية.' : 'The basics are complete. You can save the file or create a strategy.'}</p>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {missingItems.slice(0, 6).map(item => (
+                                <li key={item} className="flex items-start gap-2 text-[13px] text-slate-600">
+                                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-300" />
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        <div className="rounded-xl p-4" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)' }}>
+                          <p className="text-sm font-bold text-slate-950 mb-3">{ar ? 'الجاهزية الحالية' : 'Current readiness'}</p>
+                          <BrandStatusPanel indicators={brandIndicators} locale={locale} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <details className="group rounded-xl overflow-hidden" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)' }}>
+                      <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
+                        <span>
+                          <span className="block text-sm font-bold text-slate-950">{ar ? 'ما تعلّمه NEXUS' : 'What NEXUS has learned'}</span>
+                          <span className="block text-xs text-slate-500 mt-0.5">
+                            {learnedCount > 0
+                              ? (ar ? `${learnedCount} معلومة متعلّمة محفوظة.` : `${learnedCount} learned insight${learnedCount === 1 ? '' : 's'} saved.`)
+                              : (ar ? 'لا توجد ذاكرة تعلم كافية بعد.' : 'No meaningful learning memory yet.')}
+                          </span>
+                        </span>
+                        <ChevronDown size={15} className="text-slate-400 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="px-2 pb-2">
+                        <BrainTimeline onUpdate={refreshBrainAfterLearning} />
+                      </div>
+                    </details>
+
+                    <div className="flex flex-wrap gap-2 rounded-xl p-4" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.07)' }}>
+                      <button onClick={handleSave} disabled={saving}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60"
+                        style={{ background:'#111827', color:'#FFFFFF' }}>
+                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                        {saving ? t('brand.savingBtn') : t('brand.saveAllBtn')}
+                      </button>
+                      {brandIndicators.organicReadiness.ready && (
+                        <button onClick={() => router.push('/strategy')}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
+                          style={{ background:'#FFFFFF', color:'#5E5CE6', border:'1px solid rgba(94,92,230,0.22)' }}>
+                          {ar ? 'إنشاء استراتيجية' : 'Create strategy'}
+                          <ArrowLeft size={14} className="rtl:rotate-180" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
@@ -2494,12 +2712,10 @@ function BrandBrainInner() {
                     {t('brand.navNext')} <ArrowLeft size={14}/>
                   </button>
                 ) : (
-                  /* PR-M3.1 — last step advances to the Review & Readiness screen.
-                     Saving stays available via "Save All" in the rail (handleSave). */
-                  <button onClick={() => setWizardStage('review')}
+                  <button onClick={handleSave}
                     className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all"
                     style={{ background:'linear-gradient(135deg,#f59e0b,#d97706)', color:'#0a0a0a', boxShadow:'0 0 24px rgba(245,158,11,0.25)' }}>
-                    {locale === 'ar' ? 'المراجعة والجاهزية' : 'Review & Readiness'} <ArrowLeft size={14}/>
+                    {saving ? t('brand.savingBtn') : t('brand.saveAllBtn')} <Save size={14}/>
                   </button>
                 )}
               </div>
@@ -2520,7 +2736,7 @@ function BrandBrainInner() {
           {/* ══ Strategy readiness + data requirements (PR-2A) ══
               Capture-only + advisory. Optional fields; never block the organic flow.
               No generation logic reads these — they drive calm readiness warnings. */}
-          {wizardStage === 'review' && (() => {
+          {false && (() => {
             const ar = locale === 'ar'
             const caps = getStrategyCapabilities(form)
             const items = [caps.contentStrategy, caps.fullStrategy, caps.paidStrategy, caps.kpiBudget, caps.funnel, caps.competitorAnalysis, caps.retargeting]
