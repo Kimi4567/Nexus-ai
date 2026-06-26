@@ -6,6 +6,12 @@ import { useI18n } from '@/lib/i18n-context'
 import Link from 'next/link'
 import { Shield, Cookie, Eye, EyeOff } from 'lucide-react'
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
+import { getRegisterErrorCopy, getRegisterErrorMetadata } from './registerErrors'
+
+function warnRegisterSignupFailure(err: unknown) {
+  if (process.env.NODE_ENV === 'production') return
+  console.warn('[register] signup failed', getRegisterErrorMetadata(err))
+}
 
 export default function RegisterPage() {
   const { signup } = useAuth()
@@ -58,21 +64,8 @@ export default function RegisterPage() {
       }).catch(() => {})
       setDone(result.needsEmailConfirmation ? 'verify' : 'active')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : ''
-      const lowerMsg = msg.toLowerCase()
-      if (lowerMsg.includes('already registered') || lowerMsg.includes('already exists') || lowerMsg.includes('user exists')) {
-        setError(errorsT?.emailUsed || '')
-      } else if (lowerMsg.includes('signup') && lowerMsg.includes('disabled')) {
-        setError(errorsT?.signupDisabled || errorsT?.serviceUnavailable || '')
-      } else if (lowerMsg.includes('invalid email')) {
-        setError(errorsT?.invalidEmail || errorsT?.generic || '')
-      } else if (lowerMsg.includes('rate limit') || lowerMsg.includes('too many')) {
-        setError(errorsT?.rateLimit || errorsT?.generic || '')
-      } else if (lowerMsg.includes('email') && (lowerMsg.includes('send') || lowerMsg.includes('smtp') || lowerMsg.includes('provider'))) {
-        setError(errorsT?.emailDelivery || errorsT?.generic || '')
-      } else {
-        setError(errorsT?.generic || '')
-      }
+      warnRegisterSignupFailure(err)
+      setError(getRegisterErrorCopy(err, isRTL ? 'ar' : 'en'))
       setLoading(false)
     }
   }
@@ -143,7 +136,7 @@ export default function RegisterPage() {
             <>
               <h2 className="text-2xl font-bold font-heading mb-1 text-slate-950">{authT?.title}</h2>
               <p className="text-text-secondary text-sm mb-8">{authT?.subtitle}</p>
-              {error && <div className="bg-rose-500/10 border border-rose-500/40 rounded-xl px-4 py-3 mb-6 text-sm text-rose-300">{error}</div>}
+              {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 mb-6 text-sm font-medium text-red-700">{error}</div>}
               <form onSubmit={handleSubmit} className="space-y-4" dir={isRTL ? 'rtl' : 'ltr'}>
                 {/* Name */}
                 <div>
