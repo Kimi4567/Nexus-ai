@@ -100,14 +100,14 @@ export default function ContentHubPage() {
       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
         style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }}>
         <CheckCircle2 className="w-3 h-3" />
-        {isAr ? 'مكتمل' : 'Complete'}
+        {isAr ? 'تم توليد الوسائط' : 'Media generated'}
       </span>
     )
     if (pending > 0) return (
       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full"
         style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>
         <Clock className="w-3 h-3" />
-        {done}/{total} {isAr ? 'مكتمل' : 'done'}
+        {done}/{total} {isAr ? 'وسائط مولّدة' : 'media generated'}
       </span>
     )
     if (failed > 0) return (
