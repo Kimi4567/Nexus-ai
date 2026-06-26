@@ -56,12 +56,12 @@ function MetricCard({ icon, label, value, color }: {
   color: string
 }) {
   return (
-    <div className={`bg-dark-tertiary rounded-2xl p-4 border ${color}`}>
+    <div className={`rounded-2xl border bg-white p-4 shadow-sm ${color}`}>
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <p className="text-xs text-gray-500 font-medium">{label}</p>
+        <p className="text-xs font-medium text-slate-500">{label}</p>
       </div>
-      <p className="text-2xl font-bold text-white">
+      <p className="text-2xl font-bold text-slate-950">
         {value >= 1000 ? `${(value / 1000).toFixed(1)}K` : value.toLocaleString()}
       </p>
     </div>
@@ -151,11 +151,11 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
         <div className="flex items-center gap-3">
           <span className="text-2xl">📊</span>
           <div>
-            <h3 className="font-bold text-base text-white">
+            <h3 className="text-base font-semibold text-slate-950">
               {ar ? 'أداء المنشورات' : 'Post Performance'}
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {ar ? 'بيانات حقيقية من Meta' : 'Live data from Meta'}
+            <p className="mt-0.5 text-xs text-slate-500">
+              {ar ? 'بيانات من Meta عند توفرها' : 'Meta performance data when available'}
               {lastRefreshed && (
                 <span className="mx-1">·</span>
               )}
@@ -167,7 +167,7 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
         </div>
         <button
           onClick={load}
-          className="p-1.5 rounded-lg hover:bg-dark-tertiary text-gray-500 hover:text-gray-300 transition-all"
+          className="rounded-lg p-1.5 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-700"
           title={ar ? 'تحديث' : 'Refresh'}
         >
           <RefreshCw className="w-3.5 h-3.5" />
@@ -202,18 +202,18 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
         />
       </div>
 
-      <p className="text-xs text-gray-600 text-center">
+      <p className="text-center text-xs text-slate-500">
         {totals.posts} {ar ? 'منشور' : 'post(s)'} · {ar ? 'إجمالي الحملة' : 'campaign total'}
       </p>
 
       {/* Per-post breakdown */}
-      <div className="space-y-3 pt-1 border-t border-dark-tertiary">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">
+      <div className="space-y-3 border-t border-slate-200 pt-1">
+        <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
           {ar ? 'تفاصيل المنشورات' : 'Post Breakdown'}
         </p>
 
         {posts.map(post => (
-          <div key={post.id} className="bg-dark-tertiary rounded-2xl p-4 space-y-3">
+          <div key={post.id} className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             {/* Post header */}
             <div className="flex items-start gap-3">
               {post.imageUrl && (
@@ -225,9 +225,9 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
                 />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-300 line-clamp-2">{post.caption}</p>
+                <p className="line-clamp-2 text-sm text-slate-700">{post.caption}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-slate-500">
                     {post.pageName} ·{' '}
                     {post.publishedAt
                       ? new Date(post.publishedAt).toLocaleDateString(ar ? 'ar-SA' : 'en-US')

@@ -81,7 +81,7 @@ function GeneratingAnimation() {
           />
         ))}
       </div>
-      <div className="text-sm font-semibold text-white mb-1">Generating visual</div>
+      <div className="mb-1 text-sm font-semibold text-slate-950">Generating visual</div>
       <div className="text-[11px] text-gray-500 text-center max-w-48">
         Creating campaign-aligned imagery from your brand strategy…
       </div>
@@ -138,12 +138,12 @@ function VisualCard({
   return (
     // overflow-hidden removed from card root — only applied to image container below
     // This lets the absolutely-positioned dropdown menu escape the card boundary
-    <div className={`relative group bg-[#141414] border rounded-xl transition-all ${
-      visual.isPrimary ? 'border-accent/60 ring-1 ring-accent/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'
+    <div className={`relative group rounded-xl border bg-white shadow-sm transition-all ${
+      visual.isPrimary ? 'border-indigo-200 ring-1 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'
     }`}>
       {/* Primary badge */}
       {visual.isPrimary && (
-        <div className="absolute top-2 left-2 z-10 text-[10px] px-2 py-0.5 bg-accent text-white rounded font-semibold">
+        <div className="absolute top-2 left-2 z-10 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold" style={{ color: '#fff' }}>
           Primary
         </div>
       )}
@@ -164,24 +164,25 @@ function VisualCard({
 
       {/* Delete error */}
       {deleteError && (
-        <div className="px-3 pt-2 text-[10px] text-red-400">{deleteError}</div>
+        <div className="px-3 pt-2 text-[10px] text-red-600">{deleteError}</div>
       )}
 
       {/* Inline delete confirm */}
       {confirmDelete && (
-        <div className="px-3 py-2.5 flex items-center gap-2 bg-red-500/10 border-t border-red-500/20">
-          <div className="flex-1 text-[11px] text-red-300 font-medium">Delete this visual?</div>
+        <div className="flex items-center gap-2 border-t border-red-100 bg-red-50 px-3 py-2.5">
+          <div className="flex-1 text-[11px] font-medium text-red-700">Delete this visual?</div>
           <button
             onClick={() => setConfirmDelete(false)}
             disabled={deleting}
-            className="px-2.5 py-1 text-[10px] font-semibold text-gray-400 hover:text-white border border-white/10 rounded-lg transition"
+            className="rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-slate-700"
           >
             Cancel
           </button>
           <button
             onClick={handleConfirmDelete}
             disabled={deleting}
-            className="px-2.5 py-1 text-[10px] font-semibold text-white bg-red-500 hover:bg-red-400 disabled:opacity-50 rounded-lg transition"
+            className="rounded-lg bg-red-500 px-2.5 py-1 text-[10px] font-semibold transition hover:bg-red-400 disabled:opacity-50"
+            style={{ color: '#fff' }}
           >
             {deleting ? 'Deleting…' : 'Delete'}
           </button>
@@ -192,10 +193,10 @@ function VisualCard({
       {!confirmDelete && (
         <div className="px-3 py-2.5 flex items-center gap-2">
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] font-medium text-gray-300 truncate">
+            <div className="truncate text-[11px] font-medium text-slate-700">
               {visual.visualStyle} · {visual.visualType.replace('_', ' ')}
             </div>
-            <div className="text-[10px] text-gray-600 mt-0.5">
+            <div className="mt-0.5 text-[10px] text-slate-500">
               {new Date(visual.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
@@ -206,7 +207,7 @@ function VisualCard({
               onClick={handleDownload}
               disabled={downloading}
               title="Download"
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M6 1v7M3 5.5l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
@@ -217,7 +218,7 @@ function VisualCard({
             <button
               onClick={() => onRegenerate(visual)}
               title="Regenerate from same strategy"
-              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M1.5 6a4.5 4.5 0 108.5-2" strokeLinecap="round" />
@@ -229,7 +230,7 @@ function VisualCard({
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(o => !o)}
-                className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 transition text-gray-400 hover:text-white"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                   <circle cx="6" cy="2" r="1" />
@@ -240,18 +241,18 @@ function VisualCard({
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute bottom-full right-0 mb-1 w-44 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 py-1">
+                  <div className="absolute bottom-full right-0 z-50 mb-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
                     {!visual.isPrimary && (
                       <button
                         onClick={() => { onSetPrimary(visual.id); setMenuOpen(false) }}
-                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 transition"
+                        className="w-full px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-slate-50"
                       >
                         Set as primary
                       </button>
                     )}
                     <button
                       onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
-                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition"
+                      className="w-full px-3 py-2 text-left text-xs text-red-600 transition hover:bg-red-50"
                     >
                       Delete visual
                     </button>
@@ -363,15 +364,16 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
       {/* Header + generate button */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-white">Campaign Visuals</div>
-          <div className="text-[11px] text-gray-500 mt-0.5">
+          <div className="text-sm font-semibold text-slate-950">Campaign Visuals</div>
+          <div className="mt-0.5 text-[11px] text-slate-500">
             {visuals.length > 0 ? `${visuals.length} visual${visuals.length === 1 ? '' : 's'} generated` : 'No visuals yet'}
           </div>
         </div>
         <button
           onClick={() => setPanelOpen(o => !o)}
           disabled={generating}
-          className="flex items-center gap-2 px-3.5 py-2 bg-accent hover:bg-accent-light disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold transition hover:bg-indigo-500 disabled:opacity-50"
+          style={{ color: '#fff' }}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M6 1v10M1 6h10" strokeLinecap="round" />
@@ -382,12 +384,12 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
       {/* Generation panel */}
       {panelOpen && !generating && (
-        <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl p-5 space-y-5">
-          <div className="text-xs font-semibold text-white mb-1">Creative direction</div>
+        <div className="space-y-5 rounded-xl border border-slate-200 bg-slate-50 p-5">
+          <div className="mb-1 text-xs font-semibold text-slate-950">Creative direction</div>
 
           {/* Visual type */}
           <div>
-            <div className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-2">Visual type</div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-slate-500">Visual type</div>
             <div className="grid grid-cols-2 gap-2">
               {VISUAL_TYPES.map(t => (
                 <button
@@ -395,14 +397,14 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
                   onClick={() => setSelectedType(t.value)}
                   className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition ${
                     selectedType === t.value
-                      ? 'bg-accent/10 border-accent/50 text-white'
-                      : 'bg-[#141414] border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#333]'
+                      ? 'border-indigo-200 bg-indigo-50 text-indigo-700'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
                   <span className="text-base flex-shrink-0">{t.icon}</span>
                   <div>
                     <div className="text-[11px] font-semibold">{t.label}</div>
-                    <div className="text-[10px] text-gray-600">{t.desc}</div>
+                    <div className="text-[10px] text-slate-400">{t.desc}</div>
                   </div>
                 </button>
               ))}
@@ -411,17 +413,18 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
           {/* Visual style */}
           <div>
-            <div className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mb-2">Aesthetic direction</div>
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-widest text-slate-500">Aesthetic direction</div>
             <div className="flex flex-wrap gap-2">
               {VISUAL_STYLES.map(s => (
                 <button
                   key={s.value}
                   onClick={() => setSelectedStyle(s.value)}
                   title={s.desc}
+                  style={{ color: selectedStyle === s.value ? '#fff' : undefined }}
                   className={`px-3 py-1.5 rounded-lg border text-[11px] font-medium transition ${
                     selectedStyle === s.value
-                      ? 'bg-accent border-accent text-white'
-                      : 'bg-[#141414] border-[#2a2a2a] text-gray-400 hover:text-white hover:border-[#333]'
+                      ? 'border-indigo-600 bg-indigo-600'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
                   {s.label}
@@ -431,24 +434,25 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           </div>
 
           {/* Context preview */}
-          <div className="bg-[#0f0f0f] border border-[#1a1a1a] rounded-lg p-3 text-[10px] text-gray-600 space-y-1">
-            <div className="text-[10px] font-semibold text-gray-500 mb-1.5">Strategy context (auto-applied)</div>
-            {context.campaignGoal && <div>Goal: <span className="text-gray-400">{context.campaignGoal}</span></div>}
-            {context.campaignTone && <div>Tone: <span className="text-gray-400">{context.campaignTone}</span></div>}
-            {context.brandName && <div>Brand: <span className="text-gray-400">{context.brandName}</span></div>}
+          <div className="space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-[10px] text-slate-500">
+            <div className="mb-1.5 text-[10px] font-semibold text-slate-500">Strategy context (auto-applied)</div>
+            {context.campaignGoal && <div>Goal: <span className="text-slate-700">{context.campaignGoal}</span></div>}
+            {context.campaignTone && <div>Tone: <span className="text-slate-700">{context.campaignTone}</span></div>}
+            {context.brandName && <div>Brand: <span className="text-slate-700">{context.brandName}</span></div>}
             {(context.brandToneWords || []).length > 0 && (
-              <div>Brand voice: <span className="text-gray-400">{context.brandToneWords?.slice(0, 3).join(', ')}</span></div>
+              <div>Brand voice: <span className="text-slate-700">{context.brandToneWords?.slice(0, 3).join(', ')}</span></div>
             )}
           </div>
 
           {/* Cost transparency — shown before the action (factual, no decoration) */}
-          <div className="text-[10px] text-gray-500 text-center -mb-1">
-            Costs <span className="text-gray-300 font-semibold">3 credits</span> · failed generations are refunded automatically
+          <div className="-mb-1 text-center text-[10px] text-slate-500">
+            Costs <span className="font-semibold text-slate-700">3 credits</span> · failed generations are refunded automatically
           </div>
 
           <button
             onClick={() => handleGenerate()}
-            className="w-full py-2.5 bg-accent hover:bg-accent-light text-white text-sm font-semibold rounded-lg transition"
+            className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold transition hover:bg-indigo-500"
+            style={{ color: '#fff' }}
           >
             Generate visual →
           </button>
@@ -464,7 +468,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
       {/* Generating state */}
       {generating && (
-        <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <GeneratingAnimation />
         </div>
       )}
@@ -486,16 +490,16 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
       {/* Empty state */}
       {!loading && !generating && visuals.length === 0 && (
-        <div className="bg-[#111111] border border-[#1f1f1f] border-dashed rounded-xl py-12 text-center">
-          <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center mx-auto mb-3">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#FF9500" strokeWidth="1.5">
               <rect x="2" y="2" width="14" height="14" rx="3" />
               <circle cx="6.5" cy="6.5" r="1.5" />
               <path d="M2 12l4.5-4 3.5 3.5 2.5-2.5L16 13" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="text-sm font-semibold text-gray-400 mb-1">No visuals yet</div>
-          <div className="text-[11px] text-gray-600 mb-4">
+          <div className="mb-1 text-sm font-semibold text-slate-700">No visuals yet</div>
+          <div className="mb-4 text-[11px] text-slate-500">
             Generate campaign visuals from your brand strategy — no prompts required.
           </div>
           <button

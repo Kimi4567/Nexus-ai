@@ -74,7 +74,7 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-      className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-accent hover:text-dark rounded transition font-semibold"
+      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
     >
       {copied ? '✓' : label}
     </button>
@@ -206,7 +206,7 @@ function SaveToMemoryBtn({
       className={`text-xs px-2 py-1 rounded transition font-semibold ${
         saved
           ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
-          : 'bg-dark-tertiary hover:bg-indigo-500/20 hover:text-indigo-400 text-gray-500'
+          : 'border border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700'
       }`}
     >
       {saved ? savedLabel : saving ? '...' : saveLabel}
@@ -540,8 +540,8 @@ function CampaignDetailPageInner() {
     if (review?.status !== 'passed' || calendarItems.length === 0) {
       setApprovalState('idle')
       setEngineError(locale === 'ar'
-        ? 'لا يمكن اعتماد الحملة قبل تشغيل الماكينة واجتياز Sentinel وبناء التقويم.'
-        : 'Run the engine, pass Sentinel, and build the calendar before approval.')
+        ? 'لا يمكن تجهيز الحملة قبل اكتمال فحص الجودة وبناء التقويم.'
+        : 'Complete the quality check and build the calendar before preparing the campaign.')
       return
     }
     setApprovalState('approving')
@@ -750,7 +750,7 @@ function CampaignDetailPageInner() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-5xl mb-4">😕</div>
-            <h2 className="text-xl font-bold mb-2 text-white">{cdT?.notFoundTitle}</h2>
+            <h2 className="mb-2 text-xl font-bold text-slate-950">{cdT?.notFoundTitle}</h2>
             <Link href="/campaigns" className="text-accent hover:text-accent-light transition text-sm">{cdT?.notFoundBack}</Link>
           </div>
         </div>
@@ -845,6 +845,28 @@ function CampaignDetailPageInner() {
   ].filter(Boolean).length / 7) * 100)
   const engineReadyForApproval = sentinelStatus === 'passed' && storedCalendarCount > 0
   const engineBlocked = sentinelStatus === 'needs_attention'
+  const statusMeta: Record<string, { label: string; className: string }> = {
+    DRAFT: {
+      label: locale === 'ar' ? 'مسودة' : 'Draft',
+      className: 'border-slate-200 bg-slate-50 text-slate-600',
+    },
+    ACTIVE: {
+      label: locale === 'ar' ? 'تخطيط المحتوى' : 'Content planning',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    ARCHIVED: {
+      label: locale === 'ar' ? 'مؤرشفة' : 'Archived',
+      className: 'border-slate-200 bg-slate-100 text-slate-500',
+    },
+    SCHEDULED: {
+      label: locale === 'ar' ? 'في قائمة التنفيذ' : 'Queued for workflow',
+      className: 'border-blue-200 bg-blue-50 text-blue-700',
+    },
+  }
+  const campaignStatusMeta = statusMeta[campaign.status] || {
+    label: campaign.status.replace(/_/g, ' ').toLowerCase(),
+    className: 'border-slate-200 bg-slate-50 text-slate-600',
+  }
 
   const visualContext = {
     campaignId: campaign.id,
@@ -857,9 +879,9 @@ function CampaignDetailPageInner() {
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
     return (
-      <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.1)' }}>
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <div className="text-3xl mb-3">{icon}</div>
-        <p className="text-sm" style={{ color: 'var(--nx-text-4)' }}>{message}</p>
+        <p className="text-sm text-slate-500">{message}</p>
       </div>
     )
   }
@@ -966,12 +988,12 @@ function CampaignDetailPageInner() {
       <AIPresenceBar authHeader={authHeader} />
       <div className="max-w-[1200px] mx-auto px-6 py-8 page-enter">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link href="/dashboard" className="hover:text-white transition">{cdT?.breadcrumbHome}</Link>
+        <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+          <Link href="/dashboard" className="transition hover:text-slate-950">{cdT?.breadcrumbHome}</Link>
           <span>/</span>
-          <Link href="/campaigns" className="hover:text-white transition">{cdT?.breadcrumbCampaigns}</Link>
+          <Link href="/campaigns" className="transition hover:text-slate-950">{cdT?.breadcrumbCampaigns}</Link>
           <span>/</span>
-          <span className="text-gray-300 truncate max-w-xs">{campaign.name}</span>
+          <span className="max-w-xs truncate text-slate-800">{campaign.name}</span>
         </div>
 
         {/* Brand Brain quality notice (shown when score < 60 and not dismissed) */}
@@ -991,7 +1013,7 @@ function CampaignDetailPageInner() {
               </div>
               <button
                 onClick={() => setBrandNoticeDismissed(true)}
-                className="text-text-muted hover:text-white transition-all text-xs px-1 flex-shrink-0">
+                className="flex-shrink-0 px-1 text-xs text-slate-400 transition-all hover:text-slate-700">
                 ✕
               </button>
             </div>
@@ -1042,8 +1064,8 @@ function CampaignDetailPageInner() {
                   </p>
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
                     {locale === 'ar'
-                      ? 'الاستراتيجية جاهزة — ابدأ بإنشاء خطة محتوى كاملة الآن لتحريك الحملة.'
-                      : 'Strategy is ready — generate a full content plan now to activate this campaign.'}
+                      ? 'الاستراتيجية جاهزة — ابدأ بإنشاء خطة محتوى كاملة عند استعدادك للمراجعة.'
+                      : 'Strategy is ready — generate a full content plan when you are ready to review it.'}
                   </p>
                 </div>
               </div>
@@ -1057,30 +1079,23 @@ function CampaignDetailPageInner() {
           </div>
         )}
 
-        {/* Header card — NEXUS UI */}
-        <div className="rounded-2xl mb-4 overflow-hidden"
-          style={{
-            background: 'rgba(10,11,28,0.9)',
-            border: '1px solid rgba(139,92,246,0.2)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 0 40px rgba(139,92,246,0.05)',
-          }}>
-          {/* Gradient accent bar */}
-          <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #06b6d4 50%, #10b981 100%)' }} />
+        {/* Header card — light campaign summary */}
+        <div className="mb-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="h-px bg-gradient-to-r from-indigo-200 via-sky-100 to-emerald-100" />
           <div className="p-6">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 20px rgba(139,92,246,0.1)' }}>
+                  style={{ background: 'linear-gradient(135deg, #eef2ff, #f8fafc)', border: '1px solid rgb(226,232,240)' }}>
                   {campaign.thumbnail || '🎯'}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--nx-text-1)' }}>{campaign.name}</h1>
-                  <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--nx-text-3)' }}>
+                  <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-950">{campaign.name}</h1>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
                     <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
-                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span className="text-slate-300">·</span>
                     <span>{locale === 'ar' ? 'نبرة: ' : 'Tone: '}{campaign.tone}</span>
-                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span className="text-slate-300">·</span>
                     <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
                   </div>
                   <div className="flex gap-2 mt-2">
@@ -1089,18 +1104,16 @@ function CampaignDetailPageInner() {
                     ))}
                   </div>
                   {campaign.audience && (
-                    <p className="text-xs mt-2 max-w-md" style={{ color: 'var(--nx-text-4)' }}>{cdT?.audienceLabel}: {campaign.audience}</p>
+                    <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">{cdT?.audienceLabel}: {campaign.audience}</p>
                   )}
                   {/* Campaign status badge */}
                   <div className="flex items-center gap-2 mt-3">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
-                      style={{
-                        background: campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
-                        border: `1px solid ${campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
-                        color: campaign.status === 'ACTIVE' ? '#10b981' : '#a78bfa',
-                      }}>
-                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: campaign.status === 'ACTIVE' ? '#10b981' : '#8b5cf6' }} />
-                      {campaign.status}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${campaignStatusMeta.className}`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                      {campaignStatusMeta.label}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {locale === 'ar' ? 'النشر يتطلب مراجعة صريحة' : 'Publishing requires explicit review'}
                     </span>
                   </div>
                 </div>
@@ -1111,7 +1124,7 @@ function CampaignDetailPageInner() {
                 <Link
                   href="/campaigns/new"
                   className="px-3 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 16px rgba(139,92,246,0.3)' }}
+                  style={{ background: '#4f46e5', color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.12)' }}
                 >
                   {cdT?.btnNewCampaign || '+ New Campaign'}
                 </Link>
@@ -1120,7 +1133,7 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={() => setShowHeaderMenu(v => !v)}
                     className="px-3 py-2 rounded-xl text-sm font-bold transition"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
+                    style={{ background: '#f8fafc', border: '1px solid rgb(226,232,240)', color: '#475569' }}
                     title={locale === 'ar' ? 'المزيد' : 'More options'}
                   >
                     ···
@@ -1130,35 +1143,35 @@ function CampaignDetailPageInner() {
                       {/* Click-away backdrop */}
                       <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
                       <div className="absolute right-0 top-full mt-1 z-20 min-w-44 rounded-xl shadow-2xl overflow-hidden"
-                        style={{ background: 'rgba(18,19,40,0.98)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(20px)' }}>
+                        style={{ background: '#fff', border: '1px solid rgb(226,232,240)' }}>
                         <button
                           onClick={() => { updateCampaign({ favorite: !campaign.favorite }); setShowHeaderMenu(false) }}
                           disabled={saving}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: campaign.favorite ? '#eab308' : 'var(--nx-text-2)' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: campaign.favorite ? '#ca8a04' : '#334155' }}
                         >
                           {campaign.favorite ? `★ ${cdT?.btnSaved || 'Saved'}` : `☆ ${cdT?.btnSave || 'Save'}`}
                         </button>
                         <button
                           onClick={() => { duplicate(); setShowHeaderMenu(false) }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: 'var(--nx-text-2)' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: '#334155' }}
                         >
                           {`⧉ ${cdT?.btnDuplicate || 'Duplicate'}`}
                         </button>
                         <button
                           onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: 'var(--nx-text-2)' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: '#334155' }}
                         >
                           {`⬇ ${cdT?.btnExportPdf || 'Export PDF'}`}
                         </button>
-                        <div className="h-px mx-3" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                        <div className="h-px mx-3 bg-slate-100" />
                         <button
                           onClick={() => { updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' }); setShowHeaderMenu(false) }}
                           disabled={saving}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: campaign.status === 'ARCHIVED' ? '#a78bfa' : '#6b7280' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: campaign.status === 'ARCHIVED' ? '#4f46e5' : '#64748b' }}
                         >
                           {campaign.status === 'ARCHIVED' ? `↩ ${cdT?.btnRestore || 'Restore'}` : `📦 ${cdT?.btnArchive || 'Archive'}`}
                         </button>
@@ -1173,61 +1186,58 @@ function CampaignDetailPageInner() {
 
         {/* ── Campaign Progress Panel ───────────────────────────────────── */}
         {aiOutput && (
-          <div className="rounded-2xl px-5 py-5 mb-6"
-            style={{
-              background: 'rgba(10,11,28,0.85)',
-              border: '1px solid rgba(139,92,246,0.15)',
-              backdropFilter: 'blur(16px)',
-            }}>
+          <div className="mb-6 rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
 
             {/* ── 4-step progress stepper ── */}
             <div className="flex items-center gap-0 mb-5 overflow-x-auto pb-1 flex-nowrap">
               {([
                 {
                   key: 'generate',
-                  label: locale === 'ar' ? 'التوليد' : 'Generate',
+                  label: locale === 'ar' ? 'تم إنشاء الاستراتيجية' : 'Strategy generated',
                   done: true,
                   active: false,
                 },
                 {
                   key: 'review',
-                  label: locale === 'ar' ? 'المراجعة' : 'Review',
+                  label: locale === 'ar' ? 'فحص الجودة' : 'Quality check',
                   done: sentinelStatus === 'passed',
                   warn: sentinelStatus === 'needs_attention',
                   active: sentinelStatus === 'not_reviewed',
                 },
                 {
                   key: 'approve',
-                  label: locale === 'ar' ? 'الاعتماد' : 'Approve',
+                  label: locale === 'ar' ? 'تخطيط المحتوى' : 'Content planning',
                   done: campaign.status === 'ACTIVE' || approvalState === 'done',
                   active: sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done',
                 },
                 {
                   key: 'live',
-                  label: locale === 'ar' ? 'مباشر' : 'Live',
+                  label: campaign.autopilotEnabled
+                    ? (locale === 'ar' ? 'إعداد النشر موجود' : 'Publishing configured')
+                    : (locale === 'ar' ? 'النشر غير مفعّل' : 'Publishing not enabled'),
                   done: !!campaign.autopilotEnabled,
                   active: (campaign.status === 'ACTIVE' || approvalState === 'done') && !campaign.autopilotEnabled,
                 },
               ] as Array<{key:string; label:string; done:boolean; active?:boolean; warn?:boolean}>).map((step, i, arr) => (
                 <div key={step.key} className="flex items-center flex-shrink-0">
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    step.done ? 'text-green-400' : step.warn ? 'text-amber-400' : step.active ? 'text-accent' : 'text-gray-600'
+                    step.done ? 'text-emerald-700' : step.warn ? 'text-amber-700' : step.active ? 'text-indigo-700' : 'text-slate-500'
                   }`}>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 border ${
                       step.done
-                        ? 'bg-green-500/15 border-green-500/30 text-green-400'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                         : step.warn
-                          ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                          ? 'bg-amber-50 border-amber-200 text-amber-700'
                           : step.active
-                            ? 'bg-accent/15 border-accent/30 text-accent'
-                            : 'bg-dark-tertiary border-dark-tertiary text-gray-600'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                            : 'bg-slate-50 border-slate-200 text-slate-400'
                     }`}>
                       {step.done ? '✓' : step.warn ? '!' : i + 1}
                     </span>
                     {step.label}
                   </div>
                   {i < arr.length - 1 && (
-                    <span className="text-gray-800 text-xs mx-1 flex-shrink-0">—</span>
+                    <span className="mx-1 flex-shrink-0 text-xs text-slate-300">—</span>
                   )}
                 </div>
               ))}
@@ -1236,18 +1246,18 @@ function CampaignDetailPageInner() {
             {/* ── Status message + context-aware primary CTA ── */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: engineRunning ? '#fbbf24' : 'var(--nx-text-1)' }}>
+                <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
                   {engineRunning
-                    ? (locale === 'ar' ? '⏳ الماكينة شغالة...' : '⏳ Engine running...')
+                    ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
                     : campaign.status === 'ACTIVE' || approvalState === 'done'
-                      ? (locale === 'ar' ? '✅ الحملة نشطة وجاهزة للتنفيذ' : '✅ Campaign is active and ready to execute')
+                      ? (locale === 'ar' ? '✅ خطة المحتوى متاحة للمراجعة' : '✅ Content plan available for review')
                       : engineReadyForApproval
-                        ? (locale === 'ar' ? '🟢 الحملة جاهزة للاعتماد' : '🟢 Campaign ready for approval')
+                        ? (locale === 'ar' ? '🟢 اكتمل فحص الجودة — انتقل إلى تخطيط المحتوى' : '🟢 Quality check complete — move to content planning')
                         : sentinelStatus === 'needs_attention'
-                          ? (locale === 'ar' ? '⚠️ Sentinel وجد مشاكل — راجع التفاصيل أدناه' : '⚠️ Sentinel found issues — review details below')
+                          ? (locale === 'ar' ? '⚠️ فحص الجودة يحتاج مراجعة — راجع التفاصيل أدناه' : '⚠️ Quality check needs review — see details below')
                           : sentinelStatus === 'passed'
-                            ? (locale === 'ar' ? '✅ مراجعة Sentinel ناجحة' : '✅ Sentinel review passed')
-                            : (locale === 'ar' ? 'الاستراتيجية جاهزة — شغّل Sentinel للمتابعة' : 'Strategy ready — run Sentinel review to continue')}
+                            ? (locale === 'ar' ? '✅ اكتمل فحص جودة الاستراتيجية' : '✅ Strategy quality check complete')
+                            : (locale === 'ar' ? 'راجع الاستراتيجية قبل تحويلها إلى محتوى' : 'Review the strategy before turning it into content')}
                 </p>
                 {(engineError || generateError) && (
                   <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
@@ -1261,7 +1271,7 @@ function CampaignDetailPageInner() {
                   onClick={() => handleRunEngine(true)}
                   disabled={engineRunning}
                   title={locale === 'ar' ? 'إعادة توليد كل المخرجات من الصفر' : 'Regenerate all outputs from scratch'}
-                  className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-sm text-gray-500 hover:text-gray-300 hover:border-white/20 disabled:opacity-40 transition"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-sm text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40"
                 >
                   ↻
                 </button>
@@ -1271,14 +1281,14 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={handleSentinelReview}
                     disabled={sentinelState === 'reviewing'}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
-                    style={{ background: 'rgba(37,99,235,0.85)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
+                    style={{ background: '#2563eb', color: '#fff' }}
                   >
                     {sentinelState === 'reviewing'
                       ? '⏳...'
                       : sentinelStatus === 'needs_attention'
                         ? (locale === 'ar' ? '🔄 أعد المراجعة' : '🔄 Re-review')
-                        : (locale === 'ar' ? '🔍 مراجعة Sentinel' : '🔍 Sentinel Review')}
+                        : (locale === 'ar' ? '🔍 فحص الجودة' : '🔍 Review quality')}
                   </button>
                 )}
 
@@ -1286,84 +1296,83 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
-                    style={{ background: 'rgba(5,150,105,0.85)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
+                    style={{ background: '#059669', color: '#fff' }}
                   >
                     {launchState === 'approving'
-                      ? (locale === 'ar' ? '⏳ جارٍ الاعتماد...' : '⏳ Approving...')
+                      ? (locale === 'ar' ? '⏳ يجري إعداد المحتوى...' : '⏳ Preparing content...')
                       : launchState === 'generating'
                         ? (locale === 'ar' ? '⚙️ جارٍ إنشاء الخطة...' : '⚙️ Generating plan...')
-                        : (locale === 'ar' ? '🚀 اعتماد وإطلاق' : '🚀 Approve & Launch')}
+                        : (locale === 'ar' ? 'إنشاء خطة المحتوى' : 'Build content plan')}
                   </button>
                 )}
 
                 {activeTab !== 0 && (campaign.status === 'ACTIVE' || approvalState === 'done') && (
                   <Link
                     href={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition"
-                    style={{ background: 'rgba(124,58,237,0.85)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition"
+                    style={{ background: '#4f46e5', color: '#fff' }}
                   >
                     {locale === 'ar' ? 'Content Hub' : 'Content Hub'}
                   </Link>
                 )}
 
                 {engineRunning && (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white/50"
-                    style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <span className="w-3 h-3 border-2 border-white/30 border-t-white/70 rounded-full animate-spin flex-shrink-0" />
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-500">
+                    <span className="w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin flex-shrink-0" />
                     {locale === 'ar' ? 'جاري التشغيل...' : 'Running...'}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* ── Sentinel review detail — collapsible ── */}
+            {/* ── Quality review detail — collapsible ── */}
             {sentinelReview && (
               <details className="mt-4">
                 <summary className={`cursor-pointer text-xs font-semibold select-none ${
-                  sentinelStatus === 'passed' ? 'text-green-400' : 'text-amber-400'
+                  sentinelStatus === 'passed' ? 'text-emerald-700' : 'text-amber-700'
                 }`}>
                   {sentinelStatus === 'passed'
-                    ? (locale === 'ar' ? '✓ Sentinel اجتاز المراجعة — عرض التفاصيل ▾' : '✓ Sentinel passed — see details ▾')
-                    : (locale === 'ar' ? '⚠ Sentinel: يحتاج انتباه — عرض التفاصيل ▾' : '⚠ Sentinel needs attention — see details ▾')}
+                    ? (locale === 'ar' ? '✓ فحص الجودة مكتمل — عرض التفاصيل ▾' : '✓ Quality check complete — see details ▾')
+                    : (locale === 'ar' ? '⚠ فحص الجودة يحتاج انتباه — عرض التفاصيل ▾' : '⚠ Quality check needs attention — see details ▾')}
                 </summary>
-                <div className="mt-3 pt-3 border-t border-dark-tertiary space-y-3">
+                <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
+                        <span className="text-xs text-slate-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
                         <span className={`text-sm font-bold ${sentinelReview.riskScore < 30 ? 'text-green-400' : sentinelReview.riskScore < 50 ? 'text-amber-400' : 'text-red-400'}`}>
                           {sentinelReview.riskScore}/100
                         </span>
                       </div>
-                      <div className="h-1 bg-dark-tertiary rounded-full overflow-hidden">
+                      <div className="h-1 overflow-hidden rounded-full bg-slate-200">
                         <div className={`h-full rounded-full ${sentinelReview.riskScore < 30 ? 'bg-green-500' : sentinelReview.riskScore < 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                           style={{ width: `${sentinelReview.riskScore}%` }} />
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-1">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
                     </div>
-                    <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">{cdT?.sentinelBrandScore || 'Brand Match'}</span>
+                        <span className="text-xs text-slate-500">{cdT?.sentinelBrandScore || 'Brand Match'}</span>
                         <span className={`text-sm font-bold ${sentinelReview.brandConsistencyScore >= 75 ? 'text-green-400' : sentinelReview.brandConsistencyScore >= 55 ? 'text-amber-400' : 'text-red-400'}`}>
                           {sentinelReview.brandConsistencyScore}/100
                         </span>
                       </div>
-                      <div className="h-1 bg-dark-tertiary rounded-full overflow-hidden">
+                      <div className="h-1 overflow-hidden rounded-full bg-slate-200">
                         <div className={`h-full rounded-full ${sentinelReview.brandConsistencyScore >= 75 ? 'bg-green-500' : sentinelReview.brandConsistencyScore >= 55 ? 'bg-amber-500' : 'bg-red-500'}`}
                           style={{ width: `${sentinelReview.brandConsistencyScore}%` }} />
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-1">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
                     </div>
                   </div>
                   {sentinelReview.summary && (
-                    <p className="text-sm text-gray-300 leading-relaxed">{sentinelReview.summary}</p>
+                    <p className="text-sm leading-relaxed text-slate-600">{sentinelReview.summary}</p>
                   )}
                   {sentinelReview.complianceWarnings?.length > 0 && (
                     <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
                       <p className="text-xs font-bold text-amber-400 mb-2">{cdT?.sentinelComplianceWarnings || 'Compliance Warnings'}</p>
                       {sentinelReview.complianceWarnings.map((w: string, i: number) => (
-                        <p key={i} className="text-xs text-amber-300 flex items-start gap-2 mb-1"><span className="flex-shrink-0">⚠</span>{w}</p>
+                        <p key={i} className="mb-1 flex items-start gap-2 text-xs text-amber-700"><span className="flex-shrink-0">⚠</span>{w}</p>
                       ))}
                     </div>
                   )}
@@ -1371,7 +1380,7 @@ function CampaignDetailPageInner() {
                     <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5">
                       <p className="text-xs font-bold text-blue-400 mb-2">{cdT?.sentinelRecommendedFixes || 'Recommended Fixes'}</p>
                       {sentinelReview.recommendedFixes.map((fix: string, i: number) => (
-                        <p key={i} className="text-xs text-blue-300 flex items-start gap-2 mb-1"><span className="flex-shrink-0 text-blue-500">→</span>{fix}</p>
+                        <p key={i} className="mb-1 flex items-start gap-2 text-xs text-blue-700"><span className="flex-shrink-0 text-blue-500">→</span>{fix}</p>
                       ))}
                     </div>
                   )}
@@ -1383,33 +1392,33 @@ function CampaignDetailPageInner() {
             {!sentinelReview && sentinelState !== 'reviewing' && (
               <p className="mt-3 text-xs text-gray-600">
                 {locale === 'ar'
-                  ? '🔍 شغّل Sentinel Review للتحقق من جودة الحملة قبل الاعتماد.'
-                  : '🔍 Run Sentinel Review to check campaign quality before approving.'}
+                  ? '🔍 راجع جودة الاستراتيجية قبل تحويلها إلى محتوى.'
+                  : '🔍 Review strategy quality before turning it into content.'}
               </p>
             )}
             {sentinelState === 'reviewing' && (
               <div className="mt-3 flex items-center gap-2">
                 <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                <p className="text-xs text-blue-400">{cdT?.sentinelReviewingMsg || 'Sentinel is reviewing your campaign...'}</p>
+                <p className="text-xs text-blue-600">{locale === 'ar' ? 'يجري فحص جودة الحملة...' : 'Reviewing campaign quality...'}</p>
               </div>
             )}
             {sentinelError && sentinelState === 'idle' && (
               <p className="mt-2 text-xs text-red-400">⚠️ {sentinelError}</p>
             )}
 
-            {/* Approval & Launch confirmation dialog */}
+            {/* Content planning confirmation dialog */}
             {approvalState === 'confirming' && (
               <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
                 {/* ── Idle: confirm prompt ── */}
                 {launchState === 'idle' && (
                   <>
-                    <p className="text-sm font-semibold text-green-400 mb-1">
-                      {locale === 'ar' ? '🚀 هل أنت جاهز للإطلاق؟' : '🚀 Ready to approve and launch?'}
+                    <p className="text-sm font-semibold text-green-700 mb-1">
+                      {locale === 'ar' ? 'هل أنت جاهز لإنشاء خطة المحتوى؟' : 'Ready to build the content plan?'}
                     </p>
-                    <p className="text-xs text-gray-400 mb-3">
+                    <p className="text-xs text-slate-500 mb-3">
                       {locale === 'ar'
-                        ? 'سيتم اعتماد الحملة وإنشاء خطة المحتوى الكاملة، ثم انتقالك تلقائياً إلى Content Hub.'
-                        : 'This will approve the campaign, generate your full content plan, and take you straight to the Content Hub.'}
+                        ? 'سيتم إنشاء خطة محتوى كاملة ثم انتقالك إلى Content Hub للمراجعة. لا يتم نشر شيء من هنا.'
+                        : 'This will generate the full content plan and take you to Content Hub for review. Nothing publishes from here.'}
                     </p>
                     {launchError && (
                       <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
@@ -1417,13 +1426,14 @@ function CampaignDetailPageInner() {
                     <div className="flex gap-2">
                       <button
                         onClick={handleApproveAndLaunch}
-                        className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                        className="px-4 py-2 bg-green-500 text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                        style={{ color: '#fff' }}
                       >
-                        {locale === 'ar' ? '🚀 نعم، اعتماد وإطلاق' : '🚀 Yes, Approve & Launch'}
+                        {locale === 'ar' ? 'نعم، إنشاء خطة المحتوى' : 'Yes, build content plan'}
                       </button>
                       <button
                         onClick={() => setApprovalState('idle')}
-                        className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
                       >
                         {cdT?.approveCancelBtn || 'Cancel'}
                       </button>
@@ -1434,8 +1444,8 @@ function CampaignDetailPageInner() {
                 {/* ── In-progress: step tracker ── */}
                 {(launchState === 'approving' || launchState === 'generating') && (
                   <div>
-                    <p className="text-sm font-semibold text-green-400 mb-3">
-                      {locale === 'ar' ? '⏳ جارٍ الإطلاق...' : '⏳ Launching...'}
+                    <p className="text-sm font-semibold text-green-700 mb-3">
+                      {locale === 'ar' ? '⏳ يجري إعداد خطة المحتوى...' : '⏳ Preparing the content plan...'}
                     </p>
                     <div className="space-y-2">
                       {/* Step 1 */}
@@ -1446,7 +1456,7 @@ function CampaignDetailPageInner() {
                           <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-green-400 font-bold text-xs">✓</span>
                         )}
                         <p className={`text-xs ${launchState === 'approving' ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>
-                          {locale === 'ar' ? 'اعتماد الحملة' : 'Approving campaign'}
+                          {locale === 'ar' ? 'تجهيز الحملة لتخطيط المحتوى' : 'Preparing campaign for content planning'}
                         </p>
                       </div>
                       {/* Step 2 */}
@@ -1477,20 +1487,19 @@ function CampaignDetailPageInner() {
 
         {/* Generating state */}
         {!aiOutput && generating && (
-          <div className="rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(234,179,8,0.2)', backdropFilter: 'blur(16px)' }}>
+          <div className="mb-6 rounded-[28px] border border-amber-200 bg-amber-50 p-12 text-center shadow-sm">
             <div className="text-5xl mb-4 animate-bounce">🤖</div>
-            <h3 className="text-xl font-bold mb-2 text-amber-400">{cdT?.generatingTitle}</h3>
-            <p className="text-gray-400 mb-6 text-sm">{cdT?.generatingSubtitle}</p>
+            <h3 className="text-xl font-bold mb-2 text-amber-900">{cdT?.generatingTitle}</h3>
+            <p className="mb-6 text-sm text-amber-800">{cdT?.generatingSubtitle}</p>
             <div className="flex justify-center gap-4 mb-4 flex-wrap">
               {([cdT?.genStep1, cdT?.genStep2, cdT?.genStep3, cdT?.genStep4]).map((step, i) => (
-                <div key={i} className="flex items-center gap-1 text-xs text-gray-500">
-                  <span className="w-2 h-2 rounded-full bg-amber-500/40 animate-pulse" style={{ animationDelay: `${i * 0.3}s` }} />
+                <div key={i} className="flex items-center gap-1 text-xs text-amber-700">
+                  <span className="w-2 h-2 rounded-full bg-amber-500/50 animate-pulse" style={{ animationDelay: `${i * 0.3}s` }} />
                   {step}
                 </div>
               ))}
             </div>
-            <div className="w-48 h-1 bg-dark-tertiary rounded-full mx-auto overflow-hidden">
+            <div className="w-48 h-1 bg-amber-100 rounded-full mx-auto overflow-hidden">
               <div className="h-full bg-amber-500 rounded-full animate-pulse" style={{ width: '60%' }} />
             </div>
           </div>
@@ -1498,22 +1507,21 @@ function CampaignDetailPageInner() {
 
         {/* No AI output state (not generating) — NEXUS UI */}
         {!aiOutput && !generating && (
-          <div className="rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(16px)' }}>
+          <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-12 text-center shadow-sm">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
               <span className="text-3xl">🤖</span>
             </div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>{cdT?.noOutputTitle}</h3>
-            <p className="mb-6 text-sm" style={{ color: 'var(--nx-text-3)' }}>{cdT?.noOutputDesc}</p>
+            <h3 className="text-xl font-bold mb-2 text-slate-950">{cdT?.noOutputTitle}</h3>
+            <p className="mb-6 text-sm text-slate-500">{cdT?.noOutputDesc}</p>
             <button
               onClick={() => handleRunEngine()}
               disabled={engineRunning}
               className="px-6 py-3 rounded-xl font-bold transition disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
+              style={{ background: '#4f46e5', color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.12)' }}>
               {engineRunning
                 ? (locale === 'ar' ? '⏳ جاري التوليد...' : '⏳ Generating...')
-                : (cdT?.noOutputBtn || (locale === 'ar' ? '🚀 توليد الاستراتيجية الكاملة' : '🚀 Generate Full Strategy'))}
+                : (cdT?.noOutputBtn || (locale === 'ar' ? 'توليد الاستراتيجية الكاملة' : 'Generate Full Strategy'))}
             </button>
             {generateError && (
               <p className="mt-3 text-sm text-red-400">{generateError}</p>
@@ -1525,28 +1533,27 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <>
             {/* NEXUS tab navigation */}
-            <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 p-1 rounded-2xl"
-              style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.08)' }}>
+            <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-100/80 p-1 pb-1">
               {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
                 <button
                   key={i}
                   onClick={() => setActiveTab(i)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
                   style={activeTab === i ? {
-                    background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.1))',
-                    border: '1px solid rgba(139,92,246,0.3)',
-                    color: '#e2d9f3',
-                    boxShadow: '0 0 12px rgba(139,92,246,0.15)',
+                    background: '#fff',
+                    border: '1px solid rgb(199,210,254)',
+                    color: '#3730a3',
+                    boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
                   } : {
                     background: 'transparent',
                     border: '1px solid transparent',
-                    color: 'var(--nx-text-4)',
+                    color: '#64748b',
                   }}
                   onMouseEnter={e => {
-                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-2)'
+                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#334155'
                   }}
                   onMouseLeave={e => {
-                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-4)'
+                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#64748b'
                   }}
                 >
                   <span className="text-xs">{tab.icon}</span>
@@ -1584,7 +1591,8 @@ function CampaignDetailPageInner() {
                     <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                       <Link
                         href={`/campaigns/${campaignId}/content-hub`}
-                        className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold transition hover:bg-slate-800"
+                        style={{ color: '#fff' }}
                       >
                         {hasContentCalendar
                           ? (locale === 'ar' ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub')
@@ -2121,14 +2129,14 @@ function CampaignDetailPageInner() {
                 <BrandDNABadge brand={brandDNA} locale={locale} />
 
                 {/* Top Hooks */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                  <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>🪝</span> {cdT?.sectionTopHooks}</h3>
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>🪝</span> {cdT?.sectionTopHooks}</h3>
                   {topHooks.length > 0 ? (
                     <div className="space-y-3">
                       {topHooks.map((hook: string, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                        <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="text-accent font-semibold text-sm flex-1">"{hook}"</p>
+                            <p className="flex-1 text-sm font-semibold leading-6 text-indigo-700">"{hook}"</p>
                             <div className="flex gap-1 flex-shrink-0">
                               <SaveToMemoryBtn
                                 text={hook}
@@ -2151,12 +2159,12 @@ function CampaignDetailPageInner() {
 
                 {/* CTA Variations */}
                 {ctaVariations.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📣</span> {cdT?.sectionCtaVariations}</h3>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>📣</span> {cdT?.sectionCtaVariations}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {ctaVariations.map((cta: string, i: number) => (
-                        <div key={i} className="flex items-center justify-between bg-dark rounded-xl p-3 border border-dark-tertiary gap-3">
-                          <span className="text-gray-300 text-sm flex-1">{cta}</span>
+                        <div key={i} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 gap-3">
+                          <span className="flex-1 text-sm text-slate-700">{cta}</span>
                           <CopyBtn text={cta} label={cdT?.copyBtn || 'Copy'} />
                         </div>
                       ))}
@@ -2166,13 +2174,13 @@ function CampaignDetailPageInner() {
 
                 {/* Caption Formulas */}
                 {captionFormulas.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>✍️</span> {cdT?.sectionCaptionFormulas}</h3>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>✍️</span> {cdT?.sectionCaptionFormulas}</h3>
                     <div className="space-y-3">
                       {captionFormulas.map((caption: string, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                        <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex items-start justify-between gap-3">
-                            <p className="text-gray-300 text-sm leading-relaxed flex-1">{caption}</p>
+                            <p className="flex-1 text-sm leading-6 text-slate-700">{caption}</p>
                             <CopyBtn text={caption} label={cdT?.copyBtn || 'Copy'} />
                           </div>
                         </div>
@@ -2183,29 +2191,29 @@ function CampaignDetailPageInner() {
 
                 {/* Script Template */}
                 {scriptTemplate && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>📝</span> {cdT?.sectionScriptTemplate}</h3>
-                    <div className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>📝</span> {cdT?.sectionScriptTemplate}</h3>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <span className="text-xs text-gray-500 uppercase tracking-wide">Script Template</span>
+                        <span className="text-xs uppercase tracking-wide text-slate-400">Script Template</span>
                         <CopyBtn text={scriptTemplate} label={cdT?.copyBtn || 'Copy'} />
                       </div>
-                      <pre className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap font-sans">{scriptTemplate}</pre>
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-slate-700">{scriptTemplate}</pre>
                     </div>
                   </div>
                 )}
 
                 {/* Content Angles — Sprint M detailed view (show both) */}
                 {contentAnglesDetailed.length > 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</h3>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>💡</span> {cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-3">
                       {contentAnglesDetailed.map((angle: any, i: number) => (
-                        <div key={i} className="bg-dark rounded-xl p-4 border border-dark-tertiary">
+                        <div key={i} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="flex items-center gap-2">
-                              <span className="text-accent font-bold text-xs bg-accent/10 px-2 py-0.5 rounded">{i + 1}</span>
-                              <p className="text-sm font-bold text-white">{angle.title}</p>
+                              <span className="rounded bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-700">{i + 1}</span>
+                              <p className="text-sm font-semibold text-slate-950">{angle.title}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
                               <SaveToMemoryBtn
@@ -2220,41 +2228,41 @@ function CampaignDetailPageInner() {
                             </div>
                           </div>
                           {angle.hook && (
-                            <p className="text-sm text-indigo-300 italic mb-2">"{angle.hook}"</p>
+                            <p className="mb-2 text-sm italic text-indigo-700">"{angle.hook}"</p>
                           )}
                           <div className="grid grid-cols-2 gap-2 text-xs mt-2">
                             {angle.pain && (
                               <div>
-                                <span className="text-gray-600 uppercase tracking-wide">{cdT?.anglePain || 'Pain'}: </span>
-                                <span className="text-gray-400">{angle.pain}</span>
+                                <span className="uppercase tracking-wide text-slate-400">{cdT?.anglePain || 'Pain'}: </span>
+                                <span className="text-slate-600">{angle.pain}</span>
                               </div>
                             )}
                             {angle.format && (
                               <div>
-                                <span className="text-gray-600 uppercase tracking-wide">Format: </span>
-                                <span className="text-gray-400">{angle.format}</span>
+                                <span className="uppercase tracking-wide text-slate-400">Format: </span>
+                                <span className="text-slate-600">{angle.format}</span>
                               </div>
                             )}
                             {angle.platform && (
                               <div>
-                                <span className="text-gray-600 uppercase tracking-wide">Platform: </span>
-                                <span className="text-gray-400">{angle.platform}</span>
+                                <span className="uppercase tracking-wide text-slate-400">Platform: </span>
+                                <span className="text-slate-600">{angle.platform}</span>
                               </div>
                             )}
                             {angle.asset && (
                               <div>
-                                <span className="text-gray-600 uppercase tracking-wide">{cdT?.angleAsset || 'Asset'}: </span>
-                                <span className="text-gray-400">{angle.asset}</span>
+                                <span className="uppercase tracking-wide text-slate-400">{cdT?.angleAsset || 'Asset'}: </span>
+                                <span className="text-slate-600">{angle.asset}</span>
                               </div>
                             )}
                           </div>
                           {(angle.cta || angle.funnelStage) && (
-                            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-dark-tertiary text-xs">
+                            <div className="mt-2 flex items-center gap-3 border-t border-slate-200 pt-2 text-xs">
                               {angle.funnelStage && (
-                                <span className="text-gray-600 capitalize">{angle.funnelStage}</span>
+                                <span className="capitalize text-slate-500">{angle.funnelStage}</span>
                               )}
                               {angle.cta && (
-                                <span className="ml-auto text-accent font-semibold">{angle.cta}</span>
+                                <span className="ml-auto font-semibold text-indigo-700">{angle.cta}</span>
                               )}
                             </div>
                           )}
@@ -2266,14 +2274,14 @@ function CampaignDetailPageInner() {
 
                 {/* Content Angles — legacy string list */}
                 {contentAngles.length > 0 && contentAnglesDetailed.length === 0 && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-4 flex items-center gap-2"><span>💡</span> {cdT?.sectionContentAngles || 'Content Angles'}</h3>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>💡</span> {cdT?.sectionContentAngles || 'Content Angles'}</h3>
                     <div className="space-y-2">
                       {contentAngles.map((angle: string, i: number) => (
-                        <div key={i} className="flex items-start justify-between gap-3 bg-dark rounded-xl p-3 border border-dark-tertiary">
+                        <div key={i} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                           <div className="flex items-start gap-2 flex-1">
-                            <span className="text-accent font-bold text-xs w-5 flex-shrink-0 mt-0.5">{i + 1}</span>
-                            <p className="text-gray-300 text-sm leading-relaxed">{angle}</p>
+                            <span className="mt-0.5 w-5 flex-shrink-0 text-xs font-bold text-indigo-700">{i + 1}</span>
+                            <p className="text-sm leading-6 text-slate-700">{angle}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
                             <SaveToMemoryBtn
@@ -2307,49 +2315,49 @@ function CampaignDetailPageInner() {
                 {/* Weekly Execution Plan — Sprint M detailed (shown when available) */}
                 {weeklyExecutionPlan.length > 0 && (
                   <div className="space-y-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyExecutionPlan || '4-Week Execution Plan'}</p>
+                    <p className="px-1 text-xs uppercase tracking-wide text-slate-500">{cdT?.sectionWeeklyExecutionPlan || '4-Week Execution Plan'}</p>
                     {weeklyExecutionPlan.map((wk: any, wi: number) => (
-                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
+                      <div key={wi} className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
+                          <h3 className="font-semibold text-amber-700">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
-                            <span className="text-xs bg-accent/10 border border-accent/20 text-accent px-3 py-1 rounded-full font-semibold">
+                            <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
                               CTA: {wk.cta}
                             </span>
                           )}
                         </div>
                         {wk.objective && (
                           <div className="mb-3">
-                            <span className="text-xs text-gray-500 uppercase tracking-wide">{cdT?.weekObjective || 'Objective'}: </span>
-                            <span className="text-gray-200 text-sm font-semibold">{wk.objective}</span>
+                            <span className="text-xs uppercase tracking-wide text-slate-400">{cdT?.weekObjective || 'Objective'}: </span>
+                            <span className="text-sm font-semibold text-slate-800">{wk.objective}</span>
                           </div>
                         )}
                         {wk.keyMessage && (
-                          <div className="mb-3 bg-dark rounded-xl p-3 border border-indigo-500/20">
-                            <span className="text-xs text-indigo-400 uppercase tracking-wide">{cdT?.weekKeyMessage || 'Key Message'}: </span>
-                            <span className="text-gray-300 text-sm">"{wk.keyMessage}"</span>
+                          <div className="mb-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+                            <span className="text-xs uppercase tracking-wide text-indigo-600">{cdT?.weekKeyMessage || 'Key Message'}: </span>
+                            <span className="text-sm text-slate-700">"{wk.keyMessage}"</span>
                           </div>
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                           {wk.deliverables?.length > 0 && (
-                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekDeliverables || 'Deliverables'}</p>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                              <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">{cdT?.weekDeliverables || 'Deliverables'}</p>
                               <ul className="space-y-1">
                                 {wk.deliverables.map((d: string, di: number) => (
-                                  <li key={di} className="text-gray-300 text-xs flex items-start gap-1">
-                                    <span className="text-accent mt-0.5">·</span> {d}
+                                  <li key={di} className="flex items-start gap-1 text-xs text-slate-700">
+                                    <span className="mt-0.5 text-indigo-500">·</span> {d}
                                   </li>
                                 ))}
                               </ul>
                             </div>
                           )}
                           {wk.assetsNeeded?.length > 0 && (
-                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekAssets || 'Assets Needed'}</p>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                              <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">{cdT?.weekAssets || 'Assets Needed'}</p>
                               <ul className="space-y-1">
                                 {wk.assetsNeeded.map((a: string, ai: number) => (
-                                  <li key={ai} className="text-gray-400 text-xs flex items-start gap-1">
-                                    <span className="text-amber-400/60 mt-0.5">◦</span> {a}
+                                  <li key={ai} className="flex items-start gap-1 text-xs text-slate-600">
+                                    <span className="mt-0.5 text-amber-500">◦</span> {a}
                                   </li>
                                 ))}
                               </ul>
@@ -2358,22 +2366,22 @@ function CampaignDetailPageInner() {
                         </div>
                         {wk.successMetric && (
                           <div className="mt-3 text-xs">
-                            <span className="text-gray-500 uppercase tracking-wide">{cdT?.weekSuccessMetric || 'Metric'}: </span>
-                            <span className="text-green-400">{wk.successMetric}</span>
+                            <span className="uppercase tracking-wide text-slate-400">{cdT?.weekSuccessMetric || 'Metric'}: </span>
+                            <span className="text-emerald-700">{wk.successMetric}</span>
                           </div>
                         )}
                         {wk.executionNote && (
-                          <div className="mt-2 px-3 py-2 bg-blue-500/5 border border-blue-500/15 rounded-lg">
-                            <p className="text-xs text-blue-300 italic">{cdT?.weekExecutionNote || 'Note'}: {wk.executionNote}</p>
+                          <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+                            <p className="text-xs italic text-blue-700">{cdT?.weekExecutionNote || 'Note'}: {wk.executionNote}</p>
                           </div>
                         )}
                         {wk.reviewPoints?.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-dark-tertiary">
-                            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">{cdT?.weekReviewPoints || 'Review at end of week'}</p>
+                          <div className="mt-3 border-t border-slate-200 pt-3">
+                            <p className="mb-1.5 text-xs uppercase tracking-wide text-slate-400">{cdT?.weekReviewPoints || 'Review at end of week'}</p>
                             <ul className="space-y-1">
                               {wk.reviewPoints.map((rp: string, ri: number) => (
-                                <li key={ri} className="text-xs text-gray-500 flex items-start gap-1.5">
-                                  <span className="text-gray-600 mt-0.5">→</span>{rp}
+                                <li key={ri} className="flex items-start gap-1.5 text-xs text-slate-500">
+                                  <span className="mt-0.5 text-slate-400">→</span>{rp}
                                 </li>
                               ))}
                             </ul>
@@ -2387,49 +2395,49 @@ function CampaignDetailPageInner() {
                 {/* Weekly Execution Plan (Sprint D2 — rich version, shown when M version not available) */}
                 {weeklyPlan.length > 0 && weeklyExecutionPlan.length === 0 && (
                   <div className="space-y-4">
-                    <p className="text-xs text-gray-500 uppercase tracking-wide px-1">{cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}</p>
+                    <p className="px-1 text-xs uppercase tracking-wide text-slate-500">{cdT?.sectionWeeklyPlan || '4-Week Execution Plan'}</p>
                     {weeklyPlan.map((wk: any, wi: number) => (
-                      <div key={wi} className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(245,158,11,0.2)', backdropFilter: 'blur(12px)' }}>
+                      <div key={wi} className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-bold text-amber-400">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
+                          <h3 className="font-semibold text-amber-700">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
-                            <span className="text-xs bg-accent/10 border border-accent/20 text-accent px-3 py-1 rounded-full font-semibold">
+                            <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
                               CTA: {wk.cta}
                             </span>
                           )}
                         </div>
                         {wk.objective && (
                           <div className="mb-3">
-                            <span className="text-xs text-gray-500 uppercase tracking-wide">{cdT?.weekObjective || 'Objective'}: </span>
-                            <span className="text-gray-200 text-sm font-semibold">{wk.objective}</span>
+                            <span className="text-xs uppercase tracking-wide text-slate-400">{cdT?.weekObjective || 'Objective'}: </span>
+                            <span className="text-sm font-semibold text-slate-800">{wk.objective}</span>
                           </div>
                         )}
                         {wk.keyMessage && (
-                          <div className="mb-3 bg-dark rounded-xl p-3 border border-indigo-500/20">
-                            <span className="text-xs text-indigo-400 uppercase tracking-wide">{cdT?.weekKeyMessage || 'Key Message'}: </span>
-                            <span className="text-gray-300 text-sm">"{wk.keyMessage}"</span>
+                          <div className="mb-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+                            <span className="text-xs uppercase tracking-wide text-indigo-600">{cdT?.weekKeyMessage || 'Key Message'}: </span>
+                            <span className="text-sm text-slate-700">"{wk.keyMessage}"</span>
                           </div>
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
                           {wk.contentThemes?.length > 0 && (
-                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekThemes || 'Themes'}</p>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                              <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">{cdT?.weekThemes || 'Themes'}</p>
                               <ul className="space-y-1">
                                 {wk.contentThemes.map((theme: string, ti: number) => (
-                                  <li key={ti} className="text-gray-300 text-xs flex items-start gap-1">
-                                    <span className="text-accent mt-0.5">·</span> {theme}
+                                  <li key={ti} className="flex items-start gap-1 text-xs text-slate-700">
+                                    <span className="mt-0.5 text-indigo-500">·</span> {theme}
                                   </li>
                                 ))}
                               </ul>
                             </div>
                           )}
                           {wk.deliverables?.length > 0 && (
-                            <div className="bg-dark rounded-xl p-3 border border-dark-tertiary">
-                              <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{cdT?.weekDeliverables || 'Deliverables'}</p>
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                              <p className="mb-2 text-xs uppercase tracking-wide text-slate-400">{cdT?.weekDeliverables || 'Deliverables'}</p>
                               <ul className="space-y-1">
                                 {wk.deliverables.map((d: string, di: number) => (
-                                  <li key={di} className="text-gray-300 text-xs flex items-start gap-1">
-                                    <span className="text-green-400 mt-0.5">□</span> {d}
+                                  <li key={di} className="flex items-start gap-1 text-xs text-slate-700">
+                                    <span className="mt-0.5 text-emerald-500">□</span> {d}
                                   </li>
                                 ))}
                               </ul>
@@ -2439,7 +2447,7 @@ function CampaignDetailPageInner() {
                         {wk.channels?.length > 0 && (
                           <div className="flex gap-2 mt-3 flex-wrap">
                             {wk.channels.map((ch: string, ci: number) => (
-                              <span key={ci} className="text-xs bg-dark border border-dark-tertiary px-2 py-1 rounded-full text-gray-400 capitalize">
+                              <span key={ci} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs capitalize text-slate-500">
                                 {PLATFORM_ICONS[ch.toUpperCase()] || '🌐'} {ch}
                               </span>
                             ))}
@@ -2453,27 +2461,26 @@ function CampaignDetailPageInner() {
                 {/* Platform preview calendar */}
                 {monthlyPreviewItems.length > 0 && (
                   <div className="space-y-5">
-                    <div className="rounded-2xl p-5 border"
-                      style={{ background: 'rgba(10,11,28,0.82)', borderColor: 'rgba(139,92,246,0.18)' }}>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                       <div className="flex flex-col md:flex-row md:items-center gap-3">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
                             {locale === 'ar' ? 'خطة الشهر حسب المنصة' : 'Monthly plan by platform'}
                           </p>
-                          <h3 className="text-white font-bold mt-1">
+                          <h3 className="mt-1 font-semibold text-slate-950">
                             {locale === 'ar'
                               ? `${monthlyPreviewItems.length} كارت محتوى جاهز للمراجعة`
                               : `${monthlyPreviewItems.length} content cards ready for review`}
                           </h3>
                         </div>
                         <div className="md:ml-auto flex flex-wrap gap-2">
-                          <span className="text-[11px] px-2.5 py-1 rounded-full border border-cyan-500/20 text-cyan-300 bg-cyan-500/5">
+                          <span className="rounded-full border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-[11px] text-cyan-700">
                             {mediaStrategy?.mode === 'client_assets'
                               ? (locale === 'ar' ? `${mediaStrategy.sourceCount} ملف من الميديا دخلوا في الخطة` : `${mediaStrategy.sourceCount} media assets used`)
                               : (locale === 'ar' ? 'بدون ميديا: الصور هتتولد بالـ AI' : 'No media: AI visuals planned')}
                           </span>
                           {creativeAssets.some((asset: any) => asset.type === 'VIDEO') && (
-                            <span className="text-[11px] px-2.5 py-1 rounded-full border border-pink-500/20 text-pink-300 bg-pink-500/5">
+                            <span className="rounded-full border border-pink-100 bg-pink-50 px-2.5 py-1 text-[11px] text-pink-700">
                               {locale === 'ar' ? 'الفيديوهات محسوبة في الخطة' : 'Videos considered in plan'}
                             </span>
                           )}
@@ -2488,8 +2495,8 @@ function CampaignDetailPageInner() {
                         <div key={platformKey} className="space-y-3">
                           <div className="flex items-center gap-2 px-1">
                             <span className="text-lg">{theme.icon}</span>
-                            <h3 className="font-bold text-white">{theme.label}</h3>
-                            <span className="text-xs text-gray-600">· {posts.length} {locale === 'ar' ? 'بوست' : 'posts'}</span>
+                            <h3 className="font-semibold text-slate-950">{theme.label}</h3>
+                            <span className="text-xs text-slate-500">· {posts.length} {locale === 'ar' ? 'بوست' : 'posts'}</span>
                           </div>
                           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             {posts.map((item: any, index: number) => (
@@ -2518,17 +2525,17 @@ function CampaignDetailPageInner() {
             {activeTab === 3 && (
               <div className="space-y-4">
                 {/* ── Creative Brief Entry Card — Sprint F ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.3)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🎨</span>
                       <div>
-                        <h3 className="font-bold text-base text-purple-400">{cdT?.creativeBriefTitle || 'AI Creative Brief'}</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">{cdT?.creativeBriefSubtitle || 'Analyze your assets or generate visual concepts'}</p>
+                        <h3 className="text-base font-semibold text-purple-700">{cdT?.creativeBriefTitle || 'AI Creative Brief'}</h3>
+                        <p className="mt-0.5 text-xs text-slate-500">{cdT?.creativeBriefSubtitle || 'Analyze your assets or generate visual concepts'}</p>
                       </div>
                     </div>
                     {creativeBrief && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 font-semibold flex-shrink-0">
+                      <span className="flex-shrink-0 rounded-full border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">
                         ✓ {creativeMode === 'asset' ? (cdT?.creativeModeAsset || 'Assets Analyzed') : (cdT?.creativeModeConceptGen || 'Concepts Generated')}
                       </span>
                     )}
@@ -2536,25 +2543,26 @@ function CampaignDetailPageInner() {
 
                   {/* Mode badges */}
                   <div className="flex gap-3 mb-5">
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-500/20 bg-purple-500/5 flex-1">
+                    <div className="flex flex-1 items-center gap-2 rounded-xl border border-purple-100 bg-purple-50 px-3 py-2">
                       <span>🖼️</span>
                       <div>
-                        <p className="text-xs font-bold text-purple-300">{cdT?.creativeModeAssetLabel || 'User Asset Mode'}</p>
-                        <p className="text-xs text-gray-500">{cdT?.creativeModeAssetDesc || 'AI analyzes your real photos & logos'}</p>
+                        <p className="text-xs font-bold text-purple-700">{cdT?.creativeModeAssetLabel || 'User Asset Mode'}</p>
+                        <p className="text-xs text-slate-500">{cdT?.creativeModeAssetDesc || 'AI analyzes your real photos & logos'}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-pink-500/20 bg-pink-500/5 flex-1">
+                    <div className="flex flex-1 items-center gap-2 rounded-xl border border-pink-100 bg-pink-50 px-3 py-2">
                       <span>🤖</span>
                       <div>
-                        <p className="text-xs font-bold text-pink-300">{cdT?.creativeModeConceptLabel || 'AI Concept Mode'}</p>
-                        <p className="text-xs text-gray-500">{cdT?.creativeModeConceptDesc || 'Generates image prompts & storyboards'}</p>
+                        <p className="text-xs font-bold text-pink-700">{cdT?.creativeModeConceptLabel || 'AI Concept Mode'}</p>
+                        <p className="text-xs text-slate-500">{cdT?.creativeModeConceptDesc || 'Generates image prompts & storyboards'}</p>
                       </div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
-                    className="w-full py-3 rounded-xl font-bold text-sm transition-all bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center gap-2"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-bold transition-all hover:bg-purple-500"
+                    style={{ color: '#fff' }}
                   >
                     <span>🎨</span>
                     {creativeBrief
@@ -2566,12 +2574,12 @@ function CampaignDetailPageInner() {
                 </div>
 
                 {/* ── Content Hub Entry Card ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm">
                   <div className="flex items-start gap-3 mb-4">
                     <span className="text-2xl">📅</span>
                     <div className="flex-1">
-                      <h3 className="font-bold text-base text-purple-400">Content Hub</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <h3 className="text-base font-semibold text-indigo-700">Content Hub</h3>
+                      <p className="mt-0.5 text-xs text-slate-500">
                         {locale === 'ar'
                           ? 'كل المنشورات الشهرية — معاينة حقيقية + توليد الصور'
                           : 'All monthly posts — real platform previews + AI image generation'}
@@ -2580,13 +2588,13 @@ function CampaignDetailPageInner() {
                   </div>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     {['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok'].map(p => (
-                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>{p}</span>
+                      <span key={p} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{p}</span>
                     ))}
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/content-hub`, '_blank')}
-                    className="w-full py-3 rounded-xl font-bold text-sm transition-all text-white flex items-center justify-center gap-2"
-                    style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.9), rgba(109,40,217,0.9))', border: '1px solid rgba(139,92,246,0.4)' }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold transition-all hover:bg-indigo-500"
+                    style={{ color: '#fff' }}
                   >
                     <span>📅</span>
                     {locale === 'ar' ? 'فتح مركز المحتوى' : 'Open Content Hub'}
@@ -2595,49 +2603,48 @@ function CampaignDetailPageInner() {
                 </div>
 
                 {/* ── Paid Planning Pack Card (planning/brief only — not execution) ── */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-start gap-3 mb-3">
                     <span className="text-2xl">📋</span>
                     <div className="flex-1">
-                      <h3 className="font-bold text-base text-white">
+                      <h3 className="text-base font-semibold text-slate-950">
                         {locale === 'ar' ? 'موجز حملة مدفوعة' : 'Paid Campaign Brief'}
                       </h3>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="mt-0.5 text-xs text-slate-500">
                         {locale === 'ar'
                           ? 'جمهور مستهدف + نسخ إعلانية + دليل تخطيط + تحديث Brand Brain تلقائياً'
                           : 'AI targeting brief + ad copy + step-by-step planning guide + Brand Brain learning loop'}
                       </p>
                     </div>
                   </div>
-                  <p className="text-[11px] mb-4 nx-trust-note">
+                  <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
                     {locale === 'ar'
                       ? 'للتخطيط فقط — لن تُطلق أي إعلانات ولن يُصرف أي مبلغ دون موافقة صريحة.'
                       : 'Planning only — ads will not launch and no budget will be spent without explicit approval.'}
                   </p>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     {['𝓕 Meta', 'G Google', '♪ TikTok', 'in LinkedIn'].map(p => (
-                      <span key={p} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.04)', color: '#9ca3af', border: '1px solid rgba(255,255,255,0.08)' }}>{p}</span>
+                      <span key={p} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">{p}</span>
                     ))}
                   </div>
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
-                    className="w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e5e7eb' }}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                   >
                     {locale === 'ar' ? 'فتح حزمة التخطيط المدفوع' : 'Open Paid Planning Pack'}
-                    <span className="text-gray-400 text-xs">↗</span>
+                    <span className="text-xs text-slate-400">↗</span>
                   </button>
                 </div>
 
                 {/* Visual Direction from strategy */}
                 {strategy.visualDirection && (
-                  <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(168,85,247,0.2)', backdropFilter: 'blur(12px)' }}>
-                    <h3 className="font-bold text-base mb-3 flex items-center gap-2 text-purple-400"><span>🎯</span> {cdT?.sectionVisualDirection}</h3>
-                    <p className="text-gray-300 text-sm leading-relaxed">{strategy.visualDirection}</p>
+                  <div className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
+                    <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-purple-700"><span>🎯</span> {cdT?.sectionVisualDirection}</h3>
+                    <p className="text-sm leading-6 text-slate-700">{strategy.visualDirection}</p>
                   </div>
                 )}
 
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.1)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <VisualGenerator context={visualContext} />
                 </div>
 
@@ -2647,7 +2654,19 @@ function CampaignDetailPageInner() {
             {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
               <div className="space-y-4">
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(34,197,94,0.2)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+                  {!(campaign.status === 'ACTIVE' || approvalState === 'done') && (
+                    <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-900">
+                        {locale === 'ar' ? 'النشر مقفل حالياً' : 'Publishing is locked for now'}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-amber-800">
+                        {locale === 'ar'
+                          ? 'راجع الاستراتيجية وخطة المحتوى أولاً. لا يمكن اختيار النشر الآن أو الجدولة قبل اكتمال المتطلبات.'
+                          : 'Review the strategy and content plan first. Now/Schedule controls should remain secondary until requirements are complete.'}
+                      </p>
+                    </div>
+                  )}
                   <SocialPublisher
                     campaignId={campaign.id}
                     campaignName={campaign.name}
@@ -2662,13 +2681,13 @@ function CampaignDetailPageInner() {
                 {/* ── Learning Loop card — save winning hook back to Brand Brain ── */}
                 {topHooks.length > 0 && (
                   <div className="rounded-2xl p-5 flex items-start gap-4"
-                    style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                    style={{ background: '#fff', border: '1px solid rgb(226,232,240)' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)' }}>
+                      style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
                       <span className="text-lg">🧠</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-white mb-1">
+                      <p className="mb-1 text-sm font-semibold text-slate-950">
                         {locale === 'ar' ? 'علّم عقلك من هذه الحملة' : 'Teach your Brain from this campaign'}
                       </p>
                       <p className="text-xs mb-3" style={{ color: '#64748b' }}>
@@ -2679,7 +2698,7 @@ function CampaignDetailPageInner() {
                       <div className="space-y-2">
                         {topHooks.slice(0, 3).map((hook, i) => (
                           <div key={i} className="flex items-start gap-2 p-3 rounded-xl"
-                            style={{ background: 'rgba(12,13,36,0.6)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                            style={{ background: '#f8fafc', border: '1px solid rgb(226,232,240)' }}>
                             <p className="text-xs flex-1 leading-relaxed" style={{ color: '#94a3b8' }}>
                               "{hook.length > 100 ? hook.slice(0, 100) + '…' : hook}"
                             </p>
@@ -2699,7 +2718,7 @@ function CampaignDetailPageInner() {
                 )}
 
                 {/* Analytics section */}
-                <div className="rounded-2xl p-6" style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(59,130,246,0.2)', backdropFilter: 'blur(12px)' }}>
+                <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
                   <SocialAnalytics campaignId={campaign.id} />
                 </div>
               </div>
@@ -2710,26 +2729,25 @@ function CampaignDetailPageInner() {
               <div className="space-y-4">
 
                 {/* Header card */}
-                <div className="rounded-2xl p-6 border"
-                  style={{ background: 'rgba(109,40,217,0.05)', borderColor: 'rgba(139,92,246,0.25)' }}>
+                <div className="rounded-2xl border border-violet-100 bg-white p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                      style={{ background: '#f5f3ff', border: '1px solid #ddd6fe' }}>
                       <span className="text-lg">🤖</span>
                     </div>
                     <div>
-                      <h3 className="font-bold text-white text-base">
+                      <h3 className="text-base font-semibold text-slate-950">
                         {locale === 'ar' ? 'الأوتوبايلوت' : 'Autopilot'}
                       </h3>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-slate-500">
                         {locale === 'ar'
-                          ? 'ينشر الأوتوبايلوت المحتوى الذي وافقتَ عليه وفق الجدول الذي اعتمدته — فقط بعد تفعيلك له.'
-                          : 'Auto-publishes the content you approved, on the schedule you approved — only after you enable it.'}
+                          ? 'يدعم سير عمل النشر فقط بعد موافقتك الصريحة وتفعيلك له.'
+                          : 'Supports your publishing workflow only after explicit review and enablement.'}
                       </p>
                     </div>
                     {campaign.autopilotEnabled && (
                       <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-                        style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.35)', color: '#a78bfa' }}>
+                        style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#6d28d9' }}>
                         <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
                         {locale === 'ar' ? 'نشط' : 'Active'}
                       </div>
@@ -2737,10 +2755,10 @@ function CampaignDetailPageInner() {
                   </div>
 
                   {/* Trust contract — always visible (enabled or not). Light-lavender card → darken (not on-dark muted). */}
-                  <p className="text-[11px] text-gray-700 leading-relaxed">
+                  <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
                     {locale === 'ar'
-                      ? 'ينشر الأوتوبايلوت المحتوى الذي وافقتَ عليه فقط، وفق الجدول الذي اعتمدته، بعد تفعيلك الصريح له. بدون أي إنفاق إعلاني. يمكنك الإيقاف في أي وقت.'
-                      : 'Autopilot only publishes content you approved, on the schedule you approved, after you explicitly enable it. No ad spend. Pause anytime.'}
+                      ? 'لا يتم نشر أي محتوى أو صرف أي ميزانية من هذه الصفحة بدون مراجعة وتفعيل صريح.'
+                      : 'No content publishes and no budget is spent from this page without explicit review and enablement.'}
                   </p>
 
                   {/* Requirements checklist */}
@@ -2749,14 +2767,14 @@ function CampaignDetailPageInner() {
                       {[
                         { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
                         { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
-                        { label: locale === 'ar' ? 'الحملة معتمدة' : 'Campaign approved', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                        { label: locale === 'ar' ? 'جاهزة لمراجعة المحتوى' : 'Ready for content review', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
                         { label: locale === 'ar' ? 'منصات اجتماعية متصلة' : 'Social platforms connected', done: true /* checked server-side */ },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
-                          <span className={req.done ? 'text-green-400' : 'text-gray-600'}>
+                          <span className={req.done ? 'text-green-600' : 'text-slate-400'}>
                             {req.done ? '✓' : '○'}
                           </span>
-                          <span className={req.done ? 'text-gray-300' : 'text-gray-600'}>{req.label}</span>
+                          <span className={req.done ? 'text-slate-700' : 'text-slate-400'}>{req.label}</span>
                         </div>
                       ))}
                     </div>
@@ -2786,7 +2804,7 @@ function CampaignDetailPageInner() {
                           }}
                           disabled={autopilotPausing}
                           className="px-4 py-2 rounded-xl border text-xs font-semibold transition"
-                          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+                          style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c' }}>
                           {autopilotPausing ? '...' : (locale === 'ar' ? '⏸ إيقاف الأوتوبايلوت' : '⏸ Pause Autopilot')}
                         </button>
                         <button
@@ -2800,7 +2818,7 @@ function CampaignDetailPageInner() {
                             if (d.posts) setAutopilotQueue(d.posts)
                           }}
                           className="px-4 py-2 rounded-xl border text-xs font-semibold transition"
-                          style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                          style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#6d28d9' }}>
                           {locale === 'ar' ? '↻ تحديث القائمة' : '↻ Refresh Queue'}
                         </button>
                       </>
@@ -2834,11 +2852,11 @@ function CampaignDetailPageInner() {
                         className="px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-40"
                         style={{
                           background: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
-                            ? 'rgba(255,255,255,0.05)'
-                            : 'rgba(139,92,246,0.15)',
+                            ? '#f1f5f9'
+                            : '#f5f3ff',
                           color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
-                            ? '#6b7280' : '#c4b5fd',
-                          border: '1px solid rgba(139,92,246,0.3)',
+                            ? '#94a3b8' : '#6d28d9',
+                          border: '1px solid #ddd6fe',
                         }}>
                         {autopilotActivating
                           ? (locale === 'ar' ? 'جاري التفعيل…' : 'Enabling…')
@@ -2848,17 +2866,17 @@ function CampaignDetailPageInner() {
                   </div>
 
                   {autopilotError && (
-                    <p className="text-red-400 text-xs mt-3">⚠ {autopilotError}</p>
+                    <p className="mt-3 text-xs text-red-600">⚠ {autopilotError}</p>
                   )}
                   {!aiOutput && (
-                    <p className="text-amber-500/70 text-xs mt-3">
+                    <p className="mt-3 text-xs text-amber-700">
                       {locale === 'ar'
                         ? '⚠ يجب تشغيل "الاستراتيجية الكاملة" أولاً لتفعيل الأوتوبايلوت'
                         : '⚠ Run Full Strategy first to enable Autopilot'}
                     </p>
                   )}
                   {aiOutput && weeklyExecutionPlan.length === 0 && (
-                    <p className="text-amber-500/70 text-xs mt-3">
+                    <p className="mt-3 text-xs text-amber-700">
                       {locale === 'ar'
                         ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — أعد توليد الاستراتيجية'
                         : '⚠ No weekly execution plan found — regenerate the strategy'}
@@ -2868,23 +2886,22 @@ function CampaignDetailPageInner() {
 
                 {/* Queue table */}
                 {autopilotQueue.length > 0 && (
-                  <div className="rounded-2xl border overflow-hidden"
-                    style={{ background: 'rgba(12,13,36,0.6)', borderColor: 'rgba(139,92,246,0.15)' }}>
-                    <div className="px-5 py-4 border-b" style={{ borderColor: 'rgba(139,92,246,0.1)' }}>
-                      <h4 className="font-semibold text-white text-sm flex items-center gap-2">
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-200 px-5 py-4">
+                      <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950">
                         <span>📅</span>
                         {locale === 'ar'
-                          ? `قائمة الجدولة — ${autopilotQueue.length} منشور`
-                          : `Scheduled Queue — ${autopilotQueue.length} posts`}
+                          ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'قائمة المحتوى المجدول' : 'قائمة المحتوى المخطط'} — ${autopilotQueue.length} منشور`
+                          : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Scheduled content queue' : 'Planned content queue'} — ${autopilotQueue.length} posts`}
                       </h4>
                     </div>
-                    <div className="divide-y" style={{ borderColor: 'rgba(139,92,246,0.08)' }}>
+                    <div className="divide-y divide-slate-100">
                       {autopilotQueue.map((post) => {
                         const statusColors: Record<string, { bg: string; text: string; label: string }> = {
-                          SCHEDULED:  { bg: 'rgba(139,92,246,0.12)', text: '#a78bfa', label: locale === 'ar' ? 'مجدول' : 'Scheduled' },
-                          PUBLISHED:  { bg: 'rgba(16,185,129,0.12)', text: '#34d399', label: locale === 'ar' ? 'منشور' : 'Published' },
-                          FAILED:     { bg: 'rgba(239,68,68,0.12)',   text: '#f87171', label: locale === 'ar' ? 'فشل' : 'Failed' },
-                          DRAFT:      { bg: 'rgba(107,114,128,0.12)', text: '#9ca3af', label: locale === 'ar' ? 'موقف' : 'Paused' },
+                          SCHEDULED:  { bg: '#f5f3ff', text: '#6d28d9', label: post.scheduledAt ? (locale === 'ar' ? 'مجدول' : 'Scheduled') : (locale === 'ar' ? 'مخطط' : 'Planned') },
+                          PUBLISHED:  { bg: '#ecfdf5', text: '#047857', label: locale === 'ar' ? 'منشور' : 'Published' },
+                          FAILED:     { bg: '#fef2f2', text: '#b91c1c', label: locale === 'ar' ? 'فشل' : 'Failed' },
+                          DRAFT:      { bg: '#f1f5f9', text: '#64748b', label: locale === 'ar' ? 'مسودة' : 'Draft' },
                         }
                         const sc = statusColors[post.status] || statusColors.DRAFT
                         const platformIcons: Record<string, string> = { META: '👥', LINKEDIN: '💼', TIKTOK: '🎵' }
@@ -2893,11 +2910,11 @@ function CampaignDetailPageInner() {
                           <div key={post.id} className="flex items-start gap-4 px-5 py-4">
                             {/* Image preview */}
                             <div className="w-14 h-14 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center"
-                              style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                               {post.imageUrl ? (
                                 <img src={post.imageUrl} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-gray-600 text-lg">🖼</span>
+                                <span className="text-lg text-slate-400">🖼</span>
                               )}
                             </div>
 
@@ -2906,11 +2923,11 @@ function CampaignDetailPageInner() {
                               <div className="flex items-center gap-2 mb-1 flex-wrap">
                                 {post.weekNumber && (
                                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                                    style={{ background: 'rgba(139,92,246,0.1)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.2)' }}>
+                                    style={{ background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe' }}>
                                     {locale === 'ar' ? `الأسبوع ${post.weekNumber}` : `Week ${post.weekNumber}`}
                                   </span>
                                 )}
-                                <span className="text-xs font-medium" style={{ color: '#9ca3af' }}>
+                                <span className="text-xs font-medium" style={{ color: '#64748b' }}>
                                   {platformIcons[post.platform] || '🌐'} {post.pageName || post.platform}
                                 </span>
                                 <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
@@ -2918,14 +2935,14 @@ function CampaignDetailPageInner() {
                                   {sc.label}
                                 </span>
                                 {!post.imageUrl && post.status === 'SCHEDULED' && (
-                                  <span className="text-xs text-amber-500/60">
+                                  <span className="text-xs text-amber-700">
                                     {locale === 'ar' ? '⏳ الصورة تُولَّد تلقائياً' : '⏳ Image auto-generating'}
                                   </span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-400 line-clamp-2">{post.caption}</p>
+                              <p className="line-clamp-2 text-xs text-slate-600">{post.caption}</p>
                               {post.scheduledAt && (
-                                <p className="text-xs text-gray-600 mt-1">
+                                <p className="mt-1 text-xs text-slate-400">
                                   📅 {new Date(post.scheduledAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
                                     weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                                   })}
@@ -2941,13 +2958,12 @@ function CampaignDetailPageInner() {
 
                 {/* Empty state when autopilot is active but queue was just loaded */}
                 {campaign.autopilotEnabled && autopilotQueue.length === 0 && (
-                  <div className="rounded-2xl p-8 text-center border"
-                    style={{ background: 'rgba(12,13,36,0.4)', borderColor: 'rgba(139,92,246,0.1)' }}>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                     <div className="text-3xl mb-3">🤖</div>
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-sm text-slate-500">
                       {locale === 'ar'
                         ? 'جاري تحميل قائمة المنشورات...'
-                        : 'Loading scheduled queue...'}
+                        : 'Loading content queue...'}
                     </p>
                     <button
                       onClick={async () => {
@@ -2959,7 +2975,7 @@ function CampaignDetailPageInner() {
                         const d = await res.json()
                         if (d.posts) setAutopilotQueue(d.posts)
                       }}
-                      className="mt-3 text-xs text-violet-400 hover:text-violet-300 transition">
+                      className="mt-3 text-xs text-violet-700 transition hover:text-violet-600">
                       {locale === 'ar' ? '↻ تحميل' : '↻ Load queue'}
                     </button>
                   </div>
@@ -2967,26 +2983,25 @@ function CampaignDetailPageInner() {
 
                 {/* How it works */}
                 {!campaign.autopilotEnabled && (
-                  <div className="rounded-2xl p-5 border"
-                    style={{ background: 'rgba(12,13,36,0.4)', borderColor: 'rgba(255,255,255,0.05)' }}>
-                    <h4 className="text-sm font-semibold text-gray-400 mb-3">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h4 className="mb-3 text-sm font-semibold text-slate-700">
                       {locale === 'ar' ? '⚡ كيف يعمل الأوتوبايلوت' : '⚡ How Autopilot works'}
                     </h4>
                     <div className="space-y-2.5">
                       {(locale === 'ar' ? [
                         { icon: '🧠', label: 'يقرأ خطة التنفيذ الأسبوعية من الاستراتيجية' },
                         { icon: '✍️', label: 'يولد كابشن احترافي لكل منشور بناءً على الرسالة والـ CTA' },
-                        { icon: '🎨', label: 'قبل 48 ساعة من الموعد، يولد صورة تلقائياً بـ DALL-E 3' },
-                        { icon: '📤', label: 'في كل موعد مجدول، ينشر على منصاتك المتصلة — فقط بعد تفعيلك للأوتوبايلوت' },
+                        { icon: '🎨', label: 'يمكن إعداد صورة لكل منشور قبل الموعد عند اكتمال المتطلبات' },
+                        { icon: '📤', label: 'لا ينشر أي محتوى إلا بعد مراجعة وتفعيل صريح' },
                       ] : [
                         { icon: '🧠', label: 'Reads the weekly execution plan from your strategy' },
                         { icon: '✍️', label: 'Generates a professional caption for each post based on the key message + CTA' },
-                        { icon: '🎨', label: '48h before each post, auto-generates an image with DALL-E 3' },
-                        { icon: '📤', label: 'At each scheduled time, publishes to your connected platforms — only after you enable Autopilot' },
+                        { icon: '🎨', label: 'Can prepare an image for each post when requirements are complete' },
+                        { icon: '📤', label: 'Does not publish content without explicit review and enablement' },
                       ]).map((step, i) => (
                         <div key={i} className="flex items-start gap-3">
                           <span className="text-sm flex-shrink-0 mt-0.5">{step.icon}</span>
-                          <p className="text-xs text-gray-500">{step.label}</p>
+                          <p className="text-xs text-slate-500">{step.label}</p>
                         </div>
                       ))}
                     </div>
@@ -3005,16 +3020,26 @@ function CampaignDetailPageInner() {
                 )}
 
                 {!perfLoading && !perfData && (
-                  <div className="rounded-2xl p-8 text-center"
-                    style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
                     <div className="text-4xl mb-3">📊</div>
-                    <h3 className="font-bold text-white text-base mb-1">No performance data yet</h3>
-                    <p className="text-sm text-gray-400">Data appears here after posts are published and analytics are fetched (24-48h after publishing).</p>
+                    <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
+                    <p className="text-sm text-slate-500">Data appears here only after posts are published and analytics are fetched.</p>
                   </div>
                 )}
 
                 {!perfLoading && perfData && (() => {
                   const s = perfData.summary
+                  if (!s || Number(s.publishedPosts ?? 0) <= 0) {
+                    return (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                        <div className="text-4xl mb-3">📊</div>
+                        <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
+                        <p className="mx-auto max-w-xl text-sm text-slate-500">
+                          This campaign has planned or draft content, but performance appears only after posts are published and analytics are fetched.
+                        </p>
+                      </div>
+                    )
+                  }
                   const platforms: Record<string, any> = perfData.platformBreakdown ?? {}
                   const topPosts: any[] = perfData.topPosts ?? []
                   const trend: any[] = perfData.trend ?? []
@@ -3036,11 +3061,10 @@ function CampaignDetailPageInner() {
                           { label: 'Engagements',      value: s.totalEngagements.toLocaleString(), icon: '💬', color: '#34d399' },
                           { label: 'Avg Engagement',   value: `${s.avgEngagementRate}%`,           icon: '📈', color: '#fb923c' },
                         ].map(kpi => (
-                          <div key={kpi.label} className="rounded-2xl p-4"
-                            style={{ background: 'rgba(10,11,28,0.85)', border: `1px solid ${kpi.color}25` }}>
+                          <div key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-base">{kpi.icon}</span>
-                              <span className="text-xs text-gray-500 font-medium">{kpi.label}</span>
+                              <span className="text-xs font-medium text-slate-500">{kpi.label}</span>
                             </div>
                             <div className="text-2xl font-bold" style={{ color: kpi.color }}>{kpi.value}</div>
                           </div>
@@ -3048,8 +3072,7 @@ function CampaignDetailPageInner() {
                       </div>
 
                       {/* Posts status row */}
-                      <div className="rounded-2xl p-4 flex flex-wrap gap-6"
-                        style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="flex flex-wrap gap-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         {[
                           ['Total Posts', s.totalPosts, '#9ca3af'],
                           ['Published',   s.publishedPosts, '#34d399'],
@@ -3058,11 +3081,11 @@ function CampaignDetailPageInner() {
                         ].map(([label, val, color]) => (
                           <div key={String(label)} className="text-center">
                             <div className="text-xl font-bold" style={{ color: String(color) }}>{val}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+                            <div className="mt-0.5 text-xs text-slate-500">{label}</div>
                           </div>
                         ))}
                         {s.pendingAnalytics > 0 && (
-                          <p className="text-xs text-amber-400/70 ml-auto self-center">
+                          <p className="ml-auto self-center text-xs text-amber-700">
                             Analytics are fetched automatically 24-72h after publishing
                           </p>
                         )}
@@ -3070,9 +3093,8 @@ function CampaignDetailPageInner() {
 
                       {/* Platform breakdown */}
                       {Object.keys(platforms).length > 0 && (
-                        <div className="rounded-2xl p-5"
-                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <h4 className="font-semibold text-white text-sm mb-4">Platform Breakdown</h4>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <h4 className="mb-4 text-sm font-semibold text-slate-950">Platform Breakdown</h4>
                           <div className="space-y-3">
                             {Object.entries(platforms).map(([platform, data]: [string, any]) => {
                               const color = PLATFORM_COLORS[platform] ?? '#6366f1'
@@ -3084,15 +3106,15 @@ function CampaignDetailPageInner() {
                                   <div className="flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-2">
                                       <span>{icon}</span>
-                                      <span className="text-sm text-white font-medium">{platform}</span>
-                                      <span className="text-xs text-gray-500">{data.posts} posts</span>
+                                      <span className="text-sm font-medium text-slate-800">{platform}</span>
+                                      <span className="text-xs text-slate-500">{data.posts} posts</span>
                                     </div>
-                                    <div className="flex gap-4 text-xs text-gray-400">
+                                    <div className="flex gap-4 text-xs text-slate-500">
                                       <span>{data.reach?.toLocaleString()} reach</span>
                                       <span className="font-semibold" style={{ color }}>{data.avgEngagementRate}%</span>
                                     </div>
                                   </div>
-                                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                                  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
                                     <div className="h-full rounded-full transition-all duration-700"
                                       style={{ width: `${barWidth}%`, background: color }} />
                                   </div>
@@ -3105,9 +3127,8 @@ function CampaignDetailPageInner() {
 
                       {/* Engagement trend */}
                       {trend.length > 1 && (
-                        <div className="rounded-2xl p-5"
-                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <h4 className="font-semibold text-white text-sm mb-4">Engagement Trend</h4>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <h4 className="mb-4 text-sm font-semibold text-slate-950">Engagement Trend</h4>
                           <div className="flex items-end gap-1 h-20">
                             {(() => {
                               const maxEng = Math.max(...trend.map(t => t.engagements), 1)
@@ -3126,7 +3147,7 @@ function CampaignDetailPageInner() {
                               ))
                             })()}
                           </div>
-                          <div className="flex justify-between text-xs text-gray-600 mt-1">
+                          <div className="mt-1 flex justify-between text-xs text-slate-400">
                             <span>{trend[0]?.date?.slice(5)}</span>
                             <span>{trend[trend.length - 1]?.date?.slice(5)}</span>
                           </div>
@@ -3135,18 +3156,16 @@ function CampaignDetailPageInner() {
 
                       {/* Top posts */}
                       {topPosts.length > 0 && (
-                        <div className="rounded-2xl p-5"
-                          style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          <h4 className="font-semibold text-white text-sm mb-4">🏆 Top Performing Posts</h4>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <h4 className="mb-4 text-sm font-semibold text-slate-950">🏆 Top Performing Posts</h4>
                           <div className="space-y-3">
                             {topPosts.map((post, i) => (
-                              <div key={post.id} className="flex gap-3 p-3 rounded-xl"
-                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                              <div key={post.id} className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                                   style={{
-                                    background: i === 0 ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.05)',
-                                    color: i === 0 ? '#fbbf24' : '#6b7280',
-                                    border: `1px solid ${i === 0 ? 'rgba(251,191,36,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                    background: i === 0 ? '#fef3c7' : '#f1f5f9',
+                                    color: i === 0 ? '#b45309' : '#64748b',
+                                    border: `1px solid ${i === 0 ? '#fde68a' : '#e2e8f0'}`,
                                   }}>
                                   {i + 1}
                                 </div>
@@ -3154,7 +3173,7 @@ function CampaignDetailPageInner() {
                                   <img src={post.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
                                 )}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-gray-300 line-clamp-2">{post.caption}</p>
+                                  <p className="line-clamp-2 text-sm text-slate-700">{post.caption}</p>
                                   <div className="flex gap-3 mt-1 text-xs text-gray-500">
                                     <span>{PLATFORM_ICONS[String(post.platform)] ?? '📣'} {post.platform}</span>
                                     <span>❤️ {post.likes}</span>

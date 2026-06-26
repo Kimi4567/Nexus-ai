@@ -290,17 +290,17 @@ export default function SocialPublisher({
     return (
       <div className="text-center py-12 space-y-4">
         <div className="text-4xl">📱</div>
-        <h3 className="font-bold text-base text-white">
+        <h3 className="text-base font-semibold text-slate-950">
           {ar ? 'لا توجد حسابات مربوطة' : 'No connected accounts'}
         </h3>
-        <p className="text-sm text-gray-500 max-w-xs mx-auto">
+        <p className="mx-auto max-w-xs text-sm text-slate-500">
           {ar
             ? 'ربط حساب Facebook أو Instagram من صفحة الاتصالات للبدء في النشر'
             : 'Connect a Facebook or Instagram account on the Connections page to start publishing'}
         </p>
         <a
           href="/connections"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/20 border border-accent/30 text-accent text-sm font-semibold hover:bg-accent/30 transition-all"
+          className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-all hover:bg-indigo-100"
         >
           <Zap className="w-4 h-4" />
           {ar ? 'ربط حساب الآن' : 'Connect account now'}
@@ -310,9 +310,9 @@ export default function SocialPublisher({
         {/* Honest readiness note — publishing is unavailable until an account is
             connected, and Meta may require app-permission review first. */}
         <div className="max-w-sm mx-auto mt-2 rounded-xl px-3 py-2.5 flex items-start gap-2 text-start"
-          style={{ background: 'rgba(255,184,0,0.06)', border: '1px solid rgba(255,184,0,0.2)' }}>
+          style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
-          <p className="text-[11px] leading-snug text-gray-400">
+          <p className="text-[11px] leading-snug text-amber-800">
             {ar
               ? 'النشر غير متاح حتى تربط حساباً. قد يتطلب Facebook/Instagram مراجعة أذونات التطبيق (Meta App Review) قبل تفعيل النشر المباشر.'
               : 'Publishing is unavailable until an account is connected. Facebook/Instagram may require Meta App Review of publishing permissions before live posting is enabled.'}
@@ -345,17 +345,17 @@ export default function SocialPublisher({
         <div className="flex items-center gap-3">
           <span className="text-2xl">📤</span>
           <div>
-            <h3 className="font-bold text-base text-white">
+            <h3 className="text-base font-semibold text-slate-950">
               {ar ? 'النشر على السوشيال ميديا' : 'Publish to Social Media'}
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {ar ? 'انشر محتوى الحملة مباشرة من هنا' : 'Publish campaign content directly from here'}
+            <p className="mt-0.5 text-xs text-slate-500">
+              {ar ? 'راجع المتطلبات قبل النشر أو الجدولة' : 'Review requirements before publishing or scheduling'}
             </p>
           </div>
         </div>
         <button
           onClick={() => { loadAccounts(); loadPosts() }}
-          className="p-1.5 rounded-lg hover:bg-dark-tertiary text-gray-500 hover:text-gray-300 transition-all"
+          className="rounded-lg p-1.5 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-700"
           title={ar ? 'تحديث' : 'Refresh'}
         >
           <RefreshCw className="w-3.5 h-3.5" />
@@ -363,8 +363,8 @@ export default function SocialPublisher({
       </div>
 
       {/* Account + Page selector */}
-      <div className="bg-dark-tertiary rounded-2xl p-4 space-y-3">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
           {ar ? 'الحساب والصفحة' : 'Account & Page'}
         </p>
 
@@ -380,19 +380,19 @@ export default function SocialPublisher({
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all text-left ${
                 selectedAccount?.id === acc.id
                   ? 'border-blue-500/50 bg-blue-500/10'
-                  : 'border-dark-tertiary bg-dark-secondary hover:border-gray-600'
+                  : 'border-slate-200 bg-slate-50 hover:border-slate-300'
               }`}
             >
               {acc.pictureUrl ? (
                 <img src={acc.pictureUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold" style={{ color: '#fff' }}>
                   {acc.accountName?.[0] || 'F'}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{acc.accountName}</p>
-                <p className="text-xs text-gray-500">Facebook / Instagram · {acc.pages.length} {ar ? 'صفحة' : 'page(s)'}</p>
+                <p className="truncate text-sm font-semibold text-slate-950">{acc.accountName}</p>
+                <p className="text-xs text-slate-500">Facebook / Instagram · {acc.pages.length} {ar ? 'صفحة' : 'page(s)'}</p>
               </div>
               {selectedAccount?.id === acc.id && (
                 <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
@@ -403,9 +403,9 @@ export default function SocialPublisher({
 
         {/* No pages warning */}
         {selectedAccount && selectedAccount.pages.length === 0 && (
-          <div className="px-3 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs space-y-1">
+          <div className="space-y-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
             <p className="font-semibold">⚠️ {ar ? 'لا توجد صفحات مربوطة' : 'No Facebook Pages found'}</p>
-            <p className="text-amber-400/80 leading-relaxed">
+            <p className="leading-relaxed text-amber-700">
               {ar
                 ? 'لنشر على Facebook أو Instagram عبر API، تحتاج إلى صفحة Facebook Business مربوطة بحسابك.'
                 : 'To publish via the API, you need a Facebook Business Page linked to your account.'}
@@ -424,7 +424,7 @@ export default function SocialPublisher({
         {/* Page selector */}
         {selectedAccount && selectedAccount.pages.length > 0 && (
           <div>
-            <p className="text-xs text-gray-500 mb-2">{ar ? 'اختر الصفحة' : 'Select page'}</p>
+            <p className="mb-2 text-xs text-slate-500">{ar ? 'اختر الصفحة' : 'Select page'}</p>
             <div className="grid grid-cols-1 gap-1.5">
               {selectedAccount.pages.map(page => (
                 <button
@@ -433,7 +433,7 @@ export default function SocialPublisher({
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-xl border transition-all text-left ${
                     selectedPage?.id === page.id
                       ? 'border-accent/50 bg-accent/10'
-                      : 'border-transparent bg-dark-secondary hover:border-gray-700'
+                      : 'border-slate-200 bg-slate-50 hover:border-slate-300'
                   }`}
                 >
                   {page.igAccountId ? (
@@ -441,7 +441,7 @@ export default function SocialPublisher({
                   ) : (
                     <span className="text-blue-400 text-sm flex-shrink-0">👥</span>
                   )}
-                  <span className="text-sm text-gray-300 flex-1 truncate">{page.name}</span>
+                  <span className="flex-1 truncate text-sm text-slate-700">{page.name}</span>
                   {page.igAccountId && (
                     <span className="text-xs text-pink-400 bg-pink-500/10 border border-pink-500/20 px-1.5 py-0.5 rounded-full flex-shrink-0">IG</span>
                   )}
@@ -462,7 +462,7 @@ export default function SocialPublisher({
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-sm font-semibold transition-all ${
                 platform === 'FACEBOOK'
                   ? 'border-blue-500/50 bg-blue-500/10 text-blue-300'
-                  : 'border-transparent bg-dark-secondary text-gray-500 hover:text-gray-300'
+                  : 'border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-700'
               }`}
             >
               👥 Facebook
@@ -472,7 +472,7 @@ export default function SocialPublisher({
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border text-sm font-semibold transition-all ${
                 platform === 'INSTAGRAM'
                   ? 'border-pink-500/50 bg-pink-500/10 text-pink-300'
-                  : 'border-transparent bg-dark-secondary text-gray-500 hover:text-gray-300'
+                  : 'border-slate-200 bg-slate-50 text-slate-500 hover:text-slate-700'
               }`}
             >
               📸 Instagram
@@ -484,7 +484,7 @@ export default function SocialPublisher({
       {/* Caption composer */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             {ar ? 'نص المنشور' : 'Post Caption'}
           </p>
           {allSuggestions.length > 0 && (
@@ -501,14 +501,14 @@ export default function SocialPublisher({
 
         {/* Suggestions */}
         {showSuggestions && allSuggestions.length > 0 && (
-          <div className="bg-dark-tertiary rounded-xl p-3 space-y-2 border border-accent/20">
-            <p className="text-xs text-gray-500">{ar ? 'اضغط لاستخدام' : 'Click to use'}</p>
+          <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+            <p className="text-xs text-slate-500">{ar ? 'اضغط لاستخدام' : 'Click to use'}</p>
             <div className="space-y-1.5 max-h-48 overflow-y-auto">
               {allSuggestions.map((s, i) => (
                 <button
                   key={i}
                   onClick={() => { setCaption(s); setShowSuggestions(false) }}
-                  className="w-full text-left text-xs text-gray-300 px-3 py-2 rounded-lg hover:bg-dark-secondary hover:text-white transition-all border border-transparent hover:border-accent/20 truncate"
+                  className="w-full truncate rounded-lg border border-transparent px-3 py-2 text-left text-xs text-slate-700 transition-all hover:border-indigo-200 hover:bg-white hover:text-indigo-700"
                 >
                   {s}
                 </button>
@@ -522,15 +522,15 @@ export default function SocialPublisher({
           onChange={e => setCaption(e.target.value)}
           placeholder={ar ? 'اكتب نص المنشور هنا...' : 'Write your post caption here...'}
           rows={4}
-          className="w-full bg-dark-tertiary border border-dark-tertiary focus:border-accent/50 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 resize-none focus:outline-none transition-colors"
+          className="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 placeholder-slate-400 transition-colors focus:border-indigo-300 focus:outline-none"
           dir={ar ? 'rtl' : 'ltr'}
         />
-        <p className="text-xs text-gray-600 text-right">{caption.length} {ar ? 'حرف' : 'chars'}</p>
+        <p className="text-right text-xs text-slate-400">{caption.length} {ar ? 'حرف' : 'chars'}</p>
       </div>
 
       {/* Image URL */}
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
           <ImageIcon className="w-3 h-3" />
           {ar ? 'رابط الصورة (اختياري)' : 'Image URL (optional)'}
         </p>
@@ -539,7 +539,7 @@ export default function SocialPublisher({
           value={imageUrl}
           onChange={e => setImageUrl(e.target.value)}
           placeholder="https://..."
-          className="w-full bg-dark-tertiary border border-dark-tertiary focus:border-accent/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none transition-colors"
+          className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 transition-colors focus:border-indigo-300 focus:outline-none"
         />
         {platform === 'INSTAGRAM' && !imageUrl && (
           <p className="text-xs text-amber-400 flex items-center gap-1">
@@ -551,14 +551,19 @@ export default function SocialPublisher({
 
       {/* Mode selector — compact toggle */}
       <div className="flex items-center gap-2">
-        <p className="text-xs text-gray-500 flex-shrink-0">{ar ? 'وقت النشر:' : 'Publish:'}</p>
-        <div className="flex gap-1 bg-dark-tertiary rounded-xl p-1">
+        <p className="flex-shrink-0 text-xs text-slate-500">{ar ? 'وقت النشر:' : 'Publish:'}</p>
+        <div className={`flex gap-1 rounded-xl border border-slate-200 p-1 ${
+          readiness.status === 'locked' ? 'bg-slate-50 opacity-75' : 'bg-slate-100'
+        }`}>
           <button
             onClick={() => setMode('now')}
+            disabled={readiness.status === 'locked'}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'now'
+              readiness.status === 'locked'
+                ? 'cursor-not-allowed text-slate-400'
+                : mode === 'now'
                 ? 'bg-accent text-black'
-                : 'text-gray-500 hover:text-gray-300'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Send className="w-3 h-3" />
@@ -566,10 +571,14 @@ export default function SocialPublisher({
           </button>
           <button
             onClick={() => setMode('schedule')}
+            disabled={readiness.status === 'locked'}
+            style={{ color: readiness.status !== 'locked' && mode === 'schedule' ? '#fff' : undefined }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'schedule'
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-500 hover:text-gray-300'
+              readiness.status === 'locked'
+                ? 'cursor-not-allowed text-slate-400'
+                : mode === 'schedule'
+                ? 'bg-blue-600'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             <Clock className="w-3 h-3" />
@@ -579,13 +588,13 @@ export default function SocialPublisher({
       </div>
 
       {/* Schedule datetime */}
-      {mode === 'schedule' && (
+      {mode === 'schedule' && readiness.status !== 'locked' && (
         <input
           type="datetime-local"
           value={scheduledAt}
           onChange={e => setScheduledAt(e.target.value)}
           min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
-          className="w-full bg-dark-tertiary border border-blue-500/30 focus:border-blue-500/50 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none transition-colors"
+          className="w-full rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm text-slate-800 transition-colors focus:border-blue-300 focus:outline-none"
         />
       )}
 
@@ -603,7 +612,7 @@ export default function SocialPublisher({
                 <p className="font-semibold">
                   {mode === 'schedule'
                     ? (ar ? 'تمت الجدولة بنجاح ✓' : 'Scheduled successfully ✓')
-                    : (ar ? 'تم النشر بنجاح ✓' : 'Published successfully ✓')
+                    : (ar ? 'تمت عملية النشر بنجاح ✓' : 'Publishing completed ✓')
                   }
                 </p>
                 {result.url && (
@@ -612,7 +621,7 @@ export default function SocialPublisher({
                   </a>
                 )}
                 {mode !== 'schedule' && (
-                  <p className="text-[11px] text-gray-400 mt-1.5 leading-snug font-normal">
+                  <p className="mt-1.5 text-[11px] font-normal leading-snug text-slate-500">
                     {ar
                       ? 'يفتح "عرض المنشور" المنصة وقد لا يكون متاحًا إذا حُذف هناك. تظهر التحليلات عادةً خلال 24–72 ساعة؛ إذا حذفت المنشور على المنصة فلن يمكن جلب تحليلاته.'
                       : '"View post" opens the platform and may be unavailable if the post was deleted there. Analytics usually arrive within 24–72h; if you delete the post on the platform, its analytics can no longer be fetched.'}
@@ -635,7 +644,7 @@ export default function SocialPublisher({
             <p className="text-xs font-semibold text-red-400">
               {ar ? readiness.title.ar : readiness.title.en}
             </p>
-            <p className="text-[11px] text-gray-400 leading-snug mt-0.5">
+            <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
               {ar ? readiness.copy.ar : readiness.copy.en}
             </p>
           </div>
@@ -648,7 +657,7 @@ export default function SocialPublisher({
             <p className="text-xs font-semibold text-green-400">
               {ar ? readiness.title.ar : readiness.title.en}
             </p>
-            <p className="text-[11px] text-gray-400 leading-snug mt-0.5">
+            <p className="mt-0.5 text-[11px] leading-snug text-slate-600">
               {ar ? readiness.copy.ar : readiness.copy.en}
             </p>
           </div>
@@ -659,7 +668,8 @@ export default function SocialPublisher({
       <button
         onClick={handlePublish}
         disabled={!canPublish || publishing}
-        className="w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed bg-accent hover:bg-accent/90 text-black"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:opacity-100"
+        style={{ color: canPublish && !publishing ? '#fff' : undefined }}
       >
         {publishing ? (
           <>
@@ -687,38 +697,38 @@ export default function SocialPublisher({
 
       {/* Published history */}
       {posts.length > 0 && (
-        <div className="space-y-3 pt-2 border-t border-dark-tertiary">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider pt-2">
+        <div className="space-y-3 border-t border-slate-200 pt-2">
+          <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
             {ar ? 'سجل المنشورات' : 'Post History'}
           </p>
-          <p className="text-[11px] text-gray-500 leading-snug">
+          <p className="text-[11px] leading-snug text-slate-500">
             {ar
               ? '"إزالة" تحذف من Nexus فقط ولا تحذف من المنصة. التحليلات غير متاحة للمنشورات المحذوفة على المنصة.'
               : '"Remove" clears it from Nexus only — not from the platform. Analytics aren\'t available for posts deleted on the platform.'}
           </p>
           <div className="space-y-2">
             {posts.map(post => (
-              <div key={post.id} className="flex items-start gap-3 px-3 py-2.5 rounded-xl bg-dark-tertiary">
+              <div key={post.id} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 {post.platform === 'INSTAGRAM' ? (
                     <span className="text-pink-400 flex-shrink-0 mt-0.5">📸</span>
                   ) : (
                     <span className="text-blue-400 flex-shrink-0 mt-0.5">👥</span>
                   )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-300 truncate">{post.caption}</p>
+                  <p className="truncate text-xs text-slate-700">{post.caption}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                      post.status === 'PUBLISHED' ? 'bg-green-500/10 text-green-400' :
-                      post.status === 'SCHEDULED' ? 'bg-blue-500/10 text-blue-400' :
-                      post.status === 'FAILED'    ? 'bg-red-500/10 text-red-400' :
-                      'bg-gray-500/10 text-gray-400'
+                      post.status === 'PUBLISHED' ? 'bg-green-50 text-green-700 border border-green-200' :
+                      post.status === 'SCHEDULED' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                      post.status === 'FAILED'    ? 'bg-red-50 text-red-700 border border-red-200' :
+                      'bg-slate-100 text-slate-500 border border-slate-200'
                     }`}>
                       {post.status === 'PUBLISHED' ? (ar ? 'منشور' : 'Published') :
                        post.status === 'SCHEDULED' ? (ar ? 'مجدول' : 'Scheduled') :
                        post.status === 'FAILED'    ? (ar ? 'فشل' : 'Failed') :
                        post.status}
                     </span>
-                    <span className="text-xs text-gray-600">
+                    <span className="text-xs text-slate-400">
                       {post.publishedAt
                         ? new Date(post.publishedAt).toLocaleDateString(ar ? 'ar-SA' : 'en-US')
                         : post.scheduledAt
