@@ -46,4 +46,10 @@ describe('Content Hub operating-state copy', () => {
     expect(CAMPAIGN_SRC).toMatch(/approved posts are not linked/)
     expect(CAMPAIGN_SRC).not.toMatch(/enable auto-publishing/)
   })
+
+  it('counts scheduled content only when scheduledAt is valid', () => {
+    expect(CAMPAIGN_SRC).toContain('function hasValidDate')
+    expect(CAMPAIGN_SRC).toContain("p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt)")
+    expect(CAMPAIGN_SRC).not.toContain("const scheduledCount = posts.filter(p => p.status === 'SCHEDULED').length")
+  })
 })

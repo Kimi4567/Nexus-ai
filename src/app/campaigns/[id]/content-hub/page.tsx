@@ -177,6 +177,12 @@ function platformHomeUrl(platform: string): string | null {
   return PLATFORM_HOME_URLS[platform?.toUpperCase()] ?? null
 }
 
+function hasValidDate(value: string | Date | null | undefined): boolean {
+  if (!value) return false
+  const date = value instanceof Date ? value : new Date(value)
+  return !Number.isNaN(date.getTime())
+}
+
 export default function ContentHubPage() {
   const params = useParams()
   const router = useRouter()
@@ -323,7 +329,7 @@ export default function ContentHubPage() {
   const progress = totalImagePosts > 0 ? Math.round((doneCount / totalImagePosts) * 100) : 0
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
-  const scheduledCount = posts.filter(p => p.status === 'SCHEDULED').length
+  const scheduledCount = posts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt)).length
   const operatingState = deriveCampaignOperatingState({ campaign, posts })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
