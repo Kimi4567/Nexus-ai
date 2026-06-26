@@ -12,8 +12,9 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 const { mockPrisma, tx, stripe, mockStripeHelpers } = vi.hoisted(() => {
   const tx = {
     subscription: { upsert: vi.fn(), updateMany: vi.fn() },
-    user: { update: vi.fn() },
+    user: { findUnique: vi.fn(), update: vi.fn() },
     creditGrant: { createMany: vi.fn(), updateMany: vi.fn() },
+    creditTransaction: { create: vi.fn() },
   }
   const stripe = {
     webhooks: { constructEvent: vi.fn() },
@@ -73,6 +74,8 @@ beforeEach(() => {
   tx.creditGrant.createMany.mockResolvedValue({ count: 1 })
   tx.creditGrant.updateMany.mockResolvedValue({ count: 0 })
   tx.subscription.updateMany.mockResolvedValue({ count: 1 })
+  tx.user.findUnique.mockResolvedValue({ aiCredits: 130 })
+  tx.creditTransaction.create.mockResolvedValue({})
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.subscription.updateMany.mockResolvedValue({ count: 1 })
   stripe.subscriptions.retrieve.mockResolvedValue(stripeSub('active'))
@@ -267,7 +270,7 @@ describe('billing webhook — B1d-c-3 cancellation voids grants', () => {
     data: { object: { id: 'sub_1', metadata: { userId: 'u1' } } },
   })
 
-  it('cancellation keeps aiCredits=0 AND voids ACTIVE non-PURCHASED grants', async () => {
+  it('cancellation logs expired unused credits, keeps aiCredits=0, and voids ACTIVE non-PURCHASED grants', async () => {
     stripe.webhooks.constructEvent.mockReturnValue(deletedEvent())
 
     await POST(makeReq())
@@ -281,6 +284,16 @@ describe('billing webhook — B1d-c-3 cancellation voids grants', () => {
       where: { id: 'u1' },
       data: { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
     }))
+    expect(tx.creditTransaction.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'u1',
+        action: 'CREDIT_EXPIRY',
+        description: 'Unused monthly credits expired after subscription cancellation',
+        amount: -130,
+        entityId: 'sub_1',
+        entityType: 'billing',
+      },
+    })
     // Grants VOIDed; PURCHASED excluded by the filter.
     expect(tx.creditGrant.updateMany).toHaveBeenCalledWith({
       where: { userId: 'u1', status: 'ACTIVE', type: { not: 'PURCHASED' } },
@@ -288,6 +301,19 @@ describe('billing webhook — B1d-c-3 cancellation voids grants', () => {
     })
     // No grant creation on cancel.
     expect(tx.creditGrant.createMany).not.toHaveBeenCalled()
+  })
+
+  it('cancellation with no remaining credits does not create an expiry transaction', async () => {
+    tx.user.findUnique.mockResolvedValueOnce({ aiCredits: 0 })
+    stripe.webhooks.constructEvent.mockReturnValue(deletedEvent())
+
+    await POST(makeReq())
+
+    expect(tx.user.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'u1' },
+      data: { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
+    }))
+    expect(tx.creditTransaction.create).not.toHaveBeenCalled()
   })
 
   it('missing userId → no transaction, no void', async () => {

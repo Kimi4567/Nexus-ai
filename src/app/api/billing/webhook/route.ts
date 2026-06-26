@@ -238,11 +238,31 @@ export async function POST(req: NextRequest) {
         // before (status CANCELLED, aiCredits = 0), PLUS voiding the user's
         // ACTIVE non-PURCHASED grants so a cancelled user has no spendable
         // monthly/trial/referral/manual/migrated balance. PURCHASED untouched.
+        // CRED-LEDGER1: when this expires an existing scalar balance, log the
+        // reset so Credit History explains why the balance changed.
         await (prisma as any).$transaction(async (tx: any) => {
+          const currentUser = await tx.user.findUnique({
+            where: { id: userId },
+            select: { aiCredits: true },
+          })
+          const currentCredits = currentUser?.aiCredits ?? 0
+
           await tx.subscription.updateMany({
             where: { userId, stripeId: sub.id },
             data:  { status: 'CANCELLED', cancelledAt: new Date() },
           })
+          if (currentCredits > 0 && Number.isFinite(currentCredits)) {
+            await tx.creditTransaction.create({
+              data: {
+                userId,
+                action: 'CREDIT_EXPIRY',
+                description: 'Unused monthly credits expired after subscription cancellation',
+                amount: -currentCredits,
+                entityId: sub.id,
+                entityType: 'billing',
+              },
+            })
+          }
           await tx.user.update({
             where: { id: userId },
             data:  { subscriptionStatus: 'CANCELLED', aiCredits: 0 },
