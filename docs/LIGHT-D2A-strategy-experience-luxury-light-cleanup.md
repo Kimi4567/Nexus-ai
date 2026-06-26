@@ -25,6 +25,7 @@ This PR expands the original Strategy-visible cleanup because review found that 
   - Paid Planning Pack
   - Visual Direction
   - Campaign Visuals wrapper
+  - VisualGenerator cards, metadata, action menu, generating state, and empty state
 - Publish tab wrapper, locked-state notice, publisher composer, account selectors, readiness banners, and post history.
 - Autopilot header, requirements list, action row, queue table, empty state, and how-it-works card.
 - Performance empty state, metric cards, status row, platform breakdown, engagement trend, and top-post cards.
@@ -35,6 +36,7 @@ This PR expands the original Strategy-visible cleanup because review found that 
 - Removed the unsafe final publishing-stage label and replaced it with readiness language.
 - Replaced misleading approval/activation language in the Strategy shell with content-planning language.
 - Added a Publish tab locked-state notice before the publisher controls.
+- Disabled the Now/Schedule mode toggle while publishing is locked so scheduling controls do not appear ready.
 - Updated Autopilot queue language:
   - `Scheduled content queue` only appears when posts are actually scheduled with scheduled data.
   - otherwise the queue uses `Planned content queue`.

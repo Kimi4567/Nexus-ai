@@ -138,12 +138,12 @@ function VisualCard({
   return (
     // overflow-hidden removed from card root — only applied to image container below
     // This lets the absolutely-positioned dropdown menu escape the card boundary
-    <div className={`relative group bg-[#141414] border rounded-xl transition-all ${
-      visual.isPrimary ? 'border-accent/60 ring-1 ring-accent/20' : 'border-[#1f1f1f] hover:border-[#2a2a2a]'
+    <div className={`relative group rounded-xl border bg-white shadow-sm transition-all ${
+      visual.isPrimary ? 'border-indigo-200 ring-1 ring-indigo-100' : 'border-slate-200 hover:border-slate-300'
     }`}>
       {/* Primary badge */}
       {visual.isPrimary && (
-        <div className="absolute top-2 left-2 z-10 rounded bg-accent px-2 py-0.5 text-[10px] font-semibold" style={{ color: '#fff' }}>
+        <div className="absolute top-2 left-2 z-10 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-semibold" style={{ color: '#fff' }}>
           Primary
         </div>
       )}
@@ -164,13 +164,13 @@ function VisualCard({
 
       {/* Delete error */}
       {deleteError && (
-        <div className="px-3 pt-2 text-[10px] text-red-400">{deleteError}</div>
+        <div className="px-3 pt-2 text-[10px] text-red-600">{deleteError}</div>
       )}
 
       {/* Inline delete confirm */}
       {confirmDelete && (
-        <div className="px-3 py-2.5 flex items-center gap-2 bg-red-500/10 border-t border-red-500/20">
-          <div className="flex-1 text-[11px] text-red-300 font-medium">Delete this visual?</div>
+        <div className="flex items-center gap-2 border-t border-red-100 bg-red-50 px-3 py-2.5">
+          <div className="flex-1 text-[11px] font-medium text-red-700">Delete this visual?</div>
           <button
             onClick={() => setConfirmDelete(false)}
             disabled={deleting}
@@ -193,10 +193,10 @@ function VisualCard({
       {!confirmDelete && (
         <div className="px-3 py-2.5 flex items-center gap-2">
           <div className="flex-1 min-w-0">
-            <div className="text-[11px] font-medium text-gray-300 truncate">
+            <div className="truncate text-[11px] font-medium text-slate-700">
               {visual.visualStyle} · {visual.visualType.replace('_', ' ')}
             </div>
-            <div className="text-[10px] text-gray-600 mt-0.5">
+            <div className="mt-0.5 text-[10px] text-slate-500">
               {new Date(visual.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </div>
           </div>
@@ -241,18 +241,18 @@ function VisualCard({
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute bottom-full right-0 mb-1 w-44 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl z-50 py-1">
+                  <div className="absolute bottom-full right-0 z-50 mb-1 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
                     {!visual.isPrimary && (
                       <button
                         onClick={() => { onSetPrimary(visual.id); setMenuOpen(false) }}
-                        className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-white/5 transition"
+                        className="w-full px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-slate-50"
                       >
                         Set as primary
                       </button>
                     )}
                     <button
                       onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
-                      className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition"
+                      className="w-full px-3 py-2 text-left text-xs text-red-600 transition hover:bg-red-50"
                     >
                       Delete visual
                     </button>
@@ -468,7 +468,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
       {/* Generating state */}
       {generating && (
-        <div className="bg-[#111111] border border-[#1f1f1f] rounded-xl overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <GeneratingAnimation />
         </div>
       )}
@@ -490,16 +490,16 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
       {/* Empty state */}
       {!loading && !generating && visuals.length === 0 && (
-        <div className="bg-[#111111] border border-[#1f1f1f] border-dashed rounded-xl py-12 text-center">
-          <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center mx-auto mb-3">
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#FF9500" strokeWidth="1.5">
               <rect x="2" y="2" width="14" height="14" rx="3" />
               <circle cx="6.5" cy="6.5" r="1.5" />
               <path d="M2 12l4.5-4 3.5 3.5 2.5-2.5L16 13" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="text-sm font-semibold text-gray-400 mb-1">No visuals yet</div>
-          <div className="text-[11px] text-gray-600 mb-4">
+          <div className="mb-1 text-sm font-semibold text-slate-700">No visuals yet</div>
+          <div className="mb-4 text-[11px] text-slate-500">
             Generate campaign visuals from your brand strategy — no prompts required.
           </div>
           <button

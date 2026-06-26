@@ -552,11 +552,16 @@ export default function SocialPublisher({
       {/* Mode selector — compact toggle */}
       <div className="flex items-center gap-2">
         <p className="flex-shrink-0 text-xs text-slate-500">{ar ? 'وقت النشر:' : 'Publish:'}</p>
-        <div className="flex gap-1 rounded-xl border border-slate-200 bg-slate-100 p-1">
+        <div className={`flex gap-1 rounded-xl border border-slate-200 p-1 ${
+          readiness.status === 'locked' ? 'bg-slate-50 opacity-75' : 'bg-slate-100'
+        }`}>
           <button
             onClick={() => setMode('now')}
+            disabled={readiness.status === 'locked'}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'now'
+              readiness.status === 'locked'
+                ? 'cursor-not-allowed text-slate-400'
+                : mode === 'now'
                 ? 'bg-accent text-black'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
@@ -566,9 +571,12 @@ export default function SocialPublisher({
           </button>
           <button
             onClick={() => setMode('schedule')}
-            style={{ color: mode === 'schedule' ? '#fff' : undefined }}
+            disabled={readiness.status === 'locked'}
+            style={{ color: readiness.status !== 'locked' && mode === 'schedule' ? '#fff' : undefined }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === 'schedule'
+              readiness.status === 'locked'
+                ? 'cursor-not-allowed text-slate-400'
+                : mode === 'schedule'
                 ? 'bg-blue-600'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
@@ -580,7 +588,7 @@ export default function SocialPublisher({
       </div>
 
       {/* Schedule datetime */}
-      {mode === 'schedule' && (
+      {mode === 'schedule' && readiness.status !== 'locked' && (
         <input
           type="datetime-local"
           value={scheduledAt}
