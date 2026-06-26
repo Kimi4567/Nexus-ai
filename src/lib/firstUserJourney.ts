@@ -15,6 +15,7 @@ export type FirstRunJourneyState =
   | 'strategy_missing'
   | 'strategy_draft_ready'
   | 'content_plan_missing'
+  | 'content_review_needed'
   | 'execution_ready_later'
 
 export interface FirstUserJourneyInput {
@@ -199,6 +200,17 @@ const DECISION_MAP: Record<FirstRunJourneyState, FirstRunJourneyDecision> = {
     href: '/content-hub',
     blockedBy: ['content_plan'],
   },
+  content_review_needed: {
+    state: 'content_review_needed',
+    title: 'Review content plan',
+    titleAr: 'راجع خطة المحتوى',
+    helper: 'Draft content exists. Review the content plan before scheduling or publishing.',
+    helperAr: 'توجد مسودات محتوى. راجع خطة المحتوى قبل الجدولة أو النشر.',
+    button: 'Review content plan',
+    buttonAr: 'راجع خطة المحتوى',
+    href: '/content-hub',
+    blockedBy: ['content_review'],
+  },
   execution_ready_later: {
     state: 'execution_ready_later',
     title: 'Review publishing readiness',
@@ -236,6 +248,6 @@ export function getFirstRunJourney(input: FirstRunJourneyInput): FirstRunJourney
   if (strategyState === 'none') return DECISION_MAP.strategy_missing
   if (strategyState === 'draft') return DECISION_MAP.strategy_draft_ready
   if (!hasContent) return DECISION_MAP.content_plan_missing
-  if (!input.contentApproved) return DECISION_MAP.execution_ready_later
+  if (!input.contentApproved) return DECISION_MAP.content_review_needed
   return DECISION_MAP.execution_ready_later
 }

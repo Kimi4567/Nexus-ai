@@ -612,7 +612,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'الحملات النشطة' : 'Active campaigns'}</span>
+                        <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'مسودات الحملات' : 'Campaign drafts'}</span>
                         <span className="text-xs font-bold" style={{ color: '#0F172A' }}>0</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">

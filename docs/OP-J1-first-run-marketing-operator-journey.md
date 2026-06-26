@@ -48,9 +48,12 @@ States:
 - `strategy_missing`
 - `strategy_draft_ready`
 - `content_plan_missing`
+- `content_review_needed`
 - `execution_ready_later`
 
 Each state returns a safe title, helper text, CTA label, CTA href, and blockers.
+Draft content that has not been reviewed or approved routes to Content Hub review
+before any publishing readiness step.
 
 ## Routing Behavior
 
