@@ -934,7 +934,11 @@ function CampaignDetailPageInner() {
     {
       key: 'review',
       label: locale === 'ar' ? 'مراجعة المحتوى' : 'Content review',
-      done: operatingState.truthFlags.hasApprovedContent || operatingState.truthFlags.hasScheduledContent || operatingState.truthFlags.hasPublishedContent,
+      done: !operatingState.truthFlags.hasDraftContent && (
+        operatingState.truthFlags.hasApprovedContent ||
+        operatingState.truthFlags.hasScheduledContent ||
+        operatingState.truthFlags.hasPublishedContent
+      ),
       active: operatingState.stage === 'content_review_needed',
     },
     {

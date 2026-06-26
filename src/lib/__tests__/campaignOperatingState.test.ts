@@ -57,6 +57,20 @@ describe('deriveCampaignOperatingState', () => {
     expect(state.blockers).toContain('content_review')
   })
 
+  it('mixed DRAFT and APPROVED posts still need content review', () => {
+    const state = deriveCampaignOperatingState({
+      campaign: strategyCampaign,
+      posts: [
+        { status: 'DRAFT', generationStatus: 'DONE' },
+        { status: 'APPROVED', approvedAt: '2026-01-01T00:00:00Z' },
+      ],
+    })
+    expect(state.stage).toBe('content_review_needed')
+    expect(state.truthFlags.hasDraftContent).toBe(true)
+    expect(state.truthFlags.hasApprovedContent).toBe(true)
+    expect(state.blockers).toContain('content_review')
+  })
+
   it('APPROVED posts, no scheduled -> content_approved_not_scheduled', () => {
     const state = deriveCampaignOperatingState({
       campaign: strategyCampaign,
