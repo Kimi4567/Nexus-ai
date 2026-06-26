@@ -17,6 +17,11 @@ import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import PlatformNativeCard from '@/components/PlatformNativeCard'
+import {
+  deriveCampaignOperatingState,
+  type CampaignOperatingInput,
+  type CampaignOperatingStage,
+} from '@/lib/campaignOperatingState'
 
 interface Activity {
   id: string
@@ -57,6 +62,8 @@ interface AutopilotPost {
   status: string
   pageName?: string | null
 }
+
+type CampaignOperatingPost = NonNullable<CampaignOperatingInput['posts']>[number]
 
 const ACTIVITY_ICONS: Record<string, string> = {
   created: '✨', generated: '🤖', viewed: '👁', regenerated: '♻️',
@@ -241,6 +248,8 @@ function CampaignDetailPageInner() {
   const { isPaid, status: billingStatus } = useBillingStatus()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
+  const [campaignPosts, setCampaignPosts] = useState<CampaignOperatingPost[]>([])
+  const [pendingLearningCount, setPendingLearningCount] = useState(0)
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(0)
   const [brandScore, setBrandScore] = useState<number | null>(null)
@@ -349,10 +358,37 @@ function CampaignDetailPageInner() {
     return null
   }, [campaignId, authHeader])
 
+  const fetchOperatingSnapshots = useCallback(async () => {
+    const token = authHeader()
+    if (!token) return
+
+    try {
+      const [contentPlanRes, proposalsRes] = await Promise.all([
+        fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
+        fetch('/api/brain/proposals?status=pending', { headers: { Authorization: token } }),
+      ])
+
+      if (contentPlanRes.ok) {
+        const data = await contentPlanRes.json().catch(() => ({}))
+        setCampaignPosts(Array.isArray(data.posts) ? data.posts : [])
+      }
+
+      if (proposalsRes.ok) {
+        const data = await proposalsRes.json().catch(() => ({}))
+        const proposals = Array.isArray(data.proposals) ? data.proposals : []
+        setPendingLearningCount(proposals.filter((proposal: any) => proposal?.campaignId === campaignId).length)
+      }
+    } catch {
+      // Operating state is display-only. If these optional reads fail, keep the
+      // campaign room usable and let the helper fall back conservatively.
+    }
+  }, [authHeader, campaignId])
+
   useEffect(() => {
     if (!loading && !isAuthenticated) { router.push('/auth/login'); return }
     if (!isAuthenticated) return
     fetchCampaign().finally(() => setFetching(false))
+    fetchOperatingSnapshots()
     // Fetch brand readiness for the quality notice
     const token = authHeader()
     if (token) {
@@ -366,7 +402,7 @@ function CampaignDetailPageInner() {
         })
         .catch(() => {})
     }
-  }, [loading, isAuthenticated, fetchCampaign, router, authHeader])
+  }, [loading, isAuthenticated, fetchCampaign, fetchOperatingSnapshots, router, authHeader])
 
   // Load autopilot queue when tab 5 is active
   useEffect(() => {
@@ -843,30 +879,71 @@ function CampaignDetailPageInner() {
     campaign.status === 'ACTIVE' || campaign.status === 'SCHEDULED',
     campaign.autopilotEnabled || campaign.status === 'SCHEDULED',
   ].filter(Boolean).length / 7) * 100)
-  const engineReadyForApproval = sentinelStatus === 'passed' && storedCalendarCount > 0
   const engineBlocked = sentinelStatus === 'needs_attention'
-  const statusMeta: Record<string, { label: string; className: string }> = {
-    DRAFT: {
-      label: locale === 'ar' ? 'مسودة' : 'Draft',
-      className: 'border-slate-200 bg-slate-50 text-slate-600',
+  const operatingState = deriveCampaignOperatingState({
+    campaign: {
+      status: campaign.status,
+      aiOutput: campaign.aiOutput,
+      autopilotEnabled: campaign.autopilotEnabled,
+      autopilotActivatedAt: campaign.autopilotActivatedAt,
     },
-    ACTIVE: {
-      label: locale === 'ar' ? 'تخطيط المحتوى' : 'Content planning',
-      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    },
-    ARCHIVED: {
-      label: locale === 'ar' ? 'مؤرشفة' : 'Archived',
-      className: 'border-slate-200 bg-slate-100 text-slate-500',
-    },
-    SCHEDULED: {
-      label: locale === 'ar' ? 'في قائمة التنفيذ' : 'Queued for workflow',
-      className: 'border-blue-200 bg-blue-50 text-blue-700',
-    },
+    posts: campaignPosts,
+    pendingLearningCount,
+  })
+  const operatingLabel = locale === 'ar' ? operatingState.stageLabelAr : operatingState.stageLabel
+  const operatingHelper = locale === 'ar' ? operatingState.stageHelperAr : operatingState.stageHelper
+  const operatingActionLabel = locale === 'ar'
+    ? operatingState.primaryAction.labelAr
+    : operatingState.primaryAction.label
+  const operatingTone: Record<CampaignOperatingStage, string> = {
+    strategy_missing: 'border-amber-200 bg-amber-50 text-amber-800',
+    strategy_review_needed: 'border-blue-200 bg-blue-50 text-blue-700',
+    content_plan_missing: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    content_review_needed: 'border-amber-200 bg-amber-50 text-amber-800',
+    content_approved_not_scheduled: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    scheduled_manual: 'border-violet-200 bg-violet-50 text-violet-700',
+    scheduled_auto: 'border-violet-200 bg-violet-50 text-violet-700',
+    auto_publish_enabled: 'border-violet-200 bg-violet-50 text-violet-700',
+    published_waiting_for_analytics: 'border-sky-200 bg-sky-50 text-sky-700',
+    performance_ready: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    learning_review_needed: 'border-purple-200 bg-purple-50 text-purple-700',
+    paused_or_archived: 'border-slate-200 bg-slate-100 text-slate-600',
   }
-  const campaignStatusMeta = statusMeta[campaign.status] || {
-    label: campaign.status.replace(/_/g, ' ').toLowerCase(),
-    className: 'border-slate-200 bg-slate-50 text-slate-600',
-  }
+
+  const operatingActionHref = (() => {
+    if (operatingState.primaryAction.href === '/content-hub') return `/campaigns/${campaign.id}/content-hub`
+    if (operatingState.primaryAction.href === '#autopilot') return `/campaigns/${campaign.id}?tab=autopilot`
+    if (operatingState.primaryAction.href === '#performance') return `/campaigns/${campaign.id}?tab=performance`
+    if (operatingState.primaryAction.href === '#strategy' || operatingState.primaryAction.href === '#campaign') return `/campaigns/${campaign.id}?tab=strategy`
+    return operatingState.primaryAction.href
+  })()
+
+  const progressSteps = ([
+    {
+      key: 'strategy',
+      label: locale === 'ar' ? 'الاستراتيجية' : 'Strategy',
+      done: operatingState.truthFlags.hasStrategy,
+      active: operatingState.stage === 'strategy_missing' || operatingState.stage === 'strategy_review_needed',
+    },
+    {
+      key: 'content',
+      label: locale === 'ar' ? 'خطة المحتوى' : 'Content plan',
+      done: operatingState.truthFlags.hasContentPlan,
+      active: operatingState.stage === 'content_plan_missing',
+    },
+    {
+      key: 'review',
+      label: locale === 'ar' ? 'مراجعة المحتوى' : 'Content review',
+      done: operatingState.truthFlags.hasApprovedContent || operatingState.truthFlags.hasScheduledContent || operatingState.truthFlags.hasPublishedContent,
+      active: operatingState.stage === 'content_review_needed',
+    },
+    {
+      key: 'execution',
+      label: locale === 'ar' ? 'التنفيذ' : 'Execution',
+      done: operatingState.truthFlags.hasPublishedContent,
+      active: operatingState.truthFlags.hasScheduledContent || operatingState.stage === 'content_approved_not_scheduled',
+    },
+  ] as Array<{ key: string; label: string; done: boolean; active?: boolean }>)
 
   const visualContext = {
     campaignId: campaign.id,
@@ -1020,9 +1097,9 @@ function CampaignDetailPageInner() {
           )
         })()}
 
-        {/* FL4: Content-ready banner — shown when AI has generated posts for this campaign */}
-        {(campaign.socialPostCount ?? 0) > 0 && (() => {
-          const postCount = campaign.socialPostCount!
+        {/* FL4: Content-plan banner — shown when stored content-plan posts exist. */}
+        {operatingState.truthFlags.hasContentPlan && (() => {
+          const postCount = operatingState.counts.totalPosts
           return (
             <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl mb-4"
               style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
@@ -1030,8 +1107,8 @@ function CampaignDetailPageInner() {
                 <span className="text-green-400 text-sm flex-shrink-0">✅</span>
                 <p className="text-xs" style={{ color: 'rgba(74,222,128,0.85)' }}>
                   {locale === 'ar'
-                    ? `${postCount} بوست جاهز للمراجعة والنشر`
-                    : `${postCount} post${postCount !== 1 ? 's' : ''} ready — review and schedule in Content Hub`}
+                    ? `${postCount} عنصر محتوى في الخطة — راجع الحالة في Content Hub`
+                    : `${postCount} content item${postCount !== 1 ? 's' : ''} in the plan — review status in Content Hub`}
                 </p>
               </div>
               <Link
@@ -1106,14 +1183,14 @@ function CampaignDetailPageInner() {
                   {campaign.audience && (
                     <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">{cdT?.audienceLabel}: {campaign.audience}</p>
                   )}
-                  {/* Campaign status badge */}
+                  {/* Campaign operating state badge */}
                   <div className="flex items-center gap-2 mt-3">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${campaignStatusMeta.className}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${operatingTone[operatingState.stage]}`}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                      {campaignStatusMeta.label}
+                      {operatingLabel}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {locale === 'ar' ? 'النشر يتطلب مراجعة صريحة' : 'Publishing requires explicit review'}
+                      {operatingHelper}
                     </span>
                   </div>
                 </div>
@@ -1190,49 +1267,19 @@ function CampaignDetailPageInner() {
 
             {/* ── 4-step progress stepper ── */}
             <div className="flex items-center gap-0 mb-5 overflow-x-auto pb-1 flex-nowrap">
-              {([
-                {
-                  key: 'generate',
-                  label: locale === 'ar' ? 'تم إنشاء الاستراتيجية' : 'Strategy generated',
-                  done: true,
-                  active: false,
-                },
-                {
-                  key: 'review',
-                  label: locale === 'ar' ? 'فحص الجودة' : 'Quality check',
-                  done: sentinelStatus === 'passed',
-                  warn: sentinelStatus === 'needs_attention',
-                  active: sentinelStatus === 'not_reviewed',
-                },
-                {
-                  key: 'approve',
-                  label: locale === 'ar' ? 'تخطيط المحتوى' : 'Content planning',
-                  done: campaign.status === 'ACTIVE' || approvalState === 'done',
-                  active: sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done',
-                },
-                {
-                  key: 'live',
-                  label: campaign.autopilotEnabled
-                    ? (locale === 'ar' ? 'إعداد النشر موجود' : 'Publishing configured')
-                    : (locale === 'ar' ? 'النشر غير مفعّل' : 'Publishing not enabled'),
-                  done: !!campaign.autopilotEnabled,
-                  active: (campaign.status === 'ACTIVE' || approvalState === 'done') && !campaign.autopilotEnabled,
-                },
-              ] as Array<{key:string; label:string; done:boolean; active?:boolean; warn?:boolean}>).map((step, i, arr) => (
+              {progressSteps.map((step, i, arr) => (
                 <div key={step.key} className="flex items-center flex-shrink-0">
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    step.done ? 'text-emerald-700' : step.warn ? 'text-amber-700' : step.active ? 'text-indigo-700' : 'text-slate-500'
+                    step.done ? 'text-emerald-700' : step.active ? 'text-indigo-700' : 'text-slate-500'
                   }`}>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 border ${
                       step.done
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : step.warn
-                          ? 'bg-amber-50 border-amber-200 text-amber-700'
-                          : step.active
-                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                            : 'bg-slate-50 border-slate-200 text-slate-400'
+                        : step.active
+                          ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                          : 'bg-slate-50 border-slate-200 text-slate-400'
                     }`}>
-                      {step.done ? '✓' : step.warn ? '!' : i + 1}
+                      {step.done ? '✓' : i + 1}
                     </span>
                     {step.label}
                   </div>
@@ -1249,16 +1296,11 @@ function CampaignDetailPageInner() {
                 <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
                   {engineRunning
                     ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
-                    : campaign.status === 'ACTIVE' || approvalState === 'done'
-                      ? (locale === 'ar' ? '✅ خطة المحتوى متاحة للمراجعة' : '✅ Content plan available for review')
-                      : engineReadyForApproval
-                        ? (locale === 'ar' ? '🟢 اكتمل فحص الجودة — انتقل إلى تخطيط المحتوى' : '🟢 Quality check complete — move to content planning')
-                        : sentinelStatus === 'needs_attention'
-                          ? (locale === 'ar' ? '⚠️ فحص الجودة يحتاج مراجعة — راجع التفاصيل أدناه' : '⚠️ Quality check needs review — see details below')
-                          : sentinelStatus === 'passed'
-                            ? (locale === 'ar' ? '✅ اكتمل فحص جودة الاستراتيجية' : '✅ Strategy quality check complete')
-                            : (locale === 'ar' ? 'راجع الاستراتيجية قبل تحويلها إلى محتوى' : 'Review the strategy before turning it into content')}
+                    : operatingLabel}
                 </p>
+                {!engineRunning && (
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{operatingHelper}</p>
+                )}
                 {(engineError || generateError) && (
                   <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
                 )}
@@ -1277,7 +1319,7 @@ function CampaignDetailPageInner() {
                 </button>
 
                 {/* Primary CTA — context aware, one at a time */}
-                {activeTab !== 0 && !engineRunning && sentinelStatus !== 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
+                {activeTab !== 0 && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
                     onClick={handleSentinelReview}
                     disabled={sentinelState === 'reviewing'}
@@ -1292,7 +1334,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && !engineRunning && sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done' && (
+                {activeTab !== 0 && !engineRunning && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' && (
                   <button
                     onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
@@ -1307,13 +1349,13 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && (campaign.status === 'ACTIVE' || approvalState === 'done') && (
+                {activeTab !== 0 && operatingState.truthFlags.hasContentPlan && (
                   <Link
-                    href={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
+                    href={operatingActionHref}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition"
                     style={{ background: '#4f46e5', color: '#fff' }}
                   >
-                    {locale === 'ar' ? 'Content Hub' : 'Content Hub'}
+                    {operatingActionLabel}
                   </Link>
                 )}
 
