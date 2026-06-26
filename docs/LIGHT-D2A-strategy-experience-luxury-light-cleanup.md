@@ -42,6 +42,7 @@ This PR expands the original Strategy-visible cleanup because review found that 
   - otherwise the queue uses `Planned content queue`.
 - Analytics now says Meta performance data appears when available.
 - Performance empty state now says `No published performance data yet`.
+- Performance stays in the empty truth-safe state when campaign content exists but `publishedPosts` is `0`, so analytics cards do not appear before published performance data exists.
 - Completion labels remain only where they map to real persisted post status or performance counts.
 
 ## Preserved

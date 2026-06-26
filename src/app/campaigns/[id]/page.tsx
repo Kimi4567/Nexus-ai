@@ -3029,6 +3029,17 @@ function CampaignDetailPageInner() {
 
                 {!perfLoading && perfData && (() => {
                   const s = perfData.summary
+                  if (!s || Number(s.publishedPosts ?? 0) <= 0) {
+                    return (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                        <div className="text-4xl mb-3">📊</div>
+                        <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
+                        <p className="mx-auto max-w-xl text-sm text-slate-500">
+                          This campaign has planned or draft content, but performance appears only after posts are published and analytics are fetched.
+                        </p>
+                      </div>
+                    )
+                  }
                   const platforms: Record<string, any> = perfData.platformBreakdown ?? {}
                   const topPosts: any[] = perfData.topPosts ?? []
                   const trend: any[] = perfData.trend ?? []
