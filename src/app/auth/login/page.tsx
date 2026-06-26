@@ -7,6 +7,14 @@ import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import LanguageSwitcher from '@/components/ui/LanguageSwitcher'
 import { supabase } from '@/lib/supabaseClient'
+import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import { getFirstRunJourney, type StrategyState } from '@/lib/firstUserJourney'
+
+function safeInternalRedirect(value: string | null): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null
+  if (value.includes('://')) return null
+  return value
+}
 
 function LoginForm() {
   const { t, isRTL } = useI18n()
@@ -25,7 +33,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
 
   const loginT = t('auth.login')
-  const redirectTo = searchParams.get('redirect') || '/dashboard'
+  const redirectTo = safeInternalRedirect(searchParams.get('redirect'))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,7 +41,7 @@ function LoginForm() {
     if (!email || !password) { setError(loginT?.errors?.allFields || ''); return }
     setLoading(true)
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) {
         const msg = authError.message || ''
         if (msg.includes('Email not confirmed')) {
@@ -52,7 +60,51 @@ function LoginForm() {
       } else {
         localStorage.removeItem('nexus-remember-email')
       }
-      window.location.href = redirectTo
+      if (redirectTo) {
+        window.location.href = redirectTo
+        return
+      }
+
+      const token = data.session?.access_token
+      if (!token) {
+        window.location.href = '/dashboard'
+        return
+      }
+
+      try {
+        const meRes = await fetch('/api/user/me', { headers: { Authorization: `Bearer ${token}` } })
+        const me = meRes.ok ? await meRes.json() : null
+        if (!me?.workspaceId) {
+          window.location.href = '/onboarding'
+          return
+        }
+
+        const [brandRes, statsRes] = await Promise.allSettled([
+          fetch('/api/brand', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${token}` } }),
+        ])
+        const brandData = brandRes.status === 'fulfilled' && brandRes.value.ok ? await brandRes.value.json() : null
+        const statsData = statsRes.status === 'fulfilled' && statsRes.value.ok ? await statsRes.value.json() : null
+        const brandProfile = brandData?.brandProfile ?? null
+        const brandReadiness = getBrandBrainReadiness(brandProfile)
+        const campaignCount = statsData?.stats?.campaigns?.total ?? 0
+        const contentPostsTotal = statsData?.stats?.contentPosts?.total ?? 0
+        const publishedPostsTotal = statsData?.stats?.publishedPosts?.total ?? 0
+        const strategyState: StrategyState = campaignCount === 0 ? 'none' : (contentPostsTotal > 0 ? 'approved' : 'draft')
+        const journey = getFirstRunJourney({
+          hasWorkspace: true,
+          hasBrandProfile: Boolean(brandProfile?.brandName || brandProfile?.industry || brandProfile?.description),
+          brandBrainReady: brandReadiness.ready,
+          strategyState,
+          hasCampaignOrContent: campaignCount > 0 || contentPostsTotal > 0,
+          hasContent: contentPostsTotal > 0,
+          contentApproved: publishedPostsTotal > 0,
+        })
+
+        window.location.href = journey.state === 'execution_ready_later' ? '/dashboard' : journey.href
+      } catch {
+        window.location.href = '/dashboard'
+      }
     } catch {
       setError(loginT?.errors?.unexpected || '')
       setLoading(false)

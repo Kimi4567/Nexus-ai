@@ -120,15 +120,15 @@ export default function RegisterPage() {
                     : (isRTL ? 'الخطوة التالية:' : 'Next step:')}
                 </p>
                 <div className="space-y-1">
-                  {(isRTL ? [
-                    'إعداد Brand Brain لعلامتك',
-                    'إنشاء أول حملة تسويقية',
-                    'نشر المحتوى على وسائل التواصل الاجتماعي',
-                  ] : [
-                    'Set up your Brand Brain',
-                    'Create your first campaign',
-                    'Publish content to social media',
-                  ]).map(item => (
+	                  {(isRTL ? [
+	                    'إعداد Brand Brain لعلامتك',
+	                    'تحضير أول موجز استراتيجية',
+	                    'مراجعة خطة المحتوى عندما تكون جاهزة',
+	                  ] : [
+	                    'Set up your Brand Brain',
+	                    'Prepare your first strategy brief',
+	                    'Review your first content plan when ready',
+	                  ]).map(item => (
                     <p key={item} className="text-xs text-text-muted">{item}</p>
                   ))}
                 </div>

@@ -11,6 +11,8 @@ import {
 import { useRouter, usePathname } from 'next/navigation'
 import supabase from './supabaseClient'
 import type { User, Session } from '@supabase/supabase-js'
+import { getBrandBrainReadiness } from './brandReadiness'
+import { getFirstRunJourney, type StrategyState } from './firstUserJourney'
 
 // ── Auth context shape ──────────────────────────────────────────────────────
 
@@ -112,7 +114,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           headers: { Authorization: `Bearer ${data.session.access_token}` },
         })
         const me = await res.json()
-        router.push(me?.workspaceId ? '/dashboard' : '/onboarding')
+        if (!me?.workspaceId) {
+          router.push('/onboarding')
+          return
+        }
+
+        const [brandRes, statsRes] = await Promise.allSettled([
+          fetch('/api/brand', { headers: { Authorization: `Bearer ${data.session.access_token}` } }),
+          fetch('/api/dashboard/stats', { headers: { Authorization: `Bearer ${data.session.access_token}` } }),
+        ])
+        const brandData = brandRes.status === 'fulfilled' && brandRes.value.ok ? await brandRes.value.json() : null
+        const statsData = statsRes.status === 'fulfilled' && statsRes.value.ok ? await statsRes.value.json() : null
+        const brandProfile = brandData?.brandProfile ?? null
+        const brandReadiness = getBrandBrainReadiness(brandProfile)
+        const campaignCount = statsData?.stats?.campaigns?.total ?? 0
+        const contentPostsTotal = statsData?.stats?.contentPosts?.total ?? 0
+        const publishedPostsTotal = statsData?.stats?.publishedPosts?.total ?? 0
+        const strategyState: StrategyState = campaignCount === 0 ? 'none' : (contentPostsTotal > 0 ? 'approved' : 'draft')
+        const journey = getFirstRunJourney({
+          hasWorkspace: true,
+          hasBrandProfile: Boolean(brandProfile?.brandName || brandProfile?.industry || brandProfile?.description),
+          brandBrainReady: brandReadiness.ready,
+          strategyState,
+          hasCampaignOrContent: campaignCount > 0 || contentPostsTotal > 0,
+          hasContent: contentPostsTotal > 0,
+          contentApproved: publishedPostsTotal > 0,
+        })
+        router.push(journey.state === 'execution_ready_later' ? '/dashboard' : journey.href)
       } catch {
         router.push('/dashboard')
       }

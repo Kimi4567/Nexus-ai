@@ -1,9 +1,9 @@
 /**
  * Trust Sprint #7 — dashboard wires the onboarding gating and keeps stats/cards.
  *
- * Source-level guard: confirms the dashboard routes the three onboarding surfaces
- * (welcome / checklist / journey bar) through the visibility helper, and that the
- * existing stats cards + activity were NOT removed by the consolidation.
+ * Source-level guard: confirms the dashboard routes first-run surfaces through
+ * the visibility helper, and that the existing stats cards + activity were NOT
+ * removed by the consolidation.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -14,11 +14,11 @@ const SRC = readFileSync(resolve(process.cwd(), 'src/app/dashboard/page.tsx'), '
 const INTELLIGENCE_SRC = readFileSync(resolve(process.cwd(), 'src/lib/marketing-intelligence.ts'), 'utf8')
 
 describe('Dashboard onboarding gating', () => {
-  it('routes all three onboarding surfaces through getOnboardingVisibility', () => {
+  it('routes first-run dashboard surfaces through getOnboardingVisibility', () => {
     expect(SRC).toMatch(/getOnboardingVisibility/)
     expect(SRC).toMatch(/onboarding\.showWelcome/)
-    expect(SRC).toMatch(/onboarding\.showChecklist/)
     expect(SRC).toMatch(/onboarding\.showJourneyBar/)
+    expect(SRC).not.toMatch(/<OnboardingChecklist/)
   })
 
   it('6. existing dashboard stats cards + activity still render (not removed)', () => {
@@ -65,7 +65,7 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/dashboardStrategyCta\.label/)
     expect(SRC).not.toMatch(/Open strategy workflow/)
     expect(SRC).not.toMatch(/Open the strategy workflow/)
-    expect(SRC).toMatch(/getFirstUserJourneyStep/)
+    expect(SRC).toMatch(/getFirstRunJourney/)
     expect(INTELLIGENCE_SRC).toMatch(/'Open the strategy workflow'/)
     expect(INTELLIGENCE_SRC).toMatch(/'افتح مسار الاستراتيجية'/)
     expect(INTELLIGENCE_SRC).not.toMatch(/'Run full strategy'/)
@@ -76,12 +76,13 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/onboarding\.showJourneyBar && !isEarlyExecutionDashboard/)
     expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">/)
     expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<NexusGlassCard padding="lg">/)
-    expect(SRC).toMatch(/dashboardStrategyCta\.href === '\/dashboard\?runStrategy=1'/)
+    expect(SRC).toMatch(/router\.push\(href\)/)
+    expect(SRC).toMatch(/dashboardStrategyCta\.href/)
     expect(SRC).toMatch(/!isEarlyExecutionDashboard && <BrainLearnedSummary/)
     expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div ref=\{suggestionsSectionRef\}/)
     expect(SRC).toMatch(/\{!isEarlyExecutionDashboard && <span style=\{\{ color: 'var\(--nx-text-3\)' \}\}> 👋<\/span>\}/)
     expect(SRC).toMatch(/!isEarlyExecutionDashboard && \(\s*<div className="flex items-center gap-2">/)
-    expect(SRC).toMatch(/Active campaigns/)
-    expect(SRC).toMatch(/الحملات النشطة/)
+    expect(SRC).toMatch(/Campaign drafts/)
+    expect(SRC).toMatch(/مسودات الحملات/)
   })
 })
