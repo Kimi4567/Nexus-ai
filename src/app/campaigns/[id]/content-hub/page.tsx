@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
+import { deriveCampaignOperatingState } from '@/lib/campaignOperatingState'
 import { summarizeByDisplayState } from '@/lib/postVisibility'
 import AppShell from '@/components/AppShell'
 
@@ -60,6 +61,10 @@ interface Campaign {
   id: string
   name: string
   platforms: string[]
+  status?: string | null
+  aiOutput?: unknown
+  autopilotEnabled?: boolean | null
+  autopilotActivatedAt?: string | Date | null
 }
 
 interface BrandProfile {
@@ -177,7 +182,8 @@ export default function ContentHubPage() {
   const router = useRouter()
   const campaignId = params.id as string
   const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const isAr = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [brandProfile, setBrandProfile] = useState<BrandProfile>({ brandName: null, logoUrl: null, colorPalette: [] })
@@ -233,7 +239,15 @@ export default function ContentHubPage() {
       const cRes = await fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: authHeader() } })
       if (!cRes.ok) throw new Error('Campaign not found')
       const { campaign: c } = await cRes.json()
-      setCampaign({ id: c.id, name: c.name, platforms: c.platforms ?? [] })
+      setCampaign({
+        id: c.id,
+        name: c.name,
+        platforms: c.platforms ?? [],
+        status: c.status ?? null,
+        aiOutput: c.aiOutput ?? null,
+        autopilotEnabled: c.autopilotEnabled ?? null,
+        autopilotActivatedAt: c.autopilotActivatedAt ?? null,
+      })
 
       // Load content plan posts
       const pRes = await fetch(`/api/campaigns/${campaignId}/content-plan`, {
@@ -307,6 +321,13 @@ export default function ContentHubPage() {
   const doneCount = posts.filter(p => p.generationStatus === 'DONE').length
   const totalImagePosts = posts.filter(p => !p.isVideoPost).length
   const progress = totalImagePosts > 0 ? Math.round((doneCount / totalImagePosts) * 100) : 0
+  const draftCount = posts.filter(p => p.status === 'DRAFT').length
+  const approvedCount = posts.filter(p => p.status === 'APPROVED').length
+  const scheduledCount = posts.filter(p => p.status === 'SCHEDULED').length
+  const operatingState = deriveCampaignOperatingState({ campaign, posts })
+  const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
+  const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
+  const visualReadyLabel = isAr ? 'الوسائط جاهزة' : 'Media ready'
 
   const getPendingEdit = (postId: string) => pendingEdits[postId] ?? {}
 
@@ -728,6 +749,13 @@ export default function ContentHubPage() {
                   {`${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${posts.filter(p => p.isVideoPost).length} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`}
                 </p>
                 <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">{t('contentHub.countExplainer')}</p>
+                <div className="mt-3 inline-flex max-w-2xl items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm">
+                  <span className="mt-0.5 h-2 w-2 rounded-full bg-violet-500" />
+                  <span>
+                    <span className="block text-xs font-semibold text-slate-800">{operatingLabel}</span>
+                    <span className="block text-xs text-slate-500">{operatingHelper}</span>
+                  </span>
+                </div>
               </>
             ) : (
               <p className="text-sm text-slate-500 mt-0.5">{t('contentHub.generatePrompt')}</p>
@@ -739,7 +767,7 @@ export default function ContentHubPage() {
               <>
                 {/* Primary CTA — honest two-step lifecycle:
                     DRAFT → Approve → APPROVED → Schedule → SCHEDULED */}
-                {posts.filter(p => p.status === 'DRAFT').length > 0 ? (
+                {draftCount > 0 ? (
                   <button
                     onClick={() => setShowApproveConfirm(true)}
                     disabled={approving}
@@ -759,12 +787,12 @@ export default function ContentHubPage() {
                       <>
                         ✓ {t('contentHub.approveAll')}
                         <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
-                          {posts.filter(p => p.status === 'DRAFT').length}
+                          {draftCount}
                         </span>
                       </>
                     )}
                   </button>
-                ) : posts.filter(p => p.status === 'APPROVED').length > 0 ? (
+                ) : approvedCount > 0 ? (
                   <button
                     onClick={scheduleAll}
                     disabled={scheduling}
@@ -784,7 +812,7 @@ export default function ContentHubPage() {
                       <>
                         🗓 {t('contentHub.scheduleAll')}
                         <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
-                          {posts.filter(p => p.status === 'APPROVED').length}
+                          {approvedCount}
                         </span>
                       </>
                     )}
@@ -793,7 +821,9 @@ export default function ContentHubPage() {
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
                     style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(5,150,105,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
-                    {t('contentHub.allScheduled')}
+                    {scheduledCount > 0
+                      ? (isAr ? 'المحتوى المعتمد مجدول' : 'Approved content scheduled')
+                      : (isAr ? 'اكتملت مراجعة المحتوى' : 'Content review complete')}
                   </div>
                 )}
 
@@ -961,7 +991,7 @@ export default function ContentHubPage() {
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('contentHub.statusLabel')}</span>
               {(['ALL', 'PENDING', 'DONE', 'SCHEDULED', 'PUBLISHED'] as const).map(s => {
                 const isActive = statusFilter === s
-                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? t('contentHub.filterPending') : s === 'DONE' ? `✓ ${t('contentHub.filterReady')}` : s === 'SCHEDULED' ? `🗓 ${t('contentHub.filterScheduled')}` : `✅ ${t('contentHub.filterPublished')}`
+                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? t('contentHub.filterPending') : s === 'DONE' ? `✓ ${visualReadyLabel}` : s === 'SCHEDULED' ? `🗓 ${t('contentHub.filterScheduled')}` : `✅ ${t('contentHub.filterPublished')}`
                 const activeColor = s === 'DONE' ? '#10b981' : s === 'PENDING' ? '#f59e0b' : s === 'SCHEDULED' ? '#6366f1' : s === 'PUBLISHED' ? '#10b981' : '#7c3aed'
                 return (
                   <button key={s} onClick={() => setStatusFilter(s)}
@@ -1232,7 +1262,9 @@ export default function ContentHubPage() {
                 {approveResult.platforms.length > 0 && (
                   <div className="rounded-xl p-3 mb-4"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
-                    <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">Publishing to</p>
+                    <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">
+                      {approveResult.kind === 'scheduled' ? 'Publishing to' : 'Planned for'}
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       {approveResult.platforms.map(p => {
                         const cfg = getPlatformConfig(p)
@@ -1256,7 +1288,9 @@ export default function ContentHubPage() {
                     style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                     <span className="text-lg">📅</span>
                     <div>
-                      <p className="text-xs text-slate-500 mb-0.5">Publishing window</p>
+                      <p className="text-xs text-slate-500 mb-0.5">
+                        {approveResult.kind === 'scheduled' ? 'Publishing window' : 'Planned content window'}
+                      </p>
                       <p className="text-sm text-[#5E5CE6] font-medium">
                         {approveResult.firstDate
                           ? new Date(approveResult.firstDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -1322,7 +1356,7 @@ export default function ContentHubPage() {
                       {approveResult.pendingImages > 0
                         ? `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need visuals. Generate them now before reviewing the calendar.`
                         : approveResult.unlinked > 0
-                        ? `${approveResult.unlinked} scheduled posts are not linked to a publishing account yet. Connect platforms to enable auto-publishing.`
+                        ? `${approveResult.unlinked} approved posts are not linked to a publishing account yet. Connect platforms before scheduling automated publishing.`
                         : `Your posts are scheduled. Review the calendar window and make any final edits before publishing starts.`}
                     </p>
                   </div>
@@ -1341,7 +1375,7 @@ export default function ContentHubPage() {
                           onClick={() => { setApproveResult(null); router.push('/connections') }}
                           className="underline hover:no-underline"
                         >Connections</button>{' '}
-                        to enable auto-publishing.
+                        before scheduling automated publishing.
                       </p>
                     </div>
                   </div>
@@ -1592,7 +1626,8 @@ function PostCard({
   onPickWinner,
   onManualPublish,
 }: PostCardProps) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const isAr = locale === 'ar'
   const [showRewriteInput, setShowRewriteInput] = useState(false)
   const [rewriteInstruction, setRewriteInstruction] = useState('')
 
@@ -1609,7 +1644,7 @@ function PostCard({
   }[status] ?? '#6b7280'
 
   const statusLabel = {
-    PENDING: t('contentHub.statusPending'), GENERATING: t('contentHub.statusGenerating'), DONE: t('contentHub.statusReady'),
+    PENDING: t('contentHub.statusPending'), GENERATING: t('contentHub.statusGenerating'), DONE: isAr ? 'الوسائط جاهزة' : 'Media ready',
     FAILED: t('contentHub.statusFailed'), AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
   }[status] ?? status
 

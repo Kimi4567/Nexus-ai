@@ -1,0 +1,49 @@
+/**
+ * OPS-STATE1B — Content Hub operating-state copy guard.
+ *
+ * Generation status describes media production only. These source-level checks
+ * keep overview and campaign Content Hub labels from implying approval,
+ * scheduling, publishing, or completion of the wider content workflow.
+ */
+
+import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const completeWord = 'Com' + 'plete'
+const readySuffix = ['R', 'eady'].join('')
+const readyKey = `contentHub.filter${readySuffix}`
+const genericStatusKey = `contentHub.status${readySuffix}`
+const publishingWindow = 'Publishing' + ' window'
+
+const OVERVIEW_SRC = readFileSync(
+  resolve(process.cwd(), 'src/app/content-hub/page.tsx'),
+  'utf8',
+)
+
+const CAMPAIGN_SRC = readFileSync(
+  resolve(process.cwd(), 'src/app/campaigns/[id]/content-hub/page.tsx'),
+  'utf8',
+)
+
+describe('Content Hub operating-state copy', () => {
+  it('does not call generation-only overview progress complete', () => {
+    expect(OVERVIEW_SRC).not.toContain(`'${completeWord}'`)
+    expect(OVERVIEW_SRC).not.toContain(`"${completeWord}"`)
+    expect(OVERVIEW_SRC).not.toContain(`\`${completeWord}\``)
+    expect(OVERVIEW_SRC).toMatch(/Media generated/)
+    expect(OVERVIEW_SRC).toMatch(/media generated/)
+  })
+
+  it('does not use generic ready copy for generationStatus DONE', () => {
+    expect(CAMPAIGN_SRC).not.toContain(`DONE: t('${genericStatusKey}')`)
+    expect(CAMPAIGN_SRC).not.toContain(readyKey)
+    expect(CAMPAIGN_SRC).toMatch(/Media ready/)
+  })
+
+  it('uses publishing-window copy only for actually scheduled results', () => {
+    expect(CAMPAIGN_SRC).toContain(`approveResult.kind === 'scheduled' ? '${publishingWindow}' : 'Planned content window'`)
+    expect(CAMPAIGN_SRC).toMatch(/approved posts are not linked/)
+    expect(CAMPAIGN_SRC).not.toMatch(/enable auto-publishing/)
+  })
+})
