@@ -4,7 +4,6 @@ import AppShell from '@/components/AppShell'
 import MarketingJourneyBar from '@/components/MarketingJourneyBar'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import SuggestionsWidget from '@/components/SuggestionsWidget'
-import OnboardingChecklist from '@/components/OnboardingChecklist'
 import { getDashboardStrategyCta, getOnboardingVisibility, isEarlyOperatingMode } from '@/lib/dashboardOnboarding'
 import BrainLearnedSummary from '@/components/brain/BrainLearnedSummary'
 import PlatformReadinessStrip from '@/components/PlatformReadinessStrip'
@@ -16,7 +15,7 @@ import { getBrandBrainReadiness, getBrandReadinessCopy, BrandReadinessResult, Br
 import { getBrandMemoryStatusCopy, type PublishingState } from '@/lib/operatingBriefStatus'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
-import { getFirstUserJourneyStep, type StrategyState } from '@/lib/firstUserJourney'
+import { getFirstRunJourney, type StrategyState } from '@/lib/firstUserJourney'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -212,14 +211,14 @@ export default function DashboardPage() {
   const [briefActionState, setBriefActionState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const suggestionsSectionRef = useRef<HTMLDivElement | null>(null)
 
-  // Auto-open RunFullStrategy modal when redirected from Brand Brain (?runStrategy=1)
+  // OP-J1: legacy links may still include ?runStrategy=1. Route them to the
+  // Strategy entry page instead of opening the generation modal from dashboard.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('runStrategy') === '1') {
-      setRunStrategyOpen(true)
-      // Clean up URL so back-button doesn't re-trigger
-      router.replace('/dashboard', { scroll: false })
+      router.replace('/strategy', { scroll: false })
+      return
     }
     // Show welcome banner for first-time users
     if (!localStorage.getItem('nexus_welcome_v1')) {
@@ -397,14 +396,14 @@ export default function DashboardPage() {
       text:   isAr ? 'لم تربط أي منصة بعد — اربط Meta لجدولة المنشورات، ولرؤية الأداء عند توفر البيانات' : 'No platform connected yet — connect Meta to schedule posts and, once data is available, see performance',
       action: isAr ? 'ربط المنصات الآن' : 'Connect Platforms Now', href: '/connections' })
     if (stats.campaigns === 0) built.push({ id: '2', priority: 'high',
-      text:   isAr ? 'أنشئ أول حملة — سيساعدك NEXUS على التخطيط وإنشاء مسودات محتوى، وكل خطوة تبقى تحت موافقتك.' : 'Create your first campaign — NEXUS helps you plan and draft content, with your approval at every step.',
-      action: isAr ? 'خطة محتوى جديدة' : 'New Content Plan', href: '/campaigns/new' })
+      text:   isAr ? 'ابدأ بأول استراتيجية — سيساعدك NEXUS على التخطيط قبل إنشاء المحتوى أو جدولته.' : 'Start with your first strategy — NEXUS helps you plan before content is created or scheduled.',
+      action: isAr ? 'فتح الاستراتيجية' : 'Open Strategy', href: '/strategy' })
     if (stats.creditsRemaining < 15 && stats.plan !== 'ACTIVE') built.push({ id: '3', priority: 'high',
       text:   isAr ? `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة` : `Only ${stats.creditsRemaining} AI credits left — upgrade for unlimited power`,
       action: isAr ? 'ترقية الخطة' : 'Upgrade Plan', href: '/billing' })
     if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium',
-      text:   isAr ? 'كل حملاتك في وضع المسودة — فعّل PULSE لتحليل أفضل وقت للنشر' : 'All campaigns are drafts — activate PULSE to find the best publishing time',
-      action: isAr ? 'فتح PULSE' : 'Open PULSE', href: '/analytics' })
+      text:   isAr ? 'كل حملاتك في وضع المسودة — افتح التحليلات عندما تتوفر بيانات أداء حقيقية.' : 'All campaigns are drafts — open analytics once real performance data is available.',
+      action: isAr ? 'فتح التحليلات' : 'Open analytics', href: '/analytics' })
     // PR-1E: no generic "your system is running well" filler. When there is no
     // real, specific, action-backed insight we leave the list empty so the AI
     // Insights card shows its calm "all good" state instead of motivational noise.
@@ -441,10 +440,6 @@ export default function DashboardPage() {
       suggestionsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       return
     }
-    if (href === '/dashboard?runStrategy=1') {
-      setRunStrategyOpen(true)
-      return
-    }
     router.push(href)
   }, [router])
 
@@ -474,16 +469,15 @@ export default function DashboardPage() {
   const totalCampaigns = stats?.campaigns ?? campaigns.length
   const totalContentPosts = stats?.contentPostsTotal ?? 0
   const strategyState: StrategyState = totalCampaigns === 0 ? 'none' : (totalContentPosts > 0 ? 'approved' : 'draft')
-  const firstJourneyStep = getFirstUserJourneyStep({
+  const firstJourneyStep = getFirstRunJourney({
+    hasWorkspace: workspaceGate === 'hasWorkspace',
+    hasBrandProfile: !!brandName,
     brandBrainReady: brandReadiness?.ready ?? false,
     strategyState,
     hasCampaignOrContent: totalCampaigns > 0 || totalContentPosts > 0,
     hasContent: totalContentPosts > 0,
     contentApproved: campaigns.some(c => c.status === 'ACTIVE') || (stats?.publishedPostsTotal ?? 0) > 0,
   })
-  const earlyActionIsStrategy =
-    firstJourneyStep.id === 'CREATE_FIRST_STRATEGY' ||
-    firstJourneyStep.id === 'REVIEW_DRAFT_STRATEGY'
   const earlyActionHref = firstJourneyStep.href
   const earlyActionTitle = ar ? firstJourneyStep.titleAr : firstJourneyStep.title
   const earlyActionCta = ar ? firstJourneyStep.buttonAr : firstJourneyStep.button
@@ -527,7 +521,7 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <NexusStatusDot status="online" size="sm" pulse label="LIVE" />
+                <NexusStatusDot status="online" size="sm" label={ar ? 'مساحة العمل' : 'Workspace'} />
                 <span className="text-[10px] font-mono tracking-wider" style={{ color: 'var(--nx-text-4)' }}>
                   {t('dashboard.updatedAt')} {timeStr}
                 </span>
@@ -537,7 +531,7 @@ export default function DashboardPage() {
                 {!isEarlyExecutionDashboard && <span style={{ color: 'var(--nx-text-3)' }}> 👋</span>}
               </h1>
               <p className="text-sm" style={{ color: 'var(--nx-text-3)' }}>
-                {/* PR-1I: never claim "ready / all agents know your brand" unless the
+                {/* PR-1I: never claim complete brand memory unless the
                     real maturity status is 'active'. Below that, say partial/incomplete.
                     While the status is still loading, fall back to the neutral subtitle. */}
                 {brandStatus
@@ -560,13 +554,12 @@ export default function DashboardPage() {
                 >
                   {t('dashboard.createCampaign')}
                 </NexusButton>
-                <NexusButton
-                  variant="primary"
-                  size="sm"
-                  href={dashboardStrategyCta.href === '/dashboard?runStrategy=1' ? undefined : dashboardStrategyCta.href}
-                  onClick={dashboardStrategyCta.href === '/dashboard?runStrategy=1' ? () => openDashboardAction(dashboardStrategyCta.href) : undefined}
-                  icon={<Sparkles className="w-3.5 h-3.5" />}
-                >
+	                <NexusButton
+	                  variant="primary"
+	                  size="sm"
+	                  href={dashboardStrategyCta.href}
+	                  icon={<Sparkles className="w-3.5 h-3.5" />}
+	                >
                   {ar ? dashboardStrategyCta.labelAr : dashboardStrategyCta.label}
                 </NexusButton>
               </div>
@@ -721,19 +714,8 @@ export default function DashboardPage() {
           )}
 
 
-          {/* ── Onboarding Checklist — brand-new users only ── */}
-          {onboarding.showChecklist && !isEarlyExecutionDashboard && (
-            <OnboardingChecklist
-              stats={stats ? {
-                campaigns: stats.campaigns,
-                publishedPostsTotal: stats.publishedPostsTotal,
-                strategiesRun: stats.campaigns,
-                contentPlans: stats.contentPostsTotal,
-              } : null}
-              brandReadiness={brandReadiness}
-              hasConnections={hasConnections}
-            />
-          )}
+          {/* OP-J1: old checklist suppressed. First-run users get one primary
+              journey-derived action via the welcome/early operating surfaces. */}
 
           {/* ── Low Credits Upgrade Banner ── */}
           {stats?.lowCredits && !upgradeBannerDismissed && (
@@ -1139,17 +1121,12 @@ export default function DashboardPage() {
                       ? (ar ? 'ابدأ بالاستراتيجية أولاً، ثم ستظهر الحملات هنا بعد إنشائها.' : 'Start with strategy first. Campaigns will appear here after you create them.')
                       : t('dashboard.noCampaignsDesc')}
                   </p>
-                  <NexusButton
-                    variant="primary"
-                    size="sm"
-                    href={isEarlyExecutionDashboard
-                      ? (dashboardStrategyCta.href === '/dashboard?runStrategy=1' ? undefined : dashboardStrategyCta.href)
-                      : '/campaigns/new'}
-                    onClick={isEarlyExecutionDashboard && dashboardStrategyCta.href === '/dashboard?runStrategy=1'
-                      ? () => openDashboardAction(dashboardStrategyCta.href)
-                      : undefined}
-                    icon={<Rocket className="w-4 h-4" />}
-                  >
+	                  <NexusButton
+	                    variant="primary"
+	                    size="sm"
+	                    href={isEarlyExecutionDashboard ? dashboardStrategyCta.href : '/campaigns/new'}
+	                    icon={<Rocket className="w-4 h-4" />}
+	                  >
                     {isEarlyExecutionDashboard ? (ar ? dashboardStrategyCta.labelAr : dashboardStrategyCta.label) : t('dashboard.createCampaign')}
                   </NexusButton>
                 </div>
@@ -1226,13 +1203,13 @@ export default function DashboardPage() {
               <NexusGlassCard padding="lg">
                 <div className="flex items-center gap-2 mb-4">
                   <Bell className="w-4 h-4" style={{ color: '#10B981' }} />
-                  <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{t('sentinel.alertsTitle')}</h3>
+	                  <h3 className="font-bold text-sm" style={{ color: 'var(--nx-text-1)' }}>{ar ? 'تنبيهات النشاط' : 'Activity alerts'}</h3>
                 </div>
                 {alerts.length === 0 ? (
                   <div className="text-center py-6">
                     <Shield className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(16,185,129,0.3)' }} />
-                    <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>{t('sentinel.noAlerts')}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--nx-text-4)' }}>{t('dashboard.sentinelMonitors')}</p>
+	                    <p className="text-xs" style={{ color: 'var(--nx-text-4)' }}>{ar ? 'لا توجد تنبيهات حالياً.' : 'No alerts right now.'}</p>
+	                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--nx-text-4)' }}>{ar ? 'ستظهر هنا تحديثات النشاط عند توفر بيانات حقيقية.' : 'Activity updates appear here when real data is available.'}</p>
                   </div>
                 ) : (
                   <div className="space-y-2">

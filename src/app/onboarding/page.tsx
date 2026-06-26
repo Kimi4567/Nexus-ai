@@ -13,7 +13,7 @@
      • No "strategy ready" / celebratory success state.
      • No emojis in the first-run journey.
      • Calm white operator styling (no dark glassmorphism, no heavy gradients).
-     • Paid = planning only. Auto-publishing = off. Analytics = not connected.
+     • Paid = planning only. Publishing automation = off. Analytics = not connected.
      • Arabic copy = neutral, professional Modern Standard Arabic.
      • Nothing here touches wallet / credits / billing / subscriptions.
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -25,7 +25,8 @@ import { useI18n } from '@/lib/i18n-context'
 import { Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
-import { getFirstUserJourneyStep } from '@/lib/firstUserJourney'
+import { getFirstRunJourney } from '@/lib/firstUserJourney'
+import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 
 // ── Option lists (no emojis) ────────────────────────────────────────────────
 const INDUSTRIES: { value: string; ar: string; en: string }[] = [
@@ -178,14 +179,23 @@ export default function OnboardingPage() {
     if (!loading && !isAuthenticated) router.push('/auth/login')
   }, [loading, isAuthenticated, router])
 
-  // Skip onboarding entirely if a workspace already exists (returning users)
+  // If a workspace already exists, avoid creating a duplicate. Route by Brand Brain
+  // state instead of pretending workspace existence means onboarding is complete.
   useEffect(() => {
     if (!isAuthenticated) return
     const token = authHeader()
     if (!token) return
     fetch('/api/workspaces', { headers: { Authorization: token } })
       .then(r => r.json())
-      .then(data => { if (Array.isArray(data) && data.length > 0) router.push('/dashboard') })
+      .then(async data => {
+        if (!Array.isArray(data) || data.length === 0) return
+        const brandRes = await fetch('/api/brand', { headers: { Authorization: token } }).catch(() => null)
+        const brandData = brandRes?.ok ? await brandRes.json() : null
+        const brandProfile = brandData?.brandProfile ?? null
+        const readiness = getBrandBrainReadiness(brandProfile)
+        const hasBrandProfile = Boolean(brandProfile?.brandName || brandProfile?.industry || brandProfile?.description)
+        router.push(readiness.ready && hasBrandProfile ? '/dashboard' : '/brand')
+      })
       .catch(() => {})
   }, [isAuthenticated, authHeader, router])
 
@@ -353,7 +363,7 @@ export default function OnboardingPage() {
           </PrimaryButton>
           <div className="mt-1.5">
             <QuietButton onClick={() => router.push('/dashboard')}>
-              {ar ? 'الذهاب إلى لوحة التحكم' : 'Go to dashboard'}
+              {ar ? 'فتح لوحة التحكم بإعداد محدود' : 'Open dashboard with limited setup'}
             </QuietButton>
           </div>
         </Panel>
@@ -386,32 +396,43 @@ export default function OnboardingPage() {
     push(ar ? 'العميل المثالي' : 'Ideal customer', idealCustomer)
     push(ar ? 'سبب الاختيار' : 'Why customers choose you', whyChoose)
     push(ar ? 'الوضع التسويقي' : 'Marketing status', statusLabel ? (ar ? statusLabel.ar : statusLabel.en) : '')
-    if (platformNames.length) known.push({ label: ar ? 'المنصات النشطة' : 'Active platforms', value: platformNames.join('، ') })
+    if (platformNames.length) known.push({ label: ar ? 'المنصات التي تستخدمها حالياً' : 'Platforms you currently use', value: platformNames.join('، ') })
 
     const needs = ar
       ? ['المنافسون', 'أمثلة سابقة من المحتوى', 'نتائج أداء حقيقية', 'أصول بصرية أو صور', 'تفاصيل نبرة العلامة التجارية', 'الحسابات المتصلة']
       : ['Competitors', 'Past content examples', 'Real performance results', 'Visual assets or images', 'Brand tone details', 'Connected accounts']
 
+    const starterReadiness = getBrandBrainReadiness({
+      brandName: businessName.trim() || undefined,
+      industry: industry || undefined,
+      description: undefined,
+      targetAudience: idealCustomer.trim() || undefined,
+      topPlatforms: platforms.filter(p => p !== 'none'),
+    })
+    const starterReadyForInitialBrief = starterReadiness.ready
+
     const readiness: { label: string; state: string }[] = ar
       ? [
-          { label: 'الاستراتيجية العضوية', state: 'جاهز لموجز أولي' },
+          { label: 'الاستراتيجية العضوية', state: starterReadyForInitialBrief ? 'جاهز لموجز أولي' : 'تحتاج بيانات أساسية' },
           { label: 'الاستراتيجية الكاملة', state: 'تحتاج معلومات إضافية' },
           { label: 'الإعلانات المدفوعة', state: 'للتخطيط فقط' },
-          { label: 'النشر التلقائي', state: 'غير مفعّل' },
+          { label: 'أتمتة النشر', state: 'غير مفعّلة' },
           { label: 'التحليلات', state: 'غير متصلة' },
           { label: 'ذاكرة التعلّم', state: 'مبكرة' },
         ]
       : [
-          { label: 'Organic strategy', state: 'Ready for an initial brief' },
+          { label: 'Organic strategy', state: starterReadyForInitialBrief ? 'Ready for an initial brief' : 'Needs core data' },
           { label: 'Full strategy', state: 'Needs more information' },
           { label: 'Paid ads', state: 'Planning only' },
-          { label: 'Auto publishing', state: 'Not enabled' },
+          { label: 'Publishing automation', state: 'Not enabled' },
           { label: 'Analytics', state: 'Not connected' },
           { label: 'Learning memory', state: 'Early' },
         ]
 
-    const recommendedStep = getFirstUserJourneyStep({
-      brandBrainReady: true,
+    const recommendedStep = getFirstRunJourney({
+      hasWorkspace: true,
+      hasBrandProfile: true,
+      brandBrainReady: starterReadyForInitialBrief,
       strategyState: 'none',
       hasCampaignOrContent: false,
       hasContent: false,
@@ -422,7 +443,7 @@ export default function OnboardingPage() {
       <Shell dir={dir}>
         <div className="mb-5">
           <h1 className="text-[22px] font-bold mb-1.5" style={{ color: '#0F172A' }}>
-            {ar ? 'الملخص الأولي لذاكرة العلامة' : 'Initial Brand Brain Summary'}
+	            {ar ? 'تم حفظ بداية Brand Brain' : 'Starter Brand Brain saved'}
           </h1>
           <p className="text-[13px] leading-relaxed" style={{ color: '#64748B' }}>
             {ar
@@ -660,7 +681,7 @@ export default function OnboardingPage() {
               </div>
             </div>
             <div>
-              <FieldLabel>{ar ? 'المنصات النشطة' : 'Active platforms'}</FieldLabel>
+              <FieldLabel>{ar ? 'المنصات التي تستخدمها حالياً' : 'Platforms you currently use'}</FieldLabel>
               <Helper>{ar ? 'اختر كل ما ينطبق. لا يتم ربط أي حساب الآن.' : 'Select all that apply. No account is connected now.'}</Helper>
               <div className="flex flex-wrap gap-2">
                 {PLATFORMS.map(p => (

@@ -5,7 +5,9 @@
  * once — the Welcome banner (gated only on a localStorage flag), the full
  * OnboardingChecklist, and the MarketingJourneyBar — none of which keyed off the
  * user's real state. An established user (campaigns + brand) on a fresh browser
- * saw all three beginner prompts, which felt cluttered and amateur. It also
+ * saw all three beginner prompts, which felt cluttered and amateur. OP-J1 now
+ * keeps the full checklist suppressed so first-run users see one primary next
+ * action. It also
  * flickered: brand readiness loads from a separate request, so the surfaces could
  * briefly render a new-user state before the brand fetch resolved.
  *
@@ -18,7 +20,7 @@
  *    load — so established users never flash new-user onboarding.
  *  - `activating` (brand set up, no campaigns yet): one compact next-step surface
  *    (the journey bar), no welcome banner, no full checklist.
- *  - `new` (no brand, no campaigns): full onboarding guidance.
+ *  - `new` (no brand, no campaigns): one welcome/next-action surface.
  *  - `loading` (brand state not yet known and not established): show nothing
  *    onboarding-related yet, to avoid flashing a new-user state mid-load.
  */
@@ -96,14 +98,16 @@ export function getOnboardingVisibility(inputs: OnboardingInputs): OnboardingVis
   const stage = getDashboardStage(inputs)
   return {
     stage,
-    // Beginner welcome + full checklist are ONLY for genuinely brand-new users.
+    // Beginner welcome is ONLY for genuinely brand-new users.
     showWelcome: stage === 'new',
-    showChecklist: stage === 'new',
+    // OP-J1: suppress the old full checklist; it used a separate journey model
+    // and over-claimed publishing/learning readiness for first-run users.
+    showChecklist: false,
     // The compact journey bar is the single next-action surface for activating +
-    // established users (and part of full guidance for new ones). It already
-    // self-hides once every funnel step is complete. Hidden during `loading` so
-    // we never briefly render step 1 for someone who's further along.
-    showJourneyBar: stage !== 'loading',
+    // established users. Brand-new users get the welcome action only. Hidden
+    // during `loading` so we never briefly render step 1 for someone who's
+    // further along.
+    showJourneyBar: stage === 'activating' || stage === 'established',
   }
 }
 
@@ -171,6 +175,6 @@ export function getDashboardStrategyCta({
     labelAr: 'أنشئ أول استراتيجية',
     reason: 'Start with a first marketing strategy. NEXUS will ask for approval before any execution.',
     reasonAr: 'ابدأ بأول استراتيجية تسويقية. سيطلب NEXUS موافقتك قبل أي تنفيذ.',
-    href: '/dashboard?runStrategy=1',
+    href: '/strategy',
   }
 }

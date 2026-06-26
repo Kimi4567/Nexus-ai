@@ -42,12 +42,13 @@ describe('getDashboardStage', () => {
 })
 
 describe('getOnboardingVisibility', () => {
-  it('1. brand-new user (no brand/no campaigns) sees full onboarding', () => {
+  it('1. brand-new user (no brand/no campaigns) sees one welcome next action', () => {
     const v = getOnboardingVisibility(NEW)
     expect(v.stage).toBe('new')
     expect(v.showWelcome).toBe(true)
-    expect(v.showChecklist).toBe(true)
-    expect(v.showJourneyBar).toBe(true)
+    expect(v.showChecklist).toBe(false)
+    expect(v.showJourneyBar).toBe(false)
+    expect(surfaceCount(v)).toBe(1)
   })
 
   it('2. brand-but-no-campaigns sees ONE next-step surface only (journey bar), no welcome/checklist', () => {
@@ -127,13 +128,13 @@ describe('isEarlyOperatingMode', () => {
 })
 
 describe('getDashboardStrategyCta', () => {
-  it('1. no campaign ⇒ Create first strategy via the existing dashboard strategy modal entry', () => {
+  it('1. no campaign ⇒ Create first strategy through the Strategy entry point', () => {
     const cta = getDashboardStrategyCta({ campaignCount: 0, contentPostsTotal: 0 })
 
     expect(cta.state).toBe('create_first_strategy')
     expect(cta.label).toBe('Create first strategy')
     expect(cta.labelAr).toBe('أنشئ أول استراتيجية')
-    expect(cta.href).toBe('/dashboard?runStrategy=1')
+    expect(cta.href).toBe('/strategy')
   })
 
   it('2. draft/generated campaign exists without real content rows ⇒ Review draft strategy', () => {

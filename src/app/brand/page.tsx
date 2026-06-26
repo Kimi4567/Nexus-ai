@@ -212,12 +212,12 @@ function BrandStatusPanel({ indicators, locale }: { indicators: BrandIndicators;
     },
     {
       label: ar ? 'الجاهزية العضوية' : 'Organic readiness',
-      value: indicators.organicReadiness.ready ? (ar ? 'جاهزة' : 'Ready') : (ar ? 'تحتاج بيانات' : 'Needs data'),
+      value: indicators.organicReadiness.ready ? (ar ? 'جاهزة لموجز عضوي' : 'Ready for organic brief') : (ar ? 'تحتاج بيانات' : 'Needs data'),
       helper: indicators.organicReadiness.ready ? (ar ? 'الأساس العضوي مكتمل' : 'Minimum organic set complete') : (ar ? 'أكمل الحقول الناقصة' : 'Complete missing fields'),
     },
     {
       label: ar ? 'التخطيط المدفوع' : 'Paid planning',
-      value: indicators.paidReadiness.ready ? (ar ? 'جاهز للتخطيط' : 'Planning ready') : (ar ? 'تخطيط فقط' : 'Planning-only'),
+      value: indicators.paidReadiness.ready ? (ar ? 'جاهز للتخطيط المدفوع' : 'Paid planning ready') : (ar ? 'تخطيط فقط' : 'Planning-only'),
       helper: ar ? 'يتطلب موافقة قبل أي صرف' : 'Approval required before any spend',
     },
     {
@@ -1161,8 +1161,8 @@ function BrandBrainInner() {
                         const o = brandIndicators.organicReadiness, p = brandIndicators.paidReadiness, m = brandIndicators.memoryRichness
                         const memLvl = m.level === 'high' ? (locale === 'ar' ? 'غنية' : 'rich') : m.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'building') : (locale === 'ar' ? 'مبكرة' : 'early')
                         return [
-                          o.ready ? (locale === 'ar' ? 'العضوي جاهز' : 'Organic ready') : (locale === 'ar' ? 'العضوي غير مكتمل' : 'Organic incomplete'),
-                          p.ready ? (locale === 'ar' ? 'المدفوع جاهز' : 'Paid ready') : (locale === 'ar' ? 'المدفوع تخطيط فقط' : 'Paid planning-only'),
+                          o.ready ? (locale === 'ar' ? 'العضوي جاهز لموجز أولي' : 'Organic ready for an initial brief') : (locale === 'ar' ? 'العضوي غير مكتمل' : 'Organic incomplete'),
+                          p.ready ? (locale === 'ar' ? 'التخطيط المدفوع جاهز' : 'Paid planning ready') : (locale === 'ar' ? 'المدفوع تخطيط فقط' : 'Paid planning-only'),
                           (locale === 'ar' ? 'الذاكرة ' : 'Memory ') + memLvl,
                         ].join('  ·  ')
                       })()}
@@ -1196,7 +1196,7 @@ function BrandBrainInner() {
                 <p className="mt-2 text-[12px] text-slate-500 leading-relaxed" style={{ maxWidth: '72ch' }}>
                   {locale === 'ar'
                     ? 'النضج يقيس العمق طويل المدى — إعدادك المحفوظ + ما تعلّمته NEXUS بمرور الوقت. لذلك قد يكون اكتمال إعداد علامتك 100% بينما يبقى النضج «مبكراً»، لأن الذاكرة تنمو من الحملات والنشر والنتائج الحقيقية. كما يمكن أن تكون استراتيجيتك العضوية «جاهزة» بينما ذاكرتك طويلة المدى لا تزال تتكوّن. النضج ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
-                    : 'Maturity measures long-term depth — your saved setup plus what NEXUS learns over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from real campaigns, publishing, and results. Likewise your organic strategy can be “Ready” while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
+                    : 'Maturity measures long-term depth — your saved setup plus what NEXUS learns over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from real campaigns, publishing, and results. Likewise your organic strategy can be ready for an initial brief while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
                 </p>
               </details>
 
@@ -1354,7 +1354,7 @@ function BrandBrainInner() {
                 text: caps.contentStrategy.ready ? (ar ? 'جاهزة لموجز أولي' : 'Ready for an initial brief') : (ar ? 'تحتاج بيانات' : 'Needs data'),
                 tone: caps.contentStrategy.ready ? 'good' : 'neutral' },
               { label: ar ? 'الاستراتيجية الكاملة' : 'Full strategy',
-                text: caps.fullStrategy.ready ? (ar ? 'جاهزة' : 'Ready') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
+                text: caps.fullStrategy.ready ? (ar ? 'جاهزة لاستراتيجية كاملة' : 'Ready for full strategy') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
                 tone: caps.fullStrategy.ready ? 'good' : 'neutral' },
               { label: ar ? 'خطة المحتوى' : 'Content plan',
                 text: caps.contentStrategy.ready ? (ar ? 'جاهزة مبدئيًا' : 'Initially ready') : (ar ? 'تحتاج بيانات' : 'Needs data'),
@@ -1505,8 +1505,8 @@ function BrandBrainInner() {
               <div className="mt-4 grid sm:grid-cols-4 gap-2">
                 {[
                   [locale === 'ar' ? 'اكتمال العلامة' : 'Brand completeness', `${brandIndicators.brandCompleteness.score}%`],
-                  [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز' : 'Ready') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
-                  [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للتخطيط' : 'Planning ready') : (locale === 'ar' ? 'تخطيط فقط' : 'Planning-only')],
+                  [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
+                  [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للتخطيط المدفوع' : 'Paid planning ready') : (locale === 'ar' ? 'تخطيط فقط' : 'Planning-only')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl px-3 py-2" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.08)' }}>
@@ -2777,7 +2777,7 @@ function BrandBrainInner() {
               if (c.id === 'competitorAnalysis') return c.ready
                 ? (ar ? 'يعتمد على ملاحظاتك فقط (وليس بيانات سوق حية).' : 'Uses your notes only — not live market data.')
                 : (ar ? 'غير مكتمل — لم تتم إضافة منافسين.' : 'Incomplete — no competitors provided.')
-              if (c.ready) return ar ? 'جاهز — مبني على Brand Brain.' : 'Ready — grounded in your Brand Brain.'
+              if (c.ready) return ar ? 'جاهز لهذا النوع من الاستراتيجية — مبني على Brand Brain.' : 'Ready for this strategy type — grounded in your Brand Brain.'
               const list = keyList(c.missingKeys)
               return ar ? `أضِف: ${list} لرفع الجاهزية.` : `Add ${list} to improve readiness.`
             }

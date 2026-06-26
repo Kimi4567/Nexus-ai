@@ -198,11 +198,11 @@ export default function StrategyPage() {
       value: caps.contentStrategy.ready ? (ar ? 'جاهز لموجز أولي' : 'Ready for an initial brief') : (ar ? 'يحتاج بيانات أساسية' : 'Needs core data'),
       ready: caps.contentStrategy.ready },
     { label: ar ? 'الاستراتيجية الكاملة' : 'Full strategy',
-      value: caps.fullStrategy.ready ? (ar ? 'جاهزة' : 'Ready') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
+      value: caps.fullStrategy.ready ? (ar ? 'جاهزة لاستراتيجية كاملة' : 'Ready for full strategy') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
       ready: caps.fullStrategy.ready },
     { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', value: ar ? 'للتخطيط فقط' : 'Planning-only' },
     { label: ar ? 'التحليلات' : 'Analytics', value: ar ? 'غير متصلة' : 'Not connected' },
-    { label: ar ? 'النشر التلقائي' : 'Auto-publishing', value: ar ? 'غير مفعّل' : 'Not enabled' },
+    { label: ar ? 'أتمتة النشر' : 'Publishing automation', value: ar ? 'غير مفعّلة' : 'Not enabled' },
   ]
 
   const strategyStatusText = !hasStrategy
