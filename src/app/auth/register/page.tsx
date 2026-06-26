@@ -65,7 +65,7 @@ export default function RegisterPage() {
       setDone(result.needsEmailConfirmation ? 'verify' : 'active')
     } catch (err: unknown) {
       warnRegisterSignupFailure(err)
-      setError(getRegisterErrorCopy(err))
+      setError(getRegisterErrorCopy(err, isRTL ? 'ar' : 'en'))
       setLoading(false)
     }
   }

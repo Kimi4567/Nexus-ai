@@ -5,16 +5,42 @@ type RegisterErrorMetadata = {
   name?: string
 }
 
-const REGISTER_ERROR_COPY = {
-  duplicate: 'An account with this email may already exist. Try logging in instead.',
-  invalidEmail: 'Enter a valid email address.',
-  signupDisabled: 'Account creation is currently unavailable. Please contact support.',
-  emailDelivery: 'We could not send the verification email. Please try again in a few minutes.',
-  rateLimit: 'Too many signup attempts. Please wait a few minutes and try again.',
-  redirectConfig: 'Signup configuration needs attention. Please contact support.',
-  database: 'We could not finish creating your account. Please contact support if this continues.',
-  weakPassword: 'Use a stronger password.',
-  fallback: 'We could not create the account. Please try again or contact support.',
+export type RegisterErrorLocale = 'en' | 'ar'
+
+export type RegisterErrorReason =
+  | 'duplicate'
+  | 'invalidEmail'
+  | 'signupDisabled'
+  | 'emailDelivery'
+  | 'rateLimit'
+  | 'redirectConfig'
+  | 'database'
+  | 'weakPassword'
+  | 'fallback'
+
+const REGISTER_ERROR_COPY: Record<RegisterErrorLocale, Record<RegisterErrorReason, string>> = {
+  en: {
+    duplicate: 'An account with this email may already exist. Try logging in instead.',
+    invalidEmail: 'Enter a valid email address.',
+    signupDisabled: 'Account creation is currently unavailable. Please contact support.',
+    emailDelivery: 'We could not send the verification email. Please try again in a few minutes.',
+    rateLimit: 'Too many signup attempts. Please wait a few minutes and try again.',
+    redirectConfig: 'Signup configuration needs attention. Please contact support.',
+    database: 'We could not finish creating your account. Please contact support if this continues.',
+    weakPassword: 'Use a stronger password.',
+    fallback: 'We could not create the account. Please try again or contact support.',
+  },
+  ar: {
+    duplicate: 'قد يكون هناك حساب بهذا البريد. جرّب تسجيل الدخول.',
+    invalidEmail: 'أدخل بريدًا إلكترونيًا صالحًا.',
+    signupDisabled: 'إنشاء الحسابات غير متاح حاليًا. تواصل مع الدعم.',
+    emailDelivery: 'لم نتمكن من إرسال رسالة التحقق. حاول مرة أخرى بعد دقائق.',
+    rateLimit: 'محاولات التسجيل كثيرة جدًا. انتظر بضع دقائق ثم حاول مرة أخرى.',
+    redirectConfig: 'إعدادات التسجيل تحتاج مراجعة. تواصل مع الدعم.',
+    database: 'لم نتمكن من إكمال إنشاء حسابك. تواصل مع الدعم إذا استمرت المشكلة.',
+    weakPassword: 'استخدم كلمة مرور أقوى.',
+    fallback: 'لم نتمكن من إنشاء الحساب. حاول مرة أخرى أو تواصل مع الدعم.',
+  },
 } as const
 
 export function getRegisterErrorMetadata(err: unknown): RegisterErrorMetadata {
@@ -37,7 +63,7 @@ export function getRegisterErrorMetadata(err: unknown): RegisterErrorMetadata {
   }
 }
 
-export function getRegisterErrorCopy(err: unknown): string {
+export function getRegisterErrorReason(err: unknown): RegisterErrorReason {
   const metadata = getRegisterErrorMetadata(err)
   const haystack = `${metadata.message} ${metadata.code ?? ''} ${metadata.name ?? ''}`.toLowerCase()
 
@@ -48,11 +74,11 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('user_already_exists') ||
     haystack.includes('email_exists')
   ) {
-    return REGISTER_ERROR_COPY.duplicate
+    return 'duplicate'
   }
 
   if (haystack.includes('invalid email') || haystack.includes('email address is invalid')) {
-    return REGISTER_ERROR_COPY.invalidEmail
+    return 'invalidEmail'
   }
 
   if (
@@ -60,7 +86,7 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('signups not allowed') ||
     haystack.includes('signup_disabled')
   ) {
-    return REGISTER_ERROR_COPY.signupDisabled
+    return 'signupDisabled'
   }
 
   if (
@@ -69,7 +95,7 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('over_email_send_rate_limit') ||
     haystack.includes('over_request_rate_limit')
   ) {
-    return REGISTER_ERROR_COPY.rateLimit
+    return 'rateLimit'
   }
 
   if (
@@ -80,7 +106,7 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('send email') ||
     haystack.includes('email not sent')
   ) {
-    return REGISTER_ERROR_COPY.emailDelivery
+    return 'emailDelivery'
   }
 
   if (
@@ -89,7 +115,7 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('emailredirectto') ||
     haystack.includes('not allowed url')
   ) {
-    return REGISTER_ERROR_COPY.redirectConfig
+    return 'redirectConfig'
   }
 
   if (
@@ -98,7 +124,7 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('db_error') ||
     haystack.includes('unexpected_failure')
   ) {
-    return REGISTER_ERROR_COPY.database
+    return 'database'
   }
 
   if (
@@ -107,8 +133,12 @@ export function getRegisterErrorCopy(err: unknown): string {
     haystack.includes('password_strength') ||
     haystack.includes('weak_password')
   ) {
-    return REGISTER_ERROR_COPY.weakPassword
+    return 'weakPassword'
   }
 
-  return REGISTER_ERROR_COPY.fallback
+  return 'fallback'
+}
+
+export function getRegisterErrorCopy(err: unknown, locale: RegisterErrorLocale = 'en'): string {
+  return REGISTER_ERROR_COPY[locale][getRegisterErrorReason(err)]
 }

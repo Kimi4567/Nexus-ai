@@ -15,6 +15,8 @@ user creation, or another Supabase Auth failure.
 
 - Added a focused registration error mapper for known Supabase/Auth signup
   failures.
+- Kept the mapper locale-aware so English and Arabic registration pages show
+  matching actionable errors.
 - Preserved sanitized diagnostic metadata in non-production console warnings.
 - Replaced the low-contrast error banner with a light-safe red alert style.
 - Added source/unit coverage for the mapped registration failures.

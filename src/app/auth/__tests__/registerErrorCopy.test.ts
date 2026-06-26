@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { getRegisterErrorCopy } from '../register/registerErrors'
 
 describe('register error copy', () => {
-  it('maps duplicate email errors', () => {
+  it('maps duplicate email errors in English', () => {
     expect(getRegisterErrorCopy(new Error('User already registered'))).toBe(
       'An account with this email may already exist. Try logging in instead.',
+    )
+  })
+
+  it('maps duplicate email errors in Arabic', () => {
+    expect(getRegisterErrorCopy(new Error('User already registered'), 'ar')).toBe(
+      'قد يكون هناك حساب بهذا البريد. جرّب تسجيل الدخول.',
     )
   })
 
@@ -32,15 +38,27 @@ describe('register error copy', () => {
     )
   })
 
-  it('maps database errors while saving a new user', () => {
+  it('maps database errors while saving a new user in English', () => {
     expect(getRegisterErrorCopy(new Error('Database error saving new user'))).toBe(
       'We could not finish creating your account. Please contact support if this continues.',
     )
   })
 
-  it('maps redirect URL configuration errors', () => {
+  it('maps database errors while saving a new user in Arabic', () => {
+    expect(getRegisterErrorCopy(new Error('Database error saving new user'), 'ar')).toBe(
+      'لم نتمكن من إكمال إنشاء حسابك. تواصل مع الدعم إذا استمرت المشكلة.',
+    )
+  })
+
+  it('maps redirect URL configuration errors in English', () => {
     expect(getRegisterErrorCopy(new Error('Redirect URL is not allowed'))).toBe(
       'Signup configuration needs attention. Please contact support.',
+    )
+  })
+
+  it('maps redirect URL configuration errors in Arabic', () => {
+    expect(getRegisterErrorCopy(new Error('Redirect URL is not allowed'), 'ar')).toBe(
+      'إعدادات التسجيل تحتاج مراجعة. تواصل مع الدعم.',
     )
   })
 
@@ -48,9 +66,15 @@ describe('register error copy', () => {
     expect(getRegisterErrorCopy(new Error('Weak password'))).toBe('Use a stronger password.')
   })
 
-  it('keeps an actionable unknown fallback', () => {
+  it('keeps an actionable unknown fallback in English', () => {
     expect(getRegisterErrorCopy(new Error('Unexpected auth service failure'))).toBe(
       'We could not create the account. Please try again or contact support.',
+    )
+  })
+
+  it('keeps an actionable unknown fallback in Arabic', () => {
+    expect(getRegisterErrorCopy(new Error('Unexpected auth service failure'), 'ar')).toBe(
+      'لم نتمكن من إنشاء الحساب. حاول مرة أخرى أو تواصل مع الدعم.',
     )
   })
 })
