@@ -74,7 +74,7 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-      className="text-xs px-2 py-1 bg-dark-tertiary hover:bg-accent hover:text-dark rounded transition font-semibold"
+      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
     >
       {copied ? '✓' : label}
     </button>
@@ -206,7 +206,7 @@ function SaveToMemoryBtn({
       className={`text-xs px-2 py-1 rounded transition font-semibold ${
         saved
           ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
-          : 'bg-dark-tertiary hover:bg-indigo-500/20 hover:text-indigo-400 text-gray-500'
+          : 'border border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700'
       }`}
     >
       {saved ? savedLabel : saving ? '...' : saveLabel}
@@ -540,8 +540,8 @@ function CampaignDetailPageInner() {
     if (review?.status !== 'passed' || calendarItems.length === 0) {
       setApprovalState('idle')
       setEngineError(locale === 'ar'
-        ? 'لا يمكن اعتماد الحملة قبل تشغيل الماكينة واجتياز Sentinel وبناء التقويم.'
-        : 'Run the engine, pass Sentinel, and build the calendar before approval.')
+        ? 'لا يمكن تجهيز الحملة قبل اكتمال فحص الجودة وبناء التقويم.'
+        : 'Complete the quality check and build the calendar before preparing the campaign.')
       return
     }
     setApprovalState('approving')
@@ -845,6 +845,28 @@ function CampaignDetailPageInner() {
   ].filter(Boolean).length / 7) * 100)
   const engineReadyForApproval = sentinelStatus === 'passed' && storedCalendarCount > 0
   const engineBlocked = sentinelStatus === 'needs_attention'
+  const statusMeta: Record<string, { label: string; className: string }> = {
+    DRAFT: {
+      label: locale === 'ar' ? 'مسودة' : 'Draft',
+      className: 'border-slate-200 bg-slate-50 text-slate-600',
+    },
+    ACTIVE: {
+      label: locale === 'ar' ? 'تخطيط المحتوى' : 'Content planning',
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    ARCHIVED: {
+      label: locale === 'ar' ? 'مؤرشفة' : 'Archived',
+      className: 'border-slate-200 bg-slate-100 text-slate-500',
+    },
+    SCHEDULED: {
+      label: locale === 'ar' ? 'في قائمة التنفيذ' : 'Queued for workflow',
+      className: 'border-blue-200 bg-blue-50 text-blue-700',
+    },
+  }
+  const campaignStatusMeta = statusMeta[campaign.status] || {
+    label: campaign.status.replace(/_/g, ' ').toLowerCase(),
+    className: 'border-slate-200 bg-slate-50 text-slate-600',
+  }
 
   const visualContext = {
     campaignId: campaign.id,
@@ -857,9 +879,9 @@ function CampaignDetailPageInner() {
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
     return (
-      <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(10,11,28,0.7)', border: '1px solid rgba(139,92,246,0.1)' }}>
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <div className="text-3xl mb-3">{icon}</div>
-        <p className="text-sm" style={{ color: 'var(--nx-text-4)' }}>{message}</p>
+        <p className="text-sm text-slate-500">{message}</p>
       </div>
     )
   }
@@ -966,12 +988,12 @@ function CampaignDetailPageInner() {
       <AIPresenceBar authHeader={authHeader} />
       <div className="max-w-[1200px] mx-auto px-6 py-8 page-enter">
         {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-          <Link href="/dashboard" className="hover:text-white transition">{cdT?.breadcrumbHome}</Link>
+        <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+          <Link href="/dashboard" className="transition hover:text-slate-950">{cdT?.breadcrumbHome}</Link>
           <span>/</span>
-          <Link href="/campaigns" className="hover:text-white transition">{cdT?.breadcrumbCampaigns}</Link>
+          <Link href="/campaigns" className="transition hover:text-slate-950">{cdT?.breadcrumbCampaigns}</Link>
           <span>/</span>
-          <span className="text-gray-300 truncate max-w-xs">{campaign.name}</span>
+          <span className="max-w-xs truncate text-slate-800">{campaign.name}</span>
         </div>
 
         {/* Brand Brain quality notice (shown when score < 60 and not dismissed) */}
@@ -991,7 +1013,7 @@ function CampaignDetailPageInner() {
               </div>
               <button
                 onClick={() => setBrandNoticeDismissed(true)}
-                className="text-text-muted hover:text-white transition-all text-xs px-1 flex-shrink-0">
+                className="flex-shrink-0 px-1 text-xs text-slate-400 transition-all hover:text-slate-700">
                 ✕
               </button>
             </div>
@@ -1042,8 +1064,8 @@ function CampaignDetailPageInner() {
                   </p>
                   <p className="text-xs leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
                     {locale === 'ar'
-                      ? 'الاستراتيجية جاهزة — ابدأ بإنشاء خطة محتوى كاملة الآن لتحريك الحملة.'
-                      : 'Strategy is ready — generate a full content plan now to activate this campaign.'}
+                      ? 'الاستراتيجية جاهزة — ابدأ بإنشاء خطة محتوى كاملة عند استعدادك للمراجعة.'
+                      : 'Strategy is ready — generate a full content plan when you are ready to review it.'}
                   </p>
                 </div>
               </div>
@@ -1057,30 +1079,23 @@ function CampaignDetailPageInner() {
           </div>
         )}
 
-        {/* Header card — NEXUS UI */}
-        <div className="rounded-2xl mb-4 overflow-hidden"
-          style={{
-            background: 'rgba(10,11,28,0.9)',
-            border: '1px solid rgba(139,92,246,0.2)',
-            backdropFilter: 'blur(20px)',
-            boxShadow: '0 0 40px rgba(139,92,246,0.05)',
-          }}>
-          {/* Gradient accent bar */}
-          <div className="h-0.5" style={{ background: 'linear-gradient(90deg, #8b5cf6 0%, #06b6d4 50%, #10b981 100%)' }} />
+        {/* Header card — light campaign summary */}
+        <div className="mb-4 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div className="h-px bg-gradient-to-r from-indigo-200 via-sky-100 to-emerald-100" />
           <div className="p-6">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
-                  style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 0 20px rgba(139,92,246,0.1)' }}>
+                  style={{ background: 'linear-gradient(135deg, #eef2ff, #f8fafc)', border: '1px solid rgb(226,232,240)' }}>
                   {campaign.thumbnail || '🎯'}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--nx-text-1)' }}>{campaign.name}</h1>
-                  <div className="flex flex-wrap items-center gap-2 text-sm" style={{ color: 'var(--nx-text-3)' }}>
+                  <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-950">{campaign.name}</h1>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
                     <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
-                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span className="text-slate-300">·</span>
                     <span>{locale === 'ar' ? 'نبرة: ' : 'Tone: '}{campaign.tone}</span>
-                    <span style={{ color: 'rgba(139,92,246,0.4)' }}>·</span>
+                    <span className="text-slate-300">·</span>
                     <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
                   </div>
                   <div className="flex gap-2 mt-2">
@@ -1089,18 +1104,16 @@ function CampaignDetailPageInner() {
                     ))}
                   </div>
                   {campaign.audience && (
-                    <p className="text-xs mt-2 max-w-md" style={{ color: 'var(--nx-text-4)' }}>{cdT?.audienceLabel}: {campaign.audience}</p>
+                    <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">{cdT?.audienceLabel}: {campaign.audience}</p>
                   )}
                   {/* Campaign status badge */}
                   <div className="flex items-center gap-2 mt-3">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
-                      style={{
-                        background: campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.1)' : 'rgba(139,92,246,0.1)',
-                        border: `1px solid ${campaign.status === 'ACTIVE' ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
-                        color: campaign.status === 'ACTIVE' ? '#10b981' : '#a78bfa',
-                      }}>
-                      <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: campaign.status === 'ACTIVE' ? '#10b981' : '#8b5cf6' }} />
-                      {campaign.status}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${campaignStatusMeta.className}`}>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                      {campaignStatusMeta.label}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {locale === 'ar' ? 'النشر يتطلب مراجعة صريحة' : 'Publishing requires explicit review'}
                     </span>
                   </div>
                 </div>
@@ -1111,7 +1124,7 @@ function CampaignDetailPageInner() {
                 <Link
                   href="/campaigns/new"
                   className="px-3 py-2 rounded-xl text-sm font-bold transition whitespace-nowrap"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 16px rgba(139,92,246,0.3)' }}
+                  style={{ background: '#4f46e5', color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.12)' }}
                 >
                   {cdT?.btnNewCampaign || '+ New Campaign'}
                 </Link>
@@ -1120,7 +1133,7 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={() => setShowHeaderMenu(v => !v)}
                     className="px-3 py-2 rounded-xl text-sm font-bold transition"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--nx-text-3)' }}
+                    style={{ background: '#f8fafc', border: '1px solid rgb(226,232,240)', color: '#475569' }}
                     title={locale === 'ar' ? 'المزيد' : 'More options'}
                   >
                     ···
@@ -1130,35 +1143,35 @@ function CampaignDetailPageInner() {
                       {/* Click-away backdrop */}
                       <div className="fixed inset-0 z-10" onClick={() => setShowHeaderMenu(false)} />
                       <div className="absolute right-0 top-full mt-1 z-20 min-w-44 rounded-xl shadow-2xl overflow-hidden"
-                        style={{ background: 'rgba(18,19,40,0.98)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(20px)' }}>
+                        style={{ background: '#fff', border: '1px solid rgb(226,232,240)' }}>
                         <button
                           onClick={() => { updateCampaign({ favorite: !campaign.favorite }); setShowHeaderMenu(false) }}
                           disabled={saving}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: campaign.favorite ? '#eab308' : 'var(--nx-text-2)' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: campaign.favorite ? '#ca8a04' : '#334155' }}
                         >
                           {campaign.favorite ? `★ ${cdT?.btnSaved || 'Saved'}` : `☆ ${cdT?.btnSave || 'Save'}`}
                         </button>
                         <button
                           onClick={() => { duplicate(); setShowHeaderMenu(false) }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: 'var(--nx-text-2)' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: '#334155' }}
                         >
                           {`⧉ ${cdT?.btnDuplicate || 'Duplicate'}`}
                         </button>
                         <button
                           onClick={() => window.open(`/campaigns/${campaign.id}/print`, '_blank')}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: 'var(--nx-text-2)' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: '#334155' }}
                         >
                           {`⬇ ${cdT?.btnExportPdf || 'Export PDF'}`}
                         </button>
-                        <div className="h-px mx-3" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                        <div className="h-px mx-3 bg-slate-100" />
                         <button
                           onClick={() => { updateCampaign({ status: campaign.status === 'ARCHIVED' ? 'DRAFT' : 'ARCHIVED' }); setShowHeaderMenu(false) }}
                           disabled={saving}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-white/5"
-                          style={{ color: campaign.status === 'ARCHIVED' ? '#a78bfa' : '#6b7280' }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left transition hover:bg-slate-50"
+                          style={{ color: campaign.status === 'ARCHIVED' ? '#4f46e5' : '#64748b' }}
                         >
                           {campaign.status === 'ARCHIVED' ? `↩ ${cdT?.btnRestore || 'Restore'}` : `📦 ${cdT?.btnArchive || 'Archive'}`}
                         </button>
@@ -1173,61 +1186,58 @@ function CampaignDetailPageInner() {
 
         {/* ── Campaign Progress Panel ───────────────────────────────────── */}
         {aiOutput && (
-          <div className="rounded-2xl px-5 py-5 mb-6"
-            style={{
-              background: 'rgba(10,11,28,0.85)',
-              border: '1px solid rgba(139,92,246,0.15)',
-              backdropFilter: 'blur(16px)',
-            }}>
+          <div className="mb-6 rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
 
             {/* ── 4-step progress stepper ── */}
             <div className="flex items-center gap-0 mb-5 overflow-x-auto pb-1 flex-nowrap">
               {([
                 {
                   key: 'generate',
-                  label: locale === 'ar' ? 'التوليد' : 'Generate',
+                  label: locale === 'ar' ? 'تم إنشاء الاستراتيجية' : 'Strategy generated',
                   done: true,
                   active: false,
                 },
                 {
                   key: 'review',
-                  label: locale === 'ar' ? 'المراجعة' : 'Review',
+                  label: locale === 'ar' ? 'فحص الجودة' : 'Quality check',
                   done: sentinelStatus === 'passed',
                   warn: sentinelStatus === 'needs_attention',
                   active: sentinelStatus === 'not_reviewed',
                 },
                 {
                   key: 'approve',
-                  label: locale === 'ar' ? 'الاعتماد' : 'Approve',
+                  label: locale === 'ar' ? 'تخطيط المحتوى' : 'Content planning',
                   done: campaign.status === 'ACTIVE' || approvalState === 'done',
                   active: sentinelStatus === 'passed' && campaign.status !== 'ACTIVE' && approvalState !== 'done',
                 },
                 {
                   key: 'live',
-                  label: locale === 'ar' ? 'مباشر' : 'Live',
+                  label: campaign.autopilotEnabled
+                    ? (locale === 'ar' ? 'إعداد النشر موجود' : 'Publishing configured')
+                    : (locale === 'ar' ? 'النشر غير مفعّل' : 'Publishing not enabled'),
                   done: !!campaign.autopilotEnabled,
                   active: (campaign.status === 'ACTIVE' || approvalState === 'done') && !campaign.autopilotEnabled,
                 },
               ] as Array<{key:string; label:string; done:boolean; active?:boolean; warn?:boolean}>).map((step, i, arr) => (
                 <div key={step.key} className="flex items-center flex-shrink-0">
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    step.done ? 'text-green-400' : step.warn ? 'text-amber-400' : step.active ? 'text-accent' : 'text-gray-600'
+                    step.done ? 'text-emerald-700' : step.warn ? 'text-amber-700' : step.active ? 'text-indigo-700' : 'text-slate-500'
                   }`}>
                     <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 border ${
                       step.done
-                        ? 'bg-green-500/15 border-green-500/30 text-green-400'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                         : step.warn
-                          ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                          ? 'bg-amber-50 border-amber-200 text-amber-700'
                           : step.active
-                            ? 'bg-accent/15 border-accent/30 text-accent'
-                            : 'bg-dark-tertiary border-dark-tertiary text-gray-600'
+                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                            : 'bg-slate-50 border-slate-200 text-slate-400'
                     }`}>
                       {step.done ? '✓' : step.warn ? '!' : i + 1}
                     </span>
                     {step.label}
                   </div>
                   {i < arr.length - 1 && (
-                    <span className="text-gray-800 text-xs mx-1 flex-shrink-0">—</span>
+                    <span className="mx-1 flex-shrink-0 text-xs text-slate-300">—</span>
                   )}
                 </div>
               ))}
@@ -1236,18 +1246,18 @@ function CampaignDetailPageInner() {
             {/* ── Status message + context-aware primary CTA ── */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: engineRunning ? '#fbbf24' : 'var(--nx-text-1)' }}>
+                <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
                   {engineRunning
-                    ? (locale === 'ar' ? '⏳ الماكينة شغالة...' : '⏳ Engine running...')
+                    ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
                     : campaign.status === 'ACTIVE' || approvalState === 'done'
-                      ? (locale === 'ar' ? '✅ الحملة نشطة وجاهزة للتنفيذ' : '✅ Campaign is active and ready to execute')
+                      ? (locale === 'ar' ? '✅ خطة المحتوى متاحة للمراجعة' : '✅ Content plan available for review')
                       : engineReadyForApproval
-                        ? (locale === 'ar' ? '🟢 الحملة جاهزة للاعتماد' : '🟢 Campaign ready for approval')
+                        ? (locale === 'ar' ? '🟢 اكتمل فحص الجودة — انتقل إلى تخطيط المحتوى' : '🟢 Quality check complete — move to content planning')
                         : sentinelStatus === 'needs_attention'
-                          ? (locale === 'ar' ? '⚠️ Sentinel وجد مشاكل — راجع التفاصيل أدناه' : '⚠️ Sentinel found issues — review details below')
+                          ? (locale === 'ar' ? '⚠️ فحص الجودة يحتاج مراجعة — راجع التفاصيل أدناه' : '⚠️ Quality check needs review — see details below')
                           : sentinelStatus === 'passed'
-                            ? (locale === 'ar' ? '✅ مراجعة Sentinel ناجحة' : '✅ Sentinel review passed')
-                            : (locale === 'ar' ? 'الاستراتيجية جاهزة — شغّل Sentinel للمتابعة' : 'Strategy ready — run Sentinel review to continue')}
+                            ? (locale === 'ar' ? '✅ اكتمل فحص جودة الاستراتيجية' : '✅ Strategy quality check complete')
+                            : (locale === 'ar' ? 'راجع الاستراتيجية قبل تحويلها إلى محتوى' : 'Review the strategy before turning it into content')}
                 </p>
                 {(engineError || generateError) && (
                   <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
@@ -1261,7 +1271,7 @@ function CampaignDetailPageInner() {
                   onClick={() => handleRunEngine(true)}
                   disabled={engineRunning}
                   title={locale === 'ar' ? 'إعادة توليد كل المخرجات من الصفر' : 'Regenerate all outputs from scratch'}
-                  className="w-8 h-8 rounded-xl border border-white/10 flex items-center justify-center text-sm text-gray-500 hover:text-gray-300 hover:border-white/20 disabled:opacity-40 transition"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-sm text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40"
                 >
                   ↻
                 </button>
@@ -1271,14 +1281,14 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={handleSentinelReview}
                     disabled={sentinelState === 'reviewing'}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
-                    style={{ background: 'rgba(37,99,235,0.85)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
+                    style={{ background: '#2563eb', color: '#fff' }}
                   >
                     {sentinelState === 'reviewing'
                       ? '⏳...'
                       : sentinelStatus === 'needs_attention'
                         ? (locale === 'ar' ? '🔄 أعد المراجعة' : '🔄 Re-review')
-                        : (locale === 'ar' ? '🔍 مراجعة Sentinel' : '🔍 Sentinel Review')}
+                        : (locale === 'ar' ? '🔍 فحص الجودة' : '🔍 Review quality')}
                   </button>
                 )}
 
@@ -1286,84 +1296,83 @@ function CampaignDetailPageInner() {
                   <button
                     onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition disabled:opacity-60"
-                    style={{ background: 'rgba(5,150,105,0.85)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition disabled:opacity-60"
+                    style={{ background: '#059669', color: '#fff' }}
                   >
                     {launchState === 'approving'
-                      ? (locale === 'ar' ? '⏳ جارٍ الاعتماد...' : '⏳ Approving...')
+                      ? (locale === 'ar' ? '⏳ يجري إعداد المحتوى...' : '⏳ Preparing content...')
                       : launchState === 'generating'
                         ? (locale === 'ar' ? '⚙️ جارٍ إنشاء الخطة...' : '⚙️ Generating plan...')
-                        : (locale === 'ar' ? '🚀 اعتماد وإطلاق' : '🚀 Approve & Launch')}
+                        : (locale === 'ar' ? 'إنشاء خطة المحتوى' : 'Build content plan')}
                   </button>
                 )}
 
                 {activeTab !== 0 && (campaign.status === 'ACTIVE' || approvalState === 'done') && (
                   <Link
                     href={`/campaigns/${campaignId}/content-hub?buildPlan=1`}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition"
-                    style={{ background: 'rgba(124,58,237,0.85)' }}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold transition"
+                    style={{ background: '#4f46e5', color: '#fff' }}
                   >
                     {locale === 'ar' ? 'Content Hub' : 'Content Hub'}
                   </Link>
                 )}
 
                 {engineRunning && (
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white/50"
-                    style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <span className="w-3 h-3 border-2 border-white/30 border-t-white/70 rounded-full animate-spin flex-shrink-0" />
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-500">
+                    <span className="w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin flex-shrink-0" />
                     {locale === 'ar' ? 'جاري التشغيل...' : 'Running...'}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* ── Sentinel review detail — collapsible ── */}
+            {/* ── Quality review detail — collapsible ── */}
             {sentinelReview && (
               <details className="mt-4">
                 <summary className={`cursor-pointer text-xs font-semibold select-none ${
-                  sentinelStatus === 'passed' ? 'text-green-400' : 'text-amber-400'
+                  sentinelStatus === 'passed' ? 'text-emerald-700' : 'text-amber-700'
                 }`}>
                   {sentinelStatus === 'passed'
-                    ? (locale === 'ar' ? '✓ Sentinel اجتاز المراجعة — عرض التفاصيل ▾' : '✓ Sentinel passed — see details ▾')
-                    : (locale === 'ar' ? '⚠ Sentinel: يحتاج انتباه — عرض التفاصيل ▾' : '⚠ Sentinel needs attention — see details ▾')}
+                    ? (locale === 'ar' ? '✓ فحص الجودة مكتمل — عرض التفاصيل ▾' : '✓ Quality check complete — see details ▾')
+                    : (locale === 'ar' ? '⚠ فحص الجودة يحتاج انتباه — عرض التفاصيل ▾' : '⚠ Quality check needs attention — see details ▾')}
                 </summary>
-                <div className="mt-3 pt-3 border-t border-dark-tertiary space-y-3">
+                <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
+                        <span className="text-xs text-slate-500">{cdT?.sentinelRiskScore || 'Risk Score'}</span>
                         <span className={`text-sm font-bold ${sentinelReview.riskScore < 30 ? 'text-green-400' : sentinelReview.riskScore < 50 ? 'text-amber-400' : 'text-red-400'}`}>
                           {sentinelReview.riskScore}/100
                         </span>
                       </div>
-                      <div className="h-1 bg-dark-tertiary rounded-full overflow-hidden">
+                      <div className="h-1 overflow-hidden rounded-full bg-slate-200">
                         <div className={`h-full rounded-full ${sentinelReview.riskScore < 30 ? 'bg-green-500' : sentinelReview.riskScore < 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                           style={{ width: `${sentinelReview.riskScore}%` }} />
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-1">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{cdT?.sentinelRiskLow || 'Lower is better'}</p>
                     </div>
-                    <div className="bg-dark-primary/40 border border-dark-tertiary rounded-xl p-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">{cdT?.sentinelBrandScore || 'Brand Match'}</span>
+                        <span className="text-xs text-slate-500">{cdT?.sentinelBrandScore || 'Brand Match'}</span>
                         <span className={`text-sm font-bold ${sentinelReview.brandConsistencyScore >= 75 ? 'text-green-400' : sentinelReview.brandConsistencyScore >= 55 ? 'text-amber-400' : 'text-red-400'}`}>
                           {sentinelReview.brandConsistencyScore}/100
                         </span>
                       </div>
-                      <div className="h-1 bg-dark-tertiary rounded-full overflow-hidden">
+                      <div className="h-1 overflow-hidden rounded-full bg-slate-200">
                         <div className={`h-full rounded-full ${sentinelReview.brandConsistencyScore >= 75 ? 'bg-green-500' : sentinelReview.brandConsistencyScore >= 55 ? 'bg-amber-500' : 'bg-red-500'}`}
                           style={{ width: `${sentinelReview.brandConsistencyScore}%` }} />
                       </div>
-                      <p className="text-[10px] text-gray-600 mt-1">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
+                      <p className="mt-1 text-[10px] text-slate-500">{cdT?.sentinelBrandHigh || 'Higher is better'}</p>
                     </div>
                   </div>
                   {sentinelReview.summary && (
-                    <p className="text-sm text-gray-300 leading-relaxed">{sentinelReview.summary}</p>
+                    <p className="text-sm leading-relaxed text-slate-600">{sentinelReview.summary}</p>
                   )}
                   {sentinelReview.complianceWarnings?.length > 0 && (
                     <div className="p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
                       <p className="text-xs font-bold text-amber-400 mb-2">{cdT?.sentinelComplianceWarnings || 'Compliance Warnings'}</p>
                       {sentinelReview.complianceWarnings.map((w: string, i: number) => (
-                        <p key={i} className="text-xs text-amber-300 flex items-start gap-2 mb-1"><span className="flex-shrink-0">⚠</span>{w}</p>
+                        <p key={i} className="mb-1 flex items-start gap-2 text-xs text-amber-700"><span className="flex-shrink-0">⚠</span>{w}</p>
                       ))}
                     </div>
                   )}
@@ -1371,7 +1380,7 @@ function CampaignDetailPageInner() {
                     <div className="p-3 rounded-xl border border-blue-500/20 bg-blue-500/5">
                       <p className="text-xs font-bold text-blue-400 mb-2">{cdT?.sentinelRecommendedFixes || 'Recommended Fixes'}</p>
                       {sentinelReview.recommendedFixes.map((fix: string, i: number) => (
-                        <p key={i} className="text-xs text-blue-300 flex items-start gap-2 mb-1"><span className="flex-shrink-0 text-blue-500">→</span>{fix}</p>
+                        <p key={i} className="mb-1 flex items-start gap-2 text-xs text-blue-700"><span className="flex-shrink-0 text-blue-500">→</span>{fix}</p>
                       ))}
                     </div>
                   )}
@@ -1383,33 +1392,33 @@ function CampaignDetailPageInner() {
             {!sentinelReview && sentinelState !== 'reviewing' && (
               <p className="mt-3 text-xs text-gray-600">
                 {locale === 'ar'
-                  ? '🔍 شغّل Sentinel Review للتحقق من جودة الحملة قبل الاعتماد.'
-                  : '🔍 Run Sentinel Review to check campaign quality before approving.'}
+                  ? '🔍 راجع جودة الاستراتيجية قبل تحويلها إلى محتوى.'
+                  : '🔍 Review strategy quality before turning it into content.'}
               </p>
             )}
             {sentinelState === 'reviewing' && (
               <div className="mt-3 flex items-center gap-2">
                 <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                <p className="text-xs text-blue-400">{cdT?.sentinelReviewingMsg || 'Sentinel is reviewing your campaign...'}</p>
+                <p className="text-xs text-blue-600">{locale === 'ar' ? 'يجري فحص جودة الحملة...' : 'Reviewing campaign quality...'}</p>
               </div>
             )}
             {sentinelError && sentinelState === 'idle' && (
               <p className="mt-2 text-xs text-red-400">⚠️ {sentinelError}</p>
             )}
 
-            {/* Approval & Launch confirmation dialog */}
+            {/* Content planning confirmation dialog */}
             {approvalState === 'confirming' && (
               <div className="mt-4 p-4 bg-green-500/5 border border-green-500/25 rounded-xl">
                 {/* ── Idle: confirm prompt ── */}
                 {launchState === 'idle' && (
                   <>
-                    <p className="text-sm font-semibold text-green-400 mb-1">
-                      {locale === 'ar' ? '🚀 هل أنت جاهز للإطلاق؟' : '🚀 Ready to approve and launch?'}
+                    <p className="text-sm font-semibold text-green-700 mb-1">
+                      {locale === 'ar' ? 'هل أنت جاهز لإنشاء خطة المحتوى؟' : 'Ready to build the content plan?'}
                     </p>
-                    <p className="text-xs text-gray-400 mb-3">
+                    <p className="text-xs text-slate-500 mb-3">
                       {locale === 'ar'
-                        ? 'سيتم اعتماد الحملة وإنشاء خطة المحتوى الكاملة، ثم انتقالك تلقائياً إلى Content Hub.'
-                        : 'This will approve the campaign, generate your full content plan, and take you straight to the Content Hub.'}
+                        ? 'سيتم إنشاء خطة محتوى كاملة ثم انتقالك إلى Content Hub للمراجعة. لا يتم نشر شيء من هنا.'
+                        : 'This will generate the full content plan and take you to Content Hub for review. Nothing publishes from here.'}
                     </p>
                     {launchError && (
                       <p className="text-xs text-red-400 mb-2">⚠️ {launchError}</p>
@@ -1417,13 +1426,14 @@ function CampaignDetailPageInner() {
                     <div className="flex gap-2">
                       <button
                         onClick={handleApproveAndLaunch}
-                        className="px-4 py-2 bg-green-500 text-white text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                        className="px-4 py-2 bg-green-500 text-xs font-bold rounded-xl hover:bg-green-600 transition"
+                        style={{ color: '#fff' }}
                       >
-                        {locale === 'ar' ? '🚀 نعم، اعتماد وإطلاق' : '🚀 Yes, Approve & Launch'}
+                        {locale === 'ar' ? 'نعم، إنشاء خطة المحتوى' : 'Yes, build content plan'}
                       </button>
                       <button
                         onClick={() => setApprovalState('idle')}
-                        className="px-4 py-2 bg-dark-tertiary text-gray-400 text-xs font-semibold rounded-xl hover:text-white transition"
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
                       >
                         {cdT?.approveCancelBtn || 'Cancel'}
                       </button>
@@ -1434,8 +1444,8 @@ function CampaignDetailPageInner() {
                 {/* ── In-progress: step tracker ── */}
                 {(launchState === 'approving' || launchState === 'generating') && (
                   <div>
-                    <p className="text-sm font-semibold text-green-400 mb-3">
-                      {locale === 'ar' ? '⏳ جارٍ الإطلاق...' : '⏳ Launching...'}
+                    <p className="text-sm font-semibold text-green-700 mb-3">
+                      {locale === 'ar' ? '⏳ يجري إعداد خطة المحتوى...' : '⏳ Preparing the content plan...'}
                     </p>
                     <div className="space-y-2">
                       {/* Step 1 */}
@@ -1446,7 +1456,7 @@ function CampaignDetailPageInner() {
                           <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 text-green-400 font-bold text-xs">✓</span>
                         )}
                         <p className={`text-xs ${launchState === 'approving' ? 'text-green-400 font-semibold' : 'text-gray-500'}`}>
-                          {locale === 'ar' ? 'اعتماد الحملة' : 'Approving campaign'}
+                          {locale === 'ar' ? 'تجهيز الحملة لتخطيط المحتوى' : 'Preparing campaign for content planning'}
                         </p>
                       </div>
                       {/* Step 2 */}
@@ -1477,20 +1487,19 @@ function CampaignDetailPageInner() {
 
         {/* Generating state */}
         {!aiOutput && generating && (
-          <div className="rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(234,179,8,0.2)', backdropFilter: 'blur(16px)' }}>
+          <div className="mb-6 rounded-[28px] border border-amber-200 bg-amber-50 p-12 text-center shadow-sm">
             <div className="text-5xl mb-4 animate-bounce">🤖</div>
-            <h3 className="text-xl font-bold mb-2 text-amber-400">{cdT?.generatingTitle}</h3>
-            <p className="text-gray-400 mb-6 text-sm">{cdT?.generatingSubtitle}</p>
+            <h3 className="text-xl font-bold mb-2 text-amber-900">{cdT?.generatingTitle}</h3>
+            <p className="mb-6 text-sm text-amber-800">{cdT?.generatingSubtitle}</p>
             <div className="flex justify-center gap-4 mb-4 flex-wrap">
               {([cdT?.genStep1, cdT?.genStep2, cdT?.genStep3, cdT?.genStep4]).map((step, i) => (
-                <div key={i} className="flex items-center gap-1 text-xs text-gray-500">
-                  <span className="w-2 h-2 rounded-full bg-amber-500/40 animate-pulse" style={{ animationDelay: `${i * 0.3}s` }} />
+                <div key={i} className="flex items-center gap-1 text-xs text-amber-700">
+                  <span className="w-2 h-2 rounded-full bg-amber-500/50 animate-pulse" style={{ animationDelay: `${i * 0.3}s` }} />
                   {step}
                 </div>
               ))}
             </div>
-            <div className="w-48 h-1 bg-dark-tertiary rounded-full mx-auto overflow-hidden">
+            <div className="w-48 h-1 bg-amber-100 rounded-full mx-auto overflow-hidden">
               <div className="h-full bg-amber-500 rounded-full animate-pulse" style={{ width: '60%' }} />
             </div>
           </div>
@@ -1498,22 +1507,21 @@ function CampaignDetailPageInner() {
 
         {/* No AI output state (not generating) — NEXUS UI */}
         {!aiOutput && !generating && (
-          <div className="rounded-2xl p-12 text-center mb-6"
-            style={{ background: 'rgba(10,11,28,0.85)', border: '1px solid rgba(139,92,246,0.12)', backdropFilter: 'blur(16px)' }}>
+          <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-12 text-center shadow-sm">
             <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center"
-              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+              style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
               <span className="text-3xl">🤖</span>
             </div>
-            <h3 className="text-xl font-bold mb-2" style={{ color: 'var(--nx-text-1)' }}>{cdT?.noOutputTitle}</h3>
-            <p className="mb-6 text-sm" style={{ color: 'var(--nx-text-3)' }}>{cdT?.noOutputDesc}</p>
+            <h3 className="text-xl font-bold mb-2 text-slate-950">{cdT?.noOutputTitle}</h3>
+            <p className="mb-6 text-sm text-slate-500">{cdT?.noOutputDesc}</p>
             <button
               onClick={() => handleRunEngine()}
               disabled={engineRunning}
               className="px-6 py-3 rounded-xl font-bold transition disabled:opacity-60"
-              style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: '#fff', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>
+              style={{ background: '#4f46e5', color: '#fff', boxShadow: '0 1px 2px rgba(15,23,42,0.12)' }}>
               {engineRunning
                 ? (locale === 'ar' ? '⏳ جاري التوليد...' : '⏳ Generating...')
-                : (cdT?.noOutputBtn || (locale === 'ar' ? '🚀 توليد الاستراتيجية الكاملة' : '🚀 Generate Full Strategy'))}
+                : (cdT?.noOutputBtn || (locale === 'ar' ? 'توليد الاستراتيجية الكاملة' : 'Generate Full Strategy'))}
             </button>
             {generateError && (
               <p className="mt-3 text-sm text-red-400">{generateError}</p>
@@ -1525,28 +1533,27 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <>
             {/* NEXUS tab navigation */}
-            <div className="flex gap-1.5 mb-6 overflow-x-auto pb-1 p-1 rounded-2xl"
-              style={{ background: 'rgba(10,11,28,0.6)', border: '1px solid rgba(139,92,246,0.08)' }}>
+            <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-100/80 p-1 pb-1">
               {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
                 <button
                   key={i}
                   onClick={() => setActiveTab(i)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
                   style={activeTab === i ? {
-                    background: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.1))',
-                    border: '1px solid rgba(139,92,246,0.3)',
-                    color: '#e2d9f3',
-                    boxShadow: '0 0 12px rgba(139,92,246,0.15)',
+                    background: '#fff',
+                    border: '1px solid rgb(199,210,254)',
+                    color: '#3730a3',
+                    boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
                   } : {
                     background: 'transparent',
                     border: '1px solid transparent',
-                    color: 'var(--nx-text-4)',
+                    color: '#64748b',
                   }}
                   onMouseEnter={e => {
-                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-2)'
+                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#334155'
                   }}
                   onMouseLeave={e => {
-                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = 'var(--nx-text-4)'
+                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#64748b'
                   }}
                 >
                   <span className="text-xs">{tab.icon}</span>
@@ -1584,7 +1591,8 @@ function CampaignDetailPageInner() {
                     <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                       <Link
                         href={`/campaigns/${campaignId}/content-hub`}
-                        className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                        className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold transition hover:bg-slate-800"
+                        style={{ color: '#fff' }}
                       >
                         {hasContentCalendar
                           ? (locale === 'ar' ? 'المتابعة إلى مركز المحتوى' : 'Continue to Content Hub')
