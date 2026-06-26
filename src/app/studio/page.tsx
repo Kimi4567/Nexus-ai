@@ -15,8 +15,8 @@ import {
 import { useBrandBrain } from '@/hooks/useBrandBrain'
 
 /* ═══════════════════════════════════════════════════════════════
-   NEX — Creative Content Lab
-   Script · Hooks · Captions · Storyboard — All by AI
+   NEX Content Lab
+   Script · Hooks · Captions · Storyboard — text drafting only
    ═══════════════════════════════════════════════════════════════ */
 
 // ── Types ──────────────────────────────────────────────────────
@@ -219,13 +219,18 @@ export default function NexStudioPage() {
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-semibold text-slate-950">NEX</h1>
+                  <h1 className="text-2xl font-semibold text-slate-950">NEX Content Lab</h1>
                   <span className="px-2 py-0.5 rounded-full text-xs font-medium"
                     style={{ background: '#E0F2FE', color: '#0369A1', border: '1px solid rgba(14,165,233,0.25)' }}>
-                    Studio
+                    Script & Copy Lab
                   </span>
                 </div>
                 <p className="text-slate-500 text-sm mt-0.5">{t('nex.subheading')}</p>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+                  {locale === 'ar'
+                    ? 'ينشئ سكريبتات، هوكس، تعليقات، ولوحات قصة نصية باستخدام سياق Brand Brain عند توفره. لا يحرر التصاميم أو ينشر المحتوى.'
+                    : 'Creates scripts, hooks, captions, and storyboard text using Brand Brain context when available. This is not a visual design editor and does not publish content.'}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -233,7 +238,7 @@ export default function NexStudioPage() {
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
                   style={{ background: '#ECFDF5', border: '1px solid #BBF7D0', color: '#047857' }}>
                   <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                  <span>Brain: {brand.brandName}</span>
+                  <span>Brand Brain context: {brand.brandName}</span>
                 </div>
               ) : (
                 <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
