@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { isBillingConfigured, PLAN_CREDITS } from '@/lib/stripe'
+import { FREE_STARTER_CREDITS } from '@/lib/credits'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
         id: true,
         subscriptionStatus: true,
         aiCredits: true,
+        monthlyGenerations: true,
         stripeCustomerId: true,
       },
     })
@@ -56,7 +58,14 @@ export async function GET(req: NextRequest) {
     const planName = isActive ? planRaw : 'free'
 
     const maxCredits = PLAN_CREDITS[planName] ?? 10  // 10 = FREE_STARTER_CREDITS default
-    const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - (dbUser.aiCredits ?? 0))
+    const storedCredits = dbUser.aiCredits ?? 0
+    const displayCredits =
+      storedCredits > 0
+        ? storedCredits
+        : storedCredits === 0 && (dbUser.monthlyGenerations ?? 0) === 0
+          ? FREE_STARTER_CREDITS
+          : 0
+    const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - displayCredits)
 
     return NextResponse.json({
       plan: planName,
@@ -64,7 +73,7 @@ export async function GET(req: NextRequest) {
       hasActiveSubscription: isActive,
       billingEnabled: isBillingConfigured(),
       credits: {
-        remaining: dbUser.aiCredits ?? 0,
+        remaining: displayCredits,
         used: usedCredits,
         max: maxCredits,         // -1 = unlimited
       },

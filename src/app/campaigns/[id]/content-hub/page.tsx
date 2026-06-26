@@ -18,6 +18,8 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { deriveCampaignOperatingState } from '@/lib/campaignOperatingState'
 import { summarizeByDisplayState } from '@/lib/postVisibility'
+import { getCreditActionTruth } from '@/lib/creditActionTruth'
+import { useBillingStatus } from '@/lib/useBillingStatus'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -189,6 +191,7 @@ export default function ContentHubPage() {
   const campaignId = params.id as string
   const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
+  const { creditsRemaining, isUnlimited, loading: billingLoading } = useBillingStatus()
   const isAr = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
@@ -334,6 +337,21 @@ export default function ContentHubPage() {
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
   const visualReadyLabel = isAr ? 'الوسائط جاهزة' : 'Media ready'
+  const imageGenerationTruth = getCreditActionTruth({
+    action: 'IMAGE_GENERATION',
+    creditsRemaining,
+    isUnlimited,
+  })
+  const contentPlanTruth = getCreditActionTruth({
+    action: 'CONTENT_PLAN_GENERATION',
+    creditsRemaining,
+    isUnlimited,
+  })
+  const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
+  const contentPlanLocked = !billingLoading && !contentPlanTruth.canAfford
+  const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
+  const addCreditsForPlanLabel = isAr ? 'أضف رصيداً لتجديد الخطة' : 'Add credits to regenerate plan'
+  const addCreditsForBuildLabel = isAr ? 'أضف رصيداً لبناء الخطة' : 'Add credits to build plan'
 
   const getPendingEdit = (postId: string) => pendingEdits[postId] ?? {}
 
@@ -341,6 +359,10 @@ export default function ContentHubPage() {
 
   async function generatePlan(mediaSource: 'GENERATE' | 'MIXED' = 'GENERATE') {
     if (!isAuthenticated) return
+    if (contentPlanLocked) {
+      setError(addCreditsForPlanLabel)
+      return
+    }
     setGeneratingPlan(true)
     setError(null)
     try {
@@ -428,6 +450,10 @@ export default function ContentHubPage() {
 
   async function generateAllImages() {
     if (!isAuthenticated) return
+    if (imageGenerationLocked) {
+      setError(addCreditsForImagesLabel)
+      return
+    }
     setGenerating(true)
     setError(null)
     try {
@@ -612,6 +638,10 @@ export default function ContentHubPage() {
 
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
+    if (imageGenerationLocked) {
+      setError(addCreditsForImagesLabel)
+      return
+    }
     const post = posts.find(p => p.id === postId)
     if (!post) return
 
@@ -834,12 +864,13 @@ export default function ContentHubPage() {
                 )}
 
                 <button
-                  onClick={generateAllImages}
+                  onClick={imageGenerationLocked ? () => router.push('/billing') : generateAllImages}
                   disabled={generating || posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length === 0}
                   className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                   style={{
-                    background: '#111827',
-                    color: 'white',
+                    background: imageGenerationLocked ? '#F8FAFC' : '#111827',
+                    color: imageGenerationLocked ? '#475569' : 'white',
+                    border: imageGenerationLocked ? '1px solid rgba(15,23,42,0.12)' : '1px solid transparent',
                     opacity: generating ? 0.6 : 1,
                   }}
                 >
@@ -850,9 +881,9 @@ export default function ContentHubPage() {
                     </>
                   ) : (
                     <>
-                      ✨ {t('contentHub.generateImages')}
+                      ✨ {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImages')}
                       {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length > 0 && (
-                        <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
+                        <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ background: imageGenerationLocked ? '#EEF2FF' : 'rgba(255,255,255,0.20)' }}>
                           {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length}
                         </span>
                       )}
@@ -860,12 +891,12 @@ export default function ContentHubPage() {
                   )}
                 </button>
                 <button
-                  onClick={() => generatePlan()}
+                  onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
                   disabled={generatingPlan}
                   className="px-4 py-2 rounded-xl text-sm border transition-all"
-                  style={{ borderColor: 'rgba(15,23,42,0.14)', color: '#374151', background: '#FFFFFF' }}
+                  style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
                 >
-                  {generatingPlan ? t('contentHub.regenerating') : `↻ ${t('contentHub.regeneratePlan')}`}
+                  {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForPlanLabel : `↻ ${t('contentHub.regeneratePlan')}`}
                 </button>
               </>
             )}
@@ -889,12 +920,13 @@ export default function ContentHubPage() {
                   </span>
                 </button>
                 <button
-                  onClick={() => generatePlan()}
+                  onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
                   disabled={generatingPlan}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                   style={{
-                    background: '#111827',
-                    color: 'white',
+                    background: contentPlanLocked ? '#FEF2F2' : '#111827',
+                    color: contentPlanLocked ? '#B91C1C' : 'white',
+                    border: contentPlanLocked ? '1px solid rgba(239,68,68,0.18)' : '1px solid transparent',
                     opacity: generatingPlan ? 0.6 : 1,
                   }}
                 >
@@ -903,7 +935,7 @@ export default function ContentHubPage() {
                       <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                       {t('contentHub.buildingPlanShort')}
                     </>
-                  ) : `✨ ${t('contentHub.buildPlan')}`}
+                  ) : contentPlanLocked ? addCreditsForBuildLabel : `✨ ${t('contentHub.buildPlan')}`}
                 </button>
               </div>
             )}
@@ -1091,7 +1123,10 @@ export default function ContentHubPage() {
               isRewriting={rewritingPost === post.id}
               isPickingWinner={pickingWinner === post.id}
               isGeneratingImage={generatingImageId === post.id}
+              imageGenerationLocked={imageGenerationLocked}
+              addCreditsForImagesLabel={addCreditsForImagesLabel}
               onGenerateImage={() => generatePostImage(post.id, post.platform)}
+              onAddCredits={() => router.push('/billing')}
               onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
               onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
               onEditPrompt={() => setEditingPrompt(editingPrompt === post.id ? null : post.id)}
@@ -1598,7 +1633,10 @@ interface PostCardProps {
   isRewriting: boolean
   isPickingWinner: boolean
   isGeneratingImage: boolean
+  imageGenerationLocked: boolean
+  addCreditsForImagesLabel: string
   onGenerateImage: () => Promise<void>
+  onAddCredits: () => void
   onToggleExpand: () => void
   onEditCaption: () => void
   onEditPrompt: () => void
@@ -1622,7 +1660,10 @@ function PostCard({
   isRewriting,
   isPickingWinner,
   isGeneratingImage,
+  imageGenerationLocked,
+  addCreditsForImagesLabel,
   onGenerateImage,
+  onAddCredits,
   onToggleExpand,
   onEditCaption,
   onOpenMediaPicker,
@@ -1843,15 +1884,15 @@ function PostCard({
           </button>
         ) : (
           <button
-            onClick={onGenerateImage}
+            onClick={imageGenerationLocked ? onAddCredits : onGenerateImage}
             disabled={isGeneratingImage}
-            title="Generate image · 3 credits · failed generations are refunded"
+            title={imageGenerationLocked ? addCreditsForImagesLabel : 'Generate image · 3 credits · failed generations are refunded'}
             className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
-            style={{ borderColor: 'rgba(15,23,42,0.08)', color: isGeneratingImage ? '#8B5CF6' : '#5E5CE6' }}
+            style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationLocked ? '#FEF2F2' : undefined }}
           >
             {isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
-              : <>🎨 {t('contentHub.imgCredits')}</>
+              : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.imgCredits')}</>
             }
           </button>
         )}

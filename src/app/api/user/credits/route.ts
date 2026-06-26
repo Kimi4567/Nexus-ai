@@ -9,8 +9,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
-
-const FREE_COMPLIMENTARY_RUNS = 3
+import { FREE_STARTER_CREDITS } from '@/lib/credits'
 
 export async function GET(req: NextRequest) {
   try {
@@ -31,9 +30,9 @@ export async function GET(req: NextRequest) {
     const isUnlimited = freshUser.aiCredits === -1
     const isFree = freshUser.subscriptionStatus === 'FREE'
 
-    // First-time free user — they will get 3 on first run
+    // First-time free user — display the starter balance that is granted on first spend.
     const creditsToShow = isFree && freshUser.aiCredits === 0 && freshUser.monthlyGenerations === 0
-      ? FREE_COMPLIMENTARY_RUNS
+      ? FREE_STARTER_CREDITS
       : freshUser.aiCredits
 
     return NextResponse.json({

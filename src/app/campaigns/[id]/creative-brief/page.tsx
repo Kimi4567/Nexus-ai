@@ -15,6 +15,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { getCreditActionTruth } from '@/lib/creditActionTruth'
+import { useBillingStatus } from '@/lib/useBillingStatus'
 import UpgradeModal from '@/components/UpgradeModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -171,6 +173,7 @@ export default function CreativeBriefPage() {
   const router = useRouter()
   const campaignId = params?.id as string
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { creditsRemaining, isUnlimited, loading: billingLoading } = useBillingStatus()
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
@@ -181,6 +184,13 @@ export default function CreativeBriefPage() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const creativeBriefTruth = getCreditActionTruth({
+    action: 'CREATIVE_BRIEF',
+    creditsRemaining,
+    isUnlimited,
+  })
+  const creativeBriefLocked = !billingLoading && !creativeBriefTruth.canAfford
+  const addCreditsLabel = 'Add credits to create a creative brief.'
 
   // ── Data loading ──
   const loadData = useCallback(async () => {
@@ -212,6 +222,11 @@ export default function CreativeBriefPage() {
   const handleGenerate = async () => {
     const token = authHeader()
     if (!token || !campaign) return
+    if (creativeBriefLocked) {
+      setError(addCreditsLabel)
+      router.push('/billing')
+      return
+    }
     // Guard: in asset mode, require at least one asset selected
     if (mode === 'asset' && mediaItems.length > 0 && selectedMedia.size === 0) {
       setError('Select at least one asset to analyze. / اختر أصلًا واحدًا على الأقل للتحليل')
@@ -660,17 +675,18 @@ export default function CreativeBriefPage() {
               </div>
             )}
             <button
-              onClick={handleGenerate}
+              onClick={creativeBriefLocked ? () => router.push('/billing') : handleGenerate}
               disabled={mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)}
               style={{
-                width: '100%', padding: '14px 24px', borderRadius: 10, border: 'none',
-                background: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#E5E7EB' : '#6366F1',
-                color: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#9CA3AF' : '#fff',
+                width: '100%', padding: '14px 24px', borderRadius: 10,
+                background: creativeBriefLocked ? '#FEF2F2' : (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#E5E7EB' : '#6366F1',
+                color: creativeBriefLocked ? '#B91C1C' : (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#9CA3AF' : '#fff',
+                border: creativeBriefLocked ? '1px solid rgba(239,68,68,0.18)' : 'none',
                 fontSize: 14, fontWeight: 700, cursor: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s',
               }}
             >
-              {mode === 'asset'
+              {creativeBriefLocked ? addCreditsLabel : mode === 'asset'
                 ? `🔍 Analyze ${selectedMedia.size > 0 ? `${selectedMedia.size} Selected Asset${selectedMedia.size !== 1 ? 's' : ''}` : 'Assets'} with AI`
                 : '✨ Generate Visual Concepts'
               }
@@ -680,10 +696,10 @@ export default function CreativeBriefPage() {
                 Last generated: {new Date(creativeBrief.generatedAt).toLocaleString()}
                 {' · '}
                 <span
-                  onClick={handleGenerate}
-                  style={{ color: '#6366F1', cursor: 'pointer', textDecoration: 'underline' }}
+                  onClick={creativeBriefLocked ? () => router.push('/billing') : handleGenerate}
+                  style={{ color: creativeBriefLocked ? '#B91C1C' : '#6366F1', cursor: 'pointer', textDecoration: 'underline' }}
                 >
-                  Regenerate
+                  {creativeBriefLocked ? 'Add credits to regenerate' : 'Regenerate'}
                 </span>
               </p>
             )}

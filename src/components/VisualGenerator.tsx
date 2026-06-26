@@ -1,7 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { getCreditActionTruth } from '@/lib/creditActionTruth'
+import { useBillingStatus } from '@/lib/useBillingStatus'
 
 type VisualStyle =
   | 'Minimal' | 'Luxury' | 'Corporate' | 'Editorial' | 'Cinematic'
@@ -94,11 +97,15 @@ function VisualCard({
   onSetPrimary,
   onDelete,
   onRegenerate,
+  generationLocked,
+  lockedLabel,
 }: {
   visual: Visual
   onSetPrimary: (id: string) => void
   onDelete: (id: string) => Promise<void>
   onRegenerate: (visual: Visual) => void
+  generationLocked: boolean
+  lockedLabel: string
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
@@ -217,7 +224,7 @@ function VisualCard({
 
             <button
               onClick={() => onRegenerate(visual)}
-              title="Regenerate from same strategy"
+              title={generationLocked ? lockedLabel : 'Regenerate from same strategy'}
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -268,7 +275,9 @@ function VisualCard({
 }
 
 export default function VisualGenerator({ context, onVisualSaved }: VisualGeneratorProps) {
+  const router = useRouter()
   const { authHeader } = useAuth()
+  const { creditsRemaining, isUnlimited, loading: billingLoading } = useBillingStatus()
   const [visuals, setVisuals] = useState<Visual[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -276,6 +285,13 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
   const [selectedType, setSelectedType] = useState<VisualType>('HERO')
   const [selectedStyle, setSelectedStyle] = useState<VisualStyle>('Premium')
   const [panelOpen, setPanelOpen] = useState(false)
+  const imageGenerationTruth = getCreditActionTruth({
+    action: 'IMAGE_GENERATION',
+    creditsRemaining,
+    isUnlimited,
+  })
+  const generationLocked = !billingLoading && !imageGenerationTruth.canAfford
+  const lockedLabel = 'Add credits to generate visual'
 
   const fetchVisuals = useCallback(async () => {
     const token = authHeader()
@@ -300,6 +316,11 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
   const handleGenerate = async (regenerateFrom?: Visual) => {
     const token = authHeader()
     if (!token) return
+    if (generationLocked) {
+      setError(lockedLabel)
+      router.push('/billing')
+      return
+    }
     setGenerating(true)
     setError('')
     setPanelOpen(false)
@@ -354,6 +375,11 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
   }
 
   const handleRegenerate = (visual: Visual) => {
+    if (generationLocked) {
+      setError(lockedLabel)
+      router.push('/billing')
+      return
+    }
     setSelectedStyle(visual.visualStyle as VisualStyle)
     setSelectedType(visual.visualType as VisualType)
     handleGenerate(visual)
@@ -370,15 +396,15 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           </div>
         </div>
         <button
-          onClick={() => setPanelOpen(o => !o)}
+          onClick={generationLocked ? () => router.push('/billing') : () => setPanelOpen(o => !o)}
           disabled={generating}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold transition hover:bg-indigo-500 disabled:opacity-50"
-          style={{ color: '#fff' }}
+          className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition disabled:opacity-50 ${generationLocked ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'bg-indigo-600 hover:bg-indigo-500'}`}
+          style={{ color: generationLocked ? undefined : '#fff' }}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M6 1v10M1 6h10" strokeLinecap="round" />
           </svg>
-          Generate visual
+          {generationLocked ? 'Add credits to generate visual' : 'Generate visual'}
         </button>
       </div>
 
@@ -446,15 +472,17 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
 
           {/* Cost transparency — shown before the action (factual, no decoration) */}
           <div className="-mb-1 text-center text-[10px] text-slate-500">
-            Costs <span className="font-semibold text-slate-700">3 credits</span> · failed generations are refunded automatically
+            {generationLocked
+              ? 'Credits are required before generating a visual.'
+              : <>Costs <span className="font-semibold text-slate-700">3 credits</span> · failed generations are refunded automatically</>}
           </div>
 
           <button
-            onClick={() => handleGenerate()}
-            className="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold transition hover:bg-indigo-500"
-            style={{ color: '#fff' }}
+            onClick={generationLocked ? () => router.push('/billing') : () => handleGenerate()}
+            className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${generationLocked ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'bg-indigo-600 hover:bg-indigo-500'}`}
+            style={{ color: generationLocked ? undefined : '#fff' }}
           >
-            Generate visual →
+            {generationLocked ? 'Add credits to generate visual →' : 'Generate visual →'}
           </button>
         </div>
       )}
@@ -483,6 +511,8 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
               onSetPrimary={handleSetPrimary}
               onDelete={handleDelete}
               onRegenerate={handleRegenerate}
+              generationLocked={generationLocked}
+              lockedLabel={lockedLabel}
             />
           ))}
         </div>
@@ -503,10 +533,10 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
             Generate campaign visuals from your brand strategy — no prompts required.
           </div>
           <button
-            onClick={() => setPanelOpen(true)}
-            className="text-[11px] font-semibold text-accent hover:underline"
+            onClick={generationLocked ? () => router.push('/billing') : () => setPanelOpen(true)}
+            className={`text-[11px] font-semibold hover:underline ${generationLocked ? 'text-red-600' : 'text-accent'}`}
           >
-            Generate first visual →
+            {generationLocked ? 'Add credits to generate visual →' : 'Generate first visual →'}
           </button>
         </div>
       )}
