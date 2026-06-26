@@ -12,7 +12,7 @@ The Sidebar could show "No credits left" while Content Hub still showed active-l
 
 - Runtime display and default credit spending continue to use `User.aiCredits`.
 - `CreditGrant` rows remain a wallet foundation / flag-gated path and are not the default display source.
-- `/api/billing/status` now displays the same first-time starter balance that the existing spend path grants on first use.
+- `/api/billing/status` now displays the same first-time starter balance that the existing spend path grants on first use, only for inactive FREE users who have no stored credits and no prior monthly generations.
 - `/api/user/credits` now uses the same starter-credit constant for the Strategy modal balance display.
 
 ## Files Touched
@@ -27,7 +27,7 @@ The Sidebar could show "No credits left" while Content Hub still showed active-l
 
 ## Display-Only Starter Credit Alignment
 
-First-time free users with `aiCredits === 0` and `monthlyGenerations === 0` are shown the existing starter credit amount. This does not mutate the database and does not grant credits from the status endpoint.
+First-time free users with no active subscription, `subscriptionStatus === 'FREE'`, `aiCredits === 0`, and `monthlyGenerations === 0` are shown the existing starter credit amount. This does not mutate the database and does not grant credits from the status endpoint.
 
 ## Generation CTA Gating Rules
 

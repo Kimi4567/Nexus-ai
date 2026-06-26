@@ -4,6 +4,8 @@ import path from 'path'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 
 const CREDITS_SRC = readFileSync(path.join(process.cwd(), 'src/lib/credits.ts'), 'utf8')
+const BILLING_STATUS_SRC = readFileSync(path.join(process.cwd(), 'src/app/api/billing/status/route.ts'), 'utf8')
+const USER_CREDITS_SRC = readFileSync(path.join(process.cwd(), 'src/app/api/user/credits/route.ts'), 'utf8')
 
 function canonicalCost(action: string): number {
   const match = CREDITS_SRC.match(new RegExp(`${action}:\\s*(\\d+)`))
@@ -57,5 +59,14 @@ describe('getCreditActionTruth', () => {
     const truth = getCreditActionTruth({ action: 'RUN_FULL_STRATEGY', creditsRemaining: 8 })
     expect(truth.cost).toBe(canonicalCost('RUN_FULL_STRATEGY'))
     expect(truth.canAfford).toBe(true)
+  })
+
+  it('keeps starter-credit display eligibility aligned across credit status APIs', () => {
+    expect(BILLING_STATUS_SRC).toContain('FREE_STARTER_CREDITS')
+    expect(USER_CREDITS_SRC).toContain('FREE_STARTER_CREDITS')
+    expect(BILLING_STATUS_SRC).toContain('isFreeStarterEligible')
+    expect(BILLING_STATUS_SRC).toContain('!isActive')
+    expect(BILLING_STATUS_SRC).toContain("String(dbUser.subscriptionStatus ?? '').toUpperCase() === 'FREE'")
+    expect(BILLING_STATUS_SRC).not.toContain('storedCredits === 0 && (dbUser.monthlyGenerations ?? 0) === 0\n          ? FREE_STARTER_CREDITS')
   })
 })

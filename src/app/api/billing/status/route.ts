@@ -59,10 +59,15 @@ export async function GET(req: NextRequest) {
 
     const maxCredits = PLAN_CREDITS[planName] ?? 10  // 10 = FREE_STARTER_CREDITS default
     const storedCredits = dbUser.aiCredits ?? 0
+    const isFreeStarterEligible =
+      !isActive &&
+      String(dbUser.subscriptionStatus ?? '').toUpperCase() === 'FREE' &&
+      storedCredits === 0 &&
+      (dbUser.monthlyGenerations ?? 0) === 0
     const displayCredits =
       storedCredits > 0
         ? storedCredits
-        : storedCredits === 0 && (dbUser.monthlyGenerations ?? 0) === 0
+        : isFreeStarterEligible
           ? FREE_STARTER_CREDITS
           : 0
     const usedCredits = maxCredits === -1 ? 0 : Math.max(0, maxCredits - displayCredits)
