@@ -132,6 +132,29 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('لا تساعد على')
   })
 
+  it('preserves negative Arabic تضمن لك disclaimers', () => {
+    const out = guardContentDraftText('لا تضمن لك هذه الخطة نتائج فورية')
+
+    expect(out).toContain('لا تضمن لك')
+    expect(out).not.toContain('لا تساعد على')
+  })
+
+  it('preserves negative Arabic يضمن لك disclaimers', () => {
+    const out = guardContentDraftText('لا يضمن لك هذا المحتوى نتائج فورية')
+
+    expect(out).toContain('لا يضمن لك')
+    expect(out).not.toContain('لا يساعد على')
+  })
+
+  it('still softens positive Arabic تضمن لك guarantee claims', () => {
+    const out = guardContentDraftText('تضمن لك القهوة المثالية كل مرة')
+
+    expect(out).toContain('تساعد على')
+    expect(out).toContain('قهوة أكثر اتساقًا')
+    expect(out).not.toContain('تضمن لك')
+    expect(out).not.toContain('المثالية كل مرة')
+  })
+
   it('still softens risky Arabic stock absolutes', () => {
     const out = guardContentDraftText('المكتب مليان قهوة دائمًا')
 
