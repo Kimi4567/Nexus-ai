@@ -8,6 +8,7 @@
 
 export interface StrategyProofContext {
   verifiedProof?: string[] | null
+  budgetText?: string | null
 }
 
 interface ProofAvailability {
@@ -43,6 +44,7 @@ function softenUnsupportedGuarantees(text: string): string {
 function guardUnsafeStatusLanguage(text: string): string {
   return text
     .replace(/مرحلة العمل\s*:\s*active\b/gi, 'مرحلة العمل: مرحلة التخطيط/المراجعة')
+    .replace(/مرحلة العمل\s+active\b/gi, 'مرحلة العمل مرحلة التخطيط/المراجعة')
     .replace(/\bbusiness stage\s*:\s*active\b/gi, 'business stage: business already operating')
     .replace(/\bactive stage\b/gi, 'planning/review stage')
     .replace(/\bcampaign active\b/gi, 'campaign in planning/review')
@@ -52,10 +54,53 @@ function guardUnsafeStatusLanguage(text: string): string {
 function softenAbsoluteOutcomeClaims(text: string): string {
   return text
     .replace(/\bEnsure your office has the best coffee every day\b/gi, 'Help keep your office stocked with better coffee')
+    .replace(/\bEnsure your office is always\b[^.?!]*/gi, 'Help keep your office stocked with better coffee')
+    .replace(/\bEnsure your office has\b[^.?!]*/gi, 'Help keep your office stocked with better coffee')
+    .replace(/\bEnsure your team always\b/gi, 'Support more reliable team planning')
+    .replace(/\bEnsure customers always\b/gi, 'Help customers')
+    .replace(/\bEnsure every\b/gi, 'Support each')
+    .replace(/\bAlways stocked\b/gi, 'more reliably stocked')
+    .replace(/\bbest\b([^.!?]{0,60})\bevery day\b/gi, 'better$1more consistently')
     .replace(/\bEnsure results\b/gi, 'Support the planned outcome')
     .replace(/\bEnsure delivery\b/gi, 'Support delivery planning')
     .replace(/\bEnsure customers\b/gi, 'Help customers')
     .replace(/\bmake sure your team always\b/gi, 'help your team more consistently')
+    .replace(/\bmake sure\b([^.!?]{0,80})\balways\b/gi, 'help$1more consistently')
+}
+
+function hasBudgetContext(context: StrategyProofContext): boolean {
+  return typeof context.budgetText === 'string' && context.budgetText.trim().length > 0
+}
+
+function guardUnsupportedBudgetAssumptions(text: string, context: StrategyProofContext): string {
+  if (hasBudgetContext(context)) return text
+
+  return text
+    .replace(/\bAssumes?\s+(?:a\s+)?(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+budget\b[^.?!]*/gi, 'Paid budget needs user confirmation')
+    .replace(/\bAssumes?\s+[^.?!]{0,80}\bbudget\s+is\s+available\b[^.?!]*/gi, 'Paid budget needs user confirmation')
+    .replace(/\b(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+budget\s+is\s+available\b[^.?!]*/gi, 'Paid budget needs user confirmation')
+    .replace(/\b(?:ad\s+budget|paid\s+budget|budget)\s+is\s+available\b/gi, 'paid budget needs user confirmation')
+    .replace(/\bmonthly\s+paid\s+budget\s+of\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\b/gi, 'paid budget needs user confirmation')
+    .replace(/\b(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:ad\s+)?budget\b/gi, 'paid budget needs user confirmation')
+    .replace(/\b(?:allocate|spend)\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:to|on|for)\s+([^.,;!?]+)/gi, 'Add paid budget before allocating spend to $1')
+}
+
+function keyImpliesStatus(key: string): boolean {
+  return /\b(stage|status|campaign state|execution state)\b/i.test(key) || /مرحلة/.test(key)
+}
+
+function keyImpliesBusinessStatus(key: string): boolean {
+  return /\bbusiness\s+(?:stage|status)\b/i.test(key) || /حالة النشاط|مرحلة النشاط/.test(key)
+}
+
+function isUnsafeStatusValue(value: string): boolean {
+  return /^(active|live|running|launched|published|scheduled)$/i.test(value.trim())
+}
+
+function guardStructuredStatusValue(key: string, value: string): string {
+  if (!keyImpliesStatus(key) || !isUnsafeStatusValue(value)) return value
+  if (keyImpliesBusinessStatus(key)) return 'business already operating'
+  return /مرحلة/.test(key) ? 'مرحلة التخطيط/المراجعة' : 'planning/review'
 }
 
 export function getProofAvailability(context: StrategyProofContext): ProofAvailability {
@@ -131,7 +176,10 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bcertified\b/gi, 'to be verified')
   }
 
-  guarded = softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded))
+  guarded = guardUnsupportedBudgetAssumptions(
+    softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
+    context,
+  )
     .replace(/\s{2,}/g, ' ')
     .trim()
 
@@ -139,16 +187,32 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
 }
 
 export function guardStrategyProof<T>(input: T, context: StrategyProofContext = {}): T {
-  if (typeof input === 'string') return guardStrategyProofText(input, context) as T
+  return guardStrategyProofValue(input, context) as T
+}
+
+function guardStrategyProofValue(input: unknown, context: StrategyProofContext, keyPath = ''): unknown {
+  if (typeof input === 'string') return guardStrategyProofText(input, context)
   if (Array.isArray(input)) {
-    return input.map(item => guardStrategyProof(item, context)) as T
+    return input.map((item, index) => guardStrategyProofValue(item, context, `${keyPath}.${index}`))
   }
   if (input && typeof input === 'object') {
     const output: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-      output[key] = guardStrategyProof(value, context)
+      const valueKeyPath = keyPath ? `${keyPath}.${key}` : key
+      if (typeof value === 'string') {
+        const labelCandidates = [
+          key,
+          valueKeyPath,
+          typeof (input as Record<string, unknown>).label === 'string' ? (input as Record<string, unknown>).label as string : '',
+          typeof (input as Record<string, unknown>).title === 'string' ? (input as Record<string, unknown>).title as string : '',
+          typeof (input as Record<string, unknown>).name === 'string' ? (input as Record<string, unknown>).name as string : '',
+        ].filter(Boolean).join(' ')
+        output[key] = guardStrategyProofText(guardStructuredStatusValue(labelCandidates, value), context)
+      } else {
+        output[key] = guardStrategyProofValue(value, context, valueKeyPath)
+      }
     }
-    return output as T
+    return output
   }
   return input
 }

@@ -47,6 +47,37 @@ describe('strategyProofGuard', () => {
     expect(english).not.toContain('live')
   })
 
+  it('rewrites structured active campaign status fields', () => {
+    const arabic = guardStrategyProof({
+      label: 'مرحلة العمل',
+      value: 'active',
+    }, { verifiedProof: [] })
+
+    expect(arabic.value).toContain('مرحلة التخطيط/المراجعة')
+    expect(JSON.stringify(arabic)).not.toContain('active')
+
+    const english = guardStrategyProof({
+      label: 'Campaign status',
+      value: 'active',
+    }, { verifiedProof: [] })
+
+    expect(english.value).toContain('planning/review')
+    expect(JSON.stringify(english)).not.toContain('active')
+    expect(JSON.stringify(english)).not.toContain('live')
+    expect(JSON.stringify(english)).not.toContain('published')
+    expect(JSON.stringify(english)).not.toContain('scheduled')
+  })
+
+  it('distinguishes business operating status from campaign execution status', () => {
+    const business = guardStrategyProof({
+      label: 'Business status',
+      value: 'active',
+    }, { verifiedProof: [] })
+
+    expect(business.value).toBe('business already operating')
+    expect(JSON.stringify(business)).not.toContain('campaign active')
+  })
+
   it('softens absolute ensure-style outcome wording', () => {
     const out = guardStrategyProofText('Ensure your office has the best coffee every day.', {
       verifiedProof: [],
@@ -55,6 +86,47 @@ describe('strategyProofGuard', () => {
     expect(out).toBe('Help keep your office stocked with better coffee.')
     expect(out).not.toContain('Ensure')
     expect(out).not.toContain('best coffee every day')
+  })
+
+  it('softens broader ensure and always-stocked absolute claims', () => {
+    const out = guardStrategyProofText('Ensure your office is always stocked with premium coffee.', {
+      verifiedProof: [],
+    })
+
+    expect(out).toBe('Help keep your office stocked with better coffee.')
+    expect(out).not.toContain('Ensure')
+    expect(out).not.toContain('always stocked')
+  })
+
+  it('removes unsupported budget assumptions unless budget context is provided', () => {
+    const assumed = guardStrategyProofText('Assumes $5000 USD budget is available for allocation.', {
+      verifiedProof: [],
+    })
+    expect(assumed).toContain('Paid budget needs user confirmation')
+    expect(assumed).not.toContain('$5000')
+    expect(assumed).not.toContain('budget is available')
+
+    const allocated = guardStrategyProofText('Allocate $5000 to paid ads.', {
+      verifiedProof: [],
+    })
+    expect(allocated).toContain('Add paid budget before allocating spend to paid ads')
+    expect(allocated).not.toContain('$5000')
+
+    const withBudget = guardStrategyProofText('Assumes $5000 USD budget is available for allocation.', {
+      verifiedProof: [],
+      budgetText: '$5000 USD',
+    })
+    expect(withBudget).toBe('Assumes $5000 USD budget is available for allocation.')
+  })
+
+  it('keeps harmless time-range numbers while scrubbing budget assumptions', () => {
+    const out = guardStrategyProofText('Plan the first 30 days within a 90 days strategy. Allocate $5000 to paid ads.', {
+      verifiedProof: [],
+    })
+
+    expect(out).toContain('first 30 days')
+    expect(out).toContain('90 days')
+    expect(out).not.toContain('$5000')
   })
 
   it('preserves legitimate testimonial wording when user-provided proof includes a testimonial', () => {
