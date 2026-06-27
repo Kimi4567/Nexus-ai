@@ -350,8 +350,6 @@ export default function ContentHubPage() {
   const imageGenerationLocked = !billingLoading && !imageGenerationTruth.canAfford
   const contentPlanLocked = !billingLoading && !contentPlanTruth.canAfford
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
-  const addCreditsForPlanLabel = isAr ? 'أضف رصيداً لتجديد الخطة' : 'Add credits to regenerate plan'
-  const addCreditsForBuildLabel = isAr ? 'أضف رصيداً لبناء الخطة' : 'Add credits to build plan'
   const contentPlanCostLabel = isAr
     ? `${contentPlanTruth.cost} كريديت`
     : `${contentPlanTruth.cost} credit${contentPlanTruth.cost === 1 ? '' : 's'}`
@@ -361,6 +359,15 @@ export default function ContentHubPage() {
   const regenerateDraftPlanLabel = isAr
     ? `إعادة توليد خطة محتوى مسودة — ${contentPlanCostLabel}`
     : `Regenerate draft content plan — ${contentPlanCostLabel}`
+  const addCreditsForDraftPlanLabel = isAr
+    ? `أضف رصيداً لتوليد خطة محتوى مسودة — ${contentPlanCostLabel}`
+    : `Add credits to generate draft content plan — ${contentPlanCostLabel}`
+  const addCreditsForRegenerateDraftPlanLabel = isAr
+    ? `أضف رصيداً لإعادة توليد خطة محتوى مسودة — ${contentPlanCostLabel}`
+    : `Add credits to regenerate draft content plan — ${contentPlanCostLabel}`
+  const contentPlanRequirementDisclosure = isAr
+    ? `يتطلب ${contentPlanCostLabel}.`
+    : `Requires ${contentPlanCostLabel}.`
   const contentPlanDisclosure = isAr
     ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
     : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.'
@@ -382,7 +389,7 @@ export default function ContentHubPage() {
   async function generatePlan(mediaSource: 'GENERATE' | 'MIXED' = 'GENERATE') {
     if (!isAuthenticated) return
     if (contentPlanLocked) {
-      setError(addCreditsForPlanLabel)
+      setError(addCreditsForDraftPlanLabel)
       return
     }
     setGeneratingPlan(true)
@@ -919,9 +926,11 @@ export default function ContentHubPage() {
                     className="px-4 py-2 rounded-xl text-sm border transition-all"
                     style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
                   >
-                    {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
+                    {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForRegenerateDraftPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
                   </button>
-                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">{contentPlanDisclosure} {contentPlanAutopilotDisclosure}</p>
+                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">
+                    {contentPlanLocked ? `${contentPlanRequirementDisclosure} ` : ''}{contentPlanDisclosure} {contentPlanAutopilotDisclosure}
+                  </p>
                   <p className="text-[11px] text-slate-400">{creditBalanceLabel}</p>
                 </div>
               </>
@@ -962,9 +971,11 @@ export default function ContentHubPage() {
                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                         {t('contentHub.buildingPlanShort')}
                       </>
-                    ) : contentPlanLocked ? addCreditsForBuildLabel : `✨ ${draftPlanLabel}`}
+                    ) : contentPlanLocked ? addCreditsForDraftPlanLabel : `✨ ${draftPlanLabel}`}
                   </button>
-                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">{contentPlanDisclosure} {contentPlanAutopilotDisclosure}</p>
+                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">
+                    {contentPlanLocked ? `${contentPlanRequirementDisclosure} ` : ''}{contentPlanDisclosure} {contentPlanAutopilotDisclosure}
+                  </p>
                   <p className="text-[11px] text-slate-400">{creditBalanceLabel}</p>
                 </div>
               </div>

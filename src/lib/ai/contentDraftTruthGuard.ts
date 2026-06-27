@@ -80,6 +80,13 @@ function guardProofClaims(text: string, context: ContentDraftTruthContext): stri
 function softenAbsoluteClaims(text: string): string {
   return text
     .replace(/\bSupport more reliable team planning has access to great coffee\b/gi, 'Help teams plan better office coffee routines')
+    .replace(/المشروب المثالي كل مرة/g, 'قهوة أكثر اتساقًا مع إرشادات أوضح')
+    .replace(/القهوة المثالية كل مرة/g, 'قهوة أكثر اتساقًا مع إرشادات أوضح')
+    .replace(/قهوة مثالية كل مرة/g, 'قهوة أكثر اتساقًا مع إرشادات أوضح')
+    .replace(/أفضل قهوة كل يوم/g, 'روتين قهوة أفضل وأكثر وضوحًا')
+    .replace(/المكتب مليان قهوة دائمًا/g, 'تخطيط أفضل لمخزون القهوة')
+    .replace(/دائمًا متوفر/g, 'تخطيط أفضل لمخزون القهوة')
+    .replace(/لا ينفد/g, 'يساعد على تقليل نفاد القهوة')
     .replace(/\bensuring every coffee break is a moment of luxury\b/gi, 'helping make coffee breaks feel more considered and enjoyable')
     .replace(/\bensuring every\b[^.?!]*/gi, 'helping make each moment more considered')
     .replace(/\bensure every\b[^.?!]*/gi, 'help make each moment more consistent')
@@ -99,6 +106,10 @@ function softenAbsoluteClaims(text: string): string {
 
 function guardDeliveryClaims(text: string): string {
   return text
+    .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
+    .replace(/توصيل سريع/g, 'توقيت التوصيل يعتمد على الموقع')
+    .replace(/توصيل لباب البيت/g, 'التوصيل حسب المناطق المتاحة')
+    .replace(/توصيل في اليوم التالي/g, 'التوصيل في اليوم التالي حيثما توفر')
     .replace(/\bquick delivery guaranteed\b/gi, 'delivery timing depends on supported zones')
     .replace(/\bfast delivery guaranteed\b/gi, 'delivery timing depends on supported zones')
     .replace(/\bdelivery guaranteed\b/gi, 'delivery where available')
@@ -112,6 +123,9 @@ function guardDeliveryClaims(text: string): string {
 
 function guardCoffeeComplianceClaims(text: string): string {
   return text
+    .replace(/طاقة مضمونة/g, 'تجربة قهوة أكثر انتظامًا')
+    .replace(/نتائج فورية/g, 'دعم روتين عمل أفضل للمراجعة')
+    .replace(/إنتاجية مضمونة/g, 'دعم روتين عمل أفضل للمراجعة')
     .replace(/\bguaranteed energy\b/gi, 'support for a more enjoyable coffee routine')
     .replace(/\bproductivity guaranteed\b/gi, 'productivity support to review')
     .replace(/\bboost productivity guaranteed\b/gi, 'support productive routines')

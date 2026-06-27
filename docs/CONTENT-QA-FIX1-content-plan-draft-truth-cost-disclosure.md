@@ -9,10 +9,12 @@ This PR keeps the existing Content Hub flow, generation endpoint, credit deducti
 ## What Changed
 
 - Added visible Content Plan cost disclosure before generation and regeneration actions.
+- Kept the same cost visible in locked/Add credits states.
 - Added draft-only copy beside the generation CTA: generated content is for review only, and nothing is approved, scheduled, published, or activated.
 - Added a deterministic `contentDraftTruthGuard` for generated draft post fields.
 - Added guard coverage for:
   - perfection and absolute claims
+  - minimal Arabic perfection, delivery, stock, and productivity claims
   - always-stocked claims
   - delivery claims without supported-zone bounds
   - unsupported testimonials, customer stories, reviews, awards, and case studies

@@ -36,6 +36,36 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('always stocked')
   })
 
+  it('softens high-risk Arabic perfection, delivery, stock, and productivity claims', () => {
+    const out = guardContentDraftText(
+      'المشروب المثالي كل مرة مع توصيل مضمون وتوصيل سريع. المكتب مليان قهوة دائمًا ولا ينفد. طاقة مضمونة ونتائج فورية وإنتاجية مضمونة.',
+    )
+
+    expect(out).toContain('قهوة أكثر اتساقًا مع إرشادات أوضح')
+    expect(out).toContain('التوصيل حسب المناطق المتاحة')
+    expect(out).toContain('توقيت التوصيل يعتمد على الموقع')
+    expect(out).toContain('تخطيط أفضل لمخزون القهوة')
+    expect(out).toContain('يساعد على تقليل نفاد القهوة')
+    expect(out).toContain('تجربة قهوة أكثر انتظامًا')
+    expect(out).toContain('دعم روتين عمل أفضل للمراجعة')
+    expect(out).not.toContain('المشروب المثالي كل مرة')
+    expect(out).not.toContain('توصيل مضمون')
+    expect(out).not.toContain('توصيل سريع')
+    expect(out).not.toContain('المكتب مليان قهوة دائمًا')
+    expect(out).not.toContain('طاقة مضمونة')
+    expect(out).not.toContain('نتائج فورية')
+    expect(out).not.toContain('إنتاجية مضمونة')
+  })
+
+  it('bounds Arabic doorstep and next-day delivery wording', () => {
+    const out = guardContentDraftText('توصيل لباب البيت وتوصيل في اليوم التالي.')
+
+    expect(out).toContain('التوصيل حسب المناطق المتاحة')
+    expect(out).toContain('التوصيل في اليوم التالي حيثما توفر')
+    expect(out).not.toContain('توصيل لباب البيت')
+    expect(out).not.toContain('توصيل في اليوم التالي.')
+  })
+
   it('rewrites the observed awkward team-planning phrase', () => {
     const out = guardContentDraftText('Support more reliable team planning has access to great coffee.')
 
