@@ -111,6 +111,34 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('المثالية كل مرة')
   })
 
+  it('preserves safe Arabic كل مرة usage', () => {
+    const safe = 'اسأل عن درجة الطحن كل مرة تطلب فيها'
+
+    expect(guardContentDraftText(safe)).toBe(safe)
+    expect(guardContentDraftText(safe)).not.toContain('بشكل أكثر اتساقًا تطلب فيها')
+  })
+
+  it('preserves safe Arabic دائمًا usage', () => {
+    const safe = 'راجع درجة الطحن دائمًا قبل الطلب'
+
+    expect(guardContentDraftText(safe)).toBe(safe)
+    expect(guardContentDraftText(safe)).not.toContain('بشكل منتظم قبل الطلب')
+  })
+
+  it('preserves negative Arabic guarantee disclaimers', () => {
+    const out = guardContentDraftText('لا تضمن هذه الخطة نتائج فورية')
+
+    expect(out).toContain('لا تضمن')
+    expect(out).not.toContain('لا تساعد على')
+  })
+
+  it('still softens risky Arabic stock absolutes', () => {
+    const out = guardContentDraftText('المكتب مليان قهوة دائمًا')
+
+    expect(out).toContain('تخطيط أفضل لمخزون القهوة')
+    expect(out).not.toContain('مليان قهوة دائمًا')
+  })
+
   it('bounds Arabic doorstep and next-day delivery wording', () => {
     const out = guardContentDraftText('توصيل لباب البيت وتوصيل في اليوم التالي.')
 
