@@ -64,15 +64,32 @@ interface Props {
 // reading Brand Brain and producing the strategic brief. No fake multi-agent theater.
 const STEP_DURATIONS = [1500, 3000, 4000, 3500, 3000]
 const STEP_ICONS     = [Brain, Cpu, BarChart3, Megaphone, Shield]
-const STEP_COLORS    = ['#8B5CF6', '#8B5CF6', '#10B981', '#FF6B35', '#00D4FF']
+const STEP_COLORS    = ['#4F46E5', '#6366F1', '#059669', '#EA580C', '#0284C7']
 const STEP_KEYS      = ['step1', 'step2', 'step3', 'step4', 'step5'] as const
 
 // -- Shared card style -------------------------------------------------------
 
 const CARD_STYLE: React.CSSProperties = {
-  background: 'rgba(6,7,26,0.97)',
-  border: '1px solid rgba(139,92,246,0.25)',
-  boxShadow: '0 24px 80px rgba(139,92,246,0.2)',
+  background: '#ffffff',
+  border: '1px solid #e2e8f0',
+  boxShadow: '0 24px 80px rgba(15,23,42,0.16)',
+}
+
+const SELECTED_OPTION_STYLE: React.CSSProperties = {
+  background: '#eef2ff',
+  border: '1px solid #818cf8',
+  color: '#3730a3',
+}
+
+const UNSELECTED_OPTION_STYLE: React.CSSProperties = {
+  background: '#f8fafc',
+  border: '1px solid #e2e8f0',
+  color: '#475569',
+}
+
+const primaryButtonStyle: React.CSSProperties = {
+  background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
+  color: '#fff',
 }
 
 // -- i18n key -> field label helper ------------------------------------------
@@ -538,27 +555,27 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     <div
       dir={dir}
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+      style={{ background: 'rgba(15,23,42,0.32)', backdropFilter: 'blur(6px)' }}
       onClick={(e) => { if (e.target === e.currentTarget && phase !== 'running') onClose() }}
     >
-      <div className="w-full max-w-md rounded-2xl overflow-hidden relative" style={CARD_STYLE}>
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl text-slate-700" style={CARD_STYLE}>
 
         {/* ========== LANGUAGE PICKER PHASE ========== */}
         {phase === 'lang_select' && (
           <div className="p-6">
             <button onClick={onClose}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
 
             {/* Icon + title */}
             <div className="text-center mb-6">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
-                <Globe className="w-7 h-7" style={{ color: '#8B5CF6' }} />
+                style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                <Globe className="w-7 h-7" style={{ color: '#4F46E5' }} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-1">{rs.langSelectTitle}</h2>
-              <p className="text-xs text-text-muted">{rs.langSelectDesc}</p>
+              <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.langSelectTitle}</h2>
+              <p className="text-xs text-slate-500">{rs.langSelectDesc}</p>
             </div>
 
             {/* Language options */}
@@ -572,18 +589,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 return (
                   <button key={opt.id} onClick={() => setSelectedLanguage(opt.id)}
                     className="w-full text-start flex items-center gap-3 p-3 rounded-xl transition-all duration-200"
-                    style={{
-                      background: isSelected ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${isSelected ? 'rgba(139,92,246,0.45)' : 'rgba(139,92,246,0.1)'}`,
-                    }}>
+                    style={isSelected ? SELECTED_OPTION_STYLE : UNSELECTED_OPTION_STYLE}>
                     <span className="text-2xl leading-none flex-shrink-0">{opt.flag}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-white">{opt.label}</div>
-                      <div className="text-xs text-text-muted truncate">{opt.desc}</div>
+                      <div className="text-sm font-semibold text-slate-950">{opt.label}</div>
+                      <div className="text-xs text-slate-500 truncate">{opt.desc}</div>
                     </div>
                     {isSelected && (
                       <div className="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center"
-                        style={{ background: '#8B5CF6' }}>
+                        style={{ background: '#4F46E5' }}>
                         <div className="w-1.5 h-1.5 rounded-full bg-white" />
                       </div>
                     )}
@@ -594,7 +608,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             {/* PR-I — Strategy Type + Duration (generation-time choice) */}
             <div className="mb-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-slate-500">
                 {locale === 'ar' ? 'نوع الاستراتيجية' : 'Strategy type'}
               </div>
               <div className="flex gap-1.5">
@@ -606,15 +620,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <button key={v} onClick={() => setStrategyType(v)}
                     className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                     style={{
-                      background: strategyType === v ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${strategyType === v ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.1)'}`,
-                      color: strategyType === v ? '#C4B5FD' : 'rgba(255,255,255,0.6)',
+                      ...(strategyType === v ? SELECTED_OPTION_STYLE : UNSELECTED_OPTION_STYLE),
                     }}>{l}</button>
                 ))}
               </div>
             </div>
             <div className="mb-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-slate-500">
                 {locale === 'ar' ? 'المدة' : 'Duration'}
               </div>
               <div className="flex gap-1.5">
@@ -627,13 +639,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <button key={v} onClick={() => setStrategyDuration(v)}
                     className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                     style={{
-                      background: strategyDuration === v ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${strategyDuration === v ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.1)'}`,
-                      color: strategyDuration === v ? '#C4B5FD' : 'rgba(255,255,255,0.6)',
+                      ...(strategyDuration === v ? SELECTED_OPTION_STYLE : UNSELECTED_OPTION_STYLE),
                     }}>{l}</button>
                 ))}
               </div>
-              <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p className="mt-1.5 text-[10px] text-slate-500">
                 {locale === 'ar' ? 'موصى به: 90 يوماً مع أول 30 يوماً قابلة للتنفيذ.' : 'Recommended: 90 days, first 30 actionable.'}
               </p>
               {/* PR-S1b — custom horizon (days) input, shown only for Custom. Review-only. */}
@@ -642,11 +652,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <input
                     type="number" min={1} max={365} value={customDurationDays}
                     onChange={e => setCustomDurationDays(Math.max(1, Math.floor(Number(e.target.value) || 0)))}
-                    className="w-24 px-2.5 py-1.5 rounded-lg text-xs text-white bg-transparent outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(139,92,246,0.25)' }}
+                    className="w-24 px-2.5 py-1.5 rounded-lg text-xs text-slate-950 bg-white outline-none"
+                    style={{ border: '1px solid #cbd5e1' }}
                     dir="ltr"
                   />
-                  <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  <span className="text-[11px] text-slate-500">
                     {locale === 'ar' ? 'يوم (حتى 180؛ أطول من ذلك يحتاج عرض سعر مخصص)' : 'days (up to 180; longer needs a custom quote)'}
                   </span>
                 </div>
@@ -655,7 +665,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             {/* PR-S1b — Content intensity picker (review-only; not sent to backend in S1b). */}
             <div className="mb-5">
-              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-slate-500">
                 {locale === 'ar' ? 'كثافة المحتوى' : 'Content intensity'}
               </div>
               <div className="flex gap-1.5">
@@ -663,16 +673,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <button key={v} onClick={() => setContentIntensity(v)}
                     className="flex-1 py-2 rounded-lg text-[11px] font-semibold transition-all leading-tight"
                     style={{
-                      background: contentIntensity === v ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${contentIntensity === v ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.1)'}`,
-                      color: contentIntensity === v ? '#C4B5FD' : 'rgba(255,255,255,0.6)',
+                      ...(contentIntensity === v ? SELECTED_OPTION_STYLE : UNSELECTED_OPTION_STYLE),
                     }}>
                     {intensityLabel(v, locale)}
                     <span className="block text-[9px] font-normal opacity-70">{INTENSITY_RANGE_LABEL[v]}</span>
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] mt-1.5" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              <p className="mt-1.5 text-[10px] text-slate-500">
                 {locale === 'ar' ? 'منشورات عضوية شهرياً (قد تُقيَّد حسب خطتك).' : 'Organic posts / month (may be capped by your plan).'}
               </p>
             </div>
@@ -680,8 +688,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             {/* Start button */}
             <button
               onClick={() => setLangConfirmed(true)}
-              className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' }}>
+              className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90"
+              style={primaryButtonStyle}>
               <Rocket className="w-4 h-4" />
               {rs.langStartBtn}
             </button>
@@ -715,6 +723,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           const isUnlimited = creditBalance === -1
           const balanceAfter = isUnlimited ? -1 : creditBalance !== null ? Math.max(0, creditBalance - COST) : null
           const canAfford = isUnlimited || (creditBalance !== null && creditBalance >= COST)
+          const creditsNeeded = !isUnlimited && creditBalance !== null ? Math.max(0, COST - creditBalance) : 0
 
           const postsPerMonth = tierToPostsPerMonth(billingStatus?.plan)
           const deliverables = getStrategyDeliverables(
@@ -732,40 +741,40 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           return (
             <div className="p-6">
               <button onClick={onClose}
-                className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+                className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
                 <X className="w-4 h-4" />
               </button>
 
               {/* Header */}
               <div className="text-center mb-5">
                 <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
-                  <Zap className="w-7 h-7" style={{ color: '#8B5CF6' }} />
+                  style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+                  <Zap className="w-7 h-7" style={{ color: '#4F46E5' }} />
                 </div>
-                <h2 className="text-xl font-bold text-white mb-1">
+                <h2 className="text-xl font-bold text-slate-950 mb-1">
                   {locale === 'ar' ? 'تأكيد تشغيل الاستراتيجية' : 'Confirm Strategy Run'}
                 </h2>
-                <p className="text-xs text-text-muted">
+                <p className="text-xs text-slate-500">
                   {locale === 'ar' ? 'راجع التكلفة قبل البدء' : 'Review the cost before starting'}
                 </p>
               </div>
 
               {/* Credit breakdown card */}
               <div className="rounded-2xl p-4 mb-4"
-                style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.18)' }}>
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                 {/* Action cost row */}
                 <div className="flex items-center justify-between mb-3 pb-3"
-                  style={{ borderBottom: '1px solid rgba(139,92,246,0.12)' }}>
+                  style={{ borderBottom: '1px solid #e2e8f0' }}>
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center"
                       style={{ background: 'rgba(139,92,246,0.12)' }}>
                       <Rocket className="w-3.5 h-3.5" style={{ color: '#8B5CF6' }} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white">
+                      <p className="text-sm font-semibold text-slate-950">
                         {locale === 'ar' ? 'تشغيل الاستراتيجية الكاملة' : 'Full Strategy Run'}
                       </p>
-                      <p className="text-[10px] text-text-muted">
+                      <p className="text-[10px] text-slate-500">
                         {locale === 'ar' ? 'استراتيجي تسويق ذكي من Brand Brain' : 'AI strategist, built from your Brand Brain'}
                       </p>
                     </div>
@@ -780,10 +789,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 {/* Balance rows */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-text-muted text-xs">
+                    <span className="text-slate-500 text-xs">
                       {locale === 'ar' ? 'رصيدك الحالي' : 'Current balance'}
                     </span>
-                    <span className="font-semibold" style={{ color: '#00D4FF' }}>
+                    <span className="font-semibold text-sky-700">
                       {creditBalance === null
                         ? '...'
                         : isUnlimited
@@ -791,12 +800,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         : `${creditBalance} ${locale === 'ar' ? 'كريديت' : 'credits'}`}
                     </span>
                   </div>
+                  {canAfford && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-text-muted text-xs">
-                      {locale === 'ar' ? 'الرصيد بعد التشغيل' : 'Balance after run'}
+                    <span className="text-slate-500 text-xs">
+                      {locale === 'ar' ? 'الرصيد المتوقع المتبقي' : 'Projected remaining credits'}
                     </span>
                     <span className="font-semibold" style={{
-                      color: balanceAfter !== null && !isUnlimited && balanceAfter <= 2 ? '#FF6B35' : '#10B981',
+                      color: balanceAfter !== null && !isUnlimited && balanceAfter <= 2 ? '#EA580C' : '#059669',
                     }}>
                       {balanceAfter === null
                         ? '...'
@@ -805,11 +815,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         : `${balanceAfter} ${locale === 'ar' ? 'كريديت' : 'credits'}`}
                     </span>
                   </div>
+                  )}
                 </div>
               </div>
 
               {/* ── PR-S1b — Strategy Order Review (deterministic; counts from the contract) ── */}
-              <p className="text-[11px] leading-relaxed mb-2.5" style={{ color: 'var(--nx-text-3)' }}>
+              <p className="text-[11px] leading-relaxed mb-2.5 text-slate-500">
                 {ar
                   ? 'ذاكرة العلامة التجارية تحفظ تفضيلاتك الافتراضية. يمكنك مراجعة وتعديل هذا الطلب قبل توليد الاستراتيجية.'
                   : 'Your Brand Brain gives NEXUS default preferences. You can review and adjust this order before generating.'}
@@ -818,9 +829,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               {!deliverables.supported ? (
                 /* Unsupported (custom > 180 days) — block generation before any charge. */
                 <div className="rounded-xl p-3 mb-4 flex items-start gap-2"
-                  style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.28)' }}>
+                  style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF6B35' }} />
-                  <p className="text-[11px] leading-relaxed" style={{ color: '#FCA5A5' }}>
+                  <p className="text-[11px] leading-relaxed text-orange-700">
                     {ar
                       ? `الخطط الأطول من 180 يوماً غير مدعومة بعد. تواصل مع الدعم للحصول على عرض سعر مخصّص — لن يتم خصم أي كريديت.`
                       : `Strategies longer than 180 days aren’t supported yet. Contact support for a custom quote — no credits will be charged.`}
@@ -838,7 +849,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       includesOrganic ? `${intensityLabel(contentIntensity, locale)} · ${INTENSITY_RANGE_LABEL[contentIntensity]}` : null,
                     ].filter(Boolean).map((chip, i) => (
                       <span key={i} className="px-2 py-1 rounded-lg text-[10px] font-semibold"
-                        style={{ background: 'rgba(139,92,246,0.12)', color: '#C4B5FD', border: '1px solid rgba(139,92,246,0.25)' }}>
+                        style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #c7d2fe' }}>
                         {chip}
                       </span>
                     ))}
@@ -846,7 +857,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
                   {/* Multi-month roadmap explanation */}
                   {deliverables.planningHorizonDays > 30 && (
-                    <p className="text-[11px] leading-relaxed mb-3" style={{ color: 'var(--nx-text-3)' }}>
+                    <p className="text-[11px] leading-relaxed mb-3 text-slate-500">
                       {ar
                         ? 'خطط 90 و180 يوم تشمل خريطة طريق كاملة، وتقويم محتوى تفصيلي لأول 30 يوم فقط. يتم توليد تقاويم الشهور التالية لاحقًا بناءً على الأداء والتعلم.'
                         : '90/180-day strategies include a full roadmap and a detailed first 30-day content calendar. Future monthly calendars are generated later as NEXUS learns from performance.'}
@@ -855,14 +866,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
                   {/* Included */}
                   <div className="rounded-xl p-3 mb-2"
-                    style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
+                    style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
                     <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#10B981' }}>
                       {ar ? 'ما الذي ستحصل عليه' : "What you'll get"}
                     </p>
                     <div className="grid grid-cols-1 gap-1">
                       {includesOrganic && (
-                        <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                          <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                          <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
                           {ar
                             ? `منشورات عضوية لأول 30 يوم: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`
                             : `Organic posts for the first 30 days: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`}
@@ -870,23 +881,23 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       )}
                       {includesPaid && (
                         <>
-                          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
                             {ar ? `نسخ إعلانية: ${deliverables.paidAdVariationCount}` : `Ad copy variations: ${deliverables.paidAdVariationCount}`}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
                             {ar ? `بريفات إبداعية: ${deliverables.creativeBriefCount}` : `Creative briefs: ${deliverables.creativeBriefCount}`}
                           </div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
                             {ar ? `فرضيات جمهور: ${deliverables.audienceHypothesisCount}` : `Audience hypotheses: ${deliverables.audienceHypothesisCount}`}
                           </div>
                         </>
                       )}
                       {deliverables.includedDeliverables.slice(0, 6).map(item => (
-                        <div key={item} className="flex items-center gap-1.5 text-[10px] text-text-muted">
-                          <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-accent-teal" />
+                        <div key={item} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                          <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
                           {item}
                         </div>
                       ))}
@@ -896,14 +907,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   {/* Excluded */}
                   {deliverables.excludedDeliverables.length > 0 && (
                     <div className="rounded-xl p-3 mb-2"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2 text-slate-500">
                         {ar ? 'غير مشمول' : 'Not included'}
                       </p>
                       <div className="grid grid-cols-1 gap-1">
                         {deliverables.excludedDeliverables.slice(0, 6).map(item => (
-                          <div key={item} className="flex items-center gap-1.5 text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                            <XCircle className="w-3 h-3 flex-shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                          <div key={item} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <XCircle className="w-3 h-3 flex-shrink-0 text-slate-400" />
                             {item}
                           </div>
                         ))}
@@ -913,7 +924,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
                   {/* Platform-variants note */}
                   {includesOrganic && (
-                    <p className="text-[10px] leading-relaxed mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    <p className="text-[10px] leading-relaxed mb-2 text-slate-500">
                       {ar
                         ? 'نسخ المنصات هي تكييفات لكل قناة، وليست منشورات إضافية منفصلة.'
                         : 'Platform variants are adaptations for each channel, not separate extra posts.'}
@@ -925,10 +936,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                     <div className="rounded-xl px-3 py-2.5 mb-2 flex items-start gap-2"
                       style={{ background: 'rgba(255,184,0,0.08)', border: '1px solid rgba(255,184,0,0.28)' }}>
                       <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
-                      <p className="text-[11px] leading-relaxed" style={{ color: '#FFD47A' }}>
+                      <p className="text-[11px] leading-relaxed text-amber-800">
                         {ar
-                          ? `اخترت كثافة ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]} شهرياً)، لكن خطتك الحالية تسمح بـ${deliverables.planCappedOrganicPostCount} منشوراً — لذلك سيتم توليد ${deliverables.organicPostCount}. قم بالترقية لفتح المزيد.`
-                          : `You chose ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]}/mo), but your current plan allows ${deliverables.planCappedOrganicPostCount} — so ${deliverables.organicPostCount} posts will be generated. Upgrade to unlock more.`}
+                          ? `اخترت نطاق ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]} شهرياً) كهدف تخطيطي، لكن خطتك الحالية تحد أول 30 يوم إلى ${deliverables.planCappedOrganicPostCount} منشورات. لذلك سيتم توليد ${deliverables.organicPostCount} منشورات الآن.`
+                          : `You selected ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]}/mo) as the planning range, but your current plan caps the generated first 30 days at ${deliverables.planCappedOrganicPostCount} posts. ${deliverables.organicPostCount} posts will be generated now.`}
                       </p>
                     </div>
                   )}
@@ -936,12 +947,23 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   {/* Paid planning-only callout */}
                   {includesPaid && (
                     <div className="rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2"
-                      style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
+                      style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
                       <Shield className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FF6B35' }} />
-                      <p className="text-[11px] leading-relaxed" style={{ color: '#FCA5A5' }}>
+                      <p className="text-[11px] leading-relaxed text-orange-700">
                         {ar
                           ? 'الاستراتيجية المدفوعة للتخطيط فقط. لن يطلق NEXUS إعلانات أو يصرف ميزانية أو ينشر أو يفعّل حملات بدون موافقة صريحة.'
                           : 'Paid strategy is planning-only. NEXUS will not launch ads, spend budget, publish, or activate campaigns without explicit approval.'}
+                      </p>
+                    </div>
+                  )}
+                  {strategyType === 'full' && deliverables.excludedDeliverables.length > 0 && (
+                    <div className="rounded-xl px-3 py-2.5 mb-4 flex items-start gap-2"
+                      style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                      <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-orange-600" />
+                      <p className="text-[11px] leading-relaxed text-orange-800">
+                        {ar
+                          ? 'اخترت استراتيجية كاملة، لكن بعض أجزاء المدفوع تبقى محدودة لأن Brand Brain لا يحتوي بعد على ميزانية واضحة، KPIs، وجهة تحويل، أو تتبع. هذا تخطيط فقط: لن يتم إطلاق إعلانات أو صرف ميزانية أو نشر محتوى.'
+                          : 'You selected a full strategy, but some paid sections remain limited because Brand Brain is missing clear budget, KPIs, conversion destination, or tracking. This is planning only: no ads launch, budget spend, or publishing will happen.'}
                       </p>
                     </div>
                   )}
@@ -950,9 +972,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
               {/* PR-2A — honest scope note: budget/KPI/paid planning depend on Brand Brain data */}
               <div className="rounded-xl px-3 py-2.5 mb-3 flex items-start gap-2"
-                style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.15)' }}>
-                <Brain className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#8B5CF6' }} />
-                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nx-text-3)' }}>
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <Brain className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#4F46E5' }} />
+                <p className="text-[11px] leading-relaxed text-slate-600">
                   {locale === 'ar'
                     ? 'ميزانية، KPIs، وتخطيط الإعلانات المدفوعة تُفتح عند إضافة بياناتها في Brand Brain. بدونها تبقى منخفضة الثقة.'
                     : 'Budget, KPI, and paid-ads planning unlock as you add that data in Brand Brain — without it they stay low-confidence.'}
@@ -962,12 +984,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               {/* Not enough credits warning */}
               {!canAfford && creditBalance !== null && (
                 <div className="rounded-xl px-3 py-2.5 mb-3 flex items-center gap-2"
-                  style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.25)' }}>
+                  style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
                   <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FF6B35' }} />
-                  <p className="text-[11px]" style={{ color: '#FCA5A5' }}>
+                  <p className="text-[11px] text-orange-800">
                     {locale === 'ar'
-                      ? `تحتاج ${COST} كريديت. رصيدك ${creditBalance} فقط. قم بالترقية للمتابعة.`
-                      : `You need ${COST} credits but have ${creditBalance}. Upgrade to continue.`}
+                      ? `تحتاج ${creditsNeeded} كريديت إضافية لتشغيل هذه الاستراتيجية.`
+                      : `You need ${creditsNeeded} more credits to run this strategy.`}
                   </p>
                 </div>
               )}
@@ -977,29 +999,29 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 /* PR-S1b — custom > 180 days: block generation before any charge. */
                 <button disabled
                   className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mb-2 cursor-not-allowed"
-                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  style={{ background: '#f1f5f9', color: '#94a3b8', border: '1px solid #e2e8f0' }}>
                   {ar ? 'غير متاح — يتطلب عرض سعر مخصص' : 'Unavailable — needs a custom quote'}
                 </button>
               ) : canGenerate ? (
                 <button
                   onClick={() => setCostConfirmed(true)}
-                  className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
-                  style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)' }}>
+                  className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
+                  style={primaryButtonStyle}>
                   <Rocket className="w-4 h-4" />
                   {ar ? `توليد الاستراتيجية — ${COST} كريديت` : `Generate strategy — ${COST} credits`}
                 </button>
               ) : (
                 <button
                   onClick={() => { onClose(); setShowUpgrade(true) }}
-                  className="w-full py-3 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
-                  style={{ background: 'linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%)' }}>
+                  className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)', color: '#fff' }}>
                   <ArrowUpRight className="w-4 h-4" />
                   {locale === 'ar' ? 'ترقية الخطة' : 'Upgrade Plan'}
                 </button>
               )}
 
               <button onClick={onClose}
-                className="w-full py-2 rounded-xl text-xs text-text-muted hover:text-white transition-all"
+                className="w-full py-2 rounded-xl text-xs text-slate-500 hover:text-slate-900 transition-all"
                 style={{ border: '1px solid rgba(139,92,246,0.15)' }}>
                 {rs.errorClose}
               </button>
@@ -1012,13 +1034,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           <div className="p-6">
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-lg font-bold text-white">{rs.modalTitle}</h2>
-                <p className="text-xs text-text-muted mt-0.5">{rs.modalSubtitle}</p>
+                <h2 className="text-lg font-bold text-slate-950">{rs.modalTitle}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{rs.modalSubtitle}</p>
               </div>
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
                 <div className="w-4 h-4 border-2 rounded-full animate-spin"
-                  style={{ borderColor: 'rgba(139,92,246,0.3)', borderTopColor: '#8B5CF6' }} />
+                  style={{ borderColor: '#c7d2fe', borderTopColor: '#4F46E5' }} />
               </div>
             </div>
 
@@ -1033,17 +1055,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                     className="flex items-center gap-3 p-3 rounded-xl transition-all duration-300"
                     style={{
                       background: isActive ? `${color}12` : isDone ? 'rgba(16,185,129,0.05)' : 'transparent',
-                      border: `1px solid ${isActive ? `${color}35` : isDone ? 'rgba(16,185,129,0.18)' : 'rgba(139,92,246,0.08)'}`,
+                      border: `1px solid ${isActive ? `${color}35` : isDone ? 'rgba(16,185,129,0.18)' : '#e2e8f0'}`,
                     }}
                   >
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                       style={{
                         background: isDone   ? 'rgba(16,185,129,0.15)'
                                   : isActive ? `${color}18`
-                                  : 'rgba(139,92,246,0.06)',
+                                  : '#f8fafc',
                       }}>
                       {isDone ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-accent-teal" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       ) : isActive ? (
                         <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin"
                           style={{ borderColor: `${color}40`, borderTopColor: color }} />
@@ -1052,7 +1074,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       )}
                     </div>
                     <span className="text-sm font-medium transition-colors"
-                      style={{ color: isDone ? '#10B981' : isActive ? 'white' : 'rgba(255,255,255,0.22)' }}>
+                      style={{ color: isDone ? '#059669' : isActive ? '#1e293b' : '#94a3b8' }}>
                       {rs[key]}
                     </span>
                   </div>
@@ -1060,21 +1082,21 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               })}
             </div>
 
-            <p className="text-[10px] text-text-muted mt-4 text-center">{rs.infoUsing}</p>
+            <p className="text-[10px] text-slate-500 mt-4 text-center">{rs.infoUsing}</p>
 
             {/* Tab-hidden warning — appears if user switched away during generation */}
             {tabHiddenDuringRun && (
               <div className="mt-3 rounded-xl px-3 py-2.5 flex items-center gap-2.5 animate-pulse"
-                style={{ background: 'rgba(255,184,0,0.08)', border: '1px solid rgba(255,184,0,0.25)' }}>
+                style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#FFB800' }} />
-                <p className="text-[11px] leading-snug" style={{ color: '#FFD47A' }}>
+                <p className="text-[11px] leading-snug text-amber-800">
                   {locale === 'ar'
                     ? 'التوليد لا يزال يعمل — لا تغلق هذا التاب حتى ينتهي'
                     : 'Generation is still running — don\'t close this tab'}
                 </p>
                 <button
                   onClick={() => setTabHiddenDuringRun(false)}
-                  className="ms-auto flex-shrink-0 text-text-muted hover:text-white transition-colors">
+                  className="ms-auto flex-shrink-0 text-slate-500 hover:text-slate-900 transition-colors">
                   <X className="w-3 h-3" />
                 </button>
               </div>
@@ -1086,7 +1108,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         {phase === 'media_check' && (
           <div className="p-6">
             <button onClick={onClose}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
 
@@ -1095,15 +1117,15 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{
                   background: mediaItems.length > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.1)',
-                  border: `1px solid ${mediaItems.length > 0 ? 'rgba(16,185,129,0.25)' : 'rgba(139,92,246,0.2)'}`,
+                  border: `1px solid ${mediaItems.length > 0 ? '#bbf7d0' : '#c7d2fe'}`,
                 }}>
-                <ImageIcon className="w-5 h-5" style={{ color: mediaItems.length > 0 ? '#10B981' : '#8B5CF6' }} />
+                <ImageIcon className="w-5 h-5" style={{ color: mediaItems.length > 0 ? '#059669' : '#4F46E5' }} />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-base font-bold text-white leading-tight">
+                <h2 className="text-base font-bold text-slate-950 leading-tight">
                   {mediaItems.length > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
                 </h2>
-                <p className="text-xs text-text-muted mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {mediaItems.length > 0
                     ? (locale === 'ar' ? 'اختر الأصول التي تريد استخدامها' : 'Choose which assets to use')
                     : rs.mediaCheckDescNone}
@@ -1124,8 +1146,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
                   style={{
                     background: mediaUploading ? 'rgba(139,92,246,0.05)' : 'rgba(139,92,246,0.1)',
-                    border: '1px solid rgba(139,92,246,0.25)',
-                    color: mediaUploading ? '#6b6b80' : '#a5a0ff',
+                    border: '1px solid #c7d2fe',
+                    color: mediaUploading ? '#94a3b8' : '#4338ca',
                     cursor: mediaUploading ? 'not-allowed' : 'pointer',
                   }}>
                   <Upload className="w-3 h-3" />
@@ -1142,7 +1164,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
                 <AlertTriangle className="w-3 h-3 flex-shrink-0" />
                 <span className="flex-1 truncate">{mediaUploadError}</span>
-                <button onClick={() => setMediaUploadError(null)} className="flex-shrink-0 hover:text-white">
+                <button onClick={() => setMediaUploadError(null)} className="flex-shrink-0 hover:text-slate-900">
                   <X className="w-3 h-3" />
                 </button>
               </div>
@@ -1150,7 +1172,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             {/* Upload progress bar */}
             {mediaUploading && (
-              <div className="w-full h-1 rounded-full mb-3" style={{ background: 'rgba(139,92,246,0.15)' }}>
+              <div className="w-full h-1 rounded-full mb-3" style={{ background: '#e0e7ff' }}>
                 <div className="h-full rounded-full transition-all duration-200"
                   style={{ width: `${mediaUploadProgress}%`, background: 'linear-gradient(90deg, #8B5CF6, #10B981)' }} />
               </div>
@@ -1161,7 +1183,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <>
                 {/* Select All / Deselect All row */}
                 <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs text-text-muted">
+                  <span className="text-xs text-slate-500">
                     {selectedMediaIds.length > 0
                       ? (locale === 'ar' ? `${selectedMediaIds.length} مختار` : `${selectedMediaIds.length} selected`)
                       : (locale === 'ar' ? 'لا يوجد مختار' : 'None selected')}
@@ -1176,7 +1198,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                     <button
                       onClick={() => setSelectedMediaIds([])}
                       className="text-[10px] font-medium px-2 py-1 rounded-lg transition-all"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.15)', color: '#a5a0ff' }}>
+                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569' }}>
                       {locale === 'ar' ? 'إلغاء الكل' : 'Deselect all'}
                     </button>
                   </div>
@@ -1195,9 +1217,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         )}
                         className="relative aspect-square rounded-lg overflow-hidden transition-all duration-150 focus:outline-none"
                         style={{
-                          border: isSelected
+                         border: isSelected
                             ? '2px solid #10B981'
-                            : '2px solid rgba(255,255,255,0.06)',
+                            : '2px solid #e2e8f0',
                         }}
                         title={item.fileName}
                       >
@@ -1205,7 +1227,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         {isVideo ? (
                           <div className="w-full h-full flex items-center justify-center"
                             style={{ background: 'rgba(139,92,246,0.12)' }}>
-                            <Film className="w-5 h-5 text-accent-purple" />
+                            <Film className="w-5 h-5 text-indigo-600" />
                           </div>
                         ) : (
                           <img
@@ -1221,14 +1243,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                           style={{
                             background: isSelected
                               ? 'rgba(16,185,129,0.18)'
-                              : 'rgba(0,0,0,0.0)',
+                              : 'rgba(255,255,255,0.0)',
                           }} />
 
                         {/* Checkmark */}
                         {isSelected && (
                           <div className="absolute top-1 end-1 w-4 h-4 rounded-full flex items-center justify-center"
                             style={{ background: '#10B981' }}>
-                            <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                            <svg className="w-2.5 h-2.5 text-slate-950" viewBox="0 0 10 10" fill="none">
                               <path d="M2 5l2.5 2.5 3.5-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           </div>
@@ -1237,7 +1259,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         {/* Video badge */}
                         {isVideo && (
                           <div className="absolute bottom-1 start-1 px-1 rounded text-[8px] font-bold"
-                            style={{ background: 'rgba(139,92,246,0.9)', color: 'white' }}>
+                            style={{ background: 'rgba(67,56,202,0.95)', color: '#fff' }}>
                             VID
                           </div>
                         )}
@@ -1248,9 +1270,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               </>
             ) : (
               <div className="rounded-xl p-3 mb-4 flex items-start gap-2.5"
-                style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)' }}>
+                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
-                <p className="text-xs text-text-muted leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   {locale === 'ar'
                     ? 'الصور والفيديوهات تساعد الاستراتيجية على اقتراح محتوى مرئي أكثر دقة. يمكنك رفعها الآن أو المتابعة بدونها.'
                     : 'Visual assets help the strategy suggest more precise content formats. You can upload now or continue without them.'}
@@ -1261,7 +1283,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             {/* Actions */}
             <button
               onClick={() => { startStrategyFnRef.current?.() }}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white btn-gradient mb-2 transition-all hover:brightness-110">
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-slate-950 btn-gradient mb-2 transition-all hover:brightness-110">
               <Rocket className="w-4 h-4" />
               {selectedMediaIds.length > 0
                 ? (locale === 'ar' ? `ابدأ بـ ${selectedMediaIds.length} أصل` : `Run with ${selectedMediaIds.length} asset${selectedMediaIds.length !== 1 ? 's' : ''}`)
@@ -1269,7 +1291,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             </button>
 
             {mediaItems.length === 0 && !mediaUploading && (
-              <p className="text-center text-[11px] text-text-muted mb-1">
+              <p className="text-center text-[11px] text-slate-500 mb-1">
                 {locale === 'ar' ? '← اضغط "رفع" أعلاه لإضافة صور أو فيديوهات' : '← Click "Upload" above to add photos or videos'}
               </p>
             )}
@@ -1280,7 +1302,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         {phase === 'gate' && gateData && (
           <div className="p-6">
             <button onClick={onClose}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
 
@@ -1290,8 +1312,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.25)' }}>
                 <Brain className="w-7 h-7" style={{ color: '#FFB800' }} />
               </div>
-              <h2 className="text-xl font-bold text-white mb-1">{bg.runStrategyTitle}</h2>
-              <p className="text-sm text-text-muted leading-relaxed">{bg.runStrategyDesc}</p>
+              <h2 className="text-xl font-bold text-slate-950 mb-1">{bg.runStrategyTitle}</h2>
+              <p className="text-sm text-slate-500 leading-relaxed">{bg.runStrategyDesc}</p>
             </div>
 
             {/* Missing required fields */}
@@ -1318,7 +1340,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             {gateData.missingRecommended.length > 0 && (
               <div className="rounded-xl p-3 mb-4"
                 style={{ background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.1)' }}>
-                <p className="text-[10px] font-medium text-text-muted mb-2">
+                <p className="text-[10px] font-medium text-slate-500 mb-2">
                   {bg.recommendedLabel}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -1336,19 +1358,19 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             {/* Why it matters */}
             <div className="rounded-xl p-3 mb-5"
               style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.1)' }}>
-              <p className="text-[10px] font-bold text-accent-teal mb-0.5">{bg.whyMatters}</p>
-              <p className="text-[10px] text-text-muted leading-relaxed">{bg.whyMattersDesc}</p>
+              <p className="text-[10px] font-bold text-emerald-600 mb-0.5">{bg.whyMatters}</p>
+              <p className="text-[10px] text-slate-500 leading-relaxed">{bg.whyMattersDesc}</p>
             </div>
 
             {/* CTA: Complete Brand Brain (primary — hard block) */}
             <Link href="/brand" onClick={onClose}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white btn-gradient mb-2 transition-all hover:brightness-110">
+              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-slate-950 btn-gradient mb-2 transition-all hover:brightness-110">
               <Brain className="w-4 h-4" />
               {bg.completeBrandBtn}
             </Link>
 
             <button onClick={onClose}
-              className="w-full px-4 py-2 rounded-xl text-xs text-text-muted hover:text-white transition-all"
+              className="w-full px-4 py-2 rounded-xl text-xs text-slate-500 hover:text-slate-900 transition-all"
               style={{ border: '1px solid rgba(139,92,246,0.15)' }}>
               {rs.errorClose}
             </button>
@@ -1359,24 +1381,24 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         {phase === 'success' && result && (
           <div className="p-6">
             <button onClick={handleCloseFromSuccess}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
 
             <div className="text-center mb-5">
               <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
                 style={{ background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)' }}>
-                <CheckCircle2 className="w-7 h-7 text-accent-teal" />
+                <CheckCircle2 className="w-7 h-7 text-emerald-600" />
               </div>
-              <h2 className="text-xl font-bold text-white mb-1">{rs.successTitle}</h2>
-              <p className="text-sm text-text-muted">{rs.successSub}</p>
+              <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.successTitle}</h2>
+              <p className="text-sm text-slate-500">{rs.successSub}</p>
             </div>
 
             {result.campaignName && (
               <div className="rounded-xl p-3 mb-4"
                 style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)' }}>
-                <p className="text-[10px] text-text-muted mb-1 uppercase tracking-wide">{rs.campaignCreated}</p>
-                <p className="text-sm font-bold text-white truncate">{result.campaignName}</p>
+                <p className="text-[10px] text-slate-500 mb-1 uppercase tracking-wide">{rs.campaignCreated}</p>
+                <p className="text-sm font-bold text-slate-950 truncate">{result.campaignName}</p>
               </div>
             )}
 
@@ -1390,7 +1412,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 <div key={label} className="rounded-xl p-2.5 text-center"
                   style={{ background: cellBg, border: `1px solid ${border}` }}>
                   <p className="text-base font-bold leading-none mb-1" style={{ color }}>{value}</p>
-                  <p className="text-[9px] text-text-muted leading-tight">{label}</p>
+                  <p className="text-[9px] text-slate-500 leading-tight">{label}</p>
                 </div>
               ))}
             </div>
@@ -1410,13 +1432,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
 
             {result.campaignId ? (
               <Link href={`/campaigns/${result.campaignId}?tab=strategy`} onClick={handleCloseFromSuccess}
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-slate-950 mb-3 btn-gradient transition-all hover:brightness-110">
                 <Rocket className="w-4 h-4" />
                 {rs.successCampaign}
               </Link>
             ) : (
               <Link href="/campaigns" onClick={handleCloseFromSuccess}
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-white mb-3 btn-gradient transition-all hover:brightness-110">
+                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-slate-950 mb-3 btn-gradient transition-all hover:brightness-110">
                 <Sparkles className="w-4 h-4" />
                 {rs.successCampaigns}
               </Link>
@@ -1451,23 +1473,23 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         {phase === 'no_campaign' && (
           <div className="p-6 text-center">
             <button onClick={onClose}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-text-muted hover:text-white hover:bg-white/5 transition-all">
+              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
               <X className="w-4 h-4" />
             </button>
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
               style={{ background: 'rgba(255,184,0,0.1)', border: '1px solid rgba(255,184,0,0.25)' }}>
               <AlertCircle className="w-7 h-7" style={{ color: '#FFB800' }} />
             </div>
-            <h2 className="text-xl font-bold text-white mb-1">{rs.noResultTitle}</h2>
-            <p className="text-sm text-text-muted mb-6">{rs.noResultDesc}</p>
+            <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.noResultTitle}</h2>
+            <p className="text-sm text-slate-500 mb-6">{rs.noResultDesc}</p>
             <div className="flex gap-3">
               <button onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 border transition-all hover:text-slate-900"
                 style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <button onClick={retry}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
                 <Sparkles className="w-4 h-4" />
                 {rs.errorRetry}
               </button>
@@ -1482,33 +1504,33 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               style={{ background: 'rgba(255,107,53,0.12)', border: '1px solid rgba(255,107,53,0.25)' }}>
               <Zap className="w-7 h-7" style={{ color: '#FF6B35' }} />
             </div>
-            <h2 className="text-xl font-bold text-white mb-1">{rs.creditsTitle}</h2>
-            <p className="text-sm text-text-muted mb-4">{rs.creditsDesc}</p>
+            <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.creditsTitle}</h2>
+            <p className="text-sm text-slate-500 mb-4">{rs.creditsDesc}</p>
 
             {result?.requiredCredits !== undefined && (
               <div className="grid grid-cols-2 gap-2 mb-5">
                 <div className="rounded-xl p-3 text-center"
                   style={{ background: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.2)' }}>
                   <p className="text-lg font-bold" style={{ color: '#FF6B35' }}>{result.requiredCredits}</p>
-                  <p className="text-[10px] text-text-muted">{rs.creditsNeed}</p>
+                  <p className="text-[10px] text-slate-500">{rs.creditsNeed}</p>
                 </div>
                 <div className="rounded-xl p-3 text-center"
                   style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
-                  <p className="text-lg font-bold text-accent-purple">{result.currentCredits ?? 0}</p>
-                  <p className="text-[10px] text-text-muted">{rs.creditsHave}</p>
+                  <p className="text-lg font-bold text-indigo-600">{result.currentCredits ?? 0}</p>
+                  <p className="text-[10px] text-slate-500">{rs.creditsHave}</p>
                 </div>
               </div>
             )}
 
             <div className="flex gap-3">
               <button onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 border transition-all hover:text-slate-900"
                 style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <button
                 onClick={() => { onClose(); setShowUpgrade(true) }}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
                 <ArrowUpRight className="w-4 h-4" />
                 {rs.creditsUpgrade}
               </button>
@@ -1521,18 +1543,18 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           <div className="p-6 text-center">
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl flex items-center justify-center"
               style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)' }}>
-              <Cpu className="w-7 h-7 text-accent-purple" />
+              <Cpu className="w-7 h-7 text-indigo-600" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-1">{rs.noBrandTitle}</h2>
-            <p className="text-sm text-text-muted mb-6">{rs.noBrandDesc}</p>
+            <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.noBrandTitle}</h2>
+            <p className="text-sm text-slate-500 mb-6">{rs.noBrandDesc}</p>
             <div className="flex gap-3">
               <button onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 border transition-all hover:text-slate-900"
                 style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <Link href="/brand" onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
                 <ArrowUpRight className="w-4 h-4" />
                 {rs.noBrandBtn}
               </Link>
@@ -1547,18 +1569,18 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.25)' }}>
               <XCircle className="w-7 h-7 text-rose-400" />
             </div>
-            <h2 className="text-xl font-bold text-white mb-1">{rs.errorTitle}</h2>
-            <p className="text-sm text-text-muted mb-5">
+            <h2 className="text-xl font-bold text-slate-950 mb-1">{rs.errorTitle}</h2>
+            <p className="text-sm text-slate-500 mb-5">
               {result?.error || result?.errors?.[0] || 'An unexpected error occurred.'}
             </p>
             <div className="flex gap-3">
               <button onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-text-muted border transition-all hover:text-white"
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 border transition-all hover:text-slate-900"
                 style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
                 {rs.errorClose}
               </button>
               <button onClick={retry}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-gradient">
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-950 btn-gradient">
                 <Sparkles className="w-4 h-4" />
                 {rs.errorRetry}
               </button>

@@ -292,8 +292,24 @@ function CampaignDetailPageInner() {
   // Unified product agent tabs — indices 0-4 are visible; 5-6 are accessible via Publish tab
   const AGENT_TABS = [
     { name: cdT?.agentStrategyName || 'Strategist', icon: '🧠', title: cdT?.agentStrategyTitle, color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: cdT?.tabStrategy },
-    { name: cdT?.agentNexName     || 'NEX',         icon: '✍️', title: cdT?.agentNexTitle,      color: 'text-pink-400',    border: 'border-pink-500/30',   bg: 'bg-pink-500/5',    label: cdT?.tabContent },
-    { name: cdT?.agentPulseName   || 'PULSE',       icon: '⚡', title: cdT?.agentPulseTitle,    color: 'text-amber-400',   border: 'border-amber-500/30',  bg: 'bg-amber-500/5',   label: cdT?.tabCalendar },
+    {
+      name: locale === 'ar' ? 'سير عمل المحتوى' : 'Content workflow',
+      icon: '✍️',
+      title: locale === 'ar' ? 'مسودات وهوكس للمراجعة' : 'Drafts and hooks for review',
+      color: 'text-pink-500',
+      border: 'border-pink-200',
+      bg: 'bg-pink-50',
+      label: cdT?.tabContent,
+    },
+    {
+      name: locale === 'ar' ? 'تقويم الحملة' : 'Campaign calendar',
+      icon: '⚡',
+      title: locale === 'ar' ? 'خطة تنفيذ قابلة للمراجعة' : 'Reviewable execution plan',
+      color: 'text-amber-600',
+      border: 'border-amber-200',
+      bg: 'bg-amber-50',
+      label: cdT?.tabCalendar,
+    },
     { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabVisuals },
     { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
     { name: '', hidden: false,                       icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
@@ -917,6 +933,16 @@ function CampaignDetailPageInner() {
     if (operatingState.primaryAction.href === '#strategy' || operatingState.primaryAction.href === '#campaign') return `/campaigns/${campaign.id}?tab=strategy`
     return operatingState.primaryAction.href
   })()
+
+  // This page does not fetch platform readiness. Keep Autopilot conservative
+  // instead of implying connected publishing accounts from campaign state alone.
+  const hasVerifiedPublishingConnection = false
+  const autopilotRequirementsMet = Boolean(
+    aiOutput &&
+    weeklyExecutionPlan.length > 0 &&
+    (campaign.status === 'ACTIVE' || approvalState === 'done') &&
+    hasVerifiedPublishingConnection,
+  )
 
   const nextCreativeAction = (() => {
     if (!operatingState.truthFlags.hasStrategy) {
@@ -2223,7 +2249,7 @@ function CampaignDetailPageInner() {
               </div>
             )}
 
-            {/* ── Tab 1: Content & Hooks (NEX) ──────────────────────────────── */}
+            {/* ── Tab 1: Content & Hooks (content workflow) ─────────────────── */}
             {activeTab === 1 && (
               <div className="space-y-4">
                 <AgentBanner idx={1} />
@@ -2408,7 +2434,7 @@ function CampaignDetailPageInner() {
               </div>
             )}
 
-            {/* ── Tab 2: Calendar (PULSE) ───────────────────────────────────── */}
+            {/* ── Tab 2: Calendar (campaign calendar) ───────────────────────── */}
             {activeTab === 2 && (
               <div className="space-y-4">
                 <AgentBanner idx={2} />
@@ -2648,10 +2674,10 @@ function CampaignDetailPageInner() {
                       href={nextCreativeAction.href}
                       target={nextCreativeAction.href.startsWith('#') ? undefined : '_blank'}
                       rel={nextCreativeAction.href.startsWith('#') ? undefined : 'noopener noreferrer'}
-                      className="inline-flex flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-800"
+                      className="inline-flex flex-shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-700"
                     >
                       {nextCreativeAction.cta}
-                      {!nextCreativeAction.href.startsWith('#') && <span className="ml-2 text-xs text-slate-300">↗</span>}
+                      {!nextCreativeAction.href.startsWith('#') && <span className="ml-2 text-xs text-indigo-100">↗</span>}
                     </a>
                   </div>
                 </div>
@@ -2905,7 +2931,7 @@ function CampaignDetailPageInner() {
                         { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
                         { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
                         { label: locale === 'ar' ? 'جاهزة لمراجعة المحتوى' : 'Ready for content review', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
-                        { label: locale === 'ar' ? 'منصات اجتماعية متصلة' : 'Social platforms connected', done: true /* checked server-side */ },
+                        { label: locale === 'ar' ? 'حساب نشر متصل' : 'Publishing account connected', done: hasVerifiedPublishingConnection },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
                           <span className={req.done ? 'text-green-600' : 'text-slate-400'}>
@@ -2963,7 +2989,7 @@ function CampaignDetailPageInner() {
                       <button
                         onClick={async () => {
                           const token = authHeader()
-                          if (!token || autopilotActivating) return
+                          if (!token || autopilotActivating || !autopilotRequirementsMet) return
                           setAutopilotActivating(true)
                           setAutopilotError('')
                           try {
@@ -2985,13 +3011,13 @@ function CampaignDetailPageInner() {
                             setAutopilotActivating(false)
                           }
                         }}
-                        disabled={autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0}
+                        disabled={autopilotActivating || !autopilotRequirementsMet}
                         className="px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-40"
                         style={{
-                          background: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
+                          background: autopilotActivating || !autopilotRequirementsMet
                             ? '#f1f5f9'
                             : '#f5f3ff',
-                          color: autopilotActivating || !aiOutput || weeklyExecutionPlan.length === 0
+                          color: autopilotActivating || !autopilotRequirementsMet
                             ? '#94a3b8' : '#6d28d9',
                           border: '1px solid #ddd6fe',
                         }}>
@@ -3017,6 +3043,13 @@ function CampaignDetailPageInner() {
                       {locale === 'ar'
                         ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — أعد توليد الاستراتيجية'
                         : '⚠ No weekly execution plan found — regenerate the strategy'}
+                    </p>
+                  )}
+                  {aiOutput && weeklyExecutionPlan.length > 0 && !hasVerifiedPublishingConnection && (
+                    <p className="mt-3 text-xs text-amber-700">
+                      {locale === 'ar'
+                        ? '⚠ يحتاج الأوتوبايلوت إلى حساب نشر متصل ومراجعة المحتوى قبل التفعيل.'
+                        : '⚠ Autopilot needs a connected publishing account and content review before enablement.'}
                     </p>
                   )}
                 </div>
