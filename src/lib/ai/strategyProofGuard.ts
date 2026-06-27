@@ -26,15 +26,15 @@ function verifiedProofText(context: StrategyProofContext): string {
 
 function softenUnsupportedGuarantees(text: string): string {
   return text
-    .replace(/\bguaranteed\s+delivery\b/gi, 'delivery goal')
-    .replace(/\bguaranteed\s+growth\b/gi, 'planned growth goal')
-    .split(/(\bguaranteed\s+results?\b|\bguaranteed\b)/gi)
+    .split(/(\bguaranteed\s+results?\b|\bguaranteed\s+growth\b|\bguaranteed\s+delivery\b|\bguaranteed\b)/gi)
     .map((part, index, parts) => {
-      if (!/^guaranteed(?:\s+results?)?$/i.test(part)) return part
+      if (!/^guaranteed(?:\s+results?|\s+growth|\s+delivery)?$/i.test(part)) return part
       const before = (parts[index - 1] || '').toLowerCase().slice(-80)
       if (/(?:^|\s)(?:no|not|avoid|without|cannot be|can not be|can't be|do not|do not promise|do not guarantee)\s*$/.test(before)) {
         return part
       }
+      if (/\s+growth$/i.test(part)) return 'planned growth goal'
+      if (/\s+delivery$/i.test(part)) return 'delivery goal'
       return /\s+results?$/i.test(part) ? 'aimed-for results' : 'aimed-for'
     })
     .join('')
