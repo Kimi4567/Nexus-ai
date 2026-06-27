@@ -18,6 +18,31 @@ describe('contentDraftTruthGuard', () => {
     expect(brew).not.toContain('perfect brew every time')
   })
 
+  it('softens English perfection and superlative coffee claims', () => {
+    const blend = guardContentDraftText('Discover the perfect blend for your morning routine.')
+    expect(blend).toContain('balanced blend')
+    expect(blend).not.toContain('perfect blend')
+
+    const finest = guardContentDraftText('Try the finest coffee for small office teams.')
+    expect(finest).toContain('carefully selected coffee')
+    expect(finest).not.toContain('finest')
+
+    const best = guardContentDraftText('Enjoy the best beans and premium coffee every time.')
+    expect(best).toContain('quality-focused beans')
+    expect(best).toContain('quality-focused coffee more consistently')
+    expect(best).not.toContain('best beans')
+    expect(best).not.toContain('premium coffee every time')
+  })
+
+  it('softens ensure and stock-planning absolute claims', () => {
+    const out = guardContentDraftText(
+      'Our convenient delivery service ensures you plan stock more reliably.',
+    )
+
+    expect(out).toContain('delivery service can support more reliable stock planning where available')
+    expect(out).not.toContain('ensures')
+  })
+
   it('bounds delivery wording to supported availability', () => {
     const doorstep = guardContentDraftText('Fresh coffee delivered to your doorstep.')
     expect(doorstep).toContain('delivery where available')
@@ -26,6 +51,16 @@ describe('contentDraftTruthGuard', () => {
     const quick = guardContentDraftText('quick delivery guaranteed for your office')
     expect(quick).toContain('supported zones')
     expect(quick).not.toContain('guaranteed')
+  })
+
+  it('fixes awkward and unbounded delivery claims', () => {
+    const awkward = guardContentDraftText('Freshly roasted and promptly delivery where available.')
+    expect(awkward).toContain('delivery where available')
+    expect(awkward).not.toContain('promptly delivery')
+
+    const doorstep = guardContentDraftText('Coffee delivery to your doorstep.')
+    expect(doorstep).toContain('delivery where available')
+    expect(doorstep).not.toContain('to your doorstep')
   })
 
   it('softens always-stocked office claims', () => {
@@ -57,6 +92,76 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('إنتاجية مضمونة')
   })
 
+  it('softens Arabic superlatives and doorstep delivery', () => {
+    const beans = guardContentDraftText('أفضل حبوب القهوة لتجربة يومية.')
+    expect(beans).toContain('حبوب قهوة مختارة بعناية')
+    expect(beans).not.toContain('أفضل')
+
+    const doorstep = guardContentDraftText('حبوب طازجة ومحمصة بعناية لتصلك إلى باب منزلك بكل سهولة.')
+    expect(doorstep).toContain('التوصيل حسب المناطق المتاحة')
+    expect(doorstep).not.toContain('باب منزلك')
+  })
+
+  it('softens Arabic guarantee and every-time perfection claims', () => {
+    const out = guardContentDraftText('تضمن لك القهوة المثالية كل مرة.')
+
+    expect(out).toContain('تساعد على')
+    expect(out).toContain('قهوة أكثر اتساقًا')
+    expect(out).not.toContain('تضمن')
+    expect(out).not.toContain('المثالية كل مرة')
+  })
+
+  it('preserves safe Arabic كل مرة usage', () => {
+    const safe = 'اسأل عن درجة الطحن كل مرة تطلب فيها'
+
+    expect(guardContentDraftText(safe)).toBe(safe)
+    expect(guardContentDraftText(safe)).not.toContain('بشكل أكثر اتساقًا تطلب فيها')
+  })
+
+  it('preserves safe Arabic دائمًا usage', () => {
+    const safe = 'راجع درجة الطحن دائمًا قبل الطلب'
+
+    expect(guardContentDraftText(safe)).toBe(safe)
+    expect(guardContentDraftText(safe)).not.toContain('بشكل منتظم قبل الطلب')
+  })
+
+  it('preserves negative Arabic guarantee disclaimers', () => {
+    const out = guardContentDraftText('لا تضمن هذه الخطة نتائج فورية')
+
+    expect(out).toContain('لا تضمن')
+    expect(out).not.toContain('لا تساعد على')
+  })
+
+  it('preserves negative Arabic تضمن لك disclaimers', () => {
+    const out = guardContentDraftText('لا تضمن لك هذه الخطة نتائج فورية')
+
+    expect(out).toContain('لا تضمن لك')
+    expect(out).not.toContain('لا تساعد على')
+  })
+
+  it('preserves negative Arabic يضمن لك disclaimers', () => {
+    const out = guardContentDraftText('لا يضمن لك هذا المحتوى نتائج فورية')
+
+    expect(out).toContain('لا يضمن لك')
+    expect(out).not.toContain('لا يساعد على')
+  })
+
+  it('still softens positive Arabic تضمن لك guarantee claims', () => {
+    const out = guardContentDraftText('تضمن لك القهوة المثالية كل مرة')
+
+    expect(out).toContain('تساعد على')
+    expect(out).toContain('قهوة أكثر اتساقًا')
+    expect(out).not.toContain('تضمن لك')
+    expect(out).not.toContain('المثالية كل مرة')
+  })
+
+  it('still softens risky Arabic stock absolutes', () => {
+    const out = guardContentDraftText('المكتب مليان قهوة دائمًا')
+
+    expect(out).toContain('تخطيط أفضل لمخزون القهوة')
+    expect(out).not.toContain('مليان قهوة دائمًا')
+  })
+
   it('bounds Arabic doorstep and next-day delivery wording', () => {
     const out = guardContentDraftText('توصيل لباب البيت وتوصيل في اليوم التالي.')
 
@@ -79,11 +184,18 @@ describe('contentDraftTruthGuard', () => {
     expect(guardContentDraftText(safe)).toBe(safe)
   })
 
+  it('preserves safe Arabic educational coffee guidance', () => {
+    const safe = 'اختر درجة الطحن المناسبة لطريقة التحضير'
+
+    expect(guardContentDraftText(safe)).toBe(safe)
+  })
+
   it('recursively guards generated post fields', () => {
     const guarded = guardContentDraftTruth({
       caption: 'Customer Testimonials: perfect brew every time with quick delivery guaranteed.',
       creative: {
         imagePrompt: 'Show award-winning coffee delivered to your doorstep.',
+        videoPrompt: 'Feature the finest coffee and promptly delivery where available.',
       },
     })
     const joined = JSON.stringify(guarded)
@@ -93,9 +205,12 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).toContain('supported zones')
     expect(joined).toContain('quality-focused')
     expect(joined).toContain('delivery where available')
+    expect(joined).toContain('carefully selected coffee')
     expect(joined).not.toContain('Customer Testimonials')
     expect(joined).not.toContain('quick delivery guaranteed')
     expect(joined).not.toContain('delivered to your doorstep')
+    expect(joined).not.toContain('finest coffee')
+    expect(joined).not.toContain('promptly delivery')
   })
 
   it('documents the draft-only content plan policy', () => {
