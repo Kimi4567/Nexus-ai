@@ -120,7 +120,7 @@ export async function GET(req: Request) {
         id: 'drafts',
         type: 'action',
         icon: '📋',
-        message: `${draftCampaigns} campaign${draftCampaigns > 1 ? 's' : ''} in draft — ready to activate`,
+        message: `${draftCampaigns} campaign${draftCampaigns > 1 ? 's' : ''} in draft — review before scheduling`,
         href: '/campaigns',
       })
     }

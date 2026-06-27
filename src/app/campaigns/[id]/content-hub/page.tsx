@@ -352,6 +352,28 @@ export default function ContentHubPage() {
   const addCreditsForImagesLabel = isAr ? 'أضف رصيداً لتوليد الصور' : 'Add credits to generate images'
   const addCreditsForPlanLabel = isAr ? 'أضف رصيداً لتجديد الخطة' : 'Add credits to regenerate plan'
   const addCreditsForBuildLabel = isAr ? 'أضف رصيداً لبناء الخطة' : 'Add credits to build plan'
+  const contentPlanCostLabel = isAr
+    ? `${contentPlanTruth.cost} كريديت`
+    : `${contentPlanTruth.cost} credit${contentPlanTruth.cost === 1 ? '' : 's'}`
+  const draftPlanLabel = isAr
+    ? `توليد خطة محتوى مسودة — ${contentPlanCostLabel}`
+    : `Generate draft content plan — ${contentPlanCostLabel}`
+  const regenerateDraftPlanLabel = isAr
+    ? `إعادة توليد خطة محتوى مسودة — ${contentPlanCostLabel}`
+    : `Regenerate draft content plan — ${contentPlanCostLabel}`
+  const contentPlanDisclosure = isAr
+    ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
+    : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.'
+  const contentPlanAutopilotDisclosure = isAr
+    ? 'لا يتم تفعيل الأوتوبايلوت.'
+    : 'Autopilot is not activated.'
+  const creditBalanceLabel = billingLoading
+    ? (isAr ? 'جارٍ تحديث الرصيد' : 'Checking credit balance')
+    : isUnlimited
+      ? (isAr ? 'رصيد غير محدود' : 'Unlimited credits')
+      : isAr
+        ? `رصيدك الحالي: ${Math.max(0, Math.trunc(creditsRemaining))} كريديت`
+        : `Current balance: ${Math.max(0, Math.trunc(creditsRemaining))} credits`
 
   const getPendingEdit = (postId: string) => pendingEdits[postId] ?? {}
 
@@ -890,14 +912,18 @@ export default function ContentHubPage() {
                     </>
                   )}
                 </button>
-                <button
-                  onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
-                  disabled={generatingPlan}
-                  className="px-4 py-2 rounded-xl text-sm border transition-all"
-                  style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
-                >
-                  {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForPlanLabel : `↻ ${t('contentHub.regeneratePlan')}`}
-                </button>
+                <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
+                  <button
+                    onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
+                    disabled={generatingPlan}
+                    className="px-4 py-2 rounded-xl text-sm border transition-all"
+                    style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
+                  >
+                    {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
+                  </button>
+                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">{contentPlanDisclosure} {contentPlanAutopilotDisclosure}</p>
+                  <p className="text-[11px] text-slate-400">{creditBalanceLabel}</p>
+                </div>
               </>
             )}
 
@@ -919,24 +945,28 @@ export default function ContentHubPage() {
                     <span className={`absolute top-0.5 w-2 h-2 bg-white rounded-full shadow transition-all ${enableABTesting ? 'left-3.5' : 'left-0.5'}`} />
                   </span>
                 </button>
-                <button
-                  onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
-                  disabled={generatingPlan}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
-                  style={{
-                    background: contentPlanLocked ? '#FEF2F2' : '#111827',
-                    color: contentPlanLocked ? '#B91C1C' : 'white',
-                    border: contentPlanLocked ? '1px solid rgba(239,68,68,0.18)' : '1px solid transparent',
-                    opacity: generatingPlan ? 0.6 : 1,
-                  }}
-                >
-                  {generatingPlan ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                      {t('contentHub.buildingPlanShort')}
-                    </>
-                  ) : contentPlanLocked ? addCreditsForBuildLabel : `✨ ${t('contentHub.buildPlan')}`}
-                </button>
+                <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
+                  <button
+                    onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
+                    disabled={generatingPlan}
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    style={{
+                      background: contentPlanLocked ? '#FEF2F2' : '#111827',
+                      color: contentPlanLocked ? '#B91C1C' : 'white',
+                      border: contentPlanLocked ? '1px solid rgba(239,68,68,0.18)' : '1px solid transparent',
+                      opacity: generatingPlan ? 0.6 : 1,
+                    }}
+                  >
+                    {generatingPlan ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        {t('contentHub.buildingPlanShort')}
+                      </>
+                    ) : contentPlanLocked ? addCreditsForBuildLabel : `✨ ${draftPlanLabel}`}
+                  </button>
+                  <p className="text-xs leading-relaxed text-slate-500 sm:text-right">{contentPlanDisclosure} {contentPlanAutopilotDisclosure}</p>
+                  <p className="text-[11px] text-slate-400">{creditBalanceLabel}</p>
+                </div>
               </div>
             )}
           </div>

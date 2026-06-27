@@ -27,6 +27,11 @@ import {
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
 import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import {
+  buildContentDraftTruthPolicyPrompt,
+  guardContentDraftText,
+  guardContentDraftTruth,
+} from '@/lib/ai/contentDraftTruthGuard'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -330,6 +335,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Build language instruction — use the smart helper (bilingual = per-platform smart assignment, never mixed)
     const languageInstruction = getLanguageInstruction(bodyLanguage || undefined)
     const proofPolicy = buildProofPolicyPrompt(proofContext)
+    const draftTruthPolicy = buildContentDraftTruthPolicyPrompt()
 
     // Build media context for GPT if user selected real assets
     const mediaContext = userMedia.length > 0
@@ -354,6 +360,7 @@ Offer/CTA: ${offer}
 ${mediaContext}
 ${languageInstruction}
 ${proofPolicy}
+${draftTruthPolicy}
 
 If the saved strategy contains unsupported proof terms, treat them as proof gaps, not content instructions. Create proof-collection prompts or factual educational content instead.
 
@@ -433,7 +440,7 @@ Rules:
       return NextResponse.json(fail.body, { status: fail.status })
     }
 
-    const generatedPosts: any[] = planResult.posts
+    const generatedPosts: any[] = guardContentDraftTruth(planResult.posts, proofContext)
 
     // ── 9. Create SocialPost records ──────────────────────────────────────
     const now = new Date()
@@ -459,9 +466,12 @@ Rules:
       const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
       // Video slots return videoCaption (not caption). Prefer real AI copy; only
       // fall back to language-aware brand copy — never an English placeholder.
-      const caption = resolvePostCaption(gen, { isArabic, brand: brandName, hint: keyMessage || offer || campaignName })
-      const imagePrompt = gen.imagePrompt ?? ''
-      const videoPrompt = gen.videoScript ?? gen.videoCaption ?? ''
+      const caption = guardContentDraftText(
+        resolvePostCaption(gen, { isArabic, brand: brandName, hint: keyMessage || offer || campaignName }),
+        proofContext,
+      )
+      const imagePrompt = guardContentDraftText(gen.imagePrompt ?? '', proofContext)
+      const videoPrompt = guardContentDraftText(gen.videoScript ?? gen.videoCaption ?? '', proofContext)
       const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
 
       const scheduledAt = new Date(now)
@@ -577,6 +587,7 @@ CAMPAIGN CONTEXT:
 - Tone: ${tone}
 - CTA/Offer: ${offer}
 ${languageInstruction}
+${draftTruthPolicy}
 
 TASK: Look at this image carefully. Write a compelling ${post.platform} caption that:
 1. Directly relates to and describes what's in this specific image
@@ -592,7 +603,10 @@ Write ONLY the caption text. No explanations. No prefixes.`,
                 }),
               })
               const vData = await visionRes.json()
-              const newCaption = vData.choices?.[0]?.message?.content?.trim()
+              const newCaption = guardContentDraftText(
+                vData.choices?.[0]?.message?.content?.trim(),
+                proofContext,
+              )
               if (newCaption && newCaption.length > 20) {
                 await (prisma.socialPost as any).update({
                   where: { id: post.id },
@@ -669,14 +683,17 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
         let bPosts: any[] = []
         try {
           const raw = JSON.parse(bData.choices?.[0]?.message?.content ?? '{}')
-          bPosts = Array.isArray(raw) ? raw : (raw.posts ?? raw.captions ?? raw.variants ?? [])
+          bPosts = guardContentDraftTruth(
+            Array.isArray(raw) ? raw : (raw.posts ?? raw.captions ?? raw.variants ?? []),
+            proofContext,
+          )
         } catch { bPosts = [] }
 
         const bVariantsToCreate = imageSlotsWithAB.map(({ slot, i }, bIdx) => {
           const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
           const bGen = bPosts[bIdx] ?? bPosts.find((b: any) => b.index === i) ?? {}
-          const caption = bGen.caption ?? gen.caption ?? `B Variant Post ${i + 1}`
-          const imagePrompt = gen.imagePrompt ?? '' // reuse same image prompt for B
+          const caption = guardContentDraftText(bGen.caption ?? gen.caption ?? `B Variant Post ${i + 1}`, proofContext)
+          const imagePrompt = guardContentDraftText(gen.imagePrompt ?? '', proofContext) // reuse same image prompt for B
 
           const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
           const scheduledAt = new Date(now)
