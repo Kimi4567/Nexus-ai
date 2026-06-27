@@ -113,6 +113,22 @@ Remaining matches should be guard patterns, tests, prompt policy, or this docume
 
 The existing Cairo Bloom Coffee campaign still contains old generated proof language because this PR intentionally does not mutate saved `campaign.aiOutput`. Existing saved output needs explicit regeneration or a separate approved remediation step.
 
+## GEN-TRUTH1C Follow-Up
+
+Controlled post-merge QA showed the proof guard successfully removed invented testimonial, customer-story, award, case-study, and guarantee proof. It also surfaced three wording issues that could be amplified by Content Plan generation:
+
+- `مرحلة العمل: active` still appeared as a strategy status label.
+- `Ensure your office has the best coffee every day` was too absolute for generated marketing copy.
+- `Do not promise delivery where it cannot be aimed-for` showed that positive guarantee rewriting could make safe negative disclaimers awkward.
+
+GEN-TRUTH1C adds deterministic backstops for those cases:
+
+- Campaign status language such as `active stage`, `campaign active`, and `مرحلة العمل: active` is rewritten to planning/review-safe wording.
+- Business-status wording can remain only when it clearly refers to the business already operating, not campaign execution being live.
+- Absolute `ensure` claims are softened into support/help language.
+- Negative guarantee disclaimers such as `Delivery cannot be guaranteed` and `Do not promise delivery where it cannot be guaranteed` remain readable.
+- Positive guarantee claims such as `Guaranteed results` or `guaranteed growth` are softened.
+
 ## Next QA After Merge
 
-Generate one new strategy in a controlled QA account and confirm no invented testimonials, customer stories, awards, case studies, guarantees, or campaign-status claims appear. Proceed to Content Plan QA only after that strategy output is clean.
+Generate one new strategy in a controlled QA account and confirm no invented testimonials, customer stories, awards, case studies, guarantees, active campaign-state wording, or absolute `ensure` claims appear. Proceed to Content Plan QA only after that strategy output is clean.
