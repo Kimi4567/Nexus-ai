@@ -5,17 +5,21 @@
  *   - normal approve moves DRAFT → APPROVED only (never DRAFT → SCHEDULED)
  *   - scheduling moves APPROVED → SCHEDULED only (and only through the schedule path)
  *   - approvedAt is set on approval; scheduledAt is NEVER written by either action
+ *   - scheduling requires an existing valid scheduledAt/planned date
  *   - status history is recorded for every transition
  *   - re-approving an already-approved post is a no-op (no double approval)
  *   - the legacy approve_and_schedule compound mode is explicit and audited
  */
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { planApproval, planScheduling, planRevert, type PlanPostInput } from '@/lib/approvalPlan'
 
 const draft = (id: string): PlanPostInput => ({ id, workspaceId: 'w1', status: 'DRAFT' })
-const approved = (id: string): PlanPostInput => ({ id, workspaceId: 'w1', status: 'APPROVED' })
+const approved = (id: string): PlanPostInput => ({ id, workspaceId: 'w1', status: 'APPROVED', scheduledAt: '2026-06-20T10:00:00Z' })
+const approvedWithoutDate = (id: string): PlanPostInput => ({ id, workspaceId: 'w1', status: 'APPROVED', scheduledAt: null })
 const scheduled = (id: string): PlanPostInput => ({ id, workspaceId: 'w1', status: 'SCHEDULED' })
+const published = (id: string): PlanPostInput => ({ id, workspaceId: 'w1', status: 'PUBLISHED' })
 
 // No update produced by approval/scheduling may ever carry a scheduledAt key.
 const noScheduledAt = (updates: { data: Record<string, unknown> }[]) =>
@@ -62,7 +66,7 @@ describe('planApproval — DRAFT → APPROVED only', () => {
 })
 
 describe('planScheduling — APPROVED → SCHEDULED only', () => {
-  it('6. moves APPROVED → SCHEDULED through the scheduling path', () => {
+  it('6. moves APPROVED with valid scheduledAt → SCHEDULED through the scheduling path', () => {
     const plan = planScheduling([approved('p1'), approved('p2')])
     expect(plan.changed).toBe(2)
     expect(plan.updates.every(u => u.data.status === 'SCHEDULED')).toBe(true)
@@ -84,6 +88,27 @@ describe('planScheduling — APPROVED → SCHEDULED only', () => {
   it('records APPROVED → SCHEDULED history', () => {
     const plan = planScheduling([approved('p1')])
     expect(plan.history[0]).toMatchObject({ fromStatus: 'APPROVED', toStatus: 'SCHEDULED', actor: 'USER' })
+  })
+
+  it('requires a valid planned scheduledAt before scheduling approved posts', () => {
+    const plan = planScheduling([
+      approved('p1'),
+      approvedWithoutDate('p2'),
+      { id: 'p3', workspaceId: 'w1', status: 'APPROVED', scheduledAt: 'not-a-date' },
+    ])
+
+    expect(plan.changed).toBe(1)
+    expect(plan.skipped).toBe(2)
+    expect(plan.updates.map(u => u.id)).toEqual(['p1'])
+  })
+
+  it('does not schedule published posts or overwrite scheduledAt', () => {
+    const plan = planScheduling([published('p1'), approved('p2')])
+
+    expect(plan.changed).toBe(1)
+    expect(plan.skipped).toBe(1)
+    expect(plan.updates).toEqual([{ id: 'p2', data: { status: 'SCHEDULED' } }])
+    expect(noScheduledAt(plan.updates)).toBe(true)
   })
 })
 
@@ -120,5 +145,16 @@ describe('planRevert — un-approve / un-schedule', () => {
     const plan = planRevert([draft('p1'), { id: 'p2', workspaceId: 'w1', status: 'PUBLISHED' }])
     expect(plan.changed).toBe(0)
     expect(plan.skipped).toBe(2)
+  })
+})
+
+describe('schedule-content-plan route response counts', () => {
+  it('counts linked posts only from posts actually moved to SCHEDULED', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/schedule-content-plan/route.ts', 'utf8')
+
+    expect(routeSource).toContain('const scheduledIds = new Set(plan.updates.map((u) => u.id))')
+    expect(routeSource).toContain('scheduledIds.has(p.id) && !!integrationMap[String(p.platform)]')
+    expect(routeSource).not.toContain('const linked = approvedPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length')
+    expect(routeSource).toContain('skipped because planned dates were missing or invalid')
   })
 })

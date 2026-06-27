@@ -4,7 +4,7 @@
  * Schedules a campaign's APPROVED content-plan posts: APPROVED → SCHEDULED only.
  * This is the SEPARATE scheduling decision that follows approval. It:
  * - moves only APPROVED posts (a DRAFT post can never be scheduled directly here),
- * - keeps the planned scheduledAt from generation (never overwrites it),
+ * - requires a valid planned scheduledAt from generation (never invents or overwrites it),
  * - assigns integrationId + pageId per platform if still missing,
  * - records APPROVED → SCHEDULED in PostStatusHistory (actor USER),
  * - never marks anything PUBLISHED and never touches cron/publishing behaviour.
@@ -17,7 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
-import { planScheduling } from '@/lib/approvalPlan'
+import { hasValidPlannedDate, planScheduling } from '@/lib/approvalPlan'
 import { validateTransition, buildStatusHistory } from '@/lib/postStatus'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 
@@ -58,19 +58,35 @@ export async function POST(req: NextRequest, { params }: Params) {
         status: 'APPROVED',
         publishedAt: null,
       },
-      select: { id: true, platform: true, integrationId: true },
+      select: { id: true, platform: true, integrationId: true, scheduledAt: true },
     })
 
     if (approvedPosts.length === 0) {
       return NextResponse.json({ success: true, scheduled: 0, message: 'No approved posts to schedule' })
     }
 
+    const skippedInvalidDate = approvedPosts.filter((p: any) => !hasValidPlannedDate(p.scheduledAt)).length
     const plan = planScheduling(
-      approvedPosts.map((p: any) => ({ id: p.id, workspaceId: campaign.workspaceId, status: 'APPROVED' as const })),
+      approvedPosts.map((p: any) => ({
+        id: p.id,
+        workspaceId: campaign.workspaceId,
+        status: 'APPROVED' as const,
+        scheduledAt: p.scheduledAt,
+      })),
       { actor: 'USER' }
     )
+
+    if (plan.updates.length === 0) {
+      return NextResponse.json({
+        success: true,
+        scheduled: 0,
+        skippedInvalidDate,
+        message: 'No approved posts with valid planned dates to schedule',
+      })
+    }
     const platformById = new Map(approvedPosts.map((p: any) => [p.id, String(p.platform)]))
     const hasIntegrationById = new Map(approvedPosts.map((p: any) => [p.id, !!p.integrationId]))
+    const scheduledIds = new Set(plan.updates.map((u) => u.id))
 
     let scheduled = 0
     for (const u of plan.updates) {
@@ -111,12 +127,16 @@ export async function POST(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[schedule-content-plan] learning event write failed', e?.message))
     }
 
-    const linked = approvedPosts.filter((p: any) => !!integrationMap[String(p.platform)]).length
+    const linked = approvedPosts.filter((p: any) => scheduledIds.has(p.id) && !!integrationMap[String(p.platform)]).length
+    const message = skippedInvalidDate > 0
+      ? `${scheduled} post${scheduled !== 1 ? 's' : ''} scheduled · ${skippedInvalidDate} skipped because planned dates were missing or invalid`
+      : `${scheduled} post${scheduled !== 1 ? 's' : ''} scheduled`
     return NextResponse.json({
       success: true,
       scheduled,
       linked,
-      message: `${scheduled} post${scheduled !== 1 ? 's' : ''} scheduled`,
+      skippedInvalidDate,
+      message,
     })
   } catch (err: any) {
     console.error('[schedule-content-plan POST]', err)

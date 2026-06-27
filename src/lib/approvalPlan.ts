@@ -39,6 +39,7 @@ export interface PlanPostInput {
   id: string
   workspaceId: string
   status: PostStatus | string // tolerate legacy/unknown values
+  scheduledAt?: Date | string | null
 }
 
 /**
@@ -71,6 +72,12 @@ export interface ApprovalPlan extends LifecyclePlan {
 interface PlanOpts {
   now?: Date
   actor?: StatusActor
+}
+
+export function hasValidPlannedDate(value: Date | string | null | undefined): boolean {
+  if (!value) return false
+  const date = value instanceof Date ? value : new Date(value)
+  return !Number.isNaN(date.getTime())
 }
 
 /**
@@ -123,11 +130,13 @@ export function planApproval(posts: PlanPostInput[], opts: PlanOpts & { mode?: A
 }
 
 /**
- * Plan scheduling of APPROVED posts: APPROVED → SCHEDULED only.
+ * Plan scheduling of APPROVED posts with existing valid planned dates:
+ * APPROVED → SCHEDULED only.
  *
  * Does NOT set approvedAt (already set) and does NOT write scheduledAt (the planned
- * date is kept from generation). Posts that are not APPROVED are skipped — a DRAFT
- * post can never be scheduled directly through this path.
+ * date is kept from generation). Posts that are not APPROVED, or APPROVED posts
+ * without a valid scheduledAt, are skipped — a DRAFT post can never be scheduled
+ * directly through this path, and scheduling never invents a planned date.
  */
 export function planScheduling(posts: PlanPostInput[], opts: PlanOpts = {}): LifecyclePlan {
   const actor: StatusActor = opts.actor ?? 'USER'
@@ -138,7 +147,7 @@ export function planScheduling(posts: PlanPostInput[], opts: PlanOpts = {}): Lif
   let skipped = 0
 
   for (const p of posts) {
-    if (p.status !== 'APPROVED' || !validateTransition('APPROVED', 'SCHEDULED').ok) {
+    if (p.status !== 'APPROVED' || !hasValidPlannedDate(p.scheduledAt) || !validateTransition('APPROVED', 'SCHEDULED').ok) {
       skipped++
       continue
     }
