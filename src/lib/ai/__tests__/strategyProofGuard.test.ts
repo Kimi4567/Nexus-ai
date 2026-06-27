@@ -98,6 +98,16 @@ describe('strategyProofGuard', () => {
     expect(out).not.toContain('always stocked')
   })
 
+  it('rewrites team-always wording without leaving an awkward sentence fragment', () => {
+    const out = guardStrategyProofText('Ensure your team always has access to great coffee.', {
+      verifiedProof: [],
+    })
+
+    expect(out).toBe('Help teams plan better office coffee routines.')
+    expect(out).not.toContain('Support more reliable team planning has access')
+    expect(out).not.toContain('Ensure your team always')
+  })
+
   it('removes unsupported budget assumptions even when mismatched budget context exists', () => {
     const assumed = guardStrategyProofText('Assumes $5000 USD budget is available for allocation.', {
       verifiedProof: [],
