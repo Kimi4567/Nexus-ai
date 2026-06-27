@@ -26,6 +26,7 @@ import {
 } from '@/lib/contentPlanGeneration'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
+import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -127,7 +128,13 @@ export async function POST(req: NextRequest, { params }: Params) {
     // ── 1. Load campaign ───────────────────────────────────────────────────
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      include: { workspace: true },
+      include: {
+        workspace: {
+          include: {
+            brandProfile: { select: { verifiedProof: true } },
+          },
+        },
+      },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
@@ -136,6 +143,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     // ── 2. Require real strategy evidence before spending credits ──────────
     const aiOutput = campaign.aiOutput as any
     const strategy = aiOutput?.strategy ?? aiOutput ?? {}
+    const proofContext = { verifiedProof: campaign.workspace?.brandProfile?.verifiedProof ?? [] }
+    const strategyForContent = guardStrategyProof(strategy, proofContext)
 
     const hasRealStrategyEvidence =
       !!aiOutput &&
@@ -202,15 +211,15 @@ export async function POST(req: NextRequest, { params }: Params) {
         ? [...new Set(connectedIntegrations.map(i => String(i.type)))]
         : ((campaign.platforms as string[]) ?? ['META'])
 
-    const keyMessage    = strategy.keyMessage ?? strategy.coreMessage ?? ''
-    const targetAudience = strategy.targetAudience
-      ? JSON.stringify(strategy.targetAudience)
+    const keyMessage    = strategyForContent.keyMessage ?? strategyForContent.coreMessage ?? ''
+    const targetAudience = strategyForContent.targetAudience
+      ? JSON.stringify(strategyForContent.targetAudience)
       : campaign.audience ?? ''
-    const contentPillars: string[] = strategy.contentPillars?.map((p: any) =>
+    const contentPillars: string[] = strategyForContent.contentPillars?.map((p: any) =>
       typeof p === 'string' ? p : p.pillar ?? p.name ?? JSON.stringify(p),
     ) ?? []
-    const tone = campaign.tone ?? strategy.tonalDirection ?? 'professional'
-    const offer = strategy.primaryOffer ?? strategy.cta ?? ''
+    const tone = campaign.tone ?? strategyForContent.tonalDirection ?? 'professional'
+    const offer = strategyForContent.primaryOffer ?? strategyForContent.cta ?? ''
 
     // ── 5. Check for uploaded media the user wants to use ─────────────────
     const body = await req.json().catch(() => ({}))
@@ -320,6 +329,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // Build language instruction — use the smart helper (bilingual = per-platform smart assignment, never mixed)
     const languageInstruction = getLanguageInstruction(bodyLanguage || undefined)
+    const proofPolicy = buildProofPolicyPrompt(proofContext)
 
     // Build media context for GPT if user selected real assets
     const mediaContext = userMedia.length > 0
@@ -343,6 +353,9 @@ Tone: ${tone}
 Offer/CTA: ${offer}
 ${mediaContext}
 ${languageInstruction}
+${proofPolicy}
+
+If the saved strategy contains unsupported proof terms, treat them as proof gaps, not content instructions. Create proof-collection prompts or factual educational content instead.
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):
 - Educational/informational posts: ${educationalPct}% (teach, explain, share tips)

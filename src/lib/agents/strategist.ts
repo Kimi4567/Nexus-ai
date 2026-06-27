@@ -447,6 +447,10 @@ ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 9. No pixel/analytics connected → retargeting is future setup only; do not describe active retargeting.
 10. Where a required input is missing, write the literal phrase "Not enough data" in that field and add the missing item to "missingData".
 11. Paid output stays read-only and advisory — never describe how to execute/launch ads.
+12. Proof policy: never invent testimonials, customer stories, awards, reviews, satisfaction claims, case studies, guarantees, or performance proof. Use only proof explicitly provided in Brand Context.
+13. If proof is missing, recommend collecting proof or asking customers for feedback. Do not phrase proof gaps as if they already exist.
+14. Do not create a customer-proof content pillar, customer-story hook, or testimonial CTA unless verified proof was provided.
+15. Do not describe this campaign as activated, running, published, scheduled, or live. If the business is already operating, say "business already operating"; the campaign itself remains in planning/review until the user takes later actions.
 
 Return ONLY valid JSON. No markdown outside the JSON.`
 

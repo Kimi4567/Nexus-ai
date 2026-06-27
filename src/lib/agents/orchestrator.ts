@@ -18,6 +18,7 @@ import { saveCampaignMemory } from '@/lib/campaign-memory'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
+import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import type { StrategyReadinessContext } from './strategist'
 
 // Re-export for API routes
@@ -97,6 +98,7 @@ export async function runFullAgency(
           brandProfile.topPlatforms?.length ? `Best Platforms: ${brandProfile.topPlatforms.join(', ')}` : '',
           brandProfile.winningHooks?.length ? `Winning Hooks (use as style reference): ${brandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
           brandProfile.winningAngles?.length ? `Winning Angles: ${brandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
+          buildProofPolicyPrompt({ verifiedProof: brandProfile.verifiedProof }),
           brandProfile.competitorNotes ? `Competitor Notes: ${brandProfile.competitorNotes}` : '',
           (brandProfile as any).competitors?.length ? `Named Competitors (use ONLY these — never invent others): ${(brandProfile as any).competitors.join(', ')}` : '',
           brandProfile.strategicNotes ? `Strategic Notes: ${brandProfile.strategicNotes}` : '',
@@ -139,6 +141,7 @@ export async function runFullAgency(
       ...((bp.competitors as string[] | undefined) || []),
       ...(bp.competitorNotes ? [bp.competitorNotes as string] : []),
     ]
+    const proofContext = { verifiedProof: (bp.verifiedProof as string[] | undefined) || [] }
 
     // 2. Strategist agent
     let strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language, readiness)
@@ -154,6 +157,10 @@ export async function runFullAgency(
     //     numbers from KPI targets / success metrics / estimated results, keeping
     //     only user/analytics-provided numbers (allowedNumbers) and calendar timeframes.
     strategy = guardStrategyKpis(strategy as unknown as Record<string, unknown>, allowedNumbers) as unknown as StrategyOutput
+    // GEN-TRUTH1 — deterministic proof guard. Prompt policy prevents most issues;
+    // this backstop keeps unsupported testimonials/customer stories/awards from
+    // being persisted when Brand Brain has no verified proof.
+    strategy = guardStrategyProof(strategy, proofContext)
     strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.

@@ -1,0 +1,110 @@
+/**
+ * Strategy proof guard
+ *
+ * Deterministic backstop for strategy/content-planning outputs. Prompt rules are
+ * the first line of defense; this guard keeps unsupported proof assets from
+ * being saved as strategy truth when Brand Brain has no verified proof.
+ */
+
+export interface StrategyProofContext {
+  verifiedProof?: string[] | null
+}
+
+interface ProofAvailability {
+  hasTestimonials: boolean
+  hasAwards: boolean
+  hasCaseStudies: boolean
+  hasReviews: boolean
+}
+
+function verifiedProofText(context: StrategyProofContext): string {
+  return Array.isArray(context.verifiedProof)
+    ? context.verifiedProof.filter((item): item is string => typeof item === 'string').join(' \n ')
+    : ''
+}
+
+export function getProofAvailability(context: StrategyProofContext): ProofAvailability {
+  const proof = verifiedProofText(context).toLowerCase()
+  return {
+    hasTestimonials: /\b(testimonial|customer story|customer stories|satisfied customer|client quote|customer quote)\b/i.test(proof),
+    hasAwards: /\b(award|certified|certification|accredited|badge)\b/i.test(proof),
+    hasCaseStudies: /\b(case study|case studies|case-study)\b/i.test(proof),
+    hasReviews: /\b(review|rating|rated|stars?)\b/i.test(proof),
+  }
+}
+
+export function buildProofPolicyPrompt(context: StrategyProofContext): string {
+  const proof = Array.isArray(context.verifiedProof)
+    ? context.verifiedProof.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : []
+
+  const proofLine = proof.length
+    ? `Verified proof provided by the user: ${proof.map(item => `"${item}"`).join('; ')}.`
+    : 'No testimonial, customer-story, review, award, case-study, guarantee, or performance proof has been provided.'
+
+  return [
+    'PROOF POLICY (strict):',
+    proofLine,
+    '- Use only the verified proof above as factual proof.',
+    '- Do not invent testimonials, customer stories, awards, reviews, satisfaction claims, case studies, guarantees, or performance claims.',
+    '- Do not phrase proof gaps as if they already exist.',
+    '- Do not create "Customer Testimonials" as a content pillar unless verified proof includes real testimonials.',
+    '- Do not write "Hear from satisfied customers" or "Read their stories" unless those customer stories were provided.',
+    '- If proof is missing, recommend collecting proof, asking customers for feedback, or using available factual proof only.',
+  ].join('\n')
+}
+
+export function guardStrategyProofText(text: unknown, context: StrategyProofContext = {}): string {
+  if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
+
+  const proof = getProofAvailability(context)
+  let guarded = text
+
+  if (!proof.hasTestimonials && !proof.hasReviews) {
+    guarded = guarded
+      .replace(/\bCustomer Testimonials\b/gi, 'Proof to collect')
+      .replace(/\bHear from our satisfied customers\b/gi, 'Ask customers for feedback and stories')
+      .replace(/\bHear from satisfied customers\b/gi, 'Ask customers for feedback and stories')
+      .replace(/\bcustomer testimonial video\b/gi, 'customer feedback request or proof-collection video')
+      .replace(/\bcustomer testimonials?\b/gi, 'customer proof to collect')
+      .replace(/\btestimonials?\b/gi, 'proof to collect')
+      .replace(/\bsatisfied customers\b/gi, 'customers to ask for feedback')
+      .replace(/\bcustomer stories\b/gi, 'customer stories to collect')
+      .replace(/\bcustomer story\b/gi, 'customer story to collect')
+      .replace(/\bcustomer reviews?\b/gi, 'customer reviews to collect')
+      .replace(/\bRead their stories\b/gi, 'Collect customer stories for future use')
+  }
+
+  if (!proof.hasCaseStudies) {
+    guarded = guarded.replace(/\bcase stud(?:y|ies)\b/gi, 'proof examples to collect')
+  }
+
+  if (!proof.hasAwards) {
+    guarded = guarded
+      .replace(/\baward[-\s]?winning\b/gi, 'quality-focused')
+      .replace(/\bcertified\b/gi, 'to be verified')
+  }
+
+  guarded = guarded
+    .replace(/\bguaranteed\b/gi, 'aimed-for')
+    .replace(/\bactive stage\b/gi, 'planning/review stage')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  return guarded
+}
+
+export function guardStrategyProof<T>(input: T, context: StrategyProofContext = {}): T {
+  if (typeof input === 'string') return guardStrategyProofText(input, context) as T
+  if (Array.isArray(input)) {
+    return input.map(item => guardStrategyProof(item, context)) as T
+  }
+  if (input && typeof input === 'object') {
+    const output: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+      output[key] = guardStrategyProof(value, context)
+    }
+    return output as T
+  }
+  return input
+}
