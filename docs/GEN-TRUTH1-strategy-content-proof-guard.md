@@ -129,6 +129,23 @@ GEN-TRUTH1C adds deterministic backstops for those cases:
 - Negative guarantee disclaimers such as `Delivery cannot be guaranteed` and `Do not promise delivery where it cannot be guaranteed` remain readable.
 - Positive guarantee claims such as `Guaranteed results` or `guaranteed growth` are softened.
 
+## GEN-TRUTH1E Follow-Up
+
+Controlled QA after GEN-TRUTH1C showed the proof guard was still not enough for structured strategy output:
+
+- The rendered Strategy tab showed `مرحلة العمل` with a separate value of `active`.
+- Generated messages still used broad absolute wording such as `Ensure your office is always stocked with premium coffee`.
+- The strategy invented an unsupported budget assumption: `Assumes $5000 USD budget is available for allocation`.
+
+GEN-TRUTH1E adds guard coverage for those cases before saved strategy output can feed Content Plan generation:
+
+- Structured status fields inspect key/label/title/name plus value. Campaign/status/stage fields with `active`, `live`, `running`, `launched`, `published`, or `scheduled` are rewritten to planning/review-safe language.
+- Business status can be represented as `business already operating`, but campaign execution remains planning/review until later user action.
+- Broader `ensure`, `always stocked`, and `make sure ... always` wording is softened into help/support language.
+- Numeric paid-budget assumptions are removed even when Brand Brain has a budget note; generated spend allocations still need user confirmation.
+- Exact user-provided Brand Brain budget context can be shown as context, but it does not authorize invented currencies, invented amounts, or execution allocation.
+- The strategist prompt now prints only exact Brand Brain budget text when available, and says budget is not provided otherwise, even if an internal default exists elsewhere in the request flow.
+
 ## Next QA After Merge
 
-Generate one new strategy in a controlled QA account and confirm no invented testimonials, customer stories, awards, case studies, guarantees, active campaign-state wording, or absolute `ensure` claims appear. Proceed to Content Plan QA only after that strategy output is clean.
+Generate one new strategy in a controlled QA account and confirm no invented testimonials, customer stories, awards, case studies, guarantees, active campaign-state wording, absolute `ensure` claims, or unsupported budget assumptions appear. Proceed to Content Plan QA only after that strategy output is clean.

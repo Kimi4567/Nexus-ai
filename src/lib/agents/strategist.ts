@@ -286,6 +286,7 @@ export interface StrategyReadinessContext {
   capabilities: { id: string; ready: boolean; confidence: CapabilityConfidenceLevel; missingKeys: string[] }[]
   missingKeys: string[]
   hasBudget: boolean
+  budgetText?: string | null
   hasConversionDestination: boolean
   hasCompetitors: boolean
   hasHistoricalData: boolean
@@ -451,14 +452,19 @@ ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 13. If proof is missing, recommend collecting proof or asking customers for feedback. Do not phrase proof gaps as if they already exist.
 14. Do not create a customer-proof content pillar, customer-story hook, or testimonial CTA unless verified proof was provided.
 15. Do not describe this campaign as activated, running, published, scheduled, or live. If the business is already operating, say "business already operating"; the campaign itself remains in planning/review until the user takes later actions.
+16. Do not invent ad budget, campaign budget, spend allocation, CAC, ROAS, or paid media budget. If budget is missing, write "Budget not provided" and list budget as missing data.
 
 Return ONLY valid JSON. No markdown outside the JSON.`
+
+  const budgetLine = readiness?.budgetText?.trim()
+    ? `User-provided budget context: ${readiness.budgetText.trim()}`
+    : 'Monthly Budget: Not provided'
 
   const extendedBrief = [
     `Company: ${brief.companyName}`,
     `Industry: ${brief.businessType}`,
     `Target Audience: ${brief.targetAudience}`,
-    `Monthly Budget: $${brief.monthlyBudget} USD`,
+    budgetLine,
     `Primary Goal: ${brief.primaryGoal || 'generate qualified leads'}`,
     `Strategy Type: ${brief.strategyType || 'organic'} — ${
       brief.strategyType === 'paid'
@@ -491,6 +497,9 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     ? [
         '\nDATA READINESS (you must respect this — do not assert beyond it):',
         `- Budget provided: ${readiness.hasBudget ? 'yes' : 'no'}`,
+        readiness.budgetText?.trim()
+          ? `- User-provided budget context: ${readiness.budgetText.trim()}`
+          : '- User-provided budget context: Not provided',
         `- Conversion destination provided: ${readiness.hasConversionDestination ? 'yes' : 'no'}`,
         `- Competitors provided: ${readiness.hasCompetitors ? 'yes' : 'no'}`,
         `- Historical performance data: ${readiness.hasHistoricalData ? 'yes' : 'no'}`,

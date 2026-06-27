@@ -129,6 +129,7 @@ export async function runFullAgency(
       })),
       missingKeys: collectMissingKeys(capabilities),
       hasBudget: Boolean(bp.marketingBudget),
+      budgetText: typeof bp.marketingBudget === 'string' ? bp.marketingBudget : null,
       hasConversionDestination: Boolean(bp.conversionDestination),
       hasCompetitors: Boolean(bp.competitors?.length) || Boolean(bp.competitorNotes),
       hasHistoricalData,
@@ -141,7 +142,10 @@ export async function runFullAgency(
       ...((bp.competitors as string[] | undefined) || []),
       ...(bp.competitorNotes ? [bp.competitorNotes as string] : []),
     ]
-    const proofContext = { verifiedProof: (bp.verifiedProof as string[] | undefined) || [] }
+    const proofContext = {
+      verifiedProof: (bp.verifiedProof as string[] | undefined) || [],
+      budgetText: typeof bp.marketingBudget === 'string' ? bp.marketingBudget : null,
+    }
 
     // 2. Strategist agent
     let strategy: StrategyOutput = await runStrategistAgent(brief, brandContext, brief.language, readiness)
