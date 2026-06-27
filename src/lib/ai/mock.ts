@@ -66,7 +66,7 @@ const HOOK_TEMPLATES = {
     'We broke down exactly how to {benefit} — link in bio.',
     'The complete guide is on our website — go check it out.',
     'Everything you need to know about {topic} — link in bio.',
-    'See the full case study: how we helped {audience} achieve {result}.',
+    'See the full guide: how {audience} can approach {goal}.',
     'Free tool alert: {tool} just launched at {brand}.com',
     'Our best {content_type} yet just dropped — link in bio.',
     'Watch the full tutorial on how to {benefit}.',
@@ -78,7 +78,7 @@ const HOOK_TEMPLATES = {
 const CAPTION_TEMPLATES = {
   instagram: [
     '{hook}\n\nHere\'s the thing nobody talks about with {topic} 👇\n\n{point1}\n{point2}\n{point3}\n\nThe result? {outcome}.\n\nSave this for later and share with someone who needs to hear it.\n\n{hashtags}',
-    '{hook} ✨\n\nWe\'ve helped {number}+ {audience} achieve {result}, and here\'s what we learned:\n\n→ {lesson1}\n→ {lesson2}\n→ {lesson3}\n\nWhich one surprised you most? Comment below 👇\n\n{hashtags}',
+    '{hook} ✨\n\nHere are practical lessons for {audience} working toward {goal}:\n\n→ {lesson1}\n→ {lesson2}\n→ {lesson3}\n\nWhich one surprised you most? Comment below 👇\n\n{hashtags}',
     'Real talk: {pain_point} is costing you more than you think. 💭\n\n{brand} exists to change that.\n\n{benefit1} ✅\n{benefit2} ✅\n{benefit3} ✅\n\nLink in bio to get started today.\n\n{hashtags}',
   ],
   tiktok: [
@@ -87,8 +87,8 @@ const CAPTION_TEMPLATES = {
     '{hook} — watch till the end 👀 #{topic} #learnontiktok #{industry}',
   ],
   facebook: [
-    '{hook}\n\nWe know how frustrating {pain_point} can be. That\'s why we built {brand}.\n\n✅ {benefit1}\n✅ {benefit2}\n✅ {benefit3}\n\nJoin {number}+ satisfied customers. Click "Learn More" to get started.',
-    'Attention {audience}: {hook}\n\nHere\'s what our customers are saying:\n\n"{testimonial}"\n— Happy {brand} customer\n\nSee what {brand} can do for you. Comment "INFO" below and we\'ll reach out.',
+    '{hook}\n\nWe know how frustrating {pain_point} can be. That\'s why we built {brand}.\n\n✅ {benefit1}\n✅ {benefit2}\n✅ {benefit3}\n\nClick "Learn More" to review the next step.',
+    'Attention {audience}: {hook}\n\nProof is strongest when it comes from real customers. Collect verified feedback before using customer quotes in campaigns.\n\nComment "INFO" below and we\'ll reach out.',
   ],
   linkedin: [
     '{hook}\n\nAfter working with {number}+ {industry} professionals, here\'s what I\'ve learned:\n\n1️⃣ {lesson1}\n2️⃣ {lesson2}\n3️⃣ {lesson3}\n\nThe bottom line: {conclusion}\n\nWhat\'s your take? Share in the comments.\n\n#LinkedIn #{industry} #{topic}',
@@ -141,9 +141,9 @@ function buildVars(campaign: any, project: any): Record<string, string> {
     honest_take: 'most ' + industry + ' companies are overcomplicated and underperforming',
     solution1: 'Start with one clear message',
     solution2: 'Test fast, optimize faster',
-    solution3: 'Let your customers tell the story',
-    testimonial: 'Switched to ' + name + ' and doubled our results in 60 days',
-    content_type: pick(['case study', 'tutorial', 'breakdown', 'analysis']),
+    solution3: 'Collect verified customer feedback before using proof claims',
+    testimonial: 'Verified customer quote to collect before use',
+    content_type: pick(['proof collection plan', 'tutorial', 'breakdown', 'analysis']),
     tool: name + ' Analyzer',
     goal: pick(['grow your business', 'generate leads', 'build your brand', 'increase sales']),
     option_a: 'more budget',
@@ -171,11 +171,11 @@ PROBLEM (3-8s): Most ${briefing.slice(0, 50)} solutions are slow, expensive, and
 SOLUTION (8-20s): That's exactly why we built this. [Show product/service in action]
 Key benefit 1 → Key benefit 2 → Key benefit 3
 
-PROOF (20-25s): Our customers see real results — [testimonial/stat overlay]
+PROOF GAP (20-25s): Add a verified customer quote or factual proof point before publishing
 
-CTA (25-30s): Click the link. Try it free. You'll see why thousands trust us.
+CTA (25-30s): Click the link to review the next step.
 
-[TEXT OVERLAY]: ${pick(['Limited time offer', 'Free to start', 'No credit card needed', 'Join 10,000+ users'])}`
+[TEXT OVERLAY]: ${pick(['Free to start', 'No credit card needed', 'Review the next step', 'Proof to collect'])}`
 }
 
 export async function generateCaptions(script: string, platform: string): Promise<string[]> {
@@ -192,7 +192,7 @@ export async function generateCaptions(script: string, platform: string): Promis
       number: '5,000', audience: 'businesses', result: '3x more leads',
       point1: '→ Clarity over complexity', point2: '→ Data-driven decisions', point3: '→ Consistent execution',
       outcome: 'consistent growth', lesson1: 'Focus on one goal', lesson2: 'Test everything',
-      testimonial: 'Best investment we made this year', industry: 'marketing',
+      testimonial: 'Verified customer quote to collect before use', industry: 'marketing',
     }))
   }
   return captions
@@ -225,21 +225,21 @@ export async function generateMarketingStrategy(campaign: any, project: any) {
 
     valueProps: [
       `${pick(['Saves', 'Recovers', 'Unlocks'])} ${vars.amount} in ${pick(['wasted spend', 'lost time', 'missed revenue'])} per month`,
-      `${pick(['Proven', 'Battle-tested', 'Data-backed'])} system used by ${vars.number}+ ${vars.audience}`,
-      `${pick(['Results in 30 days', 'See ROI fast', 'Quick to implement'])} — no long onboarding`,
+      `${pick(['Practical', 'Focused', 'Structured'])} system for ${vars.audience}`,
+      `${pick(['Review the first 30 days', 'Define ROI baseline first', 'Quick to implement'])} — no long onboarding`,
       `${pick(['Full support included', 'Done-with-you', 'Community access'])} for accountability`,
     ],
 
     contentPillars: [
       'Education: Teach the problem and solution (40%)',
-      'Social Proof: Customer results and testimonials (25%)',
+      'Proof Collection: Customer feedback and verified proof to collect (25%)',
       'Entertainment: Relatable, viral-friendly content (20%)',
       'Conversion: Direct offer and CTA-driven posts (15%)',
     ],
 
     angles: [
       `Problem-Agitate-Solve: Expose ${vars.pain_point} → amplify the cost → present ${campaign.name} as the fix`,
-      `Transformation Story: Before/after of customers who switched to ${campaign.name}`,
+      `Transformation Plan: Before/after story structure to use only after verified proof exists`,
       `Authority Position: Why ${campaign.name} is the only ${vars.industry} solution that actually works`,
       `FOMO/Urgency: What ${vars.audience} are missing out on by not using ${campaign.name}`,
       `Curiosity: Counterintuitive truths about ${vars.industry} that only ${campaign.name} users know`,
@@ -335,7 +335,7 @@ export async function generateAdConcepts(campaign: any, project: any) {
       description: `A ${angles[i]}-driven concept targeting ${vars.audience} who struggle with ${vars.pain_point}. Designed specifically for ${platform} to maximize ${goal === 'SALES' ? 'conversions' : goal === 'AWARENESS' ? 'reach' : 'leads'}.`,
       angle: angles[i],
       hook,
-      script: `HOOK: "${hook}"\n\nBODY: [Show ${vars.pain_point} scenario] → [Introduce ${campaign.name}] → [Demo key benefit in 15 seconds]\n\nPROOF: "${vars.testimonial}" — Real customer result\n\nCTA: "${pick(['Try it free today', 'Get started now', 'Claim your spot', 'See it in action'])}"`,
+      script: `HOOK: "${hook}"\n\nBODY: [Show ${vars.pain_point} scenario] → [Introduce ${campaign.name}] → [Demo key benefit in 15 seconds]\n\nPROOF GAP: "${vars.testimonial}" — collect verified proof before publishing\n\nCTA: "${pick(['Try it free today', 'Get started now', 'Review the offer', 'See the next step'])}"`,
       cta: pick([
         `Try ${campaign.name} free — link in bio`,
         `Book a free call — DM us "${pick(['START', 'FREE', 'GO'])}"`,

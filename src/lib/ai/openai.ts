@@ -138,9 +138,9 @@ export async function generateAdConcepts(campaign: any, project: any): Promise<a
     .filter(Boolean)
     .join('\n')
 
-  const system = `You are a top-tier creative director who has produced award-winning ad campaigns for major MENA brands.
+  const system = `You are a top-tier creative director who produces careful, platform-native ad campaign ideas for MENA brands.
 You write platform-native scripts — a TikTok script sounds nothing like a LinkedIn post.
-You use proven copywriting techniques: pattern interrupts, open loops, social proof, specificity, FOMO — adapted for MENA audiences.
+You use careful copywriting techniques: pattern interrupts, open loops, proof gaps, specificity, and honest urgency — adapted for MENA audiences.
 Your hooks are tested, specific, and platform-native — not generic.
 ${langInstruction}
 Always respond with valid JSON only.`
@@ -150,7 +150,7 @@ Always respond with valid JSON only.`
 Each concept:
 {
   "name": "short catchy name",
-  "angle": "Pattern Interrupt | Social Proof | Problem/Solution | Curiosity Gap | FOMO | Transformation",
+  "angle": "Pattern Interrupt | Proof Gap | Problem/Solution | Curiosity Gap | Honest Urgency | Transformation",
   "hook": "scroll-stopping opening line, platform-native, ultra-specific (not generic)",
   "script": "40-60 word platform-native ad script covering hook, problem, solution, CTA",
   "cta": "specific action CTA",
