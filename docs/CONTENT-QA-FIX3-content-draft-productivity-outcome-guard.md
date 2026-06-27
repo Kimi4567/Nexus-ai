@@ -14,6 +14,16 @@ The claim is not safe unless the user has provided verified proof that the coffe
 
 Future content-plan drafts must not claim that coffee improves business or workplace outcomes unless that proof is explicitly provided by the user.
 
+Outcome proof must be matched by type:
+
+- productivity proof permits productivity wording only
+- morale proof permits morale wording only
+- focus proof permits focus wording only
+- energy proof permits energy wording only
+- team-performance or business-result proof permits team-performance/workplace-output wording only
+
+One proof type must not unlock another. For example, a user-provided focus quote does not permit productivity or morale claims.
+
 Allowed framing:
 
 - support office coffee planning

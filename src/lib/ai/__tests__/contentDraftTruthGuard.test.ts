@@ -124,6 +124,59 @@ describe('contentDraftTruthGuard', () => {
     expect(guardContentDraftText(safe)).toBe(safe)
   })
 
+  it('does not let focus proof unlock productivity or morale claims', () => {
+    const out = guardContentDraftText(
+      'premium blends can boost productivity and morale',
+      { verifiedProof: ['Customer feedback says the coffee helped with focus during morning routines.'] },
+    )
+
+    expect(out).toContain('coffee breaks')
+    expect(out).not.toContain('boost productivity')
+    expect(out).not.toContain('morale')
+  })
+
+  it('does not let morale proof unlock team performance claims', () => {
+    const out = guardContentDraftText(
+      'Improve team performance with better coffee',
+      { verifiedProof: ['Employee survey mentioned better morale around coffee breaks.'] },
+    )
+
+    expect(out).toContain('team coffee planning')
+    expect(out).not.toContain('team performance')
+  })
+
+  it('does not let energy proof unlock productivity claims', () => {
+    const out = guardContentDraftText(
+      'Boost productivity with premium coffee',
+      { verifiedProof: ['Customer said the coffee felt energizing.'] },
+    )
+
+    expect(out).toContain('coffee break routine')
+    expect(out).not.toContain('Boost productivity')
+  })
+
+  it('preserves supported productivity wording when exact productivity proof exists', () => {
+    const out = guardContentDraftText(
+      'Coffee routine may support improved productivity.',
+      { verifiedProof: ['User-provided survey: 62% of office staff reported improved productivity after changing coffee routine.'] },
+    )
+
+    expect(out).toBe('Coffee routine may support improved productivity.')
+    expect(out).not.toContain('guaranteed')
+  })
+
+  it('does not let Arabic focus proof unlock productivity or morale claims', () => {
+    const out = guardContentDraftText(
+      'قهوة تساعد على زيادة الإنتاجية ورفع المعنويات',
+      { verifiedProof: ['تعليق عميل: ساعدت القهوة على التركيز في الصباح.'] },
+    )
+
+    expect(out).not.toContain('زيادة الإنتاجية')
+    expect(out).not.toContain('رفع المعنويات')
+    expect(out).toContain('روتين قهوة')
+    expect(out).toContain('استراحات القهوة')
+  })
+
   it('softens high-risk Arabic perfection, delivery, stock, and productivity claims', () => {
     const out = guardContentDraftText(
       'المشروب المثالي كل مرة مع توصيل مضمون وتوصيل سريع. المكتب مليان قهوة دائمًا ولا ينفد. طاقة مضمونة ونتائج فورية وإنتاجية مضمونة.',
