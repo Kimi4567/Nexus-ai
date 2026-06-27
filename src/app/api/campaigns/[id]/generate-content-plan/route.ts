@@ -363,6 +363,7 @@ ${proofPolicy}
 ${draftTruthPolicy}
 
 If the saved strategy contains unsupported proof terms, treat them as proof gaps, not content instructions. Create proof-collection prompts or factual educational content instead.
+Avoid superlative/perfection language (perfect, finest, best), ensure/guarantee/always-stocked phrasing, and unbounded delivery claims. Delivery must be bounded with where available, supported zones, or timing depends on location; Arabic output must avoid أفضل/مثالي/مضمون/دائمًا as absolute claims unless directly supported.
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):
 - Educational/informational posts: ${educationalPct}% (teach, explain, share tips)
