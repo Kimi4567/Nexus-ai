@@ -39,6 +39,16 @@ Not allowed unless verified proof exists:
 
 When proof is missing, strategy and content planning should say to collect proof, request customer feedback, or use available factual proof only.
 
+Proof types are intentionally separated:
+
+- Reviews/ratings allow review or rating language only.
+- Testimonials allow testimonial language only.
+- Customer stories allow customer-story language only.
+- Awards allow award language only.
+- Case studies allow case-study language only.
+
+A review is not a testimonial, a rating is not a customer story, and an award is not a case study.
+
 ## Files Changed
 
 - `src/lib/agents/orchestrator.ts`

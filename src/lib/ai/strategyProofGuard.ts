@@ -12,6 +12,7 @@ export interface StrategyProofContext {
 
 interface ProofAvailability {
   hasTestimonials: boolean
+  hasCustomerStories: boolean
   hasAwards: boolean
   hasCaseStudies: boolean
   hasReviews: boolean
@@ -23,10 +24,23 @@ function verifiedProofText(context: StrategyProofContext): string {
     : ''
 }
 
+function softenUnsupportedGuarantees(text: string): string {
+  return text
+    .split(/(\bguaranteed\s+results?\b|\bguaranteed\b)/gi)
+    .map((part, index, parts) => {
+      if (!/^guaranteed(?:\s+results?)?$/i.test(part)) return part
+      const before = (parts[index - 1] || '').toLowerCase()
+      if (/(?:^|\s)(?:no|not|avoid|without)\s*$/.test(before)) return part
+      return /\s+results?$/i.test(part) ? 'aimed-for results' : 'aimed-for'
+    })
+    .join('')
+}
+
 export function getProofAvailability(context: StrategyProofContext): ProofAvailability {
   const proof = verifiedProofText(context).toLowerCase()
   return {
-    hasTestimonials: /\b(testimonial|customer story|customer stories|satisfied customer|client quote|customer quote)\b/i.test(proof),
+    hasTestimonials: /\b(testimonial|satisfied customer|client quote|customer quote)\b/i.test(proof),
+    hasCustomerStories: /\b(customer story|customer stories)\b/i.test(proof),
     hasAwards: /\b(award|certified|certification|accredited|badge)\b/i.test(proof),
     hasCaseStudies: /\b(case study|case studies|case-study)\b/i.test(proof),
     hasReviews: /\b(review|rating|rated|stars?)\b/i.test(proof),
@@ -60,7 +74,7 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
   const proof = getProofAvailability(context)
   let guarded = text
 
-  if (!proof.hasTestimonials && !proof.hasReviews) {
+  if (!proof.hasTestimonials) {
     guarded = guarded
       .replace(/\bCustomer Testimonials\b/gi, 'Proof to collect')
       .replace(/\bHear from our satisfied customers\b/gi, 'Ask customers for feedback and stories')
@@ -69,10 +83,20 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bcustomer testimonials?\b/gi, 'customer proof to collect')
       .replace(/\btestimonials?\b/gi, 'proof to collect')
       .replace(/\bsatisfied customers\b/gi, 'customers to ask for feedback')
+  }
+
+  if (!proof.hasCustomerStories) {
+    guarded = guarded
       .replace(/\bcustomer stories\b/gi, 'customer stories to collect')
       .replace(/\bcustomer story\b/gi, 'customer story to collect')
-      .replace(/\bcustomer reviews?\b/gi, 'customer reviews to collect')
       .replace(/\bRead their stories\b/gi, 'Collect customer stories for future use')
+  }
+
+  if (!proof.hasReviews) {
+    guarded = guarded
+      .replace(/\bcustomer reviews?\b/gi, 'customer reviews to collect')
+      .replace(/\bratings?\b/gi, 'ratings to collect')
+      .replace(/\bstar ratings?\b/gi, 'star ratings to collect')
   }
 
   if (!proof.hasCaseStudies) {
@@ -86,12 +110,11 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
   }
 
   guarded = guarded
-    .replace(/\bguaranteed\b/gi, 'aimed-for')
     .replace(/\bactive stage\b/gi, 'planning/review stage')
     .replace(/\s{2,}/g, ' ')
     .trim()
 
-  return guarded
+  return softenUnsupportedGuarantees(guarded)
 }
 
 export function guardStrategyProof<T>(input: T, context: StrategyProofContext = {}): T {
