@@ -523,7 +523,7 @@ export default function ContentHubPage() {
       // Build approval result for the summary modal (approved posts keep their
       // planned dates from generation — they are not "scheduled" until the user
       // schedules them in the next step).
-      const approvedPosts = freshPosts.filter(p => p.status === 'APPROVED' && p.scheduledAt)
+      const approvedPosts = freshPosts.filter(p => p.status === 'APPROVED' && hasValidDate(p.scheduledAt))
       const scheduledDates = approvedPosts
         .map(p => p.scheduledAt!)
         .sort()
@@ -572,7 +572,7 @@ export default function ContentHubPage() {
       if (!res.ok) throw new Error(data.error ?? 'Scheduling failed')
 
       const freshPosts = await loadData()
-      const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && p.scheduledAt)
+      const scheduledPosts = freshPosts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt))
       const scheduledDates = scheduledPosts.map(p => p.scheduledAt!).sort()
       const platformsUsed = [...new Set(scheduledPosts.map(p => p.platform.toUpperCase()))]
 
@@ -1295,7 +1295,7 @@ export default function ContentHubPage() {
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
                       style={{ background: '#ECFDF5', border: '1px solid rgba(5,150,105,0.18)' }}>
-                      🚀
+                      {approveResult.kind === 'scheduled' ? '📅' : '✓'}
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-slate-950">
@@ -1305,8 +1305,8 @@ export default function ContentHubPage() {
                       </h3>
                       <p className="text-sm text-emerald-600">
                         {approveResult.kind === 'scheduled'
-                          ? t('contentHub.scheduledSubtitle')
-                          : t('contentHub.approvedSubtitle')}
+                          ? (isAr ? 'تمت الجدولة فقط — لم يتم النشر' : 'Scheduled only — not published')
+                          : (isAr ? 'تم حفظ الاعتماد — ما زالت الجدولة خطوة منفصلة' : 'Approval saved — scheduling is still separate')}
                       </p>
                     </div>
                   </div>
@@ -1345,7 +1345,9 @@ export default function ContentHubPage() {
                   <div className="rounded-xl p-3 mb-4"
                     style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
                     <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">
-                      {approveResult.kind === 'scheduled' ? 'Publishing to' : 'Planned for'}
+                      {approveResult.kind === 'scheduled'
+                        ? (isAr ? 'مجدول على' : 'Scheduled for')
+                        : (isAr ? 'مخطط لـ' : 'Planned for')}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {approveResult.platforms.map(p => {
@@ -1371,7 +1373,9 @@ export default function ContentHubPage() {
                     <span className="text-lg">📅</span>
                     <div>
                       <p className="text-xs text-slate-500 mb-0.5">
-                        {approveResult.kind === 'scheduled' ? 'Publishing window' : 'Planned content window'}
+                        {approveResult.kind === 'scheduled'
+                          ? (isAr ? 'نافذة المحتوى المجدول' : 'Scheduled content window')
+                          : (isAr ? 'نافذة المحتوى المخطط' : 'Planned content window')}
                       </p>
                       <p className="text-sm text-[#5E5CE6] font-medium">
                         {approveResult.firstDate
@@ -1392,17 +1396,22 @@ export default function ContentHubPage() {
                     style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                     <span className="text-xl mt-0.5">🧠</span>
                     <div>
-                      <p className="text-sm font-semibold text-[#5E5CE6] mb-0.5">Brand Brain updated</p>
+                      <p className="text-sm font-semibold text-[#5E5CE6] mb-0.5">
+                        {isAr ? 'تم حفظ إشارات الاعتماد' : 'Approval signals saved'}
+                      </p>
                       <p className="text-xs text-slate-600">
-                        Learned{' '}
+                        {isAr ? 'قد يقترح NEXUS تحديثات لعقل العلامة من المحتوى الذي راجعته: ' : 'NEXUS may suggest Brand Brain updates from reviewed content: '}
                         {approveResult.learned.hooks > 0 && (
-                          <span className="text-[#5E5CE6] font-medium">{approveResult.learned.hooks} winning hooks</span>
+                          <span className="text-[#5E5CE6] font-medium">
+                            {approveResult.learned.hooks} {isAr ? 'إشارات خطاف' : 'hook signals'}
+                          </span>
                         )}
                         {approveResult.learned.hooks > 0 && approveResult.learned.angles > 0 && ' + '}
                         {approveResult.learned.angles > 0 && (
-                          <span className="text-[#5E5CE6] font-medium">{approveResult.learned.angles} content angles</span>
+                          <span className="text-[#5E5CE6] font-medium">
+                            {approveResult.learned.angles} {isAr ? 'إشارات زاوية محتوى' : 'content-angle signals'}
+                          </span>
                         )}
-                        {' '}from your approved content — future campaigns will feel even more on-brand.
                       </p>
                     </div>
                   </div>
@@ -1411,35 +1420,51 @@ export default function ContentHubPage() {
                 {/* Next best action */}
                 <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
                   style={{
-                    background: approveResult.pendingImages > 0
+                    background: approveResult.kind === 'approved'
+                      ? '#F8FAFC'
+                      : approveResult.pendingImages > 0
                       ? '#F5F3FF'
                       : approveResult.unlinked > 0
                       ? '#FFFBEB'
                       : '#ECFDF5',
-                    border: approveResult.pendingImages > 0
+                    border: approveResult.kind === 'approved'
+                      ? '1px solid rgba(15,23,42,0.10)'
+                      : approveResult.pendingImages > 0
                       ? '1px solid rgba(94,92,230,0.18)'
                       : approveResult.unlinked > 0
                       ? '1px solid rgba(245,158,11,0.2)'
                       : '1px solid rgba(5,150,105,0.22)',
                   }}>
                   <span className="text-lg mt-0.5">
-                    {approveResult.pendingImages > 0 ? '✨' : approveResult.unlinked > 0 ? '🔌' : '📅'}
+                    {approveResult.kind === 'approved' ? '📝' : approveResult.pendingImages > 0 ? '✨' : approveResult.unlinked > 0 ? '🔌' : '📅'}
                   </span>
                   <div>
                     <p className="text-sm font-semibold mb-0.5"
-                      style={{ color: approveResult.pendingImages > 0 ? '#5E5CE6' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
-                      {approveResult.pendingImages > 0
-                        ? 'Next: generate campaign images'
+                      style={{ color: approveResult.kind === 'approved' ? '#334155' : approveResult.pendingImages > 0 ? '#5E5CE6' : approveResult.unlinked > 0 ? '#B45309' : '#047857' }}>
+                      {approveResult.kind === 'approved'
+                        ? (isAr ? 'التالي: راجع الخطة قبل الجدولة' : 'Next: review the plan before scheduling')
+                        : approveResult.pendingImages > 0
+                        ? (isAr ? 'اختياري: جهز صور المسودات' : 'Optional: prepare draft visuals')
                         : approveResult.unlinked > 0
-                        ? 'Next: connect publishing platforms'
-                        : 'Next: review your schedule'}
+                        ? (isAr ? 'قبل النشر: اربط منصات النشر' : 'Before publishing: connect platforms')
+                        : (isAr ? 'التالي: راجع المحتوى المجدول' : 'Next: review scheduled content')}
                     </p>
                     <p className="text-xs text-slate-600 leading-relaxed">
-                      {approveResult.pendingImages > 0
-                        ? `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need visuals. Generate them now before reviewing the calendar.`
+                      {approveResult.kind === 'approved'
+                        ? (isAr
+                          ? 'تم اعتماد المسودات فقط. ما زالت المنشورات تحتاج جدولة قبل النشر، والنشر التلقائي يحتاج تفعيلًا صريحًا منفصلًا.'
+                          : 'Drafts are approved only. Approved posts still need scheduling before publishing, and automatic publishing requires a separate explicit opt-in.')
+                        : approveResult.pendingImages > 0
+                        ? (isAr
+                          ? `${approveResult.pendingImages} من ${approveResult.totalImages} خانات صور ما زالت تحتاج وسائط. الصور تبقى للمراجعة ولا تنشر تلقائيًا.`
+                          : `${approveResult.pendingImages} of ${approveResult.totalImages} image slots still need visuals. Visuals remain for review and are not published automatically.`)
                         : approveResult.unlinked > 0
-                        ? `${approveResult.unlinked} approved posts are not linked to a publishing account yet. Connect platforms before scheduling automated publishing.`
-                        : `Your posts are scheduled. Review the calendar window and make any final edits before publishing starts.`}
+                        ? (isAr
+                          ? `${approveResult.unlinked} منشورات مجدولة غير مرتبطة بحساب نشر بعد. اربط المنصات قبل أي نشر.`
+                          : `${approveResult.unlinked} scheduled posts are not linked to a publishing account yet. Connect platforms before any publishing.`)
+                        : (isAr
+                          ? 'تمت الجدولة فقط. لا يتم نشر أي محتوى إلا بخطوة نشر منفصلة ومؤكدة.'
+                          : 'Content is scheduled only. Nothing is published without a separate confirmed publishing step.')}
                     </p>
                   </div>
                 </div>
@@ -1457,7 +1482,7 @@ export default function ContentHubPage() {
                           onClick={() => { setApproveResult(null); router.push('/connections') }}
                           className="underline hover:no-underline"
                         >Connections</button>{' '}
-                        before scheduling automated publishing.
+                        before scheduling or publishing.
                       </p>
                     </div>
                   </div>
@@ -1486,11 +1511,13 @@ export default function ContentHubPage() {
                     </button>
                   ) : null}
                   <button
-                    onClick={() => { setApproveResult(null); router.push('/schedule') }}
+                    onClick={() => { setApproveResult(null); router.push(approveResult.kind === 'approved' ? `/campaigns/${campaignId}/content-hub` : '/schedule') }}
                     className={`${approveResult.pendingImages > 0 || approveResult.unlinked > 0 ? 'flex-1' : 'w-full'} px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border`}
                     style={{ borderColor: 'rgba(5,150,105,0.24)', color: '#047857', background: '#FFFFFF' }}
                   >
-                    📅 View Schedule
+                    📅 {approveResult.kind === 'approved'
+                      ? (isAr ? 'مراجعة خطة المحتوى' : 'Review content plan')
+                      : (isAr ? 'عرض الجدول' : 'View schedule')}
                   </button>
                 </div>
               </div>
