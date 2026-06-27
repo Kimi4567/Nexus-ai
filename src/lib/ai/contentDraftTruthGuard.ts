@@ -16,6 +16,12 @@ interface ProofAvailability {
   hasAwards: boolean
   hasCaseStudies: boolean
   hasReviews: boolean
+  hasProductivityProof: boolean
+  hasMoraleProof: boolean
+  hasFocusProof: boolean
+  hasEnergyProof: boolean
+  hasTeamPerformanceProof: boolean
+  hasBusinessResultProof: boolean
 }
 
 function verifiedProofText(context: ContentDraftTruthContext): string {
@@ -32,6 +38,14 @@ function getProofAvailability(context: ContentDraftTruthContext): ProofAvailabil
     hasAwards: /\b(award|certified|certification|accredited|badge)\b/i.test(proof),
     hasCaseStudies: /\b(case study|case studies|case-study)\b/i.test(proof),
     hasReviews: /\b(review|rating|rated|stars?)\b/i.test(proof),
+    hasProductivityProof: /\b(productivity|productive)\b/i.test(proof) || /الإنتاجية/i.test(proof),
+    hasMoraleProof: /\b(morale)\b/i.test(proof) || /المعنويات/i.test(proof),
+    hasFocusProof: /\b(focus|focused|concentration)\b/i.test(proof) || /(?:التركيز|تركيز)/i.test(proof),
+    hasEnergyProof: /\b(energy|energizing|energized|energise|energize)\b/i.test(proof) || /(?:طاقة|نشاط)/i.test(proof),
+    hasTeamPerformanceProof: /\b(team performance|workplace performance|team output|staff performance)\b/i.test(proof) ||
+      /(?:أداء الفريق|يحسن الأداء|تحسين الأداء)/i.test(proof),
+    hasBusinessResultProof: /\b(business result|business outcome|conversion lift|sales lift|revenue lift|performance proof)\b/i.test(proof) ||
+      /(?:نتائج الأعمال|نتائج تجارية|زيادة المبيعات|تحسن المبيعات)/i.test(proof),
   }
 }
 
@@ -140,6 +154,73 @@ function softenAbsoluteClaims(text: string): string {
     .replace(/\bimmediate results\b/gi, 'early signals to review')
 }
 
+function guardOutcomeClaims(text: string, context: ContentDraftTruthContext): string {
+  const proof = getProofAvailability(context)
+  let guarded = text
+
+  if (!(proof.hasProductivityProof && proof.hasMoraleProof)) {
+    guarded = guarded
+      .replace(/\bpremium blends can boost productivity and morale\b/gi, 'carefully selected blends can support more enjoyable office coffee breaks')
+      .replace(/\bboost productivity and morale\b/gi, 'support a better coffee break routine')
+  }
+
+  if (!(proof.hasEnergyProof && proof.hasFocusProof)) {
+    guarded = guarded.replace(/\bboost energy and focus\b/gi, 'support a more consistent coffee routine')
+  }
+
+  if (!proof.hasProductivityProof) {
+    guarded = guarded
+      .replace(/\b(?:boost|increase|improve|drive|unlock)\s+productivity\b/gi, 'support a better coffee break routine')
+      .replace(/\bproductive team\b/gi, 'team with clearer coffee planning')
+      .replace(/\bproductive workplace\b/gi, 'workplace with clearer coffee planning')
+      .replace(/زيادة الإنتاجية/g, 'دعم روتين قهوة أوضح')
+      .replace(/تحسين الإنتاجية/g, 'دعم روتين قهوة أوضح')
+      .replace(/رفع الإنتاجية/g, 'دعم روتين قهوة أوضح')
+      .replace(/يعزز الإنتاجية/g, 'يدعم روتين قهوة أوضح')
+  }
+
+  if (!proof.hasMoraleProof) {
+    guarded = guarded
+      .replace(/\b(?:boost|increase|improve)\s+morale\b/gi, 'support more enjoyable coffee breaks')
+      .replace(/يعزز المعنويات/g, 'يساعد على تخطيط استراحات القهوة')
+      .replace(/رفع المعنويات/g, 'يساعد على تخطيط استراحات القهوة')
+      .replace(/يرفع المعنويات/g, 'يساعد على تخطيط استراحات القهوة')
+  }
+
+  if (!proof.hasFocusProof) {
+    guarded = guarded
+      .replace(/\bboost focus\b/gi, 'support a more consistent coffee routine')
+      .replace(/\bbetter focus\b/gi, 'a clearer coffee routine')
+      .replace(/تركيز أفضل/g, 'روتين قهوة أوضح')
+      .replace(/يزيد التركيز/g, 'يدعم روتين قهوة أوضح')
+      .replace(/يحسن التركيز/g, 'يدعم روتين قهوة أوضح')
+  }
+
+  if (!proof.hasEnergyProof) {
+    guarded = guarded
+      .replace(/\bboost energy\b/gi, 'support a more consistent coffee routine')
+      .replace(/\bguaranteed energy\b/gi, 'support for a more enjoyable coffee routine')
+      .replace(/\benergize your team\b/gi, 'support a more consistent coffee routine')
+      .replace(/\bkeeps your team energized\b/gi, 'supports everyday coffee routines')
+      .replace(/طاقة مضمونة/g, 'يدعم تجربة قهوة أكثر انتظامًا')
+      .replace(/نشاط مضمون/g, 'يدعم تجربة قهوة أكثر انتظامًا')
+      .replace(/ينشّط الفريق/g, 'يساعد الفريق على تنظيم استراحات القهوة')
+  }
+
+  if (!(proof.hasTeamPerformanceProof || proof.hasBusinessResultProof)) {
+    guarded = guarded
+      .replace(/\bimprove team performance\b/gi, 'support team coffee planning')
+      .replace(/\bteam performance\b/gi, 'team coffee planning')
+      .replace(/\bincrease team output\b/gi, 'support team coffee planning')
+      .replace(/\bimprove workplace performance\b/gi, 'support office coffee planning')
+      .replace(/\bworkplace performance\b/gi, 'office coffee planning')
+      .replace(/يحسن الأداء/g, 'يساعد على تخطيط استراحات القهوة')
+      .replace(/أداء الفريق/g, 'تخطيط استراحات القهوة للفريق')
+  }
+
+  return guarded
+}
+
 function guardDeliveryClaims(text: string): string {
   return text
     .replace(/توصيل مضمون/g, 'التوصيل حسب المناطق المتاحة')
@@ -168,12 +249,12 @@ function guardDeliveryClaims(text: string): string {
 
 function guardCoffeeComplianceClaims(text: string): string {
   return text
-    .replace(/طاقة مضمونة/g, 'تجربة قهوة أكثر انتظامًا')
+    .replace(/طاقة مضمونة/g, 'يدعم تجربة قهوة أكثر انتظامًا')
     .replace(/نتائج فورية/g, 'دعم روتين عمل أفضل للمراجعة')
     .replace(/إنتاجية مضمونة/g, 'دعم روتين عمل أفضل للمراجعة')
     .replace(/\bguaranteed energy\b/gi, 'support for a more enjoyable coffee routine')
-    .replace(/\bproductivity guaranteed\b/gi, 'productivity support to review')
-    .replace(/\bboost productivity guaranteed\b/gi, 'support productive routines')
+    .replace(/\bproductivity guaranteed\b/gi, 'office coffee planning to review')
+    .replace(/\bboost productivity guaranteed\b/gi, 'support a better coffee routine')
     .replace(/\b(?:cure|treat|prevent)s?\s+[^.?!]*/gi, 'support general coffee enjoyment')
 }
 
@@ -204,8 +285,11 @@ export function guardContentDraftText(
   return guardPaidAndStatusClaims(
     guardCoffeeComplianceClaims(
       guardDeliveryClaims(
-        softenAbsoluteClaims(
-          guardProofClaims(text, context),
+        guardOutcomeClaims(
+          softenAbsoluteClaims(
+            guardProofClaims(text, context),
+          ),
+          context,
         ),
       ),
     ),
@@ -245,6 +329,9 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
     '- If proof is missing, ask for feedback, collect proof, or mention proof gaps as future work.',
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',
+    '- Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof.',
+    '- For office coffee content, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks, not productivity or performance outcomes.',
+    '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
   ].join('\n')
 }
