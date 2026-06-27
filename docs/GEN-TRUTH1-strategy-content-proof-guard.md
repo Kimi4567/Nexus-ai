@@ -142,8 +142,9 @@ GEN-TRUTH1E adds guard coverage for those cases before saved strategy output can
 - Structured status fields inspect key/label/title/name plus value. Campaign/status/stage fields with `active`, `live`, `running`, `launched`, `published`, or `scheduled` are rewritten to planning/review-safe language.
 - Business status can be represented as `business already operating`, but campaign execution remains planning/review until later user action.
 - Broader `ensure`, `always stocked`, and `make sure ... always` wording is softened into help/support language.
-- Numeric paid-budget assumptions are removed unless Brand Brain provides explicit budget context.
-- The strategist prompt now says budget is not provided when readiness says no Brand Brain budget exists, even if an internal default exists elsewhere in the request flow.
+- Numeric paid-budget assumptions are removed even when Brand Brain has a budget note; generated spend allocations still need user confirmation.
+- Exact user-provided Brand Brain budget context can be shown as context, but it does not authorize invented currencies, invented amounts, or execution allocation.
+- The strategist prompt now prints only exact Brand Brain budget text when available, and says budget is not provided otherwise, even if an internal default exists elsewhere in the request flow.
 
 ## Next QA After Merge
 

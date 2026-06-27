@@ -98,25 +98,37 @@ describe('strategyProofGuard', () => {
     expect(out).not.toContain('always stocked')
   })
 
-  it('removes unsupported budget assumptions unless budget context is provided', () => {
+  it('removes unsupported budget assumptions even when mismatched budget context exists', () => {
     const assumed = guardStrategyProofText('Assumes $5000 USD budget is available for allocation.', {
       verifiedProof: [],
+      budgetText: '15,000 EGP/month test budget',
     })
     expect(assumed).toContain('Paid budget needs user confirmation')
     expect(assumed).not.toContain('$5000')
-    expect(assumed).not.toContain('budget is available')
+    expect(assumed).not.toContain('USD budget is available')
 
     const allocated = guardStrategyProofText('Allocate $5000 to paid ads.', {
       verifiedProof: [],
+      budgetText: '15,000 EGP/month test budget',
     })
-    expect(allocated).toContain('Add paid budget before allocating spend to paid ads')
+    expect(allocated).toContain('Paid allocation needs confirmation')
     expect(allocated).not.toContain('$5000')
 
     const withBudget = guardStrategyProofText('Assumes $5000 USD budget is available for allocation.', {
       verifiedProof: [],
-      budgetText: '$5000 USD',
+      budgetText: '$5000 USD test budget',
     })
-    expect(withBudget).toBe('Assumes $5000 USD budget is available for allocation.')
+    expect(withBudget).not.toContain('$5000')
+    expect(withBudget).toContain('Paid budget needs user confirmation')
+  })
+
+  it('preserves exact user-provided budget context lines', () => {
+    const out = guardStrategyProofText('User-provided budget context: $5000 USD test budget.', {
+      verifiedProof: [],
+      budgetText: '$5000 USD test budget',
+    })
+
+    expect(out).toBe('User-provided budget context: $5000 USD test budget.')
   })
 
   it('keeps harmless time-range numbers while scrubbing budget assumptions', () => {
@@ -127,6 +139,17 @@ describe('strategyProofGuard', () => {
     expect(out).toContain('first 30 days')
     expect(out).toContain('90 days')
     expect(out).not.toContain('$5000')
+  })
+
+  it('strategist prompt does not expose internal monthlyBudget as factual user budget', () => {
+    const strategist = readFileSync(
+      path.join(process.cwd(), 'src/lib/agents/strategist.ts'),
+      'utf8',
+    )
+
+    expect(strategist).not.toContain('Monthly Budget: $${brief.monthlyBudget} USD')
+    expect(strategist).toContain('User-provided budget context')
+    expect(strategist).toContain('Monthly Budget: Not provided')
   })
 
   it('preserves legitimate testimonial wording when user-provided proof includes a testimonial', () => {

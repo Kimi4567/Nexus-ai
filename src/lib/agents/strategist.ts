@@ -286,6 +286,7 @@ export interface StrategyReadinessContext {
   capabilities: { id: string; ready: boolean; confidence: CapabilityConfidenceLevel; missingKeys: string[] }[]
   missingKeys: string[]
   hasBudget: boolean
+  budgetText?: string | null
   hasConversionDestination: boolean
   hasCompetitors: boolean
   hasHistoricalData: boolean
@@ -455,11 +456,9 @@ ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 
 Return ONLY valid JSON. No markdown outside the JSON.`
 
-  const budgetLine = readiness
-    ? readiness.hasBudget
-      ? `Monthly Budget: $${brief.monthlyBudget} USD`
-      : 'Monthly Budget: Not provided'
-    : `Monthly Budget: $${brief.monthlyBudget} USD`
+  const budgetLine = readiness?.budgetText?.trim()
+    ? `User-provided budget context: ${readiness.budgetText.trim()}`
+    : 'Monthly Budget: Not provided'
 
   const extendedBrief = [
     `Company: ${brief.companyName}`,
@@ -498,6 +497,9 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     ? [
         '\nDATA READINESS (you must respect this — do not assert beyond it):',
         `- Budget provided: ${readiness.hasBudget ? 'yes' : 'no'}`,
+        readiness.budgetText?.trim()
+          ? `- User-provided budget context: ${readiness.budgetText.trim()}`
+          : '- User-provided budget context: Not provided',
         `- Conversion destination provided: ${readiness.hasConversionDestination ? 'yes' : 'no'}`,
         `- Competitors provided: ${readiness.hasCompetitors ? 'yes' : 'no'}`,
         `- Historical performance data: ${readiness.hasHistoricalData ? 'yes' : 'no'}`,

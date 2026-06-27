@@ -129,6 +129,7 @@ export async function runFullAgency(
       })),
       missingKeys: collectMissingKeys(capabilities),
       hasBudget: Boolean(bp.marketingBudget),
+      budgetText: typeof bp.marketingBudget === 'string' ? bp.marketingBudget : null,
       hasConversionDestination: Boolean(bp.conversionDestination),
       hasCompetitors: Boolean(bp.competitors?.length) || Boolean(bp.competitorNotes),
       hasHistoricalData,

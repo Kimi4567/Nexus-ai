@@ -68,13 +68,7 @@ function softenAbsoluteOutcomeClaims(text: string): string {
     .replace(/\bmake sure\b([^.!?]{0,80})\balways\b/gi, 'help$1more consistently')
 }
 
-function hasBudgetContext(context: StrategyProofContext): boolean {
-  return typeof context.budgetText === 'string' && context.budgetText.trim().length > 0
-}
-
-function guardUnsupportedBudgetAssumptions(text: string, context: StrategyProofContext): string {
-  if (hasBudgetContext(context)) return text
-
+function guardUnsupportedBudgetAssumptions(text: string): string {
   return text
     .replace(/\bAssumes?\s+(?:a\s+)?(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+budget\b[^.?!]*/gi, 'Paid budget needs user confirmation')
     .replace(/\bAssumes?\s+[^.?!]{0,80}\bbudget\s+is\s+available\b[^.?!]*/gi, 'Paid budget needs user confirmation')
@@ -82,7 +76,7 @@ function guardUnsupportedBudgetAssumptions(text: string, context: StrategyProofC
     .replace(/\b(?:ad\s+budget|paid\s+budget|budget)\s+is\s+available\b/gi, 'paid budget needs user confirmation')
     .replace(/\bmonthly\s+paid\s+budget\s+of\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\b/gi, 'paid budget needs user confirmation')
     .replace(/\b(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:ad\s+)?budget\b/gi, 'paid budget needs user confirmation')
-    .replace(/\b(?:allocate|spend)\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:to|on|for)\s+([^.,;!?]+)/gi, 'Add paid budget before allocating spend to $1')
+    .replace(/\b(?:allocate|spend)\s+(?:\$|USD\s*)[\d,]+(?:\s*USD)?\s+(?:to|on|for)\s+([^.,;!?]+)/gi, 'Paid allocation needs confirmation before allocating spend to $1')
 }
 
 function keyImpliesStatus(key: string): boolean {
@@ -178,7 +172,6 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
 
   guarded = guardUnsupportedBudgetAssumptions(
     softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded)),
-    context,
   )
     .replace(/\s{2,}/g, ' ')
     .trim()
