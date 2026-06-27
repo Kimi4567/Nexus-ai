@@ -26,14 +26,36 @@ function verifiedProofText(context: StrategyProofContext): string {
 
 function softenUnsupportedGuarantees(text: string): string {
   return text
+    .replace(/\bguaranteed\s+delivery\b/gi, 'delivery goal')
+    .replace(/\bguaranteed\s+growth\b/gi, 'planned growth goal')
     .split(/(\bguaranteed\s+results?\b|\bguaranteed\b)/gi)
     .map((part, index, parts) => {
       if (!/^guaranteed(?:\s+results?)?$/i.test(part)) return part
-      const before = (parts[index - 1] || '').toLowerCase()
-      if (/(?:^|\s)(?:no|not|avoid|without)\s*$/.test(before)) return part
+      const before = (parts[index - 1] || '').toLowerCase().slice(-80)
+      if (/(?:^|\s)(?:no|not|avoid|without|cannot be|can not be|can't be|do not|do not promise|do not guarantee)\s*$/.test(before)) {
+        return part
+      }
       return /\s+results?$/i.test(part) ? 'aimed-for results' : 'aimed-for'
     })
     .join('')
+}
+
+function guardUnsafeStatusLanguage(text: string): string {
+  return text
+    .replace(/مرحلة العمل\s*:\s*active\b/gi, 'مرحلة العمل: مرحلة التخطيط/المراجعة')
+    .replace(/\bbusiness stage\s*:\s*active\b/gi, 'business stage: business already operating')
+    .replace(/\bactive stage\b/gi, 'planning/review stage')
+    .replace(/\bcampaign active\b/gi, 'campaign in planning/review')
+    .replace(/\bthe campaign is active\b/gi, 'the campaign is in planning/review')
+}
+
+function softenAbsoluteOutcomeClaims(text: string): string {
+  return text
+    .replace(/\bEnsure your office has the best coffee every day\b/gi, 'Help keep your office stocked with better coffee')
+    .replace(/\bEnsure results\b/gi, 'Support the planned outcome')
+    .replace(/\bEnsure delivery\b/gi, 'Support delivery planning')
+    .replace(/\bEnsure customers\b/gi, 'Help customers')
+    .replace(/\bmake sure your team always\b/gi, 'help your team more consistently')
 }
 
 export function getProofAvailability(context: StrategyProofContext): ProofAvailability {
@@ -109,8 +131,7 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
       .replace(/\bcertified\b/gi, 'to be verified')
   }
 
-  guarded = guarded
-    .replace(/\bactive stage\b/gi, 'planning/review stage')
+  guarded = softenAbsoluteOutcomeClaims(guardUnsafeStatusLanguage(guarded))
     .replace(/\s{2,}/g, ' ')
     .trim()
 

@@ -35,6 +35,28 @@ describe('strategyProofGuard', () => {
     expect(out).not.toContain('active stage')
   })
 
+  it('rewrites Arabic and English active campaign status wording', () => {
+    const arabic = guardStrategyProofText('مرحلة العمل: active', { verifiedProof: [] })
+    expect(arabic).toContain('مرحلة التخطيط/المراجعة')
+    expect(arabic).not.toContain('active')
+
+    const english = guardStrategyProofText('The campaign is active.', { verifiedProof: [] })
+    expect(english).toContain('planning/review')
+    expect(english).not.toContain('campaign is active')
+    expect(english).not.toContain('published')
+    expect(english).not.toContain('live')
+  })
+
+  it('softens absolute ensure-style outcome wording', () => {
+    const out = guardStrategyProofText('Ensure your office has the best coffee every day.', {
+      verifiedProof: [],
+    })
+
+    expect(out).toBe('Help keep your office stocked with better coffee.')
+    expect(out).not.toContain('Ensure')
+    expect(out).not.toContain('best coffee every day')
+  })
+
   it('preserves legitimate testimonial wording when user-provided proof includes a testimonial', () => {
     const text = 'Customer Testimonials can include the verified testimonial from Sara.'
     const out = guardStrategyProofText(text, {
@@ -107,8 +129,14 @@ describe('strategyProofGuard', () => {
       .toBe('No guaranteed results')
     expect(guardStrategyProofText('Avoid guaranteed claims', { verifiedProof: [] }))
       .toBe('Avoid guaranteed claims')
+    expect(guardStrategyProofText('Delivery cannot be guaranteed in unsupported zones.', { verifiedProof: [] }))
+      .toBe('Delivery cannot be guaranteed in unsupported zones.')
+    expect(guardStrategyProofText('Do not promise delivery where it cannot be guaranteed.', { verifiedProof: [] }))
+      .toBe('Do not promise delivery where it cannot be guaranteed.')
     expect(guardStrategyProofText('Guaranteed results for every customer', { verifiedProof: [] }))
       .toBe('aimed-for results for every customer')
+    expect(guardStrategyProofText('Guaranteed growth for every campaign', { verifiedProof: [] }))
+      .toBe('planned growth goal for every campaign')
   })
 
   it('does not alter unrelated safe strategy text', () => {
