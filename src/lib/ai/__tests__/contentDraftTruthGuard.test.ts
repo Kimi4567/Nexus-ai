@@ -246,6 +246,54 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('مثالية')
   })
 
+  it('softens observed Arabic contextual morning coffee perfection wording', () => {
+    const out = guardContentDraftText('هل تبحث عن توصيات لقهوة صباحية مثالية؟')
+
+    expect(out).toContain('قهوة صباحية أكثر اتساقًا')
+    expect(out).not.toContain('قهوة صباحية مثالية')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens definite Arabic morning coffee perfection wording', () => {
+    const out = guardContentDraftText('القهوة الصباحية المثالية تبدأ بخطوات بسيطة')
+
+    expect(out).toContain('القهوة الصباحية الأكثر اتساقًا')
+    expect(out).not.toContain('القهوة الصباحية المثالية')
+    expect(out).not.toContain('المثالية')
+  })
+
+  it('softens Arabic daily coffee perfection wording', () => {
+    const out = guardContentDraftText('قهوة يومية مثالية لروتينك')
+
+    expect(out).toContain('قهوة يومية أكثر اتساقًا')
+    expect(out).not.toContain('قهوة يومية مثالية')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens definite Arabic home coffee perfection wording', () => {
+    const out = guardContentDraftText('القهوة المنزلية المثالية تحتاج خطوات واضحة')
+
+    expect(out).toContain('القهوة المنزلية الأكثر اتساقًا')
+    expect(out).not.toContain('القهوة المنزلية المثالية')
+    expect(out).not.toContain('المثالية')
+  })
+
+  it('softens Arabic coffee cup perfection wording', () => {
+    const out = guardContentDraftText('كوب قهوة مثالي يبدأ باختيار الحبوب')
+
+    expect(out).toContain('كوب قهوة متوازن')
+    expect(out).not.toContain('كوب قهوة مثالي')
+    expect(out).not.toContain('مثالي')
+  })
+
+  it('softens Arabic coffee finjan perfection wording', () => {
+    const out = guardContentDraftText('فنجان قهوة مثالي لبدء اليوم')
+
+    expect(out).toContain('فنجان قهوة متوازن')
+    expect(out).not.toContain('فنجان قهوة مثالي')
+    expect(out).not.toContain('مثالي')
+  })
+
   it('softens Arabic تجربة قهوة مثالية wording', () => {
     const out = guardContentDraftText('استمتع بتجربة قهوة مثالية كل صباح')
 
@@ -554,10 +602,10 @@ describe('contentDraftTruthGuard', () => {
 
   it('recursively guards generated post fields', () => {
     const guarded = guardContentDraftTruth({
-      caption: 'Customer Testimonials: perfect brew every time and Perfect for busy teams with quick delivery guaranteed.',
+      caption: 'Customer Testimonials: perfect brew every time and Perfect for busy teams with quick delivery guaranteed. هل تبحث عن توصيات لقهوة صباحية مثالية؟',
       creative: {
-        imagePrompt: 'Show award-winning coffee delivered to your doorstep with perfectly roasted beans and premium experience.',
-        videoPrompt: 'Feature the finest coffee, perfect choice for office coffee planning, best beans, and promptly delivery where available.',
+        imagePrompt: 'Show award-winning coffee delivered to your doorstep with perfectly roasted beans and premium experience. كوب قهوة مثالي.',
+        videoPrompt: 'Feature the finest coffee, perfect choice for office coffee planning, best beans, and promptly delivery where available. فنجان قهوة مثالي.',
       },
     })
     const joined = JSON.stringify(guarded)
@@ -572,6 +620,9 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).toContain('practical choice for office coffee planning')
     expect(joined).toContain('more considered experience')
     expect(joined).toContain('carefully selected beans')
+    expect(joined).toContain('قهوة صباحية أكثر اتساقًا')
+    expect(joined).toContain('كوب قهوة متوازن')
+    expect(joined).toContain('فنجان قهوة متوازن')
     expect(joined).not.toContain('Customer Testimonials')
     expect(joined).not.toContain('Perfect for')
     expect(joined).not.toContain('quick delivery guaranteed')
@@ -582,6 +633,9 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).not.toContain('premium experience')
     expect(joined).not.toContain('best beans')
     expect(joined).not.toContain('promptly delivery')
+    expect(joined).not.toContain('قهوة صباحية مثالية')
+    expect(joined).not.toContain('كوب قهوة مثالي')
+    expect(joined).not.toContain('فنجان قهوة مثالي')
   })
 
   it('documents the draft-only content plan policy', () => {
@@ -599,6 +653,8 @@ describe('contentDraftTruthGuard', () => {
     expect(prompt).toContain('أفضل الحبوب')
     expect(prompt).toContain('premium experience')
     expect(prompt).toContain('best beans')
+    expect(prompt).toContain('قهوة صباحية مثالية')
+    expect(prompt).toContain('كوب قهوة متوازن')
     expect(prompt).toContain('irresistible')
   })
 
