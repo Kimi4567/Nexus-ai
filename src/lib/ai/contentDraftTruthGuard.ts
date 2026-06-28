@@ -124,6 +124,16 @@ function guardFitClaims(text: string): string {
 
 function guardArabicGeneralPerfectionClaims(text: string): string {
   return text
+    .replace(/القهوة الصباحية المثالية/g, 'القهوة الصباحية الأكثر اتساقًا')
+    .replace(/قهوة صباحية مثالية/g, 'قهوة صباحية أكثر اتساقًا')
+    .replace(/القهوة اليومية المثالية/g, 'القهوة اليومية الأكثر اتساقًا')
+    .replace(/قهوة يومية مثالية/g, 'قهوة يومية أكثر اتساقًا')
+    .replace(/القهوة المنزلية المثالية/g, 'القهوة المنزلية الأكثر اتساقًا')
+    .replace(/قهوة منزلية مثالية/g, 'قهوة منزلية أكثر اتساقًا')
+    .replace(/القهوة المكتبية المثالية/g, 'القهوة المكتبية الأكثر اتساقًا')
+    .replace(/قهوة مكتبية مثالية/g, 'قهوة مكتبية أكثر اتساقًا')
+    .replace(/كوب قهوة مثالي/g, 'كوب قهوة متوازن')
+    .replace(/فنجان قهوة مثالي/g, 'فنجان قهوة متوازن')
     .replace(/تجربة قهوة مثالية/g, 'تجربة قهوة أكثر اتساقًا')
     .replace(/التجربة المثالية/g, 'تجربة أكثر اتساقًا')
     .replace(/تجربة مثالية/g, 'تجربة أكثر اتساقًا')
@@ -443,6 +453,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
     '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',
+    '- Arabic output must avoid contextual coffee perfection phrases such as قهوة صباحية مثالية, القهوة الصباحية المثالية, كوب قهوة مثالي, and فنجان قهوة مثالي unless exact user-provided proof exists. Prefer قهوة صباحية أكثر اتساقًا, كوب قهوة متوازن, or فنجان قهوة متوازن.',
     '- Arabic output must avoid broad quality/superlative wording such as أفضل نكهة, أفضل تجربة, بجودة لا تقاوم, and نكهة فريدة unless exact user-provided proof exists. Prefer نكهة متوازنة, جودة مختارة بعناية, تجربة أكثر اتساقًا, or خطوات عملية.',
     '- Avoid residual broad best/premium quality wording such as أفضل الحبوب, أفضل حبوب القهوة, premium experience, premium quality, best beans, and best flavor unless exact user-provided proof exists. Prefer حبوب مختارة بعناية, مذاق متوازن, more considered experience, carefully selected beans, or balanced flavor.',
     '- Avoid English hype such as irresistible, extraordinary, unmatched, and unique coffee experience unless exact user-provided proof exists.',
