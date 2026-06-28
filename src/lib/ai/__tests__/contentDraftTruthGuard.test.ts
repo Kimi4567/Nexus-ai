@@ -274,6 +274,41 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('خلطة مثالية')
   })
 
+  it('softens Arabic التجربة المثالية wording', () => {
+    const out = guardContentDraftText('التجربة المثالية تبدأ بخطوات واضحة')
+
+    expect(out).toContain('تجربة أكثر اتساقًا')
+    expect(out).not.toContain('المثالية')
+  })
+
+  it('softens Arabic النتائج المثالية wording', () => {
+    const out = guardContentDraftText('النتائج المثالية تحتاج إلى متابعة')
+
+    expect(out).toContain('نتائج أكثر اتساقًا')
+    expect(out).not.toContain('النتائج المثالية')
+  })
+
+  it('softens Arabic التحضير المثالي wording', () => {
+    const out = guardContentDraftText('التحضير المثالي للقهوة يبدأ بخطوات بسيطة')
+
+    expect(out).toContain('التحضير العملي للقهوة')
+    expect(out).not.toContain('التحضير المثالي')
+  })
+
+  it('softens Arabic النكهة المثالية wording', () => {
+    const out = guardContentDraftText('النكهة المثالية تحتاج إلى حبوب مختارة')
+
+    expect(out).toContain('النكهة المتوازنة')
+    expect(out).not.toContain('النكهة المثالية')
+  })
+
+  it('softens Arabic الكوب المثالي wording', () => {
+    const out = guardContentDraftText('الكوب المثالي يبدأ باختيار القهوة المناسبة')
+
+    expect(out).toContain('الكوب المتوازن')
+    expect(out).not.toContain('الكوب المثالي')
+  })
+
   it('softens Arabic مثالية لمن fit claims', () => {
     const out = guardContentDraftText('مثالية لمن يحتاج قهوة موثوقة')
 
