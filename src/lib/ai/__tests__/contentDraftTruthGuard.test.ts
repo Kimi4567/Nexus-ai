@@ -238,6 +238,42 @@ describe('contentDraftTruthGuard', () => {
     expect(doorstep).not.toContain('باب منزلك')
   })
 
+  it('softens observed Arabic قهوة مثالية blocker wording', () => {
+    const out = guardContentDraftText('اكتشف أسرار صنع قهوة مثالية في المنزل...')
+
+    expect(out).toContain('قهوة متوازنة')
+    expect(out).not.toContain('قهوة مثالية')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens Arabic تجربة قهوة مثالية wording', () => {
+    const out = guardContentDraftText('استمتع بتجربة قهوة مثالية كل صباح')
+
+    expect(out).toContain('تجربة قهوة أكثر اتساقًا')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens Arabic نتائج مثالية wording', () => {
+    const out = guardContentDraftText('اتبع هذه الخطوات للحصول على نتائج مثالية')
+
+    expect(out).toContain('نتائج أكثر اتساقًا')
+    expect(out).not.toContain('نتائج مثالية')
+  })
+
+  it('softens Arabic تحضير مثالي wording', () => {
+    const out = guardContentDraftText('دليلك لتحضير مثالي للقهوة')
+
+    expect(out).toContain('لتحضير عملي للقهوة')
+    expect(out).not.toContain('تحضير مثالي')
+  })
+
+  it('softens Arabic خلطة مثالية wording', () => {
+    const out = guardContentDraftText('خلطة مثالية لعشاق القهوة')
+
+    expect(out).toContain('خلطة متوازنة لعشاق القهوة')
+    expect(out).not.toContain('خلطة مثالية')
+  })
+
   it('softens Arabic مثالية لمن fit claims', () => {
     const out = guardContentDraftText('مثالية لمن يحتاج قهوة موثوقة')
 
