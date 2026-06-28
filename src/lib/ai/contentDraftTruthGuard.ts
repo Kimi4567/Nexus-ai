@@ -152,6 +152,13 @@ function guardBroadQualityClaims(text: string): string {
     .replace(/تجربة قهوة فريدة/g, 'تجربة قهوة أكثر اتساقًا')
     .replace(/تجربة لا تقاوم/g, 'تجربة أكثر اتساقًا')
     .replace(/تجربة فريدة/g, 'تجربة أكثر اتساقًا')
+    .replace(/أفضل حبوب القهوة/g, 'حبوب قهوة مختارة بعناية')
+    .replace(/أفضل الحبوب/g, 'حبوب مختارة بعناية')
+    .replace(/أفضل حبوب/g, 'حبوب مختارة بعناية')
+    .replace(/أفضل مذاق/g, 'مذاق متوازن')
+    .replace(/أفضل رائحة/g, 'رائحة متوازنة')
+    .replace(/أفضل اختيار للقهوة/g, 'اختيار مناسب للقهوة')
+    .replace(/أفضل خيار للقهوة/g, 'خيار مناسب للقهوة')
     .replace(/أفضل نكهة/g, 'نكهة متوازنة')
     .replace(/أفضل طعم/g, 'طعم متوازن')
     .replace(/أفضل تجربة/g, 'تجربة أكثر اتساقًا')
@@ -163,6 +170,16 @@ function guardBroadQualityClaims(text: string): string {
     .replace(/طعم لا يقاوم/g, 'طعم متوازن')
     .replace(/نكهة فريدة/g, 'نكهة مميزة ومتوازنة')
     .replace(/لا تقاوم/g, 'مناسبة للمراجعة')
+    .replace(/\bpremium coffee experience\b/gi, 'more considered coffee experience')
+    .replace(/\bpremium experience\b/gi, 'more considered experience')
+    .replace(/\bpremium taste\b/gi, 'balanced taste')
+    .replace(/\bpremium flavor\b/gi, 'balanced flavor')
+    .replace(/\bpremium quality\b/gi, 'carefully selected quality')
+    .replace(/\bbest coffee beans\b/gi, 'carefully selected coffee beans')
+    .replace(/\bbest beans\b/gi, 'carefully selected beans')
+    .replace(/\bbest coffee experience\b/gi, 'more consistent coffee experience')
+    .replace(/\bbest flavor\b/gi, 'balanced flavor')
+    .replace(/\bbest taste\b/gi, 'balanced taste')
     .replace(/\birresistible quality\b/gi, 'carefully selected quality')
     .replace(/\birresistible taste\b/gi, 'balanced taste')
     .replace(/\birresistible flavor\b/gi, 'balanced flavor')
@@ -228,7 +245,7 @@ function softenAbsoluteClaims(text: string): string {
     .replace(/\bfinest beans\b/gi, 'quality-focused beans')
     .replace(/\bbest coffee every day\b/gi, 'better coffee routines more consistently')
     .replace(/\bbest coffee\b/gi, 'better coffee routine')
-    .replace(/\bbest beans\b/gi, 'quality-focused beans')
+    .replace(/\bbest beans\b/gi, 'carefully selected beans')
     .replace(/\bbest cup\b/gi, 'more consistent cup')
     .replace(/\balways stocked\b/gi, 'better stocked with planning support')
     .replace(/\bnever run out\b/gi, 'plan stock more reliably')
@@ -425,6 +442,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
     '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',
     '- Arabic output must avoid broad quality/superlative wording such as أفضل نكهة, أفضل تجربة, بجودة لا تقاوم, and نكهة فريدة unless exact user-provided proof exists. Prefer نكهة متوازنة, جودة مختارة بعناية, تجربة أكثر اتساقًا, or خطوات عملية.',
+    '- Avoid residual broad best/premium quality wording such as أفضل الحبوب, أفضل حبوب القهوة, premium experience, premium quality, best beans, and best flavor unless exact user-provided proof exists. Prefer حبوب مختارة بعناية, مذاق متوازن, more considered experience, carefully selected beans, or balanced flavor.',
     '- Avoid English hype such as irresistible, extraordinary, unmatched, and unique coffee experience unless exact user-provided proof exists.',
   ].join('\n')
 }

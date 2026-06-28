@@ -28,7 +28,7 @@ describe('contentDraftTruthGuard', () => {
     expect(finest).not.toContain('finest')
 
     const best = guardContentDraftText('Enjoy the best beans and premium coffee every time.')
-    expect(best).toContain('quality-focused beans')
+    expect(best).toContain('carefully selected beans')
     expect(best).toContain('quality-focused coffee more consistently')
     expect(best).not.toContain('best beans')
     expect(best).not.toContain('premium coffee every time')
@@ -317,6 +317,30 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('أفضل')
   })
 
+  it('softens observed Arabic أفضل الحبوب blocker wording', () => {
+    const out = guardContentDraftText('دليلك البسيط لاختيار أفضل الحبوب')
+
+    expect(out).toContain('حبوب مختارة بعناية')
+    expect(out).not.toContain('أفضل الحبوب')
+    expect(out).not.toContain('أفضل')
+  })
+
+  it('softens Arabic أفضل حبوب القهوة wording', () => {
+    const out = guardContentDraftText('تعرف على أفضل حبوب القهوة لتحضيرك اليومي')
+
+    expect(out).toContain('حبوب قهوة مختارة بعناية')
+    expect(out).not.toContain('أفضل حبوب القهوة')
+    expect(out).not.toContain('أفضل')
+  })
+
+  it('softens Arabic أفضل مذاق wording', () => {
+    const out = guardContentDraftText('خطوات بسيطة للحصول على أفضل مذاق')
+
+    expect(out).toContain('مذاق متوازن')
+    expect(out).not.toContain('أفضل مذاق')
+    expect(out).not.toContain('أفضل')
+  })
+
   it('softens observed Arabic بجودة لا تقاوم blocker wording', () => {
     const out = guardContentDraftText('بجودة لا تقاوم')
 
@@ -350,6 +374,27 @@ describe('contentDraftTruthGuard', () => {
 
     expect(out).toContain('more consistent coffee experience')
     expect(out).not.toContain('extraordinary')
+  })
+
+  it('softens observed English premium experience wording', () => {
+    const out = guardContentDraftText('premium experience')
+
+    expect(out).toContain('more considered experience')
+    expect(out).not.toContain('premium experience')
+  })
+
+  it('softens English premium coffee experience wording', () => {
+    const out = guardContentDraftText('a premium coffee experience')
+
+    expect(out).toContain('more considered coffee experience')
+    expect(out).not.toContain('premium')
+  })
+
+  it('softens English best beans wording', () => {
+    const out = guardContentDraftText('choose the best beans for your coffee routine')
+
+    expect(out).toContain('carefully selected beans')
+    expect(out).not.toContain('best beans')
   })
 
   it('softens Arabic مثالية لمن fit claims', () => {
@@ -493,8 +538,8 @@ describe('contentDraftTruthGuard', () => {
     const guarded = guardContentDraftTruth({
       caption: 'Customer Testimonials: perfect brew every time and Perfect for busy teams with quick delivery guaranteed.',
       creative: {
-        imagePrompt: 'Show award-winning coffee delivered to your doorstep with perfectly roasted beans.',
-        videoPrompt: 'Feature the finest coffee, perfect choice for office coffee planning, and promptly delivery where available.',
+        imagePrompt: 'Show award-winning coffee delivered to your doorstep with perfectly roasted beans and premium experience.',
+        videoPrompt: 'Feature the finest coffee, perfect choice for office coffee planning, best beans, and promptly delivery where available.',
       },
     })
     const joined = JSON.stringify(guarded)
@@ -507,6 +552,8 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).toContain('carefully selected coffee')
     expect(joined).toContain('carefully roasted beans')
     expect(joined).toContain('practical choice for office coffee planning')
+    expect(joined).toContain('more considered experience')
+    expect(joined).toContain('carefully selected beans')
     expect(joined).not.toContain('Customer Testimonials')
     expect(joined).not.toContain('Perfect for')
     expect(joined).not.toContain('quick delivery guaranteed')
@@ -514,6 +561,8 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).not.toContain('finest coffee')
     expect(joined).not.toContain('perfect choice')
     expect(joined).not.toContain('perfectly roasted')
+    expect(joined).not.toContain('premium experience')
+    expect(joined).not.toContain('best beans')
     expect(joined).not.toContain('promptly delivery')
   })
 
@@ -529,6 +578,9 @@ describe('contentDraftTruthGuard', () => {
     expect(prompt).toContain('مثالي/مثالية')
     expect(prompt).toContain('إنتاجية')
     expect(prompt).toContain('أفضل نكهة')
+    expect(prompt).toContain('أفضل الحبوب')
+    expect(prompt).toContain('premium experience')
+    expect(prompt).toContain('best beans')
     expect(prompt).toContain('irresistible')
   })
 
