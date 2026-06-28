@@ -147,6 +147,32 @@ function guardArabicGeneralPerfectionClaims(text: string): string {
     .replace(/فنجان مثالي/g, 'فنجان متوازن')
 }
 
+function guardBroadQualityClaims(text: string): string {
+  return text
+    .replace(/تجربة قهوة فريدة/g, 'تجربة قهوة أكثر اتساقًا')
+    .replace(/تجربة لا تقاوم/g, 'تجربة أكثر اتساقًا')
+    .replace(/تجربة فريدة/g, 'تجربة أكثر اتساقًا')
+    .replace(/أفضل نكهة/g, 'نكهة متوازنة')
+    .replace(/أفضل طعم/g, 'طعم متوازن')
+    .replace(/أفضل تجربة/g, 'تجربة أكثر اتساقًا')
+    .replace(/أفضل جودة/g, 'جودة مختارة بعناية')
+    .replace(/بجودة لا تقاوم/g, 'بجودة مختارة بعناية')
+    .replace(/جودة لا تقاوم/g, 'جودة مختارة بعناية')
+    .replace(/جودة فريدة/g, 'جودة مختارة بعناية')
+    .replace(/نكهة لا تقاوم/g, 'نكهة متوازنة')
+    .replace(/طعم لا يقاوم/g, 'طعم متوازن')
+    .replace(/نكهة فريدة/g, 'نكهة مميزة ومتوازنة')
+    .replace(/لا تقاوم/g, 'مناسبة للمراجعة')
+    .replace(/\birresistible quality\b/gi, 'carefully selected quality')
+    .replace(/\birresistible taste\b/gi, 'balanced taste')
+    .replace(/\birresistible flavor\b/gi, 'balanced flavor')
+    .replace(/\bextraordinary coffee experience\b/gi, 'more consistent coffee experience')
+    .replace(/\bunique coffee experience\b/gi, 'more consistent coffee experience')
+    .replace(/\bextraordinary experience\b/gi, 'more considered experience')
+    .replace(/\bunmatched quality\b/gi, 'carefully selected quality')
+    .replace(/\bunmatched flavor\b/gi, 'balanced flavor')
+}
+
 function softenAbsoluteClaims(text: string): string {
   return text
     .replace(/\bSupport more reliable team planning has access to great coffee\b/gi, 'Help teams plan better office coffee routines')
@@ -344,8 +370,10 @@ export function guardContentDraftText(
         guardOutcomeClaims(
           guardFitClaims(
             guardArabicGeneralPerfectionClaims(
-              softenAbsoluteClaims(
-                guardProofClaims(text, context),
+              guardBroadQualityClaims(
+                softenAbsoluteClaims(
+                  guardProofClaims(text, context),
+                ),
               ),
             ),
           ),
@@ -396,5 +424,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
     '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',
+    '- Arabic output must avoid broad quality/superlative wording such as أفضل نكهة, أفضل تجربة, بجودة لا تقاوم, and نكهة فريدة unless exact user-provided proof exists. Prefer نكهة متوازنة, جودة مختارة بعناية, تجربة أكثر اتساقًا, or خطوات عملية.',
+    '- Avoid English hype such as irresistible, extraordinary, unmatched, and unique coffee experience unless exact user-provided proof exists.',
   ].join('\n')
 }
