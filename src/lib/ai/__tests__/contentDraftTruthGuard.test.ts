@@ -397,6 +397,24 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('best beans')
   })
 
+  it('softens English best coffee beans before generic best coffee wording', () => {
+    const out = guardContentDraftText('choose the best coffee beans for your coffee routine')
+
+    expect(out).toContain('carefully selected coffee beans')
+    expect(out).not.toContain('best coffee beans')
+    expect(out).not.toContain('best coffee')
+    expect(out).not.toContain('better coffee routine beans')
+  })
+
+  it('softens English best coffee experience before generic best coffee wording', () => {
+    const out = guardContentDraftText('the best coffee experience for daily routines')
+
+    expect(out).toContain('more consistent coffee experience')
+    expect(out).not.toContain('best coffee experience')
+    expect(out).not.toContain('best coffee')
+    expect(out).not.toContain('better coffee routine experience')
+  })
+
   it('softens Arabic مثالية لمن fit claims', () => {
     const out = guardContentDraftText('مثالية لمن يحتاج قهوة موثوقة')
 

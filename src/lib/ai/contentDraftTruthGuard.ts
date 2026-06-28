@@ -244,6 +244,8 @@ function softenAbsoluteClaims(text: string): string {
     .replace(/\bfinest coffee\b/gi, 'carefully selected coffee')
     .replace(/\bfinest beans\b/gi, 'quality-focused beans')
     .replace(/\bbest coffee every day\b/gi, 'better coffee routines more consistently')
+    .replace(/\bbest coffee beans\b/gi, 'carefully selected coffee beans')
+    .replace(/\bbest coffee experience\b/gi, 'more consistent coffee experience')
     .replace(/\bbest coffee\b/gi, 'better coffee routine')
     .replace(/\bbest beans\b/gi, 'carefully selected beans')
     .replace(/\bbest cup\b/gi, 'more consistent cup')
