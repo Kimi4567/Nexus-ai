@@ -253,6 +253,34 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('الخيار المثالي')
   })
 
+  it('softens Arabic no-tatweel مثالي للمكتب fit claims', () => {
+    const out = guardContentDraftText('مثالي للمكتب')
+
+    expect(out).toContain('مناسب للمكتب')
+    expect(out).not.toContain('مثالي')
+  })
+
+  it('softens Arabic no-tatweel مثالية للعائلات fit claims', () => {
+    const out = guardContentDraftText('مثالية للعائلات')
+
+    expect(out).toContain('مناسبة للعائلات')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens Arabic no-tatweel مثالي لروتين fit claims', () => {
+    const out = guardContentDraftText('مثالي لروتين القهوة اليومي')
+
+    expect(out).toContain('مناسب لروتين القهوة اليومي')
+    expect(out).not.toContain('مثالي')
+  })
+
+  it('softens standalone Arabic الخيار المثالي claims', () => {
+    const out = guardContentDraftText('الخيار المثالي')
+
+    expect(out).toContain('خيار عملي')
+    expect(out).not.toContain('الخيار المثالي')
+  })
+
   it('softens Arabic guarantee and every-time perfection claims', () => {
     const out = guardContentDraftText('تضمن لك القهوة المثالية كل مرة.')
 
