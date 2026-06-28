@@ -122,6 +122,31 @@ function guardFitClaims(text: string): string {
     .replace(/مثالي لـ/g, 'مناسب لـ')
 }
 
+function guardArabicGeneralPerfectionClaims(text: string): string {
+  return text
+    .replace(/تجربة قهوة مثالية/g, 'تجربة قهوة أكثر اتساقًا')
+    .replace(/التجربة المثالية/g, 'تجربة أكثر اتساقًا')
+    .replace(/تجربة مثالية/g, 'تجربة أكثر اتساقًا')
+    .replace(/القهوة المثالية/g, 'القهوة المتوازنة')
+    .replace(/قهوة مثالية/g, 'قهوة متوازنة')
+    .replace(/النتائج المثالية/g, 'نتائج أكثر اتساقًا')
+    .replace(/نتائج مثالية/g, 'نتائج أكثر اتساقًا')
+    .replace(/النتيجة المثالية/g, 'نتيجة أكثر اتساقًا')
+    .replace(/نتيجة مثالية/g, 'نتيجة أكثر اتساقًا')
+    .replace(/التحضير المثالي/g, 'التحضير العملي')
+    .replace(/لتحضير مثالي/g, 'لتحضير عملي')
+    .replace(/تحضير مثالي/g, 'تحضير عملي')
+    .replace(/خلطة مثالية/g, 'خلطة متوازنة')
+    .replace(/النكهة المثالية/g, 'النكهة المتوازنة')
+    .replace(/نكهة مثالية/g, 'نكهة متوازنة')
+    .replace(/الوصفة المثالية/g, 'الوصفة العملية')
+    .replace(/وصفة مثالية/g, 'وصفة عملية')
+    .replace(/الكوب المثالي/g, 'الكوب المتوازن')
+    .replace(/كوب مثالي/g, 'كوب متوازن')
+    .replace(/الفنجان المثالي/g, 'الفنجان المتوازن')
+    .replace(/فنجان مثالي/g, 'فنجان متوازن')
+}
+
 function softenAbsoluteClaims(text: string): string {
   return text
     .replace(/\bSupport more reliable team planning has access to great coffee\b/gi, 'Help teams plan better office coffee routines')
@@ -317,9 +342,11 @@ export function guardContentDraftText(
     guardCoffeeComplianceClaims(
       guardDeliveryClaims(
         guardOutcomeClaims(
-          softenAbsoluteClaims(
-            guardFitClaims(
-              guardProofClaims(text, context),
+          guardFitClaims(
+            guardArabicGeneralPerfectionClaims(
+              softenAbsoluteClaims(
+                guardProofClaims(text, context),
+              ),
             ),
           ),
           context,
@@ -368,5 +395,6 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
     '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
+    '- Arabic output must avoid broad perfection wording such as قهوة مثالية, تجربة مثالية, نتائج مثالية, and تحضير مثالي. Prefer قهوة متوازنة, تجربة أكثر اتساقًا, تحضير عملي, or خطوات عملية.',
   ].join('\n')
 }
