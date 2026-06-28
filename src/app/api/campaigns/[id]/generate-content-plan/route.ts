@@ -365,6 +365,8 @@ ${draftTruthPolicy}
 If the saved strategy contains unsupported proof terms, treat them as proof gaps, not content instructions. Create proof-collection prompts or factual educational content instead.
 Avoid superlative/perfection language (perfect, finest, best), "Perfect for...", "perfect choice", "perfect fit", "perfect way to", ensure/guarantee/always-stocked phrasing, and unbounded delivery claims. Use practical, well-suited, helpful, or designed-for language instead. Delivery must be bounded with where available, supported zones, or timing depends on location; Arabic output must avoid أفضل/مثالي/مثالية/مضمون/دائمًا as absolute or broad fit claims unless directly supported.
 Avoid broad Arabic perfection wording such as "قهوة مثالية", "تجربة مثالية", "نتائج مثالية", or "تحضير مثالي". Prefer grounded wording such as "قهوة متوازنة", "تجربة أكثر اتساقًا", "تحضير عملي", or "خطوات عملية". Do not claim perfect results unless exact user-provided proof exists.
+Avoid broad Arabic quality/superlative phrases like "أفضل نكهة", "أفضل تجربة", "بجودة لا تقاوم", and "نكهة فريدة" unless exact user-provided proof exists. Prefer grounded wording like "نكهة متوازنة", "جودة مختارة بعناية", "تجربة أكثر اتساقًا", or "خطوات عملية".
+Avoid English hype such as "irresistible", "extraordinary", "unmatched", and broad "unique coffee experience" claims unless exact user-provided proof exists.
 Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof. For office coffee, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks.
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):

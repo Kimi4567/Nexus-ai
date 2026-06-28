@@ -309,6 +309,49 @@ describe('contentDraftTruthGuard', () => {
     expect(out).not.toContain('الكوب المثالي')
   })
 
+  it('softens observed Arabic أفضل نكهة blocker wording', () => {
+    const out = guardContentDraftText('لتوفير أفضل نكهة لمحبي القهوة')
+
+    expect(out).toContain('نكهة متوازنة')
+    expect(out).not.toContain('أفضل نكهة')
+    expect(out).not.toContain('أفضل')
+  })
+
+  it('softens observed Arabic بجودة لا تقاوم blocker wording', () => {
+    const out = guardContentDraftText('بجودة لا تقاوم')
+
+    expect(out).toContain('بجودة مختارة بعناية')
+    expect(out).not.toContain('لا تقاوم')
+  })
+
+  it('softens Arabic تجربة لا تقاوم wording', () => {
+    const out = guardContentDraftText('استمتع بتجربة لا تقاوم')
+
+    expect(out).toContain('تجربة أكثر اتساقًا')
+    expect(out).not.toContain('لا تقاوم')
+  })
+
+  it('softens Arabic تجربة قهوة فريدة wording', () => {
+    const out = guardContentDraftText('تجربة قهوة فريدة لمحبي القهوة')
+
+    expect(out).toContain('تجربة قهوة أكثر اتساقًا')
+    expect(out).not.toContain('فريدة')
+  })
+
+  it('softens English irresistible quality wording', () => {
+    const out = guardContentDraftText('irresistible quality for coffee lovers')
+
+    expect(out).toContain('carefully selected quality')
+    expect(out).not.toContain('irresistible')
+  })
+
+  it('softens English extraordinary coffee experience wording', () => {
+    const out = guardContentDraftText('an extraordinary coffee experience')
+
+    expect(out).toContain('more consistent coffee experience')
+    expect(out).not.toContain('extraordinary')
+  })
+
   it('softens Arabic مثالية لمن fit claims', () => {
     const out = guardContentDraftText('مثالية لمن يحتاج قهوة موثوقة')
 
@@ -485,6 +528,8 @@ describe('contentDraftTruthGuard', () => {
     expect(prompt).toContain('Perfect for...')
     expect(prompt).toContain('مثالي/مثالية')
     expect(prompt).toContain('إنتاجية')
+    expect(prompt).toContain('أفضل نكهة')
+    expect(prompt).toContain('irresistible')
   })
 
   it('analytics insight copy no longer says ready to activate for draft campaigns', () => {
