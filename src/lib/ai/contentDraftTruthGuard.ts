@@ -91,6 +91,37 @@ function guardProofClaims(text: string, context: ContentDraftTruthContext): stri
   return guarded
 }
 
+function guardFitClaims(text: string): string {
+  return text
+    .replace(/\bperfect for the hustle and bustle of urban life\b/gi, 'A practical option for busy urban routines')
+    .replace(/\bperfect for those needing a reliable coffee experience\b/gi, 'A practical option for people looking for a more consistent coffee routine')
+    .replace(/\bperfect for\b/gi, 'well-suited for')
+    .replace(/\bthe perfect choice for\b/gi, 'a practical choice for')
+    .replace(/\bperfect choice for\b/gi, 'practical choice for')
+    .replace(/\bthe perfect fit for\b/gi, 'a well-suited option for')
+    .replace(/\bperfect fit for\b/gi, 'well-suited for')
+    .replace(/\bthe perfect way to\b/gi, 'a practical way to')
+    .replace(/\bperfect way to\b/gi, 'practical way to')
+    .replace(/\bperfectly suited for\b/gi, 'well-suited for')
+    .replace(/\bperfectly roasted\b/gi, 'carefully roasted')
+    .replace(/\bperfectly crafted\b/gi, 'carefully crafted')
+    .replace(/\bperfectly balanced\b/gi, 'balanced')
+    .replace(/مثالية لمن يحتاج قهوة موثوقة/g, 'مناسبة لمن يبحث عن تجربة قهوة أكثر اتساقًا')
+    .replace(/الخيار المثالي للمكتب/g, 'خيار عملي للمكتب')
+    .replace(/الخيار المثالي ل/g, 'خيار عملي ل')
+    .replace(/الخيار المثالي/g, 'خيار عملي')
+    .replace(/مثالية لل/g, 'مناسبة لل')
+    .replace(/مثالي لل/g, 'مناسب لل')
+    .replace(/مثالية ل/g, 'مناسبة ل')
+    .replace(/مثالي ل/g, 'مناسب ل')
+    .replace(/مثالية لمن/g, 'مناسبة لمن')
+    .replace(/مثالي لمن/g, 'مناسب لمن')
+    .replace(/مثالية لكل/g, 'مناسبة لكل')
+    .replace(/مثالي لكل/g, 'مناسب لكل')
+    .replace(/مثالية لـ/g, 'مناسبة لـ')
+    .replace(/مثالي لـ/g, 'مناسب لـ')
+}
+
 function softenAbsoluteClaims(text: string): string {
   return text
     .replace(/\bSupport more reliable team planning has access to great coffee\b/gi, 'Help teams plan better office coffee routines')
@@ -287,7 +318,9 @@ export function guardContentDraftText(
       guardDeliveryClaims(
         guardOutcomeClaims(
           softenAbsoluteClaims(
-            guardProofClaims(text, context),
+            guardFitClaims(
+              guardProofClaims(text, context),
+            ),
           ),
           context,
         ),
@@ -324,6 +357,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Generated posts are draft content for review only. Nothing is approved, scheduled, published, or active.',
     '- Do not claim perfect, finest, best, premium-every-time, luxury-every-time, guaranteed, ensured, always-stocked, never-run-out, or immediate outcomes unless the user provided exact proof.',
     '- Prefer grounded phrasing such as balanced blend, more consistent brew, carefully selected coffee, quality-focused beans, or a better coffee routine.',
+    '- Avoid "Perfect for...", "perfect choice", "perfect fit", and "perfect way to" style fit claims. Use practical, well-suited, helpful, or designed-for language instead.',
     '- Use delivery language only with bounds such as "where available", "in supported zones", or "timing depends on location".',
     '- Avoid unbounded delivery claims such as doorstep delivery, fast delivery, quick delivery, next-day delivery, or guaranteed delivery unless bounded by availability.',
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
@@ -333,5 +367,6 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- For office coffee content, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks, not productivity or performance outcomes.',
     '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
     '- For Arabic output, avoid أفضل, أجود, مثالي, مضمون, دائمًا, and كل مرة as absolute claims unless directly supported by user-provided proof.',
+    '- Arabic output must avoid مثالي/مثالية as broad fit claims unless exact proof exists; prefer مناسب/مناسبة, خيار عملي, or خيار مناسب.',
   ].join('\n')
 }

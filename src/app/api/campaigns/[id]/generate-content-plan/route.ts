@@ -363,7 +363,7 @@ ${proofPolicy}
 ${draftTruthPolicy}
 
 If the saved strategy contains unsupported proof terms, treat them as proof gaps, not content instructions. Create proof-collection prompts or factual educational content instead.
-Avoid superlative/perfection language (perfect, finest, best), ensure/guarantee/always-stocked phrasing, and unbounded delivery claims. Delivery must be bounded with where available, supported zones, or timing depends on location; Arabic output must avoid أفضل/مثالي/مضمون/دائمًا as absolute claims unless directly supported.
+Avoid superlative/perfection language (perfect, finest, best), "Perfect for...", "perfect choice", "perfect fit", "perfect way to", ensure/guarantee/always-stocked phrasing, and unbounded delivery claims. Use practical, well-suited, helpful, or designed-for language instead. Delivery must be bounded with where available, supported zones, or timing depends on location; Arabic output must avoid أفضل/مثالي/مثالية/مضمون/دائمًا as absolute or broad fit claims unless directly supported.
 Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof. For office coffee, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks.
 
 CONTENT MIX: Distribute the posts as follows (approximate percentages):

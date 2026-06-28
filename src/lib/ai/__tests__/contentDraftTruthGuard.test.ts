@@ -34,6 +34,36 @@ describe('contentDraftTruthGuard', () => {
     expect(best).not.toContain('premium coffee every time')
   })
 
+  it('softens Perfect for urban life fit claims', () => {
+    const out = guardContentDraftText('Perfect for the hustle and bustle of urban life.')
+
+    expect(out).toContain('practical option')
+    expect(out).toContain('busy urban routines')
+    expect(out).not.toContain('Perfect for')
+  })
+
+  it('softens Perfect for those needing reliable coffee claims', () => {
+    const out = guardContentDraftText('Perfect for those needing a reliable coffee experience.')
+
+    expect(out).toContain('practical option')
+    expect(out).toContain('consistent coffee routine')
+    expect(out).not.toContain('Perfect for')
+  })
+
+  it('softens perfect choice fit claims', () => {
+    const out = guardContentDraftText('The perfect choice for office coffee planning.')
+
+    expect(out).toContain('practical choice for office coffee planning')
+    expect(out.toLowerCase()).not.toContain('perfect choice')
+  })
+
+  it('softens perfectly roasted claims', () => {
+    const out = guardContentDraftText('perfectly roasted beans')
+
+    expect(out).toContain('carefully roasted beans')
+    expect(out).not.toContain('perfectly roasted')
+  })
+
   it('softens ensure and stock-planning absolute claims', () => {
     const out = guardContentDraftText(
       'Our convenient delivery service ensures you plan stock more reliably.',
@@ -208,6 +238,49 @@ describe('contentDraftTruthGuard', () => {
     expect(doorstep).not.toContain('باب منزلك')
   })
 
+  it('softens Arabic مثالية لمن fit claims', () => {
+    const out = guardContentDraftText('مثالية لمن يحتاج قهوة موثوقة')
+
+    expect(out).toContain('مناسبة')
+    expect(out).toContain('تجربة قهوة أكثر اتساقًا')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens Arabic الخيار المثالي fit claims', () => {
+    const out = guardContentDraftText('الخيار المثالي للمكتب')
+
+    expect(out).toContain('خيار عملي للمكتب')
+    expect(out).not.toContain('الخيار المثالي')
+  })
+
+  it('softens Arabic no-tatweel مثالي للمكتب fit claims', () => {
+    const out = guardContentDraftText('مثالي للمكتب')
+
+    expect(out).toContain('مناسب للمكتب')
+    expect(out).not.toContain('مثالي')
+  })
+
+  it('softens Arabic no-tatweel مثالية للعائلات fit claims', () => {
+    const out = guardContentDraftText('مثالية للعائلات')
+
+    expect(out).toContain('مناسبة للعائلات')
+    expect(out).not.toContain('مثالية')
+  })
+
+  it('softens Arabic no-tatweel مثالي لروتين fit claims', () => {
+    const out = guardContentDraftText('مثالي لروتين القهوة اليومي')
+
+    expect(out).toContain('مناسب لروتين القهوة اليومي')
+    expect(out).not.toContain('مثالي')
+  })
+
+  it('softens standalone Arabic الخيار المثالي claims', () => {
+    const out = guardContentDraftText('الخيار المثالي')
+
+    expect(out).toContain('خيار عملي')
+    expect(out).not.toContain('الخيار المثالي')
+  })
+
   it('softens Arabic guarantee and every-time perfection claims', () => {
     const out = guardContentDraftText('تضمن لك القهوة المثالية كل مرة.')
 
@@ -296,12 +369,18 @@ describe('contentDraftTruthGuard', () => {
     expect(guardContentDraftText(safe)).toBe(safe)
   })
 
+  it('preserves safe Arabic educational fit wording', () => {
+    const safe = 'اختر درجة الطحن المناسبة لطريقة التحضير'
+
+    expect(guardContentDraftText(safe)).toBe(safe)
+  })
+
   it('recursively guards generated post fields', () => {
     const guarded = guardContentDraftTruth({
-      caption: 'Customer Testimonials: perfect brew every time with quick delivery guaranteed.',
+      caption: 'Customer Testimonials: perfect brew every time and Perfect for busy teams with quick delivery guaranteed.',
       creative: {
-        imagePrompt: 'Show award-winning coffee delivered to your doorstep.',
-        videoPrompt: 'Feature the finest coffee and promptly delivery where available.',
+        imagePrompt: 'Show award-winning coffee delivered to your doorstep with perfectly roasted beans.',
+        videoPrompt: 'Feature the finest coffee, perfect choice for office coffee planning, and promptly delivery where available.',
       },
     })
     const joined = JSON.stringify(guarded)
@@ -312,10 +391,15 @@ describe('contentDraftTruthGuard', () => {
     expect(joined).toContain('quality-focused')
     expect(joined).toContain('delivery where available')
     expect(joined).toContain('carefully selected coffee')
+    expect(joined).toContain('carefully roasted beans')
+    expect(joined).toContain('practical choice for office coffee planning')
     expect(joined).not.toContain('Customer Testimonials')
+    expect(joined).not.toContain('Perfect for')
     expect(joined).not.toContain('quick delivery guaranteed')
     expect(joined).not.toContain('delivered to your doorstep')
     expect(joined).not.toContain('finest coffee')
+    expect(joined).not.toContain('perfect choice')
+    expect(joined).not.toContain('perfectly roasted')
     expect(joined).not.toContain('promptly delivery')
   })
 
@@ -327,6 +411,8 @@ describe('contentDraftTruthGuard', () => {
     expect(prompt).toContain('where available')
     expect(prompt).toContain('productivity, morale, focus, energy, team performance')
     expect(prompt).toContain('easier planning, more consistent coffee routines')
+    expect(prompt).toContain('Perfect for...')
+    expect(prompt).toContain('مثالي/مثالية')
     expect(prompt).toContain('إنتاجية')
   })
 
