@@ -32,6 +32,7 @@ The Dashboard showed several stale or ambiguous signals:
 - Recent Campaigns now prefers SocialPost lifecycle truth over raw `Campaign.status`.
 - Mixed state displays as `1 manually published - 7 scheduled` / `1 منشور تم تأكيد نشره يدويًا - 7 مجدولة`.
 - Marketing Operating Brief execution copy now distinguishes manual publish from platform/API publish.
+- A user-provided live URL remains manual-publish proof/reference only; `platformUrl` alone is not platform/API publish evidence.
 - Learning evidence now stays `Analytics pending` / `التحليلات قيد الانتظار` until analytics data exists.
 - The Marketing Workflow Learning loop is no longer complete from Brand Brain memory alone.
 - Pending dashboard suggestions are filtered so progressed campaigns do not show stale strategy/content approval actions.
@@ -55,4 +56,3 @@ Run read-only Dashboard truth QA on the PR preview:
 - Confirm the Learning workflow tile does not imply performance learning.
 - Confirm stale `Strategy ready` / Approve suggestions are hidden or no longer actionable for the progressed campaign.
 - Confirm Content Hub and Performance remain truth-safe.
-

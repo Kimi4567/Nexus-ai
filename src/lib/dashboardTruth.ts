@@ -47,11 +47,18 @@ function hasValidDate(value: string | Date | null | undefined): boolean {
   return !Number.isNaN(date.getTime())
 }
 
-function isAutoPublished(post: DashboardPostLike): boolean {
-  return (
-    String(post.publishMode ?? '').toUpperCase() === 'AUTO' ||
-    Boolean(post.platformPostId || post.platformUrl)
-  )
+function publishMode(post: DashboardPostLike): string {
+  return String(post.publishMode ?? '').toUpperCase()
+}
+
+function isManuallyPublished(post: DashboardPostLike): boolean {
+  const mode = publishMode(post)
+  return hasValidDate(post.manuallyPublishedAt) || mode === 'MANUAL'
+}
+
+function isPlatformPublished(post: DashboardPostLike): boolean {
+  const mode = publishMode(post)
+  return mode === 'AUTO' || Boolean(post.platformPostId)
 }
 
 function hasAnalytics(post: DashboardPostLike): boolean {
@@ -76,8 +83,11 @@ export function summarizeDashboardPosts(posts: DashboardPostLike[]): DashboardPo
     if (status === 'SCHEDULED') summary.scheduled += 1
     if (status === 'PUBLISHED') {
       summary.published += 1
-      if (isAutoPublished(post)) summary.platformPublished += 1
-      else if (hasValidDate(post.manuallyPublishedAt) || String(post.publishMode ?? '').toUpperCase() !== 'AUTO') {
+      if (isManuallyPublished(post)) {
+        summary.manuallyPublished += 1
+      } else if (isPlatformPublished(post)) {
+        summary.platformPublished += 1
+      } else {
         summary.manuallyPublished += 1
       }
       if (hasAnalytics(post)) summary.analyticsReady += 1
@@ -213,4 +223,3 @@ export function getDashboardLearningCopy(summary: Partial<DashboardPostSummary>)
     loopComplete: false,
   }
 }
-

@@ -23,6 +23,48 @@ describe('dashboardTruth mixed-state labels', () => {
     expect(copy.label).not.toMatch(/\blive\b|platform/i)
   })
 
+  it('keeps manual publish with a user-provided live URL classified as manual', () => {
+    const summary = summarizeDashboardPosts([
+      {
+        status: 'PUBLISHED',
+        publishMode: 'MANUAL',
+        manuallyPublishedAt: '2026-06-29T10:00:00Z',
+        platformUrl: 'https://example.com/manual-post',
+      },
+    ])
+
+    expect(summary.published).toBe(1)
+    expect(summary.manuallyPublished).toBe(1)
+    expect(summary.platformPublished).toBe(0)
+
+    const copy = getDashboardCampaignStatusCopy(summary, 'DRAFT')
+    expect(copy.label).toBe('1 manually published')
+    expect(copy.label).not.toMatch(/platform published|API publish/i)
+  })
+
+  it('classifies platform API publish from AUTO mode or platformPostId, not live URL alone', () => {
+    const autoSummary = summarizeDashboardPosts([
+      { status: 'PUBLISHED', publishMode: 'AUTO', platformPostId: 'abc123', platformUrl: null },
+    ])
+
+    expect(autoSummary.platformPublished).toBe(1)
+    expect(autoSummary.manuallyPublished).toBe(0)
+
+    const legacyWithPlatformPostId = summarizeDashboardPosts([
+      { status: 'PUBLISHED', publishMode: null, platformPostId: 'abc123' },
+    ])
+
+    expect(legacyWithPlatformPostId.platformPublished).toBe(1)
+    expect(legacyWithPlatformPostId.manuallyPublished).toBe(0)
+
+    const legacyWithLiveUrlOnly = summarizeDashboardPosts([
+      { status: 'PUBLISHED', publishMode: null, platformUrl: 'https://example.com/manual-post' },
+    ])
+
+    expect(legacyWithLiveUrlOnly.manuallyPublished).toBe(1)
+    expect(legacyWithLiveUrlOnly.platformPublished).toBe(0)
+  })
+
   it('uses the same manual/scheduled truth for the operating brief execution surface', () => {
     const copy = getDashboardExecutionCopy({
       manuallyPublished: 1,
@@ -51,4 +93,3 @@ describe('dashboardTruth mixed-state labels', () => {
     expect(copy.labelAr).toBe('مسودة')
   })
 })
-
