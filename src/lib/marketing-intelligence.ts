@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { derivePublishingState, type PublishingState } from '@/lib/operatingBriefStatus'
+import {
+  getDashboardExecutionCopy,
+  getDashboardLearningCopy,
+  summarizeDashboardPosts,
+} from '@/lib/dashboardTruth'
 
 type SignalSeverity = 'good' | 'watch' | 'risk'
 type ActionPriority = 'high' | 'medium' | 'low'
@@ -73,7 +78,12 @@ type SocialPostSnapshot = {
   status: string
   scheduledAt: Date | null
   publishedAt: Date | null
+  publishMode: string | null
+  manuallyPublishedAt: Date | null
+  platformPostId: string | null
+  platformUrl: string | null
   analyticsData: unknown
+  analyticsFetched: boolean | null
   variantGroup: string | null
   variantWinner: boolean
 }
@@ -240,7 +250,12 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
         status: true,
         scheduledAt: true,
         publishedAt: true,
+        publishMode: true,
+        manuallyPublishedAt: true,
+        platformPostId: true,
+        platformUrl: true,
         analyticsData: true,
+        analyticsFetched: true,
         variantGroup: true,
         variantWinner: true,
       },
@@ -262,7 +277,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   const hasStrategy = totalCampaigns > 0 && generations > 0
   const hasContent = recentPosts.length > 0 || generations > 0
   const hasPublishing = publishedPosts > 0 || scheduledPosts > 0 || connectedIntegrations > 0
-  const hasLearning = Boolean(
+  const hasBrandMemory = Boolean(
     brand &&
     (brand.winningHooks.length > 0 ||
       brand.winningAngles.length > 0 ||
@@ -270,12 +285,16 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       brand.topPlatforms.length > 0 ||
       hasAiInsights(brand.aiInsights))
   )
-  const loop = { strategy: hasStrategy, content: hasContent, publishing: hasPublishing, learning: hasLearning }
+  const postSummary = summarizeDashboardPosts(recentPosts)
+  const learningCopy = getDashboardLearningCopy(postSummary)
+  const executionCopy = getDashboardExecutionCopy(postSummary)
+  const hasPerformanceLearning = learningCopy.loopComplete
+  const loop = { strategy: hasStrategy, content: hasContent, publishing: hasPublishing, learning: hasPerformanceLearning }
   const completedLoopCount = Object.values(loop).filter(Boolean).length
   const loopScore = completedLoopCount * 15
   const volumeScore = Math.min(20, totalCampaigns * 4 + publishedPosts * 2 + scheduledPosts)
   const rawMaturityScore = Math.round(brandScore * 0.4 + loopScore + volumeScore)
-  const loopCap = completedLoopCount === 4 ? 100 : completedLoopCount === 3 ? 84 : completedLoopCount === 2 ? 64 : completedLoopCount === 1 ? 42 : 24
+  const loopCap = completedLoopCount === 4 ? 100 : completedLoopCount === 3 ? 79 : completedLoopCount === 2 ? 64 : completedLoopCount === 1 ? 42 : 24
   const maturityScore = Math.min(loopCap, rawMaturityScore)
   const stage = stageFor(maturityScore)
   const avgEngagement = averageEngagement(recentPosts)
@@ -360,15 +379,15 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       'المسودات تنتظر داخل النظام؛ الجدولة تحول الخطة إلى تنفيذ.'
     ))
   }
-  if (publishedPosts > 0 && !hasLearning) {
+  if (publishedPosts > 0 && !hasPerformanceLearning) {
     actions.push(action(
       'capture-learning',
       'medium',
-      '/brand?from=brief',
-      'Capture winning hooks',
-      'سجل الخطافات الرابحة',
-      'Published work should feed Brand Brain so future campaigns improve instead of restarting from zero.',
-      'المحتوى المنشور يجب أن يغذي Brand Brain حتى تتحسن الحملات القادمة بدل البدء من الصفر.'
+      '/analytics',
+      'Wait for analytics',
+      'انتظر التحليلات',
+      'A manual publish was recorded, but performance learning should wait until analytics are available.',
+      'تم تسجيل نشر يدوي، لكن تعلّم الأداء يجب أن ينتظر حتى تتوفر التحليلات.'
     ))
   }
   if (publishedPosts >= 2 && !hasAbTests) {
@@ -422,17 +441,17 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       id: 'execution',
       label: 'Execution surface',
       labelAr: 'سطح التنفيذ',
-      value: `${publishedPosts} published · ${scheduledPosts} scheduled`,
-      valueAr: `${publishedPosts} منشور · ${scheduledPosts} مجدول`,
+      value: executionCopy.label,
+      valueAr: executionCopy.labelAr,
       severity: publishedPosts > 0 || scheduledPosts > 0 ? 'good' : recentPosts.length > 0 ? 'watch' : 'risk',
     },
     {
       id: 'learning',
       label: 'Learning evidence',
       labelAr: 'دليل التعلم',
-      value: hasLearning ? 'Active' : 'Not captured',
-      valueAr: hasLearning ? 'نشط' : 'غير مسجل',
-      severity: hasLearning ? 'good' : 'watch',
+      value: learningCopy.value,
+      valueAr: learningCopy.valueAr,
+      severity: learningCopy.severity,
     },
   ]
 
@@ -485,13 +504,22 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       detailAr: 'قد تصبح المخرجات عامة إلى أن يسجل ملف العلامة الجمهور والعرض والتموضع والدليل.',
     })
   }
+  if (hasBrandMemory && !hasPerformanceLearning) {
+    risks.push({
+      id: 'performance-learning-pending',
+      title: 'Performance learning is pending',
+      titleAr: 'تعلّم الأداء قيد الانتظار',
+      detail: 'Brand memory exists, but performance learning should wait until analytics are available.',
+      detailAr: 'ذاكرة العلامة موجودة، لكن تعلّم الأداء يجب أن ينتظر حتى تتوفر التحليلات.',
+    })
+  }
   if (totalCampaigns > 0 && activeCampaigns === 0) {
     risks.push({
       id: 'no-active-campaigns',
-      title: 'No active campaigns',
-      titleAr: 'لا توجد حملات نشطة',
-      detail: 'The system has campaign assets, but nothing is currently marked active for ongoing management.',
-      detailAr: 'النظام لديه أصول حملات، لكن لا توجد حملة نشطة لإدارتها باستمرار.',
+      title: 'No campaign record marked active',
+      titleAr: 'لا يوجد سجل حملة مميز كنشط',
+      detail: 'Campaign work exists, but no Campaign.status record is marked ACTIVE. Post scheduling and manual publish status are tracked separately.',
+      detailAr: 'يوجد عمل حملات، لكن لا يوجد سجل Campaign.status مميز كـ ACTIVE. تتم متابعة الجدولة والنشر اليدوي بشكل منفصل.',
     })
   }
 

@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
+import { hasDashboardPostProgress, summarizeDashboardPosts } from '@/lib/dashboardTruth'
 
 const db = prisma as any
 
@@ -47,11 +48,58 @@ export async function GET(req: NextRequest) {
 
     if (!rawAll.length) return NextResponse.json({ suggestions: [] })
 
+    const rawCampaignIds = [...new Set(
+      rawAll.map((s: any) => s.campaignId).filter(Boolean)
+    )] as string[]
+
+    const postRows = rawCampaignIds.length
+      ? await db.socialPost.findMany({
+          where: { workspaceId: workspace.id, campaignId: { in: rawCampaignIds } },
+          select: {
+            campaignId: true,
+            status: true,
+            publishMode: true,
+            manuallyPublishedAt: true,
+            platformPostId: true,
+            platformUrl: true,
+            analyticsData: true,
+            analyticsFetched: true,
+          },
+        })
+      : []
+
+    const postsByCampaign = new Map<string, any[]>()
+    for (const post of postRows) {
+      if (!post.campaignId) continue
+      const list = postsByCampaign.get(post.campaignId) ?? []
+      list.push(post)
+      postsByCampaign.set(post.campaignId, list)
+    }
+    const progressedCampaigns = new Set<string>()
+    for (const [campaignId, posts] of postsByCampaign.entries()) {
+      const summary = summarizeDashboardPosts(posts)
+      if (hasDashboardPostProgress(summary) && (summary.scheduled > 0 || summary.published > 0)) {
+        progressedCampaigns.add(campaignId)
+      }
+    }
+
+    const staleApprovalTypes = new Set(['STRATEGY', 'CONTENT_SWAP', 'CAMPAIGN_LAUNCH'])
+    const visibleRaw = rawAll.filter((s: any) => {
+      if (!s.campaignId || !progressedCampaigns.has(s.campaignId)) return true
+      const title = String(s.title ?? '')
+      const reasoning = String(s.reasoning ?? '')
+      const looksLikeApproval = staleApprovalTypes.has(String(s.type ?? '')) ||
+        /strategy ready|approve|approval|content plan/i.test(`${title} ${reasoning}`)
+      return !looksLikeApproval
+    })
+
+    if (!visibleRaw.length) return NextResponse.json({ suggestions: [] })
+
     // Deduplicate: keep only one suggestion per (campaignId + agent) pair.
     // For suggestions without a campaign, keep only one per (agent + title) pair.
     // Always keeps the most recent (already sorted by createdAt desc above).
     const seen = new Set<string>()
-    const raw = rawAll.filter((s: any) => {
+    const raw = visibleRaw.filter((s: any) => {
       const dedupeKey = s.campaignId
         ? `${s.campaignId}:${s.agent}`
         : `nocamp:${s.agent}:${(s.title || '').slice(0, 40)}`

@@ -16,6 +16,10 @@ import { getBrandMemoryStatusCopy, type PublishingState } from '@/lib/operatingB
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getFirstRunJourney, type StrategyState } from '@/lib/firstUserJourney'
+import {
+  getDashboardCampaignStatusCopy,
+  type DashboardPostSummary,
+} from '@/lib/dashboardTruth'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -71,6 +75,7 @@ interface Campaign {
   platforms: string[]
   goal: string
   createdAt: string
+  postSummary?: DashboardPostSummary | null
 }
 interface AIInsight {
   id: string
@@ -127,14 +132,6 @@ type WorkspaceGateState = 'checking' | 'hasWorkspace' | 'noWorkspace' | 'error'
 
 // BETA: AGENT_DEFS (the decorative "AI squad" card data) removed along with the
 // squad grid — it linked to pages hidden for beta and showed non-real statuses.
-
-const STATUS_MAP: Record<string, { ar: string; en: string; color: string }> = {
-  DRAFT:     { ar: 'مسودة',   en: 'Draft',     color: '#64748b' },
-  ACTIVE:    { ar: 'نشطة',    en: 'Active',    color: '#10B981' },
-  PAUSED:    { ar: 'متوقفة',  en: 'Paused',    color: '#EAB308' },
-  COMPLETED: { ar: 'مكتملة', en: 'Completed',  color: '#06B6D4' },
-  ARCHIVED:  { ar: 'مؤرشفة', en: 'Archived',   color: '#374151' },
-}
 
 const ALERT_BG = {
   critical: { bg: 'rgba(244,63,94,0.06)',  border: 'rgba(244,63,94,0.2)' },
@@ -402,7 +399,7 @@ export default function DashboardPage() {
       text:   isAr ? `متبقي ${stats.creditsRemaining} وحدة AI فقط — الترقية تمنحك إمكانات غير محدودة` : `Only ${stats.creditsRemaining} AI credits left — upgrade for unlimited power`,
       action: isAr ? 'ترقية الخطة' : 'Upgrade Plan', href: '/billing' })
     if (stats.campaigns > 0 && stats.activeCampaigns === 0) built.push({ id: '4', priority: 'medium',
-      text:   isAr ? 'كل حملاتك في وضع المسودة — افتح التحليلات عندما تتوفر بيانات أداء حقيقية.' : 'All campaigns are drafts — open analytics once real performance data is available.',
+      text:   isAr ? 'لا توجد حملات جديدة هذا الشهر — افتح التحليلات عندما تتوفر بيانات أداء حقيقية.' : 'No new campaigns this month — open analytics once real performance data is available.',
       action: isAr ? 'فتح التحليلات' : 'Open analytics', href: '/analytics' })
     // PR-1E: no generic "your system is running well" filler. When there is no
     // real, specific, action-backed insight we leave the list empty so the AI
@@ -1133,7 +1130,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-1.5">
                   {campaigns.map(c => {
-                    const si = STATUS_MAP[c.status] || STATUS_MAP.DRAFT
+                    const si = getDashboardCampaignStatusCopy(c.postSummary, c.status)
                     return (
                       <Link key={c.id} href={`/campaigns/${c.id}`}
                         className="flex items-center gap-3 p-3 rounded-xl transition-all group"
@@ -1154,8 +1151,8 @@ export default function DashboardPage() {
                           })()}</p>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <NexusStatusDot color={si.color} size="xs" pulse={c.status === 'ACTIVE'} />
-                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.ar : si.en}</span>
+                          <NexusStatusDot color={si.color} size="xs" pulse={si.pulse} />
+                          <span className="text-[10px]" style={{ color: si.color }}>{locale === 'ar' ? si.labelAr : si.label}</span>
                         </div>
                       </Link>
                     )
