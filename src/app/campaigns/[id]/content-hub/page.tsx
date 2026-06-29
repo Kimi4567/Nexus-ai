@@ -215,6 +215,7 @@ export default function ContentHubPage() {
   const [manualPublishPost, setManualPublishPost] = useState<ContentPost | null>(null)
   const [manualUrl, setManualUrl] = useState('')
   const [manualPublishing, setManualPublishing] = useState(false)
+  const [manualPublishConfirmed, setManualPublishConfirmed] = useState(false)
   const [captionCopied, setCaptionCopied] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [approveResult, setApproveResult] = useState<{
@@ -639,9 +640,22 @@ export default function ContentHubPage() {
     try { await navigator.clipboard.writeText(text); setCaptionCopied(true); setTimeout(() => setCaptionCopied(false), 1800) } catch { /* clipboard blocked */ }
   }
 
+  function openManualPublishModal(post: ContentPost) {
+    setManualPublishPost(post)
+    setManualUrl('')
+    setManualPublishConfirmed(false)
+  }
+
+  function closeManualPublishModal() {
+    if (manualPublishing) return
+    setManualPublishPost(null)
+    setManualUrl('')
+    setManualPublishConfirmed(false)
+  }
+
   async function confirmManualPublish() {
     const post = manualPublishPost
-    if (!post || !isAuthenticated) return
+    if (!post || !isAuthenticated || !manualPublishConfirmed) return
     setManualPublishing(true)
     setError(null)
     try {
@@ -655,6 +669,7 @@ export default function ContentHubPage() {
       await loadData()
       setManualPublishPost(null)
       setManualUrl('')
+      setManualPublishConfirmed(false)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1217,7 +1232,7 @@ export default function ContentHubPage() {
               }))}
               onRewrite={(instruction) => rewritePost(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickWinner(post.id) : undefined}
-              onManualPublish={() => { setManualPublishPost(post); setManualUrl('') }}
+              onManualPublish={() => openManualPublishModal(post)}
             />
           )
 
@@ -1611,13 +1626,13 @@ export default function ContentHubPage() {
 
         {/* ── Manual publishing checklist (PR4) ─────────────────────────── */}
         {manualPublishPost && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={() => { if (!manualPublishing) { setManualPublishPost(null); setManualUrl('') } }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeManualPublishModal}>
             <div className="w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
               <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg,#4F46E5,#6366f1,#7c3aed)' }} />
               <div className="p-5">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="text-base font-bold text-slate-950">📤 {t('contentHub.manualTitle')}</h3>
-                  <button onClick={() => { setManualPublishPost(null); setManualUrl('') }} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+                  <button onClick={closeManualPublishModal} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
                 </div>
                 <p className="text-xs text-slate-500 mb-4">{t('contentHub.manualIntro')}</p>
 
@@ -1645,9 +1660,30 @@ export default function ContentHubPage() {
 
                 <p className="text-[11px] text-slate-500 mb-3 px-1">⚠️ {t('contentHub.manualDisclaimer')}</p>
 
+                <label
+                  className="flex items-start gap-3 rounded-xl p-3 mb-3 cursor-pointer"
+                  style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.10)' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={manualPublishConfirmed}
+                    onChange={e => setManualPublishConfirmed(e.target.checked)}
+                    disabled={manualPublishing}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                  />
+                  <span>
+                    <span className="block text-xs font-semibold text-slate-800">
+                      {t('contentHub.manualAcknowledge')}
+                    </span>
+                    <span className="block text-[11px] text-slate-500 mt-1">
+                      {t('contentHub.manualAcknowledgeHelper')}
+                    </span>
+                  </span>
+                </label>
+
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => { setManualPublishPost(null); setManualUrl('') }} disabled={manualPublishing} className="text-sm px-4 py-2 rounded-xl text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
-                  <button onClick={confirmManualPublish} disabled={manualPublishing} className="text-sm px-4 py-2 rounded-xl font-semibold text-white flex items-center gap-2" style={{ background: '#4F46E5', opacity: manualPublishing ? 0.6 : 1 }}>
+                  <button onClick={closeManualPublishModal} disabled={manualPublishing} className="text-sm px-4 py-2 rounded-xl text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button onClick={confirmManualPublish} disabled={manualPublishing || !manualPublishConfirmed} className="text-sm px-4 py-2 rounded-xl font-semibold text-white flex items-center gap-2 disabled:cursor-not-allowed" style={{ background: '#4F46E5', opacity: manualPublishing || !manualPublishConfirmed ? 0.45 : 1 }}>
                     {manualPublishing ? (<><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('contentHub.marking')}</>) : (<>✓ {t('contentHub.manualConfirm')}</>)}
                   </button>
                 </div>
