@@ -31,10 +31,13 @@ describe('getStrategyBriefReadiness', () => {
     expect(result.canGenerate).toBe(true)
     expect(result.canGenerateOrganic).toBe(true)
     expect(result.canGeneratePaidPlan).toBe(false)
-    expect(result.paidPlanningOnly).toBe(true)
+    expect(result.paidPlanningOnly).toBe(false)
     expect(result.missingRequiredFields).toEqual([])
     expect(result.recommendedFields).toContain('verifiedProof')
     expect(result.warnings).toContain('verified_proof_missing')
+    expect(result.warnings).not.toContain('paid_planning_only')
+    expect(result.warnings).not.toContain('no_launch_or_spend')
+    expect(result.blockers).toEqual([])
     expect(result.safeScope).toContain('Organic strategy only')
   })
 
@@ -76,9 +79,25 @@ describe('getStrategyBriefReadiness', () => {
     expect(result.canGeneratePaidPlan).toBe(true)
     expect(result.missingRequiredFields).toEqual([])
     expect(result.paidPlanningOnly).toBe(true)
-    expect(result.blockers).toContain('paid_launch_not_authorized')
+    expect(result.blockers).toEqual([])
     expect(result.warnings).toEqual(expect.arrayContaining(['paid_planning_only', 'no_launch_or_spend']))
     expect(result.safeScope).toContain('Paid planning brief only')
+  })
+
+  it('allows full strategy when organic and paid briefs are ready while launch readiness remains gated', () => {
+    const result = getStrategyBriefReadiness({
+      mode: 'full',
+      brandProfile: paidReadyBrand,
+    })
+
+    expect(result.canGenerate).toBe(true)
+    expect(result.canGenerateOrganic).toBe(true)
+    expect(result.canGeneratePaidPlan).toBe(true)
+    expect(result.paidPlanningOnly).toBe(true)
+    expect(result.blockers).toEqual([])
+    expect(result.warnings).toEqual(expect.arrayContaining(['paid_planning_only', 'no_launch_or_spend']))
+    expect(result.safeScope).toContain('Launch, spend')
+    expect(result.safeScope).toContain('outside this run')
   })
 
   it('does not block organic strategy when verified proof is missing', () => {

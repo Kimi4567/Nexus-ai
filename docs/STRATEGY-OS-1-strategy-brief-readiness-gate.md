@@ -8,9 +8,9 @@ Onboarding remains light. The deeper agency-style checks happen at the Strategy 
 
 ## Mode split
 
-- Organic only: allowed when the core brand, offer, audience, goal, platform, and tone/language fields exist.
+- Organic only: allowed when the core brand, offer, audience, goal, platform, and tone/language fields exist. Organic-only never includes paid scope.
 - Paid only: requires explicit paid-planning inputs such as budget, conversion destination, lead handling, audience/location, offer, and target platforms.
-- Full strategy: requires both the organic brief and paid brief. If organic is ready but paid is incomplete, the user should switch to Organic-only or complete paid inputs.
+- Full strategy: requires both the organic brief and paid brief. If organic is ready but paid is incomplete, the user should switch to Organic-only or complete paid inputs. If both briefs are ready, Full can include organic strategy plus paid planning only.
 
 ## Paid boundary
 
@@ -22,6 +22,8 @@ Paid launch/spend remains outside strategy generation unless future work verifie
 - tracking/pixel readiness
 - platform readiness
 - explicit launch approval
+
+Missing launch readiness is a warning and downstream gate, not a paid-planning generation blocker. Paid planning can still be generated when the paid brief itself is present.
 
 ## Budget handling
 

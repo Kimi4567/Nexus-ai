@@ -23,7 +23,6 @@ export type StrategyBriefFieldKey =
 export type StrategyBriefBlocker =
   | 'organic_brief_incomplete'
   | 'paid_brief_incomplete'
-  | 'paid_launch_not_authorized'
   | 'full_paid_brief_incomplete'
 
 export type StrategyBriefWarning =
@@ -153,12 +152,11 @@ export function getStrategyBriefReadiness(
     missingRequiredFields = organicMissing
     canGenerate = canGenerateOrganic
     if (!canGenerateOrganic) blockers.push('organic_brief_incomplete')
-    if (launchMissing.length > 0) warnings.push('paid_planning_only', 'no_launch_or_spend')
     safeScope = canGenerateOrganic
-      ? 'Organic strategy only. Paid launch, spend, and activation are not included.'
+      ? 'Organic strategy only.'
       : 'Complete the organic brief before generating an organic strategy.'
     safeScopeAr = canGenerateOrganic
-      ? 'استراتيجية عضوية فقط. لا تشمل إطلاق إعلانات أو صرف ميزانية أو تفعيل حملات.'
+      ? 'استراتيجية عضوية فقط.'
       : 'أكمل بريف الاستراتيجية العضوية قبل التوليد.'
     explanation = canGenerateOrganic
       ? 'The core Brand Brain fields support organic strategy generation.'
@@ -171,7 +169,6 @@ export function getStrategyBriefReadiness(
     canGenerate = canGeneratePaidPlan
     if (!canGeneratePaidPlan) blockers.push('paid_brief_incomplete')
     if (launchMissing.length > 0) {
-      blockers.push('paid_launch_not_authorized')
       warnings.push('paid_planning_only', 'no_launch_or_spend')
     }
     safeScope = canGeneratePaidPlan
@@ -192,7 +189,6 @@ export function getStrategyBriefReadiness(
     if (!canGenerateOrganic) blockers.push('organic_brief_incomplete')
     if (!canGeneratePaidPlan) blockers.push('full_paid_brief_incomplete')
     if (launchMissing.length > 0) {
-      blockers.push('paid_launch_not_authorized')
       warnings.push('paid_planning_only', 'no_launch_or_spend')
     }
     safeScope = canGenerate
@@ -218,7 +214,7 @@ export function getStrategyBriefReadiness(
     canGenerate,
     canGenerateOrganic,
     canGeneratePaidPlan,
-    paidPlanningOnly: mode !== 'organic' || launchMissing.length > 0,
+    paidPlanningOnly: mode !== 'organic' && launchMissing.length > 0,
     missingRequiredFields: unique(missingRequiredFields),
     recommendedFields: unique(recommendedFields),
     blockers: unique(blockers),
