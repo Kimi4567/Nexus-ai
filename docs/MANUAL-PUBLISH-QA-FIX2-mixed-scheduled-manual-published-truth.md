@@ -30,6 +30,9 @@ That was false for the mixed state: seven posts remained scheduled and one post 
 - The explainer says the manual publish was user-confirmed and the remaining posts are scheduled in NEXUS only.
 - The regenerate helper says scheduled and manually published posts are saved, and regeneration creates a new draft plan without changing current scheduled or manually published posts.
 - Manually published cards without a live URL now show that the manual publish was user-confirmed and no live post URL was saved.
+- Browser QA found the Performance tab could show zero-value KPI cards and a platform breakdown before analytics existed.
+- Performance UI now waits for actual analytics data before showing KPI cards, platform breakdown, trends, or top-post analytics.
+- Zero metrics are valid only after analytics data exists; manually recorded publish status alone is not analytics proof.
 
 ## What Did Not Change
 
@@ -47,4 +50,6 @@ After merge, run read-only production mixed-state QA:
 - Confirm it shows one manually published post plus seven scheduled posts not published.
 - Confirm regenerate copy does not say nothing is scheduled or published.
 - Confirm the manually published card does not imply platform/API proof when no live URL exists.
+- Confirm Performance shows a waiting/empty state when the manually published post has no analytics data.
+- Confirm Performance does not show KPI cards or platform breakdown until analytics data exists.
 - Confirm Publish, Autopilot, and Performance remain truth-safe.

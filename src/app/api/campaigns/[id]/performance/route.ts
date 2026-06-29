@@ -89,7 +89,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       avgEngagementRate: number
     }>()
 
-    for (const post of publishedPosts) {
+    for (const post of postsWithData) {
       const key = String(post.platform)
       const existing = platformMap.get(key) ?? {
         posts: 0, reach: 0, impressions: 0, engagements: 0, avgEngagementRate: 0,
@@ -161,6 +161,7 @@ export async function GET(req: NextRequest, { params }: Params) {
       summary: {
         totalPosts:        allPosts,
         publishedPosts:    publishedPosts.length,
+        postsWithAnalytics: postsWithData.length,
         scheduledPosts,
         pendingAnalytics,
         totalReach,
