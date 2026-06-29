@@ -453,6 +453,9 @@ ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 14. Do not create a customer-proof content pillar, customer-story hook, or testimonial CTA unless verified proof was provided.
 15. Do not describe this campaign as activated, running, published, scheduled, or live. If the business is already operating, say "business already operating"; the campaign itself remains in planning/review until the user takes later actions.
 16. Do not invent ad budget, campaign budget, spend allocation, CAC, ROAS, or paid media budget. If budget is missing, write "Budget not provided" and list budget as missing data.
+17. Respect the selected Strategy Type exactly. Organic-only must not include paid launch plans. Paid planning must not imply spend, launch, active ads, platform permissions, or connected-account readiness unless those facts were explicitly provided.
+18. If paid inputs are missing, label the paid scope as missing inputs or planning gaps. Do not invent budget, tracking/pixel status, platform readiness, paid launch approval, past results, ROI, benchmarks, competitors, or proof.
+19. Paid outputs are planning-only unless budget approval, tracking readiness, platform readiness, and explicit launch approval are all present in the provided context. If they are not present, state that launch and spend are not included.
 
 Return ONLY valid JSON. No markdown outside the JSON.`
 

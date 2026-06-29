@@ -22,6 +22,7 @@ import { resolveStrategyCharge } from '@/lib/strategy/normalizeStrategyOrder'
 import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 import { tierToPostsPerMonth } from '@/lib/strategy/strategyOrderDisplay'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
@@ -41,7 +42,6 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}))
     const goalOverride = (body?.goal as string | undefined) || 'leads'
-    const budgetOverride = Number(body?.budget) || 5000
     const selectedMediaIds = Array.isArray(body?.mediaIds)
       ? (body.mediaIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0)
       : undefined
@@ -117,6 +117,30 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // STRATEGY-OS-1 — mode-aware Strategy Brief gate before any credit deduction.
+    // Organic may proceed on the core brief. Paid/full must have explicit paid
+    // inputs; no internal default budget may unlock or shape paid generation.
+    const strategyBriefReadiness = getStrategyBriefReadiness({
+      mode: strategyType,
+      brandProfile: brandProfile as any,
+    })
+    if (!strategyBriefReadiness.canGenerate) {
+      return NextResponse.json(
+        {
+          error: strategyBriefReadiness.explanation,
+          code: 'STRATEGY_BRIEF_INCOMPLETE',
+          mode: strategyBriefReadiness.mode,
+          missingRequiredFields: strategyBriefReadiness.missingRequiredFields,
+          recommendedFields: strategyBriefReadiness.recommendedFields,
+          blockers: strategyBriefReadiness.blockers,
+          warnings: strategyBriefReadiness.warnings,
+          safeScope: strategyBriefReadiness.safeScope,
+          redirectUrl: '/brand',
+        },
+        { status: 422 },
+      )
+    }
+
     // -- Unified credit check + deduction (variable, server-computed cost) ----
     // Charge only after workspace, Brand Brain profile, readiness, and order
     // validation have passed. Early setup failures must never spend credits.
@@ -146,7 +170,7 @@ export async function POST(req: NextRequest) {
     // the generation is told to produce. Counts/scope come from getStrategyDeliverables
     // — never from the AI. (Custom > 180 was already 422-blocked above, so the contract
     // here is always supported; the unsupported branch returns DO-NOT-GENERATE anyway.)
-    const order = { ...charge.order, goal: charge.order.goal || goalOverride }
+    const order = { ...charge.order, goal: charge.order.goal || brandProfile.businessGoal || goalOverride }
     const postsPerMonth = tierToPostsPerMonth(freshUser?.subscriptionStatus)
     const deliverables = getStrategyDeliverables(
       order,
@@ -158,8 +182,11 @@ export async function POST(req: NextRequest) {
       companyName: brandProfile.brandName ?? 'My Brand',
       businessType: brandProfile.industry ?? 'General Business',
       targetAudience: brandProfile.targetAudience ?? 'General audience',
-      monthlyBudget: budgetOverride,
-      primaryGoal: goalOverride,
+      // Internal numeric compatibility only. The strategist prompt gets the
+      // real user-provided budget from Brand Brain readiness context. Missing
+      // budget must stay "Not provided" and must never become a default spend.
+      monthlyBudget: 0,
+      primaryGoal: brandProfile.businessGoal || goalOverride,
       // Extended brand brain fields
       competitors: brandProfile.competitorNotes || undefined,
       region: brandProfile.audienceLocation || undefined,
@@ -178,6 +205,7 @@ export async function POST(req: NextRequest) {
         ? brandProfile.audienceDesires.join(', ')
         : undefined,
       primaryOffer: brandProfile.primaryOffer || undefined,
+      currentPlatforms: brandProfile.topPlatforms?.length ? brandProfile.topPlatforms : undefined,
       winningHooks: brandProfile.winningHooks?.length
         ? brandProfile.winningHooks.slice(0, 3).join(' | ')
         : undefined,
@@ -190,7 +218,16 @@ export async function POST(req: NextRequest) {
       // The strategist treats generationInstructions as BINDING scope; counts come from here.
       strategyOrder: order,
       strategyDeliverables: deliverables,
-      generationInstructions: deliverables.generationInstructions,
+      generationInstructions: [
+        deliverables.generationInstructions,
+        `Strategy Brief Readiness Scope: ${strategyBriefReadiness.safeScope}`,
+        strategyBriefReadiness.paidPlanningOnly
+          ? 'Paid scope is planning-only. Do not describe ad launch, spend, platform activation, connected-account readiness, or publishing as included in this run.'
+          : '',
+        strategyBriefReadiness.warnings.includes('verified_proof_missing')
+          ? 'Verified proof is missing. Avoid proof-based claims and recommend collecting proof instead.'
+          : '',
+      ].filter(Boolean).join('\n'),
       organicPostCount: deliverables.organicPostCount,
       detailedCalendarDays: deliverables.detailedCalendarDays,
       roadmapMonths: deliverables.roadmapMonths,

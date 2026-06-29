@@ -19,6 +19,11 @@ import { useAuth } from '@/lib/auth-context'
 import UpgradeModal from '@/components/UpgradeModal'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, BrandReadinessResult, RequiredFieldKey } from '@/lib/brandReadiness'
+import {
+  getStrategyBriefReadiness,
+  type StrategyBriefFieldKey,
+  type StrategyBriefProfileLike,
+} from '@/lib/strategyBriefReadiness'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 // PR-S1b — deterministic Strategy Order Review (display-only; no generation change).
 import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
@@ -196,6 +201,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // Cost confirmation — shown after language selection, before media check
   const [costConfirmed, setCostConfirmed] = useState(false)
   const [creditBalance, setCreditBalance] = useState<number | null>(null)
+  const [strategyBrandProfile, setStrategyBrandProfile] = useState<StrategyBriefProfileLike | null>(null)
+  const [strategyBriefLoading, setStrategyBriefLoading] = useState(false)
 
   const authHeaderRef = useRef(authHeader)
   useEffect(() => { authHeaderRef.current = authHeader }, [authHeader])
@@ -206,6 +213,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
       setLangConfirmed(false)
       setCostConfirmed(false)
       setCreditBalance(null)
+      setStrategyBrandProfile(null)
+      setStrategyBriefLoading(false)
       setTabHiddenDuringRun(false)
     }
   }, [isOpen])
@@ -276,6 +285,16 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           }
         })
         .catch(() => {})
+      setStrategyBriefLoading(true)
+      fetch('/api/brand', {
+        headers: { Authorization: authHeaderRef.current() },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((data: { brandProfile?: StrategyBriefProfileLike | null } | null) => {
+          setStrategyBrandProfile(data?.brandProfile ?? null)
+        })
+        .catch(() => setStrategyBrandProfile(null))
+        .finally(() => setStrategyBriefLoading(false))
       return
     }
 
@@ -390,10 +409,20 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         if (cancelled) return
 
         const readiness = getBrandBrainReadiness(data?.brandProfile as any)
+        const strategyReadiness = getStrategyBriefReadiness({
+          mode: strategyType,
+          brandProfile: data?.brandProfile as StrategyBriefProfileLike | null | undefined,
+        })
 
         if (!readiness.ready) {
           setGateData(readiness)
           setPhase('gate')
+          return
+        }
+
+        if (!strategyReadiness.canGenerate) {
+          setResult({ ok: false, error: strategyReadiness.explanation })
+          setPhase('error')
           return
         }
 
@@ -540,6 +569,46 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // Helper: translate a required field key to a human label
   const fieldLabel = (key: RequiredFieldKey) =>
     bg[`field${key.charAt(0).toUpperCase()}${key.slice(1)}`] ?? key
+
+  const strategyBriefFieldLabel = (key: StrategyBriefFieldKey) => {
+    const en: Record<StrategyBriefFieldKey, string> = {
+      brandName: 'Brand name',
+      industry: 'Industry',
+      description: 'Business description',
+      primaryOffer: 'Primary offer',
+      targetAudience: 'Target audience',
+      businessGoal: 'Business goal',
+      topPlatforms: 'Organic platforms',
+      toneOrLanguage: 'Tone or language preference',
+      marketingBudget: 'Paid budget',
+      conversionDestination: 'Conversion destination',
+      leadHandling: 'Lead handling',
+      audienceLocation: 'Audience or service location',
+      trackingReadiness: 'Tracking readiness',
+      platformReadiness: 'Platform readiness',
+      budgetApproval: 'Budget approval',
+      verifiedProof: 'Verified proof',
+    }
+    const ar: Record<StrategyBriefFieldKey, string> = {
+      brandName: 'اسم العلامة',
+      industry: 'المجال',
+      description: 'وصف النشاط',
+      primaryOffer: 'العرض الأساسي',
+      targetAudience: 'الجمهور المستهدف',
+      businessGoal: 'هدف النشاط',
+      topPlatforms: 'المنصات العضوية',
+      toneOrLanguage: 'النبرة أو اللغة',
+      marketingBudget: 'ميزانية المدفوع',
+      conversionDestination: 'وجهة التحويل',
+      leadHandling: 'التعامل مع العملاء المحتملين',
+      audienceLocation: 'الموقع أو نطاق الخدمة',
+      trackingReadiness: 'جاهزية التتبع',
+      platformReadiness: 'جاهزية المنصة',
+      budgetApproval: 'موافقة الميزانية',
+      verifiedProof: 'إثبات موثّق',
+    }
+    return locale === 'ar' ? ar[key] : en[key]
+  }
 
   const retry = () => {
     clearResultCache()
@@ -735,8 +804,16 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           const typeLabel = ar
             ? { organic: 'عضوية', paid: 'مدفوعة', full: 'كاملة' }[strategyType]
             : { organic: 'Organic', paid: 'Paid', full: 'Full' }[strategyType]
+          const strategyReadiness = getStrategyBriefReadiness({
+            mode: strategyType,
+            brandProfile: strategyBrandProfile,
+          })
           // S1b can only proceed to generation for supported orders.
-          const canGenerate = canAfford && deliverables.supported
+          const canGenerate = canAfford && deliverables.supported && strategyReadiness.canGenerate && !strategyBriefLoading
+          const readinessStatus = strategyReadiness.canGenerate
+            ? (ar ? 'جاهز للتوليد' : 'Ready to generate')
+            : (ar ? 'يحتاج بيانات قبل التوليد' : 'Needs brief inputs before generation')
+          const readinessTone = strategyReadiness.canGenerate ? '#059669' : '#EA580C'
 
           return (
             <div className="p-6">
@@ -855,6 +932,70 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                     ))}
                   </div>
 
+                  {/* STRATEGY-OS-1 — mode-aware Strategy Brief readiness */}
+                  <div className="rounded-xl p-3 mb-3"
+                    style={{
+                      background: strategyReadiness.canGenerate ? '#f0fdf4' : '#fff7ed',
+                      border: `1px solid ${strategyReadiness.canGenerate ? '#bbf7d0' : '#fed7aa'}`,
+                    }}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: readinessTone }}>
+                          {ar ? 'جاهزية بريف الاستراتيجية' : 'Strategy brief readiness'}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-900 mt-0.5">{readinessStatus}</p>
+                      </div>
+                      <span className="px-2 py-1 rounded-lg text-[10px] font-semibold"
+                        style={{ background: '#fff', color: readinessTone, border: `1px solid ${strategyReadiness.canGenerate ? '#bbf7d0' : '#fed7aa'}` }}>
+                        {typeLabel}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-600 mb-2">
+                      {ar ? strategyReadiness.safeScopeAr : strategyReadiness.safeScope}
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5 mb-2">
+                      <div className="rounded-lg px-2 py-1.5 text-[10px]"
+                        style={{ background: '#fff', border: '1px solid #e2e8f0', color: strategyReadiness.canGenerateOrganic ? '#047857' : '#9a3412' }}>
+                        {strategyReadiness.canGenerateOrganic
+                          ? (ar ? 'العضوي جاهز' : 'Organic ready')
+                          : (ar ? 'العضوي يحتاج بيانات' : 'Organic needs inputs')}
+                      </div>
+                      <div className="rounded-lg px-2 py-1.5 text-[10px]"
+                        style={{ background: '#fff', border: '1px solid #e2e8f0', color: strategyReadiness.canGeneratePaidPlan ? '#047857' : '#9a3412' }}>
+                        {strategyReadiness.canGeneratePaidPlan
+                          ? (ar ? 'المدفوع تخطيط فقط' : 'Paid planning only')
+                          : (ar ? 'المدفوع يحتاج بيانات' : 'Paid needs inputs')}
+                      </div>
+                    </div>
+                    {strategyBriefLoading && (
+                      <p className="text-[10px] text-slate-500">
+                        {ar ? 'جارٍ فحص Brand Brain...' : 'Checking Brand Brain...'}
+                      </p>
+                    )}
+                    {strategyReadiness.missingRequiredFields.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-[10px] font-semibold text-orange-700 mb-1">
+                          {ar ? 'أكمل هذه البيانات أولاً:' : 'Complete these inputs first:'}
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {strategyReadiness.missingRequiredFields.map((field) => (
+                            <span key={field} className="px-2 py-0.5 rounded-lg text-[10px]"
+                              style={{ background: '#ffedd5', color: '#9a3412', border: '1px solid #fed7aa' }}>
+                              {strategyBriefFieldLabel(field)}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {strategyReadiness.warnings.includes('verified_proof_missing') && (
+                      <p className="text-[10px] leading-relaxed text-slate-500">
+                        {ar
+                          ? 'الإثبات الموثّق غير مكتمل. يجب أن تتجنب الاستراتيجية أي ادعاءات مبنية على شهادات أو قصص عملاء غير مقدمة.'
+                          : 'Verified proof is missing. The strategy must avoid testimonial, customer-story, award, review, or proof-based claims unless you provide them.'}
+                      </p>
+                    )}
+                  </div>
+
                   {/* Multi-month roadmap explanation */}
                   {deliverables.planningHorizonDays > 30 && (
                     <p className="text-[11px] leading-relaxed mb-3 text-slate-500">
@@ -951,8 +1092,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       <Shield className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FF6B35' }} />
                       <p className="text-[11px] leading-relaxed text-orange-700">
                         {ar
-                          ? 'الاستراتيجية المدفوعة للتخطيط فقط. لن يطلق NEXUS إعلانات أو يصرف ميزانية أو ينشر أو يفعّل حملات بدون موافقة صريحة.'
-                          : 'Paid strategy is planning-only. NEXUS will not launch ads, spend budget, publish, or activate campaigns without explicit approval.'}
+                          ? 'الاستراتيجية المدفوعة للتخطيط فقط. لن يطلق NEXUS إعلانات أو يصرف ميزانية أو ينشر بدون موافقة صريحة وجاهزية تتبع ومنصة.'
+                          : 'Paid strategy is planning-only. NEXUS will not launch ads, spend budget, or publish without explicit approval plus tracking and platform readiness.'}
                       </p>
                     </div>
                   )}
@@ -962,8 +1103,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-orange-600" />
                       <p className="text-[11px] leading-relaxed text-orange-800">
                         {ar
-                          ? 'اخترت استراتيجية كاملة، لكن بعض أجزاء المدفوع تبقى محدودة لأن Brand Brain لا يحتوي بعد على ميزانية واضحة، KPIs، وجهة تحويل، أو تتبع. هذا تخطيط فقط: لن يتم إطلاق إعلانات أو صرف ميزانية أو نشر محتوى.'
-                          : 'You selected a full strategy, but some paid sections remain limited because Brand Brain is missing clear budget, KPIs, conversion destination, or tracking. This is planning only: no ads launch, budget spend, or publishing will happen.'}
+                          ? 'اخترت استراتيجية كاملة، لكن أجزاء المدفوع تحتاج ميزانية ووجهة تحويل وتعامل مع العملاء وجاهزية تتبع ومنصة. لا يتم إطلاق إعلانات أو صرف ميزانية أو نشر محتوى.'
+                          : 'You selected a full strategy, but paid sections need budget, conversion destination, lead handling, tracking, and platform readiness. No ads launch, budget spend, or publishing happens here.'}
                       </p>
                     </div>
                   )}
@@ -1008,7 +1149,22 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mb-2 transition-all hover:brightness-110"
                   style={primaryButtonStyle}>
                   <Rocket className="w-4 h-4" />
-                  {ar ? `توليد الاستراتيجية — ${COST} كريديت` : `Generate strategy — ${COST} credits`}
+                  {ar
+                    ? `${strategyType === 'organic' ? 'توليد استراتيجية عضوية' : strategyType === 'paid' ? 'توليد بريف تخطيط مدفوع' : 'توليد الاستراتيجية'} — ${COST} كريديت`
+                    : `${strategyType === 'organic' ? 'Generate organic strategy' : strategyType === 'paid' ? 'Generate paid planning brief' : 'Generate strategy'} — ${COST} credits`}
+                </button>
+              ) : !strategyReadiness.canGenerate || strategyBriefLoading ? (
+                <button disabled
+                  className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 mb-2 cursor-not-allowed"
+                  style={{ background: '#f1f5f9', color: '#94a3b8', border: '1px solid #e2e8f0' }}>
+                  <AlertTriangle className="w-4 h-4" />
+                  {strategyBriefLoading
+                    ? (ar ? 'جارٍ فحص جاهزية البريف' : 'Checking brief readiness')
+                    : strategyType === 'paid'
+                      ? (ar ? 'راجع مدخلات المدفوع الناقصة' : 'Review missing paid inputs')
+                      : strategyType === 'full'
+                        ? (ar ? 'أكمل مدخلات الاستراتيجية الكاملة' : 'Complete full-strategy inputs')
+                        : (ar ? 'أكمل بريف الاستراتيجية' : 'Complete strategy brief')}
                 </button>
               ) : (
                 <button
