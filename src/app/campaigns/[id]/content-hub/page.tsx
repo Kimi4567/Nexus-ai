@@ -333,10 +333,28 @@ export default function ContentHubPage() {
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const scheduledCount = posts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt)).length
+  const publishedCount = posts.filter(p => p.status === 'PUBLISHED').length
+  const videoPostCount = posts.filter(p => p.isVideoPost).length
+  const approvedOnlyCount = draftCount === 0 && approvedCount > 0 && scheduledCount === 0 && publishedCount === 0
   const operatingState = deriveCampaignOperatingState({ campaign, posts })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
   const visualReadyLabel = isAr ? 'الوسائط جاهزة' : 'Media ready'
+  const mediaPendingLabel = isAr ? 'الوسائط بانتظار التوليد' : 'Media pending'
+  const contentStatusSummary = (() => {
+    if (approvedOnlyCount) {
+      return isAr
+        ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
+        : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+    }
+
+    return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`
+  })()
+  const contentStatusExplainer = approvedOnlyCount
+    ? (isAr
+      ? 'تم اعتماد المحتوى. الصور والوسائط ما زالت مرحلة منفصلة، والجدولة والنشر يحتاجان قراراً منفصلاً.'
+      : 'Content has been approved. Media generation remains separate, and scheduling or publishing still requires a separate decision.')
+    : t('contentHub.countExplainer')
   const imageGenerationTruth = getCreditActionTruth({
     action: 'IMAGE_GENERATION',
     creditsRemaining,
@@ -368,9 +386,13 @@ export default function ContentHubPage() {
   const contentPlanRequirementDisclosure = isAr
     ? `يتطلب ${contentPlanCostLabel}.`
     : `Requires ${contentPlanCostLabel}.`
-  const contentPlanDisclosure = isAr
-    ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
-    : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.'
+  const contentPlanDisclosure = approvedOnlyCount
+    ? (isAr
+      ? 'المنشورات المعتمدة محفوظة. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تجدول أو تنشر المحتوى الحالي.'
+      : 'Approved posts are saved. Regenerating creates a new draft plan for review only and does not schedule or publish current content.')
+    : (isAr
+      ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
+      : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.')
   const contentPlanAutopilotDisclosure = isAr
     ? 'لا يتم تفعيل الأوتوبايلوت.'
     : 'Autopilot is not activated.'
@@ -811,9 +833,9 @@ export default function ContentHubPage() {
             {posts.length > 0 ? (
               <>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  {`${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${posts.filter(p => p.isVideoPost).length} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`}
+                  {contentStatusSummary}
                 </p>
-                <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">{t('contentHub.countExplainer')}</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">{contentStatusExplainer}</p>
                 <div className="mt-3 inline-flex max-w-2xl items-start gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm">
                   <span className="mt-0.5 h-2 w-2 rounded-full bg-violet-500" />
                   <span>
@@ -1070,7 +1092,7 @@ export default function ContentHubPage() {
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('contentHub.statusLabel')}</span>
               {(['ALL', 'PENDING', 'DONE', 'SCHEDULED', 'PUBLISHED'] as const).map(s => {
                 const isActive = statusFilter === s
-                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? t('contentHub.filterPending') : s === 'DONE' ? `✓ ${visualReadyLabel}` : s === 'SCHEDULED' ? `🗓 ${t('contentHub.filterScheduled')}` : `✅ ${t('contentHub.filterPublished')}`
+                const label = s === 'ALL' ? t('contentHub.filterAll') : s === 'PENDING' ? mediaPendingLabel : s === 'DONE' ? `✓ ${visualReadyLabel}` : s === 'SCHEDULED' ? `🗓 ${t('contentHub.filterScheduled')}` : `✅ ${t('contentHub.filterPublished')}`
                 const activeColor = s === 'DONE' ? '#10b981' : s === 'PENDING' ? '#f59e0b' : s === 'SCHEDULED' ? '#6366f1' : s === 'PUBLISHED' ? '#10b981' : '#7c3aed'
                 return (
                   <button key={s} onClick={() => setStatusFilter(s)}
@@ -1759,9 +1781,32 @@ function PostCard({
   }[status] ?? '#6b7280'
 
   const statusLabel = {
-    PENDING: t('contentHub.statusPending'), GENERATING: t('contentHub.statusGenerating'), DONE: isAr ? 'الوسائط جاهزة' : 'Media ready',
+    PENDING: isAr ? 'الوسائط بانتظار التوليد' : 'Media pending', GENERATING: t('contentHub.statusGenerating'), DONE: isAr ? 'الوسائط جاهزة' : 'Media ready',
     FAILED: t('contentHub.statusFailed'), AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
   }[status] ?? status
+
+  const lifecycleBadge = {
+    DRAFT: {
+      label: isAr ? 'مسودة للمراجعة' : 'Draft for review',
+      color: '#7c3aed',
+    },
+    APPROVED: {
+      label: isAr ? 'معتمد، غير مجدول' : 'Approved, not scheduled',
+      color: '#059669',
+    },
+    SCHEDULED: {
+      label: isAr ? 'مجدول' : 'Scheduled',
+      color: '#6366f1',
+    },
+    PUBLISHED: {
+      label: isAr ? 'منشور' : 'Published',
+      color: '#10b981',
+    },
+    FAILED: {
+      label: isAr ? 'يحتاج مراجعة' : 'Needs review',
+      color: '#ef4444',
+    },
+  }[post.status]
 
   const scheduledDate = post.scheduledAt
     ? new Date(post.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -1802,6 +1847,12 @@ function PostCard({
               className="text-[10px] font-black px-1.5 py-0.5 rounded-md cursor-help"
               style={{ background: `${quality.color}15`, color: quality.color, border: `1px solid ${quality.color}35`, letterSpacing: '0.02em' }}>
               {quality.grade}
+            </span>
+          )}
+          {lifecycleBadge && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: `${lifecycleBadge.color}14`, color: lifecycleBadge.color, border: `1px solid ${lifecycleBadge.color}2E` }}>
+              {lifecycleBadge.label}
             </span>
           )}
           <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
