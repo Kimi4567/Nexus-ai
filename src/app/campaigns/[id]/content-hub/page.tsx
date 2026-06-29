@@ -185,6 +185,10 @@ function hasValidDate(value: string | Date | null | undefined): boolean {
   return !Number.isNaN(date.getTime())
 }
 
+function isUserConfirmedManualPublished(post: Pick<ContentPost, 'status' | 'manuallyPublishedAt' | 'publishMode'>): boolean {
+  return post.status === 'PUBLISHED' && Boolean(post.manuallyPublishedAt || post.publishMode !== 'AUTO')
+}
+
 export default function ContentHubPage() {
   const params = useParams()
   const router = useRouter()
@@ -335,10 +339,7 @@ export default function ContentHubPage() {
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const scheduledCount = posts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt)).length
   const publishedCount = posts.filter(p => p.status === 'PUBLISHED').length
-  const manuallyPublishedCount = posts.filter(p =>
-    p.status === 'PUBLISHED' &&
-    (p.manuallyPublishedAt || p.publishMode !== 'AUTO' || !p.platformUrl)
-  ).length
+  const manuallyPublishedCount = posts.filter(isUserConfirmedManualPublished).length
   const videoPostCount = posts.filter(p => p.isVideoPost).length
   const approvedOnlyCount = draftCount === 0 && approvedCount > 0 && scheduledCount === 0 && publishedCount === 0
   const scheduledOnlyCount = draftCount === 0 && approvedCount === 0 && scheduledCount > 0 && publishedCount === 0
@@ -1968,7 +1969,7 @@ function PostCard({
           {post.platformUrl && (
             <a href={post.platformUrl} target="_blank" rel="noopener noreferrer" className="block text-[10px] text-[#5E5CE6] hover:underline mt-1 truncate">{post.platformUrl}</a>
           )}
-          {!post.platformUrl && (
+          {isUserConfirmedManualPublished(post) && !post.platformUrl && (
             <p className="text-[10px] text-slate-400 mt-1">{t('contentHub.manualNoPlatformProof')}</p>
           )}
         </div>

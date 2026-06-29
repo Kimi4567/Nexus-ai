@@ -24,6 +24,8 @@ That was false for the mixed state: seven posts remained scheduled and one post 
 ## What Changed
 
 - Content Hub now detects the mixed state where there are no draft/approved posts, at least one scheduled post, and at least one manually published post.
+- Manual-published detection now requires explicit manual evidence: `manuallyPublishedAt`, or non-`AUTO` `publishMode` as a legacy/manual fallback.
+- Missing `platformUrl` alone does not classify a post as manually published.
 - The header now describes the mixed state instead of draft-review fallback.
 - The explainer says the manual publish was user-confirmed and the remaining posts are scheduled in NEXUS only.
 - The regenerate helper says scheduled and manually published posts are saved, and regeneration creates a new draft plan without changing current scheduled or manually published posts.
