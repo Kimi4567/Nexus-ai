@@ -76,6 +76,28 @@ export interface StrategyBriefReadinessResult {
   explanationAr: string
 }
 
+export interface StrategyPageReadinessSurface {
+  organic: {
+    ready: boolean
+    label: string
+    labelAr: string
+  }
+  paid: {
+    ready: boolean
+    label: string
+    labelAr: string
+  }
+  full: {
+    ready: boolean
+    label: string
+    labelAr: string
+  }
+  nextAction: {
+    label: string
+    labelAr: string
+  }
+}
+
 const hasText = (value: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0
 
@@ -223,5 +245,77 @@ export function getStrategyBriefReadiness(
     safeScopeAr,
     explanation,
     explanationAr,
+  }
+}
+
+export function getStrategyPageReadinessSurface(
+  brandProfile: StrategyBriefProfileLike | null | undefined,
+): StrategyPageReadinessSurface {
+  const organic = getStrategyBriefReadiness({ mode: 'organic', brandProfile })
+  const paid = getStrategyBriefReadiness({ mode: 'paid', brandProfile })
+  const full = getStrategyBriefReadiness({ mode: 'full', brandProfile })
+
+  const organicSurface = organic.canGenerateOrganic
+    ? {
+        ready: true,
+        label: 'Ready for an initial brief',
+        labelAr: 'جاهز لموجز أولي',
+      }
+    : {
+        ready: false,
+        label: 'Needs core data',
+        labelAr: 'يحتاج بيانات أساسية',
+      }
+
+  const paidSurface = paid.canGeneratePaidPlan
+    ? {
+        ready: true,
+        label: 'Planning-only',
+        labelAr: 'تخطيط فقط',
+      }
+    : {
+        ready: false,
+        label: 'Needs paid inputs',
+        labelAr: 'تحتاج بيانات المدفوع',
+      }
+
+  const fullSurface = full.canGenerate
+    ? {
+        ready: true,
+        label: 'Organic + paid planning ready',
+        labelAr: 'العضوي والتخطيط المدفوع جاهزان',
+      }
+    : organic.canGenerateOrganic
+      ? {
+          ready: false,
+          label: 'Organic ready · paid inputs missing',
+          labelAr: 'العضوي جاهز · بيانات المدفوع ناقصة',
+        }
+      : {
+          ready: false,
+          label: 'Needs core and paid inputs',
+          labelAr: 'تحتاج بيانات أساسية ومدفوعة',
+        }
+
+  const nextAction = full.canGenerate
+    ? {
+        label: 'Review strategy / run planning update',
+        labelAr: 'راجع الاستراتيجية / شغّل تحديث تخطيطي',
+      }
+    : organic.canGenerateOrganic
+      ? {
+          label: 'Review strategy / complete paid brief',
+          labelAr: 'راجع الاستراتيجية / أكمل بريف المدفوع',
+        }
+      : {
+          label: 'Complete Brand Brain',
+          labelAr: 'أكمل Brand Brain',
+        }
+
+  return {
+    organic: organicSurface,
+    paid: paidSurface,
+    full: fullSurface,
+    nextAction,
   }
 }

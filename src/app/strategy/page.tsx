@@ -21,7 +21,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { getStrategyCapabilities, BrandReadinessStatus } from '@/lib/brandReadiness'
+import { BrandReadinessStatus } from '@/lib/brandReadiness'
+import { getStrategyPageReadinessSurface } from '@/lib/strategyBriefReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import AppShell from '@/components/AppShell'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
@@ -183,11 +184,11 @@ export default function StrategyPage() {
         ]
 
   const brandActive = brandStatus === 'active'
-  // PX-2B.1 — capability-specific, LABEL-ONLY readiness from the same utility
-  // /brand uses (getStrategyCapabilities). This prevents a coarse "needs data"
-  // here from conflicting with "organic ready" on /brand. The headline is the
-  // memory maturity STAGE (Early/Developing/Strong), never a bare number.
-  const caps = getStrategyCapabilities(brandProfile)
+  // STRATEGY-OS-1B — page labels use the same Strategy Brief readiness contract
+  // as the generation modal, so Full cannot read ready when paid inputs are missing.
+  // The headline remains the memory maturity STAGE (Early/Developing/Strong),
+  // never a bare number.
+  const readinessSurface = getStrategyPageReadinessSurface(brandProfile)
   const memStage = brandStatus === 'active'
     ? (ar ? 'قوية' : 'Strong')
     : brandStatus === 'building'
@@ -195,12 +196,14 @@ export default function StrategyPage() {
       : (ar ? 'مبكرة' : 'Early')
   const capRows: { label: string; value: string; ready?: boolean }[] = [
     { label: ar ? 'العضوي' : 'Organic',
-      value: caps.contentStrategy.ready ? (ar ? 'جاهز لموجز أولي' : 'Ready for an initial brief') : (ar ? 'يحتاج بيانات أساسية' : 'Needs core data'),
-      ready: caps.contentStrategy.ready },
+      value: ar ? readinessSurface.organic.labelAr : readinessSurface.organic.label,
+      ready: readinessSurface.organic.ready },
     { label: ar ? 'الاستراتيجية الكاملة' : 'Full strategy',
-      value: caps.fullStrategy.ready ? (ar ? 'جاهزة لاستراتيجية كاملة' : 'Ready for full strategy') : (ar ? 'تحتاج معلومات إضافية' : 'Needs more information'),
-      ready: caps.fullStrategy.ready },
-    { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', value: ar ? 'للتخطيط فقط' : 'Planning-only' },
+      value: ar ? readinessSurface.full.labelAr : readinessSurface.full.label,
+      ready: readinessSurface.full.ready },
+    { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads',
+      value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label,
+      ready: readinessSurface.paid.ready },
     { label: ar ? 'التحليلات' : 'Analytics', value: ar ? 'غير متصلة' : 'Not connected' },
     { label: ar ? 'أتمتة النشر' : 'Publishing automation', value: ar ? 'غير مفعّلة' : 'Not enabled' },
   ]
@@ -357,8 +360,8 @@ export default function StrategyPage() {
                 {[
                   { label: ar ? 'اتجاه الاستراتيجية' : 'Strategy direction', value: strategyStatusText },
                   { label: ar ? 'خطة المحتوى العضوي' : 'Organic content plan', value: ar ? 'متاحة للمراجعة' : 'Available to review' },
-                  { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: ar ? 'تخطيط فقط' : 'Planning-only' },
-                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? 'مراجعة الاستراتيجية' : 'Review strategy' },
+                  { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label },
+                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? readinessSurface.nextAction.labelAr : readinessSurface.nextAction.label },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl px-3 py-3" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.06)' }}>
                     <p className="text-[11px] font-semibold" style={{ color: '#94a3b8' }}>{item.label}</p>
