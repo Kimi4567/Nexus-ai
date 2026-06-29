@@ -336,6 +336,7 @@ export default function ContentHubPage() {
   const publishedCount = posts.filter(p => p.status === 'PUBLISHED').length
   const videoPostCount = posts.filter(p => p.isVideoPost).length
   const approvedOnlyCount = draftCount === 0 && approvedCount > 0 && scheduledCount === 0 && publishedCount === 0
+  const scheduledOnlyCount = draftCount === 0 && approvedCount === 0 && scheduledCount > 0 && publishedCount === 0
   const operatingState = deriveCampaignOperatingState({ campaign, posts })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
@@ -347,14 +348,23 @@ export default function ContentHubPage() {
         ? `${approvedCount} منشورات معتمدة بانتظار الجدولة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
         : `${approvedCount} approved posts awaiting scheduling · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
     }
+    if (scheduledOnlyCount) {
+      return isAr
+        ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
+        : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+    }
 
     return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`
   })()
-  const contentStatusExplainer = approvedOnlyCount
+  const contentStatusExplainer = scheduledOnlyCount
     ? (isAr
-      ? 'تم اعتماد المحتوى. الصور والوسائط ما زالت مرحلة منفصلة، والجدولة والنشر يحتاجان قراراً منفصلاً.'
-      : 'Content has been approved. Media generation remains separate, and scheduling or publishing still requires a separate decision.')
-    : t('contentHub.countExplainer')
+      ? 'المحتوى مجدول فقط. النشر والوسائط والأوتوبايلوت ما زالت خطوات منفصلة.'
+      : 'Content is scheduled only. Publishing, media generation, and Autopilot remain separate steps.')
+    : approvedOnlyCount
+      ? (isAr
+        ? 'تم اعتماد المحتوى. الصور والوسائط ما زالت مرحلة منفصلة، والجدولة والنشر يحتاجان قراراً منفصلاً.'
+        : 'Content has been approved. Media generation remains separate, and scheduling or publishing still requires a separate decision.')
+      : t('contentHub.countExplainer')
   const imageGenerationTruth = getCreditActionTruth({
     action: 'IMAGE_GENERATION',
     creditsRemaining,
@@ -386,13 +396,17 @@ export default function ContentHubPage() {
   const contentPlanRequirementDisclosure = isAr
     ? `يتطلب ${contentPlanCostLabel}.`
     : `Requires ${contentPlanCostLabel}.`
-  const contentPlanDisclosure = approvedOnlyCount
+  const contentPlanDisclosure = scheduledOnlyCount
     ? (isAr
-      ? 'المنشورات المعتمدة محفوظة. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تجدول أو تنشر المحتوى الحالي.'
-      : 'Approved posts are saved. Regenerating creates a new draft plan for review only and does not schedule or publish current content.')
-    : (isAr
-      ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
-      : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.')
+      ? 'المحتوى المجدول محفوظ. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تنشر المحتوى المجدول.'
+      : 'Scheduled posts are saved. Regenerating creates a new draft plan for review only and does not publish scheduled content.')
+    : approvedOnlyCount
+      ? (isAr
+        ? 'المنشورات المعتمدة محفوظة. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تجدول أو تنشر المحتوى الحالي.'
+        : 'Approved posts are saved. Regenerating creates a new draft plan for review only and does not schedule or publish current content.')
+      : (isAr
+        ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
+        : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.')
   const contentPlanAutopilotDisclosure = isAr
     ? 'لا يتم تفعيل الأوتوبايلوت.'
     : 'Autopilot is not activated.'
@@ -909,7 +923,7 @@ export default function ContentHubPage() {
                     style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(5,150,105,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
                     {scheduledCount > 0
-                      ? (isAr ? 'المحتوى المعتمد مجدول' : 'Approved content scheduled')
+                      ? (isAr ? 'المحتوى مجدول فقط' : 'Content scheduled only')
                       : (isAr ? 'اكتملت مراجعة المحتوى' : 'Content review complete')}
                   </div>
                 )}

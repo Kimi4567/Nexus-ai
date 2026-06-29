@@ -3061,8 +3061,12 @@ function CampaignDetailPageInner() {
                       <h4 className="flex items-center gap-2 text-sm font-semibold text-slate-950">
                         <span>📅</span>
                         {locale === 'ar'
-                          ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'قائمة المحتوى المجدول' : 'قائمة المحتوى المخطط'} — ${autopilotQueue.length} منشور`
-                          : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Scheduled content queue' : 'Planned content queue'} — ${autopilotQueue.length} posts`}
+                          ? campaign.autopilotEnabled
+                            ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'قائمة الأوتوبايلوت المجدولة' : 'قائمة الأوتوبايلوت المخططة'} — ${autopilotQueue.length} منشور`
+                            : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'محتوى مجدول يدويًا — الأوتوبايلوت غير مفعّل' : 'محتوى مخطط — الأوتوبايلوت غير مفعّل'} — ${autopilotQueue.length} منشور`
+                          : campaign.autopilotEnabled
+                            ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Autopilot scheduled queue' : 'Autopilot planned queue'} — ${autopilotQueue.length} posts`
+                            : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Manual scheduled content — Autopilot not enabled' : 'Planned content — Autopilot not enabled'} — ${autopilotQueue.length} posts`}
                       </h4>
                     </div>
                     <div className="divide-y divide-slate-100">
@@ -3106,7 +3110,7 @@ function CampaignDetailPageInner() {
                                 </span>
                                 {!post.imageUrl && post.status === 'SCHEDULED' && (
                                   <span className="text-xs text-amber-700">
-                                    {locale === 'ar' ? '⏳ الصورة تُولَّد تلقائياً' : '⏳ Image auto-generating'}
+                                    {locale === 'ar' ? 'الوسائط بانتظار التوليد — لا يوجد توليد صور نشط' : 'Media pending — no image generation running'}
                                   </span>
                                 )}
                               </div>
