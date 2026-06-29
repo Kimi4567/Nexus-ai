@@ -142,6 +142,23 @@ export default function SocialAnalytics({ campaignId }: SocialAnalyticsProps) {
     )
   }
 
+  const postsWithInsights = posts.filter(post => post.insights).length
+  if (postsWithInsights === 0) {
+    return (
+      <div className="text-center py-10 space-y-2">
+        <div className="text-4xl">📊</div>
+        <p className="text-sm font-semibold text-slate-950">
+          {ar ? 'لا توجد بيانات أداء منشورة بعد' : 'No published performance data yet'}
+        </p>
+        <p className="mx-auto max-w-xl text-sm text-slate-500">
+          {ar
+            ? 'تم تسجيل محتوى منشور أو منشور يدويًا، لكن لم يتم جلب بيانات تحليلية بعد.'
+            : 'Published or manually recorded content exists, but analytics have not been fetched yet.'}
+        </p>
+      </div>
+    )
+  }
+
   // ── Main UI ─────────────────────────────────────────────────────────────────
 
   return (

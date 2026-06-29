@@ -185,6 +185,10 @@ function hasValidDate(value: string | Date | null | undefined): boolean {
   return !Number.isNaN(date.getTime())
 }
 
+function isUserConfirmedManualPublished(post: Pick<ContentPost, 'status' | 'manuallyPublishedAt' | 'publishMode'>): boolean {
+  return post.status === 'PUBLISHED' && Boolean(post.manuallyPublishedAt || post.publishMode !== 'AUTO')
+}
+
 export default function ContentHubPage() {
   const params = useParams()
   const router = useRouter()
@@ -335,9 +339,11 @@ export default function ContentHubPage() {
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
   const scheduledCount = posts.filter(p => p.status === 'SCHEDULED' && hasValidDate(p.scheduledAt)).length
   const publishedCount = posts.filter(p => p.status === 'PUBLISHED').length
+  const manuallyPublishedCount = posts.filter(isUserConfirmedManualPublished).length
   const videoPostCount = posts.filter(p => p.isVideoPost).length
   const approvedOnlyCount = draftCount === 0 && approvedCount > 0 && scheduledCount === 0 && publishedCount === 0
   const scheduledOnlyCount = draftCount === 0 && approvedCount === 0 && scheduledCount > 0 && publishedCount === 0
+  const mixedScheduledManualPublishedCount = draftCount === 0 && approvedCount === 0 && scheduledCount > 0 && manuallyPublishedCount > 0
   const operatingState = deriveCampaignOperatingState({ campaign, posts })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
@@ -354,10 +360,19 @@ export default function ContentHubPage() {
         ? `${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
         : `${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
     }
+    if (mixedScheduledManualPublishedCount) {
+      return isAr
+        ? `${manuallyPublishedCount} منشور تم تأكيد نشره يدويًا · ${scheduledCount} منشورات مجدولة — غير منشورة · ${totalImagePosts} خانات صور · ${videoPostCount} خانات فيديو · ${doneCount} عناصر مرئية جاهزة`
+        : `${manuallyPublishedCount} manually published post${manuallyPublishedCount === 1 ? '' : 's'} · ${scheduledCount} scheduled posts — not published · ${totalImagePosts} image slots · ${videoPostCount} video slots · ${doneCount} visuals generated`
+    }
 
     return `${posts.length} ${t('contentHub.draftsToReview')} · ${totalImagePosts} ${t('contentHub.imageSlots')} · ${videoPostCount} ${t('contentHub.videoSlots')} · ${doneCount} ${t('contentHub.visualsGenerated')}`
   })()
-  const contentStatusExplainer = scheduledOnlyCount
+  const contentStatusExplainer = mixedScheduledManualPublishedCount
+    ? (isAr
+      ? `تم تسجيل ${manuallyPublishedCount} منشور كمنشور يدويًا بواسطة المستخدم. بقية المنشورات مجدولة داخل NEXUS فقط وغير منشورة.`
+      : `${manuallyPublishedCount} post${manuallyPublishedCount === 1 ? ' was' : 's were'} marked as manually published by the user. The remaining posts are scheduled in NEXUS only and are not published.`)
+    : scheduledOnlyCount
     ? (isAr
       ? 'المحتوى مجدول فقط. النشر والوسائط والأوتوبايلوت ما زالت خطوات منفصلة.'
       : 'Content is scheduled only. Publishing, media generation, and Autopilot remain separate steps.')
@@ -397,7 +412,11 @@ export default function ContentHubPage() {
   const contentPlanRequirementDisclosure = isAr
     ? `يتطلب ${contentPlanCostLabel}.`
     : `Requires ${contentPlanCostLabel}.`
-  const contentPlanDisclosure = scheduledOnlyCount
+  const contentPlanDisclosure = mixedScheduledManualPublishedCount
+    ? (isAr
+      ? 'المنشورات المجدولة والمنشورات المؤكدة يدويًا محفوظة. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تغيّر المنشورات الحالية.'
+      : 'Scheduled and manually published posts are saved. Regenerating creates a new draft plan for review only and does not change current scheduled or manually published posts.')
+    : scheduledOnlyCount
     ? (isAr
       ? 'المحتوى المجدول محفوظ. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تنشر المحتوى المجدول.'
       : 'Scheduled posts are saved. Regenerating creates a new draft plan for review only and does not publish scheduled content.')
@@ -937,7 +956,9 @@ export default function ContentHubPage() {
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
                     style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(5,150,105,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
-                    {scheduledCount > 0
+                    {mixedScheduledManualPublishedCount
+                      ? (isAr ? 'منشور يدويًا + مجدول' : 'Manual publish + scheduled')
+                      : scheduledCount > 0
                       ? (isAr ? 'المحتوى مجدول فقط' : 'Content scheduled only')
                       : (isAr ? 'اكتملت مراجعة المحتوى' : 'Content review complete')}
                   </div>
@@ -1947,6 +1968,9 @@ function PostCard({
           </span>
           {post.platformUrl && (
             <a href={post.platformUrl} target="_blank" rel="noopener noreferrer" className="block text-[10px] text-[#5E5CE6] hover:underline mt-1 truncate">{post.platformUrl}</a>
+          )}
+          {isUserConfirmedManualPublished(post) && !post.platformUrl && (
+            <p className="text-[10px] text-slate-400 mt-1">{t('contentHub.manualNoPlatformProof')}</p>
           )}
         </div>
       )}

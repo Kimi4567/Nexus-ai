@@ -3214,6 +3214,21 @@ function CampaignDetailPageInner() {
                       </div>
                     )
                   }
+                  if (Number(s.postsWithAnalytics ?? 0) <= 0) {
+                    return (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+                        <div className="text-4xl mb-3">📊</div>
+                        <h3 className="mb-1 text-base font-semibold text-slate-950">
+                          {locale === 'ar' ? 'لا توجد بيانات أداء منشورة بعد' : 'No published performance data yet'}
+                        </h3>
+                        <p className="mx-auto max-w-xl text-sm text-slate-500">
+                          {locale === 'ar'
+                            ? 'تم تسجيل محتوى منشور أو منشور يدويًا، لكن لم يتم جلب بيانات تحليلية بعد. لا يعرض NEXUS مؤشرات أداء حتى توجد بيانات تحليلية حقيقية.'
+                            : 'Published or manually recorded content exists, but analytics have not been fetched yet. NEXUS does not show KPI cards until real analytics data is available.'}
+                        </p>
+                      </div>
+                    )
+                  }
                   const platforms: Record<string, any> = perfData.platformBreakdown ?? {}
                   const topPosts: any[] = perfData.topPosts ?? []
                   const trend: any[] = perfData.trend ?? []
