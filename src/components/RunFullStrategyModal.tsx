@@ -804,6 +804,17 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           const typeLabel = ar
             ? { organic: 'عضوية', paid: 'مدفوعة', full: 'كاملة' }[strategyType]
             : { organic: 'Organic', paid: 'Paid', full: 'Full' }[strategyType]
+          const generationTitle = ar
+            ? {
+                organic: 'توليد استراتيجية عضوية',
+                paid: 'توليد بريف تخطيط مدفوع',
+                full: 'توليد استراتيجية كاملة',
+              }[strategyType]
+            : {
+                organic: 'Generate organic strategy',
+                paid: 'Generate paid planning brief',
+                full: 'Generate full strategy',
+              }[strategyType]
           const strategyReadiness = getStrategyBriefReadiness({
             mode: strategyType,
             brandProfile: strategyBrandProfile,
@@ -829,10 +840,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <Zap className="w-7 h-7" style={{ color: '#4F46E5' }} />
                 </div>
                 <h2 className="text-xl font-bold text-slate-950 mb-1">
-                  {locale === 'ar' ? 'تأكيد تشغيل الاستراتيجية' : 'Confirm Strategy Run'}
+                  {locale === 'ar' ? 'مراجعة تكلفة توليد الاستراتيجية' : 'Review strategy generation cost'}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  {locale === 'ar' ? 'راجع التكلفة قبل البدء' : 'Review the cost before starting'}
+                  {locale === 'ar' ? 'راجع التكلفة والنطاق قبل التوليد' : 'Review the cost and scope before generation'}
                 </p>
               </div>
 
@@ -849,7 +860,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-slate-950">
-                        {locale === 'ar' ? 'تشغيل الاستراتيجية الكاملة' : 'Full Strategy Run'}
+                        {generationTitle}
                       </p>
                       <p className="text-[10px] text-slate-500">
                         {locale === 'ar' ? 'استراتيجي تسويق ذكي من Brand Brain' : 'AI strategist, built from your Brand Brain'}
@@ -1150,8 +1161,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   style={primaryButtonStyle}>
                   <Rocket className="w-4 h-4" />
                   {ar
-                    ? `${strategyType === 'organic' ? 'توليد استراتيجية عضوية' : strategyType === 'paid' ? 'توليد بريف تخطيط مدفوع' : 'توليد الاستراتيجية'} — ${COST} كريديت`
-                    : `${strategyType === 'organic' ? 'Generate organic strategy' : strategyType === 'paid' ? 'Generate paid planning brief' : 'Generate strategy'} — ${COST} credits`}
+                    ? `${generationTitle} — ${COST} كريديت`
+                    : `${generationTitle} — ${COST} credits`}
                 </button>
               ) : !strategyReadiness.canGenerate || strategyBriefLoading ? (
                 <button disabled

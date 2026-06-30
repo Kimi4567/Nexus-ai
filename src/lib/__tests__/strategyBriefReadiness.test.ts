@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getStrategyBriefReadiness, type StrategyBriefProfileLike } from '@/lib/strategyBriefReadiness'
+import {
+  getStrategyBriefReadiness,
+  getStrategyPageReadinessSurface,
+  type StrategyBriefProfileLike,
+} from '@/lib/strategyBriefReadiness'
 
 const organicReadyBrand: StrategyBriefProfileLike = {
   brandName: 'Cairo Bloom Coffee',
@@ -110,5 +114,44 @@ describe('getStrategyBriefReadiness', () => {
     expect(result.recommendedFields).toContain('verifiedProof')
     expect(result.warnings).toContain('verified_proof_missing')
     expect(result.blockers).not.toContain('organic_brief_incomplete')
+  })
+
+  it('labels the strategy page as organic-ready but full-needing-paid-inputs when paid data is incomplete', () => {
+    const surface = getStrategyPageReadinessSurface(organicReadyBrand)
+
+    expect(surface.organic.ready).toBe(true)
+    expect(surface.organic.label).toBe('Ready for an initial brief')
+    expect(surface.paid.ready).toBe(false)
+    expect(surface.paid.label).toBe('Needs paid inputs')
+    expect(surface.full.ready).toBe(false)
+    expect(surface.full.label).toBe('Organic ready · paid inputs missing')
+    expect(surface.full.label).not.toBe('Ready for full strategy')
+    expect(surface.nextAction.label).toBe('Review strategy / complete paid brief')
+  })
+
+  it('labels the strategy page as planning-ready without implying launch or spend when paid brief exists', () => {
+    const surface = getStrategyPageReadinessSurface(paidReadyBrand)
+
+    expect(surface.organic.ready).toBe(true)
+    expect(surface.paid.ready).toBe(true)
+    expect(surface.paid.label).toBe('Planning-only')
+    expect(surface.full.ready).toBe(true)
+    expect(surface.full.label).toBe('Organic + paid planning ready')
+    expect(surface.full.label).not.toContain('launch')
+    expect(surface.full.label).not.toContain('spend')
+  })
+
+  it('labels the strategy page as not ready when organic core fields are incomplete', () => {
+    const surface = getStrategyPageReadinessSurface({
+      ...organicReadyBrand,
+      primaryOffer: '',
+      targetAudience: '',
+    })
+
+    expect(surface.organic.ready).toBe(false)
+    expect(surface.organic.label).toBe('Needs core data')
+    expect(surface.paid.ready).toBe(false)
+    expect(surface.full.ready).toBe(false)
+    expect(surface.full.label).toBe('Needs core and paid inputs')
   })
 })
