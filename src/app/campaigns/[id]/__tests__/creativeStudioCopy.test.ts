@@ -12,7 +12,12 @@ const STUDIO_SRC = readFileSync(
   'utf8',
 )
 
-const TOUCHED_APP_SRC = `${CAMPAIGN_SRC}\n${STUDIO_SRC}`
+const VISUAL_GENERATOR_SRC = readFileSync(
+  resolve(process.cwd(), 'src/components/VisualGenerator.tsx'),
+  'utf8',
+)
+
+const TOUCHED_APP_SRC = `${CAMPAIGN_SRC}\n${STUDIO_SRC}\n${VISUAL_GENERATOR_SRC}`
 
 describe('CS-1 creative IA copy', () => {
   it('does not claim a Canva-like or full visual design studio in touched app surfaces', () => {
@@ -26,8 +31,16 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).not.toMatch(/fully automated/)
     expect(CAMPAIGN_SRC).not.toMatch(/ad-ready/)
     expect(CAMPAIGN_SRC).not.toMatch(/publish-ready/)
-    expect(CAMPAIGN_SRC).toMatch(/Generated visuals are not attached to posts or published automatically/)
-    expect(CAMPAIGN_SRC).toMatch(/NEXUS does not publish content or start paid ad campaigns from this tab/)
+    expect(CAMPAIGN_SRC).toMatch(/Final post media is reviewed in Content Hub/)
+    expect(CAMPAIGN_SRC).toMatch(/Campaign concept visuals are gallery assets for review/)
+    expect(CAMPAIGN_SRC).toMatch(/NEXUS does not publish, schedule, or start paid campaigns from this tab/)
+  })
+
+  it('frames the campaign visual generator as concept-gallery output only', () => {
+    expect(VISUAL_GENERATOR_SRC).toMatch(/Campaign concept visuals/)
+    expect(VISUAL_GENERATOR_SRC).toMatch(/Generate campaign concept visual/)
+    expect(VISUAL_GENERATOR_SRC).not.toMatch(/Generate visual['"`]/)
+    expect(VISUAL_GENERATOR_SRC).not.toMatch(/Campaign Visuals/)
   })
 
   it('identifies studio as a text lab, not a publishing or design editor', () => {

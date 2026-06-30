@@ -291,7 +291,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
     isUnlimited,
   })
   const generationLocked = !billingLoading && !imageGenerationTruth.canAfford
-  const lockedLabel = 'Add credits to generate visual'
+  const lockedLabel = 'Add credits to generate campaign concept visual'
 
   const fetchVisuals = useCallback(async () => {
     const token = authHeader()
@@ -390,9 +390,9 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
       {/* Header + generate button */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold text-slate-950">Campaign Visuals</div>
+          <div className="text-sm font-semibold text-slate-950">Campaign concept visuals</div>
           <div className="mt-0.5 text-[11px] text-slate-500">
-            {visuals.length > 0 ? `${visuals.length} visual${visuals.length === 1 ? '' : 's'} generated` : 'No visuals yet'}
+            {visuals.length > 0 ? `${visuals.length} concept visual${visuals.length === 1 ? '' : 's'} in gallery` : 'No concept visuals yet'}
           </div>
         </div>
         <button
@@ -404,7 +404,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M6 1v10M1 6h10" strokeLinecap="round" />
           </svg>
-          {generationLocked ? 'Add credits to generate visual' : 'Generate visual'}
+          {generationLocked ? lockedLabel : 'Generate campaign concept visual'}
         </button>
       </div>
 
@@ -473,7 +473,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           {/* Cost transparency — shown before the action (factual, no decoration) */}
           <div className="-mb-1 text-center text-[10px] text-slate-500">
             {generationLocked
-              ? 'Credits are required before generating a visual.'
+              ? 'Credits are required before generating a campaign concept visual.'
               : <>Costs <span className="font-semibold text-slate-700">3 credits</span> · failed generations are refunded automatically</>}
           </div>
 
@@ -482,7 +482,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
             className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${generationLocked ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'bg-indigo-600 hover:bg-indigo-500'}`}
             style={{ color: generationLocked ? undefined : '#fff' }}
           >
-            {generationLocked ? 'Add credits to generate visual →' : 'Generate visual →'}
+            {generationLocked ? `${lockedLabel} →` : 'Generate campaign concept visual →'}
           </button>
         </div>
       )}
@@ -528,15 +528,15 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
               <path d="M2 12l4.5-4 3.5 3.5 2.5-2.5L16 13" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="mb-1 text-sm font-semibold text-slate-700">No visuals yet</div>
+          <div className="mb-1 text-sm font-semibold text-slate-700">No campaign concept visuals yet</div>
           <div className="mb-4 text-[11px] text-slate-500">
-            Generate campaign visuals from your brand strategy — no prompts required.
+            Generate campaign-level concept visuals from your brand strategy. They stay in this gallery until you choose how to use them.
           </div>
           <button
             onClick={generationLocked ? () => router.push('/billing') : () => setPanelOpen(true)}
             className={`text-[11px] font-semibold hover:underline ${generationLocked ? 'text-red-600' : 'text-accent'}`}
           >
-            {generationLocked ? 'Add credits to generate visual →' : 'Generate first visual →'}
+            {generationLocked ? `${lockedLabel} →` : 'Generate first campaign concept visual →'}
           </button>
         </div>
       )}

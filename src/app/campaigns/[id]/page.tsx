@@ -310,7 +310,7 @@ function CampaignDetailPageInner() {
       bg: 'bg-amber-50',
       label: cdT?.tabCalendar,
     },
-    { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabVisuals },
+    { name: '',                                      icon: '🎨', title: '',                       color: 'text-purple-400',  border: 'border-purple-500/30', bg: 'bg-purple-500/5',  label: cdT?.tabCreative || (locale === 'ar' ? 'الإبداع' : 'Creative') },
     { name: '',                                      icon: '📤', title: '',                       color: 'text-green-400',   border: 'border-green-500/30',  bg: 'bg-green-500/5',   label: cdT?.tabPublish || (locale === 'ar' ? 'النشر' : 'Publish') },
     { name: '', hidden: false,                       icon: '🤖', title: '',                       color: 'text-violet-400',  border: 'border-violet-500/30', bg: 'bg-violet-500/5',  label: locale === 'ar' ? 'أوتوبايلوت' : 'Autopilot' },
     { name: '', hidden: false,                       icon: '📊', title: '',                       color: 'text-cyan-400',    border: 'border-cyan-500/30',   bg: 'bg-cyan-500/5',    label: locale === 'ar' ? 'الأداء' : 'Performance' },
@@ -956,14 +956,14 @@ function CampaignDetailPageInner() {
       }
     }
 
-    if (!creativeBrief) {
+    if (operatingState.truthFlags.hasContentPlan && operatingState.counts.pendingGenerationPosts > 0) {
       return {
-        title: locale === 'ar' ? 'أنشئ موجزاً إبداعياً' : 'Create creative brief',
+        title: locale === 'ar' ? 'راجع وسائط المنشورات في مركز المحتوى' : 'Review post media in Content Hub',
         helper: locale === 'ar'
-          ? 'حوّل الاستراتيجية إلى احتياجات أصول، اتجاهات مفاهيمية، وملاحظات إنتاج قبل التنفيذ.'
-          : 'Turn the strategy into asset needs, concept direction, and production notes before execution.',
-        cta: locale === 'ar' ? 'إنشاء موجز إبداعي' : 'Create creative brief',
-        href: `/campaigns/${campaign.id}/creative-brief`,
+          ? 'Content Hub هو مصدر المراجعة النهائي للمنشورات ووسائطها المرتبطة. راجع الصور أو الأصول الناقصة هناك.'
+          : 'Content Hub is the final review surface for posts and their linked media. Review missing images or assets there.',
+        cta: locale === 'ar' ? 'راجع وسائط المنشورات' : 'Review post media',
+        href: `/campaigns/${campaign.id}/content-hub`,
       }
     }
 
@@ -971,30 +971,30 @@ function CampaignDetailPageInner() {
       return {
         title: locale === 'ar' ? 'راجع مسودات المحتوى' : 'Review draft posts',
         helper: locale === 'ar'
-          ? 'المسودات تحتاج مراجعة في Content Hub قبل قرارات الجدولة أو النشر.'
-          : 'Draft posts need Content Hub review before scheduling or publishing decisions.',
+          ? 'المسودات ومعاينات المنصات تحتاج مراجعة في Content Hub قبل قرارات الجدولة أو النشر.'
+          : 'Draft posts and platform previews need Content Hub review before scheduling or publishing decisions.',
         cta: locale === 'ar' ? 'افتح Content Hub' : 'Open Content Hub',
         href: `/campaigns/${campaign.id}/content-hub`,
       }
     }
 
-    if (operatingState.truthFlags.hasContentPlan && operatingState.counts.pendingGenerationPosts > 0) {
+    if (!creativeBrief) {
       return {
-        title: locale === 'ar' ? 'راجع جاهزية الوسائط' : 'Review media readiness',
+        title: locale === 'ar' ? 'أنشئ موجزاً إبداعياً' : 'Create creative brief',
         helper: locale === 'ar'
-          ? 'بعض المنشورات ما زالت تحتاج وسائط أو قراراً بصرياً داخل Content Hub.'
-          : 'Some posts still need media or a visual decision inside Content Hub.',
-        cta: locale === 'ar' ? 'افتح Content Hub' : 'Open Content Hub',
-        href: `/campaigns/${campaign.id}/content-hub`,
+          ? 'موجز تخطيطي فقط يحوّل الاستراتيجية إلى احتياجات أصول، اتجاهات مفاهيمية، وملاحظات إنتاج. لا يعتمد أو يجدول أو ينشر شيئاً.'
+          : 'A planning artifact that turns strategy into asset needs, concept direction, and production notes. It does not approve, schedule, or publish anything.',
+        cta: locale === 'ar' ? 'إنشاء موجز إبداعي' : 'Create creative brief',
+        href: `/campaigns/${campaign.id}/creative-brief`,
       }
     }
 
     return {
-      title: locale === 'ar' ? 'أنشئ مرئيات للحملة للمراجعة' : 'Generate campaign visuals for review',
+      title: locale === 'ar' ? 'راجع المرئيات المفهومية للحملة' : 'Review campaign concept visuals',
       helper: locale === 'ar'
-        ? 'هذه المرئيات تظل في معرض الحملة حتى تختار استخدامها. لا يتم ربطها أو نشرها تلقائياً.'
-        : 'These visuals stay in the campaign gallery until you choose how to use them. They are not attached or published automatically.',
-      cta: locale === 'ar' ? 'انتقل إلى مولد المرئيات' : 'Go to visual generator',
+        ? 'المرئيات المفهومية تظل في معرض الحملة للمراجعة فقط. لا تُرفق بالمنشورات أو تُنشر أو تُستخدم في الإعلانات تلقائياً.'
+        : 'Concept visuals stay in the campaign gallery for review only. They are not attached to posts, published, or used in ads automatically.',
+      cta: locale === 'ar' ? 'راجع المرئيات المفهومية' : 'Review concept visuals',
       href: '#campaign-visual-generator',
     }
   })()
@@ -1037,6 +1037,9 @@ function CampaignDetailPageInner() {
     campaignTone: campaign.tone,
     audience: campaign.audience,
   }
+  const totalPostMediaSlots = operatingState.counts.totalPosts
+  const pendingPostMediaSlots = operatingState.counts.pendingGenerationPosts
+  const readyPostMediaSlots = Math.max(0, totalPostMediaSlots - pendingPostMediaSlots)
 
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
@@ -2648,17 +2651,17 @@ function CampaignDetailPageInner() {
               </div>
             )}
 
-            {/* ── Tab 3: Visuals ────────────────────────────────────────────── */}
+            {/* ── Tab 3: Creative ───────────────────────────────────────────── */}
             {activeTab === 3 && (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    {locale === 'ar' ? 'مسار العمل الإبداعي' : 'Creative workflow'}
+                    {locale === 'ar' ? 'الإبداع' : 'Creative'}
                   </p>
                   <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <h3 className="text-base font-semibold text-slate-950">
-                        {locale === 'ar' ? 'الخطوة الإبداعية التالية' : 'Next creative action'}
+                        {locale === 'ar' ? 'متطلبات الإبداع وجاهزية الوسائط' : 'Creative requirements and media readiness'}
                       </h3>
                       <p className="mt-1 text-sm font-medium text-slate-800">{nextCreativeAction.title}</p>
                       <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
@@ -2666,8 +2669,8 @@ function CampaignDetailPageInner() {
                       </p>
                       <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                         {locale === 'ar'
-                          ? 'يتبع العمل الإبداعي حالة الحملة. لا ينشر NEXUS أو يطلق إعلانات من هذا التبويب.'
-                          : 'Creative work follows the campaign state. NEXUS does not publish content or start paid ad campaigns from this tab.'}
+                          ? 'يتبع العمل الإبداعي حالة الحملة. لا ينشر NEXUS أو يجدول المحتوى أو يطلق إعلانات من هذا التبويب. وسائط المنشورات النهائية تُراجع في Content Hub.'
+                          : 'Creative work follows the campaign state. NEXUS does not publish, schedule, or start paid campaigns from this tab. Final post media is reviewed in Content Hub.'}
                       </p>
                     </div>
                     <a
@@ -2688,8 +2691,8 @@ function CampaignDetailPageInner() {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🎨</span>
                       <div>
-                        <h3 className="text-base font-semibold text-purple-700">{cdT?.creativeBriefTitle || 'AI Creative Brief'}</h3>
-                        <p className="mt-0.5 text-xs text-slate-500">{cdT?.creativeBriefSubtitle || 'Plan creative direction, asset needs, and visual concepts before production.'}</p>
+                        <h3 className="text-base font-semibold text-purple-700">{cdT?.creativeBriefTitle || 'Creative Brief'}</h3>
+                        <p className="mt-0.5 text-xs text-slate-500">{cdT?.creativeBriefSubtitle || 'Plan art direction, asset needs, prompts, and production notes before creating assets.'}</p>
                       </div>
                     </div>
                     {creativeBrief && (
@@ -2698,6 +2701,12 @@ function CampaignDetailPageInner() {
                       </span>
                     )}
                   </div>
+
+                  <p className="mb-4 rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] leading-5 text-purple-800">
+                    {locale === 'ar'
+                      ? 'موجز الإبداع أداة تخطيط فقط. لا يعتمد المحتوى أو يجدوله أو ينشره، ولا يطلق حملات مدفوعة.'
+                      : 'The creative brief is a planning artifact only. It does not approve, schedule, publish, or launch paid campaigns.'}
+                  </p>
 
                   {/* Mode badges */}
                   <div className="flex gap-3 mb-5">
@@ -2731,19 +2740,33 @@ function CampaignDetailPageInner() {
                   </button>
                 </div>
 
-                {/* ── Content Hub Entry Card ── */}
+                {/* ── Post Media Readiness / Content Hub Entry Card ── */}
                 <div className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm">
                   <div className="flex items-start gap-3 mb-4">
                     <span className="text-2xl">📅</span>
                     <div className="flex-1">
-                      <h3 className="text-base font-semibold text-indigo-700">Content Hub</h3>
+                      <h3 className="text-base font-semibold text-indigo-700">
+                        {locale === 'ar' ? 'جاهزية وسائط المنشورات' : 'Post media readiness'}
+                      </h3>
                       <p className="mt-0.5 text-xs text-slate-500">
                         {locale === 'ar'
-                          ? 'راجع مسودات المنشورات، جاهزية الوسائط، ومعاينات المنصات.'
-                          : 'Review draft posts, media readiness, and platform previews.'}
+                          ? 'Content Hub هو مصدر الحقيقة لمعاينات المنشورات النهائية والوسائط المرتبطة بكل SocialPost.'
+                          : 'Content Hub is the source of truth for final post previews and media linked to each SocialPost.'}
                       </p>
                     </div>
                   </div>
+                  {totalPostMediaSlots > 0 && (
+                    <div className="mb-4 grid grid-cols-2 gap-3 text-center">
+                      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2">
+                        <div className="text-lg font-semibold text-indigo-700">{readyPostMediaSlots}</div>
+                        <div className="text-[10px] text-indigo-600">{locale === 'ar' ? 'وسائط جاهزة' : 'media ready'}</div>
+                      </div>
+                      <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2">
+                        <div className="text-lg font-semibold text-amber-700">{pendingPostMediaSlots}</div>
+                        <div className="text-[10px] text-amber-700">{locale === 'ar' ? 'تحتاج قراراً' : 'need a decision'}</div>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex gap-2 mb-4 flex-wrap">
                     {['📘 Facebook', '📸 Instagram', '💼 LinkedIn', '✕ X', '🎵 TikTok'].map(p => (
                       <span key={p} className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{p}</span>
@@ -2755,30 +2778,30 @@ function CampaignDetailPageInner() {
                     style={{ color: '#fff' }}
                   >
                     <span>📅</span>
-                    {locale === 'ar' ? 'فتح مركز المحتوى' : 'Open Content Hub'}
+                    {locale === 'ar' ? 'راجع وسائط المنشورات في مركز المحتوى' : 'Review post media in Content Hub'}
                     <span className="text-purple-300 text-xs">↗</span>
                   </button>
                 </div>
 
-                {/* ── Paid Planning Brief Card (planning/brief only — not execution) ── */}
+                {/* ── Paid Creative Requirements / Paid Planning Brief Card ── */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-start gap-3 mb-3">
                     <span className="text-2xl">📋</span>
                     <div className="flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
-                        {locale === 'ar' ? 'موجز التخطيط المدفوع' : 'Paid Planning Brief'}
+                        {locale === 'ar' ? 'متطلبات الإبداع للإعلانات المدفوعة' : 'Paid creative requirements'}
                       </h3>
                       <p className="mt-0.5 text-xs text-slate-500">
                         {locale === 'ar'
-                          ? 'موجز جمهور مستهدف + زوايا نسخ إعلانية + ملاحظات تخطيط فقط مستندة إلى Brand Brain'
-                          : 'Targeting brief + ad copy angles + planning-only notes informed by Brand Brain'}
+                          ? 'موجز التخطيط المدفوع يوضح احتياجات الإبداع والزوايا للمراجعة فقط، مستنداً إلى Brand Brain.'
+                          : 'The paid planning brief captures creative needs and angles for review only, informed by Brand Brain.'}
                       </p>
                     </div>
                   </div>
                   <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
                     {locale === 'ar'
-                      ? 'للتخطيط فقط — لن تُطلق أي إعلانات ولن يُصرف أي مبلغ دون موافقة صريحة.'
-                      : 'Planning only — ads will not launch and no budget will be spent without explicit approval.'}
+                      ? 'تخطيط ومراجعة فقط — لا يتم إطلاق إعلانات أو صرف ميزانية أو دفع أصول إلى المنصات من تبويب الإبداع.'
+                      : 'Planning and review only — no ads launch, no budget is spent, and no assets are pushed to platforms from Creative.'}
                   </p>
                   <div className="flex gap-2 mb-4 flex-wrap">
                     {['𝓕 Meta', 'G Google', '♪ TikTok', 'in LinkedIn'].map(p => (
@@ -2805,8 +2828,8 @@ function CampaignDetailPageInner() {
                 <div id="campaign-visual-generator" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                     {locale === 'ar'
-                      ? 'أنشئ مرئيات للحملة للمراجعة. لا يتم ربطها بالمنشورات أو نشرها تلقائياً.'
-                      : 'Generate campaign-level visuals for review. Generated visuals are not attached to posts or published automatically.'}
+                      ? 'المرئيات المفهومية للحملة هي أصول معرض للمراجعة. لا تُرفق بالمنشورات تلقائياً، ولا تُجدول أو تُنشر أو تُستخدم في الإعلانات تلقائياً.'
+                      : 'Campaign concept visuals are gallery assets for review. They are not attached to posts automatically, scheduled, published, or used in ads automatically.'}
                   </p>
                   <VisualGenerator context={visualContext} />
                 </div>
