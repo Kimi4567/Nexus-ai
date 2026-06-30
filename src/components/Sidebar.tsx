@@ -281,6 +281,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
       key: 'operate',
       labelKey: 'sidebar.sectionOperate',
       items: [
+        { href: '/paid-campaigns', labelKey: 'sidebar.paidAds', icon: Icons.campaigns },
         { href: '/connections', labelKey: 'sidebar.connections', icon: Icons.connections, badgeKey: 'sidebar.badgeSetup', badgeColor: '#10B981' },
       ],
     },
@@ -339,7 +340,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
 
         {/* Future modules intentionally stay out of primary navigation until they are
             ready to be presented as real user-facing workflows:
-            /studio, /sentinel, /vex, /paid-campaigns, /templates, /brand/score-history. */}
+            /studio, /sentinel, /vex, /templates, /brand/score-history. */}
       </nav>
 
       {/* Bottom section */}

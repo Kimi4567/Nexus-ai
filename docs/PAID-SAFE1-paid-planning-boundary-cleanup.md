@@ -24,6 +24,12 @@ Until those proof states exist, the UI should use planning-safe language: paid p
 
 ## What Changed
 
+- Paid Ads is now a visible Operate navigation item that opens `/paid-campaigns`; the Calendar item remains separate and should not be highlighted for paid planning routes.
+- `/paid-campaigns` is framed as the Paid Ads Planning hub, with paid planning drafts for review and explicit copy that no real Ad Manager action, ad launch, or spend happens without confirmation.
+- `/paid-campaigns/new` is framed as a New Paid Planning Draft flow. The final action opens the saved planning draft detail instead of implying Campaign Manager execution.
+- Paid planning detail surfaces use Paid Planning Draft, setup review, planning assumptions, paused platform drafts, and reported metrics language.
+- Campaign Strategy links to the campaign-level Paid Planning Brief with a secondary review CTA.
+- `/campaigns/[id]/paid-launch` is framed as a Paid Planning Brief with a Generate paid planning pack CTA and a link back to the Paid Ads Planning hub.
 - Paid pack setup/upsert no longer accepts launch, active, completed, live, or ready-to-launch status from the client.
 - Manual paid metrics no longer mark a paid pack launched or completed by themselves.
 - External launch recording now requires explicit acknowledgement that the user launched outside NEXUS.
@@ -33,7 +39,7 @@ Until those proof states exist, the UI should use planning-safe language: paid p
 - Paused platform draft creation is still an external platform mutation, so it now requires explicit platform-draft confirmation and explicit budget confirmation before any API draft objects are created.
 - A positive saved budget value alone is not budget approval for external platform creation.
 - A budget value can exist without budget approval; `budget_value_present_unconfirmed` means planning value only, while `explicit_budget_confirmed` requires explicit acknowledgement.
-- Paid Campaigns list/new/detail UI now uses setup-review, planning assumption, paused draft, and review-needed language instead of launch-ready language.
+- Paid Ads Planning list/new/detail UI now uses setup-review, planning assumption, paused draft, and review-needed language instead of launch-ready language.
 
 Creating paused platform drafts still does not launch ads, activate a campaign, or spend budget. It only creates paused objects for platform-side review after the user confirms budget, tracking, creative, and platform readiness have been reviewed.
 

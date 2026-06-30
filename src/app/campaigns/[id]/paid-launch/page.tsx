@@ -3,7 +3,7 @@
 /**
  * /campaigns/[id]/paid-launch
  *
- * The Paid Planning Pack — a paid campaign brief/plan the user reviews before
+ * The Paid Planning Brief — a paid campaign brief/plan the user reviews before
  * running paid ads on Meta, Google, TikTok, and LinkedIn. Planning only: NEXUS
  * does not launch ads or spend budget.
  *
@@ -22,7 +22,7 @@ const PAID_PACK_COST = 6
 import {
   Target, Zap, Users, DollarSign, Copy, ExternalLink,
   CheckCircle, TrendingUp, Brain, ChevronDown, ChevronUp,
-  RefreshCw, AlertCircle, BarChart3, ArrowLeft, Rocket,
+  RefreshCw, AlertCircle, BarChart3, ArrowLeft,
   Link2, BookOpen
 } from 'lucide-react'
 
@@ -378,9 +378,9 @@ export default function PaidLaunchPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <Rocket size={22} color="#94a3b8" />
+                <BookOpen size={22} color="#94a3b8" />
                 <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>
-                  Paid Planning Pack
+                  Paid Planning Brief
                 </h1>
                 {pack?.status && (
                   <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: `${STATUS_COLORS[pack.status]}20`, color: STATUS_COLORS[pack.status], border: `1px solid ${STATUS_COLORS[pack.status]}40` }}>
@@ -389,8 +389,14 @@ export default function PaidLaunchPage() {
                 )}
               </div>
               <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-                {campaign?.name ?? 'Campaign'} — a paid campaign brief for you to review. Planning only — ads will not launch and no budget will be spent without explicit approval.
+                {campaign?.name ?? 'Campaign'} — a paid planning brief for review. Planning only — ads will not launch and no budget will be spent without explicit approval.
               </p>
+              <button
+                onClick={() => router.push('/paid-campaigns')}
+                style={{ marginTop: 8, padding: 0, border: 'none', background: 'none', color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Open Paid Ads Planning hub →
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
@@ -421,12 +427,12 @@ export default function PaidLaunchPage() {
         )}
 
         {/* ═══ SETUP SECTION ═══ */}
-        <Section title="Campaign Setup" icon={<Target size={16} color="#f59e0b" />}>
+        <Section title="Paid Planning Setup" icon={<Target size={16} color="#f59e0b" />}>
           <div style={{ display: 'grid', gap: 20 }}>
 
             {/* Objective */}
             <div>
-              <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Campaign Objective</label>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Planning Objective</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
                 {OBJECTIVES.map(obj => (
                   <button
@@ -524,9 +530,9 @@ export default function PaidLaunchPage() {
               }}
             >
               {generating ? (
-                <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating Full Pack...</>
+                <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating paid planning pack...</>
               ) : (
-                <><Zap size={16} /> {hasGenerated ? 'Regenerate Pack' : 'Generate Full Pack'} — {PAID_PACK_COST} credits</>
+                <><Zap size={16} /> {hasGenerated ? 'Regenerate paid planning pack' : 'Generate paid planning pack'} — {PAID_PACK_COST} credits</>
               )}
             </button>
           </div>
@@ -988,9 +994,9 @@ export default function PaidLaunchPage() {
         onClose={() => setShowGenerateConfirm(false)}
         onConfirm={handleGenerate}
         cost={PAID_PACK_COST}
-        actionTitle="Generate Paid Ad Pack"
+        actionTitle="Generate paid planning pack"
         authHeader={authHeader}
-        includedItems={['Audience targeting', 'Copy variants', 'Budget plan', 'Platform setup']}
+        includedItems={['Audience brief', 'Copy variants', 'Budget plan', 'Platform setup guidance']}
         confirmLabel={`Confirm & Generate — ${PAID_PACK_COST} credits`}
       />
       {showExternalLaunchConfirm && (

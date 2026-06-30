@@ -95,9 +95,9 @@ const PLATFORM_COLORS: Record<string, string> = {
 }
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  DRAFT:    { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF', label: 'Draft' },
+  DRAFT:    { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF', label: 'Planning draft' },
   ACTIVE:   { bg: 'rgba(16,185,129,0.15)',  color: '#10B981', label: 'Platform active record' },
-  PAUSED:   { bg: 'rgba(249,115,22,0.15)',  color: '#F97316', label: 'Paused' },
+  PAUSED:   { bg: 'rgba(249,115,22,0.15)',  color: '#F97316', label: 'Paused platform draft' },
   ARCHIVED: { bg: 'rgba(239,68,68,0.12)',   color: '#EF4444', label: 'Archived' },
   COMPLETED:{ bg: 'rgba(139,92,246,0.15)',  color: '#8B5CF6', label: 'Completed' },
 }
@@ -269,7 +269,7 @@ export default function CampaignDetailPage() {
           <button onClick={() => router.push('/paid-campaigns')}
             className="px-4 py-2 rounded-lg text-[13px] text-white"
             style={{ background: 'rgba(255,255,255,0.08)' }}>
-            ← Back to Campaigns
+            ← Back to Paid Ads Planning
           </button>
         </div>
       </div>
@@ -306,6 +306,7 @@ export default function CampaignDetailPage() {
               </div>
               <h1 className="text-[20px] font-bold text-white">{campaign.name}</h1>
               <p className="text-[12px] text-text-muted">
+                Paid Planning Draft ·{' '}
                 {campaign.objective.replace(/_/g, ' ')}
                 {campaign.adAccount && ` · ${campaign.adAccount.platformAccountName}`}
                 {campaign.startDate && ` · ${new Date(campaign.startDate).toLocaleDateString()} – ${campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'ongoing'}`}
@@ -349,7 +350,7 @@ export default function CampaignDetailPage() {
             <button onClick={() => setActiveTab('performance')}
               className="px-3 py-2 rounded-xl text-[12px] font-medium text-text-muted hover:text-white transition-all"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-              + Metrics
+              + Reported metrics
             </button>
           </div>
         </div>
@@ -358,7 +359,7 @@ export default function CampaignDetailPage() {
         <div className="grid grid-cols-4 sm:grid-cols-7 gap-3 mb-6">
           <div className="col-span-2">
             <KpiCard
-              label="Total Spend"
+              label="Reported Spend"
               value={`${campaign.currency} ${fmt(campaign.totalSpend, 2)}`}
               sub={campaign.budgetType === 'DAILY' ? `${campaign.currency} ${campaign.dailyBudget}/day` : `${campaign.currency} ${campaign.lifetimeBudget} total`}
               accent="#F97316"
@@ -371,7 +372,7 @@ export default function CampaignDetailPage() {
           <KpiCard
             label="ROAS"
             value={`${(campaign.avgROAS || 0).toFixed(2)}x`}
-            sub="Return on ad spend"
+            sub="Reported return on ad spend"
             accent={campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444'}
           />
         </div>
@@ -405,7 +406,7 @@ export default function CampaignDetailPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Campaign info */}
             <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-[13px] font-bold text-white mb-3">Campaign Settings</h3>
+              <h3 className="text-[13px] font-bold text-white mb-3">Planning Draft Settings</h3>
               <div className="space-y-2.5">
                 {[
                   { label: 'Platform', value: campaign.platform },
@@ -414,7 +415,7 @@ export default function CampaignDetailPage() {
                   { label: 'Ad Sets', value: campaign.adSets.length },
                   { label: 'Total Ads', value: totalAds },
                   { label: 'AI Generated', value: totalAds > 0 ? 'Yes' : 'No' },
-                  { label: 'Platform ID', value: campaign.platformCampaignId || 'Not published' },
+                  { label: 'Platform draft ID', value: campaign.platformCampaignId || 'Not created' },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between">
                     <span className="text-[12px] text-text-muted">{item.label}</span>
@@ -426,7 +427,7 @@ export default function CampaignDetailPage() {
 
             {/* AI status */}
             <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(139,92,246,0.12)' }}>
-              <h3 className="text-[13px] font-bold text-white mb-3">AI Readiness</h3>
+              <h3 className="text-[13px] font-bold text-white mb-3">Planning Readiness</h3>
               <div className="space-y-2.5">
                 {[
                   { label: '✨ AI Strategy', done: !!campaign.aiStrategy },
@@ -434,7 +435,7 @@ export default function CampaignDetailPage() {
                   { label: '💰 Budget Plan', done: !!campaign.aiBudgetPlan },
                   { label: '📝 Ad Copy Variants', done: totalAds > 0 },
                   { label: '🧠 Brand Brain Snapshot', done: !!campaign.brandBrainSnapshot },
-                  { label: '🔗 Platform Published', done: !!campaign.platformCampaignId },
+                  { label: '🔗 Paused platform draft linked', done: !!campaign.platformCampaignId },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between">
                     <span className="text-[12px] text-text-muted">{item.label}</span>
@@ -453,14 +454,14 @@ export default function CampaignDetailPage() {
                 <button onClick={() => router.push(`/paid-campaigns/new?campaignId=${id}`)}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{ background: 'linear-gradient(135deg, #8B5CF6, #6366F1)' }}>
-                  ✨ Generate AI Strategy
+                  ✨ Generate paid planning strategy
                 </button>
               )}
               {campaign.aiStrategy && totalAds === 0 && (
                 <button onClick={() => router.push(`/paid-campaigns/new?campaignId=${id}&step=4`)}
                   className="mt-4 w-full py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{ background: 'linear-gradient(135deg, #F97316, #EF4444)' }}>
-                  ✨ Generate Ad Copy
+                  ✨ Generate ad copy drafts
                 </button>
               )}
             </div>
@@ -746,7 +747,7 @@ export default function CampaignDetailPage() {
         {activeTab === 'export' && (
           <div className="space-y-4">
             <div className="p-4 rounded-[14px]" style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <h3 className="text-[13px] font-bold text-white mb-3">Campaign Export</h3>
+              <h3 className="text-[13px] font-bold text-white mb-3">Planning Draft Export</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <button
                   onClick={() => {
@@ -763,7 +764,7 @@ export default function CampaignDetailPage() {
                   }}
                   className="p-4 rounded-[12px] text-left hover:bg-white/[0.04] transition-all"
                   style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-[13px] font-semibold text-white mb-1">📋 Export Campaign Brief</p>
+                  <p className="text-[13px] font-semibold text-white mb-1">📋 Export paid planning brief</p>
                   <p className="text-[11px] text-text-muted">Full strategy + copy variants as JSON</p>
                 </button>
 
@@ -814,7 +815,7 @@ export default function CampaignDetailPage() {
             {/* Sync controls */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-[14px] font-bold text-white">Performance Dashboard</h3>
+                <h3 className="text-[14px] font-bold text-white">Reported Metrics</h3>
                 <p className="text-[12px] text-text-muted mt-0.5">
                   {campaign.adAccount?.hasApiAccess
                     ? 'Connected to Meta — sync pulls live data from Meta Insights API'
@@ -843,7 +844,7 @@ export default function CampaignDetailPage() {
             {/* Aggregate KPI bar (duplicate of header for in-tab context) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Total Spend', value: `${campaign.currency} ${(campaign.totalSpend || 0).toFixed(2)}`, accent: '#F97316' },
+                { label: 'Reported Spend', value: `${campaign.currency} ${(campaign.totalSpend || 0).toFixed(2)}`, accent: '#F97316' },
                 { label: 'Impressions', value: fmt(campaign.totalImpressions) },
                 { label: 'Clicks', value: fmt(campaign.totalClicks) },
                 { label: 'ROAS', value: `${(campaign.avgROAS || 0).toFixed(2)}x`, accent: campaign.avgROAS >= 2 ? '#10B981' : campaign.avgROAS >= 1 ? '#F97316' : '#EF4444' },
@@ -905,8 +906,8 @@ export default function CampaignDetailPage() {
               /* Empty state — show manual entry form */
               <div className="p-5 rounded-[14px]"
                 style={{ background: 'var(--nx-surface)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-[13px] text-white font-semibold mb-1">No performance data yet</p>
-                <p className="text-[12px] text-text-muted mb-4">Enter your first daily metrics to start tracking</p>
+                <p className="text-[13px] text-white font-semibold mb-1">No reported paid metrics yet</p>
+                <p className="text-[12px] text-text-muted mb-4">Enter metrics only after real platform data exists.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                   {[
                     { key: 'date', label: 'Date', type: 'date' },

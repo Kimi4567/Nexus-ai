@@ -1,16 +1,15 @@
 'use client'
 
 /**
- * /paid-campaigns — Paid Advertising Command Center
+ * /paid-campaigns — Paid Ads Planning hub
  *
- * Shows all paid ad campaigns across platforms (Meta, Google, TikTok, LinkedIn).
- * Separate from organic campaigns (/campaigns) — these run through Ad Manager,
- * not as regular posts.
+ * Shows paid planning drafts and reported platform metrics across Meta, Google,
+ * TikTok, and LinkedIn. Planning surfaces do not launch ads or spend budget.
  *
  * Features:
  * - Platform-filtered view (All / Meta / Google / TikTok / LinkedIn)
- * - Campaign cards with reported spend + CTR + ROAS
- * - Quick actions: New Campaign, Connect Ad Account
+ * - Planning draft cards with reported spend + CTR + ROAS
+ * - Quick actions: new paid planning draft, connect account when ready
  * - Empty state with onboarding guide
  */
 
@@ -58,10 +57,10 @@ const PLATFORMS = {
 }
 
 const STATUS_CONFIG = {
-  DRAFT:          { label: 'Draft',          color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
-  PENDING_REVIEW: { label: 'In Review',      color: '#F59E0B', bg: 'rgba(245,158,11,0.1)'  },
+  DRAFT:          { label: 'Planning draft', color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
+  PENDING_REVIEW: { label: 'Setup review',   color: '#F59E0B', bg: 'rgba(245,158,11,0.1)'  },
   ACTIVE:         { label: 'Platform active record', color: '#10B981', bg: 'rgba(16,185,129,0.1)'  },
-  PAUSED:         { label: 'Paused',         color: '#F97316', bg: 'rgba(249,115,22,0.1)'  },
+  PAUSED:         { label: 'Paused platform draft', color: '#F97316', bg: 'rgba(249,115,22,0.1)'  },
   COMPLETED:      { label: 'Completed',      color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)'  },
   ARCHIVED:       { label: 'Archived',       color: '#4B5563', bg: 'rgba(75,85,99,0.1)'    },
   REJECTED:       { label: 'Rejected',       color: '#EF4444', bg: 'rgba(239,68,68,0.1)'   },
@@ -123,7 +122,7 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
     ? `${campaign.currency} ${campaign.dailyBudget}/day`
     : campaign.lifetimeBudget
     ? `${campaign.currency} ${campaign.lifetimeBudget} total`
-    : 'No budget set'
+    : 'No budget value yet'
 
   return (
     <div
@@ -154,8 +153,8 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
       {/* KPIs */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         {[
-          { label: 'Spend', value: campaign.totalSpend > 0 ? `$${campaign.totalSpend.toFixed(0)}` : '—' },
-          { label: 'Impressions', value: campaign.totalImpressions > 0 ? formatNum(campaign.totalImpressions) : '—' },
+          { label: 'Reported spend', value: campaign.totalSpend > 0 ? `$${campaign.totalSpend.toFixed(0)}` : '—' },
+          { label: 'Reported impressions', value: campaign.totalImpressions > 0 ? formatNum(campaign.totalImpressions) : '—' },
           { label: 'CTR', value: campaign.avgCTR != null ? `${campaign.avgCTR.toFixed(2)}%` : '—' },
           { label: 'ROAS', value: campaign.avgROAS != null ? `${campaign.avgROAS.toFixed(1)}x` : '—' },
         ].map(kpi => (
@@ -170,7 +169,7 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-slate-500">{budget}</span>
         {campaign.status === 'DRAFT' && (
-          <span className="text-[10px] text-indigo-600 font-medium">Ready for setup review →</span>
+          <span className="text-[10px] text-indigo-600 font-medium">Planning draft for review →</span>
         )}
       </div>
     </div>
@@ -198,11 +197,11 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
         </svg>
       </div>
 
-      <h3 className="text-[18px] font-bold text-slate-950 mb-2">No paid campaigns yet</h3>
+      <h3 className="text-[18px] font-bold text-slate-950 mb-2">No paid planning drafts yet</h3>
       <p className="text-slate-500 text-[13px] max-w-[360px] leading-relaxed mb-8">
         {hasAccounts
-          ? 'Your ad account is connected. Create a paid planning draft and review platform readiness before any launch or spend.'
-          : 'Connect your ad account first, then build paid planning drafts for review before any real Ad Manager action.'}
+          ? 'Create a paid planning draft for review. NEXUS will not take real Ad Manager action or spend budget without explicit confirmation.'
+          : 'Start from a campaign strategy or create a paid planning draft. Connect an ad account later when you are ready to review platform setup.'}
       </p>
 
       <div className="flex items-center gap-3">
@@ -216,7 +215,7 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
               <circle cx="3.5" cy="8" r="2"/><circle cx="12.5" cy="3.5" r="2"/><circle cx="12.5" cy="12.5" r="2"/>
               <path d="M5.5 8h3.5M10.5 5l-1.5 3M10.5 11l-1.5-3" strokeLinecap="round"/>
             </svg>
-            Connect Ad Account
+            Connect ad account when ready
           </button>
         )}
         <button
@@ -227,16 +226,16 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2">
             <path d="M8 2v12M2 8h12" strokeLinecap="round"/>
           </svg>
-          Create Campaign
+          Create planning draft
         </button>
       </div>
 
       {/* How it works */}
       <div className="mt-12 grid grid-cols-3 gap-6 max-w-[560px]">
         {[
-          { step: '01', title: 'Connect', desc: 'Link your Meta, Google, TikTok, or LinkedIn ad account' },
-          { step: '02', title: 'Build with AI', desc: 'AI generates audience, copy, budget plan using your Brand Brain' },
-          { step: '03', title: 'Review & Track', desc: 'Export a planning payload or create paused platform drafts for review' },
+          { step: '01', title: 'Plan', desc: 'Start from a campaign strategy or create a paid planning draft' },
+          { step: '02', title: 'Review', desc: 'Use Brand Brain context to review audience, copy, and budget assumptions' },
+          { step: '03', title: 'Prepare', desc: 'Export a planning payload or create paused platform drafts only after confirmation' },
         ].map(item => (
           <div key={item.step} className="text-center">
             <div className="text-[11px] font-bold mb-1.5" style={{ color: '#F97316' }}>{item.step}</div>
@@ -357,17 +356,17 @@ export default function PaidCampaignsPage() {
                   </svg>
                 </div>
                 <h1 className="text-[20px] font-bold text-slate-950">
-                  {locale === 'ar' ? 'الحملات المدفوعة' : 'Paid Campaigns'}
+                  {locale === 'ar' ? 'تخطيط الإعلانات المدفوعة' : 'Paid Ads Planning'}
                 </h1>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                   style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid rgba(249,115,22,0.2)' }}>
-                  AI-POWERED
+                  {locale === 'ar' ? 'تخطيط فقط' : 'PLANNING ONLY'}
                 </span>
               </div>
               <p className="text-slate-500 text-[13px]">
                 {locale === 'ar'
-                  ? 'إدارة حملاتك الإعلانية المدفوعة عبر جميع المنصات'
-                  : 'Manage paid ad campaigns across Meta, Google, TikTok and LinkedIn'}
+                  ? 'أنشئ وراجع مسودات التخطيط المدفوع. لا صرف أو إطلاق إعلانات بدون موافقة صريحة.'
+                  : 'Create and review paid planning drafts. No ads launch and no spend without explicit approval.'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -382,7 +381,7 @@ export default function PaidCampaignsPage() {
                     <circle cx="3.5" cy="8" r="2"/><circle cx="12.5" cy="3.5" r="2"/><circle cx="12.5" cy="12.5" r="2"/>
                     <path d="M5.5 8h3.5M10.5 5l-1.5 3M10.5 11l-1.5-3" strokeLinecap="round"/>
                   </svg>
-                  {connectingMeta ? 'Connecting...' : 'Add Account'}
+                  {connectingMeta ? 'Connecting...' : 'Review account setup'}
                 </button>
               )}
               <Link
@@ -393,7 +392,7 @@ export default function PaidCampaignsPage() {
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="white" strokeWidth="2">
                   <path d="M8 2v12M2 8h12" strokeLinecap="round"/>
                 </svg>
-                {locale === 'ar' ? 'حملة جديدة' : 'New Campaign'}
+                {locale === 'ar' ? 'مسودة تخطيط مدفوع جديدة' : 'New paid planning draft'}
               </Link>
             </div>
           </div>
@@ -403,9 +402,9 @@ export default function PaidCampaignsPage() {
             <div className="grid grid-cols-4 gap-3 mb-6">
               {[
                 { label: 'Platform-active records', value: String(activeCount), icon: '📡', color: '#059669' },
-                { label: 'Total Spend', value: totalSpend > 0 ? `$${totalSpend.toFixed(0)}` : '$0', icon: '💰', color: '#ea580c' },
-                { label: 'Total Impressions', value: totalImpressions > 0 ? formatNum(totalImpressions) : '0', icon: '👁️', color: '#6366f1' },
-                { label: 'Avg ROAS', value: avgROAS ? `${avgROAS.toFixed(1)}x` : '—', icon: '📈', color: '#0284c7' },
+                { label: 'Reported spend', value: totalSpend > 0 ? `$${totalSpend.toFixed(0)}` : '$0', icon: '💰', color: '#ea580c' },
+                { label: 'Reported impressions', value: totalImpressions > 0 ? formatNum(totalImpressions) : '0', icon: '👁️', color: '#6366f1' },
+                { label: 'Reported ROAS', value: avgROAS ? `${avgROAS.toFixed(1)}x` : '—', icon: '📈', color: '#0284c7' },
               ].map(kpi => (
                 <div key={kpi.label} className="rounded-xl p-3.5 bg-white"
                   style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
@@ -422,7 +421,7 @@ export default function PaidCampaignsPage() {
           {/* Connected accounts pill */}
           {accounts.length > 0 && (
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-[11px] text-slate-500">Connected accounts:</span>
+              <span className="text-[11px] text-slate-500">Connected accounts for setup review:</span>
               {accounts.map(acc => (
                 <span key={acc.id} className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full"
                   style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid rgba(16,185,129,0.2)' }}>
@@ -489,7 +488,7 @@ export default function PaidCampaignsPage() {
             />
           ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-slate-400 text-[14px]">
-              No campaigns match the selected filters.
+              No paid planning drafts match the selected filters.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
