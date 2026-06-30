@@ -9,7 +9,7 @@
  *
  * Features:
  * - Platform-filtered view (All / Meta / Google / TikTok / LinkedIn)
- * - Campaign cards with live spend + CTR + ROAS
+ * - Campaign cards with reported spend + CTR + ROAS
  * - Quick actions: New Campaign, Connect Ad Account
  * - Empty state with onboarding guide
  */
@@ -60,7 +60,7 @@ const PLATFORMS = {
 const STATUS_CONFIG = {
   DRAFT:          { label: 'Draft',          color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
   PENDING_REVIEW: { label: 'In Review',      color: '#F59E0B', bg: 'rgba(245,158,11,0.1)'  },
-  ACTIVE:         { label: 'Active',         color: '#10B981', bg: 'rgba(16,185,129,0.1)'  },
+  ACTIVE:         { label: 'Platform active record', color: '#10B981', bg: 'rgba(16,185,129,0.1)'  },
   PAUSED:         { label: 'Paused',         color: '#F97316', bg: 'rgba(249,115,22,0.1)'  },
   COMPLETED:      { label: 'Completed',      color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)'  },
   ARCHIVED:       { label: 'Archived',       color: '#4B5563', bg: 'rgba(75,85,99,0.1)'    },
@@ -170,7 +170,7 @@ function CampaignCard({ campaign }: { campaign: AdCampaign }) {
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-slate-500">{budget}</span>
         {campaign.status === 'DRAFT' && (
-          <span className="text-[10px] text-indigo-600 font-medium">Ready to launch →</span>
+          <span className="text-[10px] text-indigo-600 font-medium">Ready for setup review →</span>
         )}
       </div>
     </div>
@@ -201,8 +201,8 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
       <h3 className="text-[18px] font-bold text-slate-950 mb-2">No paid campaigns yet</h3>
       <p className="text-slate-500 text-[13px] max-w-[360px] leading-relaxed mb-8">
         {hasAccounts
-          ? 'Your ad account is connected. Create your first AI-powered campaign and launch it across Meta, Google, TikTok, or LinkedIn.'
-          : 'Connect your ad account first, then build AI-powered campaigns that run through the real Ad Manager — not just social posts.'}
+          ? 'Your ad account is connected. Create a paid planning draft and review platform readiness before any launch or spend.'
+          : 'Connect your ad account first, then build paid planning drafts for review before any real Ad Manager action.'}
       </p>
 
       <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
         {[
           { step: '01', title: 'Connect', desc: 'Link your Meta, Google, TikTok, or LinkedIn ad account' },
           { step: '02', title: 'Build with AI', desc: 'AI generates audience, copy, budget plan using your Brand Brain' },
-          { step: '03', title: 'Launch & Track', desc: 'Export to Ad Manager or launch directly via API' },
+          { step: '03', title: 'Review & Track', desc: 'Export a planning payload or create paused platform drafts for review' },
         ].map(item => (
           <div key={item.step} className="text-center">
             <div className="text-[11px] font-bold mb-1.5" style={{ color: '#F97316' }}>{item.step}</div>
@@ -402,7 +402,7 @@ export default function PaidCampaignsPage() {
           {campaigns.length > 0 && (
             <div className="grid grid-cols-4 gap-3 mb-6">
               {[
-                { label: 'Active Campaigns', value: String(activeCount), icon: '📡', color: '#059669' },
+                { label: 'Platform-active records', value: String(activeCount), icon: '📡', color: '#059669' },
                 { label: 'Total Spend', value: totalSpend > 0 ? `$${totalSpend.toFixed(0)}` : '$0', icon: '💰', color: '#ea580c' },
                 { label: 'Total Impressions', value: totalImpressions > 0 ? formatNum(totalImpressions) : '0', icon: '👁️', color: '#6366f1' },
                 { label: 'Avg ROAS', value: avgROAS ? `${avgROAS.toFixed(1)}x` : '—', icon: '📈', color: '#0284c7' },

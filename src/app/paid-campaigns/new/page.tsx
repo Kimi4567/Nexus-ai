@@ -8,7 +8,7 @@
  *   2. Objective + Budget + Schedule
  *   3. AI Strategy Generation (Brand Brain powered)
  *   4. AI Copy Variants
- *   5. Review + Launch
+ *   5. Review + Setup
  */
 
 import { useState, useEffect } from 'react'
@@ -143,7 +143,7 @@ export default function NewPaidCampaignPage() {
     name: '',
     objective: 'TRAFFIC',
     budgetType: 'DAILY',
-    dailyBudget: '50',
+    dailyBudget: '',
     lifetimeBudget: '',
     currency: 'USD',
     startDate: '',
@@ -235,7 +235,7 @@ export default function NewPaidCampaignPage() {
       if (!res.ok) throw new Error(result.error || 'AI suggestion failed')
       set('platform', result.platform || 'META')
       set('objective', result.objective || 'LEAD_GENERATION')
-      set('dailyBudget', String(result.dailyBudget || '50'))
+      set('dailyBudget', result.dailyBudget ? String(result.dailyBudget) : '')
       set('currency', result.currency || 'USD')
       set('name', result.name || '')
       set('language', result.language || 'en')
@@ -338,7 +338,7 @@ export default function NewPaidCampaignPage() {
                       style={{ background: '#ede9fe', color: '#6d28d9' }}>FREE</span>
                   </div>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    AI reads your Brand Brain and recommends the ideal platform, objective, budget, and campaign name.
+                    AI reads your Brand Brain and suggests a planning platform, objective, budget assumption, and campaign name.
                   </p>
                 </div>
                 <button
@@ -480,7 +480,7 @@ export default function NewPaidCampaignPage() {
           TIKTOK: { min: 2, max: 7 }, LINKEDIN: { min: 20, max: 55 },
         }
         const bench = CPM_BENCH[data.platform] || { min: 3, max: 8 }
-        const bud = parseFloat(data.dailyBudget) || 50
+        const bud = parseFloat(data.dailyBudget) || 0
         const totalEst = bud * 14
         const impMin = Math.round((totalEst / bench.max) * 1000)
         const impMax = Math.round((totalEst / bench.min) * 1000)
@@ -490,7 +490,7 @@ export default function NewPaidCampaignPage() {
         return (
           <div>
             <h2 className="text-[18px] font-bold text-slate-950 mb-1">Campaign Details</h2>
-            <p className="text-slate-500 text-[13px] mb-6">Name your campaign, set the objective and budget</p>
+            <p className="text-slate-500 text-[13px] mb-6">Name your campaign and add budget assumptions for planning review.</p>
 
             {/* AI Suggestion banner */}
             {data.aiSuggested && data.aiSuggestionRationale && (
@@ -561,6 +561,7 @@ export default function NewPaidCampaignPage() {
                       min="1"
                       value={data.budgetType === 'DAILY' ? data.dailyBudget : data.lifetimeBudget}
                       onChange={e => set(data.budgetType === 'DAILY' ? 'dailyBudget' : 'lifetimeBudget', e.target.value)}
+                      placeholder="Planning assumption"
                       className="w-full pl-12 pr-3 py-2.5 rounded-xl text-[13px] text-slate-950 focus:outline-none"
                       style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.12)' }}
                     />
@@ -591,7 +592,7 @@ export default function NewPaidCampaignPage() {
                 <div className="p-3 rounded-xl"
                   style={{ background: '#fff7ed', border: '1px solid rgba(249,115,22,0.2)' }}>
                   <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: '#c2410c' }}>
-                    Estimated Results (14 days · MENA benchmarks)
+                    Planning estimate (14 days · benchmark assumptions)
                   </p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
@@ -607,6 +608,9 @@ export default function NewPaidCampaignPage() {
                       <p className="text-[12px] font-bold text-slate-950">${bench.min}–${bench.max}</p>
                     </div>
                   </div>
+                  <p className="text-[10px] text-slate-500 mt-2">
+                    This is not approved spend. Confirm budget, tracking, creative, and platform readiness before any launch.
+                  </p>
                 </div>
               )}
 
@@ -693,7 +697,7 @@ export default function NewPaidCampaignPage() {
           <div>
             <h2 className="text-[18px] font-bold text-slate-950 mb-1">AI Campaign Strategy</h2>
             <p className="text-slate-500 text-[13px] mb-6">
-              Your Brand Brain is powering the strategy. This generates audience targeting, budget plan, and creative brief.
+              Your Brand Brain is powering a planning draft. This generates audience targeting, budget planning notes, and creative brief.
             </p>
 
             {!strategy ? (
@@ -707,7 +711,7 @@ export default function NewPaidCampaignPage() {
                 </div>
                 <p className="text-slate-950 font-medium mb-2">Ready to generate your AI strategy</p>
                 <p className="text-slate-500 text-[12px] mb-6 max-w-xs mx-auto">
-                  Uses your Brand Brain data, campaign objective, budget, and platform to produce a complete, brand-specific strategy.
+                  Uses your Brand Brain data, campaign objective, budget assumption, and platform to produce a planning strategy for review.
                 </p>
                 <button
                   disabled={loading}
@@ -975,12 +979,12 @@ export default function NewPaidCampaignPage() {
           </div>
         )
 
-      // ── STEP 5: Review + Launch ────────────────────────────────────────
+      // ── STEP 5: Review + Setup ─────────────────────────────────────────
       case 5:
         return (
           <div>
-            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Review & Launch</h2>
-            <p className="text-slate-500 text-[13px] mb-6">Your campaign is ready. Review the details and go to the campaign manager.</p>
+            <h2 className="text-[18px] font-bold text-slate-950 mb-1">Review & Setup</h2>
+            <p className="text-slate-500 text-[13px] mb-6">Your paid planning draft is ready for review in Campaign Manager. NEXUS has not launched ads or approved spend.</p>
 
             {/* Summary card */}
             <div className="p-4 rounded-[14px] mb-6 space-y-3 bg-white"
@@ -1022,8 +1026,8 @@ export default function NewPaidCampaignPage() {
               <ul className="space-y-1.5 text-[12px] text-slate-500">
                 <li>• Open the Campaign Manager to review targeting</li>
                 <li>• Upload your creative assets (image / video)</li>
-                <li>• Export to {data.platform} Ads Manager or launch via API</li>
-                <li>• Track performance in the dashboard</li>
+                <li>• Export to {data.platform} Ads Manager or create paused platform drafts only after readiness is confirmed</li>
+                <li>• Track performance only after real platform metrics exist or are manually reported</li>
               </ul>
             </div>
 

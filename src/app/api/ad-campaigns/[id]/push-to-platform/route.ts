@@ -1,10 +1,10 @@
 /**
  * POST /api/ad-campaigns/[id]/push-to-platform
  *
- * Exports or live-pushes a campaign to the connected ad platform.
+ * Exports or creates paused draft objects in the connected ad platform.
  *
  * Behavior:
- *   - hasApiAccess = true  → Live push via Meta Marketing API
+ *   - hasApiAccess = true  → Create paused draft objects via Meta Marketing API
  *   - hasApiAccess = false → Dry-run: returns JSON payload for manual import
  *
  * Meta flow:
@@ -14,7 +14,8 @@
  *   4. Create ad (binds ad set + creative)
  *   5. Update campaign.platformCampaignId, adSet.platformAdSetId, ad.platformAdId
  *
- * After a successful push, campaign status → ACTIVE (live) or remains DRAFT (dry-run)
+ * After a successful push, campaign remains non-active locally because Meta
+ * campaign/ad set/ad objects are created in PAUSED state.
  *
  * Rate limiting: Meta allows 200 calls/hour. For campaigns with many ads,
  * we batch creations and add 200ms delays between calls.
@@ -24,6 +25,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi, nexusToMetaTargeting, NEXUS_TO_META_OBJECTIVE } from '@/lib/adPlatforms/metaAdsApi'
+import { getBudgetTruth, mapPausedPlatformPushStatus } from '@/lib/paidBoundary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -60,7 +62,7 @@ export async function POST(
     return NextResponse.json({
       mode: 'dry_run',
       platform: campaign.platform,
-      message: `${campaign.platform} live push coming soon. JSON payload exported below.`,
+      message: `${campaign.platform} API draft creation is not available yet. Export the planning payload for manual review.`,
       payload: {
         campaign: {
           name: campaign.name,
@@ -88,10 +90,15 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
     const adSets = campaign.adSets as Array<Record<string, unknown>>
     const allAds = adSets.flatMap(s => (s.ads as Array<Record<string, unknown>>) || [])
 
+    const budgetTruth = getBudgetTruth({
+      amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
+      fallbackAmount: 50,
+    })
+
     const payload = api.buildDryRunPayload({
       campaignName: String(campaign.name),
       objective: String(campaign.objective),
-      dailyBudget: Number(campaign.dailyBudget || 50),
+      dailyBudget: budgetTruth.amount,
       targeting: campaign.aiAudienceBrief
         ? nexusToMetaTargeting(campaign.aiAudienceBrief as Record<string, unknown>)
         : {},
@@ -105,11 +112,13 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
 
     return NextResponse.json({
       mode: 'dry_run',
-      message: 'Meta API access pending approval. Here is your importable campaign payload.',
+      message: 'Meta API access is not approved. This is an importable planning payload, not a launched campaign.',
+      budgetSource: budgetTruth.budgetSource,
+      budgetConfirmed: budgetTruth.budgetConfirmed,
       payload,
       instructions: [
         'Go to Meta Ads Manager (business.facebook.com)',
-        'Create Campaign → use values from this JSON',
+        'Create a draft campaign only after budget, tracking, creative, and platform readiness are confirmed',
         'For automated push: go to Settings → Connections and connect your Meta Ad Account',
         'Meta App Review is required for live API access (2-6 weeks)',
       ],
@@ -118,6 +127,18 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
 
   // ── Live push ────────────────────────────────────────────────────────
   try {
+    const campaignBudgetTruth = getBudgetTruth({
+      amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
+      fallbackAmount: 50,
+    })
+    if (!campaignBudgetTruth.budgetConfirmed) {
+      return NextResponse.json({
+        error: 'Budget confirmation is required before creating platform draft objects.',
+        budgetSource: campaignBudgetTruth.budgetSource,
+        budgetConfirmed: false,
+      }, { status: 400 })
+    }
+
     const api = createMetaAdsApi(
       String(adAccount.accessToken),
       String(adAccount.platformAccountId)
@@ -146,7 +167,7 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
       data: {
         platformCampaignId: metaCampaignId,
         platformStatus: 'PAUSED',
-        status: 'ACTIVE',
+        status: mapPausedPlatformPushStatus(campaign.status),
       },
     })
 
@@ -165,7 +186,7 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
         const metaAdSetId = await api.createAdSet({
           name: String(adSet.name),
           campaign_id: metaCampaignId,
-          daily_budget: Number(adSet.dailyBudget || campaign.dailyBudget || 50),
+          daily_budget: Number(adSet.dailyBudget || campaign.dailyBudget),
           billing_event: String(adSet.billingEvent || 'IMPRESSIONS'),
           optimization_goal: String(adSet.optimizationGoal || 'LINK_CLICKS'),
           bid_strategy: String(adSet.bidStrategy || 'LOWEST_COST_WITHOUT_CAP'),
@@ -236,12 +257,12 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
     }
 
     return NextResponse.json({
-      mode: 'live',
+      mode: 'platform_paused_draft',
       success: true,
       results,
       note: results.errors!.length > 0
         ? 'Some ads had errors — check results.errors for details'
-        : 'All campaign elements created successfully in Meta. Campaign starts in PAUSED state.',
+        : 'Platform draft objects were created in Meta in PAUSED state. Review in Meta before any launch or spend.',
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Meta API error'

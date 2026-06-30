@@ -96,7 +96,7 @@ const PLATFORM_COLORS: Record<string, string> = {
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
   DRAFT:    { bg: 'rgba(107,114,128,0.15)', color: '#9CA3AF', label: 'Draft' },
-  ACTIVE:   { bg: 'rgba(16,185,129,0.15)',  color: '#10B981', label: 'Active' },
+  ACTIVE:   { bg: 'rgba(16,185,129,0.15)',  color: '#10B981', label: 'Platform active record' },
   PAUSED:   { bg: 'rgba(249,115,22,0.15)',  color: '#F97316', label: 'Paused' },
   ARCHIVED: { bg: 'rgba(239,68,68,0.12)',   color: '#EF4444', label: 'Archived' },
   COMPLETED:{ bg: 'rgba(139,92,246,0.15)',  color: '#8B5CF6', label: 'Completed' },
@@ -157,6 +157,10 @@ export default function CampaignDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!campaign) return
+    if (newStatus === 'ACTIVE') {
+      alert('NEXUS cannot mark a paid campaign active without platform-side confirmation.')
+      return
+    }
     const token = await getToken()
     await fetch(`/api/ad-campaigns/${id}`, {
       method: 'PATCH',
@@ -305,7 +309,7 @@ export default function CampaignDetailPage() {
                 {pushLoading ? (
                   <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : '→'}
-                {pushLoading ? 'Pushing...' : `Export to ${campaign.platform}`}
+                {pushLoading ? 'Creating paused draft...' : `Create ${campaign.platform} draft`}
               </button>
             )}
             {campaign.status === 'ACTIVE' && (
@@ -316,10 +320,10 @@ export default function CampaignDetailPage() {
               </button>
             )}
             {campaign.status === 'PAUSED' && (
-              <button onClick={() => handleStatusChange('ACTIVE')}
+              <button disabled
                 className="px-3 py-2 rounded-xl text-[12px] font-bold"
-                style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.3)' }}>
-                ▶ Resume
+                style={{ background: 'rgba(16,185,129,0.08)', color: '#86efac', border: '1px solid rgba(16,185,129,0.22)', cursor: 'not-allowed', opacity: 0.72 }}>
+                Platform confirmation required to resume
               </button>
             )}
             <button onClick={() => setActiveTab('performance')}
@@ -659,9 +663,9 @@ export default function CampaignDetailPage() {
             {strategy.budget_plan ? (
               <div className="p-5 rounded-[14px]"
                 style={{ background: 'rgba(24,119,242,0.06)', border: '1px solid rgba(24,119,242,0.15)' }}>
-                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#60A5FA' }}>Budget Intelligence</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: '#60A5FA' }}>Budget Planning</h3>
                 <p className="text-[13px] text-white mb-3">
-                  {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
+                  Planning assumption: {String((strategy.budget_plan as Record<string, unknown>)?.expected_results || '')}
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   {[
@@ -700,11 +704,11 @@ export default function CampaignDetailPage() {
               </div>
             ) : null}
 
-            {/* Launch Checklist */}
+            {/* Setup Readiness Checklist */}
             {strategy.launch_checklist ? (
               <div className="p-5 rounded-[14px]"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3 text-text-muted">Launch Checklist</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider mb-3 text-text-muted">Setup Readiness Checklist</h3>
                 <ul className="space-y-2">
                   {(strategy.launch_checklist as string[]).map((item: string, i: number) => (
                     <li key={i} className="flex items-start gap-2 text-[12px] text-white">
@@ -757,11 +761,11 @@ export default function CampaignDetailPage() {
 
                 <div className="p-4 rounded-[12px] md:col-span-2"
                   style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                  <p className="text-[13px] font-semibold text-white mb-2">📤 Push to {campaign.platform} Ads Manager</p>
+                  <p className="text-[13px] font-semibold text-white mb-2">📤 Create paused {campaign.platform} platform draft</p>
                   <p className="text-[12px] text-text-muted mb-3">
                     {campaign.adAccount?.hasApiAccess
-                      ? `Connected to "${campaign.adAccount.platformAccountName}" — ready to push live.`
-                      : `API access not yet approved. Export as JSON and import manually, or connect your ${campaign.platform} ad account via API.`}
+                      ? `Connected to "${campaign.adAccount.platformAccountName}" — creates paused platform objects for review only. Confirm budget, tracking, creative, and platform readiness before launch or spend.`
+                      : `API access not yet approved. Export as JSON for manual review, or connect your ${campaign.platform} ad account after ads permissions are ready.`}
                   </p>
                   <button
                     onClick={handlePushToMeta}
@@ -772,7 +776,7 @@ export default function CampaignDetailPage() {
                       cursor: campaign.adAccount?.hasApiAccess ? 'pointer' : 'not-allowed',
                       opacity: pushLoading ? 0.6 : 1,
                     }}>
-                    {pushLoading ? 'Pushing...' : `Push to ${campaign.platform} →`}
+                    {pushLoading ? 'Creating paused draft...' : `Create paused ${campaign.platform} draft →`}
                   </button>
                 </div>
               </div>

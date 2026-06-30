@@ -1,12 +1,12 @@
 /**
  * POST /api/campaigns/[id]/paid-pack/generate
  *
- * Uses GPT-4o to generate the full paid campaign pack:
+ * Uses GPT-4o to generate the full paid planning pack:
  * - Platform-specific audience targeting (Meta, Google, TikTok, LinkedIn)
  * - A/B copy variants (3 per platform)
  * - Budget insights & estimated reach
  * - UTM parameter set
- * - Platform-by-platform launch guide (step by step)
+ * - Platform-by-platform setup review guide (step by step)
  *
  * The data model maps 1:1 to Meta Marketing API fields so when
  * API approval arrives, we just add the API call on top.
@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { getBudgetTruth } from '@/lib/paidBoundary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -100,7 +101,11 @@ export async function POST(
 
     const objective = existingPack?.objective ?? 'TRAFFIC'
     const platforms: string[] = existingPack?.platforms ?? ['meta']
-    const dailyBudget = existingPack?.dailyBudget ?? 20
+    const budgetTruth = getBudgetTruth({
+      amount: existingPack?.dailyBudget,
+      fallbackAmount: 20,
+    })
+    const dailyBudget = budgetTruth.amount
     const durationDays = existingPack?.durationDays ?? 7
     const currency = existingPack?.currency ?? 'USD'
 
@@ -119,8 +124,8 @@ Audience Desires: ${(brandProfile.audienceDesires ?? []).join(', ')}
 Brand Tone: ${(brandProfile.toneKeywords ?? []).join(', ')}
 Unique Advantages: ${(brandProfile.uniqueAdvantages ?? []).join(', ')}
 Top Platforms: ${(brandProfile.topPlatforms ?? []).join(', ')}
-Winning Hooks: ${(brandProfile.winningHooks ?? []).join(' | ')}
-Failed Angles: ${(brandProfile.failedAngles ?? []).join(', ')}
+Reviewed Hook Signals: ${(brandProfile.winningHooks ?? []).join(' | ')}
+Reviewed Avoidance Signals: ${(brandProfile.failedAngles ?? []).join(', ')}
 Competitor Notes: ${brandProfile.competitorNotes ?? ''}
 ` : 'No brand profile available.'
 
@@ -131,11 +136,15 @@ Competitor Notes: ${brandProfile.competitorNotes ?? ''}
     const platformList = platforms.join(', ')
     const totalBudget = dailyBudget * durationDays
 
-    const systemPrompt = `You are a world-class performance marketing expert with 15+ years running paid campaigns on Meta, Google, TikTok, and LinkedIn. You've managed $50M+ in ad spend across MENA and global markets.
+    const systemPrompt = `You are a senior paid planning strategist with deep experience planning campaigns on Meta, Google, TikTok, and LinkedIn.
 
-Your job: Generate a professional, ready-to-launch paid campaign pack for the following campaign. Every field must be specific, actionable, and based on the brand profile.
+Your job: Generate a professional paid planning pack for review. This is planning-only. Do not imply ads are ready to launch, active, running, approved, or spend-ready.
 
 NEVER use generic placeholders. NEVER say "your brand" or "your audience." Use the actual brand data provided.
+
+No ad spend is approved by this pack. No platform launch is approved by this pack. If budget is not explicitly confirmed by the user, label it as a planning assumption; do not recommend spend as approved.
+
+Do not invent ROI, ROAS, CPA, guaranteed outcomes, expected conversions, benchmark superiority, winning paid creative, or best-performing paid assets. Reach, CPM, and budget values are planning assumptions only.
 
 Output valid JSON only. No prose, no markdown.`
 
@@ -146,6 +155,8 @@ Platforms: ${platformList}
 Daily Budget: ${currency} ${dailyBudget}
 Duration: ${durationDays} days
 Total Budget: ${currency} ${totalBudget}
+Budget Source: ${budgetTruth.budgetSource}
+Budget Confirmed: ${budgetTruth.budgetConfirmed ? 'true' : 'false'}
 
 BRAND PROFILE:
 ${brandContext}
@@ -255,16 +266,18 @@ Generate a complete paid campaign pack as JSON with this exact structure:
     }
   ],
   "budgetInsights": {
-    "recommendation": "2-3 sentences on budget split strategy",
+    "budgetSource": "${budgetTruth.budgetSource}",
+    "budgetConfirmed": ${budgetTruth.budgetConfirmed ? 'true' : 'false'},
+    "recommendation": "2-3 sentences on planning-only budget allocation; say budget needs confirmation if not confirmed",
     "splitSuggestion": {
       "meta": percentage as number,
       "google": percentage as number,
       "tiktok": percentage as number,
       "linkedin": percentage as number
     },
-    "phasingSuggestion": "Day 1-3: testing phase at 50% budget. Day 4-7: scale winners.",
-    "competitorBenchmark": "what competitor spend looks like in this space",
-    "expectedResults": "realistic outcome expectations for this budget"
+    "phasingSuggestion": "Day 1-3: review/test allocation assumption. Day 4-7: review metrics before changing allocation.",
+    "competitorBenchmark": "planning context only; avoid unsupported competitor spend claims",
+    "expectedResults": "planning assumption only; avoid promised outcomes, conversions, ROI, ROAS, or guaranteed performance"
   },
   "platformGuides": {
     "meta": [
@@ -275,7 +288,7 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "Step 5: Placements: Advantage+ Placements (recommended) OR Manual: Facebook Feed, Instagram Reels, Stories",
       "Step 6: Upload creative from your Media Library. Use 1:1 for Feed, 9:16 for Reels/Stories",
       "Step 7: Primary text: [PASTE COPY VARIANT]. Headline: [PASTE HEADLINE]",
-      "Step 8: Review and Publish. Allow 24h for approval."
+      "Step 8: Review in Meta. Do not publish or activate until budget, tracking, creative, and platform readiness are confirmed."
     ],
     "google": [
       "Step 1: Go to ads.google.com → New Campaign → [CAMPAIGN TYPE]",
@@ -285,7 +298,7 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "Step 5: Keywords: Add the provided keyword list. Set match types.",
       "Step 6: Ad copy: Use the Google Search Ad variant provided.",
       "Step 7: Add Sitelink extensions and Callout extensions.",
-      "Step 8: Add your UTM tracking URL as final URL."
+      "Step 8: Add your UTM tracking URL as final URL, then review before any launch."
     ],
     "tiktok": [
       "Step 1: Go to ads.tiktok.com → Create Campaign → [OBJECTIVE]",
@@ -295,7 +308,7 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "Step 5: Upload vertical video (9:16, min 5s, max 60s). Use branded version from Media Library.",
       "Step 6: Caption: Use TikTok Script variant. Add 3-5 hashtags.",
       "Step 7: CTA button: [CTA]. Destination URL with UTM parameters.",
-      "Step 8: Submit for review. TikTok approval takes 1-2 hours."
+      "Step 8: Review setup. Do not submit or activate until launch readiness is confirmed."
     ],
     "linkedin": [
       "Step 1: Go to linkedin.com/campaignmanager → Create Campaign",
@@ -305,7 +318,7 @@ Generate a complete paid campaign pack as JSON with this exact structure:
       "Step 5: Create ad with the LinkedIn copy variant. Image: 1200x627px.",
       "Step 6: Add Lead Gen Form if objective is LEAD_GENERATION.",
       "Step 7: Set bid type: Maximum Delivery (automated).",
-      "Step 8: Review forecast. Publish when audience size shows 50K+."
+      "Step 8: Review forecast and readiness before any platform-side launch."
     ]
   }
 }`

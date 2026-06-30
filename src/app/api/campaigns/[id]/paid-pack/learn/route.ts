@@ -1,13 +1,9 @@
 /**
  * POST /api/campaigns/[id]/paid-pack/learn
  *
- * AI analyzes the campaign metrics + copy variants + audience brief
- * and extracts structured learnings, then auto-updates Brand Brain:
- *   - winningHooks   ← highest CTR copy angles
- *   - targetAudience ← refined audience description
- *   - topPlatforms   ← platform with best ROAS
- *   - failedAngles   ← lowest performing angles
- *   - strategicNotes ← AI executive summary
+ * AI analyzes paid metrics + copy variants + audience brief and stores a
+ * paid metrics signal. Manual metrics stay pending review and do not become
+ * analytics-backed Brand Brain learning automatically.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
@@ -19,6 +15,7 @@ import {
   type CreditDeductionOk,
 } from '@/lib/credits'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
+import { paidMetricsSignalCopy } from '@/lib/paidBoundary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -79,7 +76,11 @@ export async function POST(
       })
     } catch { /* ok */ }
 
-    const systemPrompt = `You are a senior performance marketing analyst. Your job is to extract actionable learnings from a completed paid campaign and structure them so they can update a brand's strategic memory (Brand Brain).
+    const signalTruth = paidMetricsSignalCopy(pack.metricsSource)
+
+    const systemPrompt = `You are a senior performance marketing analyst. Your job is to summarize paid campaign metrics as a review signal.
+
+If the metrics source is manual, treat the output as a manually reported metrics signal pending review. Do not call it Brand Brain learning, a winner, best-performing, or analytics-backed proof.
 
 Be specific. Use real numbers from the metrics. Never be generic. Output valid JSON only.`
 
@@ -108,29 +109,31 @@ BUDGET INSIGHTS:
 ${budgetInsights}
 
 Current Brand Brain state:
-- Current Winning Hooks: ${JSON.stringify((brandProfile?.winningHooks ?? []).slice(0, 3))}
+- Current Reviewed Hook Signals: ${JSON.stringify((brandProfile?.winningHooks ?? []).slice(0, 3))}
 - Current Target Audience: ${brandProfile?.targetAudience ?? 'Not set'}
 - Current Top Platforms: ${JSON.stringify(brandProfile?.topPlatforms ?? [])}
-- Current Failed Angles: ${JSON.stringify((brandProfile?.failedAngles ?? []).slice(0, 3))}
+- Current Reviewed Avoidance Signals: ${JSON.stringify((brandProfile?.failedAngles ?? []).slice(0, 3))}
+Metrics source: ${pack.metricsSource ?? 'manual'}
+Signal label: ${signalTruth.label}
 
-Extract learnings as JSON:
+Extract a paid metrics signal as JSON:
 {
   "learnings": {
     "executiveSummary": "2-3 sentence plain-language summary of what worked, what didn't, and the #1 insight",
     "campaignScore": "1-10 rating based on industry benchmarks",
-    "winningHooks": ["exact hooks / angles that performed best — use actual copy from the variants"],
-    "winningAudience": "refined description of the audience that responded best based on the data",
-    "bestPlatform": "platform name that delivered best ROAS or CTR",
-    "failedAngles": ["copy angles or targeting that underperformed"],
+    "candidateHooks": ["exact hooks / angles that appear promising based on this signal"],
+    "audienceSignal": "refined audience signal from the reported metrics",
+    "platformSignal": "platform name with stronger reported CTR or ROAS if supported by the metrics",
+    "underperformingAngles": ["copy angles or targeting that may need review"],
     "keyInsight": "the single most important thing this campaign revealed about the audience",
     "nextCampaignRecommendation": "specific actionable recommendation for the next campaign"
   },
   "brandBrainUpdates": {
-    "winningHooksToAdd": ["new hooks to add — only if CTR was above 2% or conversions were strong"],
-    "failedAnglesToAdd": ["angles to avoid in future"],
+    "hooksToReview": ["new hooks to review — only if analytics-backed metrics support them"],
+    "anglesToReview": ["angles to review before avoiding in future"],
     "topPlatformsUpdate": ["ordered list of platforms from best to worst ROAS — replace current"],
-    "targetAudienceRefinement": "updated audience description incorporating learnings (or null if no change)",
-    "strategicNotesAddition": "1-2 sentence addition to strategic notes about this campaign's learnings"
+    "targetAudienceRefinement": "updated audience description from analytics-backed metrics only, or null",
+    "strategicNotesAddition": "1-2 sentence addition framed as a paid metrics signal"
   }
 }`
 
@@ -145,8 +148,8 @@ Extract learnings as JSON:
     let parsed: {
       learnings?: Record<string, unknown>
       brandBrainUpdates?: {
-        winningHooksToAdd?: string[]
-        failedAnglesToAdd?: string[]
+        hooksToReview?: string[]
+        anglesToReview?: string[]
         topPlatformsUpdate?: string[]
         targetAudienceRefinement?: string | null
         strategicNotesAddition?: string
@@ -165,20 +168,20 @@ Extract learnings as JSON:
       where: { campaignId: params.id },
       data: {
         learnings: parsed.learnings ?? {},
-        brandBrainUpdated: false, // will be true after updates below
+        brandBrainUpdated: false,
       },
     })
 
-    // Apply updates to Brand Brain
+    // Apply updates to Brand Brain only when metrics are analytics-backed.
     let brandBrainUpdated = false
     const updates = parsed.brandBrainUpdates
-    if (updates && brandProfile) {
+    if (updates && brandProfile && signalTruth.canUpdateBrandBrain) {
       const existingHooks: string[] = brandProfile.winningHooks ?? []
       const existingFailed: string[] = brandProfile.failedAngles ?? []
       const existingStrategic = brandProfile.strategicNotes ?? ''
 
-      const newHooks = [...new Set([...existingHooks, ...(updates.winningHooksToAdd ?? [])])]
-      const newFailed = [...new Set([...existingFailed, ...(updates.failedAnglesToAdd ?? [])])]
+      const newHooks = [...new Set([...existingHooks, ...(updates.hooksToReview ?? [])])]
+      const newFailed = [...new Set([...existingFailed, ...(updates.anglesToReview ?? [])])]
       const newStrategic = updates.strategicNotesAddition
         ? `${existingStrategic}\n\n[${new Date().toLocaleDateString()}] ${updates.strategicNotesAddition}`.trim()
         : existingStrategic
@@ -209,13 +212,15 @@ Extract learnings as JSON:
       learnings: parsed.learnings,
       brandBrainUpdated,
       brandBrainUpdates: parsed.brandBrainUpdates,
+      signalLabel: signalTruth.label,
+      analyticsBacked: signalTruth.canUpdateBrandBrain,
       success: true,
     })
   } catch (err) {
     console.error('[paid-pack/learn]', err)
     if (chargedUserId && chargedCredit) {
-      await refundDeductedCredits(chargedUserId, chargedCredit, 'Learning extraction failed')
+      await refundDeductedCredits(chargedUserId, chargedCredit, 'Paid metrics signal extraction failed')
     }
-    return NextResponse.json({ error: 'Learning extraction failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Paid metrics signal extraction failed' }, { status: 500 })
   }
 }

@@ -5,6 +5,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import {
+  canRecordExternalPaidLaunch,
+  canRecordPaidCompletion,
+  isUnsafePaidPackStatus,
+} from '@/lib/paidBoundary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -36,19 +41,60 @@ export async function PATCH(
       metricsSource = 'manual',
       status,
       launchNotes,
+      explicitExternalLaunchConfirmed,
+      explicitCompletionConfirmed,
     } = body
 
+    const metricsProvided = [
+      impressions,
+      reach,
+      clicks,
+      ctr,
+      cpc,
+      cpm,
+      spend,
+      conversions,
+      roas,
+    ].some((value) => value !== undefined && value !== null && value !== '')
+
+    const existingPack = await db.paidCampaignPack.findUnique({
+      where: { campaignId: params.id },
+      select: { status: true },
+    })
+
+    const allowExternalLaunch = canRecordExternalPaidLaunch({
+      requestedStatus: status,
+      explicitExternalLaunchConfirmed,
+      metricsProvided,
+    })
+    const allowCompletion = canRecordPaidCompletion({
+      requestedStatus: status,
+      explicitCompletionConfirmed,
+      currentStatus: existingPack?.status,
+    })
+
+    if (isUnsafePaidPackStatus(status) && !allowExternalLaunch && !allowCompletion) {
+      return NextResponse.json({
+        error: 'Manual paid metrics cannot mark paid content launched, completed, active, or ready to launch.',
+      }, { status: 400 })
+    }
+
     const metrics = { impressions, reach, clicks, ctr, cpc, cpm, spend, conversions, roas }
+    const statusUpdate = allowExternalLaunch
+      ? { status: 'LAUNCHED', launchedAt: new Date() }
+      : allowCompletion
+        ? { status: 'COMPLETED', completedAt: new Date() }
+        : {}
 
     const pack = await db.paidCampaignPack.update({
       where: { campaignId: params.id },
       data: {
-        metrics,
-        metricsSource,
-        metricsUpdatedAt: new Date(),
-        ...(status && { status }),
-        ...(status === 'COMPLETED' && { completedAt: new Date() }),
-        ...(status === 'LAUNCHED' && { launchedAt: new Date() }),
+        ...(metricsProvided && {
+          metrics,
+          metricsSource,
+          metricsUpdatedAt: new Date(),
+        }),
+        ...statusUpdate,
         ...(launchNotes !== undefined && { launchNotes }),
       },
     })

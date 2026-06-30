@@ -118,7 +118,11 @@ export async function POST(
 
       await recalcAggregates(params.id)
 
-      return NextResponse.json({ mode: 'manual', snapshot: snap })
+      return NextResponse.json({
+        mode: 'manual',
+        snapshot: snap,
+        message: 'Manual paid metrics signal recorded for review. This is not analytics-backed learning.',
+      })
     }
 
     // ── Live sync via Meta Insights API ────────────────────────────────────
@@ -132,7 +136,7 @@ export async function POST(
     if (!insights || insights.length === 0) {
       return NextResponse.json({
         mode: 'live',
-        message: 'No insights data yet — campaign may not have launched.',
+        message: 'No platform insights data yet — review platform delivery and tracking before treating metrics as analytics-backed.',
         synced: 0,
       })
     }
