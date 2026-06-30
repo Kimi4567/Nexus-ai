@@ -801,9 +801,9 @@ export default function ContentHubPage() {
     }
   }
 
-  // ── Pick A/B winner ───────────────────────────────────────────────────────────
+  // ── Select A/B draft variant ─────────────────────────────────────────────────
 
-  async function pickWinner(postId: string) {
+  async function pickVariant(postId: string) {
     if (!isAuthenticated) return
     setPickingWinner(postId)
     setError(null)
@@ -813,7 +813,7 @@ export default function ContentHubPage() {
         { method: 'PATCH', headers: { Authorization: authHeader() } },
       )
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to pick winner')
+      if (!res.ok) throw new Error(data.error ?? 'Failed to select variant')
 
       // Remove the sibling from local state; legacy field name still marks the selected variant.
       setPosts(prev => {
@@ -1252,7 +1252,7 @@ export default function ContentHubPage() {
                 [post.id]: { ...(prev[post.id] ?? {}), ...updates }
               }))}
               onRewrite={(instruction) => rewritePost(post.id, instruction)}
-              onPickWinner={post.variantGroup ? () => pickWinner(post.id) : undefined}
+              onPickWinner={post.variantGroup ? () => pickVariant(post.id) : undefined}
               onManualPublish={() => openManualPublishModal(post)}
             />
           )

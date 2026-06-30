@@ -129,23 +129,25 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // ── 6. Rich path: GPT-4o A/B analysis → Brand Brain proposals ─────────
     // Compares selected vs discarded draft variants to extract editorial preference signals.
     // Creates pending proposals the user reviews in BrainLearningPanel.
-    // Requires loser data — only runs if we captured it before deletion.
+    // Requires discarded-variant data — only runs if we captured it before deletion.
     if (loser && loser.caption && loser.caption.trim().length > 10) {
       runBrainLearning({
         workspaceId: campaign.workspaceId,
         campaignId: campaign.id,
-        trigger: 'ab_winner',
+        trigger: 'user_selected_variant',
         payload: {
-          winner: {
+          selectedVariant: {
             caption: selected.caption,
             platform: String(selected.platform),
             variantLabel: selected.variantLabel ?? 'A',
           },
-          loser: {
+          discardedVariant: {
             caption: loser.caption,
             platform: String(loser.platform),
             variantLabel: loser.variantLabel ?? 'B',
           },
+          signalContext: 'User-selected draft variant only. Not analytics-backed performance evidence.',
+          forbiddenLanguage: ['winner', 'winning', 'best-performing', 'performance winner', 'learned from performance'],
         },
       }).catch(() => null) // fire-and-forget — never block the pick action
     }

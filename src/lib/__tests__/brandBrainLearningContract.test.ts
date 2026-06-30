@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   getBrandBrainLearningCopy,
   isAnalyticsBackedLearning,
@@ -62,5 +64,27 @@ describe('brandBrainLearningContract', () => {
   it('keeps all non-analytics sources out of learning language', () => {
     const sources: BrandBrainSignalSource[] = ['approval', 'manual_publish', 'user_variant_pick', 'missing_analytics']
     expect(sources.every(source => !isAnalyticsBackedLearning(source))).toBe(true)
+  })
+
+  it('keeps user-selected variant proposal context out of winner/loser vocabulary', () => {
+    const routeSource = readFileSync(
+      join(process.cwd(), 'src/app/api/campaigns/[id]/content-plan/[postId]/pick-winner/route.ts'),
+      'utf8',
+    )
+    const brainLearningSource = readFileSync(join(process.cwd(), 'src/lib/brain-learning.ts'), 'utf8')
+
+    expect(routeSource).toContain("trigger: 'user_selected_variant'")
+    expect(routeSource).toContain('selectedVariant')
+    expect(routeSource).toContain('discardedVariant')
+    expect(routeSource).toContain('Not analytics-backed performance evidence')
+    expect(routeSource).not.toContain("trigger: 'ab_winner'")
+    expect(routeSource).not.toContain('payload: {\\n          winner:')
+    expect(routeSource).not.toContain('payload: {\\n          loser:')
+
+    expect(brainLearningSource).toContain("trigger === 'ab_winner' || trigger === 'user_selected_variant'")
+    expect(brainLearningSource).toContain('USER PREFERENCE SIGNAL only')
+    expect(brainLearningSource).toContain('SELECTED DRAFT VARIANT')
+    expect(brainLearningSource).toContain('DISCARDED DRAFT VARIANT')
+    expect(brainLearningSource).toContain('Do not use winner, winning, loser, best-performing, performance winner')
   })
 })

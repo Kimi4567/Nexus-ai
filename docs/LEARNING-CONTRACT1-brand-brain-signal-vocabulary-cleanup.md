@@ -16,12 +16,14 @@ Brand Brain copy mixed four different concepts: user approval signals, user pref
 - Added a small `brandBrainLearningContract` helper so approval, manual publish, variant selection, analytics, and missing-analytics sources have explicit display labels and permissions for learning/winning language.
 - Updated approval response copy from "Brand Brain learned" style wording to "Approval signals saved" and returned `signals` instead of `learned`.
 - Updated user-selected variant copy from winner language to selected/preferred variant language while preserving legacy route and database field names.
+- Updated the A/B rich Brand Brain proposal context to send `user_selected_variant`, `selectedVariant`, and `discardedVariant` vocabulary instead of winner/loser payload context. Legacy route and DB field names remain only as internal compatibility details.
 - Updated Brand/Brain UI labels to describe saved signals and reviewed updates instead of implying NEXUS learned from approval-only actions.
 - Softened paid metrics UI copy from automatic Brand Brain learning to paid metrics signals for review.
 
 ## What did not change
 
 - No database fields were renamed.
+- The `/pick-winner` route path and legacy `variantWinner` / `winningHooks` / `winningAngles` schema fields were not renamed.
 - No schema or migration changed.
 - Approval status transitions remain unchanged.
 - Manual publish backend behavior remains unchanged.
