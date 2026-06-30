@@ -32,6 +32,7 @@ Until those proof states exist, the UI should use planning-safe language: paid p
 - Meta API creation keeps platform objects paused and maps the local campaign to a non-active state.
 - Paused platform draft creation is still an external platform mutation, so it now requires explicit platform-draft confirmation and explicit budget confirmation before any API draft objects are created.
 - A positive saved budget value alone is not budget approval for external platform creation.
+- A budget value can exist without budget approval; `budget_value_present_unconfirmed` means planning value only, while `explicit_budget_confirmed` requires explicit acknowledgement.
 - Paid Campaigns list/new/detail UI now uses setup-review, planning assumption, paused draft, and review-needed language instead of launch-ready language.
 
 Creating paused platform drafts still does not launch ads, activate a campaign, or spend budget. It only creates paused objects for platform-side review after the user confirms budget, tracking, creative, and platform readiness have been reviewed.
@@ -40,6 +41,8 @@ The paid Ad Manager confirmation modal uses two separate acknowledgements before
 
 1. The user confirms NEXUS should create paused platform draft objects only and understands this does not launch ads or spend budget.
 2. The user confirms budget, tracking, creative, and platform readiness have been reviewed for this draft creation.
+
+Planning prompts must treat unconfirmed budget values as planning inputs only. They must not present a positive budget amount as approved spend unless the explicit budget confirmation gate has been satisfied.
 
 ## What Did Not Change
 

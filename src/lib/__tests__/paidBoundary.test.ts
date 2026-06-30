@@ -25,15 +25,30 @@ describe('paidBoundary', () => {
   it('marks fallback budget as planning assumption, not confirmed spend', () => {
     expect(getBudgetTruth({ amount: null, fallbackAmount: 20 })).toEqual({
       amount: 20,
+      budgetValuePresent: false,
       budgetSource: 'planning_assumption',
       budgetConfirmed: false,
     })
   })
 
-  it('marks explicit positive budget as user-confirmed input', () => {
+  it('marks positive budget values as present but unconfirmed without explicit confirmation', () => {
     expect(getBudgetTruth({ amount: 125, fallbackAmount: 20 })).toEqual({
       amount: 125,
-      budgetSource: 'user_confirmed',
+      budgetValuePresent: true,
+      budgetSource: 'budget_value_present_unconfirmed',
+      budgetConfirmed: false,
+    })
+  })
+
+  it('marks positive budget values as confirmed only with explicit confirmation', () => {
+    expect(getBudgetTruth({
+      amount: 125,
+      fallbackAmount: 20,
+      explicitBudgetConfirmed: true,
+    })).toEqual({
+      amount: 125,
+      budgetValuePresent: true,
+      budgetSource: 'explicit_budget_confirmed',
       budgetConfirmed: true,
     })
   })
@@ -110,7 +125,12 @@ describe('paidBoundary', () => {
   })
 
   it('does not treat a positive daily budget as platform draft approval', () => {
-    expect(getBudgetTruth({ amount: 250, fallbackAmount: 50 }).budgetConfirmed).toBe(true)
+    expect(getBudgetTruth({ amount: 250, fallbackAmount: 50 })).toEqual({
+      amount: 250,
+      budgetValuePresent: true,
+      budgetSource: 'budget_value_present_unconfirmed',
+      budgetConfirmed: false,
+    })
     expect(canCreatePlatformDraft({
       explicitPlatformDraftConfirmed: true,
       explicitBudgetConfirmed: undefined,
@@ -133,10 +153,13 @@ describe('paidBoundary', () => {
   it('keeps Meta platform creation paused and non-active in source', () => {
     const pushRoute = readFileSync(join(process.cwd(), 'src/app/api/ad-campaigns/[id]/push-to-platform/route.ts'), 'utf8')
     const paidCampaignPage = readFileSync(join(process.cwd(), 'src/app/paid-campaigns/[id]/page.tsx'), 'utf8')
+    const generateRoute = readFileSync(join(process.cwd(), 'src/app/api/campaigns/[id]/paid-pack/generate/route.ts'), 'utf8')
 
     expect(pushRoute).toContain('canCreatePlatformDraft')
     expect(pushRoute).toContain('explicitPlatformDraftConfirmed')
     expect(pushRoute).toContain('explicitBudgetConfirmed')
+    expect(pushRoute).toContain('explicitBudgetConfirmed: body.explicitBudgetConfirmed')
+    expect(pushRoute).toContain('budgetValuePresent: campaignBudgetTruth.budgetValuePresent')
     expect(pushRoute).toContain('Creating platform draft objects requires explicit confirmation')
     expect(pushRoute).toContain("status: 'PAUSED'")
     expect(pushRoute).toContain('mapPausedPlatformPushStatus')
@@ -150,5 +173,10 @@ describe('paidBoundary', () => {
     expect(paidCampaignPage).toContain('explicitBudgetConfirmed: budgetReadinessAcknowledged === true')
     expect(paidCampaignPage).toContain('!platformDraftAcknowledged || !budgetReadinessAcknowledged || pushLoading')
     expect(paidCampaignPage).toContain('I confirm the budget, tracking, creative, and platform readiness have been reviewed')
+
+    expect(generateRoute).toContain('explicitBudgetConfirmed: false')
+    expect(generateRoute).toContain('Budget Confirmed: ${budgetTruth.budgetConfirmed')
+    expect(generateRoute).toContain('Budget Value Present: ${budgetTruth.budgetValuePresent')
+    expect(generateRoute).toContain('treat this as a planning budget value only')
   })
 })

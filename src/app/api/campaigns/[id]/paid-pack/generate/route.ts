@@ -104,6 +104,7 @@ export async function POST(
     const budgetTruth = getBudgetTruth({
       amount: existingPack?.dailyBudget,
       fallbackAmount: 20,
+      explicitBudgetConfirmed: false,
     })
     const dailyBudget = budgetTruth.amount
     const durationDays = existingPack?.durationDays ?? 7
@@ -142,7 +143,9 @@ Your job: Generate a professional paid planning pack for review. This is plannin
 
 NEVER use generic placeholders. NEVER say "your brand" or "your audience." Use the actual brand data provided.
 
-No ad spend is approved by this pack. No platform launch is approved by this pack. If budget is not explicitly confirmed by the user, label it as a planning assumption; do not recommend spend as approved.
+No ad spend is approved by this pack. No platform launch is approved by this pack. If budget is not explicitly confirmed by the user, label it as a planning assumption or an unconfirmed planning budget value according to the budget source; do not recommend spend as approved.
+
+If a budget value is present but not explicitly confirmed, treat this as a planning budget value only. Do not present it as approved spend.
 
 Do not invent ROI, ROAS, CPA, guaranteed outcomes, expected conversions, benchmark superiority, winning paid creative, or best-performing paid assets. Reach, CPM, and budget values are planning assumptions only.
 
@@ -157,6 +160,7 @@ Duration: ${durationDays} days
 Total Budget: ${currency} ${totalBudget}
 Budget Source: ${budgetTruth.budgetSource}
 Budget Confirmed: ${budgetTruth.budgetConfirmed ? 'true' : 'false'}
+Budget Value Present: ${budgetTruth.budgetValuePresent ? 'true' : 'false'}
 
 BRAND PROFILE:
 ${brandContext}

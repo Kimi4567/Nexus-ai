@@ -1,5 +1,6 @@
 export const PLANNING_ASSUMPTION_BUDGET_SOURCE = 'planning_assumption' as const
-export const USER_CONFIRMED_BUDGET_SOURCE = 'user_confirmed' as const
+export const BUDGET_VALUE_PRESENT_UNCONFIRMED_SOURCE = 'budget_value_present_unconfirmed' as const
+export const EXPLICIT_BUDGET_CONFIRMED_SOURCE = 'explicit_budget_confirmed' as const
 
 const SAFE_PAID_PACK_SETUP_STATUSES = new Set(['DRAFT', 'GENERATED'])
 const UNSAFE_PAID_PACK_STATUSES = new Set([
@@ -28,20 +29,28 @@ export function isUnsafePaidPackStatus(value: unknown): boolean {
 export function getBudgetTruth({
   amount,
   fallbackAmount,
+  explicitBudgetConfirmed,
 }: {
   amount: number | null | undefined
   fallbackAmount: number
+  explicitBudgetConfirmed?: unknown
 }) {
   if (typeof amount === 'number' && Number.isFinite(amount) && amount > 0) {
+    const budgetConfirmed = explicitBudgetConfirmed === true
+
     return {
       amount,
-      budgetSource: USER_CONFIRMED_BUDGET_SOURCE,
-      budgetConfirmed: true,
+      budgetValuePresent: true,
+      budgetSource: budgetConfirmed
+        ? EXPLICIT_BUDGET_CONFIRMED_SOURCE
+        : BUDGET_VALUE_PRESENT_UNCONFIRMED_SOURCE,
+      budgetConfirmed,
     }
   }
 
   return {
     amount: fallbackAmount,
+    budgetValuePresent: false,
     budgetSource: PLANNING_ASSUMPTION_BUDGET_SOURCE,
     budgetConfirmed: false,
   }

@@ -95,6 +95,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
     const budgetTruth = getBudgetTruth({
       amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
       fallbackAmount: 50,
+      explicitBudgetConfirmed: false,
     })
 
     const payload = api.buildDryRunPayload({
@@ -117,6 +118,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
       message: 'Meta API access is not approved. This is an importable planning payload, not a launched campaign.',
       budgetSource: budgetTruth.budgetSource,
       budgetConfirmed: budgetTruth.budgetConfirmed,
+      budgetValuePresent: budgetTruth.budgetValuePresent,
       payload,
       instructions: [
         'Go to Meta Ads Manager (business.facebook.com)',
@@ -132,6 +134,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
     const campaignBudgetTruth = getBudgetTruth({
       amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
       fallbackAmount: 50,
+      explicitBudgetConfirmed: body.explicitBudgetConfirmed,
     })
 
     if (!canCreatePlatformDraft({
@@ -141,7 +144,8 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
       return NextResponse.json({
         error: 'Creating platform draft objects requires explicit confirmation. No ads were launched or changed.',
         budgetSource: campaignBudgetTruth.budgetSource,
-        budgetValuePresent: campaignBudgetTruth.budgetConfirmed,
+        budgetValuePresent: campaignBudgetTruth.budgetValuePresent,
+        budgetConfirmed: campaignBudgetTruth.budgetConfirmed,
         explicitPlatformDraftConfirmed: body.explicitPlatformDraftConfirmed === true,
         explicitBudgetConfirmed: body.explicitBudgetConfirmed === true,
       }, { status: 400 })
