@@ -52,7 +52,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       .create({ data: plan.history })
       .catch((e: any) => console.error('[manual-publish] history write failed', e?.message))
 
-    // Brand Brain (PR1): capture the manual publish as an honest learning event. This is
+    // Brand Brain (PR1): capture the manual publish as an honest execution signal. This is
     // a USER hand-publish (publishMode stays MANUAL) → POST_MANUALLY_PUBLISHED, never an
     // automatic publish. Non-blocking: a failed event write never fails the action.
     const publishEvent = buildLearningEvent({
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (publishEvent) {
       await (prisma as any).marketingLearningEvent
         .create({ data: publishEvent })
-        .catch((e: any) => console.error('[manual-publish] learning event write failed', e?.message))
+        .catch((e: any) => console.error('[manual-publish] execution signal write failed', e?.message))
     }
 
     return NextResponse.json({

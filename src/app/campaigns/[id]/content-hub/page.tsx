@@ -227,7 +227,7 @@ export default function ContentHubPage() {
     approved: number
     linked: number
     unlinked: number
-    learned: { hooks: number; angles: number }
+    signals: { hooks: number; angles: number }
     platforms: string[]
     firstDate: string | null
     lastDate: string | null
@@ -595,9 +595,9 @@ export default function ContentHubPage() {
         approved:  data.approved  ?? 0,
         linked:    data.linked    ?? 0,
         unlinked:  data.unlinked  ?? 0,
-        learned: {
-          hooks:  data.learned?.hooks  ?? 0,
-          angles: data.learned?.angles ?? 0,
+        signals: {
+          hooks:  data.signals?.hooks  ?? 0,
+          angles: data.signals?.angles ?? 0,
         },
         platforms: platformsUsed.length > 0 ? platformsUsed : (data.summary?.platforms ?? []),
         firstDate: scheduledDates[0] ?? null,
@@ -637,7 +637,7 @@ export default function ContentHubPage() {
         approved:  data.scheduled ?? 0,
         linked:    data.linked    ?? 0,
         unlinked:  0,
-        learned: { hooks: 0, angles: 0 },
+        signals: { hooks: 0, angles: 0 },
         platforms: platformsUsed,
         firstDate: scheduledDates[0] ?? null,
         lastDate:  scheduledDates[scheduledDates.length - 1] ?? null,
@@ -815,12 +815,12 @@ export default function ContentHubPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to pick winner')
 
-      // Remove the loser from local state, mark winner
+      // Remove the sibling from local state; legacy field name still marks the selected variant.
       setPosts(prev => {
-        const winner = prev.find(p => p.id === postId)
-        if (!winner) return prev
-        const varGroup = winner.variantGroup
-        // Keep posts where: not in this variantGroup OR same id as winner
+        const selected = prev.find(p => p.id === postId)
+        if (!selected) return prev
+        const varGroup = selected.variantGroup
+        // Keep posts where: not in this variantGroup OR same id as selected
         return prev
           .filter(p => !varGroup || p.variantGroup !== varGroup || p.id === postId)
           .map(p => p.id === postId
@@ -830,9 +830,9 @@ export default function ContentHubPage() {
       })
 
       setSuccessMsg(
-        data.hookLearned
-          ? '🏆 Winner selected! Hook added to Brand Brain.'
-          : '🏆 Winner selected!',
+        data.preferenceSignalSaved
+          ? '✓ Variant selected. Hook preference signal saved.'
+          : '✓ Variant selected.',
       )
     } catch (err: any) {
       setError(err.message)
@@ -1019,7 +1019,7 @@ export default function ContentHubPage() {
                     border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(15,23,42,0.10)',
                     color: enableABTesting ? '#B45309' : '#6b7280',
                   }}
-                  title="Generate A/B variants for each post — compare two hook styles and pick the winner"
+                  title="Generate A/B variants for each post — compare two hook styles and select a preferred draft"
                 >
                   <span>A/B</span>
                   <span className={`w-6 h-3 rounded-full relative transition-all ${enableABTesting ? 'bg-yellow-500' : 'bg-gray-300'}`}>
@@ -1290,7 +1290,7 @@ export default function ContentHubPage() {
                     <div className="flex items-center gap-2 px-4 py-2.5"
                       style={{ background: 'rgba(234,179,8,0.06)', borderBottom: '1px solid rgba(234,179,8,0.15)' }}>
                       <span className="text-sm font-semibold" style={{ color: '#fbbf24' }}>⚡ A/B Test</span>
-                      <span className="text-xs text-slate-500">· Compare both variants and pick the winner</span>
+                      <span className="text-xs text-slate-500">· Compare both variants and select a preferred draft</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                       {renderCard(group.a)}
@@ -1463,7 +1463,7 @@ export default function ContentHubPage() {
                 )}
 
                 {/* Brand Brain learning */}
-                {(approveResult.learned.hooks > 0 || approveResult.learned.angles > 0) && (
+                {(approveResult.signals.hooks > 0 || approveResult.signals.angles > 0) && (
                   <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
                     style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
                     <span className="text-xl mt-0.5">🧠</span>
@@ -1473,15 +1473,15 @@ export default function ContentHubPage() {
                       </p>
                       <p className="text-xs text-slate-600">
                         {isAr ? 'قد يقترح NEXUS تحديثات لعقل العلامة من المحتوى الذي راجعته: ' : 'NEXUS may suggest Brand Brain updates from reviewed content: '}
-                        {approveResult.learned.hooks > 0 && (
+                        {approveResult.signals.hooks > 0 && (
                           <span className="text-[#5E5CE6] font-medium">
-                            {approveResult.learned.hooks} {isAr ? 'إشارات خطاف' : 'hook signals'}
+                            {approveResult.signals.hooks} {isAr ? 'إشارات خطاف' : 'hook signals'}
                           </span>
                         )}
-                        {approveResult.learned.hooks > 0 && approveResult.learned.angles > 0 && ' + '}
-                        {approveResult.learned.angles > 0 && (
+                        {approveResult.signals.hooks > 0 && approveResult.signals.angles > 0 && ' + '}
+                        {approveResult.signals.angles > 0 && (
                           <span className="text-[#5E5CE6] font-medium">
-                            {approveResult.learned.angles} {isAr ? 'إشارات زاوية محتوى' : 'content-angle signals'}
+                            {approveResult.signals.angles} {isAr ? 'إشارات زاوية محتوى' : 'content-angle signals'}
                           </span>
                         )}
                       </p>
@@ -2090,7 +2090,7 @@ function PostCard({
           </button>
         )}
         {onPickWinner ? (
-          /* A/B test: replace "Image" button with "Pick Winner" */
+          /* A/B test: replace "Image" button with a variant-selection action */
           <button
             onClick={onPickWinner}
             disabled={isPickingWinner}

@@ -12,7 +12,7 @@
  * - Assigns integrationId + pageId per platform (FL2A) so a later schedule/publish
  *   has credentials.
  * - Records every transition in PostStatusHistory (actor USER).
- * - Extracts top hooks + content angles → writes to Brand Brain (FLC, unchanged).
+ * - Extracts top hooks + content angles → stores approval signals for future drafts.
  *
  * DELETE /api/campaigns/[id]/approve-content-plan
  * Reverts all APPROVED or SCHEDULED posts (that haven't published yet) back to DRAFT.
@@ -25,6 +25,7 @@ import { runBrainLearning } from '@/lib/brain-learning'
 import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
+import { getBrandBrainLearningCopy } from '@/lib/brandBrainLearningContract'
 
 type Params = { params: { id: string } }
 
@@ -37,8 +38,8 @@ function mergeUnique(existing: string[] | null | undefined, incoming: unknown[],
   return Array.from(new Set([...current, ...next])).slice(-limit)
 }
 
-/** FLC: Call GPT-4o-mini to extract hooks + angles from approved captions */
-async function extractBrandLearnings(captions: string[]): Promise<{
+/** FLC: Call GPT-4o-mini to extract approval signals from approved captions */
+async function extractApprovalSignals(captions: string[]): Promise<{
   hooks: string[]
   angles: string[]
 }> {
@@ -47,7 +48,7 @@ async function extractBrandLearnings(captions: string[]): Promise<{
   // Sample up to 10 captions to keep tokens low
   const sample = captions.slice(0, 10)
 
-  const prompt = `Analyze these ${sample.length} social media post captions and extract the most effective content patterns.
+  const prompt = `Analyze these ${sample.length} user-approved social media post captions and extract content preference signals.
 
 Captions:
 ${sample.map((c, i) => `${i + 1}. ${c.slice(0, 300)}`).join('\n\n')}
@@ -59,8 +60,9 @@ Return a JSON object with exactly:
 }
 
 Rules:
-- hooks: the 3 most compelling opening lines / sentence starters extracted verbatim or slightly abstracted (e.g. "Did you know that..." or "Most [audience] struggle with...")
-- angles: the 3 main content themes/angles used across the captions (e.g. "social proof + results", "pain point agitation", "educational how-to")
+- hooks: 3 approved opening lines / sentence starters extracted verbatim or slightly abstracted (e.g. "Did you know that..." or "Most [audience] struggle with...")
+- angles: 3 main content themes/angles used across the approved captions (e.g. "education", "problem-solution", "practical convenience")
+- Approval is a review signal, not analytics-backed proof. Do not call these winners, proven, best-performing, or learned from performance.
 - Keep each hook under 15 words
 - Keep each angle under 8 words
 - Return only the JSON object, no other text`
@@ -125,7 +127,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       integrationMap[key] = { integrationId: intg.id, pageId }
     }
 
-    // Load draft posts (include caption for Brand Brain learning)
+    // Load draft posts (include caption for optional approval-signal extraction)
     const draftPosts = await (prisma.socialPost as any).findMany({
       where: {
         campaignId: params.id,
@@ -172,7 +174,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[approve-content-plan] history write failed', e?.message))
     }
 
-    // Brand Brain (PR1): capture one learning event per ACTUAL transition. Derived from
+    // Brand Brain (PR1): capture one workflow signal per ACTUAL transition. Derived from
     // plan.history so re-approving a non-DRAFT post (empty plan) writes nothing — no
     // duplicates, no events for invalid transitions. Non-blocking: never fails approval.
     const approveEvents = buildLearningEvents(
@@ -191,16 +193,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (approveEvents.length > 0) {
       await (prisma as any).marketingLearningEvent
         .createMany({ data: approveEvents })
-        .catch((e: any) => console.error('[approve-content-plan] learning event write failed', e?.message))
+        .catch((e: any) => console.error('[approve-content-plan] workflow signal write failed', e?.message))
     }
 
     const approvedIds = new Set(updateById.keys())
     const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
 
-    // ── FLC: Extract hooks + angles → update Brand Brain (non-blocking) ──────────
-    let learnedHooks  = 0
-    let learnedAngles = 0
+    // ── FLC: Extract hooks + angles → save approval signals (non-blocking) ───────
+    let hookSignals  = 0
+    let angleSignals = 0
 
     const captions: string[] = draftPosts
       .map((p: any) => p.caption)
@@ -208,17 +210,17 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     if (captions.length > 0) {
       // Fire-and-forget style — we await but catch silently so approval never fails
-      const learnings = await extractBrandLearnings(captions).catch(() => ({ hooks: [], angles: [] }))
+      const signals = await extractApprovalSignals(captions).catch(() => ({ hooks: [], angles: [] }))
 
-      if (learnings.hooks.length > 0 || learnings.angles.length > 0) {
+      if (signals.hooks.length > 0 || signals.angles.length > 0) {
         const brand = await prisma.brandProfile.findUnique({
           where: { workspaceId: campaign.workspaceId },
           select: { winningHooks: true, winningAngles: true },
         }).catch(() => null)
 
         if (brand) {
-          const updatedHooks  = mergeUnique(brand.winningHooks,  learnings.hooks,  20)
-          const updatedAngles = mergeUnique(brand.winningAngles, learnings.angles, 20)
+          const updatedHooks  = mergeUnique(brand.winningHooks,  signals.hooks,  20)
+          const updatedAngles = mergeUnique(brand.winningAngles, signals.angles, 20)
 
           await prisma.brandProfile.update({
             where: { workspaceId: campaign.workspaceId },
@@ -229,14 +231,14 @@ export async function POST(req: NextRequest, { params }: Params) {
           }).catch(() => null)
           snapshotBrandMaturity(prisma as any, campaign.workspaceId).catch(() => null)
 
-          learnedHooks  = learnings.hooks.length
-          learnedAngles = learnings.angles.length
+          hookSignals  = signals.hooks.length
+          angleSignals = signals.angles.length
         }
       }
     }
 
-    // ── BL3: Full Brain Learning via proposal system (non-blocking) ──────────────
-    // Runs alongside FLC — creates rich pending proposals (tone, pain points, desires)
+    // ── BL3: Brain signal proposal system (non-blocking) ─────────────────────────
+    // Runs alongside FLC — creates rich pending signal proposals (tone, pain points, desires)
     // that the user reviews in BrainLearningPanel (accept/dismiss).
     if (captions.length >= 3) {
       const allPosts = draftPosts
@@ -255,8 +257,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     const verb = mode === 'approve_and_schedule' ? 'scheduled' : 'approved'
     let message = `${approved} post${approved !== 1 ? 's' : ''} ${verb}`
     if (linked > 0)         message += ` (${linked} linked to connected platforms)`
-    if (learnedHooks > 0)   message += ` · Brand Brain learned ${learnedHooks} new hooks`
-    if (learnedAngles > 0)  message += ` + ${learnedAngles} angles`
+    if (hookSignals > 0 || angleSignals > 0) {
+      const approvalCopy = getBrandBrainLearningCopy('approval')
+      const parts = [
+        hookSignals > 0 ? `${hookSignals} hook signal${hookSignals === 1 ? '' : 's'}` : null,
+        angleSignals > 0 ? `${angleSignals} content-angle signal${angleSignals === 1 ? '' : 's'}` : null,
+      ].filter(Boolean)
+      message += ` · ${approvalCopy.label}${parts.length > 0 ? ` (${parts.join(' + ')})` : ''}`
+    }
 
     return NextResponse.json({
       success: true,
@@ -264,7 +272,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       approved,
       linked,
       unlinked,
-      learned: { hooks: learnedHooks, angles: learnedAngles },
+      signals: { hooks: hookSignals, angles: angleSignals },
       message,
     })
   } catch (err: any) {
@@ -313,7 +321,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         .catch((e: any) => console.error('[approve-content-plan revert] history write failed', e?.message))
     }
 
-    // Brand Brain (PR1): capture unschedule / revert events from the actual transitions.
+    // Brand Brain (PR1): capture unschedule / revert workflow signals from the actual transitions.
     const revertEvents = buildLearningEvents(
       plan.history.map((h: any) => ({
         workspaceId: h.workspaceId,
@@ -328,7 +336,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     if (revertEvents.length > 0) {
       await (prisma as any).marketingLearningEvent
         .createMany({ data: revertEvents })
-        .catch((e: any) => console.error('[approve-content-plan revert] learning event write failed', e?.message))
+        .catch((e: any) => console.error('[approve-content-plan revert] workflow signal write failed', e?.message))
     }
 
     return NextResponse.json({ success: true, reverted: plan.changed })

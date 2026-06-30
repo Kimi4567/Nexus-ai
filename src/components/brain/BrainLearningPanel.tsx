@@ -3,8 +3,8 @@
 /**
  * BrainLearningPanel
  *
- * Shows pending Brand Brain proposals so the user can accept or dismiss them.
- * Displayed on the dashboard and Brand Brain page whenever there are new learnings.
+ * Shows pending Brand Brain signal proposals so the user can accept or dismiss them.
+ * Displayed on the dashboard and Brand Brain page whenever there are new suggestions.
  *
  * Each proposal shows:
  * - The field being updated (e.g. "Winning Hooks")
@@ -96,10 +96,10 @@ export function BrainLearningPanel({ campaignId, compact = false, onUpdate }: Br
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-[var(--nx-text)]">
-            NEXUS learned {proposals.length} thing{proposals.length !== 1 ? 's' : ''} about your brand
+            NEXUS found {proposals.length} Brand Brain signal{proposals.length !== 1 ? 's' : ''} to review
           </p>
           <p className="text-xs text-[var(--nx-muted)] mt-0.5">
-            Review and accept to update your Brand Brain
+            Review and accept before they update your Brand Brain
           </p>
         </div>
       </div>

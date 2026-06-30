@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * BrainTimeline — Operator Foundation PR-1B ("What NEXUS Learned")
+ * BrainTimeline — Operator Foundation PR-1B ("Brand Brain Signals")
  *
- * Read-only, honest timeline of real Brand Brain learnings. Primary home: Brand Brain page.
+ * Read-only, honest timeline of Brand Brain signals and reviewed updates.
  * Sources (existing GET routes only):
  *   - GET /api/brain/proposals?status=pending  → Suggested items (Accept / Dismiss)
  *   - GET /api/brain/score-history (.updates)  → Applied / Dismissed history
@@ -159,7 +159,7 @@ function Row({
   onViewCampaign?: () => void
 }) {
   const label = fieldLabel(item, locale)
-  const title = `${tt('brain.timeline.learnedAbout')} ${label}`.trim()
+  const title = `${tt('brain.timeline.signalFor')} ${label}`.trim()
 
   return (
     <li className="px-5 py-4">

@@ -223,7 +223,7 @@ function BrandStatusPanel({ indicators, locale }: { indicators: BrandIndicators;
     {
       label: ar ? 'ثراء الذاكرة' : 'Memory richness',
       value: indicators.memoryRichness.level === 'high' ? (ar ? 'غنية' : 'Rich') : indicators.memoryRichness.level === 'medium' ? (ar ? 'تتكوّن' : 'Building') : (ar ? 'مبكرة' : 'Early'),
-      helper: ar ? 'تعلم مستقبلي منفصل عن الجاهزية' : 'Learning signal, separate from readiness',
+      helper: ar ? 'إشارات مستقبلية منفصلة عن الجاهزية' : 'Signal memory, separate from readiness',
     },
   ]
 
@@ -494,7 +494,7 @@ function BrandBrainInner() {
   const [draftCreditNote, setDraftCreditNote]   = useState('')
   const [draftPartialNote, setDraftPartialNote] = useState<string | null>(null)
   const [draftSources, setDraftSources]         = useState<SuggestionSource[]>([])
-  // PR-M3.2 — Scanner/Analyzer/learned-timeline group is no longer shown in Edit or
+  // PR-M3.2 — Scanner/Analyzer/signal-timeline group is no longer shown in Edit or
   // Review (kept in code, reserved for Assisted setup + PR-M3.3's review-before-apply).
   const SHOW_BRAND_IMPROVE_GROUP = false
   const [briefBannerDismissed, setBriefBannerDismissed] = useState(false)
@@ -1140,7 +1140,7 @@ function BrandBrainInner() {
                       <span className="text-[11px] font-semibold text-slate-400">{locale === 'ar' ? 'نضج الذاكرة' : 'Memory maturity'}</span>
                       {/* PR-N1 — stage-first: lead with the maturity STAGE; the 45/100
                           number is secondary/muted. Chip tooltip + the "Why?" disclosure
-                          below explain that maturity = depth (setup + learned memory),
+                          below explain that maturity = depth (setup + reviewed signal memory),
                           NOT setup completeness and NOT organic readiness. Math unchanged. */}
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
                         style={{ background: `${scoreColor}14`, color: scoreColor, border: `1px solid ${scoreColor}33` }}
@@ -1154,7 +1154,7 @@ function BrandBrainInner() {
                     <p className="text-xs text-slate-500 mt-0.5">
                       {locale === 'ar'
                         ? 'يستخدم NEXUS هذا الملف لتوجيه الاستراتيجية والمحتوى والاتجاه الإبداعي والتعلّم مع الوقت.'
-                        : 'NEXUS uses this file to guide strategy, content, creative direction, and learning over time.'}
+                        : 'NEXUS uses this file to guide strategy, content, creative direction, and signals over time.'}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       {(() => {
@@ -1361,7 +1361,7 @@ function BrandBrainInner() {
                 tone: caps.contentStrategy.ready ? 'good' : 'neutral' },
               { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', text: ar ? 'للتخطيط فقط' : 'Planning-only', tone: 'neutral' },
               { label: ar ? 'التحليلات' : 'Analytics', text: ar ? 'غير متصلة' : 'Not connected', tone: 'neutral' },
-              { label: ar ? 'ذاكرة التعلّم' : 'Learning memory',
+              { label: ar ? 'ذاكرة الإشارات' : 'Signal memory',
                 text: memLevel === 'low' ? (ar ? 'مبكرة' : 'Early') : (ar ? 'تتطور' : 'Developing'), tone: 'neutral' },
             ]
 
@@ -1444,20 +1444,20 @@ function BrandBrainInner() {
                       </p>
                     </div>
 
-                    {/* Card 4 — Learned memory (real accepted-learning count, else empty) */}
+                    {/* Card 4 — Signal memory (real accepted signal count, else empty) */}
                     <div className={cardWrap} style={cardStyle}>
-                      <p className={cardTitle}>{ar ? 'ما تعلّمه NEXUS' : 'What NEXUS has learned'}</p>
+                      <p className={cardTitle}>{ar ? 'إشارات Brand Brain' : 'Brand Brain signals'}</p>
                       {(learnedCount ?? 0) > 0 ? (
                         <p className="text-[12.5px] text-slate-600 leading-relaxed">
                           {ar
-                            ? `طبّقت ذاكرة علامتك ${learnedCount} معلومة متعلّمة حتى الآن. سيتعلّم NEXUS من التفاعلات والنتائج المتاحة مع مرور الوقت.`
-                            : `Your brand memory has applied ${learnedCount ?? 0} learned insight${learnedCount === 1 ? '' : 's'} so far. NEXUS will learn from available interactions and results over time.`}
+                            ? `طبّقت ذاكرة علامتك ${learnedCount} إشارة مراجَعة حتى الآن. تعلّم الأداء يبدأ بعد توفر التحليلات.`
+                            : `Your brand memory has applied ${learnedCount ?? 0} reviewed signal${learnedCount === 1 ? '' : 's'} so far. Performance learning starts after analytics are available.`}
                         </p>
                       ) : (
                         <p className={helperText}>
                           {ar
-                            ? 'لم تتكوّن ذاكرة تعلّم كافية بعد. سيتعلّم NEXUS من التفاعلات والنتائج المتاحة مع مرور الوقت.'
-                            : 'NEXUS has not built enough learning memory yet. It will learn from available interactions and results over time.'}
+                            ? 'لا توجد إشارات مراجَعة كافية بعد. الموافقات والاختيارات تُحفظ كإشارات، والتحليلات مطلوبة لتعلّم الأداء.'
+                            : 'No reviewed signal memory yet. Approvals and selections are saved as signals; analytics are required for performance learning.'}
                         </p>
                       )}
                     </div>
@@ -1725,11 +1725,11 @@ function BrandBrainInner() {
                 )}
               </div>
 
-              {/* PR-M3.2 — "What NEXUS has learned" kept here as an optional collapsed
+              {/* PR-M3.2 — Brand Brain signals kept here as an optional collapsed
                   block (moved out of Edit). Display only — no scan/analyze/apply. */}
               <details className="group mt-5 rounded-xl overflow-hidden" style={{ border:'1px solid rgba(15,23,42,0.08)' }}>
                 <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
-                  <span className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'ما تعلّمته NEXUS' : 'What NEXUS has learned'}</span>
+                  <span className="text-sm font-bold text-slate-950">{locale === 'ar' ? 'إشارات Brand Brain' : 'Brand Brain signals'}</span>
                   <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="px-2 pb-2">
@@ -1747,11 +1747,11 @@ function BrandBrainInner() {
           {/* PR-M2.1 — "Improve your Brand Brain": one collapsed group holding the
               optional enrichment tools as accordion rows. Collapsed by default so the
               default page stays short. Theme polish is reserved for PR-M2.2. */}
-          {/* PR-M3.2 — Scanner / Analyzer / learned timeline are removed from Edit AND
+              {/* PR-M3.2 — Scanner / Analyzer / signal timeline are removed from Edit AND
               Review (no lower-page clutter). They belong to the Start-screen Assisted
               setup path + the real review-before-apply flow in PR-M3.3, so this whole
               group is gated off for now (code preserved for M3.3). "What NEXUS has
-              learned" is surfaced instead as a collapsed block inside Review & Readiness. */}
+              signals" is surfaced instead as a collapsed block inside Review & Readiness. */}
           {SHOW_BRAND_IMPROVE_GROUP && (
           <details style={{ order: 49 }} className="group pt-2">
             <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
@@ -1771,11 +1771,11 @@ function BrandBrainInner() {
 
             <div className="mt-3 flex flex-col gap-3">
 
-              {/* WHAT NEXUS HAS LEARNED — single consolidated learned surface (BrainTimeline) */}
+              {/* BRAND BRAIN SIGNALS — single consolidated signal surface (BrainTimeline) */}
               <details className="rounded-2xl overflow-hidden group/row" style={{ border: '1px solid rgba(15,23,42,0.08)', background: '#FFFFFF' }}>
                 <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
                   <span className="text-sm font-bold text-slate-950">
-                    {locale === 'ar' ? 'ما تعلّمته NEXUS' : 'What NEXUS has learned'}
+                    {locale === 'ar' ? 'إشارات Brand Brain' : 'Brand Brain signals'}
                   </span>
                   <ChevronDown size={15} className="flex-shrink-0 text-slate-400 transition-transform group-open/row:rotate-180" />
                 </summary>
@@ -1930,8 +1930,8 @@ function BrandBrainInner() {
             <div className="px-4 pb-4 pt-1">
               <p className="text-xs mb-3 text-slate-500">
                 {locale === 'ar'
-                  ? 'الصق أفضل محتواك — سيستخرج الذكاء أنماط الـ hooks والأسلوب والزوايا الناجحة'
-                  : 'Paste your best-performing content — AI extracts hooks, angles, and tone patterns'}
+                  ? 'الصق محتوى سابقاً تريد مراجعته — سيستخرج الذكاء إشارات للخطافات والأسلوب والزوايا'
+                  : 'Paste past content you want reviewed — AI extracts hook, angle, and tone signals'}
               </p>
 
               {/* 3 text areas */}
@@ -2650,11 +2650,11 @@ function BrandBrainInner() {
                     <details className="group rounded-xl overflow-hidden" style={{ background:'#FFFFFF', border:'1px solid rgba(15,23,42,0.08)' }}>
                       <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-3 px-4 py-3">
                         <span>
-                          <span className="block text-sm font-bold text-slate-950">{ar ? 'ما تعلّمه NEXUS' : 'What NEXUS has learned'}</span>
+                          <span className="block text-sm font-bold text-slate-950">{ar ? 'إشارات Brand Brain' : 'Brand Brain signals'}</span>
                           <span className="block text-xs text-slate-500 mt-0.5">
                             {learnedCount > 0
-                              ? (ar ? `${learnedCount} معلومة متعلّمة محفوظة.` : `${learnedCount} learned insight${learnedCount === 1 ? '' : 's'} saved.`)
-                              : (ar ? 'لا توجد ذاكرة تعلم كافية بعد.' : 'No meaningful learning memory yet.')}
+                              ? (ar ? `${learnedCount} إشارة مراجَعة محفوظة.` : `${learnedCount} reviewed signal${learnedCount === 1 ? '' : 's'} saved.`)
+                              : (ar ? 'لا توجد ذاكرة إشارات كافية بعد.' : 'No meaningful signal memory yet.')}
                           </span>
                         </span>
                         <ChevronDown size={15} className="text-slate-400 transition-transform group-open:rotate-180" />
@@ -2727,8 +2727,8 @@ function BrandBrainInner() {
           )}{/* ── end PR-M1 workspace grid ── */}
 
           {/* PR-M2.1 — the standalone read-only "Learned Memory" chips card was removed
-              to consolidate learned surfaces. "What NEXUS has learned" (BrainTimeline)
-              inside the "Improve your Brand Brain" group is now the single learned view. */}
+              to consolidate signal surfaces. "Brand Brain signals" (BrainTimeline)
+              inside the "Improve your Brand Brain" group is now the single signal view. */}
 
           {/* PR-M3.2 — Goals & Strategy (formerly a review-stage block) is now wizard
               step 7, rendered inside the workspace step card above. */}
@@ -2869,7 +2869,7 @@ function BrandBrainInner() {
           <p style={{ order: 60 }} className="text-center text-[11px] text-slate-400 pt-1 pb-2">
             {locale === 'ar'
               ? 'تغذي Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي والتعلّم المستقبلي.'
-              : 'Your Brand Brain powers strategy, content, creative direction, and future learning.'}
+              : 'Your Brand Brain powers strategy, content, creative direction, and future signals.'}
           </p>
 
         </div>

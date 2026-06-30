@@ -162,7 +162,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     '/onboarding',
     'Finish onboarding',
     'أكمل الإعداد',
-    'NEXUS needs a workspace before it can coordinate strategy, content, publishing, and learning.',
+    'NEXUS needs a workspace before it can coordinate strategy, content, publishing, signals, and analytics.',
     'NEXUS يحتاج مساحة عمل قبل تنسيق الاستراتيجية والمحتوى والنشر والتعلم.'
   )
 
@@ -175,7 +175,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       nextBestAction: emptyAction,
       actions: [emptyAction],
       signals: [],
-      risks: [{ id: 'no-workspace', title: 'No workspace yet', titleAr: 'لا توجد مساحة عمل', detail: 'Campaigns, analytics, and learning need a workspace anchor.', detailAr: 'الحملات والتحليلات والتعلم تحتاج مساحة عمل أساسية.' }],
+      risks: [{ id: 'no-workspace', title: 'No workspace yet', titleAr: 'لا توجد مساحة عمل', detail: 'Campaigns, analytics, and Brand Brain signals need a workspace anchor.', detailAr: 'الحملات والتحليلات وإشارات Brand Brain تحتاج مساحة عمل أساسية.' }],
       loop: { strategy: false, content: false, publishing: false, learning: false },
       publishingState: 'none',
     }
@@ -295,7 +295,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       '/brand?from=brief',
       'Complete Brand Brain',
       'أكمل Brand Brain',
-      'The agents need sharper positioning, audience, offer, and learning memory before they can behave like a senior marketing team.',
+      'The agents need sharper positioning, audience, offer, and reviewed signal memory before they can behave like a senior marketing team.',
       'الوكلاء يحتاجون تموضعا وجمهورا وعرضا وذاكرة تعلم أوضح حتى يعملوا كفريق تسويق ناضج.'
     ))
   }
@@ -334,7 +334,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       contentPlanHref,
       'Generate a content plan',
       'ولّد خطة محتوى',
-      'The strategy layer exists, but the machine needs planned posts before publishing and learning can start.',
+      'The strategy layer exists, but the machine needs planned posts before publishing and analytics-backed learning can start.',
       'طبقة الاستراتيجية موجودة، لكن الماكينة تحتاج منشورات مخططة قبل النشر والتعلم.'
     ))
   }
@@ -365,10 +365,10 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       'capture-learning',
       'medium',
       '/brand?from=brief',
-      'Capture winning hooks',
-      'سجل الخطافات الرابحة',
-      'Published work should feed Brand Brain so future campaigns improve instead of restarting from zero.',
-      'المحتوى المنشور يجب أن يغذي Brand Brain حتى تتحسن الحملات القادمة بدل البدء من الصفر.'
+      'Review published-content signals',
+      'راجع إشارات المحتوى المنشور',
+      'Published work can feed Brand Brain as a signal; performance learning needs analytics data.',
+      'يمكن للمحتوى المنشور أن يغذي Brand Brain كإشارة؛ أما تعلم الأداء فيحتاج بيانات تحليلات.'
     ))
   }
   if (publishedPosts >= 2 && !hasAbTests) {
@@ -428,10 +428,10 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     },
     {
       id: 'learning',
-      label: 'Learning evidence',
-      labelAr: 'دليل التعلم',
-      value: hasLearning ? 'Active' : 'Not captured',
-      valueAr: hasLearning ? 'نشط' : 'غير مسجل',
+      label: 'Signal evidence',
+      labelAr: 'دليل الإشارات',
+      value: hasLearning ? 'Signals saved' : 'Not captured',
+      valueAr: hasLearning ? 'إشارات محفوظة' : 'غير مسجل',
       severity: hasLearning ? 'good' : 'watch',
     },
   ]
@@ -496,7 +496,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   }
 
   const summary = maturityScore >= 80
-    ? 'NEXUS is operating as a coordinated marketing system: strategy, content, execution, and learning are connected.'
+    ? 'NEXUS is operating as a coordinated marketing system: strategy, content, execution, signals, and analytics are connected.'
     : maturityScore >= 55
     ? 'NEXUS has the pieces of a marketing machine; the next gain is tightening execution and feedback.'
     : maturityScore >= 30

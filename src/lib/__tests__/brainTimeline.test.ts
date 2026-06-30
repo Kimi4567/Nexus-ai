@@ -34,7 +34,7 @@ const dismissedRow: RawLearning = {
   displayName: 'Winning Angles',
   icon: '🎯',
   trigger: 'ab_winner',
-  reason: 'A/B winner leaned on a transformation angle.',
+  reason: 'The user selected a transformation-angle variant.',
   status: 'dismissed',
   updatedAt: '2026-06-09T10:00:00.000Z',
 }
@@ -102,7 +102,6 @@ describe('deriveBrainTimeline — source mapping', () => {
       'strategy',
       'approved_content',
       'post_performance',
-      'ab_winner',
       'sentinel_insight',
       'competitor_monitor',
       'industry_trend',
@@ -112,6 +111,12 @@ describe('deriveBrainTimeline — source mapping', () => {
       expect(item.source).toBe(trigger)
       expect(item.sourceKey).toBe(`brain.timeline.source.${trigger}`)
     })
+  })
+
+  it('maps legacy ab_winner trigger to user-selected variant, not performance winner copy', () => {
+    const [item] = deriveBrainTimeline([], [{ id: 'ab1', status: 'accepted', trigger: 'ab_winner' } as RawLearning])
+    expect(item.source).toBe('user_selected_variant')
+    expect(item.sourceKey).toBe('brain.timeline.source.user_selected_variant')
   })
 
   it('unknown trigger → no source chip', () => {
@@ -179,8 +184,8 @@ describe('summarizeLearning — dashboard line', () => {
 describe('fieldLabel — localized, plain-business, no raw keys', () => {
   it('returns EN/AR label for known fields', () => {
     const [item] = deriveBrainTimeline([pendingRow], [])
-    expect(fieldLabel(item, 'en')).toBe('Winning Hooks')
-    expect(fieldLabel(item, 'ar')).toBe('الخطافات الرابحة')
+    expect(fieldLabel(item, 'en')).toBe('Hook Signals')
+    expect(fieldLabel(item, 'ar')).toBe('إشارات الخطافات')
   })
 
   it('falls back to stored displayName for unknown fields', () => {
