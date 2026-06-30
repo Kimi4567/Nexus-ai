@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ensureDbUser, getServerUserId } from '@/lib/apiAuth'
 import { PLAN_CAMPAIGN_LIMIT } from '@/lib/stripe'
+import { summarizeDashboardPosts } from '@/lib/dashboardTruth'
 import type { Platform, UserRole } from '@prisma/client'
 
 // Map display names → Prisma Platform enum values
@@ -203,7 +204,37 @@ export async function GET(req: NextRequest) {
       prisma.campaign.count({ where: { ...baseWhere, status: 'DRAFT' } }),
     ])
 
-    return NextResponse.json({ campaigns, counts: { total, active, draft } })
+    const campaignIds = campaigns.map(c => c.id)
+    const posts = campaignIds.length
+      ? await (prisma as any).socialPost.findMany({
+          where: { workspace: { ownerId: userId }, campaignId: { in: campaignIds } },
+          select: {
+            campaignId: true,
+            status: true,
+            publishMode: true,
+            manuallyPublishedAt: true,
+            platformPostId: true,
+            platformUrl: true,
+            analyticsData: true,
+            analyticsFetched: true,
+          },
+        })
+      : []
+
+    const postsByCampaign = new Map<string, any[]>()
+    for (const post of posts) {
+      if (!post.campaignId) continue
+      const list = postsByCampaign.get(post.campaignId) ?? []
+      list.push(post)
+      postsByCampaign.set(post.campaignId, list)
+    }
+
+    const campaignsWithPostSummary = campaigns.map(c => ({
+      ...c,
+      postSummary: summarizeDashboardPosts(postsByCampaign.get(c.id) ?? []),
+    }))
+
+    return NextResponse.json({ campaigns: campaignsWithPostSummary, counts: { total, active, draft } })
   } catch (err: any) {
     console.error('[campaigns GET]', err)
     return NextResponse.json({ campaigns: [], counts: { total: 0, active: 0, draft: 0 } })

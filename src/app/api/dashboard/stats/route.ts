@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { FREE_STARTER_CREDITS, PLANS_CREDITS, getUsageSummary } from '@/lib/credits'
+import { summarizeDashboardPosts } from '@/lib/dashboardTruth'
 
 export async function GET(req: NextRequest) {
   const userId = await getServerUserId(req)
@@ -112,6 +113,36 @@ export async function GET(req: NextRequest) {
         : Promise.resolve(0),
     ])
 
+    const recentCampaignIds = recentCampaigns.map(c => c.id)
+    const recentCampaignPosts = workspaceId && recentCampaignIds.length
+      ? await (prisma as any).socialPost.findMany({
+          where: { workspaceId, campaignId: { in: recentCampaignIds } },
+          select: {
+            campaignId: true,
+            status: true,
+            publishMode: true,
+            manuallyPublishedAt: true,
+            platformPostId: true,
+            platformUrl: true,
+            analyticsData: true,
+            analyticsFetched: true,
+          },
+        })
+      : []
+
+    const postsByCampaign = new Map<string, any[]>()
+    for (const post of recentCampaignPosts) {
+      if (!post.campaignId) continue
+      const list = postsByCampaign.get(post.campaignId) ?? []
+      list.push(post)
+      postsByCampaign.set(post.campaignId, list)
+    }
+
+    const recentCampaignsWithPostSummary = recentCampaigns.map(c => ({
+      ...c,
+      postSummary: summarizeDashboardPosts(postsByCampaign.get(c.id) ?? []),
+    }))
+
     // AI generations + credits-used from the ledger (shared with analytics).
     const usageSummary = await getUsageSummary(userId)
 
@@ -199,7 +230,7 @@ export async function GET(req: NextRequest) {
         },
       },
       activities,
-      recentCampaigns,
+      recentCampaigns: recentCampaignsWithPostSummary,
     })
   } catch (err: any) {
     console.error('[dashboard/stats]', err)
