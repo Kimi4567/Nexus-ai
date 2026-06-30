@@ -16,7 +16,7 @@ export type PublishReason =
   | 'SCHEDULE_TIME_REQUIRED'
   | 'INSTAGRAM_BUSINESS_REQUIRED'
   | 'INSTAGRAM_IMAGE_REQUIRED'
-  | 'READY_MANUAL'
+  | 'READY_EXPLICIT_API_PUBLISH'
   | 'READY_SCHEDULE'
 
 export interface I18nString {
@@ -132,7 +132,7 @@ const COPY: Record<
       ar: 'Instagram يتطلب صورة.',
     },
   },
-  READY_MANUAL: {
+  READY_EXPLICIT_API_PUBLISH: {
     title: { en: 'Ready for explicit API publish', ar: 'جاهز للنشر عبر API بتأكيد صريح' },
     copy: {
       en: 'NEXUS sends this post through the connected platform API only after this explicit click.',
@@ -190,7 +190,7 @@ export function getPublishReadiness(input: PublishReadinessInput): PublishReadin
   if (mode === 'schedule' && !hasScheduledAt) return locked('SCHEDULE_TIME_REQUIRED')
 
   // Ready
-  const reason: PublishReason = mode === 'schedule' ? 'READY_SCHEDULE' : 'READY_MANUAL'
+  const reason: PublishReason = mode === 'schedule' ? 'READY_SCHEDULE' : 'READY_EXPLICIT_API_PUBLISH'
   return {
     status: 'ready',
     reason,

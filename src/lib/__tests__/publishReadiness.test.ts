@@ -64,10 +64,10 @@ describe('getPublishReadiness — locked states', () => {
 })
 
 describe('getPublishReadiness — ready states', () => {
-  it('6. Facebook manual ready → READY_MANUAL with correct copy', () => {
+  it('6. Facebook explicit API publish ready → READY_EXPLICIT_API_PUBLISH with correct copy', () => {
     const r = getPublishReadiness({ ...base, platform: 'FACEBOOK' })
     expect(r.status).toBe('ready')
-    expect(r.reason).toBe('READY_MANUAL')
+    expect(r.reason).toBe('READY_EXPLICIT_API_PUBLISH')
     expect(r.title.en).toBe('Ready for explicit API publish')
     expect(r.title.ar).toBe('جاهز للنشر عبر API بتأكيد صريح')
     expect(r.copy.en).toBe('NEXUS sends this post through the connected platform API only after this explicit click.')

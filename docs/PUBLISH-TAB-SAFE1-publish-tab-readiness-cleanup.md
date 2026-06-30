@@ -40,6 +40,8 @@ Manual publish is a user-confirmed workflow event. It is not platform proof unle
 
 API publishing is separate. It requires account, page, permission, media, readiness checks, and explicit confirmation. Ready copy now says explicit platform/API publish instead of generic "Publish now".
 
+The internal readiness reason for this path is `READY_EXPLICIT_API_PUBLISH`. It intentionally does not use "manual" naming, because manual publish means the user published outside NEXUS and NEXUS only recorded that user-confirmed workflow event.
+
 ## Connected Account Readiness
 
 When no connected account is available, the tab shows a locked/readiness state and explains that connecting an account does not publish content or enable automation. If an account exists later, account connection still must not imply publish-ready by itself.
