@@ -2760,18 +2760,18 @@ function CampaignDetailPageInner() {
                   </button>
                 </div>
 
-                {/* ── Paid Planning Pack Card (planning/brief only — not execution) ── */}
+                {/* ── Paid Planning Brief Card (planning/brief only — not execution) ── */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-start gap-3 mb-3">
                     <span className="text-2xl">📋</span>
                     <div className="flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
-                        {locale === 'ar' ? 'موجز حملة مدفوعة' : 'Paid Campaign Brief'}
+                        {locale === 'ar' ? 'موجز التخطيط المدفوع' : 'Paid Planning Brief'}
                       </h3>
                       <p className="mt-0.5 text-xs text-slate-500">
                         {locale === 'ar'
-                          ? 'موجز جمهور مستهدف + زوايا نسخ إعلانية + ملاحظات تخطيط مستندة إلى Brand Brain'
-                          : 'AI targeting brief + ad copy angles + planning notes informed by Brand Brain'}
+                          ? 'موجز جمهور مستهدف + زوايا نسخ إعلانية + ملاحظات تخطيط فقط مستندة إلى Brand Brain'
+                          : 'Targeting brief + ad copy angles + planning-only notes informed by Brand Brain'}
                       </p>
                     </div>
                   </div>
@@ -2789,7 +2789,7 @@ function CampaignDetailPageInner() {
                     onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
                   >
-                    {locale === 'ar' ? 'فتح حزمة التخطيط المدفوع' : 'Open Paid Planning Pack'}
+                    {locale === 'ar' ? 'راجع موجز التخطيط المدفوع' : 'Review paid planning brief'}
                     <span className="text-xs text-slate-400">↗</span>
                   </button>
                 </div>

@@ -3,7 +3,7 @@
 /**
  * /campaigns/[id]/paid-launch
  *
- * The Paid Planning Pack — a paid campaign brief/plan the user reviews before
+ * The Paid Planning Brief — a paid campaign brief/plan the user reviews before
  * running paid ads on Meta, Google, TikTok, and LinkedIn. Planning only: NEXUS
  * does not launch ads or spend budget.
  *
@@ -22,7 +22,7 @@ const PAID_PACK_COST = 6
 import {
   Target, Zap, Users, DollarSign, Copy, ExternalLink,
   CheckCircle, TrendingUp, Brain, ChevronDown, ChevronUp,
-  RefreshCw, AlertCircle, BarChart3, ArrowLeft, Rocket,
+  RefreshCw, AlertCircle, BarChart3, ArrowLeft,
   Link2, BookOpen
 } from 'lucide-react'
 
@@ -131,6 +131,13 @@ const STATUS_COLORS: Record<string, string> = {
   COMPLETED: '#a78bfa',
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Planning draft',
+  GENERATED: 'Planning pack ready for review',
+  LAUNCHED: 'External launch recorded',
+  COMPLETED: 'External campaign ended',
+}
+
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function Section({ title, icon, children, defaultOpen = true }: {
@@ -200,6 +207,8 @@ export default function PaidLaunchPage() {
   const [metricsForm, setMetricsForm] = useState({ impressions: '', reach: '', clicks: '', spend: '', conversions: '', roas: '' })
   const [savingMetrics, setSavingMetrics] = useState(false)
   const [extractingLearnings, setExtractingLearnings] = useState(false)
+  const [showExternalLaunchConfirm, setShowExternalLaunchConfirm] = useState(false)
+  const [externalLaunchAcknowledged, setExternalLaunchAcknowledged] = useState(false)
 
   // Selected copy variant
   const [selectedVariant, setSelectedVariant] = useState<string>('v1')
@@ -304,11 +313,18 @@ export default function PaidLaunchPage() {
 
   // ── Mark launched ──
   const handleMarkLaunched = async () => {
+    if (!externalLaunchAcknowledged) return
     await fetch(`/api/campaigns/${id}/paid-pack/metrics`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-      body: JSON.stringify({ status: 'LAUNCHED' }),
+      body: JSON.stringify({
+        status: 'LAUNCHED',
+        explicitExternalLaunchConfirmed: true,
+        launchNotes: 'User confirmed this paid campaign was launched outside NEXUS. NEXUS did not launch ads or control spend.',
+      }),
     })
+    setShowExternalLaunchConfirm(false)
+    setExternalLaunchAcknowledged(false)
     await fetchData()
   }
 
@@ -317,7 +333,7 @@ export default function PaidLaunchPage() {
     await fetch(`/api/campaigns/${id}/paid-pack/metrics`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
-      body: JSON.stringify({ status: 'COMPLETED', completedAt: new Date().toISOString() }),
+      body: JSON.stringify({ status: 'COMPLETED', explicitCompletionConfirmed: true, completedAt: new Date().toISOString() }),
     })
     setShowMetricsForm(true)
     await fetchData()
@@ -362,28 +378,34 @@ export default function PaidLaunchPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                <Rocket size={22} color="#94a3b8" />
+                <BookOpen size={22} color="#94a3b8" />
                 <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>
-                  Paid Planning Pack
+                  Paid Planning Brief
                 </h1>
                 {pack?.status && (
                   <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: `${STATUS_COLORS[pack.status]}20`, color: STATUS_COLORS[pack.status], border: `1px solid ${STATUS_COLORS[pack.status]}40` }}>
-                    {pack.status}
+                    {STATUS_LABELS[pack.status] ?? pack.status}
                   </span>
                 )}
               </div>
               <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>
-                {campaign?.name ?? 'Campaign'} — a paid campaign brief for you to review. Planning only — ads will not launch and no budget will be spent without explicit approval.
+                {campaign?.name ?? 'Campaign'} — a paid planning brief for review. Planning only — ads will not launch and no budget will be spent without explicit approval.
               </p>
+              <button
+                onClick={() => router.push('/paid-campaigns')}
+                style={{ marginTop: 8, padding: 0, border: 'none', background: 'none', color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Open Paid Ads Planning hub →
+              </button>
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
               {hasGenerated && !isLaunched && !isCompleted && (
                 <button
-                  onClick={handleMarkLaunched}
+                  onClick={() => setShowExternalLaunchConfirm(true)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
                 >
-                  <CheckCircle size={14} /> Mark as Launched by me
+                  <CheckCircle size={14} /> Record external launch
                 </button>
               )}
               {isLaunched && !isCompleted && (
@@ -391,7 +413,7 @@ export default function PaidLaunchPage() {
                   onClick={handleMarkCompleted}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: 'linear-gradient(135deg,#a78bfa,#7c3aed)', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
                 >
-                  <BarChart3 size={14} /> Campaign Ended — Enter Results
+                  <BarChart3 size={14} /> External campaign ended — enter reported metrics
                 </button>
               )}
             </div>
@@ -405,12 +427,12 @@ export default function PaidLaunchPage() {
         )}
 
         {/* ═══ SETUP SECTION ═══ */}
-        <Section title="Campaign Setup" icon={<Target size={16} color="#f59e0b" />}>
+        <Section title="Paid Planning Setup" icon={<Target size={16} color="#f59e0b" />}>
           <div style={{ display: 'grid', gap: 20 }}>
 
             {/* Objective */}
             <div>
-              <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Campaign Objective</label>
+              <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Planning Objective</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
                 {OBJECTIVES.map(obj => (
                   <button
@@ -457,7 +479,7 @@ export default function PaidLaunchPage() {
             {/* Budget & Duration */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily Budget</label>
+                <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily Budget Planning Assumption</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <select
                     value={currency}
@@ -485,12 +507,15 @@ export default function PaidLaunchPage() {
                 />
               </div>
               <div>
-                <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Budget</label>
+                <label style={{ display: 'block', color: '#94a3b8', fontSize: 12, fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Planning Assumption</label>
                 <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: '#fbbf24', fontSize: 16, fontWeight: 800 }}>
                   {currency} {totalBudget.toLocaleString()}
                 </div>
               </div>
             </div>
+            <p style={{ margin: '-6px 0 0', color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>
+              Budget values are planning assumptions for review. They are not approved spend and NEXUS will not launch ads or control spend from this page.
+            </p>
 
             {/* Generate button — gated by a credit-confirmation modal */}
             <button
@@ -505,9 +530,9 @@ export default function PaidLaunchPage() {
               }}
             >
               {generating ? (
-                <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating Full Pack...</>
+                <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Generating paid planning pack...</>
               ) : (
-                <><Zap size={16} /> {hasGenerated ? 'Regenerate Pack' : 'Generate Full Pack'} — {PAID_PACK_COST} credits</>
+                <><Zap size={16} /> {hasGenerated ? 'Regenerate paid planning pack' : 'Generate paid planning pack'} — {PAID_PACK_COST} credits</>
               )}
             </button>
           </div>
@@ -518,7 +543,7 @@ export default function PaidLaunchPage() {
           <>
             {/* Estimated Reach */}
             {pack.estimatedReach && (
-              <Section title="Estimated Reach" icon={<TrendingUp size={16} color="#22d3ee" />}>
+              <Section title="Planning Reach Estimate" icon={<TrendingUp size={16} color="#22d3ee" />}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
                   {Object.entries(pack.estimatedReach as Record<string, { impressionsMin?: number; impressionsMax?: number; cpmMin?: number; cpmMax?: number }>).map(([p, r]) => {
                     const plat = PLATFORMS.find(x => x.value === p)
@@ -535,7 +560,7 @@ export default function PaidLaunchPage() {
                           {(impMin / 1000).toFixed(0)}K – {(impMax / 1000).toFixed(0)}K
                         </div>
                         <div style={{ color: '#64748b', fontSize: 10, marginTop: 2 }}>
-                          impressions · CPM ${cpmMin}–${cpmMax}
+                          planning impressions · CPM assumption ${cpmMin}–${cpmMax}
                         </div>
                       </div>
                     )
@@ -543,10 +568,10 @@ export default function PaidLaunchPage() {
                 </div>
                 {pack.budgetInsights && (
                   <div style={{ marginTop: 16, padding: '14px', borderRadius: 10, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                    <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>💡 Budget Strategy</div>
+                    <div style={{ color: '#fbbf24', fontWeight: 700, fontSize: 13, marginBottom: 6 }}>💡 Budget Planning Notes</div>
                     <p style={{ margin: '0 0 8px', color: '#cbd5e1', fontSize: 13, lineHeight: 1.6 }}>{pack.budgetInsights.recommendation}</p>
                     <p style={{ margin: '0 0 6px', color: '#94a3b8', fontSize: 12 }}><strong style={{ color: '#e2e8f0' }}>Phasing:</strong> {pack.budgetInsights.phasingSuggestion}</p>
-                    <p style={{ margin: 0, color: '#94a3b8', fontSize: 12 }}><strong style={{ color: '#e2e8f0' }}>Expected:</strong> {pack.budgetInsights.expectedResults}</p>
+                    <p style={{ margin: 0, color: '#94a3b8', fontSize: 12 }}><strong style={{ color: '#e2e8f0' }}>Planning assumption:</strong> {pack.budgetInsights.expectedResults}</p>
                   </div>
                 )}
               </Section>
@@ -969,11 +994,75 @@ export default function PaidLaunchPage() {
         onClose={() => setShowGenerateConfirm(false)}
         onConfirm={handleGenerate}
         cost={PAID_PACK_COST}
-        actionTitle="Generate Paid Ad Pack"
+        actionTitle="Generate paid planning pack"
         authHeader={authHeader}
-        includedItems={['Audience targeting', 'Copy variants', 'Budget plan', 'Platform setup']}
+        includedItems={['Audience brief', 'Copy variants', 'Budget plan', 'Platform setup guidance']}
         confirmLabel={`Confirm & Generate — ${PAID_PACK_COST} credits`}
       />
+      {showExternalLaunchConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm external paid launch"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 60,
+            background: 'rgba(2,6,23,0.72)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <div style={{ width: '100%', maxWidth: 460, borderRadius: 14, background: '#0f172a', border: '1px solid rgba(148,163,184,0.22)', padding: 20 }}>
+            <h2 style={{ margin: '0 0 8px', color: '#f8fafc', fontSize: 18, fontWeight: 800 }}>
+              Record external launch
+            </h2>
+            <p style={{ margin: '0 0 14px', color: '#94a3b8', fontSize: 13, lineHeight: 1.6 }}>
+              NEXUS did not launch this campaign, publish ads, or control spend. This only records that you launched the paid campaign outside NEXUS after your own budget, tracking, creative, and platform review.
+            </p>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', color: '#cbd5e1', fontSize: 13, lineHeight: 1.5, padding: 12, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <input
+                type="checkbox"
+                checked={externalLaunchAcknowledged}
+                onChange={(event) => setExternalLaunchAcknowledged(event.target.checked)}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                I confirm I launched this campaign outside NEXUS. Metrics and Brand Brain signals still require real reported metrics and review.
+              </span>
+            </label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 18 }}>
+              <button
+                onClick={() => {
+                  setShowExternalLaunchConfirm(false)
+                  setExternalLaunchAcknowledged(false)
+                }}
+                style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.28)', background: 'transparent', color: '#94a3b8', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleMarkLaunched}
+                disabled={!externalLaunchAcknowledged}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: externalLaunchAcknowledged ? 'linear-gradient(135deg,#22c55e,#16a34a)' : 'rgba(34,197,94,0.22)',
+                  color: '#fff',
+                  fontWeight: 800,
+                  cursor: externalLaunchAcknowledged ? 'pointer' : 'not-allowed',
+                  opacity: externalLaunchAcknowledged ? 1 : 0.55,
+                }}
+              >
+                Confirm I launched this outside NEXUS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   )
 }

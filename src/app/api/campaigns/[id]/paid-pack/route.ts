@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
+import { getSafePaidPackSetupStatus, isUnsafePaidPackStatus } from '@/lib/paidBoundary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -63,6 +64,14 @@ export async function POST(
       status,
     } = body
 
+    if (isUnsafePaidPackStatus(status)) {
+      return NextResponse.json({
+        error: 'Paid pack setup is planning-only and cannot set launch, active, or completed status.',
+      }, { status: 400 })
+    }
+
+    const safeStatus = getSafePaidPackSetupStatus(status)
+
     const pack = await db.paidCampaignPack.upsert({
       where: { campaignId: params.id },
       update: {
@@ -76,7 +85,7 @@ export async function POST(
         creativeAssetUrls,
         primaryCopyId: primaryCopyId || null,
         ...(launchNotes !== undefined && { launchNotes }),
-        ...(status && { status }),
+        ...(safeStatus && { status: safeStatus }),
       },
       create: {
         campaignId: params.id,
@@ -90,6 +99,7 @@ export async function POST(
         currency,
         creativeAssetUrls,
         primaryCopyId: primaryCopyId || null,
+        ...(safeStatus && { status: safeStatus }),
       },
     })
 

@@ -1,10 +1,10 @@
 /**
- * Meta Marketing API v21.0 — Nexus Ads Push Layer
+ * Meta Marketing API v21.0 — Nexus Ads Draft Creation Layer
  *
  * Responsible for:
- *   - Creating campaigns via the Meta Marketing API
- *   - Creating Ad Sets with AI-generated targeting
- *   - Creating Ad Creatives + Ads
+ *   - Creating paused campaign draft objects via the Meta Marketing API
+ *   - Creating paused Ad Sets with AI-generated targeting
+ *   - Creating paused Ad Creatives + Ads
  *   - Reading campaign insights for performance sync
  *
  * Compliance:
@@ -14,9 +14,9 @@
  *   - Rate limiting: Meta enforces 200 API calls / hour per token
  *
  * Architecture:
- *   - `hasApiAccess` flag in AdAccount table controls live push
- *   - When false: returns dry-run export (JSON payload) instead of live push
- *   - When true: submits to Meta and updates platformCampaignId
+ *   - `hasApiAccess` flag in AdAccount table controls paused API draft creation
+ *   - When false: returns dry-run export (JSON payload) instead of API draft creation
+ *   - When true: creates paused Meta draft objects and updates platform IDs
  */
 
 import { decryptToken } from '@/lib/tokenCrypto'
