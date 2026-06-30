@@ -286,7 +286,7 @@ export default function PaidLaunchPage() {
     } finally { setSavingMetrics(false) }
   }
 
-  // ── Extract learnings ──
+  // ── Extract paid metrics signals ──
   const handleExtractLearnings = async () => {
     setExtractingLearnings(true)
     setError(null)
@@ -296,9 +296,9 @@ export default function PaidLaunchPage() {
         headers: { Authorization: authHeader() },
       })
       const data = await res.json()
-      if (!res.ok) setError(data.error ?? 'Learning extraction failed')
+      if (!res.ok) setError(data.error ?? 'Metrics signal extraction failed')
       else { await fetchData() }
-    } catch { setError('Failed to extract learnings') }
+    } catch { setError('Failed to extract metrics signals') }
     finally { setExtractingLearnings(false) }
   }
 
@@ -894,14 +894,14 @@ export default function PaidLaunchPage() {
               </Section>
             )}
 
-            {/* Brand Brain Learning */}
+            {/* Brand Brain paid metrics signals */}
             {(pack.metrics || isCompleted) && (
-              <Section title="Brand Brain Learning" icon={<Brain size={16} color="#a78bfa" />}>
+              <Section title="Brand Brain Paid Metrics Signals" icon={<Brain size={16} color="#a78bfa" />}>
                 {pack.learnings ? (
                   <div style={{ display: 'grid', gap: 12 }}>
                     {pack.brandBrainUpdated && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 8, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#c4b5fd', fontSize: 13 }}>
-                        <CheckCircle size={14} /> Brand Brain updated with campaign learnings
+                        <CheckCircle size={14} /> Paid metrics signal saved for Brand Brain review
                       </div>
                     )}
                     <div style={{ padding: 14, borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -933,7 +933,7 @@ export default function PaidLaunchPage() {
                   <div style={{ textAlign: 'center', padding: '20px 0' }}>
                     <Brain size={28} color="#4b5563" style={{ marginBottom: 10 }} />
                     <p style={{ color: '#64748b', fontSize: 13, margin: '0 0 14px' }}>
-                      Enter your campaign metrics above, then extract learnings to update Brand Brain automatically.
+                      Enter your campaign metrics above, then create a paid metrics signal for Brand Brain review.
                     </p>
                     <button
                       onClick={handleExtractLearnings}
@@ -949,7 +949,7 @@ export default function PaidLaunchPage() {
                       {extractingLearnings ? (
                         <><RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Extracting...</>
                       ) : (
-                        <><Brain size={14} /> Extract Learnings — 2 credits</>
+                        <><Brain size={14} /> Create Metrics Signal — 2 credits</>
                       )}
                     </button>
                   </div>

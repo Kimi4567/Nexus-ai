@@ -3,11 +3,11 @@
  *
  * Pure, dependency-free helpers that turn an honest lifecycle transition into a
  * structured `MarketingLearningEvent` row. This is the FOUNDATION for a future
- * learning engine — it only CAPTURES what happened. It never generates
+ * signal/analytics engine — it only CAPTURES what happened. It never generates
  * recommendations, never scores, never infers results, and never stores a
  * performance metric.
  *
- * The event type for each transition complements PR1's `learningEventForTransition`
+ * The event type for each transition complements PR1's legacy `learningEventForTransition`
  * (which feeds the brand-memory naming); here we use execution-specific, explicit
  * names (e.g. POST_UNSCHEDULED vs POST_REVERTED_TO_DRAFT) for the workflow log.
  */
@@ -25,7 +25,7 @@ export type ExecutionEventType =
 
 /**
  * Map an honest status transition to its execution event type, or null when the
- * transition is a no-op / not a learning-worthy action (so invalid transitions never
+ * transition is a no-op / not a capture-worthy action (so invalid transitions never
  * create events). Mirrors the guarded lifecycle: a DRAFT can never jump to PUBLISHED.
  */
 export function executionEventType(
@@ -99,7 +99,7 @@ function safeDomain(url: string | null | undefined): string | null {
 }
 
 /**
- * Build one learning-event row for a transition, or null if the transition is not a
+ * Build one workflow event row for a transition, or null if the transition is not a
  * capture-worthy action. Metadata is intentionally small and safe: honest from/to
  * status, publish mode, platform, the relevant timestamps, and a boolean for whether a
  * live URL exists (plus its bare domain). No metrics, no inferred outcome, no full URL.

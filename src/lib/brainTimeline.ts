@@ -1,9 +1,9 @@
 /**
- * Brain Timeline — Operator Foundation PR-1B ("What NEXUS Learned")
+ * Brain Timeline — Operator Foundation PR-1B ("Brand Brain Signals")
  *
  * PURE, READ-ONLY derivation. No network, no I/O, no side effects.
  * Turns the data already returned by the existing GET routes into an honest,
- * conservative "What NEXUS Learned" timeline:
+ * conservative "Brand Brain Signals" timeline:
  *   - GET /api/brain/proposals?status=pending   → pending learnings (Suggested)
  *   - GET /api/brain/score-history (.updates)    → accepted/dismissed learnings (Applied/Dismissed)
  *
@@ -24,7 +24,7 @@ export type TimelineSource =
   | 'strategy'
   | 'approved_content'
   | 'post_performance'
-  | 'ab_winner'
+  | 'user_selected_variant'
   | 'sentinel_insight'
   | 'competitor_monitor'
   | 'industry_trend'
@@ -89,8 +89,8 @@ const KNOWN_SOURCES: ReadonlySet<string> = new Set([
  * Unknown fields fall back to the row's stored `displayName`.
  */
 export const FIELD_LABELS: Record<string, { en: string; ar: string }> = {
-  winningHooks:       { en: 'Winning Hooks',        ar: 'الخطافات الرابحة' },
-  winningAngles:      { en: 'Winning Angles',       ar: 'الزوايا الرابحة' },
+  winningHooks:       { en: 'Hook Signals',          ar: 'إشارات الخطافات' },
+  winningAngles:      { en: 'Content Angle Signals', ar: 'إشارات زوايا المحتوى' },
   toneKeywords:       { en: 'Brand Tone',           ar: 'أسلوب العلامة' },
   audiencePainPoints: { en: 'Audience Pain Points', ar: 'مشاكل الجمهور' },
   audienceDesires:    { en: 'Audience Desires',     ar: 'رغبات الجمهور' },
@@ -119,6 +119,7 @@ function mapStatus(raw?: string | null): TimelineStatus | null {
 }
 
 function mapSource(trigger?: string | null): TimelineSource {
+  if (trigger === 'ab_winner') return 'user_selected_variant'
   if (trigger && KNOWN_SOURCES.has(trigger)) return trigger as TimelineSource
   return 'unknown'
 }

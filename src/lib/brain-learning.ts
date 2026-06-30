@@ -16,7 +16,7 @@
  * Search Vercel logs for "[brain-learning] COST" to monitor background spend.
  * If monthly uncovered cost exceeds $500, consider:
  *   1. Rate-limiting triggers per workspace per day
- *   2. Switching to gpt-4o-mini for lower-signal triggers (approved_content, ab_winner)
+ *   2. Switching to gpt-4o-mini for lower-signal triggers (approved_content, user_selected_variant)
  *   3. Adding a system-level credit pool for background AI operations
  */
 
@@ -49,8 +49,8 @@ const ARRAY_FIELDS = new Set([
 ])
 
 const FIELD_META: Record<string, { displayName: string; icon: string }> = {
-  winningHooks:       { displayName: 'Winning Hooks',       icon: '🎣' },
-  winningAngles:      { displayName: 'Winning Angles',      icon: '🎯' },
+  winningHooks:       { displayName: 'Hook Signals',          icon: '🎣' },
+  winningAngles:      { displayName: 'Content Angle Signals', icon: '🎯' },
   toneKeywords:       { displayName: 'Brand Tone',          icon: '🎙️' },
   audiencePainPoints: { displayName: 'Audience Pain Points',icon: '💢' },
   audienceDesires:    { displayName: 'Audience Desires',    icon: '✨' },
@@ -63,7 +63,7 @@ const FIELD_META: Record<string, { displayName: string; icon: string }> = {
 interface BrainLearningParams {
   workspaceId: string
   campaignId?: string
-  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner' | 'sentinel_insight' | 'competitor_monitor' | 'industry_trend'
+  trigger: 'strategy' | 'approved_content' | 'post_performance' | 'ab_winner' | 'user_selected_variant' | 'sentinel_insight' | 'competitor_monitor' | 'industry_trend'
   payload: Record<string, unknown>
 }
 
@@ -113,8 +113,8 @@ export async function runBrainLearning(params: BrainLearningParams): Promise<num
 
     const brainSummary = brandBrain ? `
 Current Brand Brain:
-- Winning Hooks (${(brandBrain.winningHooks as string[] || []).length}): ${JSON.stringify((brandBrain.winningHooks as string[] || []).slice(0, 3))}
-- Winning Angles (${(brandBrain.winningAngles as string[] || []).length}): ${JSON.stringify((brandBrain.winningAngles as string[] || []).slice(0, 3))}
+- Hook Signals (${(brandBrain.winningHooks as string[] || []).length}): ${JSON.stringify((brandBrain.winningHooks as string[] || []).slice(0, 3))}
+- Content Angle Signals (${(brandBrain.winningAngles as string[] || []).length}): ${JSON.stringify((brandBrain.winningAngles as string[] || []).slice(0, 3))}
 - Tone Keywords: ${JSON.stringify(brandBrain.toneKeywords || [])}
 - Pain Points: ${JSON.stringify((brandBrain.audiencePainPoints as string[] || []).slice(0, 3))}
 - Unique Advantages: ${JSON.stringify((brandBrain.uniqueAdvantages as string[] || []).slice(0, 3))}
@@ -297,48 +297,55 @@ RULES:
 - Return [] if industry trends are too generic to produce meaningful learnings
 - Be specific: reference actual topics from the findings, not generic marketing advice
 `
-    } else if (trigger === 'ab_winner') {
-      // User manually chose between two variants — this is the highest-quality signal.
-      // Their choice reveals exactly what resonates with their audience/brand intuition.
-      const winner = payload.winner as { caption: string; platform: string; variantLabel?: string } | undefined
-      const loser  = payload.loser  as { caption: string; platform: string; variantLabel?: string } | undefined
+    } else if (trigger === 'ab_winner' || trigger === 'user_selected_variant') {
+      // User manually chose between two draft variants. This is an editorial
+      // preference signal, not analytics-backed performance evidence.
+      const selectedVariant =
+        (payload.selectedVariant as { caption: string; platform: string; variantLabel?: string } | undefined) ??
+        (payload.winner as { caption: string; platform: string; variantLabel?: string } | undefined)
+      const discardedVariant =
+        (payload.discardedVariant as { caption: string; platform: string; variantLabel?: string } | undefined) ??
+        (payload.loser as { caption: string; platform: string; variantLabel?: string } | undefined)
 
-      if (!winner || !loser) {
-        return 0 // nothing to learn without both sides
+      if (!selectedVariant || !discardedVariant) {
+        return 0 // nothing to propose without both sides
       }
 
       extractionContext = `
-The user ran an A/B test between two versions of a social media post and picked the winner.
-This is a HIGH-CONFIDENCE signal — the user explicitly chose one over the other.
+The user compared two draft variants of a social media post and selected one preferred draft.
+This is a USER PREFERENCE SIGNAL only. It is not analytics-backed learning and not performance evidence.
 
-WINNER (chosen by user):
-Platform: ${winner.platform}
-Variant: ${winner.variantLabel || 'A'}
+SELECTED DRAFT VARIANT (chosen by user):
+Platform: ${selectedVariant.platform}
+Variant: ${selectedVariant.variantLabel || 'A'}
 Caption:
-"${winner.caption.slice(0, 600)}"
+"${selectedVariant.caption.slice(0, 600)}"
 
-LOSER (rejected by user):
-Platform: ${loser.platform}
-Variant: ${loser.variantLabel || 'B'}
+DISCARDED DRAFT VARIANT:
+Platform: ${discardedVariant.platform}
+Variant: ${discardedVariant.variantLabel || 'B'}
 Caption:
-"${loser.caption.slice(0, 600)}"
+"${discardedVariant.caption.slice(0, 600)}"
 
 ${brainSummary}
 
-Analyze WHY the user chose the winner over the loser.
+Analyze WHY the user preferred the selected draft over the discarded draft.
 What is SPECIFICALLY different between them?
 
 Compare: opening hook, content angle, tone/voice, length, structure, emotional appeal, CTA style.
 
-Extract concrete learnings:
-- winningHooks: the specific hook formula/pattern used in the winner (e.g. "Opens with a surprising statistic + 'Here is what...' bridge")
-- winningAngles: the content angle that made the winner stronger (e.g. "Contrarian take beats listicle for this brand")
-- toneKeywords: tone/style traits present in the winner but absent or weaker in the loser
-- strategicNotes: 1-sentence insight about what this A/B result reveals about this audience
+Extract concrete preference-signal proposals:
+- winningHooks: legacy schema field for hook preference signals from the selected draft. Do not write "winning hook" in proposed text or reason.
+- winningAngles: legacy schema field for content-angle preference signals from the selected draft. Do not write "winning angle" in proposed text or reason.
+- toneKeywords: tone/style traits present in the selected draft but absent or weaker in the discarded draft
+- strategicNotes: 1-sentence editorial preference signal about what the selected draft suggests for future review
 
 RULES:
 - Be hyper-specific — reference the actual text of the captions
-- The loser is equally important: note what the winner AVOIDED that the loser used
+- The discarded draft is equally important: note what the selected draft avoided that the discarded draft used
+- Do not use winner, winning, loser, best-performing, performance winner, proven, or learned-from-performance language
+- Use selected draft, discarded draft, preference signal, user-selected variant, and editorial choice language
+- Only analytics-backed post performance may use learning/winning/performance evidence language
 - Maximum 3 proposals — quality over quantity
 - If the difference is trivial (just emoji or punctuation), return []
 `

@@ -10,7 +10,7 @@
  *   1. Brand completeness   (core durable fields)
  *   2. Organic readiness    (minimum organic strategy set)
  *   3. Paid readiness       (planning-only until prerequisites + tracking exist)
- *   4. Memory richness       (learned hooks/angles/learnings — NOT readiness)
+ *   4. Memory richness       (saved signals/memory — NOT readiness)
  *
  * Pure presentational. `theme` adapts colors for the dark campaign card vs the
  * light Brand Brain page. No data fetching, no side effects.
@@ -138,7 +138,7 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
           </div>
           <Bar score={m.score} />
           <p className="text-[9px] mt-1" style={{ color: textSub }}>
-            {ar ? 'ما تعلّمته NEXUS — ليست مؤشر جاهزية' : 'What NEXUS has learned — not a readiness signal'}
+            {ar ? 'إشارات محفوظة — ليست مؤشر جاهزية' : 'Saved signals — not a readiness signal'}
           </p>
         </Cell>
       </div>
