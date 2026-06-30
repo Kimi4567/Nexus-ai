@@ -132,6 +132,7 @@ export default function CampaignDetailPage() {
   const [manualEntry, setManualEntry] = useState({ date: '', spend: '', impressions: '', clicks: '', conversions: '', roas: '' })
   const [showPlatformDraftConfirm, setShowPlatformDraftConfirm] = useState(false)
   const [platformDraftAcknowledged, setPlatformDraftAcknowledged] = useState(false)
+  const [budgetReadinessAcknowledged, setBudgetReadinessAcknowledged] = useState(false)
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -174,6 +175,10 @@ export default function CampaignDetailPage() {
 
   const handlePushToMeta = async () => {
     if (!campaign) return
+    if (!platformDraftAcknowledged || !budgetReadinessAcknowledged) {
+      alert('Confirm paused draft creation and budget/readiness review before creating platform drafts.')
+      return
+    }
     setPushLoading(true)
     try {
       const token = await getToken()
@@ -181,19 +186,22 @@ export default function CampaignDetailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          explicitPlatformDraftConfirmed: true,
-          explicitBudgetConfirmed: true,
+          explicitPlatformDraftConfirmed: platformDraftAcknowledged === true,
+          explicitBudgetConfirmed: budgetReadinessAcknowledged === true,
         }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error)
       setShowPlatformDraftConfirm(false)
       setPlatformDraftAcknowledged(false)
+      setBudgetReadinessAcknowledged(false)
       await load()
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Push failed')
     } finally {
       setPushLoading(false)
+      setPlatformDraftAcknowledged(false)
+      setBudgetReadinessAcknowledged(false)
     }
   }
 
@@ -311,6 +319,7 @@ export default function CampaignDetailPage() {
               <button
                 onClick={() => {
                   setPlatformDraftAcknowledged(false)
+                  setBudgetReadinessAcknowledged(false)
                   setShowPlatformDraftConfirm(true)
                 }}
                 disabled={pushLoading}
@@ -781,6 +790,7 @@ export default function CampaignDetailPage() {
                   <button
                     onClick={() => {
                       setPlatformDraftAcknowledged(false)
+                      setBudgetReadinessAcknowledged(false)
                       setShowPlatformDraftConfirm(true)
                     }}
                     disabled={pushLoading || !campaign.adAccount?.hasApiAccess}
@@ -991,6 +1001,7 @@ export default function CampaignDetailPage() {
                   onClick={() => {
                     setShowPlatformDraftConfirm(false)
                     setPlatformDraftAcknowledged(false)
+                    setBudgetReadinessAcknowledged(false)
                   }}
                   className="text-text-muted hover:text-white"
                   aria-label="Close"
@@ -1020,11 +1031,24 @@ export default function CampaignDetailPage() {
                 </span>
               </label>
 
+              <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
+                <input
+                  type="checkbox"
+                  checked={budgetReadinessAcknowledged}
+                  onChange={(event) => setBudgetReadinessAcknowledged(event.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  I confirm the budget, tracking, creative, and platform readiness have been reviewed for this draft creation.
+                </span>
+              </label>
+
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => {
                     setShowPlatformDraftConfirm(false)
                     setPlatformDraftAcknowledged(false)
+                    setBudgetReadinessAcknowledged(false)
                   }}
                   className="px-4 py-2 rounded-xl text-[12px] font-bold text-text-muted"
                   style={{ background: 'rgba(255,255,255,0.06)' }}
@@ -1033,12 +1057,12 @@ export default function CampaignDetailPage() {
                 </button>
                 <button
                   onClick={handlePushToMeta}
-                  disabled={!platformDraftAcknowledged || pushLoading}
+                  disabled={!platformDraftAcknowledged || !budgetReadinessAcknowledged || pushLoading}
                   className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
                   style={{
-                    background: platformDraftAcknowledged && !pushLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.08)',
-                    cursor: platformDraftAcknowledged && !pushLoading ? 'pointer' : 'not-allowed',
-                    opacity: platformDraftAcknowledged && !pushLoading ? 1 : 0.62,
+                    background: platformDraftAcknowledged && budgetReadinessAcknowledged && !pushLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.08)',
+                    cursor: platformDraftAcknowledged && budgetReadinessAcknowledged && !pushLoading ? 'pointer' : 'not-allowed',
+                    opacity: platformDraftAcknowledged && budgetReadinessAcknowledged && !pushLoading ? 1 : 0.62,
                   }}
                 >
                   {pushLoading ? 'Creating paused platform drafts...' : 'Create paused platform drafts'}

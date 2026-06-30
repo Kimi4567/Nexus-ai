@@ -132,6 +132,7 @@ describe('paidBoundary', () => {
 
   it('keeps Meta platform creation paused and non-active in source', () => {
     const pushRoute = readFileSync(join(process.cwd(), 'src/app/api/ad-campaigns/[id]/push-to-platform/route.ts'), 'utf8')
+    const paidCampaignPage = readFileSync(join(process.cwd(), 'src/app/paid-campaigns/[id]/page.tsx'), 'utf8')
 
     expect(pushRoute).toContain('canCreatePlatformDraft')
     expect(pushRoute).toContain('explicitPlatformDraftConfirmed')
@@ -142,5 +143,12 @@ describe('paidBoundary', () => {
     expect(pushRoute).not.toContain("status: 'ACTIVE'")
     expect(pushRoute).not.toContain('live push')
     expect(pushRoute).toContain('Platform draft objects were created in Meta in PAUSED state')
+
+    expect(paidCampaignPage).toContain('platformDraftAcknowledged')
+    expect(paidCampaignPage).toContain('budgetReadinessAcknowledged')
+    expect(paidCampaignPage).toContain('explicitPlatformDraftConfirmed: platformDraftAcknowledged === true')
+    expect(paidCampaignPage).toContain('explicitBudgetConfirmed: budgetReadinessAcknowledged === true')
+    expect(paidCampaignPage).toContain('!platformDraftAcknowledged || !budgetReadinessAcknowledged || pushLoading')
+    expect(paidCampaignPage).toContain('I confirm the budget, tracking, creative, and platform readiness have been reviewed')
   })
 })

@@ -36,6 +36,11 @@ Until those proof states exist, the UI should use planning-safe language: paid p
 
 Creating paused platform drafts still does not launch ads, activate a campaign, or spend budget. It only creates paused objects for platform-side review after the user confirms budget, tracking, creative, and platform readiness have been reviewed.
 
+The paid Ad Manager confirmation modal uses two separate acknowledgements before calling the platform draft route:
+
+1. The user confirms NEXUS should create paused platform draft objects only and understands this does not launch ads or spend budget.
+2. The user confirms budget, tracking, creative, and platform readiness have been reviewed for this draft creation.
+
 ## What Did Not Change
 
 - No schema or migration changes.
