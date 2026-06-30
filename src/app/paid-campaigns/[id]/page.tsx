@@ -130,6 +130,8 @@ export default function CampaignDetailPage() {
   const [syncLoading, setSyncLoading] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
   const [manualEntry, setManualEntry] = useState({ date: '', spend: '', impressions: '', clicks: '', conversions: '', roas: '' })
+  const [showPlatformDraftConfirm, setShowPlatformDraftConfirm] = useState(false)
+  const [platformDraftAcknowledged, setPlatformDraftAcknowledged] = useState(false)
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -177,10 +179,16 @@ export default function CampaignDetailPage() {
       const token = await getToken()
       const res = await fetch(`/api/ad-campaigns/${id}/push-to-platform`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          explicitPlatformDraftConfirmed: true,
+          explicitBudgetConfirmed: true,
+        }),
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error)
+      setShowPlatformDraftConfirm(false)
+      setPlatformDraftAcknowledged(false)
       await load()
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Push failed')
@@ -301,7 +309,10 @@ export default function CampaignDetailPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             {campaign.status === 'DRAFT' && (
               <button
-                onClick={handlePushToMeta}
+                onClick={() => {
+                  setPlatformDraftAcknowledged(false)
+                  setShowPlatformDraftConfirm(true)
+                }}
                 disabled={pushLoading}
                 className="px-3 py-2 rounded-xl text-[12px] font-bold text-white flex items-center gap-1.5"
                 style={{ background: pushLoading ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` }}
@@ -768,7 +779,10 @@ export default function CampaignDetailPage() {
                       : `API access not yet approved. Export as JSON for manual review, or connect your ${campaign.platform} ad account after ads permissions are ready.`}
                   </p>
                   <button
-                    onClick={handlePushToMeta}
+                    onClick={() => {
+                      setPlatformDraftAcknowledged(false)
+                      setShowPlatformDraftConfirm(true)
+                    }}
                     disabled={pushLoading || !campaign.adAccount?.hasApiAccess}
                     className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
                     style={{
@@ -954,6 +968,83 @@ export default function CampaignDetailPage() {
                 </div>
               </details>
             )}
+          </div>
+        )}
+
+        {showPlatformDraftConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            style={{ background: 'rgba(2,6,23,0.72)' }}
+          >
+            <div
+              className="w-full max-w-[500px] rounded-[16px] p-5"
+              style={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.22)' }}
+            >
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-[16px] font-bold text-white">Create paused platform drafts</h3>
+                  <p className="text-[12px] text-text-muted mt-1">
+                    NEXUS will create paused {campaign.platform} draft objects only. This will not launch ads, make the campaign active, or spend budget.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowPlatformDraftConfirm(false)
+                    setPlatformDraftAcknowledged(false)
+                  }}
+                  className="text-text-muted hover:text-white"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div
+                className="rounded-[12px] p-4 mb-4"
+                style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.22)' }}
+              >
+                <p className="text-[12px] text-slate-200 leading-relaxed">
+                  Confirm budget, tracking, creative, and platform readiness have been reviewed. Platform-side review is still required before any launch or spend.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
+                <input
+                  type="checkbox"
+                  checked={platformDraftAcknowledged}
+                  onChange={(event) => setPlatformDraftAcknowledged(event.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  I confirm this should create paused platform draft objects only. I understand this does not launch ads or spend budget.
+                </span>
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowPlatformDraftConfirm(false)
+                    setPlatformDraftAcknowledged(false)
+                  }}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold text-text-muted"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePushToMeta}
+                  disabled={!platformDraftAcknowledged || pushLoading}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                  style={{
+                    background: platformDraftAcknowledged && !pushLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.08)',
+                    cursor: platformDraftAcknowledged && !pushLoading ? 'pointer' : 'not-allowed',
+                    opacity: platformDraftAcknowledged && !pushLoading ? 1 : 0.62,
+                  }}
+                >
+                  {pushLoading ? 'Creating paused platform drafts...' : 'Create paused platform drafts'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -90,6 +90,16 @@ export function mapPausedPlatformPushStatus(currentStatus: unknown): 'DRAFT' | '
   return 'PAUSED'
 }
 
+export function canCreatePlatformDraft({
+  explicitPlatformDraftConfirmed,
+  explicitBudgetConfirmed,
+}: {
+  explicitPlatformDraftConfirmed: unknown
+  explicitBudgetConfirmed: unknown
+}): boolean {
+  return explicitPlatformDraftConfirmed === true && explicitBudgetConfirmed === true
+}
+
 export function paidMetricsSignalCopy(source: unknown) {
   if (isAnalyticsBackedPaidMetricsSource(source)) {
     return {

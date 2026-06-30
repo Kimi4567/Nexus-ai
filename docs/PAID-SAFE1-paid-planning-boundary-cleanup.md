@@ -30,7 +30,11 @@ Until those proof states exist, the UI should use planning-safe language: paid p
 - Manual paid metrics can create a paid metrics signal for review, but do not automatically update Brand Brain as analytics-backed learning.
 - Paid planning generation now frames default/fallback budgets as planning assumptions, not confirmed spend.
 - Meta API creation keeps platform objects paused and maps the local campaign to a non-active state.
+- Paused platform draft creation is still an external platform mutation, so it now requires explicit platform-draft confirmation and explicit budget confirmation before any API draft objects are created.
+- A positive saved budget value alone is not budget approval for external platform creation.
 - Paid Campaigns list/new/detail UI now uses setup-review, planning assumption, paused draft, and review-needed language instead of launch-ready language.
+
+Creating paused platform drafts still does not launch ads, activate a campaign, or spend budget. It only creates paused objects for platform-side review after the user confirms budget, tracking, creative, and platform readiness have been reviewed.
 
 ## What Did Not Change
 

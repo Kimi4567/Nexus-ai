@@ -25,7 +25,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 import { createMetaAdsApi, nexusToMetaTargeting, NEXUS_TO_META_OBJECTIVE } from '@/lib/adPlatforms/metaAdsApi'
-import { getBudgetTruth, mapPausedPlatformPushStatus } from '@/lib/paidBoundary'
+import { canCreatePlatformDraft, getBudgetTruth, mapPausedPlatformPushStatus } from '@/lib/paidBoundary'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any
@@ -53,9 +53,11 @@ export async function POST(
 
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
+    const body = await req.json().catch(() => ({}))
+
     // ── Route to platform handler ──────────────────────────────────────
     if (campaign.platform === 'META') {
-      return handleMetaPush(campaign)
+      return handleMetaPush(campaign, body)
     }
 
     // Other platforms: dry-run export only
@@ -81,7 +83,7 @@ export async function POST(
 }
 
 // ── Meta push handler ──────────────────────────────────────────────────────
-async function handleMetaPush(campaign: Record<string, unknown>) {
+async function handleMetaPush(campaign: Record<string, unknown>, body: Record<string, unknown>) {
   const adAccount = campaign.adAccount as Record<string, unknown> | null
 
   // ── Dry-run if no API access ─────────────────────────────────────────
@@ -125,17 +127,23 @@ async function handleMetaPush(campaign: Record<string, unknown>) {
     })
   }
 
-  // ── Live push ────────────────────────────────────────────────────────
+  // ── Paused platform draft creation ───────────────────────────────────
   try {
     const campaignBudgetTruth = getBudgetTruth({
       amount: typeof campaign.dailyBudget === 'number' ? campaign.dailyBudget : null,
       fallbackAmount: 50,
     })
-    if (!campaignBudgetTruth.budgetConfirmed) {
+
+    if (!canCreatePlatformDraft({
+      explicitPlatformDraftConfirmed: body.explicitPlatformDraftConfirmed,
+      explicitBudgetConfirmed: body.explicitBudgetConfirmed,
+    })) {
       return NextResponse.json({
-        error: 'Budget confirmation is required before creating platform draft objects.',
+        error: 'Creating platform draft objects requires explicit confirmation. No ads were launched or changed.',
         budgetSource: campaignBudgetTruth.budgetSource,
-        budgetConfirmed: false,
+        budgetValuePresent: campaignBudgetTruth.budgetConfirmed,
+        explicitPlatformDraftConfirmed: body.explicitPlatformDraftConfirmed === true,
+        explicitBudgetConfirmed: body.explicitBudgetConfirmed === true,
       }, { status: 400 })
     }
 
