@@ -50,4 +50,6 @@ Next QA should verify `/strategy` and the Strategy modal read-only:
 - Organic remains ready when organic core fields exist.
 - Paid remains planning-only or needs paid inputs based on the Strategy Brief helper.
 - The modal still blocks Paid and Full when paid inputs are missing.
+- The modal confirmation/cost card label matches the selected strategy mode.
+- Organic and Paid modes must not be described as Full strategy in the confirmation step.
 - No default 5000 budget, ready-to-launch, active, connected-ready, spend-ready, or launch-included copy appears.
