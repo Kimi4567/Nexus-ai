@@ -23,6 +23,10 @@ import {
   type CampaignOperatingStage,
 } from '@/lib/campaignOperatingState'
 import { derivePublishTabReadinessSummary } from '@/lib/publishReadiness'
+import {
+  deriveEngineRebuildAvailability,
+  ENGINE_REBUILD_CREDIT_COST,
+} from '@/lib/campaignDangerActions'
 
 interface Activity {
   id: string
@@ -252,6 +256,7 @@ function CampaignDetailPageInner() {
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [campaignPosts, setCampaignPosts] = useState<CampaignOperatingPost[]>([])
+  const [operatingSnapshotsLoaded, setOperatingSnapshotsLoaded] = useState(false)
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(0)
@@ -291,6 +296,8 @@ function CampaignDetailPageInner() {
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   // UX: header overflow menu
   const [showHeaderMenu, setShowHeaderMenu] = useState(false)
+  const [showEngineRebuildModal, setShowEngineRebuildModal] = useState(false)
+  const [engineRebuildAcknowledged, setEngineRebuildAcknowledged] = useState(false)
 
   // Unified product agent tabs — indices 0-4 are visible; 5-6 are accessible via Publish tab
   const AGENT_TABS = [
@@ -379,8 +386,13 @@ function CampaignDetailPageInner() {
 
   const fetchOperatingSnapshots = useCallback(async () => {
     const token = authHeader()
-    if (!token) return
+    if (!token) {
+      setOperatingSnapshotsLoaded(false)
+      return
+    }
 
+    setOperatingSnapshotsLoaded(false)
+    let loadedPosts = false
     try {
       const [contentPlanRes, proposalsRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
@@ -390,6 +402,7 @@ function CampaignDetailPageInner() {
       if (contentPlanRes.ok) {
         const data = await contentPlanRes.json().catch(() => ({}))
         setCampaignPosts(Array.isArray(data.posts) ? data.posts : [])
+        loadedPosts = true
       }
 
       if (proposalsRes.ok) {
@@ -400,6 +413,8 @@ function CampaignDetailPageInner() {
     } catch {
       // Operating state is display-only. If these optional reads fail, keep the
       // campaign room usable and let the helper fall back conservatively.
+    } finally {
+      setOperatingSnapshotsLoaded(loadedPosts)
     }
   }, [authHeader, campaignId])
 
@@ -536,7 +551,14 @@ function CampaignDetailPageInner() {
     setSaving(false)
   }
 
-  const handleRunEngine = async (force = false) => {
+  const handleRunEngine = async (
+    force = false,
+    confirmation?: {
+      explicitEngineRebuildConfirmed: true
+      acknowledgedCreditCost: number
+      acknowledgedOutputOverwrite: true
+    },
+  ) => {
     const token = authHeader()
     if (!token || !campaignId || engineRunning) return
     setEngineRunning(true)
@@ -549,7 +571,7 @@ function CampaignDetailPageInner() {
       const res = await fetch(`/api/campaigns/${campaignId}/engine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ language: locale, force }),
+        body: JSON.stringify({ language: locale, force, ...(force ? confirmation : {}) }),
       })
       const d = await res.json()
       if (!res.ok) {
@@ -562,6 +584,10 @@ function CampaignDetailPageInner() {
       }
       if (d.campaign) {
         setCampaign(d.campaign)
+        if (force) {
+          setShowEngineRebuildModal(false)
+          setEngineRebuildAcknowledged(false)
+        }
         const count = d.engine?.calendarCount || d.campaign.aiOutput?.calendarItems?.length || 0
         if (count > 0) {
           setCalendarPushCount(count)
@@ -936,6 +962,14 @@ function CampaignDetailPageInner() {
     if (operatingState.primaryAction.href === '#strategy' || operatingState.primaryAction.href === '#campaign') return `/campaigns/${campaign.id}?tab=strategy`
     return operatingState.primaryAction.href
   })()
+  const engineRebuildStatusPending = !operatingSnapshotsLoaded
+  const engineRebuildAvailability = deriveEngineRebuildAvailability({
+    postStatuses: engineRebuildStatusPending ? ['APPROVED'] : campaignPosts.map(post => post.status),
+    explicitEngineRebuildConfirmed: engineRebuildAcknowledged,
+    acknowledgedCreditCost: engineRebuildAcknowledged ? ENGINE_REBUILD_CREDIT_COST : undefined,
+    acknowledgedOutputOverwrite: engineRebuildAcknowledged,
+  })
+  const engineRebuildLockedByProgress = engineRebuildAvailability.reason === 'LOCKED_BY_PROGRESS'
 
   // This page does not fetch platform readiness. Keep Autopilot conservative
   // instead of implying connected publishing accounts from campaign state alone.
@@ -1356,6 +1390,44 @@ function CampaignDetailPageInner() {
                         >
                           {campaign.status === 'ARCHIVED' ? `↩ ${cdT?.btnRestore || 'Restore'}` : `📦 ${cdT?.btnArchive || 'Archive'}`}
                         </button>
+                        <div className="h-px mx-3 bg-slate-100" />
+                        <div className="px-4 py-3 text-left">
+                          <p className="text-xs font-bold uppercase tracking-wide text-rose-700">
+                            {locale === 'ar' ? 'إجراء حساس' : 'Dangerous action'}
+                          </p>
+                          {engineRebuildStatusPending ? (
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {locale === 'ar'
+                                ? 'يتم التحقق من حالة المنشورات قبل إتاحة أي إعادة بناء مدفوعة.'
+                                : 'Checking post status before any credit-spending rebuild can be available.'}
+                            </p>
+                          ) : engineRebuildLockedByProgress ? (
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {locale === 'ar'
+                                ? 'إعادة البناء مقفلة لأن هذه الحملة لديها منشورات معتمدة أو مجدولة أو منشورة. يلزم مسار خطة مسودة جديدة قبل إعادة توليد مخرجات الحملة.'
+                                : 'Rebuild is locked because this campaign already has approved, scheduled, or published posts. Create a new draft plan flow is required before regenerating campaign outputs.'}
+                            </p>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setShowHeaderMenu(false)
+                                  setEngineRebuildAcknowledged(false)
+                                  setShowEngineRebuildModal(true)
+                                }}
+                                disabled={engineRunning}
+                                className="mt-2 w-full rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:opacity-50"
+                              >
+                                {locale === 'ar' ? 'إعادة بناء حزمة الحملة' : 'Rebuild campaign package'}
+                              </button>
+                              <p className="mt-1 text-xs leading-5 text-slate-500">
+                                {locale === 'ar'
+                                  ? `يكلف ${ENGINE_REBUILD_CREDIT_COST} كريديت ويستبدل مخرجات استراتيجية/حزمة الحملة. لا ينشر أو يجدول أو يحدّث المنشورات الحالية.`
+                                  : `Costs ${ENGINE_REBUILD_CREDIT_COST} credits and overwrites campaign strategy/package output. Does not publish, schedule, or update existing SocialPosts.`}
+                              </p>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
@@ -1412,16 +1484,6 @@ function CampaignDetailPageInner() {
 
               {/* Buttons */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Re-run (small secondary) */}
-                <button
-                  onClick={() => handleRunEngine(true)}
-                  disabled={engineRunning}
-                  title={locale === 'ar' ? 'إعادة توليد كل المخرجات من الصفر' : 'Regenerate all outputs from scratch'}
-                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 text-sm text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-40"
-                >
-                  ↻
-                </button>
-
                 {/* Primary CTA — context aware, one at a time */}
                 {activeTab !== 0 && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
@@ -3457,6 +3519,120 @@ function CampaignDetailPageInner() {
         )}
       </div>
     </AppShell>
+
+    {showEngineRebuildModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6">
+        <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl">
+          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-rose-700">
+                {locale === 'ar' ? 'إجراء حساس' : 'Dangerous action'}
+              </p>
+              <h3 className="mt-1 text-lg font-bold text-slate-950">
+                {locale === 'ar' ? 'إعادة بناء حزمة الحملة' : 'Rebuild campaign package'}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowEngineRebuildModal(false)
+                setEngineRebuildAcknowledged(false)
+              }}
+              className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label={locale === 'ar' ? 'إغلاق' : 'Close'}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="space-y-4 px-6 py-5">
+            <div className="rounded-xl border border-rose-100 bg-rose-50 p-4">
+              <p className="text-sm font-semibold text-rose-800">
+                {locale === 'ar'
+                  ? `تأكيد إعادة البناء — ${ENGINE_REBUILD_CREDIT_COST} كريديت`
+                  : `Confirm rebuild — ${ENGINE_REBUILD_CREDIT_COST} credits`}
+              </p>
+              <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-rose-900">
+                <li>
+                  {locale === 'ar'
+                    ? 'يستبدل هذا مخرجات استراتيجية/حزمة الحملة وقد تتغير النتائج.'
+                    : 'This overwrites campaign strategy/package output and the results may change.'}
+                </li>
+                <li>
+                  {locale === 'ar'
+                    ? 'لا يتم استرجاع المخرجات القديمة تلقائيًا.'
+                    : 'Old output is not automatically restored.'}
+                </li>
+                <li>
+                  {locale === 'ar'
+                    ? 'لا ينشر ولا يجدول ولا يحدّث المنشورات الاجتماعية الحالية.'
+                    : 'It does not publish, schedule, or update existing SocialPosts.'}
+                </li>
+              </ul>
+            </div>
+
+            {(engineRebuildStatusPending || engineRebuildLockedByProgress) && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                {engineRebuildStatusPending
+                  ? (locale === 'ar'
+                    ? 'يتم التحقق من حالة المنشورات قبل إتاحة أي إعادة بناء مدفوعة.'
+                    : 'Checking post status before any credit-spending rebuild can be available.')
+                  : (locale === 'ar'
+                    ? 'إعادة البناء مقفلة لأن هذه الحملة لديها منشورات معتمدة أو مجدولة أو منشورة. يلزم مسار خطة مسودة جديدة قبل إعادة توليد مخرجات الحملة.'
+                    : 'Rebuild is locked because this campaign already has approved, scheduled, or published posts. Create a new draft plan flow is required before regenerating campaign outputs.')}
+              </div>
+            )}
+
+            {!engineRebuildStatusPending && !engineRebuildLockedByProgress && (
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={engineRebuildAcknowledged}
+                  onChange={e => setEngineRebuildAcknowledged(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                />
+                <span>
+                  {locale === 'ar'
+                    ? `أفهم أن هذا يكلف ${ENGINE_REBUILD_CREDIT_COST} كريديت ويستبدل مخرجات حزمة الحملة.`
+                    : `I understand this costs ${ENGINE_REBUILD_CREDIT_COST} credits and overwrites the campaign package output.`}
+                </span>
+              </label>
+            )}
+
+            {engineError && (
+              <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {engineError}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setShowEngineRebuildModal(false)
+                setEngineRebuildAcknowledged(false)
+              }}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              {locale === 'ar' ? 'إلغاء' : 'Cancel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRunEngine(true, {
+                explicitEngineRebuildConfirmed: true,
+                acknowledgedCreditCost: ENGINE_REBUILD_CREDIT_COST,
+                acknowledgedOutputOverwrite: true,
+              })}
+              disabled={engineRunning || !engineRebuildAvailability.available}
+              className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {engineRunning
+                ? (locale === 'ar' ? 'جارٍ إعادة البناء...' : 'Rebuilding...')
+                : (locale === 'ar' ? `تأكيد إعادة البناء — ${ENGINE_REBUILD_CREDIT_COST} كريديت` : `Confirm rebuild — ${ENGINE_REBUILD_CREDIT_COST} credits`)}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     <UpgradeModal
       open={showUpgrade}
