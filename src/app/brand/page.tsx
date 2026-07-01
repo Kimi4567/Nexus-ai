@@ -1145,15 +1145,15 @@ function BrandBrainInner() {
                       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5"
                         style={{ background: `${scoreColor}14`, color: scoreColor, border: `1px solid ${scoreColor}33` }}
                         title={locale === 'ar'
-                          ? 'نضج ذاكرة العلامة: عمق طويل المدى (إعدادك المحفوظ + ما تعلّمته NEXUS بمرور الوقت). ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
-                          : 'Brand Brain maturity: long-term depth — your saved setup plus what NEXUS learns over time. Not setup completeness, not organic readiness.'}>
+                          ? 'نضج ذاكرة العلامة: عمق طويل المدى (إعدادك المحفوظ + إشارات Brand Brain بمرور الوقت). ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
+                          : 'Brand Brain maturity: long-term depth — your saved setup plus Brand Brain signals over time. Not setup completeness, not organic readiness.'}>
                         {score >= 80 ? (locale === 'ar' ? 'ناضجة' : 'Mature') : score >= 50 ? (locale === 'ar' ? 'قيد التطور' : 'Developing') : (locale === 'ar' ? 'مبكرة' : 'Early')}
                         <span className="font-semibold tabular-nums opacity-60">{score}/100</span>
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
                       {locale === 'ar'
-                        ? 'يستخدم NEXUS هذا الملف لتوجيه الاستراتيجية والمحتوى والاتجاه الإبداعي والتعلّم مع الوقت.'
+                        ? 'يستخدم NEXUS هذا الملف لتوجيه الاستراتيجية والمحتوى والاتجاه الإبداعي وإشارات Brand Brain مع الوقت.'
                         : 'NEXUS uses this file to guide strategy, content, creative direction, and signals over time.'}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
@@ -1195,8 +1195,8 @@ function BrandBrainInner() {
                 </summary>
                 <p className="mt-2 text-[12px] text-slate-500 leading-relaxed" style={{ maxWidth: '72ch' }}>
                   {locale === 'ar'
-                    ? 'النضج يقيس العمق طويل المدى — إعدادك المحفوظ + ما تعلّمته NEXUS بمرور الوقت. لذلك قد يكون اكتمال إعداد علامتك 100% بينما يبقى النضج «مبكراً»، لأن الذاكرة تنمو من الحملات والنشر والنتائج الحقيقية. كما يمكن أن تكون استراتيجيتك العضوية «جاهزة» بينما ذاكرتك طويلة المدى لا تزال تتكوّن. النضج ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
-                    : 'Maturity measures long-term depth — your saved setup plus what NEXUS learns over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from real campaigns, publishing, and results. Likewise your organic strategy can be ready for an initial brief while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
+                    ? 'النضج يقيس العمق طويل المدى — إعدادك المحفوظ + إشارات Brand Brain بمرور الوقت. لذلك قد يكون اكتمال إعداد علامتك 100% بينما يبقى النضج «مبكراً»، لأن الذاكرة تنمو من إشارات الحملات والنشر والنتائج الحقيقية. تعلّم الأداء يبدأ فقط بعد توفر تحليلات حقيقية. كما يمكن أن تكون استراتيجيتك العضوية «جاهزة» بينما ذاكرتك طويلة المدى لا تزال تتكوّن. النضج ليس اكتمال الإعداد وليس جاهزية المحتوى العضوي.'
+                    : 'Maturity measures long-term depth — your saved setup plus Brand Brain signals over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from campaign, publishing, and real-results signals. Performance learning starts only after real analytics are available. Likewise your organic strategy can be ready for an initial brief while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
                 </p>
               </details>
 

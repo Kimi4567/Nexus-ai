@@ -32,6 +32,7 @@ Those paths confuse review signals with analytics-backed learning.
 - Shared `runBrainLearning` prompts now frame strategy, approval, user-selected variant, Sentinel, competitor, and industry triggers as review, preference, or market-intelligence signals unless the trigger is analytics-backed post performance.
 - Content rewrite prompts now reference reviewed hook signals instead of proven hook formulas.
 - Brand Brain assisted-field labels now expose reviewed hook/content-angle signal language.
+- Brand maturity runtime copy now describes long-term depth as saved setup plus Brand Brain signals over time, not as generic "what NEXUS learned"; performance learning is explicitly reserved until real analytics are available.
 
 ## Analytics-Backed Learning
 
@@ -41,6 +42,8 @@ Analytics-backed language remains allowed only when the source is real performan
 - trusted paid metrics sources such as platform/analytics API data, when explicitly gated by the paid metrics boundary
 
 Manual metrics and workflow transitions remain review signals.
+
+Brand maturity and readiness surfaces may describe memory richness, reviewed signals, preference signals, execution signals, and analytics-required states. They must not imply that approval, scheduling, manual publish, or user variant choice has already taught NEXUS performance patterns.
 
 ## Schema Naming Debt
 

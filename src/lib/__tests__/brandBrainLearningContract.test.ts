@@ -132,4 +132,15 @@ describe('brandBrainLearningContract', () => {
     expect(rewriteRoute).toContain('Reviewed hook signals to consider')
     expect(rewriteRoute).not.toContain('Proven hook formulas')
   })
+
+  it('keeps Brand maturity copy on signal language instead of generic NEXUS learning', () => {
+    const brandPage = readSource('src/app/brand/page.tsx')
+
+    expect(brandPage).not.toContain('ما تعلّمته NEXUS')
+    expect(brandPage).not.toContain('What NEXUS learned')
+    expect(brandPage).not.toContain('what NEXUS learns over time')
+    expect(brandPage).toContain('إشارات Brand Brain بمرور الوقت')
+    expect(brandPage).toContain('Brand Brain signals over time')
+    expect(brandPage).toContain('Performance learning starts only after real analytics are available')
+  })
 })
