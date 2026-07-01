@@ -119,6 +119,12 @@ describe('deriveBrainTimeline — source mapping', () => {
     expect(item.sourceKey).toBe('brain.timeline.source.user_selected_variant')
   })
 
+  it('maps current user_selected_variant trigger to preference signal source', () => {
+    const [item] = deriveBrainTimeline([], [{ id: 'ab2', status: 'accepted', trigger: 'user_selected_variant' } as RawLearning])
+    expect(item.source).toBe('user_selected_variant')
+    expect(item.sourceKey).toBe('brain.timeline.source.user_selected_variant')
+  })
+
   it('unknown trigger → no source chip', () => {
     const [item] = deriveBrainTimeline([], [{ id: 'u', status: 'accepted', trigger: 'mystery' } as RawLearning])
     expect(item.source).toBe('unknown')

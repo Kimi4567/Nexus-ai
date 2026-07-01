@@ -12,7 +12,7 @@
  * - Assigns integrationId + pageId per platform (FL2A) so a later schedule/publish
  *   has credentials.
  * - Records every transition in PostStatusHistory (actor USER).
- * - Extracts top hooks + content angles → stores approval signals for future drafts.
+ * - Records approval as workflow/review signals only. Approval is not analytics-backed learning.
  *
  * DELETE /api/campaigns/[id]/approve-content-plan
  * Reverts all APPROVED or SCHEDULED posts (that haven't published yet) back to DRAFT.
@@ -22,75 +22,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { getBrandBrainLearningCopy } from '@/lib/brandBrainLearningContract'
 
 type Params = { params: { id: string } }
-
-/** Merge incoming strings into existing array, dedup, keep last N */
-function mergeUnique(existing: string[] | null | undefined, incoming: unknown[], limit = 20): string[] {
-  const current = Array.isArray(existing) ? existing : []
-  const next = (incoming as any[])
-    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    .map(item => item.trim())
-  return Array.from(new Set([...current, ...next])).slice(-limit)
-}
-
-/** FLC: Call GPT-4o-mini to extract approval signals from approved captions */
-async function extractApprovalSignals(captions: string[]): Promise<{
-  hooks: string[]
-  angles: string[]
-}> {
-  if (!process.env.OPENAI_API_KEY || captions.length === 0) return { hooks: [], angles: [] }
-
-  // Sample up to 10 captions to keep tokens low
-  const sample = captions.slice(0, 10)
-
-  const prompt = `Analyze these ${sample.length} user-approved social media post captions and extract content preference signals.
-
-Captions:
-${sample.map((c, i) => `${i + 1}. ${c.slice(0, 300)}`).join('\n\n')}
-
-Return a JSON object with exactly:
-{
-  "hooks": ["hook 1", "hook 2", "hook 3"],
-  "angles": ["angle 1", "angle 2", "angle 3"]
-}
-
-Rules:
-- hooks: 3 approved opening lines / sentence starters extracted verbatim or slightly abstracted (e.g. "Did you know that..." or "Most [audience] struggle with...")
-- angles: 3 main content themes/angles used across the approved captions (e.g. "education", "problem-solution", "practical convenience")
-- Approval is a review signal, not analytics-backed proof. Do not call these winners, proven, best-performing, or learned from performance.
-- Keep each hook under 15 words
-- Keep each angle under 8 words
-- Return only the JSON object, no other text`
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
-      }),
-    })
-    const data = await res.json()
-    const raw = JSON.parse(data.choices?.[0]?.message?.content ?? '{}')
-    const hooks  = Array.isArray(raw.hooks)  ? raw.hooks.filter((h: any) => typeof h === 'string')  : []
-    const angles = Array.isArray(raw.angles) ? raw.angles.filter((a: any) => typeof a === 'string') : []
-    return { hooks, angles }
-  } catch {
-    return { hooks: [], angles: [] }
-  }
-}
 
 export async function POST(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
@@ -200,45 +136,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     const linked   = draftPosts.filter((p: any) => approvedIds.has(p.id) && !!integrationMap[String(p.platform)]).length
     const unlinked = approved - linked
 
-    // ── FLC: Extract hooks + angles → save approval signals (non-blocking) ───────
-    let hookSignals  = 0
-    let angleSignals = 0
-
     const captions: string[] = draftPosts
       .map((p: any) => p.caption)
       .filter((c: any): c is string => typeof c === 'string' && c.trim().length > 10)
 
-    if (captions.length > 0) {
-      // Fire-and-forget style — we await but catch silently so approval never fails
-      const signals = await extractApprovalSignals(captions).catch(() => ({ hooks: [], angles: [] }))
-
-      if (signals.hooks.length > 0 || signals.angles.length > 0) {
-        const brand = await prisma.brandProfile.findUnique({
-          where: { workspaceId: campaign.workspaceId },
-          select: { winningHooks: true, winningAngles: true },
-        }).catch(() => null)
-
-        if (brand) {
-          const updatedHooks  = mergeUnique(brand.winningHooks,  signals.hooks,  20)
-          const updatedAngles = mergeUnique(brand.winningAngles, signals.angles, 20)
-
-          await prisma.brandProfile.update({
-            where: { workspaceId: campaign.workspaceId },
-            data: {
-              winningHooks:  updatedHooks,
-              winningAngles: updatedAngles,
-            },
-          }).catch(() => null)
-          snapshotBrandMaturity(prisma as any, campaign.workspaceId).catch(() => null)
-
-          hookSignals  = signals.hooks.length
-          angleSignals = signals.angles.length
-        }
-      }
-    }
-
     // ── BL3: Brain signal proposal system (non-blocking) ─────────────────────────
-    // Runs alongside FLC — creates rich pending signal proposals (tone, pain points, desires)
+    // Creates pending review-signal proposals (tone, pain points, desires)
     // that the user reviews in BrainLearningPanel (accept/dismiss).
     if (captions.length >= 3) {
       const allPosts = draftPosts
@@ -257,13 +160,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     const verb = mode === 'approve_and_schedule' ? 'scheduled' : 'approved'
     let message = `${approved} post${approved !== 1 ? 's' : ''} ${verb}`
     if (linked > 0)         message += ` (${linked} linked to connected platforms)`
-    if (hookSignals > 0 || angleSignals > 0) {
+    if (approveEvents.length > 0) {
       const approvalCopy = getBrandBrainLearningCopy('approval')
-      const parts = [
-        hookSignals > 0 ? `${hookSignals} hook signal${hookSignals === 1 ? '' : 's'}` : null,
-        angleSignals > 0 ? `${angleSignals} content-angle signal${angleSignals === 1 ? '' : 's'}` : null,
-      ].filter(Boolean)
-      message += ` · ${approvalCopy.label}${parts.length > 0 ? ` (${parts.join(' + ')})` : ''}`
+      message += ` · ${approvalCopy.label}`
     }
 
     return NextResponse.json({
@@ -272,7 +171,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       approved,
       linked,
       unlinked,
-      signals: { hooks: hookSignals, angles: angleSignals },
+      signals: {
+        approvalEvents: approveEvents.length,
+        description: getBrandBrainLearningCopy('approval').description,
+      },
       message,
     })
   } catch (err: any) {

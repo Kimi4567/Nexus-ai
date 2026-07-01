@@ -485,7 +485,7 @@ Return ONLY valid JSON. No markdown outside the JSON.`
     brief.painPoints ? `Audience Pain Points: ${brief.painPoints}` : '',
     brief.desires ? `Audience Desires: ${brief.desires}` : '',
     brief.competitors ? `Key Competitors: ${brief.competitors}` : '',
-    brief.winningHooks ? `Previously Successful Hooks: ${brief.winningHooks}` : '',
+    brief.winningHooks ? `Reviewed Hook Signals: ${brief.winningHooks}` : '',
     brief.writingStyle ? `Brand Writing Style: ${brief.writingStyle}` : '',
     brief.avoidWords ? `Never use these words/phrases: ${brief.avoidWords}` : '',
     brief.currentPlatforms?.length ? `Active Platforms: ${brief.currentPlatforms.join(', ')}` : '',
