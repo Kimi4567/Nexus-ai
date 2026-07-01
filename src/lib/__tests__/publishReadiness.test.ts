@@ -6,7 +6,11 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { getPublishReadiness, type PublishReadinessInput } from '../publishReadiness'
+import {
+  derivePublishTabReadinessSummary,
+  getPublishReadiness,
+  type PublishReadinessInput,
+} from '../publishReadiness'
 
 const base: PublishReadinessInput = {
   contentApproved: true,
@@ -60,16 +64,16 @@ describe('getPublishReadiness — locked states', () => {
 })
 
 describe('getPublishReadiness — ready states', () => {
-  it('6. Facebook manual ready → READY_MANUAL with correct copy', () => {
+  it('6. Facebook explicit API publish ready → READY_EXPLICIT_API_PUBLISH with correct copy', () => {
     const r = getPublishReadiness({ ...base, platform: 'FACEBOOK' })
     expect(r.status).toBe('ready')
-    expect(r.reason).toBe('READY_MANUAL')
-    expect(r.title.en).toBe('Ready for manual publish')
-    expect(r.title.ar).toBe('جاهز للنشر اليدوي')
-    expect(r.copy.en).toBe('NEXUS will publish only when you click this button.')
-    expect(r.copy.ar).toBe('لن ينشر NEXUS إلا عند الضغط على هذا الزر.')
-    expect(r.buttonLabel?.en).toBe('Publish now')
-    expect(r.buttonLabel?.ar).toBe('انشر الآن')
+    expect(r.reason).toBe('READY_EXPLICIT_API_PUBLISH')
+    expect(r.title.en).toBe('Ready for explicit API publish')
+    expect(r.title.ar).toBe('جاهز للنشر عبر API بتأكيد صريح')
+    expect(r.copy.en).toBe('NEXUS sends this post through the connected platform API only after this explicit click.')
+    expect(r.copy.ar).toBe('يرسل NEXUS هذا المنشور عبر API المنصة المتصلة فقط بعد هذه الضغطة الصريحة.')
+    expect(r.buttonLabel?.en).toBe('Publish via platform API')
+    expect(r.buttonLabel?.ar).toBe('النشر عبر API المنصة')
   })
 
   it('7. schedule mode with scheduledAt set → READY_SCHEDULE with correct copy', () => {
@@ -78,8 +82,8 @@ describe('getPublishReadiness — ready states', () => {
     expect(r.reason).toBe('READY_SCHEDULE')
     expect(r.title.en).toBe('Ready to schedule')
     expect(r.title.ar).toBe('جاهز للجدولة')
-    expect(r.copy.en).toContain('does not bypass approval')
-    expect(r.copy.ar).toContain('لا تتجاوز الاعتماد')
+    expect(r.copy.en).toContain('not published unless')
+    expect(r.copy.ar).toContain('لا يتم النشر')
     expect(r.buttonLabel?.en).toBe('Schedule post')
   })
 })
@@ -117,5 +121,70 @@ describe('getPublishReadiness — gate ordering', () => {
     expect(r.reason).toBe('SCHEDULE_TIME_REQUIRED')
     expect(r.copy.en).toBe('Select a scheduled time before scheduling.')
     expect(r.copy.ar).toBe('حدد وقت الجدولة قبل جدولة المنشور.')
+  })
+})
+
+describe('derivePublishTabReadinessSummary', () => {
+  it('no connected accounts + scheduled posts stays locked-sounding and not published', () => {
+    const summary = derivePublishTabReadinessSummary({
+      posts: [
+        { status: 'SCHEDULED', publishMode: 'MANUAL', scheduledAt: '2026-07-01T10:00:00Z' },
+        { status: 'SCHEDULED', publishMode: 'MANUAL', scheduledAt: '2026-07-02T10:00:00Z' },
+      ],
+      hasConnectedPublishingAccount: false,
+      hasAutopilotEnabled: false,
+    })
+
+    expect(summary.scheduledNotPublished).toBe(2)
+    expect(summary.hasConnectedPublishingAccount).toBe(false)
+    expect(summary.safeCopy.scheduled.en).toBe('2 scheduled in NEXUS — not published')
+    expect(summary.safeCopy.accounts.en).toContain('No connected publishing accounts')
+    expect(summary.safeCopy.automation.en).toBe('Publishing automation is not enabled.')
+    expect(JSON.stringify(summary.safeCopy)).not.toMatch(/ready to activate|Campaign active|automated publishing/i)
+  })
+
+  it('one manual published post without URL is recorded but has no platform proof', () => {
+    const summary = derivePublishTabReadinessSummary({
+      posts: [
+        {
+          status: 'PUBLISHED',
+          publishMode: 'MANUAL',
+          manuallyPublishedAt: '2026-07-01T10:00:00Z',
+          publishedAt: '2026-07-01T10:00:00Z',
+          platformUrl: null,
+          platformPostId: null,
+        },
+      ],
+    })
+
+    expect(summary.manualPublished).toBe(1)
+    expect(summary.manualPublishedWithoutUrl).toBe(1)
+    expect(summary.apiPublished).toBe(0)
+    expect(summary.safeCopy.manual.en).toBe('1 user-confirmed manual publish')
+    expect(summary.safeCopy.api.en).toBe('No platform/API publishing has occurred')
+  })
+
+  it('connected account is not treated as publish-ready by itself', () => {
+    const summary = derivePublishTabReadinessSummary({
+      posts: [],
+      hasConnectedPublishingAccount: true,
+    })
+
+    expect(summary.hasConnectedPublishingAccount).toBe(true)
+    expect(summary.safeCopy.accounts.en).toContain('page, permission, media, and explicit confirmation checks')
+    expect(summary.safeCopy.accounts.en).not.toMatch(/publish-ready|ready to publish/i)
+  })
+
+  it('API published posts are separated from user-confirmed manual publishes', () => {
+    const summary = derivePublishTabReadinessSummary({
+      posts: [
+        { status: 'PUBLISHED', publishMode: 'AUTO', platformPostId: 'platform-1' },
+        { status: 'PUBLISHED', publishMode: 'MANUAL', manuallyPublishedAt: '2026-07-01T10:00:00Z' },
+      ],
+    })
+
+    expect(summary.apiPublished).toBe(1)
+    expect(summary.manualPublished).toBe(1)
+    expect(summary.safeCopy.api.en).toBe('1 platform/API publish recorded')
   })
 })

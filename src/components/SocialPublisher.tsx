@@ -1,10 +1,10 @@
 /**
- * SocialPublisher — Publish campaign content to connected social accounts.
+ * SocialPublisher — explicit platform publishing readiness and action.
  *
  * Features:
  * - Lists connected Meta accounts + pages
  * - Pre-populates caption from campaign strategy (hooks, captions, CTAs)
- * - Publish now (immediate) or Schedule (future date/time)
+ * - Explicit API publish or schedule controls when readiness gates pass
  * - Shows published posts history for this campaign
  * - Sprint R
  */
@@ -291,19 +291,19 @@ export default function SocialPublisher({
       <div className="text-center py-12 space-y-4">
         <div className="text-4xl">📱</div>
         <h3 className="text-base font-semibold text-slate-950">
-          {ar ? 'لا توجد حسابات مربوطة' : 'No connected accounts'}
+          {ar ? 'لا توجد حسابات نشر متصلة' : 'No connected publishing accounts'}
         </h3>
         <p className="mx-auto max-w-xs text-sm text-slate-500">
           {ar
-            ? 'ربط حساب Facebook أو Instagram من صفحة الاتصالات للبدء في النشر'
-            : 'Connect a Facebook or Instagram account on the Connections page to start publishing'}
+            ? 'راجع الاتصالات أولاً. ربط الحساب وحده لا ينشر أي محتوى ولا يفعّل النشر التلقائي.'
+            : 'Review Connections first. Connecting an account does not publish content or enable automation by itself.'}
         </p>
         <a
           href="/connections"
           className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-all hover:bg-indigo-100"
         >
           <Zap className="w-4 h-4" />
-          {ar ? 'ربط حساب الآن' : 'Connect account now'}
+          {ar ? 'مراجعة الاتصالات' : 'Review Connections'}
           <ExternalLink className="w-3 h-3" />
         </a>
 
@@ -314,8 +314,8 @@ export default function SocialPublisher({
           <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
           <p className="text-[11px] leading-snug text-amber-800">
             {ar
-              ? 'النشر غير متاح حتى تربط حساباً. قد يتطلب Facebook/Instagram مراجعة أذونات التطبيق (Meta App Review) قبل تفعيل النشر المباشر.'
-              : 'Publishing is unavailable until an account is connected. Facebook/Instagram may require Meta App Review of publishing permissions before live posting is enabled.'}
+              ? 'النشر عبر المنصات غير متاح هنا حتى يوجد حساب وصفحة وصلاحيات ووسائط وتأكيد صريح. الجدولة داخل NEXUS لا تعني أن المنشور نُشر.'
+              : 'Platform publishing is unavailable here until account, page, permissions, media, and explicit confirmation are ready. Scheduling in NEXUS does not mean the post has been published.'}
           </p>
         </div>
       </div>
@@ -346,10 +346,12 @@ export default function SocialPublisher({
           <span className="text-2xl">📤</span>
           <div>
             <h3 className="text-base font-semibold text-slate-950">
-              {ar ? 'النشر على السوشيال ميديا' : 'Publish to Social Media'}
+              {ar ? 'جاهزية النشر' : 'Publishing readiness'}
             </h3>
             <p className="mt-0.5 text-xs text-slate-500">
-              {ar ? 'راجع المتطلبات قبل النشر أو الجدولة' : 'Review requirements before publishing or scheduling'}
+              {ar
+                ? 'راجع ما يمكن نشره وما يحتاج اتصال حساب وصلاحيات وتأكيدًا صريحًا.'
+                : 'Review what can be published and what still needs account, permission, and explicit confirmation.'}
             </p>
           </div>
         </div>
@@ -551,7 +553,7 @@ export default function SocialPublisher({
 
       {/* Mode selector — compact toggle */}
       <div className="flex items-center gap-2">
-        <p className="flex-shrink-0 text-xs text-slate-500">{ar ? 'وقت النشر:' : 'Publish:'}</p>
+        <p className="flex-shrink-0 text-xs text-slate-500">{ar ? 'إجراء المنصة:' : 'Platform action:'}</p>
         <div className={`flex gap-1 rounded-xl border border-slate-200 p-1 ${
           readiness.status === 'locked' ? 'bg-slate-50 opacity-75' : 'bg-slate-100'
         }`}>
@@ -567,7 +569,7 @@ export default function SocialPublisher({
             }`}
           >
             <Send className="w-3 h-3" />
-            {ar ? 'فوري' : 'Now'}
+            {ar ? 'API صريح' : 'Explicit API'}
           </button>
           <button
             onClick={() => setMode('schedule')}
@@ -612,7 +614,7 @@ export default function SocialPublisher({
                 <p className="font-semibold">
                   {mode === 'schedule'
                     ? (ar ? 'تمت الجدولة بنجاح ✓' : 'Scheduled successfully ✓')
-                    : (ar ? 'تمت عملية النشر بنجاح ✓' : 'Publishing completed ✓')
+                    : (ar ? 'تم الإرسال عبر API المنصة ✓' : 'Platform API publish completed ✓')
                   }
                 </p>
                 {result.url && (
@@ -689,7 +691,7 @@ export default function SocialPublisher({
         ) : (
           <>
             <Send className="w-4 h-4" />
-            {ar ? (readiness.buttonLabel?.ar ?? 'انشر الآن') : (readiness.buttonLabel?.en ?? 'Publish now')}
+            {ar ? (readiness.buttonLabel?.ar ?? 'النشر عبر API المنصة') : (readiness.buttonLabel?.en ?? 'Publish via platform API')}
             {selectedPage && <span className="text-xs opacity-70">→ {selectedPage.name}</span>}
           </>
         )}
@@ -699,12 +701,12 @@ export default function SocialPublisher({
       {posts.length > 0 && (
         <div className="space-y-3 border-t border-slate-200 pt-2">
           <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            {ar ? 'سجل المنشورات' : 'Post History'}
+            {ar ? 'سجل النشر' : 'Publishing History'}
           </p>
           <p className="text-[11px] leading-snug text-slate-500">
             {ar
-              ? '"إزالة" تحذف من Nexus فقط ولا تحذف من المنصة. التحليلات غير متاحة للمنشورات المحذوفة على المنصة.'
-              : '"Remove" clears it from Nexus only — not from the platform. Analytics aren\'t available for posts deleted on the platform.'}
+              ? 'السجل يفرّق بين النشر اليدوي الذي أكده المستخدم والنشر عبر API. "إزالة" تحذف من NEXUS فقط ولا تحذف من المنصة.'
+              : 'This history separates user-confirmed manual publishing from platform/API publishing. "Remove" clears it from NEXUS only, not from the platform.'}
           </p>
           <div className="space-y-2">
             {posts.map(post => (
@@ -724,7 +726,7 @@ export default function SocialPublisher({
                       'bg-slate-100 text-slate-500 border border-slate-200'
                     }`}>
                       {post.status === 'PUBLISHED' ? (ar ? 'منشور' : 'Published') :
-                       post.status === 'SCHEDULED' ? (ar ? 'مجدول' : 'Scheduled') :
+                       post.status === 'SCHEDULED' ? (ar ? 'مجدول — غير منشور' : 'Scheduled — not published') :
                        post.status === 'FAILED'    ? (ar ? 'فشل' : 'Failed') :
                        post.status}
                     </span>

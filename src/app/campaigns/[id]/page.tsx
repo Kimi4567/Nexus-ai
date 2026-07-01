@@ -22,6 +22,7 @@ import {
   type CampaignOperatingInput,
   type CampaignOperatingStage,
 } from '@/lib/campaignOperatingState'
+import { derivePublishTabReadinessSummary } from '@/lib/publishReadiness'
 
 interface Activity {
   id: string
@@ -60,6 +61,8 @@ interface AutopilotPost {
   weekNumber?: number | null
   scheduledAt?: string | null
   status: string
+  publishMode?: string | null
+  manuallyPublishedAt?: string | null
   pageName?: string | null
 }
 
@@ -943,6 +946,19 @@ function CampaignDetailPageInner() {
     (campaign.status === 'ACTIVE' || approvalState === 'done') &&
     hasVerifiedPublishingConnection,
   )
+  const publishTabSummary = derivePublishTabReadinessSummary({
+    posts: campaignPosts,
+    hasConnectedPublishingAccount: hasVerifiedPublishingConnection,
+    hasAutopilotEnabled: campaign.autopilotEnabled,
+    hasAnalyticsData: operatingState.truthFlags.hasAnalyticsData,
+  })
+  const autopilotQueueScheduledCount = autopilotQueue.filter(post => post.status === 'SCHEDULED' && post.scheduledAt).length
+  const autopilotQueueManualPublishedCount = autopilotQueue.filter(post =>
+    post.status === 'PUBLISHED' &&
+    (post.publishMode === 'MANUAL' || Boolean(post.manuallyPublishedAt))
+  ).length
+  const autopilotQueueHasScheduled = autopilotQueueScheduledCount > 0
+  const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
 
   const nextCreativeAction = (() => {
     if (!operatingState.truthFlags.hasStrategy) {
@@ -2841,15 +2857,51 @@ function CampaignDetailPageInner() {
             {activeTab === 4 && (
               <div className="space-y-4">
                 <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
+                  <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-950">
+                          {locale === 'ar' ? publishTabSummary.safeCopy.title.ar : publishTabSummary.safeCopy.title.en}
+                        </p>
+                        <p className="mt-1 max-w-2xl text-xs leading-5 text-emerald-800">
+                          {locale === 'ar' ? publishTabSummary.safeCopy.helper.ar : publishTabSummary.safeCopy.helper.en}
+                        </p>
+                      </div>
+                      <span className="w-fit rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                        {locale === 'ar' ? 'جاهزية فقط' : 'Readiness only'}
+                      </span>
+                    </div>
+                    <div className="mt-4 grid gap-2 md:grid-cols-2">
+                      {[
+                        publishTabSummary.safeCopy.scheduled,
+                        publishTabSummary.safeCopy.manual,
+                        publishTabSummary.safeCopy.api,
+                        publishTabSummary.safeCopy.accounts,
+                        publishTabSummary.safeCopy.automation,
+                        publishTabSummary.safeCopy.performance,
+                      ].map((item, index) => (
+                        <div key={index} className="rounded-xl border border-emerald-100 bg-white px-3 py-2 text-xs leading-5 text-slate-700">
+                          {locale === 'ar' ? item.ar : item.en}
+                        </div>
+                      ))}
+                    </div>
+                    {publishTabSummary.manualPublishedWithoutUrl > 0 && (
+                      <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
+                        {locale === 'ar'
+                          ? `${publishTabSummary.manualPublishedWithoutUrl} منشور مؤكد يدويًا بدون رابط مباشر محفوظ. هذا تسجيل من المستخدم، وليس إثبات منصة أو API.`
+                          : `${publishTabSummary.manualPublishedWithoutUrl} manually published post has no live URL saved. This is a user record, not platform/API proof.`}
+                      </p>
+                    )}
+                  </div>
                   {!(campaign.status === 'ACTIVE' || approvalState === 'done') && (
                     <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                       <p className="text-sm font-semibold text-amber-900">
-                        {locale === 'ar' ? 'النشر مقفل حالياً' : 'Publishing is locked for now'}
+                        {locale === 'ar' ? 'النشر عبر المنصات مقفل حاليًا' : 'Platform publishing is locked for now'}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-amber-800">
                         {locale === 'ar'
-                          ? 'راجع الاستراتيجية وخطة المحتوى أولاً. لا يمكن اختيار النشر الآن أو الجدولة قبل اكتمال المتطلبات.'
-                          : 'Review the strategy and content plan first. Now/Schedule controls should remain secondary until requirements are complete.'}
+                          ? 'المنشورات المجدولة محفوظة داخل NEXUS، لكن النشر عبر المنصات/API يتطلب حساب نشر متصلًا، والتحقق من الصفحة والصلاحيات والوسائط، وتأكيدًا صريحًا.'
+                          : 'Scheduled posts are saved in NEXUS, but platform/API publishing requires a connected publishing account, page/permission checks, media readiness, and explicit confirmation.'}
                       </p>
                     </div>
                   )}
@@ -2864,44 +2916,28 @@ function CampaignDetailPageInner() {
                   />
                 </div>
 
-                {/* ── Learning Loop card — save winning hook back to Brand Brain ── */}
-                {topHooks.length > 0 && (
-                  <div className="rounded-2xl p-5 flex items-start gap-4"
-                    style={{ background: '#fff', border: '1px solid rgb(226,232,240)' }}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: '#eef2ff', border: '1px solid #c7d2fe' }}>
-                      <span className="text-lg">🧠</span>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-lg">
+                      📊
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="mb-1 text-sm font-semibold text-slate-950">
-                        {locale === 'ar' ? 'علّم عقلك من هذه الحملة' : 'Teach your Brain from this campaign'}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-950">
+                        {locale === 'ar' ? 'التحليلات مطلوبة للتعلّم' : 'Analytics required for learning'}
                       </p>
-                      <p className="text-xs mb-3" style={{ color: '#64748b' }}>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
                         {locale === 'ar'
-                          ? 'إذا نجح هذا الـ hook، احفظه في ذاكرة علامتك — سيستخدمه الـ AI في كل الحملات القادمة'
-                          : 'If this hook worked, save it to your brand memory — the AI will use it in all future campaigns'}
+                          ? 'التحليلات مطلوبة للتعلّم. لا يستطيع NEXUS تعلّم أنماط الأداء إلا بعد توفر تحليلات حقيقية للمنشورات المنشورة. هذا التبويب يعرض جاهزية النشر فقط.'
+                          : 'Analytics required for learning. NEXUS can only learn performance patterns after published posts collect real analytics. This tab only shows publishing readiness.'}
                       </p>
-                      <div className="space-y-2">
-                        {topHooks.slice(0, 3).map((hook, i) => (
-                          <div key={i} className="flex items-start gap-2 p-3 rounded-xl"
-                            style={{ background: '#f8fafc', border: '1px solid rgb(226,232,240)' }}>
-                            <p className="text-xs flex-1 leading-relaxed" style={{ color: '#94a3b8' }}>
-                              "{hook.length > 100 ? hook.slice(0, 100) + '…' : hook}"
-                            </p>
-                            <SaveToMemoryBtn
-                              text={hook}
-                              field="winningHooks"
-                              authHeader={authHeader}
-                              saveLabel={locale === 'ar' ? '+ حفظ' : '+ Save'}
-                              savedLabel={locale === 'ar' ? '✓ محفوظ' : '✓ Saved'}
-                              title={locale === 'ar' ? 'حفظ في ذاكرة العلامة التجارية' : 'Save to Brand Brain memory'}
-                            />
-                          </div>
-                        ))}
-                      </div>
+                      <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                        {locale === 'ar'
+                          ? 'الاعتماد والجدولة والنشر اليدوي إشارات سير عمل فقط، وليست تعلمًا مدعومًا بالتحليلات.'
+                          : 'Approval, scheduling, and manual publish are workflow signals only, not analytics-backed learning.'}
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* Analytics section */}
                 <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
@@ -2953,7 +2989,7 @@ function CampaignDetailPageInner() {
                       {[
                         { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
                         { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
-                        { label: locale === 'ar' ? 'جاهزة لمراجعة المحتوى' : 'Ready for content review', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                        { label: locale === 'ar' ? 'مراجعة المحتوى مكتملة أو جاهزة صراحةً' : 'Content review complete or explicitly ready', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
                         { label: locale === 'ar' ? 'حساب نشر متصل' : 'Publishing account connected', done: hasVerifiedPublishingConnection },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
@@ -3085,11 +3121,15 @@ function CampaignDetailPageInner() {
                         <span>📅</span>
                         {locale === 'ar'
                           ? campaign.autopilotEnabled
-                            ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'قائمة الأوتوبايلوت المجدولة' : 'قائمة الأوتوبايلوت المخططة'} — ${autopilotQueue.length} منشور`
-                            : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'محتوى مجدول يدويًا — الأوتوبايلوت غير مفعّل' : 'محتوى مخطط — الأوتوبايلوت غير مفعّل'} — ${autopilotQueue.length} منشور`
+                            ? `${autopilotQueueHasScheduled ? 'قائمة الأوتوبايلوت المجدولة' : 'قائمة الأوتوبايلوت المخططة'} — ${autopilotQueue.length} منشور`
+                            : autopilotQueueHasMixedManualAndScheduled
+                              ? `${autopilotQueueManualPublishedCount} منشور مؤكد يدويًا · ${autopilotQueueScheduledCount} مجدولة — الأوتوبايلوت غير مفعّل`
+                              : `${autopilotQueueHasScheduled ? 'محتوى مجدول — الأوتوبايلوت غير مفعّل' : 'محتوى مخطط — الأوتوبايلوت غير مفعّل'} — ${autopilotQueue.length} منشور`
                           : campaign.autopilotEnabled
-                            ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Autopilot scheduled queue' : 'Autopilot planned queue'} — ${autopilotQueue.length} posts`
-                            : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Manual scheduled content — Autopilot not enabled' : 'Planned content — Autopilot not enabled'} — ${autopilotQueue.length} posts`}
+                            ? `${autopilotQueueHasScheduled ? 'Autopilot scheduled queue' : 'Autopilot planned queue'} — ${autopilotQueue.length} posts`
+                            : autopilotQueueHasMixedManualAndScheduled
+                              ? `${autopilotQueueManualPublishedCount} manually published · ${autopilotQueueScheduledCount} scheduled — Autopilot not enabled`
+                              : `${autopilotQueueHasScheduled ? 'Scheduled content — Autopilot not enabled' : 'Planned content — Autopilot not enabled'} — ${autopilotQueue.length} posts`}
                       </h4>
                     </div>
                     <div className="divide-y divide-slate-100">

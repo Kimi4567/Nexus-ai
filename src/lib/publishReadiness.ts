@@ -16,7 +16,7 @@ export type PublishReason =
   | 'SCHEDULE_TIME_REQUIRED'
   | 'INSTAGRAM_BUSINESS_REQUIRED'
   | 'INSTAGRAM_IMAGE_REQUIRED'
-  | 'READY_MANUAL'
+  | 'READY_EXPLICIT_API_PUBLISH'
   | 'READY_SCHEDULE'
 
 export interface I18nString {
@@ -49,6 +49,39 @@ export interface PublishReadinessInput {
   mode: 'now' | 'schedule'
   /** Whether a scheduled date/time is set (relevant for 'schedule' mode only) */
   hasScheduledAt: boolean
+}
+
+export interface PublishTabPostInput {
+  status?: string | null
+  publishMode?: string | null
+  scheduledAt?: string | Date | null
+  publishedAt?: string | Date | null
+  manuallyPublishedAt?: string | Date | null
+  platformPostId?: string | null
+  platformUrl?: string | null
+  analyticsData?: unknown
+}
+
+export interface PublishTabReadinessSummary {
+  totalPosts: number
+  scheduledNotPublished: number
+  manualPublished: number
+  manualPublishedWithoutUrl: number
+  apiPublished: number
+  autoScheduled: number
+  hasConnectedPublishingAccount: boolean
+  hasAutopilotEnabled: boolean
+  hasAnalyticsData: boolean
+  safeCopy: {
+    title: I18nString
+    helper: I18nString
+    scheduled: I18nString
+    manual: I18nString
+    api: I18nString
+    accounts: I18nString
+    automation: I18nString
+    performance: I18nString
+  }
 }
 
 // ─── Honest copy map ──────────────────────────────────────────────────────────
@@ -99,19 +132,19 @@ const COPY: Record<
       ar: 'Instagram يتطلب صورة.',
     },
   },
-  READY_MANUAL: {
-    title: { en: 'Ready for manual publish', ar: 'جاهز للنشر اليدوي' },
+  READY_EXPLICIT_API_PUBLISH: {
+    title: { en: 'Ready for explicit API publish', ar: 'جاهز للنشر عبر API بتأكيد صريح' },
     copy: {
-      en: 'NEXUS will publish only when you click this button.',
-      ar: 'لن ينشر NEXUS إلا عند الضغط على هذا الزر.',
+      en: 'NEXUS sends this post through the connected platform API only after this explicit click.',
+      ar: 'يرسل NEXUS هذا المنشور عبر API المنصة المتصلة فقط بعد هذه الضغطة الصريحة.',
     },
-    buttonLabel: { en: 'Publish now', ar: 'انشر الآن' },
+    buttonLabel: { en: 'Publish via platform API', ar: 'النشر عبر API المنصة' },
   },
   READY_SCHEDULE: {
     title: { en: 'Ready to schedule', ar: 'جاهز للجدولة' },
     copy: {
-      en: 'Scheduling prepares the post for the selected time. It does not bypass approval.',
-      ar: 'الجدولة تجهّز المنشور للوقت المحدد ولا تتجاوز الاعتماد.',
+      en: 'Scheduling saves the selected time in NEXUS. It is not published unless an explicit platform publishing path is ready and confirmed.',
+      ar: 'الجدولة تحفظ الوقت المحدد داخل NEXUS. لا يتم النشر إلا إذا كان مسار النشر عبر المنصة جاهزًا ومؤكدًا صراحةً.',
     },
     buttonLabel: { en: 'Schedule post', ar: 'جدولة المنشور' },
   },
@@ -157,12 +190,109 @@ export function getPublishReadiness(input: PublishReadinessInput): PublishReadin
   if (mode === 'schedule' && !hasScheduledAt) return locked('SCHEDULE_TIME_REQUIRED')
 
   // Ready
-  const reason: PublishReason = mode === 'schedule' ? 'READY_SCHEDULE' : 'READY_MANUAL'
+  const reason: PublishReason = mode === 'schedule' ? 'READY_SCHEDULE' : 'READY_EXPLICIT_API_PUBLISH'
   return {
     status: 'ready',
     reason,
     title: COPY[reason].title,
     copy: COPY[reason].copy,
     buttonLabel: COPY[reason].buttonLabel,
+  }
+}
+
+function hasUsefulAnalytics(value: unknown): boolean {
+  return Boolean(value && typeof value === 'object' && Object.keys(value as Record<string, unknown>).length > 0)
+}
+
+/**
+ * Publish-tab operating summary. This is display-only and intentionally
+ * conservative: scheduled/manual/API publishing are different states.
+ */
+export function derivePublishTabReadinessSummary(input: {
+  posts?: PublishTabPostInput[] | null
+  hasConnectedPublishingAccount?: boolean | null
+  hasAutopilotEnabled?: boolean | null
+  hasAnalyticsData?: boolean | null
+}): PublishTabReadinessSummary {
+  const posts = Array.isArray(input.posts) ? input.posts : []
+  const scheduledNotPublished = posts.filter((post) => post.status === 'SCHEDULED').length
+  const manualPublishedPosts = posts.filter((post) => (
+    post.status === 'PUBLISHED' &&
+    (post.publishMode === 'MANUAL' || Boolean(post.manuallyPublishedAt)) &&
+    !post.platformPostId
+  ))
+  const apiPublished = posts.filter((post) => (
+    post.status === 'PUBLISHED' &&
+    (post.publishMode === 'AUTO' || Boolean(post.platformPostId))
+  )).length
+  const autoScheduled = posts.filter((post) => post.status === 'SCHEDULED' && post.publishMode === 'AUTO').length
+  const hasConnectedPublishingAccount = Boolean(input.hasConnectedPublishingAccount)
+  const hasAutopilotEnabled = Boolean(input.hasAutopilotEnabled)
+  const hasAnalyticsData = Boolean(input.hasAnalyticsData) || posts.some((post) => hasUsefulAnalytics(post.analyticsData))
+
+  return {
+    totalPosts: posts.length,
+    scheduledNotPublished,
+    manualPublished: manualPublishedPosts.length,
+    manualPublishedWithoutUrl: manualPublishedPosts.filter((post) => !post.platformUrl).length,
+    apiPublished,
+    autoScheduled,
+    hasConnectedPublishingAccount,
+    hasAutopilotEnabled,
+    hasAnalyticsData,
+    safeCopy: {
+      title: {
+        en: 'Publishing readiness',
+        ar: 'جاهزية النشر',
+      },
+      helper: {
+        en: 'Review what can and cannot be published. Scheduled posts are not published until the user publishes manually or a connected-account API publish is explicitly ready and confirmed.',
+        ar: 'راجع ما يمكن وما لا يمكن نشره. المنشورات المجدولة غير منشورة حتى ينشرها المستخدم يدويًا أو يصبح النشر عبر حساب متصل جاهزًا ومؤكدًا صراحةً.',
+      },
+      scheduled: {
+        en: `${scheduledNotPublished} scheduled in NEXUS — not published`,
+        ar: `${scheduledNotPublished} مجدولة داخل NEXUS — غير منشورة`,
+      },
+      manual: {
+        en: manualPublishedPosts.length > 0
+          ? `${manualPublishedPosts.length} user-confirmed manual publish${manualPublishedPosts.length === 1 ? '' : 'es'}`
+          : 'No user-confirmed manual publishes recorded',
+        ar: manualPublishedPosts.length > 0
+          ? `${manualPublishedPosts.length} تم تأكيد النشر يدويًا بواسطة المستخدم`
+          : 'لا يوجد نشر يدوي مؤكد بواسطة المستخدم',
+      },
+      api: {
+        en: apiPublished > 0
+          ? `${apiPublished} platform/API publish${apiPublished === 1 ? '' : 'es'} recorded`
+          : 'No platform/API publishing has occurred',
+        ar: apiPublished > 0
+          ? `${apiPublished} نشر عبر المنصة/API مسجل`
+          : 'لم يحدث أي نشر عبر المنصة أو API',
+      },
+      accounts: {
+        en: hasConnectedPublishingAccount
+          ? 'A publishing account still needs page, permission, media, and explicit confirmation checks before API publishing.'
+          : 'No connected publishing accounts are verified for this campaign tab.',
+        ar: hasConnectedPublishingAccount
+          ? 'ما زال النشر عبر الحساب يحتاج تحقق الصفحة والصلاحيات والوسائط وتأكيدًا صريحًا قبل النشر عبر API.'
+          : 'لا توجد حسابات نشر متصلة مؤكدة في تبويب هذه الحملة.',
+      },
+      automation: {
+        en: hasAutopilotEnabled
+          ? 'Autopilot must still be reviewed separately before any automated publishing path is used.'
+          : 'Publishing automation is not enabled.',
+        ar: hasAutopilotEnabled
+          ? 'يجب مراجعة الأوتوبايلوت بشكل منفصل قبل استخدام أي مسار نشر آلي.'
+          : 'النشر التلقائي غير مفعّل.',
+      },
+      performance: {
+        en: hasAnalyticsData
+          ? 'Performance can be reviewed because analytics data exists.'
+          : 'Performance appears only after real analytics are fetched.',
+        ar: hasAnalyticsData
+          ? 'يمكن مراجعة الأداء لأن بيانات التحليلات موجودة.'
+          : 'يظهر الأداء فقط بعد جلب تحليلات حقيقية.',
+      },
+    },
   }
 }
