@@ -61,6 +61,8 @@ interface AutopilotPost {
   weekNumber?: number | null
   scheduledAt?: string | null
   status: string
+  publishMode?: string | null
+  manuallyPublishedAt?: string | null
   pageName?: string | null
 }
 
@@ -950,6 +952,13 @@ function CampaignDetailPageInner() {
     hasAutopilotEnabled: campaign.autopilotEnabled,
     hasAnalyticsData: operatingState.truthFlags.hasAnalyticsData,
   })
+  const autopilotQueueScheduledCount = autopilotQueue.filter(post => post.status === 'SCHEDULED' && post.scheduledAt).length
+  const autopilotQueueManualPublishedCount = autopilotQueue.filter(post =>
+    post.status === 'PUBLISHED' &&
+    (post.publishMode === 'MANUAL' || Boolean(post.manuallyPublishedAt))
+  ).length
+  const autopilotQueueHasScheduled = autopilotQueueScheduledCount > 0
+  const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
 
   const nextCreativeAction = (() => {
     if (!operatingState.truthFlags.hasStrategy) {
@@ -2887,12 +2896,12 @@ function CampaignDetailPageInner() {
                   {!(campaign.status === 'ACTIVE' || approvalState === 'done') && (
                     <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                       <p className="text-sm font-semibold text-amber-900">
-                        {locale === 'ar' ? 'النشر مقفل حالياً' : 'Publishing is locked for now'}
+                        {locale === 'ar' ? 'النشر عبر المنصات مقفل حاليًا' : 'Platform publishing is locked for now'}
                       </p>
                       <p className="mt-1 text-xs leading-5 text-amber-800">
                         {locale === 'ar'
-                          ? 'راجع الاستراتيجية وخطة المحتوى أولاً. لا يمكن استخدام إجراءات النشر عبر المنصة أو الجدولة قبل اكتمال المتطلبات.'
-                          : 'Review the strategy and content plan first. Platform publish or schedule controls stay locked until requirements are complete.'}
+                          ? 'المنشورات المجدولة محفوظة داخل NEXUS، لكن النشر عبر المنصات/API يتطلب حساب نشر متصلًا، والتحقق من الصفحة والصلاحيات والوسائط، وتأكيدًا صريحًا.'
+                          : 'Scheduled posts are saved in NEXUS, but platform/API publishing requires a connected publishing account, page/permission checks, media readiness, and explicit confirmation.'}
                       </p>
                     </div>
                   )}
@@ -2980,7 +2989,7 @@ function CampaignDetailPageInner() {
                       {[
                         { label: locale === 'ar' ? 'استراتيجية مولَّدة' : 'Strategy generated', done: !!aiOutput },
                         { label: locale === 'ar' ? 'خطة تنفيذ أسبوعية' : 'Weekly execution plan', done: weeklyExecutionPlan.length > 0 },
-                        { label: locale === 'ar' ? 'جاهزة لمراجعة المحتوى' : 'Ready for content review', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
+                        { label: locale === 'ar' ? 'مراجعة المحتوى مكتملة أو جاهزة صراحةً' : 'Content review complete or explicitly ready', done: campaign.status === 'ACTIVE' || approvalState === 'done' },
                         { label: locale === 'ar' ? 'حساب نشر متصل' : 'Publishing account connected', done: hasVerifiedPublishingConnection },
                       ].map((req, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs">
@@ -3112,11 +3121,15 @@ function CampaignDetailPageInner() {
                         <span>📅</span>
                         {locale === 'ar'
                           ? campaign.autopilotEnabled
-                            ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'قائمة الأوتوبايلوت المجدولة' : 'قائمة الأوتوبايلوت المخططة'} — ${autopilotQueue.length} منشور`
-                            : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'محتوى مجدول يدويًا — الأوتوبايلوت غير مفعّل' : 'محتوى مخطط — الأوتوبايلوت غير مفعّل'} — ${autopilotQueue.length} منشور`
+                            ? `${autopilotQueueHasScheduled ? 'قائمة الأوتوبايلوت المجدولة' : 'قائمة الأوتوبايلوت المخططة'} — ${autopilotQueue.length} منشور`
+                            : autopilotQueueHasMixedManualAndScheduled
+                              ? `${autopilotQueueManualPublishedCount} منشور مؤكد يدويًا · ${autopilotQueueScheduledCount} مجدولة — الأوتوبايلوت غير مفعّل`
+                              : `${autopilotQueueHasScheduled ? 'محتوى مجدول — الأوتوبايلوت غير مفعّل' : 'محتوى مخطط — الأوتوبايلوت غير مفعّل'} — ${autopilotQueue.length} منشور`
                           : campaign.autopilotEnabled
-                            ? `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Autopilot scheduled queue' : 'Autopilot planned queue'} — ${autopilotQueue.length} posts`
-                            : `${autopilotQueue.some(post => post.status === 'SCHEDULED' && post.scheduledAt) ? 'Manual scheduled content — Autopilot not enabled' : 'Planned content — Autopilot not enabled'} — ${autopilotQueue.length} posts`}
+                            ? `${autopilotQueueHasScheduled ? 'Autopilot scheduled queue' : 'Autopilot planned queue'} — ${autopilotQueue.length} posts`
+                            : autopilotQueueHasMixedManualAndScheduled
+                              ? `${autopilotQueueManualPublishedCount} manually published · ${autopilotQueueScheduledCount} scheduled — Autopilot not enabled`
+                              : `${autopilotQueueHasScheduled ? 'Scheduled content — Autopilot not enabled' : 'Planned content — Autopilot not enabled'} — ${autopilotQueue.length} posts`}
                       </h4>
                     </div>
                     <div className="divide-y divide-slate-100">

@@ -56,6 +56,8 @@ When no connected account is available, the tab shows a locked/readiness state a
   - "Analytics required for learning. NEXUS can only learn performance patterns after published posts collect real analytics. This tab only shows publishing readiness."
   - "التحليلات مطلوبة للتعلّم. لا يستطيع NEXUS تعلّم أنماط الأداء إلا بعد توفر تحليلات حقيقية للمنشورات المنشورة. هذا التبويب يعرض جاهزية النشر فقط."
 - Updated SocialPublisher copy to distinguish explicit platform/API publishing from scheduling and connected-account review.
+- Replaced stale Publish-tab lock copy that said to review strategy/content first with platform/API readiness requirements: connected account, page/permission checks, media readiness, and explicit confirmation.
+- Updated the Autopilot queue header for mixed states so one user-confirmed manual publish plus scheduled posts does not appear as generic "manual scheduled content."
 
 ## What Did Not Change
 
