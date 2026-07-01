@@ -25,6 +25,7 @@ Those paths confuse review signals with analytics-backed learning.
 
 - Approval now records workflow/review signals only and no longer writes hooks or angles into Brand Brain legacy fields.
 - User-selected variants still keep route and legacy-field compatibility, but no longer write selected hooks into Brand Brain as performance learning.
+- The `pick-winner` route name and `variantWinner` field remain compatibility names only. The selected variant is saved in post state; any Brand Brain preference signal is queued/proposed for review and may fail asynchronously.
 - Campaign `ACTIVE` status updates no longer write generated strategy hooks, angles, platforms, or insights into Brand Brain.
 - Suggestion approval no longer applies hooks, angles, platforms, or insights directly to Brand Brain.
 - Legacy `/api/brain/learn` copy now uses review-signal language for non-analytics triggers.

@@ -6,11 +6,12 @@
  * Actions:
  *  1. Verify ownership + that postId belongs to this campaign
  *  2. Look up the variantGroup of the selected post
- *  3. Mark the selected post: variantWinner = true (legacy field name)
+ *  3. Mark the selected post: variantWinner = true (legacy field name; user-facing meaning = selected variant)
  *  4. Delete the losing sibling variant (same variantGroup, different id)
- *  5. Queue user preference signal proposals for review. This is not analytics-backed learning.
+ *  5. Request user preference signal proposals for review. This is not a direct Brand Brain update
+ *     and not analytics-backed learning. The route name remains pick-winner for compatibility.
  *
- * Returns: { ok: true, selectedVariantId, discardedVariantDeleted, preferenceSignalSaved }
+ * Returns: { ok, selectedVariantId, discardedVariantDeleted, preferenceSignalSaved, preferenceSignalProposalQueued }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -91,7 +92,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     // Compares selected vs discarded draft variants to extract editorial preference signals.
     // Creates pending proposals the user reviews in BrainLearningPanel.
     // Requires discarded-variant data — only runs if we captured it before deletion.
-    let preferenceSignalSaved = false
+    let preferenceSignalProposalQueued = false
     if (loser && loser.caption && loser.caption.trim().length > 10) {
       runBrainLearning({
         workspaceId: campaign.workspaceId,
@@ -112,7 +113,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           forbiddenLanguage: ['winner', 'winning', 'best-performing', 'performance winner', 'learned from performance'],
         },
       }).catch(() => null) // fire-and-forget — never block the pick action
-      preferenceSignalSaved = true
+      preferenceSignalProposalQueued = true
     }
 
     const variantCopy = getBrandBrainLearningCopy('user_variant_pick')
@@ -121,9 +122,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       ok: true,
       selectedVariantId: selected.id,
       discardedVariantDeleted: !!loser,
-      preferenceSignalSaved,
-      message: preferenceSignalSaved
-        ? `${variantCopy.label}; selected variant saved as a user preference signal, not analytics-backed performance learning`
+      // Legacy response field kept for compatibility. This route no longer performs a confirmed
+      // Brand Brain preference-signal write, so it must remain false.
+      preferenceSignalSaved: false,
+      preferenceSignalProposalQueued,
+      message: preferenceSignalProposalQueued
+        ? `${variantCopy.label}; selected variant saved. A preference signal proposal was queued for review; this is not analytics-backed performance learning.`
         : variantCopy.label,
     })
   } catch (err: any) {
