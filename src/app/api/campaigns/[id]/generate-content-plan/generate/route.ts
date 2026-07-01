@@ -16,6 +16,10 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
+import {
+  getBulkImageGenerationCost,
+  validateBulkImageGenerationConfirmation,
+} from '@/lib/contentHubActionSafety'
 
 export const maxDuration = 60 // Vercel Pro — 60s max
 
@@ -152,6 +156,21 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     if (postsToGenerate.length === 0) {
       return NextResponse.json({ success: true, generated: 0, message: 'No pending posts to generate' })
+    }
+
+    const confirmation = validateBulkImageGenerationConfirmation({
+      confirmed: body.explicitBulkImageGenerationConfirmed,
+      acknowledgedImageCount: body.acknowledgedImageCount,
+      acknowledgedCreditCost: body.acknowledgedCreditCost,
+      expectedImageCount: postsToGenerate.length,
+    })
+    if (!confirmation.ok) {
+      return NextResponse.json({
+        error: confirmation.error,
+        code: 'CONFIRMATION_REQUIRED',
+        expectedImageCount: postsToGenerate.length,
+        expectedCreditCost: getBulkImageGenerationCost(postsToGenerate.length),
+      }, { status: 400 })
     }
 
     // Reserve one IMAGE_GENERATION charge per post. Keep each transaction tied

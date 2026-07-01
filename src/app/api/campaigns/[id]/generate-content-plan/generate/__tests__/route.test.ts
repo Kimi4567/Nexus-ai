@@ -68,6 +68,12 @@ const postB = {
   imagePrompt: 'Premium bright ad creative for post B',
 }
 
+const confirmedBody = {
+  explicitBulkImageGenerationConfirmed: true,
+  acknowledgedImageCount: 2,
+  acknowledgedCreditCost: 6,
+}
+
 async function loadRoute() {
   vi.resetModules()
   delete process.env.FAL_KEY
@@ -136,7 +142,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       .mockResolvedValueOnce({ ok: false, error: 'INSUFFICIENT_CREDITS' })
     const { POST } = await loadRoute()
 
-    const res = await POST(makeReq(), params)
+    const res = await POST(makeReq(confirmedBody), params)
     const json = await res.json()
 
     expect(res.status).toBe(402)
@@ -151,6 +157,24 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(mockRefund).not.toHaveBeenCalled()
   })
 
+  it('requires explicit image generation confirmation before deduction', async () => {
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq({ postIds: ['post_a', 'post_b'] }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json).toMatchObject({
+      code: 'CONFIRMATION_REQUIRED',
+      expectedImageCount: 2,
+      expectedCreditCost: 6,
+    })
+    expect(json.error).toContain('No credits were spent')
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockPrisma.socialPost.updateMany).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
   it('refunds only the failed image transaction when another image succeeds', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ json: async () => ({ data: [{ b64_json: 'raw-a' }] }) })
@@ -158,7 +182,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     vi.stubGlobal('fetch', fetchMock)
     const { POST } = await loadRoute()
 
-    const res = await POST(makeReq(), params)
+    const res = await POST(makeReq(confirmedBody), params)
     const json = await res.json()
 
     expect(res.status).toBe(200)
@@ -185,7 +209,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       .mockResolvedValueOnce({})
     const { POST } = await loadRoute()
 
-    const res = await POST(makeReq(), params)
+    const res = await POST(makeReq(confirmedBody), params)
     const json = await res.json()
 
     expect(res.status).toBe(200)
@@ -208,7 +232,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       .mockRejectedValueOnce(new Error('provider failed without txn')))
     const { POST } = await loadRoute()
 
-    const res = await POST(makeReq(), params)
+    const res = await POST(makeReq(confirmedBody), params)
 
     expect(res.status).toBe(200)
     expect(mockRefund).toHaveBeenCalledWith('user_1', 'IMAGE_GENERATION', 'provider failed without txn')
@@ -225,7 +249,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
       .mockRejectedValueOnce(new Error('provider failed')))
     const { POST } = await loadRoute()
 
-    const res = await POST(makeReq(), params)
+    const res = await POST(makeReq(confirmedBody), params)
 
     expect(res.status).toBe(200)
     expect(mockRefund).not.toHaveBeenCalled()
@@ -235,7 +259,7 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
   it('successful batch preserves response shape and does not refund', async () => {
     const { POST } = await loadRoute()
 
-    const res = await POST(makeReq({ postIds: ['post_a', 'post_b'] }), params)
+    const res = await POST(makeReq({ ...confirmedBody, postIds: ['post_a', 'post_b'] }), params)
     const json = await res.json()
 
     expect(res.status).toBe(200)

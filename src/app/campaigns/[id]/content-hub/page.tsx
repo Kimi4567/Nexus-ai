@@ -20,6 +20,11 @@ import { deriveCampaignOperatingState } from '@/lib/campaignOperatingState'
 import { summarizeByDisplayState } from '@/lib/postVisibility'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import {
+  CONTENT_HUB_REGENERATION_COST,
+  CONTENT_HUB_REWRITE_COST,
+  getBulkImageGenerationCost,
+} from '@/lib/contentHubActionSafety'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -240,6 +245,12 @@ export default function ContentHubPage() {
   const [pickingWinner, setPickingWinner] = useState<string | null>(null)
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
+  const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
+  const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
+  const [regenerateAcknowledged, setRegenerateAcknowledged] = useState(false)
+  const [rewriteConfirm, setRewriteConfirm] = useState<{ postId: string; instruction: string } | null>(null)
+  const [rewriteAcknowledged, setRewriteAcknowledged] = useState(false)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const autoBuildStartedRef = useRef(false)
 
@@ -334,6 +345,9 @@ export default function ContentHubPage() {
 
   const doneCount = posts.filter(p => p.generationStatus === 'DONE').length
   const totalImagePosts = posts.filter(p => !p.isVideoPost).length
+  const pendingImagePosts = posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost)
+  const pendingImageCount = pendingImagePosts.length
+  const bulkImageCreditCost = getBulkImageGenerationCost(pendingImageCount)
   const progress = totalImagePosts > 0 ? Math.round((doneCount / totalImagePosts) * 100) : 0
   const draftCount = posts.filter(p => p.status === 'DRAFT').length
   const approvedCount = posts.filter(p => p.status === 'APPROVED').length
@@ -437,6 +451,19 @@ export default function ContentHubPage() {
       : isAr
         ? `رصيدك الحالي: ${Math.max(0, Math.trunc(creditsRemaining))} كريديت`
         : `Current balance: ${Math.max(0, Math.trunc(creditsRemaining))} credits`
+  const finalPreviewTitle = isAr
+    ? 'المعاينة النهائية للمنشورات + قرارات الوسائط'
+    : 'Final post preview + media decisions'
+  const finalPreviewBody = isAr
+    ? 'مركز المحتوى هو مصدر الحقيقة لنصوص المنشورات وحالة كل منشور والوسائط المرتبطة به. المنشورات المجدولة غير منشورة، والمنشورات التي تنتظر وسائط ليست نهائية بصريًا.'
+    : 'Content Hub is the source of truth for post copy, lifecycle status, and post-linked media. Scheduled posts are not published, and media-pending posts are not visually final.'
+  const finalPreviewHelper = isAr
+    ? 'هذه معاينة مراجعة داخل NEXUS؛ قد يختلف عرض المنصة قليلًا. قرارات الوسائط لا تنشر المحتوى بدون مسار نشر صريح.'
+    : 'This is a NEXUS review preview; platform rendering may differ slightly. Media decisions do not publish content without an explicit publish flow.'
+  const bulkImageButtonLabel = isAr
+    ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
+    : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
+  const rewriteCostLabel = isAr ? `${CONTENT_HUB_REWRITE_COST} كريديت` : `${CONTENT_HUB_REWRITE_COST} credit`
 
   const getPendingEdit = (postId: string) => pendingEdits[postId] ?? {}
 
@@ -482,6 +509,24 @@ export default function ContentHubPage() {
     } finally {
       setGeneratingPlan(false)
     }
+  }
+
+  function openRegenerateConfirm() {
+    setRegenerateAcknowledged(false)
+    setShowRegenerateConfirm(true)
+  }
+
+  function closeRegenerateConfirm() {
+    if (generatingPlan) return
+    setRegenerateAcknowledged(false)
+    setShowRegenerateConfirm(false)
+  }
+
+  async function confirmRegeneratePlan() {
+    if (!regenerateAcknowledged) return
+    setShowRegenerateConfirm(false)
+    setRegenerateAcknowledged(false)
+    await generatePlan()
   }
 
   useEffect(() => {
@@ -539,16 +584,25 @@ export default function ContentHubPage() {
       setError(addCreditsForImagesLabel)
       return
     }
+    const imagePostIds = pendingImagePosts.map(p => p.id)
     setGenerating(true)
     setError(null)
     try {
-      const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
-        method: 'POST',
-        headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postIds: posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).map(p => p.id) }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Generation failed')
+      for (let index = 0; index < imagePostIds.length; index += 5) {
+        const batchIds = imagePostIds.slice(index, index + 5)
+        const res = await fetch(`/api/campaigns/${campaignId}/generate-content-plan/generate`, {
+          method: 'POST',
+          headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postIds: batchIds,
+            explicitBulkImageGenerationConfirmed: true,
+            acknowledgedImageCount: batchIds.length,
+            acknowledgedCreditCost: getBulkImageGenerationCost(batchIds.length),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Generation failed')
+      }
       setSuccessMsg('Image generation started — this may take a few minutes')
       await loadData()
     } catch (err: any) {
@@ -556,6 +610,24 @@ export default function ContentHubPage() {
     } finally {
       setGenerating(false)
     }
+  }
+
+  function openBulkImageConfirm() {
+    setBulkImageAcknowledged(false)
+    setShowBulkImageConfirm(true)
+  }
+
+  function closeBulkImageConfirm() {
+    if (generating) return
+    setBulkImageAcknowledged(false)
+    setShowBulkImageConfirm(false)
+  }
+
+  async function confirmBulkImageGeneration() {
+    if (!bulkImageAcknowledged) return
+    setShowBulkImageConfirm(false)
+    setBulkImageAcknowledged(false)
+    await generateAllImages()
   }
 
   // ── Approve all posts → scheduled ────────────────────────────────────────────
@@ -698,6 +770,25 @@ export default function ContentHubPage() {
 
   // ── AI Rewrite a post caption ─────────────────────────────────────────────────
 
+  function requestRewrite(postId: string, instruction: string) {
+    setRewriteConfirm({ postId, instruction })
+    setRewriteAcknowledged(false)
+    return Promise.resolve()
+  }
+
+  function closeRewriteConfirm() {
+    if (rewritingPost) return
+    setRewriteConfirm(null)
+    setRewriteAcknowledged(false)
+  }
+
+  async function confirmRewrite() {
+    if (!rewriteConfirm || !rewriteAcknowledged) return
+    await rewritePost(rewriteConfirm.postId, rewriteConfirm.instruction)
+    setRewriteConfirm(null)
+    setRewriteAcknowledged(false)
+  }
+
   async function rewritePost(postId: string, instruction: string) {
     if (!isAuthenticated) return
     setRewritingPost(postId)
@@ -706,7 +797,11 @@ export default function ContentHubPage() {
       const res = await fetch(`/api/campaigns/${campaignId}/content-plan/${postId}/rewrite`, {
         method: 'POST',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instruction }),
+        body: JSON.stringify({
+          instruction,
+          explicitRewriteConfirmed: true,
+          acknowledgedCreditCost: CONTENT_HUB_REWRITE_COST,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -965,8 +1060,8 @@ export default function ContentHubPage() {
                 )}
 
                 <button
-                  onClick={imageGenerationLocked ? () => router.push('/billing') : generateAllImages}
-                  disabled={generating || posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length === 0}
+                  onClick={imageGenerationLocked ? () => router.push('/billing') : openBulkImageConfirm}
+                  disabled={generating || pendingImageCount === 0}
                   className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                   style={{
                     background: imageGenerationLocked ? '#F8FAFC' : '#111827',
@@ -982,10 +1077,10 @@ export default function ContentHubPage() {
                     </>
                   ) : (
                     <>
-                      ✨ {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImages')}
-                      {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length > 0 && (
+                      ✨ {imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
+                      {pendingImageCount > 0 && (
                         <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ background: imageGenerationLocked ? '#EEF2FF' : 'rgba(255,255,255,0.20)' }}>
-                          {posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost).length}
+                          {pendingImageCount}
                         </span>
                       )}
                     </>
@@ -993,7 +1088,7 @@ export default function ContentHubPage() {
                 </button>
                 <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
                   <button
-                    onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
+                    onClick={contentPlanLocked ? () => router.push('/billing') : openRegenerateConfirm}
                     disabled={generatingPlan}
                     className="px-4 py-2 rounded-xl text-sm border transition-all"
                     style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
@@ -1054,6 +1149,21 @@ export default function ContentHubPage() {
             )}
           </div>
         </div>
+
+        {posts.length > 0 && (
+          <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50/70 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-violet-900">{finalPreviewTitle}</p>
+                <p className="mt-1 max-w-3xl text-sm leading-relaxed text-violet-900/80">{finalPreviewBody}</p>
+                <p className="mt-1 max-w-3xl text-xs leading-relaxed text-violet-800/70">{finalPreviewHelper}</p>
+              </div>
+              <div className="shrink-0 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900">
+                {isAr ? `${doneCount}/${totalImagePosts} وسائط جاهزة` : `${doneCount}/${totalImagePosts} media ready`}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Messages ─────────────────────────────────────────────── */}
         {error && (
@@ -1251,7 +1361,7 @@ export default function ContentHubPage() {
                 ...prev,
                 [post.id]: { ...(prev[post.id] ?? {}), ...updates }
               }))}
-              onRewrite={(instruction) => rewritePost(post.id, instruction)}
+              onRewrite={(instruction) => requestRewrite(post.id, instruction)}
               onPickWinner={post.variantGroup ? () => pickVariant(post.id) : undefined}
               onManualPublish={() => openManualPublishModal(post)}
             />
@@ -1566,7 +1676,7 @@ export default function ContentHubPage() {
                     <button
                       onClick={() => {
                         setApproveResult(null)
-                        generateAllImages()
+                        openBulkImageConfirm()
                       }}
                       className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
                       style={{ background: '#111827' }}
@@ -1641,6 +1751,154 @@ export default function ContentHubPage() {
                     ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Credit action confirmations ───────────────────────────── */}
+        {showBulkImageConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeBulkImageConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">
+                      {isAr ? `تأكيد توليد ${pendingImageCount} صور منشورات` : `Confirm ${pendingImageCount} post images`}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {isAr
+                        ? `التكلفة الإجمالية: ${bulkImageCreditCost} كريديت.`
+                        : `Total cost: ${bulkImageCreditCost} credits.`}
+                    </p>
+                  </div>
+                  <button onClick={closeBulkImageConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                </div>
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>{isAr ? 'سيولّد NEXUS وسائط مرتبطة بالمنشورات الحالية للمراجعة داخل Content Hub.' : 'NEXUS will generate post-linked media for the current posts for review inside Content Hub.'}</p>
+                  <p>{isAr ? 'لا يتم النشر أو الجدولة أو تغيير حالة النشر اليدوي أو النشر عبر API.' : 'This does not publish, schedule, or change manual/API publish state.'}</p>
+                  <p>{isAr ? 'المنشورات المجدولة والمنشورات المؤكدة يدويًا تبقى محفوظة.' : 'Scheduled and manually published posts remain saved.'}</p>
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    checked={bulkImageAcknowledged}
+                    onChange={e => setBulkImageAcknowledged(e.target.checked)}
+                    disabled={generating}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    {isAr
+                      ? `أفهم أن هذا سيكلف ${bulkImageCreditCost} كريديت وسيولّد وسائط المنشورات للمراجعة.`
+                      : `I understand this costs ${bulkImageCreditCost} credits and will generate post media for review.`}
+                  </span>
+                </label>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={closeBulkImageConfirm} disabled={generating} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button
+                    onClick={confirmBulkImageGeneration}
+                    disabled={generating || !bulkImageAcknowledged}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed"
+                    style={{ background: '#111827', opacity: generating || !bulkImageAcknowledged ? 0.45 : 1 }}
+                  >
+                    {isAr ? `تأكيد توليد الصور — ${bulkImageCreditCost} كريديت` : `Confirm image generation — ${bulkImageCreditCost} credits`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showRegenerateConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeRegenerateConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">{isAr ? 'تأكيد إعادة توليد خطة محتوى مسودة' : 'Confirm draft content plan regeneration'}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{isAr ? `التكلفة: ${CONTENT_HUB_REGENERATION_COST} كريديت.` : `Cost: ${CONTENT_HUB_REGENERATION_COST} credits.`}</p>
+                  </div>
+                  <button onClick={closeRegenerateConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                </div>
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>{contentPlanDisclosure} {contentPlanAutopilotDisclosure}</p>
+                  <p>{isAr ? 'لا يغيّر هذا المنشورات المجدولة أو المنشور المؤكد يدويًا، ولا ينشر أو يفعّل الأوتوبايلوت.' : 'This does not change scheduled posts or the manually published post, and it does not publish or activate Autopilot.'}</p>
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    checked={regenerateAcknowledged}
+                    onChange={e => setRegenerateAcknowledged(e.target.checked)}
+                    disabled={generatingPlan}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    {isAr
+                      ? `أفهم أن هذا سيكلف ${CONTENT_HUB_REGENERATION_COST} كريديت وينشئ خطة مسودة جديدة للمراجعة فقط.`
+                      : `I understand this costs ${CONTENT_HUB_REGENERATION_COST} credits and creates a new draft plan for review only.`}
+                  </span>
+                </label>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={closeRegenerateConfirm} disabled={generatingPlan} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button
+                    onClick={confirmRegeneratePlan}
+                    disabled={generatingPlan || !regenerateAcknowledged}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed"
+                    style={{ background: '#111827', opacity: generatingPlan || !regenerateAcknowledged ? 0.45 : 1 }}
+                  >
+                    {isAr ? `تأكيد إعادة التوليد — ${CONTENT_HUB_REGENERATION_COST} كريديت` : `Confirm regeneration — ${CONTENT_HUB_REGENERATION_COST} credits`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {rewriteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeRewriteConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">{isAr ? 'تأكيد إعادة صياغة المنشور' : 'Confirm post rewrite'}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{isAr ? `التكلفة: ${rewriteCostLabel}.` : `Cost: ${rewriteCostLabel}.`}</p>
+                  </div>
+                  <button onClick={closeRewriteConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                </div>
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>{isAr ? 'يعيد NEXUS صياغة نص هذا المنشور فقط للمراجعة.' : 'NEXUS rewrites this post copy only, for review.'}</p>
+                  <p>{isAr ? 'لا يتم النشر أو الجدولة أو تغيير الوسائط أو تحديث Brand Brain كتعلّم.' : 'This does not publish, schedule, change media, or update Brand Brain as learning.'}</p>
+                  {rewriteConfirm.instruction && (
+                    <p className="rounded-lg bg-white p-2 text-slate-500">{rewriteConfirm.instruction}</p>
+                  )}
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    checked={rewriteAcknowledged}
+                    onChange={e => setRewriteAcknowledged(e.target.checked)}
+                    disabled={Boolean(rewritingPost)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    {isAr
+                      ? `أفهم أن هذا سيكلف ${rewriteCostLabel} ويعيد صياغة نص المنشور للمراجعة.`
+                      : `I understand this costs ${rewriteCostLabel} and rewrites this post copy for review.`}
+                  </span>
+                </label>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={closeRewriteConfirm} disabled={Boolean(rewritingPost)} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button
+                    onClick={confirmRewrite}
+                    disabled={Boolean(rewritingPost) || !rewriteAcknowledged}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed"
+                    style={{ background: '#111827', opacity: Boolean(rewritingPost) || !rewriteAcknowledged ? 0.45 : 1 }}
+                  >
+                    {rewritingPost
+                      ? t('contentHub.rewriting')
+                      : (isAr ? `تأكيد إعادة الصياغة — ${rewriteCostLabel}` : `Confirm rewrite — ${rewriteCostLabel}`)}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2064,7 +2322,7 @@ function PostCard({
         >
           {isRewriting
             ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.rewriting')}</>
-            : <>✨ {t('contentHub.rewrite')}</>
+            : <>✨ {isAr ? 'إعادة صياغة — 1 كريديت' : 'Rewrite copy — 1 credit'}</>
           }
         </button>
         {/* Generate AI image (disabled for TikTok — needs real video) */}
@@ -2085,7 +2343,7 @@ function PostCard({
           >
             {isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
-              : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.imgCredits')}</>
+              : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : (isAr ? 'توليد صورة — 3 أرصدة' : 'Generate image — 3 credits')}</>
             }
           </button>
         )}
@@ -2111,7 +2369,7 @@ function PostCard({
             className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all border-l flex items-center justify-center gap-1.5"
             style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
-            {isVideo ? t('contentHub.vid') : t('contentHub.img')}
+            {isVideo ? (isAr ? 'إرفاق فيديو' : 'Attach video') : (isAr ? 'اختيار وسائط موجودة' : 'Choose existing media')}
           </button>
         )}
       </div>
