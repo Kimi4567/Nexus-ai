@@ -5,6 +5,10 @@ import { aiRateLimitDb } from '@/lib/dbRateLimit'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
 import { deriveCampaignEngineState, runCampaignEngine } from '@/lib/campaign-engine'
 import { getBrandBrainReadiness } from '@/lib/brandReadiness'
+import {
+  deriveEngineRebuildAvailability,
+  ENGINE_REBUILD_CREDIT_COST,
+} from '@/lib/campaignDangerActions'
 
 // Strategy generation makes two GPT-4o-mini calls; give the function headroom so
 // a slower-but-valid Arabic response completes instead of being killed mid-run.
@@ -74,6 +78,52 @@ export async function POST(req: NextRequest, { params }: Params) {
       },
       { status: 422 },
     )
+  }
+
+  if (force) {
+    const confirmation = {
+      explicitEngineRebuildConfirmed: body.explicitEngineRebuildConfirmed,
+      acknowledgedCreditCost: body.acknowledgedCreditCost,
+      acknowledgedOutputOverwrite: body.acknowledgedOutputOverwrite,
+    }
+    const confirmationCheck = deriveEngineRebuildAvailability({
+      ...confirmation,
+      postStatuses: [],
+    })
+
+    if (confirmationCheck.reason === 'CONFIRMATION_REQUIRED') {
+      return NextResponse.json(
+        {
+          error: 'ENGINE_REBUILD_CONFIRMATION_REQUIRED',
+          message: 'Engine rebuild requires explicit confirmation. No credits were spent.',
+          required: {
+            explicitEngineRebuildConfirmed: true,
+            acknowledgedCreditCost: ENGINE_REBUILD_CREDIT_COST,
+            acknowledgedOutputOverwrite: true,
+          },
+        },
+        { status: 400 },
+      )
+    }
+
+    const progressedPostCount = await prisma.socialPost.count({
+      where: {
+        campaignId: params.id,
+        workspaceId: campaign.workspaceId,
+        status: { in: ['APPROVED', 'SCHEDULED', 'PUBLISHED'] },
+      },
+    })
+
+    if (progressedPostCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'ENGINE_REBUILD_LOCKED_BY_PROGRESS',
+          message: 'Campaign package rebuild is locked because this campaign already has approved, scheduled, or published posts. Create a new draft plan instead.',
+          progressedPostCount,
+        },
+        { status: 409 },
+      )
+    }
   }
 
   const credit = await checkAndDeductCredits(userId, 'RUN_FULL_STRATEGY')

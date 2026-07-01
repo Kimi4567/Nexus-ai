@@ -18,6 +18,7 @@ const {
   mockRefund,
   mockRunEngine,
   mockCampaignFindFirst,
+  mockSocialPostCount,
   mockGetBrandBrainReadiness,
 } = vi.hoisted(() => ({
   mockGetServerUserId: vi.fn(),
@@ -26,6 +27,7 @@ const {
   mockRefund: vi.fn(),
   mockRunEngine: vi.fn(),
   mockCampaignFindFirst: vi.fn(),
+  mockSocialPostCount: vi.fn(),
   mockGetBrandBrainReadiness: vi.fn(),
 }))
 
@@ -38,6 +40,9 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     campaign: {
       findFirst: mockCampaignFindFirst,
+    },
+    socialPost: {
+      count: mockSocialPostCount,
     },
   },
 }))
@@ -65,6 +70,7 @@ beforeEach(() => {
   mockGetServerUserId.mockResolvedValue('u1')
   mockAiRateLimitDb.mockResolvedValue({ ok: true })
   mockCampaignFindFirst.mockResolvedValue(ownedCampaignWithBrand)
+  mockSocialPostCount.mockResolvedValue(0)
   mockGetBrandBrainReadiness.mockReturnValue({ ready: true, missingRequired: [], score: 100 })
   mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 8, creditsRemaining: 100 })
   mockRefund.mockResolvedValue(undefined)
@@ -127,6 +133,43 @@ describe('POST /api/campaigns/[id]/engine', () => {
     expect(json.engine.status).toBe('ready_for_approval')
     expect(json.creditsUsed).toBe(8)
     expect(mockRefund).not.toHaveBeenCalled()
+  })
+
+  it('force engine rebuild requires explicit confirmation before credit deduction', async () => {
+    const res = await POST(makeReq({ force: true }), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json.error).toBe('ENGINE_REBUILD_CONFIRMATION_REQUIRED')
+    expect(json.message).toContain('No credits were spent')
+    expect(mockSocialPostCount).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRunEngine).not.toHaveBeenCalled()
+  })
+
+  it('force engine rebuild locks progressed campaigns before credit deduction', async () => {
+    mockSocialPostCount.mockResolvedValue(2)
+
+    const res = await POST(makeReq({
+      force: true,
+      explicitEngineRebuildConfirmed: true,
+      acknowledgedCreditCost: 8,
+      acknowledgedOutputOverwrite: true,
+    }), ctx)
+    const json = await res.json()
+
+    expect(res.status).toBe(409)
+    expect(json.error).toBe('ENGINE_REBUILD_LOCKED_BY_PROGRESS')
+    expect(json.message).toContain('approved, scheduled, or published posts')
+    expect(mockSocialPostCount).toHaveBeenCalledWith({
+      where: {
+        campaignId: 'c1',
+        workspaceId: 'w1',
+        status: { in: ['APPROVED', 'SCHEDULED', 'PUBLISHED'] },
+      },
+    })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRunEngine).not.toHaveBeenCalled()
   })
 
   it('provider/AI failure after deduction → 500 + refund + stage:strategy', async () => {
