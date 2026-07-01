@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits } from '@/lib/credits'
+import { validateRewriteConfirmation } from '@/lib/contentHubActionSafety'
 
 type Params = { params: { id: string; postId: string } }
 
@@ -45,6 +46,12 @@ export async function POST(req: NextRequest, { params }: Params) {
   // Hoisted so the catch can refund a charged-but-failed rewrite.
   let rewriteCharged = false
   try {
+    const { instruction, explicitRewriteConfirmed, acknowledgedCreditCost } = await req.json().catch(() => ({
+      instruction: '',
+      explicitRewriteConfirmed: false,
+      acknowledgedCreditCost: undefined,
+    }))
+
     // ── 1. Verify post ownership ───────────────────────────────────────────
     const post = await (prisma.socialPost as any).findFirst({
       where: {
@@ -69,6 +76,14 @@ export async function POST(req: NextRequest, { params }: Params) {
       },
     })
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 })
+
+    const confirmation = validateRewriteConfirmation({
+      confirmed: explicitRewriteConfirmed,
+      acknowledgedCreditCost,
+    })
+    if (!confirmation.ok) {
+      return NextResponse.json({ error: confirmation.error, code: 'CONFIRMATION_REQUIRED' }, { status: 400 })
+    }
 
     // ── 2. Deduct 1 credit ─────────────────────────────────────────────────
     const creditCheck = await checkAndDeductCredits(userId, 'AI_POST_REWRITE') // 1 credit
@@ -96,8 +111,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     })
 
     // ── 4. Build context ───────────────────────────────────────────────────
-    const { instruction } = await req.json().catch(() => ({ instruction: '' }))
-
     const platform    = String(post.platform).toUpperCase()
     const charLimit   = PLATFORM_LIMITS[platform] ?? 2200
     const styleGuide  = PLATFORM_STYLE[platform] ?? 'Platform-native social media post'

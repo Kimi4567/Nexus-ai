@@ -1,0 +1,71 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const {
+  mockGetServerUserId,
+  mockCheckAndDeduct,
+  mockRefund,
+  mockPrisma,
+} = vi.hoisted(() => ({
+  mockGetServerUserId: vi.fn(),
+  mockCheckAndDeduct: vi.fn(),
+  mockRefund: vi.fn(),
+  mockPrisma: {
+    socialPost: { findFirst: vi.fn(), update: vi.fn() },
+    brandProfile: { findUnique: vi.fn() },
+  },
+}))
+
+vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
+vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
+vi.mock('@/lib/credits', () => ({
+  checkAndDeductCredits: mockCheckAndDeduct,
+  refundCredits: mockRefund,
+  CREDIT_COSTS: {
+    IMAGE_GENERATION: 3,
+    AI_POST_REWRITE: 1,
+    CONTENT_PLAN_GENERATION: 2,
+  },
+}))
+
+const params = { params: { id: 'campaign_1', postId: 'post_1' } }
+const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
+
+async function loadRoute() {
+  vi.resetModules()
+  return import('../route')
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockGetServerUserId.mockResolvedValue('user_1')
+  mockPrisma.socialPost.findFirst.mockResolvedValue({
+    id: 'post_1',
+    caption: 'Original caption',
+    imagePrompt: 'Image prompt',
+    platform: 'FACEBOOK',
+    workspaceId: 'workspace_1',
+    campaign: {
+      name: 'Campaign',
+      tone: 'clear',
+      audience: 'office teams',
+      aiOutput: {},
+    },
+  })
+})
+
+describe('POST /api/campaigns/[id]/content-plan/[postId]/rewrite — confirmation safety', () => {
+  it('requires explicit rewrite confirmation before credit deduction', async () => {
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq({ instruction: 'Make it shorter' }), params)
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json).toMatchObject({ code: 'CONFIRMATION_REQUIRED' })
+    expect(json.error).toContain('No credits were spent')
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockRefund).not.toHaveBeenCalled()
+    expect(mockPrisma.brandProfile.findUnique).not.toHaveBeenCalled()
+    expect(mockPrisma.socialPost.update).not.toHaveBeenCalled()
+  })
+})
