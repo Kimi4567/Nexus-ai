@@ -27,6 +27,10 @@ import {
   deriveEngineRebuildAvailability,
   ENGINE_REBUILD_CREDIT_COST,
 } from '@/lib/campaignDangerActions'
+import {
+  campaignRoomTabIndexFromQuery,
+  campaignRoomTabKeyFromIndex,
+} from '@/lib/campaignRoomTabs'
 
 interface Activity {
   id: string
@@ -174,60 +178,6 @@ function StrategyDocList({
   )
 }
 
-function SaveToMemoryBtn({
-  text, field, authHeader, saveLabel, savedLabel, title,
-}: {
-  text: string
-  field: 'winningHooks' | 'winningAngles'
-  authHeader: () => string | null
-  saveLabel: string
-  savedLabel: string
-  title: string
-}) {
-  const [saved, setSaved] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  const save = async () => {
-    const token = authHeader()
-    if (!token || saving || saved) return
-    setSaving(true)
-    try {
-      const res = await fetch('/api/brand', { headers: { Authorization: token } })
-      const data = await res.json()
-      const current = data.brandProfile || {}
-      const existing: string[] = current[field] || []
-      if (existing.includes(text)) { setSaved(true); return }
-      const updated = [...existing, text]
-      await fetch('/api/brand', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: token },
-        body: JSON.stringify({ ...current, [field]: updated }),
-      })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch {
-      // silent fail
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <button
-      onClick={save}
-      disabled={saving}
-      title={title}
-      className={`text-xs px-2 py-1 rounded transition font-semibold ${
-        saved
-          ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/40'
-          : 'border border-slate-200 bg-white text-slate-500 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700'
-      }`}
-    >
-      {saved ? savedLabel : saving ? '...' : saveLabel}
-    </button>
-  )
-}
-
 // Suspense wrapper required: useSearchParams() is used inside.
 export default function CampaignDetailPage() {
   return (
@@ -259,7 +209,7 @@ function CampaignDetailPageInner() {
   const [operatingSnapshotsLoaded, setOperatingSnapshotsLoaded] = useState(false)
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
   const [fetching, setFetching] = useState(true)
-  const [activeTab, setActiveTab] = useState(0)
+  const [activeTab, setActiveTab] = useState(() => campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
   const [brandScore, setBrandScore] = useState<number | null>(null)
   const [brandDNA, setBrandDNA] = useState<BrandDNAData | null>(null)
   const [brandNoticeDismissed, setBrandNoticeDismissed] = useState(false)
@@ -352,6 +302,19 @@ function CampaignDetailPageInner() {
       </div>
     )
   }
+
+  useEffect(() => {
+    setActiveTab(campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
+  }, [searchParams])
+
+  const handleCampaignRoomTabClick = useCallback((index: number) => {
+    const tabKey = campaignRoomTabKeyFromIndex(index)
+    setActiveTab(index)
+    const nextParams = new URLSearchParams(searchParams?.toString())
+    nextParams.set('tab', tabKey)
+    const query = nextParams.toString()
+    router.replace(`/campaigns/${campaignId}${query ? `?${query}` : ''}`, { scroll: false })
+  }, [campaignId, router, searchParams])
 
   const fetchCampaign = useCallback(async () => {
     const token = authHeader()
@@ -1745,7 +1708,7 @@ function CampaignDetailPageInner() {
               {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
                 <button
                   key={i}
-                  onClick={() => setActiveTab(i)}
+                  onClick={() => handleCampaignRoomTabClick(i)}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
                   style={activeTab === i ? {
                     background: '#fff',
@@ -1791,6 +1754,11 @@ function CampaignDetailPageInner() {
                         {locale === 'ar'
                           ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل تحويلها إلى خطة محتوى.'
                           : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before turning it into content planning.'}
+                      </p>
+                      <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                        {locale === 'ar'
+                          ? 'ملاحظات الحملة المحفوظة للمراجعة. مركز المحتوى يعرض الحالة الحالية للمنشورات.'
+                          : 'Saved campaign notes are for review. Content Hub shows the current post-ready state.'}
                       </p>
                       <p className="mt-3 text-xs text-slate-400">
                         {locale === 'ar' ? 'آخر تحديث' : 'Last updated'}: {new Date(campaign.updatedAt).toLocaleDateString(locale === 'ar' ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -2335,6 +2303,37 @@ function CampaignDetailPageInner() {
               <div className="space-y-4">
                 <AgentBanner idx={1} />
                 <BrandDNABadge brand={brandDNA} locale={locale} />
+                <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
+                  <p className="text-sm font-semibold text-indigo-900">
+                    {locale === 'ar'
+                      ? 'Content Hub هو المسار النهائي لمعاينة المنشورات'
+                      : 'Content Hub is the final post preview path'}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-indigo-800">
+                    {locale === 'ar'
+                      ? 'راجع النسخ، جاهزية الوسائط، حالة دورة الحياة، وحالة النشر اليدوي في Content Hub. ملاحظات الحملة المحفوظة هنا للمراجعة فقط.'
+                      : 'Review copy, media readiness, lifecycle state, and manual publish status in Content Hub. Saved campaign notes here are review material only.'}
+                  </p>
+                  <p className="mt-3 rounded-xl border border-indigo-200 bg-white/70 px-3 py-2 text-xs leading-5 text-indigo-800">
+                    {locale === 'ar'
+                      ? 'الهوكس والزوايا هنا مواد مراجعة للحملة. تحديثات Brand Brain تتم عبر مقترحات إشارات مراجَعة أو من أسطح Brand Brain؛ الموافقات والتفضيلات إشارات وليست تعلّماً مدعوماً بالتحليلات.'
+                      : 'Hooks and angles shown here are campaign review material. Brand Brain updates happen through reviewed signal proposals or Brand Brain surfaces; approvals and preferences are signals, not analytics-backed learning.'}
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      href={`/campaigns/${campaignId}/content-hub`}
+                      className="inline-flex items-center justify-center rounded-xl bg-indigo-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-800"
+                    >
+                      {locale === 'ar' ? 'راجع معاينات المنشورات النهائية' : 'Review final post previews'}
+                    </Link>
+                    <Link
+                      href="/brand"
+                      className="inline-flex items-center justify-center rounded-xl border border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50"
+                    >
+                      {locale === 'ar' ? 'راجع إشارات Brand Brain' : 'Review Brand Brain signals'}
+                    </Link>
+                  </div>
+                </div>
 
                 {/* Top Hooks */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -2346,14 +2345,6 @@ function CampaignDetailPageInner() {
                           <div className="flex items-start justify-between gap-3">
                             <p className="flex-1 text-sm font-semibold leading-6 text-indigo-700">"{hook}"</p>
                             <div className="flex gap-1 flex-shrink-0">
-                              <SaveToMemoryBtn
-                                text={hook}
-                                field="winningHooks"
-                                authHeader={authHeader}
-                                saveLabel={cdT?.saveToMemoryBtn || '🧠 Save'}
-                                savedLabel={cdT?.savedToMemoryBtn || '🧠 Saved'}
-                                title={cdT?.saveToMemoryTitle || 'Save to Brand Memory'}
-                              />
                               <CopyBtn text={hook} label={cdT?.copyBtn || 'Copy'} />
                             </div>
                           </div>
@@ -2424,14 +2415,6 @@ function CampaignDetailPageInner() {
                               <p className="text-sm font-semibold text-slate-950">{angle.title}</p>
                             </div>
                             <div className="flex gap-1 flex-shrink-0">
-                              <SaveToMemoryBtn
-                                text={angle.title}
-                                field="winningAngles"
-                                authHeader={authHeader}
-                                saveLabel={cdT?.saveToMemoryBtn || '🧠 Save'}
-                                savedLabel={cdT?.savedToMemoryBtn || '🧠 Saved'}
-                                title={cdT?.saveToMemoryTitle || 'Save to Brand Memory'}
-                              />
                               <CopyBtn text={`${angle.title}\n${angle.hook}`} label={cdT?.copyBtn || 'Copy'} />
                             </div>
                           </div>
@@ -2492,14 +2475,6 @@ function CampaignDetailPageInner() {
                             <p className="text-sm leading-6 text-slate-700">{angle}</p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <SaveToMemoryBtn
-                              text={angle}
-                              field="winningAngles"
-                              authHeader={authHeader}
-                              saveLabel={cdT?.saveToMemoryBtn || '🧠 Save'}
-                              savedLabel={cdT?.savedToMemoryBtn || '🧠 Saved'}
-                              title={cdT?.saveToMemoryTitle || 'Save to Brand Memory'}
-                            />
                             <CopyBtn text={angle} label={cdT?.copyBtn || 'Copy'} />
                           </div>
                         </div>
