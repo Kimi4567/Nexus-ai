@@ -25,6 +25,7 @@ import {
   CONTENT_HUB_REWRITE_COST,
   getBulkImageGenerationCost,
 } from '@/lib/contentHubActionSafety'
+import { derivePostMediaSource } from '@/lib/contentHubMediaAttachment'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -62,6 +63,12 @@ interface MediaItem {
   url: string
   fileName: string
   type: string
+}
+
+interface PendingMediaAttachment {
+  postId: string
+  media: MediaItem
+  action: 'attach' | 'replace'
 }
 
 interface Campaign {
@@ -213,6 +220,10 @@ export default function ContentHubPage() {
   const [generatingPlan, setGeneratingPlan] = useState(false)
   const [expandedPost, setExpandedPost] = useState<string | null>(null)
   const [mediaPickerOpen, setMediaPickerOpen] = useState<string | null>(null) // postId
+  const [pendingMediaAttachment, setPendingMediaAttachment] = useState<PendingMediaAttachment | null>(null)
+  const [mediaAttachmentAcknowledged, setMediaAttachmentAcknowledged] = useState(false)
+  const [mediaRemovalPostId, setMediaRemovalPostId] = useState<string | null>(null)
+  const [mediaRemovalAcknowledged, setMediaRemovalAcknowledged] = useState(false)
   const [editingCaption, setEditingCaption] = useState<string | null>(null)
   const [editingPrompt, setEditingPrompt] = useState<string | null>(null)
   const [pendingEdits, setPendingEdits] = useState<Record<string, Partial<ContentPost>>>({})
@@ -460,6 +471,12 @@ export default function ContentHubPage() {
   const finalPreviewHelper = isAr
     ? 'هذه معاينة مراجعة داخل NEXUS؛ قد يختلف عرض المنصة قليلًا. قرارات الوسائط لا تنشر المحتوى بدون مسار نشر صريح.'
     : 'This is a NEXUS review preview; platform rendering may differ slightly. Media decisions do not publish content without an explicit publish flow.'
+  const pendingAttachmentPost = pendingMediaAttachment
+    ? posts.find(p => p.id === pendingMediaAttachment.postId)
+    : null
+  const mediaRemovalPost = mediaRemovalPostId
+    ? posts.find(p => p.id === mediaRemovalPostId)
+    : null
   const bulkImageButtonLabel = isAr
     ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
     : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
@@ -545,35 +562,78 @@ export default function ContentHubPage() {
 
   // ── Save inline edits ────────────────────────────────────────────────────────
 
-  async function savePostEdit(postId: string, updates: Partial<ContentPost>) {
+  async function savePostEdit(postId: string, updates: Partial<ContentPost> & Record<string, unknown>) {
     if (!isAuthenticated) return
     try {
-      await fetch(`/api/campaigns/${campaignId}/content-plan/${postId}`, {
+      const res = await fetch(`/api/campaigns/${campaignId}/content-plan/${postId}`, {
         method: 'PATCH',
         headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       })
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...updates } : p))
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Failed to save post edit')
+      const safeUpdates = data.post ?? updates
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, ...safeUpdates } : p))
       setPendingEdits(prev => {
         const next = { ...prev }
         delete next[postId]
         return next
       })
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save edit', err)
+      setError(err.message ?? 'Failed to save post edit')
     }
   }
 
   // ── Assign uploaded media to a post ─────────────────────────────────────────
 
-  async function assignMedia(postId: string, mediaId: string, mediaUrl: string) {
-    await savePostEdit(postId, {
-      uploadedMediaId: mediaId,
-      imageUrl: mediaUrl,
-      mediaSource: 'UPLOAD_RAW',
-      generationStatus: 'DONE',
+  function requestMediaAttachment(postId: string, media: MediaItem) {
+    const post = posts.find(p => p.id === postId)
+    setPendingMediaAttachment({
+      postId,
+      media,
+      action: post?.imageUrl ? 'replace' : 'attach',
     })
+    setMediaAttachmentAcknowledged(false)
     setMediaPickerOpen(null)
+  }
+
+  async function confirmMediaAttachment() {
+    if (!pendingMediaAttachment || !mediaAttachmentAcknowledged) return
+    const { postId, media, action } = pendingMediaAttachment
+    await savePostEdit(postId, {
+      uploadedMediaId: media.id,
+      ...(action === 'replace'
+        ? { explicitMediaReplaceConfirmed: true }
+        : { explicitMediaAttachConfirmed: true }),
+    })
+    setPendingMediaAttachment(null)
+    setMediaAttachmentAcknowledged(false)
+  }
+
+  function requestMediaRemoval(postId: string) {
+    setMediaRemovalPostId(postId)
+    setMediaRemovalAcknowledged(false)
+  }
+
+  async function confirmMediaRemoval() {
+    if (!mediaRemovalPostId || !mediaRemovalAcknowledged) return
+    await savePostEdit(mediaRemovalPostId, {
+      uploadedMediaId: null,
+      explicitMediaRemoveConfirmed: true,
+    })
+    setMediaRemovalPostId(null)
+    setMediaRemovalAcknowledged(false)
+  }
+
+  function closeMediaAttachmentConfirm() {
+    setPendingMediaAttachment(null)
+    setMediaAttachmentAcknowledged(false)
+  }
+
+  function closeMediaRemovalConfirm() {
+    setMediaRemovalPostId(null)
+    setMediaRemovalAcknowledged(false)
   }
 
   // ── Bulk generate images ─────────────────────────────────────────────────────
@@ -1336,7 +1396,6 @@ export default function ContentHubPage() {
               key={post.id}
               post={post}
               pendingEdit={getPendingEdit(post.id)}
-              mediaLibrary={mediaLibrary}
               brandName={brandProfile.brandName ?? campaign?.name ?? 'your_brand'}
               brandLogo={brandProfile.logoUrl ?? null}
               isExpanded={expandedPost === post.id}
@@ -1356,7 +1415,7 @@ export default function ContentHubPage() {
               onOpenMediaPicker={() => setMediaPickerOpen(mediaPickerOpen === post.id ? null : post.id)}
               onCloseMediaPicker={() => setMediaPickerOpen(null)}
               onSaveEdit={(updates) => savePostEdit(post.id, updates)}
-              onAssignMedia={(mediaId, url) => assignMedia(post.id, mediaId, url)}
+              onRemoveMedia={() => requestMediaRemoval(post.id)}
               onPendingEdit={(updates) => setPendingEdits(prev => ({
                 ...prev,
                 [post.id]: { ...(prev[post.id] ?? {}), ...updates }
@@ -1740,7 +1799,7 @@ export default function ContentHubPage() {
                     .map(m => (
                       <button
                         key={m.id}
-                        onClick={() => mediaPickerOpen && assignMedia(mediaPickerOpen, m.id, m.url)}
+                        onClick={() => mediaPickerOpen && requestMediaAttachment(mediaPickerOpen, m)}
                         className="relative group aspect-square rounded-xl overflow-hidden transition-all hover:ring-2 hover:ring-purple-500"
                       >
                         <img src={m.url} alt={m.fileName} className="w-full h-full object-cover" />
@@ -1751,6 +1810,148 @@ export default function ContentHubPage() {
                     ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {pendingMediaAttachment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeMediaAttachmentConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">
+                      {pendingMediaAttachment.action === 'replace'
+                        ? (isAr ? 'استبدال وسائط المنشور؟' : 'Replace post media?')
+                        : (isAr ? 'إرفاق وسائط موجودة بهذا المنشور؟' : 'Attach existing media to this post?')}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {pendingAttachmentPost
+                        ? (isAr ? `المنشور #${pendingAttachmentPost.contentPlanIndex}` : `Post #${pendingAttachmentPost.contentPlanIndex}`)
+                        : pendingMediaAttachment.media.fileName}
+                    </p>
+                  </div>
+                  <button onClick={closeMediaAttachmentConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                </div>
+
+                <div className="mb-4 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <img src={pendingMediaAttachment.media.url} alt={pendingMediaAttachment.media.fileName} className="h-16 w-16 rounded-lg object-cover" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900">{pendingMediaAttachment.media.fileName}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {pendingMediaAttachment.action === 'replace'
+                        ? (isAr ? 'سيتم استبدال الوسائط الحالية في المعاينة فقط.' : 'The current preview media will be replaced only in Content Hub.')
+                        : (isAr ? 'سيتم إرفاق هذا الأصل بمعاينة المنشور.' : 'This asset will be attached to this post preview.')}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>
+                    {isAr
+                      ? 'سيؤدي ذلك إلى تحديث وسائط معاينة المنشور داخل مركز المحتوى. لا ينشر ولا يضيف جدولة ولا يغير حالة النشر اليدوي أو النشر عبر API.'
+                      : 'This will update the post preview media in Content Hub. It does not publish, schedule, or change manual/API publish status.'}
+                  </p>
+                  {pendingMediaAttachment.action === 'replace' && (
+                    <p>
+                      {isAr
+                        ? 'الأصل السابق لا يُحذف من مكتبة الوسائط.'
+                        : 'The previous asset is not deleted from Media Library.'}
+                    </p>
+                  )}
+                </div>
+
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={mediaAttachmentAcknowledged}
+                    onChange={e => setMediaAttachmentAcknowledged(e.target.checked)}
+                  />
+                  <span className="text-xs leading-5 text-slate-600">
+                    {isAr
+                      ? 'أفهم أن هذا يغيّر وسائط معاينة المنشور فقط داخل Content Hub.'
+                      : 'I understand this changes only the post preview media inside Content Hub.'}
+                  </span>
+                </label>
+
+                <div className="mt-5 flex gap-3">
+                  <button onClick={closeMediaAttachmentConfirm} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={confirmMediaAttachment}
+                    disabled={!mediaAttachmentAcknowledged}
+                    className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: '#111827' }}
+                  >
+                    {pendingMediaAttachment.action === 'replace'
+                      ? (isAr ? 'استبدال الوسائط' : 'Replace media')
+                      : (isAr ? 'إرفاق الوسائط بالمنشور' : 'Attach media to post')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mediaRemovalPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeMediaRemovalConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">
+                      {isAr ? 'إزالة الوسائط من معاينة هذا المنشور؟' : 'Remove media from this post preview?'}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {isAr ? `المنشور #${mediaRemovalPost.contentPlanIndex}` : `Post #${mediaRemovalPost.contentPlanIndex}`}
+                    </p>
+                  </div>
+                  <button onClick={closeMediaRemovalConfirm} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+                </div>
+
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>
+                    {isAr
+                      ? 'سيؤدي ذلك إلى إزالة الوسائط المرتبطة بالمنشور في مركز المحتوى. لا يحذف الأصل من مكتبة الوسائط ولا يغيّر حالة النشر.'
+                      : 'This will clear the post-linked media in Content Hub. It does not delete the asset from Media Library and does not change publishing status.'}
+                  </p>
+                  <p>
+                    {isAr
+                      ? 'يمكنك إرفاق أصل آخر أو توليد صورة لاحقًا من نفس المنشور.'
+                      : 'You can attach another asset or generate an image later from the same post.'}
+                  </p>
+                </div>
+
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={mediaRemovalAcknowledged}
+                    onChange={e => setMediaRemovalAcknowledged(e.target.checked)}
+                  />
+                  <span className="text-xs leading-5 text-slate-600">
+                    {isAr
+                      ? 'أفهم أن هذا يزيل الوسائط من معاينة المنشور فقط.'
+                      : 'I understand this removes media only from this post preview.'}
+                  </span>
+                </label>
+
+                <div className="mt-5 flex gap-3">
+                  <button onClick={closeMediaRemovalConfirm} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={confirmMediaRemoval}
+                    disabled={!mediaRemovalAcknowledged}
+                    className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: '#C2410C' }}
+                  >
+                    {isAr ? 'إزالة الوسائط من المنشور' : 'Remove media from post'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2042,7 +2243,6 @@ function scoreCaption(caption: string, platform: string): { grade: 'A+' | 'A' | 
 interface PostCardProps {
   post: ContentPost
   pendingEdit: Partial<ContentPost>
-  mediaLibrary: MediaItem[]
   brandName: string
   brandLogo: string | null
   isExpanded: boolean
@@ -2062,7 +2262,7 @@ interface PostCardProps {
   onOpenMediaPicker: () => void
   onCloseMediaPicker: () => void
   onSaveEdit: (updates: Partial<ContentPost>) => Promise<void>
-  onAssignMedia: (mediaId: string, url: string) => Promise<void>
+  onRemoveMedia: () => void
   onPendingEdit: (updates: Partial<ContentPost>) => void
   onRewrite: (instruction: string) => Promise<void>
   onPickWinner?: () => void
@@ -2086,6 +2286,7 @@ function PostCard({
   onToggleExpand,
   onEditCaption,
   onOpenMediaPicker,
+  onRemoveMedia,
   onSaveEdit,
   onPendingEdit,
   onRewrite,
@@ -2113,6 +2314,7 @@ function PostCard({
     PENDING: isAr ? 'الوسائط بانتظار التوليد' : 'Media pending', GENERATING: t('contentHub.statusGenerating'), DONE: isAr ? 'الوسائط جاهزة' : 'Media ready',
     FAILED: t('contentHub.statusFailed'), AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
   }[status] ?? status
+  const mediaSourceLabel = derivePostMediaSource(post)
 
   const lifecycleBadge = {
     DRAFT: {
@@ -2189,6 +2391,10 @@ function PostCard({
             {status === 'GENERATING' && <span className="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style={{ background: statusColor }} />}
             {statusLabel}
           </span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+            style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid rgba(37,99,235,0.18)' }}>
+            {isAr ? mediaSourceLabel.ar : mediaSourceLabel.en}
+          </span>
         </div>
       </div>
 
@@ -2230,6 +2436,21 @@ function PostCard({
           {isUserConfirmedManualPublished(post) && !post.platformUrl && (
             <p className="text-[10px] text-slate-400 mt-1">{t('contentHub.manualNoPlatformProof')}</p>
           )}
+        </div>
+      )}
+
+      {hasImage && (
+        <div className="px-3 pb-3 pt-2" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
+          <button
+            onClick={onRemoveMedia}
+            className="w-full text-xs px-3 py-2 rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5"
+            style={{ background: '#FFF7ED', color: '#C2410C', border: '1px solid rgba(234,88,12,0.22)' }}
+          >
+            {isAr ? 'إزالة الوسائط من المنشور' : 'Remove media from post'}
+          </button>
+          <p className="text-[10px] text-slate-400 mt-1 text-center">
+            {isAr ? 'يزيل الوسائط من المعاينة فقط، ولا يحذف الأصل من مكتبة الوسائط.' : 'Clears preview media only; the asset stays in Media Library.'}
+          </p>
         </div>
       )}
 

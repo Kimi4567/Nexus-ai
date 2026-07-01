@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
+import { deriveMediaDeleteAvailability } from '@/lib/contentHubMediaAttachment'
 import fs from 'fs'
 import path from 'path'
 import cloudinary from 'cloudinary'
@@ -23,6 +24,22 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     if (!media) return NextResponse.json({ error: 'Not found', errorCode: 'NOT_FOUND' }, { status: 404 })
     if (!media.workspace || media.workspace.ownerId !== userId) {
       return NextResponse.json({ error: 'Forbidden', errorCode: 'FORBIDDEN' }, { status: 403 })
+    }
+
+    const linkedPostCount = await prisma.socialPost.count({
+      where: {
+        uploadedMediaId: id,
+        workspaceId: media.workspaceId,
+      },
+    })
+
+    const deleteAvailability = deriveMediaDeleteAvailability(linkedPostCount)
+    if (!deleteAvailability.canDelete) {
+      return NextResponse.json({
+        error: deleteAvailability.message,
+        errorCode: 'MEDIA_IN_USE',
+        linkedPostCount,
+      }, { status: 409 })
     }
 
     // Delete from DB first
