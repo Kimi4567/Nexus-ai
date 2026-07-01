@@ -2,9 +2,9 @@
  * Brain Learning — server-side helper
  *
  * Called directly from server-side code (campaign engine, approve-content-plan, etc.)
- * to extract learnings and persist them as BrainLearning proposals.
+ * to extract signals and persist them as BrainLearning proposals.
  *
- * Uses GPT-4o to analyse AI outputs and propose specific Brand Brain field updates.
+ * Uses GPT-4o to analyse AI outputs and propose specific Brand Brain field updates for review.
  * Proposals are stored in DB and surfaced to the user via BrainLearningPanel.
  *
  * ⚠️  COST TRACKING NOTE (not user-billed):
@@ -119,22 +119,24 @@ Current Brand Brain:
 - Pain Points: ${JSON.stringify((brandBrain.audiencePainPoints as string[] || []).slice(0, 3))}
 - Unique Advantages: ${JSON.stringify((brandBrain.uniqueAdvantages as string[] || []).slice(0, 3))}
 - Strategic Notes: ${String(brandBrain.strategicNotes || '').slice(0, 200)}
-` : 'Brand Brain: Empty (first learning)'
+` : 'Brand Brain: Empty (first signal review)'
 
     // Build prompt based on trigger
     let extractionContext = ''
     if (trigger === 'strategy') {
       const strategy = payload.strategy || payload
       extractionContext = `
-A new campaign strategy was generated. Extract specific, actionable Brand Brain learnings.
+A new campaign strategy was generated. Extract specific, actionable Brand Brain review signals.
+This is strategy-derived planning context only. It is not analytics-backed learning or performance evidence.
 
 STRATEGY:
 ${JSON.stringify(strategy, null, 2).slice(0, 4000)}
 
 ${brainSummary}
 
-Extract ONLY new, specific insights NOT already in Brand Brain.
-Fields you can update: winningHooks, winningAngles, toneKeywords, audiencePainPoints, audienceDesires, uniqueAdvantages, strategicNotes
+Extract ONLY new, specific signals NOT already in Brand Brain.
+Fields you can propose updates for: winningHooks (legacy storage for reviewed hook signals), winningAngles (legacy storage for reviewed content-angle signals), toneKeywords, audiencePainPoints, audienceDesires, uniqueAdvantages, strategicNotes
+Do not call strategy-derived signals winning, proven, high-conversion, best-performing, or learned from performance.
 `
     } else if (trigger === 'approved_content') {
       const posts = Array.isArray(payload.posts) ? payload.posts : []
@@ -146,10 +148,14 @@ ${JSON.stringify(posts.slice(0, 8), null, 2).slice(0, 3000)}
 
 ${brainSummary}
 
-Extract patterns from these approved posts:
+Extract review-signal patterns from these approved posts:
 - toneKeywords: voice/style patterns appearing in 3+ posts
-- winningAngles: content formats/approaches that appear repeatedly
-- winningHooks: opening line structures used
+- winningAngles: legacy schema field for content-angle review signals that appear repeatedly
+- winningHooks: legacy schema field for reviewed opening-line structures
+
+Rules:
+- Approval is a workflow/review signal, not analytics-backed learning.
+- Do not call approved-content patterns winning, proven, high-conversion, best-performing, or learned from performance.
 `
     } else if (trigger === 'post_performance') {
       // Real engagement data from Meta/LinkedIn — this is the richest signal
@@ -227,9 +233,9 @@ ${competitors.length > 0 ? `Known Competitors: ${competitors.join(', ')}` : ''}
 
 ${brainSummary}
 
-From the Sentinel findings, extract Brand Brain learnings:
+From the Sentinel findings, extract Brand Brain review signals:
 - uniqueAdvantages: competitive edges the review highlighted that should be in Brand Brain
-- winningAngles: positioning angles the review validated or recommended
+- winningAngles: legacy schema field for positioning-angle signals the review validated or recommended
 - audiencePainPoints: pain points the review flagged as underserved by competitors
 - strategicNotes: 1-2 sentence strategic insight about competitive positioning
 - failingAngles: approaches the review flagged as risky or overdone in the market (to avoid)
@@ -255,8 +261,8 @@ ${JSON.stringify(findings.slice(0, 12), null, 2).slice(0, 4000)}
 
 ${brainSummary}
 
-Analyze the competitor activity and extract Brand Brain learnings:
-- winningAngles: content angles or messaging approaches competitors are using successfully —
+Analyze the competitor activity and extract Brand Brain market-intelligence signals:
+- winningAngles: legacy schema field for content angles or messaging approaches competitors are using —
   that this brand should adopt or respond to
 - audiencePainPoints: problems competitors are addressing that this brand should also address
 - uniqueAdvantages: gaps in competitor messaging where this brand has an advantage
@@ -284,10 +290,10 @@ ${JSON.stringify(trendFindings.slice(0, 15), null, 2).slice(0, 4000)}
 
 ${brainSummary}
 
-Analyze the industry trends and extract Brand Brain learnings:
+Analyze the industry trends and extract Brand Brain market-intelligence signals:
 - audiencePainPoints: new pain points emerging in this industry that the audience is experiencing
 - audienceDesires: new aspirations or desires surfacing in this sector
-- winningAngles: content angles that are trending strongly in this industry right now
+- winningAngles: legacy schema field for content angles that are trending in this industry right now
 - uniqueAdvantages: market gaps or underserved needs this brand could address
 - strategicNotes: 1-2 sentence insight about where this industry is heading this week
 
@@ -354,16 +360,17 @@ RULES:
     const raw = await callOpenAI([
       {
         role: 'system',
-        content: `You are a Brand Intelligence Extractor. Extract specific, concrete learnings from marketing outputs to update a brand's permanent memory.
+        content: `You are a Brand Intelligence Extractor. Extract specific, concrete Brand Brain signals from marketing outputs for review.
 
 Return ONLY a JSON object: { "proposals": [{field, proposed, reason}] }
 
 Rules:
 - Be specific, never generic ("use engaging content" = BAD)
-- proposed must be array for array fields (winningHooks etc.) or string for strategicNotes
-- Only include NEW insights not already captured
+- proposed must be array for array fields (winningHooks is a legacy storage field for reviewed hook signals) or string for strategicNotes
+- Only include NEW signals not already captured
 - Maximum 4 proposals
-- proposed arrays should contain only the NEW items to add, not duplicates of what's already there`,
+- proposed arrays should contain only the NEW items to add, not duplicates of what's already there
+- Non-analytics triggers are review signals only; do not use winner, winning, proven, high-conversion, best-performing, or learned-from-performance language unless the trigger is post_performance with real analytics data.`,
       },
       { role: 'user', content: extractionContext },
     ])

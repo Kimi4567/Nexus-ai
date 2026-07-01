@@ -60,8 +60,8 @@ const FIELD_LABELS: Record<string, { en: string; ar: string }> = {
   strategicNotes:     { en: 'Strategic notes',      ar: 'ملاحظات استراتيجية' },
   competitors:        { en: 'Competitors',          ar: 'المنافسون' },
   pricePoint:         { en: 'Price point',          ar: 'مستوى السعر' },
-  winningHooks:       { en: 'Winning hooks',        ar: 'خطافات ناجحة' },
-  winningAngles:      { en: 'Winning angles',       ar: 'زوايا ناجحة' },
+  winningHooks:       { en: 'Reviewed hook signals', ar: 'إشارات خطافات مراجعة' },
+  winningAngles:      { en: 'Content angle signals', ar: 'إشارات زوايا المحتوى' },
 }
 
 /** Localized display label for a field key (falls back to the raw key). */

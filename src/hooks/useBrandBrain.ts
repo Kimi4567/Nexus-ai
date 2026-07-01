@@ -135,7 +135,7 @@ export function buildBrandContext(brand: BrandProfile | null): string {
   if (brand.topPlatforms?.length)
     lines.push(`• المنصات الرئيسية: ${brand.topPlatforms.join('، ')}`)
   if (brand.winningHooks?.length)
-    lines.push(`• هوكس ناجحة سابقاً: ${brand.winningHooks.join(' | ')}`)
+    lines.push(`• إشارات خطافات مراجعة: ${brand.winningHooks.join(' | ')}`)
   if (brand.competitors?.length)
     lines.push(`• المنافسون المرصودون: ${brand.competitors.join('، ')}`)
   if (brand.competitorNotes)

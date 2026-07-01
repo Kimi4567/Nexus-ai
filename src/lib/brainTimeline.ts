@@ -4,8 +4,8 @@
  * PURE, READ-ONLY derivation. No network, no I/O, no side effects.
  * Turns the data already returned by the existing GET routes into an honest,
  * conservative "Brand Brain Signals" timeline:
- *   - GET /api/brain/proposals?status=pending   → pending learnings (Suggested)
- *   - GET /api/brain/score-history (.updates)    → accepted/dismissed learnings (Applied/Dismissed)
+ *   - GET /api/brain/proposals?status=pending   → pending review signals (Suggested)
+ *   - GET /api/brain/score-history (.updates)    → accepted/dismissed signals (Applied/Dismissed)
  *
  * Non-negotiable honesty rules (enforced here, asserted in tests):
  *   - Every item is backed by a REAL BrainLearning row. Nothing is fabricated.
@@ -77,6 +77,7 @@ const KNOWN_SOURCES: ReadonlySet<string> = new Set([
   'approved_content',
   'post_performance',
   'ab_winner',
+  'user_selected_variant',
   'sentinel_insight',
   'competitor_monitor',
   'industry_trend',

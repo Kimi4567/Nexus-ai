@@ -8,7 +8,7 @@
  *  2. Look up the variantGroup of the selected post
  *  3. Mark the selected post: variantWinner = true (legacy field name)
  *  4. Delete the losing sibling variant (same variantGroup, different id)
- *  5. Save the selected opening hook as a user preference signal (legacy field name: winningHooks)
+ *  5. Queue user preference signal proposals for review. This is not analytics-backed learning.
  *
  * Returns: { ok: true, selectedVariantId, discardedVariantDeleted, preferenceSignalSaved }
  */
@@ -17,23 +17,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { runBrainLearning } from '@/lib/brain-learning'
-import { snapshotBrandMaturity } from '@/lib/brandMaturity'
 import { getBrandBrainLearningCopy } from '@/lib/brandBrainLearningContract'
 
 type Params = { params: { id: string; postId: string } }
-
-/** Extract the opening hook (first sentence or ≤120 chars) from a caption */
-function extractHook(caption: string): string {
-  const first = caption.split(/[.!?\n]/)[0]?.trim() ?? ''
-  return first.slice(0, 120)
-}
-
-/** Merge incoming strings into existing array, dedup, keep last N */
-function mergeUnique(existing: string[] | null | undefined, incoming: string[], limit = 25): string[] {
-  const current = Array.isArray(existing) ? existing : []
-  const next = incoming.filter(s => typeof s === 'string' && s.trim().length > 15)
-  return Array.from(new Set([...current, ...next])).slice(-limit)
-}
 
 export async function PATCH(req: NextRequest, { params }: Params) {
   const userId = await getServerUserId(req)
@@ -101,35 +87,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         : Promise.resolve(null),
     ])
 
-    // ── 5. Fast path: save selected hook as a Brand Brain signal ───────────
-    // Silent, always runs — keeps Brand Brain current even if user never reviews proposals.
-    let preferenceSignalSaved = false
-    try {
-      const hook = extractHook(selected.caption)
-      if (hook.length > 15) {
-        const brand = await prisma.brandProfile.findUnique({
-          where: { workspaceId: campaign.workspaceId },
-          select: { winningHooks: true },
-        })
-        if (brand) {
-          await prisma.brandProfile.update({
-            where: { workspaceId: campaign.workspaceId },
-            data: {
-              winningHooks: mergeUnique(brand.winningHooks, [hook], 25),
-            },
-          })
-          snapshotBrandMaturity(prisma as any, campaign.workspaceId).catch(() => null)
-          preferenceSignalSaved = true
-        }
-      }
-    } catch (brandErr) {
-      console.warn('[pick-winner] Brand Brain fast-path update failed:', brandErr)
-    }
-
-    // ── 6. Rich path: GPT-4o A/B analysis → Brand Brain proposals ─────────
+    // ── 5. GPT-4o A/B analysis → Brand Brain proposals ───────────────────
     // Compares selected vs discarded draft variants to extract editorial preference signals.
     // Creates pending proposals the user reviews in BrainLearningPanel.
     // Requires discarded-variant data — only runs if we captured it before deletion.
+    let preferenceSignalSaved = false
     if (loser && loser.caption && loser.caption.trim().length > 10) {
       runBrainLearning({
         workspaceId: campaign.workspaceId,
@@ -150,6 +112,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
           forbiddenLanguage: ['winner', 'winning', 'best-performing', 'performance winner', 'learned from performance'],
         },
       }).catch(() => null) // fire-and-forget — never block the pick action
+      preferenceSignalSaved = true
     }
 
     const variantCopy = getBrandBrainLearningCopy('user_variant_pick')
@@ -160,7 +123,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       discardedVariantDeleted: !!loser,
       preferenceSignalSaved,
       message: preferenceSignalSaved
-        ? `${variantCopy.label}; hook preference signal saved`
+        ? `${variantCopy.label}; selected variant saved as a user preference signal, not analytics-backed performance learning`
         : variantCopy.label,
     })
   } catch (err: any) {

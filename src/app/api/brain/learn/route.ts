@@ -1,10 +1,10 @@
 /**
  * POST /api/brain/learn
  *
- * Brain Learning Engine — the core of NEXUS intelligence.
+ * Brand Brain Signal Proposal Engine.
  *
  * Every time something significant happens (strategy generated, content approved),
- * NEXUS analyses the output and proposes specific Brand Brain updates.
+ * NEXUS analyses the output and proposes specific Brand Brain review signals.
  * These proposals are stored in BrainLearning table and shown to the user
  * via the BrainLearningPanel component.
  *
@@ -24,10 +24,10 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/apiAuth'
 const db = prisma as any  // eslint-disable-line @typescript-eslint/no-explicit-any
 
-// ─── Field definitions — what Brain Brain fields we can learn into ────────────
+// ─── Field definitions — legacy storage fields with safe user-facing labels ───
 const LEARNABLE_FIELDS: Record<string, { displayName: string; displayNameAr: string; icon: string; type: 'array' | 'string' }> = {
-  winningHooks:      { displayName: 'Winning Hooks',      displayNameAr: 'الخطافات الرابحة',    icon: '🎣', type: 'array'  },
-  winningAngles:     { displayName: 'Winning Angles',     displayNameAr: 'الزوايا الرابحة',     icon: '🎯', type: 'array'  },
+  winningHooks:      { displayName: 'Reviewed Hook Signals',      displayNameAr: 'إشارات الخطافات المراجعة',    icon: '🎣', type: 'array'  },
+  winningAngles:     { displayName: 'Content Angle Signals',      displayNameAr: 'إشارات زوايا المحتوى',        icon: '🎯', type: 'array'  },
   toneKeywords:      { displayName: 'Brand Tone',         displayNameAr: 'أسلوب العلامة',       icon: '🎙️', type: 'array'  },
   audiencePainPoints:{ displayName: 'Audience Pain Points',displayNameAr: 'مشاكل الجمهور',      icon: '💢', type: 'array'  },
   audienceDesires:   { displayName: 'Audience Desires',   displayNameAr: 'رغبات الجمهور',       icon: '✨', type: 'array'  },
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
         console.warn(`[brain/learn] Rate limit hit for workspace ${workspace.id} — ${todayCallCount} calls today`)
         return NextResponse.json({
           proposals: [],
-          message: 'Daily brain learning limit reached — resets at midnight UTC',
+        message: 'Daily Brand Brain signal review limit reached — resets at midnight UTC',
         })
       }
     } catch { /* non-fatal — proceed if count fails */ }
@@ -94,13 +94,15 @@ export async function POST(req: NextRequest) {
     // ── Build the extraction prompt based on trigger ──────────────────────────
     const systemPrompt = `You are a Brand Intelligence Extractor for NEXUS AI.
 
-Your job: analyse AI-generated marketing outputs and extract SPECIFIC, ACTIONABLE learnings
-that should be saved to a brand's permanent memory (Brand Brain).
+Your job: analyse AI-generated marketing outputs and extract SPECIFIC, ACTIONABLE Brand Brain review signals.
+Non-analytics sources are proposals for review only, not performance learning and not permanent proof.
 
 You must ONLY extract concrete, specific insights — not generic marketing advice.
 Bad: "Use engaging content" (useless, generic)
 Good: "Use questions that challenge conventional wisdom" (specific hook pattern)
 Good: "Audience responds to 'before/after transformation' narratives" (specific angle)
+
+Do not use winner, winning, proven, high-conversion, best-performing, optimized, or learned-from-performance language unless the trigger is explicitly analytics-backed post_performance with real analytics data.
 
 Return ONLY a valid JSON array. No prose, no explanation.`
 
@@ -108,14 +110,14 @@ Return ONLY a valid JSON array. No prose, no explanation.`
 CURRENT BRAND BRAIN STATE:
 - Brand: ${brandBrain.brandName || 'Unknown'}
 - Industry: ${brandBrain.industry || 'Unknown'}
-- Winning Hooks (current): ${JSON.stringify(brandBrain.winningHooks || [])}
-- Winning Angles (current): ${JSON.stringify(brandBrain.winningAngles || [])}
+- Reviewed Hook Signals (current): ${JSON.stringify(brandBrain.winningHooks || [])}
+- Content Angle Signals (current): ${JSON.stringify(brandBrain.winningAngles || [])}
 - Tone Keywords (current): ${JSON.stringify(brandBrain.toneKeywords || [])}
 - Audience Pain Points (current): ${JSON.stringify(brandBrain.audiencePainPoints || [])}
 - Audience Desires (current): ${JSON.stringify(brandBrain.audienceDesires || [])}
 - Unique Advantages (current): ${JSON.stringify(brandBrain.uniqueAdvantages || [])}
 - Strategic Notes (current): ${brandBrain.strategicNotes || 'None'}
-` : 'CURRENT BRAND BRAIN: Empty — first time learning.'
+` : 'CURRENT BRAND BRAIN: Empty — first signal review.'
 
     let userPrompt = ''
 
@@ -124,14 +126,15 @@ CURRENT BRAND BRAIN STATE:
       userPrompt = `
 ${currentBrainSummary}
 
-A campaign strategy was just generated for this brand. Extract learnings to update Brand Brain.
+A campaign strategy was just generated for this brand. Extract planning/review signals to propose for Brand Brain.
+This is not analytics-backed performance learning.
 
 STRATEGY OUTPUT:
 ${JSON.stringify(strategy, null, 2)}
 
-Extract ONLY NEW insights not already in Brand Brain. For each field, propose additions/updates:
-- winningHooks: specific hook formulas the strategy identified (e.g. "Use 'Most people don't know...' opener")
-- winningAngles: content angles with proven appeal for this audience
+Extract ONLY NEW signals not already in Brand Brain. For each field, propose additions/updates:
+- winningHooks: legacy storage field for reviewed hook signals the strategy suggests (e.g. "Use 'Most people don't know...' opener")
+- winningAngles: legacy storage field for content angle signals suggested for review
 - toneKeywords: tone/style words that define this brand's voice
 - audiencePainPoints: specific problems/frustrations of this audience
 - audienceDesires: specific aspirations/desires of this audience
@@ -142,7 +145,7 @@ Return a JSON array of proposals. Each proposal:
 {
   "field": "winningHooks",           // one of the 7 field names above
   "proposed": ["hook1", "hook2"],    // NEW values to ADD (for arrays) or replace (for string)
-  "reason": "The strategy identified these hook patterns as high-conversion for this audience segment."
+  "reason": "The strategy suggested these hook patterns for review with this audience segment."
 }
 
 Rules:
@@ -159,15 +162,16 @@ Rules:
 ${currentBrainSummary}
 
 The user just approved ${Array.isArray(posts) ? posts.length : 0} social media posts for publishing.
-Analyse these posts to extract brand voice patterns and content preferences.
+Analyse these posts to extract review signals and content preferences.
+Approval is a workflow signal, not analytics-backed learning.
 
 APPROVED POSTS SAMPLE:
 ${JSON.stringify(Array.isArray(posts) ? posts.slice(0, 10) : posts, null, 2)}
 
-Extract learnings about:
+Extract review signals about:
 - toneKeywords: tone/style patterns repeated across approved posts (e.g. "uses emoji sparingly", "direct CTA style", "storytelling format")
-- winningAngles: content angles/formats that appear in approved posts
-- winningHooks: opening lines / hook structures that appear
+- winningAngles: legacy storage field for content-angle review signals that appear in approved posts
+- winningHooks: legacy storage field for reviewed opening-line structures
 
 Return JSON array same format as above. Only extract if you see clear patterns (3+ posts showing the same characteristic).
 Return [] if not enough signal.
@@ -228,7 +232,7 @@ Return [] if not enough signal.
     })
 
     if (validProposals.length === 0) {
-      return NextResponse.json({ proposals: [], message: 'No new learnings extracted' })
+      return NextResponse.json({ proposals: [], message: 'No new review signals extracted' })
     }
 
     // ── Save proposals to BrainLearning table ────────────────────────────────
@@ -248,7 +252,7 @@ Return [] if not enough signal.
             icon:        fieldDef.icon,
             current:     currentVal ? JSON.parse(JSON.stringify(currentVal)) : null,
             proposed:    JSON.parse(JSON.stringify(proposal.proposed)),
-            reason:      proposal.reason || 'NEXUS identified this as a useful brand insight.',
+            reason:      proposal.reason || 'NEXUS identified this as a useful brand review signal.',
             status:      'pending',
           },
         })
@@ -261,10 +265,10 @@ Return [] if not enough signal.
     return NextResponse.json({
       proposals: savedProposals,
       count: savedProposals.length,
-      message: `Extracted ${savedProposals.length} learning${savedProposals.length !== 1 ? 's' : ''} from ${trigger}`,
+      message: `Extracted ${savedProposals.length} review signal${savedProposals.length !== 1 ? 's' : ''} from ${trigger}`,
     })
   } catch (error) {
     console.error('[brain/learn] Error:', error)
-    return NextResponse.json({ error: 'Brain learning failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Brand Brain signal review failed' }, { status: 500 })
   }
 }

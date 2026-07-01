@@ -3,7 +3,7 @@
  *
  * AI-rewrites a content plan post caption using:
  * - Brand voice + tone keywords from BrandProfile
- * - Winning hooks from brand memory
+ * - Reviewed hook signals from brand memory
  * - Platform-native style constraints
  * - Optional user instruction (e.g. "make it more casual" / "add urgency")
  *
@@ -110,14 +110,14 @@ export async function POST(req: NextRequest, { params }: Params) {
     const avoidWords   = brand?.avoidKeywords?.join(', ') || 'none'
     const writingStyle = brand?.writingStyle || ''
     const audience     = brand?.targetAudience || campaign?.audience || ''
-    const winningHooks = brand?.winningHooks?.slice(0, 3).join(' | ') || ''
+    const reviewedHookSignals = brand?.winningHooks?.slice(0, 3).join(' | ') || ''
     const keyMessage   = aiOutput?.strategy?.keyMessage ?? aiOutput?.keyMessage ?? ''
     const primaryOffer = brand?.primaryOffer ?? aiOutput?.strategy?.primaryOffer ?? ''
 
     const systemPrompt = `You are an expert social media copywriter for ${brandName}.
 
 Brand voice: ${toneWords}
-Avoid: ${avoidWords}${writingStyle ? `\nWriting style: ${writingStyle}` : ''}${audience ? `\nTarget audience: ${audience}` : ''}${winningHooks ? `\nProven hook formulas to draw from: ${winningHooks}` : ''}${keyMessage ? `\nKey campaign message: ${keyMessage}` : ''}${primaryOffer ? `\nPrimary offer/CTA: ${primaryOffer}` : ''}
+Avoid: ${avoidWords}${writingStyle ? `\nWriting style: ${writingStyle}` : ''}${audience ? `\nTarget audience: ${audience}` : ''}${reviewedHookSignals ? `\nReviewed hook signals to consider: ${reviewedHookSignals}` : ''}${keyMessage ? `\nKey campaign message: ${keyMessage}` : ''}${primaryOffer ? `\nPrimary offer/CTA: ${primaryOffer}` : ''}
 
 Platform: ${platform}
 Style requirement: ${styleGuide}
