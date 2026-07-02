@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
+import { CONTENT_HUB_IMAGE_COST } from '@/lib/contentHubActionSafety'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 
@@ -285,6 +286,8 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
   const [selectedType, setSelectedType] = useState<VisualType>('HERO')
   const [selectedStyle, setSelectedStyle] = useState<VisualStyle>('Premium')
   const [panelOpen, setPanelOpen] = useState(false)
+  const [confirmGenerateVisual, setConfirmGenerateVisual] = useState<Visual | null | false>(false)
+  const [visualGenerationAcknowledged, setVisualGenerationAcknowledged] = useState(false)
   const imageGenerationTruth = getCreditActionTruth({
     action: 'IMAGE_GENERATION',
     creditsRemaining,
@@ -334,6 +337,10 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           visualType: selectedType,
           visualStyle: selectedStyle,
           parentId: regenerateFrom?.id || null,
+          explicitImageGenerationConfirmed: true,
+          acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
+          acknowledgedNoPublishOrSchedule: true,
+          acknowledgedPostMediaForReview: true,
         }),
       })
       const data = await res.json()
@@ -343,6 +350,8 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
       const newVisual = data.visual
       setVisuals(prev => [newVisual, ...prev])
       onVisualSaved?.(newVisual)
+      setConfirmGenerateVisual(false)
+      setVisualGenerationAcknowledged(false)
     } catch (err: any) {
       setError(err.message || 'Image generation failed. Please try again.')
     }
@@ -382,7 +391,19 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
     }
     setSelectedStyle(visual.visualStyle as VisualStyle)
     setSelectedType(visual.visualType as VisualType)
-    handleGenerate(visual)
+    setVisualGenerationAcknowledged(false)
+    setConfirmGenerateVisual(visual)
+  }
+
+  const requestConceptVisualGeneration = () => {
+    setVisualGenerationAcknowledged(false)
+    setConfirmGenerateVisual(null)
+  }
+
+  const closeConceptVisualConfirmation = () => {
+    if (generating) return
+    setConfirmGenerateVisual(false)
+    setVisualGenerationAcknowledged(false)
   }
 
   return (
@@ -478,12 +499,55 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           </div>
 
           <button
-            onClick={generationLocked ? () => router.push('/billing') : () => handleGenerate()}
+            onClick={generationLocked ? () => router.push('/billing') : requestConceptVisualGeneration}
             className={`w-full rounded-lg py-2.5 text-sm font-semibold transition ${generationLocked ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100' : 'bg-indigo-600 hover:bg-indigo-500'}`}
             style={{ color: generationLocked ? undefined : '#fff' }}
           >
             {generationLocked ? `${lockedLabel} →` : 'Generate campaign concept visual →'}
           </button>
+        </div>
+      )}
+
+      {confirmGenerateVisual !== false && !generating && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-slate-950">
+                {confirmGenerateVisual ? 'Confirm campaign concept regeneration' : 'Confirm campaign concept visual generation'}
+              </div>
+              <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                This creates a campaign concept/gallery asset for review. It is not attached to posts automatically, not scheduled, not published, and not used in paid ads automatically.
+              </div>
+            </div>
+            <button onClick={closeConceptVisualConfirmation} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
+          </div>
+          <div className="space-y-1 rounded-lg bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+            <p>Cost: {CONTENT_HUB_IMAGE_COST} credits. Failed generations are refunded when the existing product refund logic supports it.</p>
+            <p>NEXUS does not publish, schedule, change manual/API publish status, or update Brand Brain learning from this visual.</p>
+          </div>
+          <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
+            <input
+              type="checkbox"
+              checked={visualGenerationAcknowledged}
+              onChange={e => setVisualGenerationAcknowledged(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+            />
+            <span className="text-[11px] font-semibold text-slate-800">
+              I understand this costs {CONTENT_HUB_IMAGE_COST} credits and creates a campaign concept visual for review only.
+            </span>
+          </label>
+          <div className="mt-3 flex justify-end gap-2">
+            <button onClick={closeConceptVisualConfirmation} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-900">
+              Cancel
+            </button>
+            <button
+              onClick={() => handleGenerate(confirmGenerateVisual || undefined)}
+              disabled={!visualGenerationAcknowledged}
+              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Confirm image generation — {CONTENT_HUB_IMAGE_COST} credits
+            </button>
+          </div>
         </div>
       )}
 

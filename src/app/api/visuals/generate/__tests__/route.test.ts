@@ -44,6 +44,7 @@ const {
 vi.mock('@/lib/apiAuth', () => ({ getServerUserId: mockGetServerUserId }))
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }))
 vi.mock('@/lib/credits', () => ({
+  CREDIT_COSTS: { IMAGE_GENERATION: 3 },
   checkAndDeductCredits: mockCheckAndDeduct,
   checkDailyImageCap: mockCheckDailyImageCap,
   refundCredits: mockRefund,
@@ -68,6 +69,12 @@ vi.mock('@/lib/brandComposite', () => ({
 import { POST } from '../route'
 
 const makeReq = (body: unknown = {}) => ({ json: async () => body }) as any
+const confirmedImageBody = {
+  explicitImageGenerationConfirmed: true,
+  acknowledgedCreditCost: 3,
+  acknowledgedNoPublishOrSchedule: true,
+  acknowledgedPostMediaForReview: true,
+}
 
 const workspace = { id: 'w1', ownerId: 'u1' }
 const campaign = {
@@ -151,16 +158,61 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('daily image cap failure does not deduct credits', async () => {
     mockCheckDailyImageCap.mockResolvedValue({ allowed: false, used: 3, cap: 3, remaining: 0 })
 
-    const res = await POST(makeReq())
+    const res = await POST(makeReq(confirmedImageBody))
 
     expect(res.status).toBe(429)
     expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
+  it('missing explicit image confirmation returns 400 before credit deduction', async () => {
+    const res = await POST(makeReq({ campaignId: 'c1' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json).toMatchObject({
+      error: 'IMAGE_GENERATION_CONFIRMATION_REQUIRED',
+      message: 'Image generation requires explicit confirmation. No credits were spent.',
+      required: {
+        explicitImageGenerationConfirmed: true,
+        acknowledgedCreditCost: 3,
+        acknowledgedNoPublishOrSchedule: true,
+      },
+    })
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+  })
+
+  it('wrong acknowledged credit cost returns 400 before credit deduction', async () => {
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      acknowledgedCreditCost: 4,
+      campaignId: 'c1',
+    }))
+
+    expect(res.status).toBe(400)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+  })
+
+  it('missing no-publish/no-schedule acknowledgement returns 400 before credit deduction', async () => {
+    const res = await POST(makeReq({
+      explicitImageGenerationConfirmed: true,
+      acknowledgedCreditCost: 3,
+      campaignId: 'c1',
+    }))
+
+    expect(res.status).toBe(400)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockGenerateWithDallE).not.toHaveBeenCalled()
+    expect(mockPrisma.generatedVisual.create).not.toHaveBeenCalled()
+  })
+
   it('insufficient credits does not call image provider or refund', async () => {
     mockCheckAndDeduct.mockResolvedValue({ ok: false, error: 'INSUFFICIENT_CREDITS' })
 
-    const res = await POST(makeReq({ campaignId: 'c1' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(res.status).toBe(402)
     expect(mockGenerateWithDallE).not.toHaveBeenCalled()
@@ -177,7 +229,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     })
     mockGenerateWithDallE.mockRejectedValue(new Error('image provider down'))
 
-    const res = await POST(makeReq({ campaignId: 'c1' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
     const json = await res.json()
 
     expect(res.status).toBe(500)
@@ -200,7 +252,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     mockPrisma.generatedVisual.create.mockRejectedValue(new Error('create failed'))
     mockGenerateWithDallE.mockRejectedValue(new Error('fallback image failed'))
 
-    const res = await POST(makeReq({ campaignId: 'c1' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(res.status).toBe(500)
     expect(mockRefundForTxn).toHaveBeenCalledWith(expect.objectContaining({
@@ -214,7 +266,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   it('DB completion failure after provider success falls back to scalar refund without transactionId', async () => {
     mockPrisma.generatedVisual.update.mockRejectedValue(new Error('update failed'))
 
-    const res = await POST(makeReq({ campaignId: 'c1' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(res.status).toBe(500)
     expect(mockRefund).toHaveBeenCalledWith('u1', 'IMAGE_GENERATION', 'update failed')
@@ -230,7 +282,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     })
     mockPrisma.generatedVisual.update.mockRejectedValue(new Error('update failed'))
 
-    await POST(makeReq({ campaignId: 'c1' }))
+    await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(mockRefundForTxn).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()
@@ -246,7 +298,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     })
     mockGenerateWithDallE.mockRejectedValue(new Error('provider failed'))
 
-    const res = await POST(makeReq({ campaignId: 'c1' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1' }))
 
     expect(res.status).toBe(500)
     expect(mockRefund).not.toHaveBeenCalled()
@@ -254,7 +306,7 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
   })
 
   it('success deducts once and preserves visual response shape', async () => {
-    const res = await POST(makeReq({ campaignId: 'c1', platform: 'META' }))
+    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1', platform: 'META' }))
     const json = await res.json()
 
     expect(res.status).toBe(200)
