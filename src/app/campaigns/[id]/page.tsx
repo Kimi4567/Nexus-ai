@@ -107,10 +107,6 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   )
 }
 
-function svgToDataUri(svg: string): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
-}
-
 function StrategyDocSection({
   eyebrow,
   title,
@@ -1132,7 +1128,7 @@ function CampaignDetailPageInner() {
       options: { locale: locale === 'ar' ? 'ar' : 'en', previewMode: 'review' },
     })
 
-    return { post, requirement, template, plan, preview }
+    return { post, requirement, template, plan, preview, candidate: compositionPreviewCandidate }
   })()
 
   // ── Empty section component ──────────────────────────────────────────────
@@ -2871,34 +2867,47 @@ function CampaignDetailPageInner() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
-                        {locale === 'ar' ? 'معاينة تركيب إبداعي — فحص تخطيط' : 'Draft composition preview — layout check'}
+                        {locale === 'ar' ? 'خطة تركيب إبداعي — للمراجعة فقط' : 'Composition plan — review only'}
                       </p>
                       <h3 className="mt-1 text-base font-semibold text-slate-950">
-                        {locale === 'ar' ? 'الخلفية مع طبقات قابلة للتعديل لاحقاً' : 'Background plus future editable layers'}
+                        {locale === 'ar' ? 'مخطط طبقات قابل للتعديل لاحقاً' : 'Future editable layer blueprint'}
                       </h3>
                       <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
                         {locale === 'ar'
-                          ? 'تجمع هذه المعاينة بين الخلفية المولّدة أو المرفوعة وطبقات العنوان وCTA والشعار كتصور مبدئي فقط. ليست مرتبطة بالمنشور وليست تصميمًا إعلانيًا نهائيًا.'
-                          : 'This combines a generated or uploaded background with headline, CTA, and logo layers as an early draft only. It is not attached to posts and is not final ad creative.'}
+                          ? 'هذه خطة للطبقات القابلة للتعديل لاحقًا. ليست تصميمًا إعلانيًا مُصدّرًا، وليست مرتبطة بالمنشور، وليست نسخة نهائية.'
+                          : 'This is a planning blueprint for future editable layers. It is not a rendered ad, not attached to the post, and not final creative.'}
                       </p>
                     </div>
                     <span className="inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700">
-                      draft_composition_preview
+                      draft_composition_plan
                     </span>
                   </div>
 
                   {creativeCompositionPreview ? (
-                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
-                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
-                        <img
-                          src={svgToDataUri(creativeCompositionPreview.preview.artifact.svg)}
-                          alt={locale === 'ar' ? 'معاينة تركيب إبداعي للمراجعة فقط' : 'Review-only draft composition preview'}
-                          className="block h-auto w-full"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(300px,1.1fr)]">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'تصنيف المخرَج' : 'Output classification'}
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                              {creativeCompositionPreview.candidate.outputClassification}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                            {locale === 'ar' ? 'مراجعة فقط' : 'review-only'}
+                          </span>
+                        </div>
+
+                        <p className="mt-4 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
+                          {locale === 'ar'
+                            ? creativeCompositionPreview.candidate.planCopy.ar
+                            : creativeCompositionPreview.candidate.planCopy.en}
+                        </p>
+
+                        <div className="mt-4 grid gap-3">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                               {locale === 'ar' ? 'المنشور المختار' : 'Selected post'}
                             </p>
@@ -2906,7 +2915,7 @@ function CampaignDetailPageInner() {
                               {creativeCompositionPreview.post.id}
                             </p>
                           </div>
-                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
                               {locale === 'ar' ? 'المنصة والقالب' : 'Platform + template'}
                             </p>
@@ -2917,59 +2926,82 @@ function CampaignDetailPageInner() {
                               {creativeCompositionPreview.template.aspectRatio} · {creativeCompositionPreview.template.width}×{creativeCompositionPreview.template.height}
                             </p>
                           </div>
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'مصدر الخلفية' : 'Background source'}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-800">
+                              {creativeCompositionPreview.candidate.backgroundSource === 'uploaded_asset'
+                                ? (locale === 'ar' ? 'أصل مرفوع ومؤكد' : 'confirmed uploaded asset')
+                                : (locale === 'ar' ? 'خلفية مولّدة مؤكدة' : 'confirmed generated background')}
+                            </p>
+                          </div>
                         </div>
+                      </div>
 
-                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-800">
-                          {locale === 'ar'
-                            ? 'جاهزية المعاينة: خلفية مؤكدة وطبقات قابلة للتعديل كبيانات فقط. لا توجد أزرار ربط أو رفع أو حفظ أو نشر أو جدولة.'
-                            : 'Preview readiness: confirmed background and editable layers as metadata only. No attach, upload, save, publish, or schedule actions are available.'}
-                        </div>
-
-                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <div className="space-y-3">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {locale === 'ar' ? 'ملخص الطبقات' : 'Layer summary'}
+                            {locale === 'ar' ? 'مخطط الطبقات' : 'Layer blueprint'}
                           </p>
                           <div className="mt-3 grid gap-2">
                             {creativeCompositionPreview.preview.layers
-                              .filter(layer => ['background', 'headline', 'cta', 'logo_or_brand_name', 'accent'].includes(layer.role))
+                              .filter(layer => ['background', 'headline', 'cta', 'logo_or_brand_name', 'subheading'].includes(layer.role))
                               .map(layer => (
-                                <div key={layer.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                                  <div>
+                                <div key={layer.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                                  <div className="flex items-center justify-between gap-3">
                                     <p className="text-xs font-semibold text-slate-800">
                                       {layer.role === 'logo_or_brand_name'
-                                        ? (locale === 'ar' ? 'الشعار / اسم العلامة' : 'Logo / brand fallback')
+                                        ? (locale === 'ar' ? 'طبقة العلامة' : 'Brand layer')
                                         : layer.role === 'headline'
-                                          ? (locale === 'ar' ? 'العنوان' : 'Headline')
+                                          ? (locale === 'ar' ? 'طبقة العنوان' : 'Headline layer')
                                           : layer.role === 'cta'
-                                            ? 'CTA'
-                                            : layer.role === 'accent'
-                                              ? (locale === 'ar' ? 'لمسة لونية' : 'Accent')
+                                            ? (locale === 'ar' ? 'طبقة CTA' : 'CTA layer')
+                                            : layer.role === 'subheading'
+                                              ? (locale === 'ar' ? 'طبقة السياق' : 'Context layer')
                                               : (locale === 'ar' ? 'الخلفية' : 'Background')}
                                     </p>
-                                    <p className="mt-0.5 text-[11px] text-slate-500">
-                                      {layer.editable
-                                        ? (locale === 'ar' ? 'قابلة للتعديل لاحقاً' : 'future editable layer')
-                                        : (locale === 'ar' ? 'أصل خلفية فقط' : 'background asset only')}
-                                    </p>
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                      layer.safeZoneCompliant
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : 'bg-amber-50 text-amber-700'
+                                    }`}>
+                                      {layer.safeZoneCompliant
+                                        ? (locale === 'ar' ? 'منطقة آمنة' : 'safe zone')
+                                        : (locale === 'ar' ? 'تحتاج مراجعة' : 'review needed')}
+                                    </span>
                                   </div>
-                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    layer.safeZoneCompliant
-                                      ? 'bg-emerald-50 text-emerald-700'
-                                      : 'bg-amber-50 text-amber-700'
-                                  }`}>
-                                    {layer.safeZoneCompliant
-                                      ? (locale === 'ar' ? 'داخل المنطقة الآمنة' : 'safe zone')
-                                      : (locale === 'ar' ? 'تحتاج مراجعة' : 'review needed')}
-                                  </span>
+                                  <p className="mt-1 text-[11px] text-slate-500">
+                                    {layer.role === 'background'
+                                      ? (locale === 'ar' ? 'أصل خلفية فقط؛ ليس تصميمًا مُصدّرًا.' : 'Background asset only; not an exported creative.')
+                                      : layer.role === 'logo_or_brand_name'
+                                        ? (layer.content.text
+                                            ? (locale === 'ar' ? `اسم العلامة كبديل للشعار: ${layer.content.text}` : `Brand-name fallback because no logo is available: ${layer.content.text}`)
+                                            : (locale === 'ar' ? 'موضع شعار قابل للتعديل لاحقًا.' : 'Future editable logo slot.'))
+                                        : (layer.content.text
+                                            ? layer.content.text
+                                            : (locale === 'ar' ? 'طبقة قابلة للتعديل لاحقًا.' : 'Future editable layer.'))}
+                                  </p>
+                                  <p className="mt-1 text-[10px] text-slate-400">
+                                    {layer.editable
+                                      ? (locale === 'ar' ? 'بيانات طبقة قابلة للتعديل لاحقًا' : 'future editable layer metadata')
+                                      : (locale === 'ar' ? 'مرجع الخلفية فقط' : 'background reference only')}
+                                  </p>
                                 </div>
                               ))}
                           </div>
                         </div>
 
+                        <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+                          {locale === 'ar'
+                            ? 'هذه خطة قراءة فقط وليست معاينة إعلان نهائي. لا توجد أزرار ربط أو رفع أو حفظ أو تصدير أو توليد أو نشر أو جدولة في هذه البطاقة.'
+                            : 'This is a read-only plan, not a rendered or exported creative. This card has no attach, upload, save, export, generate, publish, or schedule action.'}
+                        </p>
+
                         <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                           {locale === 'ar'
-                            ? 'Content Hub يظل مصدر الحقيقة لوسائط المنشورات النهائية. هذه المعاينة ليست قيمة SocialPost.imageUrl، ولا تُرفق تلقائياً، وأي ربط أو تصدير مستقبلي يجب أن يكون إجراءً صريحاً منفصلاً.'
-                            : 'Content Hub remains the source of truth for final post media. This preview is not SocialPost.imageUrl, is not attached automatically, and any future attach or export must be a separate explicit action.'}
+                            ? 'Content Hub يظل مصدر الحقيقة لوسائط المنشورات النهائية. هذه الخطة ليست قيمة SocialPost.imageUrl، ولا تُرفق تلقائياً، وسيعالج Creative Studio المستقبلي الطبقات القابلة للتعديل لاحقاً.'
+                            : 'Content Hub remains the source of truth for final post media. This plan is not SocialPost.imageUrl, is not attached automatically, and future Creative Studio work will handle editable layers later.'}
                         </p>
                       </div>
                     </div>

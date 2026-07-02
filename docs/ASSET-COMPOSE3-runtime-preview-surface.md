@@ -1,52 +1,70 @@
-# ASSET-COMPOSE3 Runtime Preview Surface
+# ASSET-COMPOSE3 Composition Plan Surface
 
 ## Decision
 
-ASSET-COMPOSE3 adds a read-only draft composition preview inside the Campaign Creative tab.
+ASSET-COMPOSE3 adds a read-only Composition Plan card inside the Campaign Creative tab.
 
-The preview uses the helper-only contracts introduced by ASSET-COMPOSE1 and ASSET-COMPOSE2:
+The plan uses the helper-only contracts introduced by ASSET-COMPOSE1 and ASSET-COMPOSE2:
 
 Brand Brain -> Strategy -> SocialPost -> CreativeRequirement -> CreativeTemplateSpec -> confirmed generated/uploaded background -> CreativeCompositionPlan -> CreativeCompositionPreview.
+
+The runtime surface intentionally does not present the SVG artifact as a finished or near-finished ad preview. Until a professional compositor/editor exists, the user-facing experience is a structured layout blueprint for review.
 
 ## Why Creative Tab
 
 The Creative tab is the safest runtime surface for early composition review because it already explains creative requirements, media readiness, Creative Brief planning, and the future Studio boundary.
 
-Content Hub remains the final post preview and post-linked media source of truth. Putting the first composition preview in Content Hub would risk making a review artifact look like attached post media.
+Content Hub remains the final post preview and post-linked media source of truth. Putting the first composition plan in Content Hub would risk making a review artifact look like attached post media.
 
 ## Candidate Selection
 
-The preview candidate must have confirmed background media:
+The composition-plan candidate must have confirmed background media:
 
 - `mediaSource=GENERATE` and `generationStatus=DONE`, or
 - confirmed uploaded media.
 
-An `imageUrl` with `PENDING`, `FAILED`, or missing generation/attachment proof is not enough. Those legacy or ambiguous previews remain excluded from the composition preview surface.
+An `imageUrl` with `PENDING`, `FAILED`, or missing generation/attachment proof is not enough. Those legacy or ambiguous previews remain excluded from the composition plan surface.
 
 ## Read-only Boundary
 
-The runtime preview is classified as `draft_composition_preview`.
+The runtime plan is classified as `draft_composition_plan`.
 
 It is:
 
 - review-only
 - not final ad creative
+- not a rendered ad
 - not attached to a SocialPost
+- not exported
 - not uploaded
 - not persisted
 - not a Media row
 - not a GeneratedVisual row
 - not a Brand Brain learning update
 
-## Layout Safety
+## Runtime Presentation
 
-The preview renderer must keep draft layers readable and visibly intentional:
+The runtime card shows layer metadata instead of a large ad-like SVG:
 
-- text layer bounds are clamped to the preview canvas
-- headline, CTA, subheading, and brand fallback text wrap or truncate with ellipsis
-- normal preview mode does not show filled debug placeholder blocks
-- optional layer guides remain dashed outlines only when explicitly requested
-- Arabic text remains editable metadata and is escaped before SVG rendering
+- selected post
+- platform/template
+- background source
+- headline layer
+- CTA layer
+- brand layer
+- safe-zone status
+- output classification
+
+The card copy says:
+
+- Composition plan / layout blueprint
+- review-only
+- not final creative
+- not rendered/exported
+- not attached to the post
+- future Creative Studio will handle editable layers later
+
+If a future visual guide is shown, it must be small, labeled as a layout guide, and must not look like a final creative preview.
 
 ## No Execution Actions
 
@@ -69,7 +87,7 @@ Any future attach/export/save path must be explicit and separate.
 
 Content Hub remains the source of truth for final post copy, lifecycle status, and post-linked media.
 
-The composition preview is not `SocialPost.imageUrl`. It does not update `SocialPost.mediaSource`, `SocialPost.uploadedMediaId`, `Media`, `GeneratedVisual`, or `campaign.aiOutput`.
+The composition plan is not `SocialPost.imageUrl`. It does not update `SocialPost.mediaSource`, `SocialPost.uploadedMediaId`, `Media`, `GeneratedVisual`, or `campaign.aiOutput`.
 
 ## Future Path
 
@@ -87,12 +105,14 @@ Those are intentionally out of scope for ASSET-COMPOSE3.
 
 Browser QA should verify:
 
-- Creative tab shows a draft composition preview card when confirmed media exists.
+- Creative tab shows a Composition Plan / Layout Blueprint card when confirmed media exists.
 - The candidate is a confirmed `DONE` generated/uploaded background, not a pending legacy preview.
-- Copy says review-only and not final ad creative.
+- Copy says review-only and not final creative.
+- Copy says the plan is not rendered/exported.
 - Copy says not attached automatically.
+- Layer summary is readable.
 - Content Hub remains the final media decision point.
-- No attach/save/export/upload/generate/publish/schedule buttons appear in the preview card.
+- No attach/save/export/upload/generate/publish/schedule buttons appear in the plan card.
 - Credits do not change.
 - No mutation endpoints are called.
 - Content Hub state remains unchanged.

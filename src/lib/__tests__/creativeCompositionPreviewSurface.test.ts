@@ -27,6 +27,7 @@ describe('deriveCreativeCompositionPreviewCandidate', () => {
     expect(result.candidate?.post.id).toBe('post-3')
     expect(result.candidate?.mediaStateKey).toBe('generated_ready')
     expect(result.candidate?.backgroundSource).toBe('generated_background')
+    expect(result.candidate?.outputClassification).toBe('draft_composition_plan')
   })
 
   it('excludes imageUrl plus PENDING preview candidates', () => {
@@ -41,6 +42,7 @@ describe('deriveCreativeCompositionPreviewCandidate', () => {
 
     expect(result.candidate).toBeNull()
     expect(result.emptyStateCopy.en).toContain('confirmed post background')
+    expect(result.emptyStateCopy.en).toContain('layer blueprint')
   })
 
   it('returns an empty state when no confirmed background exists', () => {
@@ -57,25 +59,41 @@ describe('deriveCreativeCompositionPreviewCandidate', () => {
     expect(result.emptyStateCopy.ar).toContain('خلفية منشور مؤكدة')
   })
 
-  it('does not expose attach, upload, or save actions', () => {
+  it('does not expose attach, upload, save, export, generate, publish, or schedule actions', () => {
     const result = deriveCreativeCompositionPreviewCandidate([generatedDonePost])
 
     expect(result.candidate?.availableActions).toEqual([])
-    expect(result.candidate?.availableActions).not.toContain('attach')
-    expect(result.candidate?.availableActions).not.toContain('upload')
-    expect(result.candidate?.availableActions).not.toContain('save')
+    const serializedActions = JSON.stringify(result.candidate?.availableActions)
+    expect(serializedActions).not.toMatch(/attach|upload|save|export|generate|publish|schedule/i)
   })
 
-  it('classifies the candidate as draft and review-only, not final ad creative', () => {
+  it('classifies the candidate as a review-only composition plan, not final creative', () => {
     const result = deriveCreativeCompositionPreviewCandidate([generatedDonePost])
 
     expect(result.candidate).toMatchObject({
-      outputClassification: 'draft_composition_preview',
+      outputClassification: 'draft_composition_plan',
       reviewStatus: 'review_only',
       notFinalAdCreative: true,
       notAttachedToPost: true,
+      notRenderedOrExported: true,
     })
-    expect(result.candidate?.boundaryCopy.en).toContain('Review-only draft composition preview')
-    expect(result.candidate?.boundaryCopy.en).toContain('not final ad creative')
+    expect(result.candidate?.boundaryCopy.en).toContain('Composition plan for review only')
+    expect(result.candidate?.boundaryCopy.en).toContain('planning blueprint')
+    expect(result.candidate?.boundaryCopy.en).toContain('not a rendered ad')
+    expect(result.candidate?.planCopy.en).toContain('not final creative')
+    expect(result.candidate?.planCopy.ar).toContain('ليست نسخة نهائية')
+  })
+
+  it('does not use ad-ready or final-ad wording', () => {
+    const result = deriveCreativeCompositionPreviewCandidate([generatedDonePost])
+    const copy = [
+      result.candidate?.boundaryCopy.en,
+      result.candidate?.boundaryCopy.ar,
+      result.candidate?.planCopy.en,
+      result.candidate?.planCopy.ar,
+    ].join(' ')
+
+    expect(copy).not.toMatch(/ad-ready|platform-ready|final ad preview/i)
+    expect(copy).toContain('not attached')
   })
 })

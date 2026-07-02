@@ -14,7 +14,7 @@ export type CreativeCompositionPreviewCandidate = {
   post: CreativeCompositionPreviewCandidatePost
   mediaStateKey: Extract<ContentHubMediaStateKey, 'generated_ready' | 'uploaded_ready'>
   backgroundSource: 'generated_background' | 'uploaded_asset'
-  outputClassification: 'draft_composition_preview'
+  outputClassification: 'draft_composition_plan'
   reviewStatus: 'review_only'
   availableActions: []
   boundaryCopy: {
@@ -23,6 +23,11 @@ export type CreativeCompositionPreviewCandidate = {
   }
   notFinalAdCreative: true
   notAttachedToPost: true
+  notRenderedOrExported: true
+  planCopy: {
+    en: string
+    ar: string
+  }
 }
 
 export type CreativeCompositionPreviewCandidateResult = {
@@ -34,13 +39,18 @@ export type CreativeCompositionPreviewCandidateResult = {
 }
 
 const REVIEW_ONLY_BOUNDARY_COPY = {
-  en: 'Review-only draft composition preview. It is not final ad creative, not attached to posts, and final media decisions remain in Content Hub.',
-  ar: 'معاينة تركيب إبداعي للمراجعة فقط. ليست تصميمًا إعلانيًا نهائيًا، وليست مرتبطة بالمنشورات، وتبقى قرارات الوسائط النهائية في Content Hub.',
+  en: 'Composition plan for review only. It is a planning blueprint for future editable layers, not a rendered ad, not attached to posts, and final media decisions remain in Content Hub.',
+  ar: 'خطة تركيب إبداعي للمراجعة فقط. هي خطة للطبقات القابلة للتعديل لاحقًا، وليست تصميمًا إعلانيًا مُصدّرًا، وليست مرتبطة بالمنشورات، وتبقى قرارات الوسائط النهائية في Content Hub.',
+}
+
+const PLAN_COPY = {
+  en: 'This is a planning blueprint for future editable layers. It is not a rendered ad, not attached to the post, and not final creative.',
+  ar: 'هذه خطة للطبقات القابلة للتعديل لاحقًا. ليست تصميمًا إعلانيًا مُصدّرًا، وليست مرتبطة بالمنشور، وليست نسخة نهائية.',
 }
 
 const EMPTY_STATE_COPY = {
-  en: 'No draft composition preview yet. A confirmed post background is needed before previewing composition.',
-  ar: 'لا توجد معاينة تركيب بعد. يلزم وجود خلفية منشور مؤكدة قبل معاينة التركيب.',
+  en: 'No composition plan yet. A confirmed post background is needed before showing the layer blueprint.',
+  ar: 'لا توجد خطة تركيب بعد. يلزم وجود خلفية منشور مؤكدة قبل عرض مخطط الطبقات.',
 }
 
 function candidateFromPost(
@@ -53,12 +63,14 @@ function candidateFromPost(
     post,
     mediaStateKey: mediaState.key,
     backgroundSource: mediaState.key === 'uploaded_ready' ? 'uploaded_asset' : 'generated_background',
-    outputClassification: 'draft_composition_preview',
+    outputClassification: 'draft_composition_plan',
     reviewStatus: 'review_only',
     availableActions: [],
     boundaryCopy: REVIEW_ONLY_BOUNDARY_COPY,
     notFinalAdCreative: true,
     notAttachedToPost: true,
+    notRenderedOrExported: true,
+    planCopy: PLAN_COPY,
   }
 }
 
