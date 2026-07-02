@@ -36,6 +36,30 @@ export function validateBulkImageGenerationConfirmation(input: {
   return { ok: true }
 }
 
+export function validateSingleImageGenerationConfirmation(input: {
+  confirmed?: unknown
+  acknowledgedCreditCost?: unknown
+  acknowledgedNoPublishOrSchedule?: unknown
+  acknowledgedPostMediaForReview?: unknown
+}): ContentHubConfirmationResult {
+  if (
+    input.confirmed !== true ||
+    input.acknowledgedCreditCost !== CONTENT_HUB_IMAGE_COST ||
+    input.acknowledgedNoPublishOrSchedule !== true
+  ) {
+    return { ok: false, error: 'Image generation requires explicit confirmation. No credits were spent.' }
+  }
+
+  if (
+    'acknowledgedPostMediaForReview' in input &&
+    input.acknowledgedPostMediaForReview !== true
+  ) {
+    return { ok: false, error: 'Image generation requires explicit confirmation. No credits were spent.' }
+  }
+
+  return { ok: true }
+}
+
 export function validateRewriteConfirmation(input: {
   confirmed?: unknown
   acknowledgedCreditCost?: unknown

@@ -16,12 +16,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerUserId } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import {
+  CREDIT_COSTS,
   checkAndDeductCredits,
   checkDailyImageCap,
   refundCredits,
   refundCreditsForTransaction,
   type CreditDeductionOk,
 } from '@/lib/credits'
+import { validateSingleImageGenerationConfirmation } from '@/lib/contentHubActionSafety'
 import {
   buildImagePrompt,
   generateWithDallE,
@@ -72,6 +74,11 @@ export async function POST(req: NextRequest) {
     postCaption,
     // Regeneration
     parentId,
+    // Explicit credit/action confirmation
+    explicitImageGenerationConfirmed,
+    acknowledgedCreditCost,
+    acknowledgedNoPublishOrSchedule,
+    acknowledgedPostMediaForReview,
   } = body
 
   // ── Get workspace ──────────────────────────────────────────────────────────
@@ -80,6 +87,28 @@ export async function POST(req: NextRequest) {
     orderBy: { createdAt: 'asc' },
   })
   if (!workspace) return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
+
+  // ── Explicit confirmation guard (before credits, visual rows, or providers) ─
+  const confirmation = validateSingleImageGenerationConfirmation({
+    confirmed: explicitImageGenerationConfirmed,
+    acknowledgedCreditCost,
+    acknowledgedNoPublishOrSchedule,
+    acknowledgedPostMediaForReview,
+  })
+  if (!confirmation.ok) {
+    return NextResponse.json(
+      {
+        error: 'IMAGE_GENERATION_CONFIRMATION_REQUIRED',
+        message: confirmation.error,
+        required: {
+          explicitImageGenerationConfirmed: true,
+          acknowledgedCreditCost: CREDIT_COSTS.IMAGE_GENERATION,
+          acknowledgedNoPublishOrSchedule: true,
+        },
+      },
+      { status: 400 },
+    )
+  }
 
   // ── Daily image cap (per-plan abuse guard, checked BEFORE deduction) ────────
   // Even with credits available, limit images/day so Free users can't run up

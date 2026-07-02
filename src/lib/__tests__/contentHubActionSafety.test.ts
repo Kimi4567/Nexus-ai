@@ -5,6 +5,7 @@ import {
   getBulkImageGenerationCost,
   getMediaPendingVisualStateCopy,
   validateBulkImageGenerationConfirmation,
+  validateSingleImageGenerationConfirmation,
   validateRewriteConfirmation,
 } from '../contentHubActionSafety'
 
@@ -42,6 +43,45 @@ describe('contentHubActionSafety', () => {
       acknowledgedImageCount: 8,
       acknowledgedCreditCost: 24,
       expectedImageCount: 8,
+    })).toEqual({ ok: true })
+  })
+
+  it('requires explicit single image generation confirmation', () => {
+    expect(validateSingleImageGenerationConfirmation({
+      confirmed: false,
+      acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedPostMediaForReview: true,
+    })).toEqual({
+      ok: false,
+      error: 'Image generation requires explicit confirmation. No credits were spent.',
+    })
+  })
+
+  it('requires exact single image credit and no-publish acknowledgement', () => {
+    expect(validateSingleImageGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST + 1,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedPostMediaForReview: true,
+    })).toMatchObject({ ok: false })
+    expect(validateSingleImageGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
+      acknowledgedNoPublishOrSchedule: false,
+      acknowledgedPostMediaForReview: true,
+    })).toMatchObject({ ok: false })
+    expect(validateSingleImageGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedPostMediaForReview: false,
+    })).toMatchObject({ ok: false })
+    expect(validateSingleImageGenerationConfirmation({
+      confirmed: true,
+      acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
+      acknowledgedNoPublishOrSchedule: true,
+      acknowledgedPostMediaForReview: true,
     })).toEqual({ ok: true })
   })
 

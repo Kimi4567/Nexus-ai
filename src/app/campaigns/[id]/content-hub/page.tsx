@@ -21,6 +21,7 @@ import { summarizeByDisplayState } from '@/lib/postVisibility'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import {
+  CONTENT_HUB_IMAGE_COST,
   CONTENT_HUB_REGENERATION_COST,
   CONTENT_HUB_REWRITE_COST,
   getBulkImageGenerationCost,
@@ -255,6 +256,8 @@ export default function ContentHubPage() {
   const [enableABTesting, setEnableABTesting] = useState(false)
   const [pickingWinner, setPickingWinner] = useState<string | null>(null)
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null)
+  const [imageGenerationConfirmPostId, setImageGenerationConfirmPostId] = useState<string | null>(null)
+  const [imageGenerationAcknowledged, setImageGenerationAcknowledged] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
   const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
@@ -476,6 +479,9 @@ export default function ContentHubPage() {
     : null
   const mediaRemovalPost = mediaRemovalPostId
     ? posts.find(p => p.id === mediaRemovalPostId)
+    : null
+  const imageGenerationConfirmPost = imageGenerationConfirmPostId
+    ? posts.find(p => p.id === imageGenerationConfirmPostId)
     : null
   const bulkImageButtonLabel = isAr
     ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
@@ -890,6 +896,28 @@ export default function ContentHubPage() {
   // ── Generate real AI image for a single post ─────────────────────────────────
   // Calls /api/visuals/generate → gpt-image-1 or Flux → Cloudinary + brand overlay
 
+  function openImageGenerationConfirm(postId: string) {
+    if (imageGenerationLocked) {
+      setError(addCreditsForImagesLabel)
+      return
+    }
+    setImageGenerationAcknowledged(false)
+    setImageGenerationConfirmPostId(postId)
+  }
+
+  function closeImageGenerationConfirm() {
+    if (generatingImageId) return
+    setImageGenerationConfirmPostId(null)
+    setImageGenerationAcknowledged(false)
+  }
+
+  async function confirmPostImageGeneration() {
+    if (!imageGenerationConfirmPostId || !imageGenerationAcknowledged) return
+    const post = posts.find(p => p.id === imageGenerationConfirmPostId)
+    if (!post) return
+    await generatePostImage(post.id, post.platform)
+  }
+
   async function generatePostImage(postId: string, platform: string) {
     if (!isAuthenticated) return
     if (imageGenerationLocked) {
@@ -898,12 +926,6 @@ export default function ContentHubPage() {
     }
     const post = posts.find(p => p.id === postId)
     if (!post) return
-
-    // Cost confirmation before spending credits (failed generations are refunded).
-    if (typeof window !== 'undefined' &&
-        !window.confirm('Generate image for 3 credits? Failed generations are refunded.')) {
-      return
-    }
 
     setGeneratingImageId(postId)
     setError(null)
@@ -936,6 +958,10 @@ export default function ContentHubPage() {
           visualType:  'SOCIAL_PREVIEW',
           visualStyle: 'Premium',
           postCaption: post.caption || post.imagePrompt || '',
+          explicitImageGenerationConfirmed: true,
+          acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
+          acknowledgedNoPublishOrSchedule: true,
+          acknowledgedPostMediaForReview: true,
         }),
       })
 
@@ -948,7 +974,9 @@ export default function ContentHubPage() {
       const imageUrl = data?.visual?.imageUrl
       if (!imageUrl) throw new Error('No image URL returned')
 
-      await savePostEdit(postId, { imageUrl, generationStatus: 'DONE' })
+      await savePostEdit(postId, { imageUrl, mediaSource: 'GENERATE', generationStatus: 'DONE' })
+      setImageGenerationConfirmPostId(null)
+      setImageGenerationAcknowledged(false)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1407,7 +1435,7 @@ export default function ContentHubPage() {
               isGeneratingImage={generatingImageId === post.id}
               imageGenerationLocked={imageGenerationLocked}
               addCreditsForImagesLabel={addCreditsForImagesLabel}
-              onGenerateImage={() => generatePostImage(post.id, post.platform)}
+              onGenerateImage={() => openImageGenerationConfirm(post.id)}
               onAddCredits={() => router.push('/billing')}
               onToggleExpand={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
               onEditCaption={() => setEditingCaption(editingCaption === post.id ? null : post.id)}
@@ -1631,7 +1659,7 @@ export default function ContentHubPage() {
                   </div>
                 )}
 
-                {/* Brand Brain learning */}
+                {/* Approval signal summary */}
                 {(approveResult.signals.hooks > 0 || approveResult.signals.angles > 0) && (
                   <div className="rounded-xl p-3 mb-5 flex items-start gap-3"
                     style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
@@ -1957,6 +1985,61 @@ export default function ContentHubPage() {
         )}
 
         {/* ── Credit action confirmations ───────────────────────────── */}
+        {imageGenerationConfirmPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeImageGenerationConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">
+                      {isAr ? 'تأكيد توليد صورة المنشور' : 'Confirm post image generation'}
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {isAr
+                        ? `سيولّد NEXUS صورة واحدة للمنشور #${imageGenerationConfirmPost.contentPlanIndex} للمراجعة. التكلفة: ${CONTENT_HUB_IMAGE_COST} كريديت.`
+                        : `NEXUS will generate one image for post #${imageGenerationConfirmPost.contentPlanIndex} for review. Cost: ${CONTENT_HUB_IMAGE_COST} credits.`}
+                    </p>
+                  </div>
+                  <button onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
+                </div>
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>{isAr ? 'الصورة المولّدة ستحدّث وسائط معاينة هذا المنشور إذا نجح التوليد.' : 'The generated image will update this post preview media if generation succeeds.'}</p>
+                  <p>{isAr ? 'لا يتم النشر أو الجدولة أو تغيير حالة النشر اليدوي أو النشر عبر API.' : 'This does not publish, schedule, or change manual/API publish status.'}</p>
+                  <p>{isAr ? 'لا يتم تحديث تعلّم Brand Brain من توليد الصورة.' : 'This does not update Brand Brain learning.'}</p>
+                  <p>{isAr ? 'يتم رد تكلفة عمليات التوليد الفاشلة عندما تدعمها آلية المنتج الحالية.' : 'Failed generations are refunded when the existing product refund logic supports it.'}</p>
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    checked={imageGenerationAcknowledged}
+                    onChange={e => setImageGenerationAcknowledged(e.target.checked)}
+                    disabled={Boolean(generatingImageId)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">
+                    {isAr
+                      ? `أفهم أن هذا يكلف ${CONTENT_HUB_IMAGE_COST} كريديت وسيولّد وسائط المنشور للمراجعة.`
+                      : `I understand this costs ${CONTENT_HUB_IMAGE_COST} credits and will generate post media for review.`}
+                  </span>
+                </label>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={closeImageGenerationConfirm} disabled={Boolean(generatingImageId)} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button
+                    onClick={confirmPostImageGeneration}
+                    disabled={Boolean(generatingImageId) || !imageGenerationAcknowledged}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed"
+                    style={{ background: '#111827', opacity: Boolean(generatingImageId) || !imageGenerationAcknowledged ? 0.45 : 1 }}
+                  >
+                    {generatingImageId
+                      ? (isAr ? 'جارٍ التوليد...' : 'Generating...')
+                      : (isAr ? `تأكيد توليد الصورة — ${CONTENT_HUB_IMAGE_COST} كريديت` : `Confirm image generation — ${CONTENT_HUB_IMAGE_COST} credits`)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {showBulkImageConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeBulkImageConfirm}>
             <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
@@ -2254,7 +2337,7 @@ interface PostCardProps {
   isGeneratingImage: boolean
   imageGenerationLocked: boolean
   addCreditsForImagesLabel: string
-  onGenerateImage: () => Promise<void>
+  onGenerateImage: () => void | Promise<void>
   onAddCredits: () => void
   onToggleExpand: () => void
   onEditCaption: () => void
