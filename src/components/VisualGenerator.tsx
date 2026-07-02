@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { CONTENT_HUB_IMAGE_COST } from '@/lib/contentHubActionSafety'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 
 type VisualStyle =
   | 'Minimal' | 'Luxury' | 'Corporate' | 'Editorial' | 'Cinematic'
@@ -57,7 +58,7 @@ const VISUAL_STYLES: { value: VisualStyle; label: string; desc: string }[] = [
 const VISUAL_TYPES: { value: VisualType; label: string; desc: string; icon: string }[] = [
   { value: 'HERO', label: 'Hero Image', desc: 'Campaign header visual', icon: '🖼️' },
   { value: 'SOCIAL_PREVIEW', label: 'Social Post', desc: 'Instagram / Facebook', icon: '📱' },
-  { value: 'AD_CREATIVE', label: 'Ad Creative', desc: 'Paid ads banner', icon: '📢' },
+  { value: 'AD_CREATIVE', label: 'Paid Creative Background', desc: 'Planning visual', icon: '📢' },
   { value: 'THUMBNAIL', label: 'Thumbnail', desc: 'Video / content thumb', icon: '▶️' },
 ]
 
@@ -337,6 +338,8 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
           visualType: selectedType,
           visualStyle: selectedStyle,
           parentId: regenerateFrom?.id || null,
+          assetRole: 'campaign_concept_background',
+          creativeTemplate: getDefaultTemplateForPlatform('META'),
           explicitImageGenerationConfirmed: true,
           acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
           acknowledgedNoPublishOrSchedule: true,
@@ -516,14 +519,14 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
                 {confirmGenerateVisual ? 'Confirm campaign concept regeneration' : 'Confirm campaign concept visual generation'}
               </div>
               <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                This creates a campaign concept/gallery asset for review. It is not attached to posts automatically, not scheduled, not published, and not used in paid ads automatically.
+                This creates a campaign concept background/gallery asset for review. It is not final ad creative, not attached to posts automatically, not scheduled, not published, and not used in paid ads automatically.
               </div>
             </div>
             <button onClick={closeConceptVisualConfirmation} className="text-xl leading-none text-slate-400 hover:text-slate-700">×</button>
           </div>
           <div className="space-y-1 rounded-lg bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
             <p>Cost: {CONTENT_HUB_IMAGE_COST} credits. Failed generations are refunded when the existing product refund logic supports it.</p>
-            <p>NEXUS does not publish, schedule, change manual/API publish status, or update Brand Brain learning from this visual.</p>
+            <p>NEXUS does not publish, schedule, change manual/API publish status, or update Brand Brain signals from this visual.</p>
           </div>
           <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
             <input
@@ -533,7 +536,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
               className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
             />
             <span className="text-[11px] font-semibold text-slate-800">
-              I understand this costs {CONTENT_HUB_IMAGE_COST} credits and creates a campaign concept visual for review only.
+              I understand this costs {CONTENT_HUB_IMAGE_COST} credits and creates a campaign concept background visual for review only.
             </span>
           </label>
           <div className="mt-3 flex justify-end gap-2">

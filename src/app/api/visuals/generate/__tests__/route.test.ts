@@ -53,6 +53,7 @@ vi.mock('@/lib/credits', () => ({
 vi.mock('@/lib/ai/imageGen', () => ({
   buildImagePrompt: mockBuildImagePrompt,
   generateWithDallE: mockGenerateWithDallE,
+  IMAGE_OUTPUT_CLASSIFICATION: 'draft_background_for_review',
   uploadToCloudinary: mockUploadToCloudinary,
 }))
 vi.mock('@/lib/ai/falGen', () => ({
@@ -305,19 +306,61 @@ describe('POST /api/visuals/generate — RF-5 refund safety', () => {
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
-  it('success deducts once and preserves visual response shape', async () => {
-    const res = await POST(makeReq({ ...confirmedImageBody, campaignId: 'c1', platform: 'META' }))
+  it('success deducts once and returns background classification metadata', async () => {
+    mockPrisma.generatedVisual.update.mockResolvedValue({
+      id: 'visual_1',
+      status: 'COMPLETED',
+      imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
+    })
+
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      campaignId: 'c1',
+      platform: 'META',
+      assetRole: 'post_background',
+      creativeRequirement: {
+        visualConcept: 'Office coffee background',
+        objective: 'Support planning',
+        aspectRatio: '4:5',
+      },
+      creativeTemplate: {
+        templateName: 'Meta portrait offer card',
+        aspectRatio: '4:5',
+      },
+    }))
     const json = await res.json()
 
     expect(res.status).toBe(200)
     expect(json.visual).toEqual({
       id: 'visual_1',
       status: 'COMPLETED',
-      imageUrl: 'https://res.cloudinary.com/demo/final.jpg',
+      imageUrl: 'https://res.cloudinary.com/demo/raw.jpg',
     })
+    expect(json.assetRole).toBe('post_background')
+    expect(json.outputClassification).toBe('draft_background_for_review')
+    expect(mockBuildImagePrompt).toHaveBeenCalledWith(expect.objectContaining({
+      assetRole: 'post_background',
+      creativeRequirement: expect.objectContaining({ visualConcept: 'Office coffee background' }),
+      creativeTemplate: expect.objectContaining({ templateName: 'Meta portrait offer card' }),
+    }))
+    expect(mockComposeBrandedPost).not.toHaveBeenCalled()
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'IMAGE_GENERATION')
     expect(mockCheckAndDeduct).toHaveBeenCalledTimes(1)
     expect(mockRefund).not.toHaveBeenCalled()
     expect(mockRefundForTxn).not.toHaveBeenCalled()
+  })
+
+  it('legacy asset role can still use the temporary brand compositor', async () => {
+    const res = await POST(makeReq({
+      ...confirmedImageBody,
+      campaignId: 'c1',
+      platform: 'META',
+      assetRole: 'legacy_composited_post',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.visual.imageUrl).toBe('https://res.cloudinary.com/demo/final.jpg')
+    expect(mockComposeBrandedPost).toHaveBeenCalledTimes(1)
   })
 })

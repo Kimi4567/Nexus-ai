@@ -32,6 +32,7 @@ import {
   summarizeContentHubMediaReadiness,
 } from '@/lib/contentHubMediaState'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
+import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -958,8 +959,22 @@ export default function ContentHubPage() {
       }
       const mappedPlatform = platformMap[platform.toUpperCase()] || 'INSTAGRAM'
 
-      // Call the existing brand-aware image generation route
-      // postCaption drives the scene; brand colors + logo overlay applied server-side
+      const creativeRequirement = derivePostCreativeRequirement({
+        postId: post.id,
+        platform: post.platform,
+        caption: post.caption || post.imagePrompt || '',
+        status: post.status,
+        imageUrl: post.imageUrl,
+        uploadedMediaId: post.uploadedMediaId,
+        mediaSource: post.mediaSource,
+        generationStatus: post.generationStatus,
+        isVideoPost: post.isVideoPost,
+        brandName: campaign?.name,
+      })
+      const creativeTemplate = getDefaultTemplateForPlatform(creativeRequirement.platform)
+
+      // Generate a post background/draft visual for review. Text/logo/CTA layers
+      // remain separate future template layers, not AI-raster text.
       const res = await fetch('/api/visuals/generate', {
         method: 'POST',
         headers: {
@@ -972,6 +987,9 @@ export default function ContentHubPage() {
           visualType:  'SOCIAL_PREVIEW',
           visualStyle: 'Premium',
           postCaption: post.caption || post.imagePrompt || '',
+          assetRole: 'post_background',
+          creativeRequirement,
+          creativeTemplate,
           explicitImageGenerationConfirmed: true,
           acknowledgedCreditCost: CONTENT_HUB_IMAGE_COST,
           acknowledgedNoPublishOrSchedule: true,
@@ -2024,7 +2042,7 @@ export default function ContentHubPage() {
                 <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
                   <p>{isAr ? 'الصورة المولّدة ستحدّث وسائط معاينة هذا المنشور إذا نجح التوليد.' : 'The generated image will update this post preview media if generation succeeds.'}</p>
                   <p>{isAr ? 'لا يتم النشر أو الجدولة أو تغيير حالة النشر اليدوي أو النشر عبر API.' : 'This does not publish, schedule, or change manual/API publish status.'}</p>
-                  <p>{isAr ? 'لا يتم تحديث تعلّم Brand Brain من توليد الصورة.' : 'This does not update Brand Brain learning.'}</p>
+                  <p>{isAr ? 'لا يتم تحديث إشارات Brand Brain من توليد الصورة.' : 'This does not update Brand Brain signals.'}</p>
                   <p>{isAr ? 'يتم رد تكلفة عمليات التوليد الفاشلة عندما تدعمها آلية المنتج الحالية.' : 'Failed generations are refunded when the existing product refund logic supports it.'}</p>
                 </div>
                 <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
