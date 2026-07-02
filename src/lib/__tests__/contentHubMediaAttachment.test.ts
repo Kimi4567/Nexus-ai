@@ -110,4 +110,15 @@ describe('Content Hub media source labels', () => {
       generationStatus: 'DONE',
     }).en).toBe('Generated image')
   })
+
+  it('labels pending previews as readiness pending instead of post media', () => {
+    const result = derivePostMediaSource({
+      imageUrl: 'https://cdn.example.com/pending-preview.jpg',
+      mediaSource: 'GENERATE',
+      generationStatus: 'PENDING',
+    })
+
+    expect(result.key).toBe('AMBIGUOUS_PREVIEW_PENDING')
+    expect(result.en).toBe('Media preview — readiness pending')
+  })
 })
