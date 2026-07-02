@@ -99,6 +99,37 @@ function previewId(plan: CreativeCompositionPlan): string {
   return `preview_${plan.planId}`.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function clampLayerBounds(
+  bounds: CreativeCompositionPreviewLayer['render'],
+  canvas: { width: number; height: number },
+): CreativeCompositionPreviewLayer['render'] {
+  const width = clamp(bounds.width, 1, canvas.width)
+  const height = clamp(bounds.height, 1, canvas.height)
+  return {
+    ...bounds,
+    x: clamp(bounds.x, 0, Math.max(0, canvas.width - width)),
+    y: clamp(bounds.y, 0, Math.max(0, canvas.height - height)),
+    width,
+    height,
+  }
+}
+
+function expandBrandFallbackBounds(
+  bounds: CreativeCompositionPreviewLayer['render'],
+  canvas: { width: number; height: number },
+): CreativeCompositionPreviewLayer['render'] {
+  const width = Math.min(300, Math.max(bounds.width, Math.round(canvas.width * 0.22)))
+  const height = Math.min(64, Math.max(bounds.height, 48))
+  const x = bounds.anchor === 'top_right' || bounds.anchor === 'bottom_right'
+    ? bounds.x + bounds.width - width
+    : bounds.x
+  return clampLayerBounds({ ...bounds, x, width, height }, canvas)
+}
+
 function absoluteLayerBounds(
   layer: Pick<CreativeCompositionLayer, 'position' | 'size'>,
   canvas: { width: number; height: number },
@@ -109,24 +140,24 @@ function absoluteLayerBounds(
   const anchorY = Math.round(layer.position.y * canvas.height)
 
   if (layer.position.anchor === 'top_right') {
-    return { x: anchorX - width, y: anchorY, width, height, anchor: layer.position.anchor }
+    return clampLayerBounds({ x: anchorX - width, y: anchorY, width, height, anchor: layer.position.anchor }, canvas)
   }
   if (layer.position.anchor === 'bottom_left') {
-    return { x: anchorX, y: anchorY - height, width, height, anchor: layer.position.anchor }
+    return clampLayerBounds({ x: anchorX, y: anchorY - height, width, height, anchor: layer.position.anchor }, canvas)
   }
   if (layer.position.anchor === 'bottom_right') {
-    return { x: anchorX - width, y: anchorY - height, width, height, anchor: layer.position.anchor }
+    return clampLayerBounds({ x: anchorX - width, y: anchorY - height, width, height, anchor: layer.position.anchor }, canvas)
   }
   if (layer.position.anchor === 'center') {
-    return {
+    return clampLayerBounds({
       x: Math.round(anchorX - width / 2),
       y: Math.round(anchorY - height / 2),
       width,
       height,
       anchor: layer.position.anchor,
-    }
+    }, canvas)
   }
-  return { x: anchorX, y: anchorY, width, height, anchor: layer.position.anchor }
+  return clampLayerBounds({ x: anchorX, y: anchorY, width, height, anchor: layer.position.anchor }, canvas)
 }
 
 function toPreviewLayer(
@@ -151,35 +182,109 @@ function toPreviewLayer(
     size: layer.size,
     safeZoneCompliant: layer.safeZoneCompliant,
     validationMessages: [...layer.validationMessages],
-    render: absoluteLayerBounds(layer, canvas),
+    render: layer.role === 'logo_or_brand_name' && Boolean(content.text)
+      ? expandBrandFallbackBounds(absoluteLayerBounds(layer, canvas), canvas)
+      : absoluteLayerBounds(layer, canvas),
   }
 }
 
 function textFontSize(layer: CreativeCompositionPreviewLayer): number {
-  if (layer.role === 'headline') return Math.max(28, Math.min(72, Math.round(layer.render.height * 0.36)))
-  if (layer.role === 'subheading') return Math.max(18, Math.min(36, Math.round(layer.render.height * 0.28)))
-  if (layer.role === 'cta') return Math.max(18, Math.min(34, Math.round(layer.render.height * 0.34)))
-  return Math.max(18, Math.min(32, Math.round(layer.render.height * 0.32)))
+  if (layer.role === 'headline') return Math.max(28, Math.min(46, Math.round(layer.render.height * 0.28)))
+  if (layer.role === 'subheading') return Math.max(18, Math.min(28, Math.round(layer.render.height * 0.22)))
+  if (layer.role === 'cta') return Math.max(22, Math.min(30, Math.round(layer.render.height * 0.3)))
+  if (layer.role === 'logo_or_brand_name') return Math.max(18, Math.min(24, Math.round(layer.render.height * 0.22)))
+  return Math.max(18, Math.min(26, Math.round(layer.render.height * 0.28)))
+}
+
+function maxTextLines(layer: CreativeCompositionPreviewLayer): number {
+  if (layer.role === 'headline') return 2
+  if (layer.role === 'subheading') return 2
+  return 1
+}
+
+function truncateText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value
+  if (maxChars <= 1) return '…'
+  return `${value.slice(0, maxChars - 1).trim()}…`
+}
+
+function appendEllipsis(value: string, maxChars: number): string {
+  if (value.endsWith('…')) return value
+  if (value.length >= maxChars) return truncateText(value, maxChars)
+  return `${value.trim()}…`
+}
+
+function wrapTextToLayer(
+  text: string,
+  layer: CreativeCompositionPreviewLayer,
+  fontSize: number,
+  padding: number,
+): string[] {
+  const availableWidth = Math.max(24, layer.render.width - padding * 2)
+  const isArabic = layer.content.language === 'ar' || /[\u0600-\u06FF]/.test(text)
+  const approximateGlyphWidth = fontSize * (isArabic ? 0.72 : 0.58)
+  const maxCharsPerLine = Math.max(8, Math.floor(availableWidth / approximateGlyphWidth))
+  const maxLines = maxTextLines(layer)
+  const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
+  const lines: string[] = []
+  let current = ''
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (next.length <= maxCharsPerLine) {
+      current = next
+      continue
+    }
+
+    if (current) lines.push(current)
+    current = word.length > maxCharsPerLine ? truncateText(word, maxCharsPerLine) : word
+    if (lines.length === maxLines) break
+  }
+
+  if (lines.length < maxLines && current) lines.push(current)
+  if (!lines.length) lines.push(truncateText(text, maxCharsPerLine))
+
+  const totalRawChars = words.join(' ').length
+  const renderedChars = lines.join(' ').replace(/…/g, '').length
+  if (totalRawChars > renderedChars && lines.length) {
+    lines[lines.length - 1] = appendEllipsis(lines[lines.length - 1], maxCharsPerLine)
+  }
+
+  return lines.slice(0, maxLines)
+}
+
+function estimatedTextWidth(lines: string[], fontSize: number, padding: number, layerWidth: number): number {
+  const longestLine = lines.reduce((max, line) => Math.max(max, line.length), 0)
+  return Math.min(layerWidth, Math.max(48, Math.round(longestLine * fontSize * 0.62 + padding * 2)))
 }
 
 function renderTextLayer(layer: CreativeCompositionPreviewLayer): string {
   const text = layer.content.text
   if (!text) return ''
 
-  const padding = Math.max(12, Math.round(layer.render.height * 0.12))
+  const padding = Math.max(10, Math.min(18, Math.round(layer.render.height * 0.12)))
   const fontSize = textFontSize(layer)
+  const lineHeight = Math.round(fontSize * 1.18)
+  const lines = wrapTextToLayer(text, layer, fontSize, padding)
   const isArabic = layer.content.language === 'ar' || /[\u0600-\u06FF]/.test(text)
-  const textX = isArabic ? layer.render.x + layer.render.width - padding : layer.render.x + padding
-  const textY = layer.render.y + padding + fontSize
   const textAnchor = isArabic ? 'end' : 'start'
   const direction = isArabic ? 'rtl' : 'ltr'
   const fill = layer.role === 'cta' ? '#0f172a' : '#f8fafc'
-  const backgroundFill = layer.role === 'cta' ? '#f8fafc' : 'rgba(15,23,42,0.72)'
+  const backgroundFill = layer.role === 'cta' ? '#f8fafc' : '#0f172a'
+  const backgroundOpacity = layer.role === 'cta' ? '0.92' : '0.62'
+  const panelWidth = estimatedTextWidth(lines, fontSize, padding, layer.render.width)
+  const panelHeight = Math.min(layer.render.height, padding * 2 + lineHeight * lines.length)
+  const panelX = isArabic ? layer.render.x + layer.render.width - panelWidth : layer.render.x
+  const panelY = clamp(layer.render.y, 0, Math.max(0, layer.render.y + layer.render.height - panelHeight))
+  const textX = isArabic ? panelX + panelWidth - padding : panelX + padding
+  const firstTextY = panelY + padding + fontSize
 
   return [
-    `<rect x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" rx="18" fill="${backgroundFill}" />`,
-    `<text x="${textX}" y="${textY}" direction="${direction}" text-anchor="${textAnchor}" font-family="Inter, Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${fill}">`,
-    `<tspan>${escapeText(text)}</tspan>`,
+    `<rect data-preview-layer-panel="${escapeAttribute(layer.role)}" x="${panelX}" y="${panelY}" width="${panelWidth}" height="${panelHeight}" rx="14" fill="${backgroundFill}" opacity="${backgroundOpacity}" />`,
+    `<text x="${textX}" y="${firstTextY}" direction="${direction}" text-anchor="${textAnchor}" font-family="Inter, Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${fill}">`,
+    ...lines.map((line, index) => (
+      `<tspan x="${textX}" dy="${index === 0 ? 0 : lineHeight}">${escapeText(line)}</tspan>`
+    )),
     '</text>',
   ].join('')
 }
@@ -210,7 +315,7 @@ function renderLayer(layer: CreativeCompositionPreviewLayer, includeLayerOutline
   if (!includeLayerOutlines) return markup
 
   const stroke = layer.safeZoneCompliant ? '#22c55e' : '#ef4444'
-  return `${markup}<rect x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" fill="none" stroke="${stroke}" stroke-width="3" stroke-dasharray="10 8" />`
+  return `${markup}<rect data-preview-layer-guide="${escapeAttribute(layer.role)}" x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" fill="none" stroke="${stroke}" stroke-width="2" stroke-opacity="0.55" stroke-dasharray="8 8" />`
 }
 
 function renderSvg(

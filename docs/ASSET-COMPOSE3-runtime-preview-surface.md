@@ -38,6 +38,16 @@ It is:
 - not a GeneratedVisual row
 - not a Brand Brain learning update
 
+## Layout Safety
+
+The preview renderer must keep draft layers readable and visibly intentional:
+
+- text layer bounds are clamped to the preview canvas
+- headline, CTA, subheading, and brand fallback text wrap or truncate with ellipsis
+- normal preview mode does not show filled debug placeholder blocks
+- optional layer guides remain dashed outlines only when explicitly requested
+- Arabic text remains editable metadata and is escaped before SVG rendering
+
 ## No Execution Actions
 
 ASSET-COMPOSE3 does not add:

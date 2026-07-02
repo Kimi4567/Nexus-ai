@@ -2871,7 +2871,7 @@ function CampaignDetailPageInner() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
-                        {locale === 'ar' ? 'معاينة تركيب إبداعي — للمراجعة فقط' : 'Draft composition preview'}
+                        {locale === 'ar' ? 'معاينة تركيب إبداعي — فحص تخطيط' : 'Draft composition preview — layout check'}
                       </p>
                       <h3 className="mt-1 text-base font-semibold text-slate-950">
                         {locale === 'ar' ? 'الخلفية مع طبقات قابلة للتعديل لاحقاً' : 'Background plus future editable layers'}
