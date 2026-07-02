@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef, Suspense, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
@@ -31,7 +31,14 @@ import {
   campaignRoomTabIndexFromQuery,
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
-import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
+import {
+  derivePostCreativeRequirement,
+  summarizeCreativeRequirements,
+} from '@/lib/creativeRequirements'
+import { deriveCreativeCompositionPlan } from '@/lib/creativeComposition'
+import { deriveCreativeCompositionPreview } from '@/lib/creativeCompositionPreview'
+import { deriveCreativeCompositionPreviewCandidate } from '@/lib/creativeCompositionPreviewSurface'
+import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 
 interface Activity {
   id: string
@@ -98,6 +105,10 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
       {copied ? '✓' : label}
     </button>
   )
+}
+
+function svgToDataUri(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
 function StrategyDocSection({
@@ -1070,6 +1081,66 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const compositionPreviewCandidateResult = useMemo(() => deriveCreativeCompositionPreviewCandidate(
+    campaignPosts.map((post: any) => ({
+      id: post.id,
+      platform: post.platform,
+      caption: post.caption,
+      imageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId,
+      mediaSource: post.mediaSource,
+      generationStatus: post.generationStatus,
+    })),
+  ), [campaignPosts])
+  const compositionPreviewCandidate = compositionPreviewCandidateResult.candidate
+  const creativeCompositionPreview = useMemo(() => {
+    if (!compositionPreviewCandidate) return null
+    const post = compositionPreviewCandidate.post
+    const brandCreativeData = brandDNA as (BrandDNAData & {
+      logoUrl?: string | null
+      colorPalette?: string[] | string | null
+    }) | null
+    const requirement = derivePostCreativeRequirement({
+      postId: post.id,
+      platform: post.platform,
+      caption: post.caption,
+      status: campaign.status,
+      imageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId,
+      mediaSource: post.mediaSource,
+      generationStatus: post.generationStatus,
+      campaignGoal: campaign.goal,
+      campaignName: campaign.name,
+      brandName: brandCreativeData?.brandName,
+      language: locale,
+    })
+    const template = getDefaultTemplateForPlatform(requirement.platform)
+    const plan = deriveCreativeCompositionPlan({
+      postId: post.id,
+      postCaption: post.caption,
+      brandName: brandCreativeData?.brandName || campaign.name,
+      logoUrl: brandCreativeData?.logoUrl || null,
+      colorPalette: brandCreativeData?.colorPalette || null,
+      language: locale,
+      creativeRequirement: requirement,
+      creativeTemplate: template,
+      backgroundImageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId || null,
+    })
+    const preview = deriveCreativeCompositionPreview({
+      plan,
+      options: { locale: locale === 'ar' ? 'ar' : 'en', previewMode: 'review' },
+    })
+
+    return { post, requirement, template, plan, preview }
+  }, [
+    brandDNA,
+    campaign.goal,
+    campaign.name,
+    campaign.status,
+    compositionPreviewCandidate,
+    locale,
+  ])
 
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
@@ -2801,6 +2872,126 @@ function CampaignDetailPageInner() {
                       ? 'Content Hub هو مكان مراجعة وربط وسائط المنشورات النهائية. Creative Studio مساحة مستقبلية تبدأ لاحقاً من منشور محدد لطبقات النص والشعار وCTA، ولا تنشر أو تطلق إعلانات.'
                       : 'Content Hub is where final post media is reviewed and attached. Creative Studio is a future context-first workspace opened later from a specific post for headline, logo, and CTA layers; it does not publish or launch ads.'}
                   </p>
+                </div>
+
+                <div className="rounded-2xl border border-sky-100 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                        {locale === 'ar' ? 'معاينة تركيب إبداعي — للمراجعة فقط' : 'Draft composition preview'}
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold text-slate-950">
+                        {locale === 'ar' ? 'الخلفية مع طبقات قابلة للتعديل لاحقاً' : 'Background plus future editable layers'}
+                      </h3>
+                      <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+                        {locale === 'ar'
+                          ? 'تجمع هذه المعاينة بين الخلفية المولّدة أو المرفوعة وطبقات العنوان وCTA والشعار كتصور مبدئي فقط. ليست مرتبطة بالمنشور وليست تصميمًا إعلانيًا نهائيًا.'
+                          : 'This combines a generated or uploaded background with headline, CTA, and logo layers as an early draft only. It is not attached to posts and is not final ad creative.'}
+                      </p>
+                    </div>
+                    <span className="inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700">
+                      draft_composition_preview
+                    </span>
+                  </div>
+
+                  {creativeCompositionPreview ? (
+                    <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
+                        <img
+                          src={svgToDataUri(creativeCompositionPreview.preview.artifact.svg)}
+                          alt={locale === 'ar' ? 'معاينة تركيب إبداعي للمراجعة فقط' : 'Review-only draft composition preview'}
+                          className="block h-auto w-full"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'المنشور المختار' : 'Selected post'}
+                            </p>
+                            <p className="mt-1 break-all text-xs font-semibold text-slate-800">
+                              {creativeCompositionPreview.post.id}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'المنصة والقالب' : 'Platform + template'}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-800">
+                              {creativeCompositionPreview.requirement.platform} · {creativeCompositionPreview.template.templateName}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">
+                              {creativeCompositionPreview.template.aspectRatio} · {creativeCompositionPreview.template.width}×{creativeCompositionPreview.template.height}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] leading-5 text-emerald-800">
+                          {locale === 'ar'
+                            ? 'جاهزية المعاينة: خلفية مؤكدة وطبقات قابلة للتعديل كبيانات فقط. لا توجد أزرار ربط أو رفع أو حفظ أو نشر أو جدولة.'
+                            : 'Preview readiness: confirmed background and editable layers as metadata only. No attach, upload, save, publish, or schedule actions are available.'}
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {locale === 'ar' ? 'ملخص الطبقات' : 'Layer summary'}
+                          </p>
+                          <div className="mt-3 grid gap-2">
+                            {creativeCompositionPreview.preview.layers
+                              .filter(layer => ['background', 'headline', 'cta', 'logo_or_brand_name', 'accent'].includes(layer.role))
+                              .map(layer => (
+                                <div key={layer.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                                  <div>
+                                    <p className="text-xs font-semibold text-slate-800">
+                                      {layer.role === 'logo_or_brand_name'
+                                        ? (locale === 'ar' ? 'الشعار / اسم العلامة' : 'Logo / brand fallback')
+                                        : layer.role === 'headline'
+                                          ? (locale === 'ar' ? 'العنوان' : 'Headline')
+                                          : layer.role === 'cta'
+                                            ? 'CTA'
+                                            : layer.role === 'accent'
+                                              ? (locale === 'ar' ? 'لمسة لونية' : 'Accent')
+                                              : (locale === 'ar' ? 'الخلفية' : 'Background')}
+                                    </p>
+                                    <p className="mt-0.5 text-[11px] text-slate-500">
+                                      {layer.editable
+                                        ? (locale === 'ar' ? 'قابلة للتعديل لاحقاً' : 'future editable layer')
+                                        : (locale === 'ar' ? 'أصل خلفية فقط' : 'background asset only')}
+                                    </p>
+                                  </div>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    layer.safeZoneCompliant
+                                      ? 'bg-emerald-50 text-emerald-700'
+                                      : 'bg-amber-50 text-amber-700'
+                                  }`}>
+                                    {layer.safeZoneCompliant
+                                      ? (locale === 'ar' ? 'داخل المنطقة الآمنة' : 'safe zone')
+                                      : (locale === 'ar' ? 'تحتاج مراجعة' : 'review needed')}
+                                  </span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+
+                        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                          {locale === 'ar'
+                            ? 'Content Hub يظل مصدر الحقيقة لوسائط المنشورات النهائية. هذه المعاينة ليست قيمة SocialPost.imageUrl، ولا تُرفق تلقائياً، وأي ربط أو تصدير مستقبلي يجب أن يكون إجراءً صريحاً منفصلاً.'
+                            : 'Content Hub remains the source of truth for final post media. This preview is not SocialPost.imageUrl, is not attached automatically, and any future attach or export must be a separate explicit action.'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
+                      {locale === 'ar'
+                        ? compositionPreviewCandidateResult.emptyStateCopy.ar
+                        : compositionPreviewCandidateResult.emptyStateCopy.en}
+                      <span className="mt-2 block text-[11px] text-slate-500">
+                        {locale === 'ar'
+                          ? 'لا يوجد زر توليد هنا. عند توفر خلفية مؤكدة، ستظهر معاينة قراءة فقط في هذا التبويب.'
+                          : 'There is no generation button here. Once a confirmed background exists, a read-only preview appears in this tab.'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Creative Brief Entry Card — Sprint F ── */}
