@@ -1,4 +1,9 @@
-export const CONTENT_HUB_UPLOADED_MEDIA_SOURCE = 'UPLOAD_RAW'
+import {
+  CONTENT_HUB_UPLOADED_MEDIA_SOURCE,
+  deriveContentHubMediaState,
+} from './contentHubMediaState'
+
+export { CONTENT_HUB_UPLOADED_MEDIA_SOURCE } from './contentHubMediaState'
 
 export type MediaAttachmentAction = 'attach' | 'replace' | 'remove'
 
@@ -60,19 +65,17 @@ export function deriveMediaDeleteAvailability(linkedPostCount: number): {
 }
 
 export function derivePostMediaSource(input: PostMediaSourceInput): {
-  key: 'NO_MEDIA' | 'UPLOADED_ASSET' | 'GENERATED_IMAGE' | 'POST_MEDIA'
+  key: 'NO_MEDIA' | 'UPLOADED_ASSET' | 'GENERATED_IMAGE' | 'AMBIGUOUS_PREVIEW_PENDING' | 'POST_MEDIA'
   en: string
   ar: string
 } {
-  if (!input.imageUrl) return { key: 'NO_MEDIA', en: 'No media', ar: 'لا توجد وسائط' }
+  const state = deriveContentHubMediaState(input)
 
-  if (input.uploadedMediaId || input.mediaSource === CONTENT_HUB_UPLOADED_MEDIA_SOURCE || input.mediaSource === 'UPLOAD') {
-    return { key: 'UPLOADED_ASSET', en: 'Uploaded asset', ar: 'أصل مرفوع' }
+  if (state.key === 'no_media') return { key: 'NO_MEDIA', ...state.badgeLabel }
+  if (state.key === 'uploaded_ready') return { key: 'UPLOADED_ASSET', ...state.badgeLabel }
+  if (state.key === 'generated_ready') return { key: 'GENERATED_IMAGE', ...state.badgeLabel }
+  if (state.key === 'ambiguous_preview_pending') {
+    return { key: 'AMBIGUOUS_PREVIEW_PENDING', ...state.badgeLabel }
   }
-
-  if (input.mediaSource === 'GENERATE' && input.generationStatus === 'DONE') {
-    return { key: 'GENERATED_IMAGE', en: 'Generated image', ar: 'صورة مولّدة' }
-  }
-
-  return { key: 'POST_MEDIA', en: 'Post media', ar: 'وسائط المنشور' }
+  return { key: 'POST_MEDIA', ...state.badgeLabel }
 }

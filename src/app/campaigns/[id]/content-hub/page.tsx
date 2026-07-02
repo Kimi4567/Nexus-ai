@@ -27,6 +27,10 @@ import {
   getBulkImageGenerationCost,
 } from '@/lib/contentHubActionSafety'
 import { derivePostMediaSource } from '@/lib/contentHubMediaAttachment'
+import {
+  deriveContentHubMediaState,
+  summarizeContentHubMediaReadiness,
+} from '@/lib/contentHubMediaState'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -347,9 +351,10 @@ export default function ContentHubPage() {
   const filteredPosts = posts
     .filter(p => activePlatform === 'ALL' || p.platform.toUpperCase() === activePlatform)
     .filter(p => {
+      const mediaState = deriveContentHubMediaState(p)
       if (statusFilter === 'ALL') return true
-      if (statusFilter === 'PENDING') return p.generationStatus === 'PENDING' || p.generationStatus === 'AWAITING_UPLOAD'
-      if (statusFilter === 'DONE') return p.generationStatus === 'DONE'
+      if (statusFilter === 'PENDING') return mediaState.needsAttention
+      if (statusFilter === 'DONE') return mediaState.countsAsReady
       if (statusFilter === 'SCHEDULED') return p.status === 'SCHEDULED'
       if (statusFilter === 'PUBLISHED') return p.status === 'PUBLISHED'
       return true
@@ -357,8 +362,10 @@ export default function ContentHubPage() {
 
   const platforms = ['ALL', ...Array.from(new Set(posts.map(p => p.platform.toUpperCase())))]
 
-  const doneCount = posts.filter(p => p.generationStatus === 'DONE').length
   const totalImagePosts = posts.filter(p => !p.isVideoPost).length
+  const mediaReadiness = summarizeContentHubMediaReadiness(posts.filter(p => !p.isVideoPost))
+  const doneCount = mediaReadiness.confirmedReady
+  const ambiguousPreviewCount = mediaReadiness.ambiguousPreviewCount
   const pendingImagePosts = posts.filter(p => p.generationStatus === 'PENDING' && !p.isVideoPost)
   const pendingImageCount = pendingImagePosts.length
   const bulkImageCreditCost = getBulkImageGenerationCost(pendingImageCount)
@@ -377,6 +384,12 @@ export default function ContentHubPage() {
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
   const visualReadyLabel = isAr ? 'الوسائط جاهزة' : 'Media ready'
   const mediaPendingLabel = isAr ? 'الوسائط بانتظار التوليد' : 'Media pending'
+  const mediaReadinessInlineLabel = isAr
+    ? `${doneCount} / ${totalImagePosts} وسائط جاهزة${ambiguousPreviewCount > 0 ? ` · ${ambiguousPreviewCount} معاينات تحتاج تأكيد الجاهزية` : ''}`
+    : `${doneCount} / ${totalImagePosts} media ready${ambiguousPreviewCount > 0 ? ` · ${ambiguousPreviewCount} media preview${ambiguousPreviewCount === 1 ? '' : 's'} need confirmation` : ''}`
+  const ambiguousPreviewExplainer = isAr
+    ? 'قد تظهر بعض معاينات الوسائط، لكنها لا تُحتسب جاهزة حتى يتم تأكيد حالة التوليد أو الربط.'
+    : 'Some media previews may be visible, but they are not counted ready until generation or attachment status is confirmed.'
   const contentStatusSummary = (() => {
     if (approvedOnlyCount) {
       return isAr
@@ -1247,7 +1260,7 @@ export default function ContentHubPage() {
                 <p className="mt-1 max-w-3xl text-xs leading-relaxed text-violet-800/70">{finalPreviewHelper}</p>
               </div>
               <div className="shrink-0 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900">
-                {isAr ? `${doneCount}/${totalImagePosts} وسائط جاهزة` : `${doneCount}/${totalImagePosts} media ready`}
+                {mediaReadinessInlineLabel}
               </div>
             </div>
           </div>
@@ -1271,7 +1284,7 @@ export default function ContentHubPage() {
           <div className="mb-5 p-3 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
             <div className="flex items-center justify-between text-xs mb-2">
               <span className="text-slate-700 font-medium">{t('contentHub.imageProgress')}</span>
-              <span className="text-slate-500">{doneCount} / {totalImagePosts} {t('contentHub.images')}</span>
+              <span className="text-slate-500">{mediaReadinessInlineLabel}</span>
             </div>
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.08)' }}>
               <div
@@ -1279,6 +1292,11 @@ export default function ContentHubPage() {
                 style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #111827, #5E5CE6)' }}
               />
             </div>
+            {ambiguousPreviewCount > 0 && (
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                {ambiguousPreviewExplainer}
+              </p>
+            )}
           </div>
         )}
 
@@ -2387,6 +2405,7 @@ function PostCard({
   const isVideo = post.isVideoPost
   const status = post.generationStatus
   const quality = caption.length > 20 ? scoreCaption(caption, platform) : null
+  const mediaState = deriveContentHubMediaState(post)
 
   const statusColor = {
     PENDING: '#f59e0b', GENERATING: '#6366f1', DONE: '#10b981',
@@ -2475,6 +2494,7 @@ function PostCard({
             {statusLabel}
           </span>
           <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+            title={isAr ? mediaState.explanatoryCopy.ar : mediaState.explanatoryCopy.en}
             style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid rgba(37,99,235,0.18)' }}>
             {isAr ? mediaSourceLabel.ar : mediaSourceLabel.en}
           </span>
