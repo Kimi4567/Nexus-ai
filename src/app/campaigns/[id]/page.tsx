@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useRef, Suspense, type ReactNode } from 'react'
+import { useEffect, useState, useCallback, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
@@ -1081,7 +1081,7 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
-  const compositionPreviewCandidateResult = useMemo(() => deriveCreativeCompositionPreviewCandidate(
+  const compositionPreviewCandidateResult = deriveCreativeCompositionPreviewCandidate(
     campaignPosts.map((post: any) => ({
       id: post.id,
       platform: post.platform,
@@ -1091,9 +1091,9 @@ function CampaignDetailPageInner() {
       mediaSource: post.mediaSource,
       generationStatus: post.generationStatus,
     })),
-  ), [campaignPosts])
+  )
   const compositionPreviewCandidate = compositionPreviewCandidateResult.candidate
-  const creativeCompositionPreview = useMemo(() => {
+  const creativeCompositionPreview = (() => {
     if (!compositionPreviewCandidate) return null
     const post = compositionPreviewCandidate.post
     const brandCreativeData = brandDNA as (BrandDNAData & {
@@ -1133,14 +1133,7 @@ function CampaignDetailPageInner() {
     })
 
     return { post, requirement, template, plan, preview }
-  }, [
-    brandDNA,
-    campaign.goal,
-    campaign.name,
-    campaign.status,
-    compositionPreviewCandidate,
-    locale,
-  ])
+  })()
 
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
