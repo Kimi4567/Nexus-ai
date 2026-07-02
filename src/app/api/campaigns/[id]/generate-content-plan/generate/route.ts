@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma'
 import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
+import { wrapPromptWithTextFreeBackgroundContract } from '@/lib/ai/imageGen'
 import {
   getBulkImageGenerationCost,
   validateBulkImageGenerationConfirmation,
@@ -38,9 +39,11 @@ const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
 async function generateImage(prompt: string, platform: string): Promise<string> {
+  const safePrompt = wrapPromptWithTextFreeBackgroundContract(prompt)
+
   if (process.env.FAL_KEY) {
     const fluxSize = platformToFluxSize(platform)
-    const result = await generateWithFlux({ prompt, imageSize: fluxSize })
+    const result = await generateWithFlux({ prompt: safePrompt, imageSize: fluxSize })
     return result.imageUrl
   }
 
@@ -63,7 +66,7 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
     },
     body: JSON.stringify({
       model: 'gpt-image-1',
-      prompt,
+      prompt: safePrompt,
       n: 1,
       size,
       quality: 'high',

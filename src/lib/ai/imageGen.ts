@@ -14,10 +14,9 @@
  *
  * Text strategy (both languages — background-only approach):
  *   AI model      → generates a text-free background scene (explicit NO_TEXT instruction)
- *   English posts → brandComposite adds headline as SVG text layer via Sharp
- *   Arabic posts  → brandComposite adds headline via Satori + Noto Naskh Arabic (RTL)
- *   Sharp         → platform crop + logo overlay + brand accent bar (both languages)
- *   This ensures zero garbled/wrong AI text in any generated image.
+ *   New post/concept roles return background assets for review and later editable layers
+ *   Legacy roles can still use brandComposite for compatibility with older flows
+ *   This ensures zero garbled/wrong AI text in newly generated background assets.
  */
 
 import {
@@ -25,6 +24,8 @@ import {
   extractVisualConcept,
   type VisualConcept,
 } from '@/lib/ai/conceptExtractor'
+import type { CreativeRequirement } from '@/lib/creativeRequirements'
+import type { CreativeTemplateSpec } from '@/lib/creativeTemplates'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,11 @@ export type VisualStyle =
   | 'Elegant'
 
 export type VisualType = 'HERO' | 'SOCIAL_PREVIEW' | 'AD_CREATIVE' | 'THUMBNAIL' | 'ALTERNATE'
+export type VisualAssetRole =
+  | 'post_background'
+  | 'campaign_concept_background'
+  | 'hero_visual'
+  | 'draft_visual_asset'
 
 export interface VisualContext {
   // User-selected layout choices (kept for backward compat)
@@ -68,7 +74,21 @@ export interface VisualContext {
   postCaption?: string
   // Platform (passed from route for dimension-aware composition)
   platform?: string           // META | INSTAGRAM | TIKTOK | LINKEDIN
+  // Creative planning hints from CREATIVE-REQ1 / CREATIVE-TEMPLATE1
+  creativeRequirement?: Partial<CreativeRequirement>
+  creativeTemplate?: Partial<CreativeTemplateSpec>
+  assetRole?: VisualAssetRole
 }
+
+export const IMAGE_OUTPUT_CLASSIFICATION = 'draft_background_for_review'
+
+export const TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS = `TEXT-FREE BACKGROUND CONTRACT:
+- Generate a background, scene, or hero visual asset for review only.
+- Exclude all text, words, letters, numbers, typography, Arabic calligraphy, and no Arabic raster text.
+- Do not include logos, brand marks, CTA buttons, badges, proof labels, watermarks, fake metrics, charts, dashboards, UI screenshots, or platform screenshots.
+- Do not invent product claims, testimonials, awards, results, performance proof, or analytics.
+- Leave clean negative space for later editable/composited headline, CTA, logo, badge, and proof layers.
+- This generated asset is a draft background visual for review, not final ad creative, not a published post, and not a platform-ready ad.`
 
 // ─── Brand category detection ─────────────────────────────────────────────────
 
@@ -274,6 +294,55 @@ function getPlatformHint(platform?: string): string {
   return 'versatile square or near-square composition, balanced centered layout'
 }
 
+function buildTemplateHint(template?: Partial<CreativeTemplateSpec>): string {
+  if (!template) return ''
+  const lines = [
+    template.templateName && `Template: ${template.templateName}`,
+    template.aspectRatio && `Template aspect ratio: ${template.aspectRatio}`,
+    template.width && template.height && `Template canvas: ${template.width}x${template.height}`,
+    template.format && `Template format: ${template.format}`,
+    template.safeZones && `Respect safe zones: top ${template.safeZones.top}px, right ${template.safeZones.right}px, bottom ${template.safeZones.bottom}px, left ${template.safeZones.left}px.`,
+    template.layers?.length && `Background must leave room for editable layers: ${template.layers
+      .filter(layer => layer.type !== 'background' && layer.required)
+      .map(layer => `${layer.type} at ${layer.position.anchor}`)
+      .join(', ')}.`,
+  ].filter(Boolean)
+
+  return lines.length ? `\nTEMPLATE / LAYER HINTS:\n${lines.join('\n')}` : ''
+}
+
+function buildCreativeRequirementHint(requirement?: Partial<CreativeRequirement>): string {
+  if (!requirement) return ''
+  const lines = [
+    requirement.visualConcept && `Visual concept: ${requirement.visualConcept}`,
+    requirement.objective && `Campaign objective: ${requirement.objective}`,
+    requirement.funnelStage && `Funnel stage: ${requirement.funnelStage}`,
+    requirement.contentAngle && `Content angle: ${requirement.contentAngle}`,
+    requirement.requiredAssetType && `Required asset type: ${requirement.requiredAssetType}`,
+    requirement.sourcePreference && `Source preference: ${requirement.sourcePreference}`,
+    requirement.aspectRatio && `Recommended aspect ratio: ${requirement.aspectRatio}`,
+    requirement.platform && `Requirement platform: ${requirement.platform}`,
+    typeof requirement.textOverlayNeeded === 'boolean' && `Text overlay planned later: ${requirement.textOverlayNeeded ? 'yes' : 'no'}`,
+    typeof requirement.logoNeeded === 'boolean' && `Logo layer planned later: ${requirement.logoNeeded ? 'yes' : 'no'}`,
+    typeof requirement.productImageNeeded === 'boolean' && `Product image needed: ${requirement.productImageNeeded ? 'yes' : 'no'}`,
+    requirement.proofConstraints?.length && `Proof constraints: ${requirement.proofConstraints.join(' | ')}`,
+  ].filter(Boolean)
+
+  return lines.length ? `\nCREATIVE REQUIREMENT HINTS:\n${lines.join('\n')}` : ''
+}
+
+function buildRoleHint(assetRole?: VisualAssetRole): string {
+  const role = assetRole || 'draft_visual_asset'
+  const label = role.replace(/_/g, ' ')
+  return `\nASSET ROLE: ${label}. Output classification: ${IMAGE_OUTPUT_CLASSIFICATION}.`
+}
+
+export function wrapPromptWithTextFreeBackgroundContract(prompt: string): string {
+  return `${prompt.trim()}
+
+${TEXT_FREE_BACKGROUND_IMAGE_CONSTRAINTS}`.trim()
+}
+
 // ─── English prompt builder ───────────────────────────────────────────────────
 
 function buildEnglishAdPrompt(
@@ -285,8 +354,11 @@ function buildEnglishAdPrompt(
   const brandName    = ctx.brandName || 'Brand'
   const platformHint = getPlatformHint(ctx.platform)
   const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
+  const requirementHint = buildCreativeRequirementHint(ctx.creativeRequirement)
+  const templateHint = buildTemplateHint(ctx.creativeTemplate)
+  const roleHint = buildRoleHint(ctx.assetRole)
 
-  return `Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
+  return wrapPromptWithTextFreeBackgroundContract(`Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
 Text, headlines, and brand copy will be composited as a separate layer — DO NOT include any
 text, words, letters, numbers, logos, or typography anywhere in the image.
 
@@ -303,6 +375,7 @@ Mood: ${concept.visualMood}.
 ${style.atmosphere}.
 
 EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : ''}.
+${requirementHint}${templateHint}${roleHint}
 
 VISUAL COMPOSITION:
 • ${platformHint}
@@ -319,7 +392,7 @@ This is background art — all copy will be added programmatically on top.
 QUALITY BAR:
 This image must look like a high-budget advertising campaign background.
 Think: premium full-page magazine photo or top-tier social media visual without any overlaid text.
-NOT acceptable: stock photography feel, generic backgrounds, flat composition, amateur layouts.`
+NOT acceptable: stock photography feel, generic backgrounds, flat composition, amateur layouts.`)
 }
 
 // ─── Arabic prompt builder ────────────────────────────────────────────────────
@@ -327,12 +400,9 @@ NOT acceptable: stock photography feel, generic backgrounds, flat composition, a
 /**
  * Arabic ad background generator.
  *
- * Strategy: gpt-image-1 is UNRELIABLE at rendering Arabic text (produces garbled
- * characters). We therefore generate a BACKGROUND-ONLY scene here, then composite
- * perfectly-shaped Arabic text as a separate layer using Satori + Noto Naskh Arabic.
- *
- * This two-step approach guarantees pixel-perfect Arabic typography regardless of
- * which image model is used.
+ * Strategy: image models are unreliable at rendering Arabic text, so this builder
+ * only asks for a background scene. Arabic copy remains a later editable/composited
+ * layer outside the generated bitmap.
  */
 function buildArabicAdPrompt(
   ctx: VisualContext,
@@ -343,8 +413,11 @@ function buildArabicAdPrompt(
   const brandName    = ctx.brandName || 'Brand'
   const platformHint = getPlatformHint(ctx.platform)
   const toneWords    = (ctx.brandToneWords || []).slice(0, 3).join(', ')
+  const requirementHint = buildCreativeRequirementHint(ctx.creativeRequirement)
+  const templateHint = buildTemplateHint(ctx.creativeTemplate)
+  const roleHint = buildRoleHint(ctx.assetRole)
 
-  return `Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
+  return wrapPromptWithTextFreeBackgroundContract(`Create a world-class professional advertising BACKGROUND VISUAL for ${brandName}.
 This image is for an Arabic-language advertisement targeting Arabic-speaking audiences.
 Typography and Arabic text will be composited as a separate layer — DO NOT include any text,
 words, letters, or typography anywhere in the image.
@@ -372,9 +445,10 @@ Absolutely NO text, NO words, NO Arabic calligraphy, NO numbers, NO letters anyw
 This must be a pure photographic / illustrative background.
 
 EMOTIONAL TONE: ${concept.emotion}${toneWords ? `. Brand voice: ${toneWords}` : ''}.
+${requirementHint}${templateHint}${roleHint}
 
 QUALITY BAR: ${style.benchmark} background visual.
-Reference aesthetic: Emaar, Emirates Airlines, Aldar Properties — premium Middle Eastern brand advertising backgrounds.`
+Reference aesthetic: Emaar, Emirates Airlines, Aldar Properties — premium Middle Eastern brand advertising backgrounds.`)
 }
 
 // ─── Brand-level fallback (no caption) ───────────────────────────────────────
@@ -388,24 +462,29 @@ function buildBrandLevelPrompt(
   const brandName    = ctx.brandName || 'Brand'
   const platformHint = getPlatformHint(ctx.platform)
   const offer        = ctx.primaryOffer || ctx.positioning || ctx.keyMessage || ''
+  const requirementHint = buildCreativeRequirementHint(ctx.creativeRequirement)
+  const templateHint = buildTemplateHint(ctx.creativeTemplate)
+  const roleHint = buildRoleHint(ctx.assetRole)
 
   if (language === 'ar') {
-    return `Create a premium brand advertising visual for ${brandName}.
-${offer ? `Brand promise: ${offer}` : ''}
+    return wrapPromptWithTextFreeBackgroundContract(`Create a premium brand advertising BACKGROUND VISUAL for ${brandName}.
+${offer ? `Brand context: ${offer}` : ''}
 Style: ${style.photography}. ${style.lighting}.
 Atmosphere: ${colorMood}. ${style.atmosphere}.
 Quality: ${style.benchmark} advertising level.
-Include Arabic brand name "${brandName}" prominently with impactful Arabic headline.
-${platformHint}. Premium, aspirational, world-class quality.`
+${platformHint}.
+${requirementHint}${templateHint}${roleHint}
+Create a polished hero scene with clean negative space for later editable Arabic headline, CTA, logo, and proof layers.`)
   }
 
-  return `Create a premium brand advertising visual for ${brandName}.
-${offer ? `Brand promise: "${offer}"` : ''}
+  return wrapPromptWithTextFreeBackgroundContract(`Create a premium brand advertising BACKGROUND VISUAL for ${brandName}.
+${offer ? `Brand context: "${offer}"` : ''}
 Style: ${style.photography}. ${style.lighting}.
 Atmosphere: ${colorMood}. ${style.atmosphere}.
 Quality: ${style.benchmark} advertising level.
-Include brand name "${brandName}" prominently with bold headline.
-${platformHint}. Premium, aspirational, world-class quality.`
+${platformHint}.
+${requirementHint}${templateHint}${roleHint}
+Create a polished hero scene with clean negative space for later editable headline, CTA, logo, and proof layers.`)
 }
 
 // ─── Main async prompt builder ────────────────────────────────────────────────
@@ -415,10 +494,8 @@ ${platformHint}. Premium, aspirational, world-class quality.`
  *
  * This is the core function that powers ALL image generation in NEXUS.
  * Returns the prompt string, detected language, AND the extracted visual concept
- * so downstream callers (route.ts) can composite Arabic text correctly.
- *
- * For Arabic posts: returns a background-only prompt — the concept.headline is
- * meant to be rendered as a separate typography layer via Satori (see arabicText.ts).
+ * so downstream callers can preserve post-specific visual direction while keeping
+ * generated bitmaps text-free.
  */
 export async function buildImagePrompt(ctx: VisualContext): Promise<{
   prompt: string
@@ -468,8 +545,7 @@ export async function buildImagePrompt(ctx: VisualContext): Promise<{
   }
 
   // 7. Build the prompt for the correct language.
-  //    Arabic → background-only (text composited separately via Satori)
-  //    English → full ad with AI-rendered text
+  //    Both paths produce background-only prompts for later editable/composited layers.
   const prompt = language === 'ar'
     ? buildArabicAdPrompt(ctx, concept, colorMood, style)
     : buildEnglishAdPrompt(ctx, concept, colorMood, style)

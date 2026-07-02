@@ -27,11 +27,13 @@ import { validateSingleImageGenerationConfirmation } from '@/lib/contentHubActio
 import {
   buildImagePrompt,
   generateWithDallE,
+  IMAGE_OUTPUT_CLASSIFICATION,
   uploadToCloudinary,
   VisualContext,
   VisualStyle,
   VisualType,
 } from '@/lib/ai/imageGen'
+import type { VisualAssetRole } from '@/lib/ai/imageGen'
 import { generateWithFlux, platformToFluxSize, platformToOpenAISize } from '@/lib/ai/falGen'
 import { platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { composeBrandedPost, bufferToDataUri } from '@/lib/brandComposite'
@@ -74,6 +76,10 @@ export async function POST(req: NextRequest) {
     postCaption,
     // Regeneration
     parentId,
+    // Creative planning hints from Content Hub / Creative tab
+    creativeRequirement,
+    creativeTemplate,
+    assetRole = 'draft_visual_asset' as VisualAssetRole,
     // Explicit credit/action confirmation
     explicitImageGenerationConfirmed,
     acknowledgedCreditCost,
@@ -193,11 +199,18 @@ export async function POST(req: NextRequest) {
     postCaption:     postCaption              || undefined,
     // Platform — passed through for dimension-aware composition in the prompt
     platform:        platform                 || 'META',
+    creativeRequirement: typeof creativeRequirement === 'object' && creativeRequirement !== null
+      ? creativeRequirement
+      : undefined,
+    creativeTemplate: typeof creativeTemplate === 'object' && creativeTemplate !== null
+      ? creativeTemplate
+      : undefined,
+    assetRole,
   }
 
   // ── Build the caption-driven, brand-adaptive ad prompt (async) ───────────
-  // For Arabic posts: prompt is background-only; concept.headline is composited
-  // as a separate Satori layer in composeBrandedPost() below.
+  // Prompt output is background-only; text/logo/CTA/proof layers are handled by
+  // future editable/template composition, not trusted inside AI raster output.
   const { prompt, language, concept } = await buildImagePrompt(ctx)
 
   // ── Deduct credits before expensive DALL-E call ───────────────────────────
@@ -272,38 +285,42 @@ export async function POST(req: NextRequest) {
     const rawPublicId   = `visual_raw_${visual.id}`
     const cloudinaryUrl = await uploadToCloudinary(rawImageUrl, rawPublicId)
 
-    // ── Apply Sharp brand composite ───────────────────────────────────────
-    // Both Arabic and English prompts now generate background-only scenes.
-    // brandComposite handles all text: brand name bar, ad headline overlay.
-    //   Arabic headline → Satori + Noto Naskh Arabic (pixel-perfect RTL)
-    //   English headline → SVG text layer (Sharp handles Latin well)
-    // Falls back gracefully if Sharp fails.
+    // ── Optional legacy Sharp brand composite ─────────────────────────────
+    // New asset roles are background/draft assets for review. They intentionally
+    // skip the hardcoded text/logo compositor so generated output does not look
+    // like final editable ad creative before the template/layer system exists.
     let permanentUrl = cloudinaryUrl
     const overlayPlatform = platformToOverlay(platform)
+    const shouldApplyLegacyComposite = ![
+      'post_background',
+      'campaign_concept_background',
+      'hero_visual',
+      'draft_visual_asset',
+    ].includes(assetRole)
 
-    try {
-      const compositeBuffer = await composeBrandedPost(cloudinaryUrl, {
-        brandName:   brand?.brandName || ctx.brandName || 'Brand',
-        logoUrl:     brand?.logoUrl   || null,
-        accentColor: brand?.colorPalette
-          ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
-          : null,
-        platform:    overlayPlatform,
-        // Pass the concept headline for ALL languages — compositor routes Arabic through
-        // Satori and English/Latin through SVG, both producing clean text overlays on
-        // the text-free AI background.
-        adHeadline: concept?.headline || undefined,
-      })
+    if (shouldApplyLegacyComposite) {
+      try {
+        const compositeBuffer = await composeBrandedPost(cloudinaryUrl, {
+          brandName:   brand?.brandName || ctx.brandName || 'Brand',
+          logoUrl:     brand?.logoUrl   || null,
+          accentColor: brand?.colorPalette
+            ? (Array.isArray(brand.colorPalette) ? brand.colorPalette[0] : brand.colorPalette)
+            : null,
+          platform:    overlayPlatform,
+          // Legacy-only: newer background roles skip this hardcoded text/logo overlay.
+          adHeadline: concept?.headline || undefined,
+        })
 
-      const finalPublicId = `visual_${visual.id}`
-      permanentUrl = await uploadToCloudinary(
-        bufferToDataUri(compositeBuffer),
-        finalPublicId
-      )
-      console.log(`[visuals/generate] Sharp composite applied for "${ctx.brandName}" on ${overlayPlatform}`)
-    } catch (compositeErr) {
-      console.warn('[visuals/generate] Sharp composite failed — returning raw image:', compositeErr)
-      permanentUrl = cloudinaryUrl
+        const finalPublicId = `visual_${visual.id}`
+        permanentUrl = await uploadToCloudinary(
+          bufferToDataUri(compositeBuffer),
+          finalPublicId
+        )
+        console.log(`[visuals/generate] Sharp composite applied for "${ctx.brandName}" on ${overlayPlatform}`)
+      } catch (compositeErr) {
+        console.warn('[visuals/generate] Sharp composite failed — returning raw image:', compositeErr)
+        permanentUrl = cloudinaryUrl
+      }
     }
 
     // Update DB to COMPLETED
@@ -312,7 +329,11 @@ export async function POST(req: NextRequest) {
       data:  { status: 'COMPLETED', imageUrl: permanentUrl },
     })
 
-    return NextResponse.json({ visual: updated })
+    return NextResponse.json({
+      visual: updated,
+      assetRole,
+      outputClassification: IMAGE_OUTPUT_CLASSIFICATION,
+    })
   } catch (err: any) {
     console.error('[visuals/generate] Generation error:', err)
 

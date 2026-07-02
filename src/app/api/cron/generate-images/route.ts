@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinaryOverlay'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { wrapPromptWithTextFreeBackgroundContract } from '@/lib/ai/imageGen'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,11 +45,13 @@ async function generateImage(
   prompt: string,
   platform: string
 ): Promise<string> {
+  const safePrompt = wrapPromptWithTextFreeBackgroundContract(prompt)
+
   // Auto-detect provider — FAL_KEY presence is the only signal
   if (process.env.FAL_KEY) {
     const fluxSize = platformToFluxSize(platform)
     console.log(`[Cron generate-images] Using Flux Pro Ultra — size: ${fluxSize}`)
-    const result = await generateWithFlux({ prompt, imageSize: fluxSize })
+    const result = await generateWithFlux({ prompt: safePrompt, imageSize: fluxSize })
     return result.imageUrl // Hosted CDN URL — no base64 needed
   }
 
@@ -71,7 +74,7 @@ async function generateImage(
     },
     body: JSON.stringify({
       model:   'gpt-image-1',
-      prompt,          // no truncation — gpt-image-1 handles long prompts
+      prompt:  safePrompt, // no truncation — gpt-image-1 handles long prompts
       n:       1,
       size,
       quality: 'high', // always high — production asset
