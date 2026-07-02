@@ -31,6 +31,7 @@ import {
   campaignRoomTabIndexFromQuery,
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
+import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 
 interface Activity {
   id: string
@@ -1053,6 +1054,22 @@ function CampaignDetailPageInner() {
   const totalPostMediaSlots = operatingState.counts.totalPosts
   const pendingPostMediaSlots = operatingState.counts.pendingGenerationPosts
   const readyPostMediaSlots = Math.max(0, totalPostMediaSlots - pendingPostMediaSlots)
+  const creativeRequirementsSummary = summarizeCreativeRequirements(
+    campaignPosts.map((post: any) => ({
+      postId: post.id,
+      platform: post.platform,
+      caption: post.caption,
+      status: post.status,
+      imageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId,
+      mediaSource: post.mediaSource,
+      generationStatus: post.generationStatus,
+      isVideoPost: post.isVideoPost,
+      campaignGoal: campaign.goal,
+      campaignName: campaign.name,
+      brandName: brandDNA?.brandName,
+    })),
+  )
 
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
@@ -2736,6 +2753,54 @@ function CampaignDetailPageInner() {
                       {!nextCreativeAction.href.startsWith('#') && <span className="ml-2 text-xs text-indigo-100">↗</span>}
                     </a>
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                        {locale === 'ar' ? 'متطلبات الإبداع للمنشورات' : 'Post creative requirements'}
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold text-slate-950">
+                        {locale === 'ar'
+                          ? 'متطلبات قبل أي توليد أو ربط وسائط'
+                          : 'Requirements before any media generation or attachment'}
+                      </h3>
+                      <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+                        {locale === 'ar'
+                          ? 'تُستمد متطلبات الإبداع من الحملة وسياق Brand Brain والمنصة ونص المنشور. هي توجه قرارات الوسائط ولا تولّد أو تنشر أي شيء.'
+                          : 'Creative requirements are derived from the campaign, Brand Brain context, platform, and post copy. They guide media decisions; they do not generate or publish anything.'}
+                      </p>
+                    </div>
+                    <a
+                      href={`/campaigns/${campaign.id}/content-hub`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex flex-shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                    >
+                      {locale === 'ar' ? 'افتح Content Hub' : 'Open Content Hub'}
+                      <span className="ml-2 text-xs text-indigo-400">↗</span>
+                    </a>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
+                      <div className="text-lg font-semibold text-amber-700">{creativeRequirementsSummary.mediaNeeded}</div>
+                      <div className="text-[10px] leading-4 text-amber-700">{locale === 'ar' ? 'تحتاج وسائط للمنشور' : 'need post media'}</div>
+                    </div>
+                    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3">
+                      <div className="text-lg font-semibold text-blue-700">{creativeRequirementsSummary.readinessPending}</div>
+                      <div className="text-[10px] leading-4 text-blue-700">{locale === 'ar' ? 'معاينات تحتاج تأكيداً' : 'previews need confirmation'}</div>
+                    </div>
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3">
+                      <div className="text-lg font-semibold text-emerald-700">{creativeRequirementsSummary.attachedToPost}</div>
+                      <div className="text-[10px] leading-4 text-emerald-700">{locale === 'ar' ? 'مرتبطة بالمنشورات' : 'attached to posts'}</div>
+                    </div>
+                  </div>
+                  <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                    {locale === 'ar'
+                      ? 'Content Hub هو مكان مراجعة وربط وسائط المنشورات النهائية. Creative Studio مساحة مستقبلية تبدأ لاحقاً من منشور محدد لطبقات النص والشعار وCTA، ولا تنشر أو تطلق إعلانات.'
+                      : 'Content Hub is where final post media is reviewed and attached. Creative Studio is a future context-first workspace opened later from a specific post for headline, logo, and CTA layers; it does not publish or launch ads.'}
+                  </p>
                 </div>
 
                 {/* ── Creative Brief Entry Card — Sprint F ── */}

@@ -31,6 +31,7 @@ import {
   deriveContentHubMediaState,
   summarizeContentHubMediaReadiness,
 } from '@/lib/contentHubMediaState'
+import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import AppShell from '@/components/AppShell'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -2417,6 +2418,25 @@ function PostCard({
     FAILED: t('contentHub.statusFailed'), AWAITING_UPLOAD: t('contentHub.statusUploadVideo'), SKIPPED: t('contentHub.statusSkipped'),
   }[status] ?? status
   const mediaSourceLabel = derivePostMediaSource(post)
+  const creativeRequirement = derivePostCreativeRequirement({
+    postId: post.id,
+    platform: post.platform,
+    caption,
+    status: post.status,
+    imageUrl: post.imageUrl,
+    uploadedMediaId: post.uploadedMediaId,
+    mediaSource: post.mediaSource,
+    generationStatus: post.generationStatus,
+    isVideoPost: post.isVideoPost,
+    brandName,
+  })
+  const creativeRequirementStatusLabel = isAr ? creativeRequirement.statusLabelAr : creativeRequirement.statusLabel
+  const creativeRequirementExplanation = isAr ? creativeRequirement.explanationAr : creativeRequirement.explanation
+  const sourcePreferenceLabel = {
+    generated: isAr ? 'وسائط مولّدة' : 'generated media',
+    uploaded: isAr ? 'وسائط مرفوعة' : 'uploaded media',
+    either: isAr ? 'وسائط مولّدة أو مرفوعة' : 'generated or uploaded media',
+  }[creativeRequirement.sourcePreference]
 
   const lifecycleBadge = {
     DRAFT: {
@@ -2514,6 +2534,36 @@ function PostCard({
       {!['META','FACEBOOK','INSTAGRAM','LINKEDIN','TIKTOK'].includes(platform) && (
         <GenericMockup caption={caption} imageUrl={post.imageUrl} isVideo={isVideo} status={status} platform={platform} isExpanded={isExpanded} onExpandToggle={onToggleExpand} brandName={brandName} brandLogo={brandLogo} />
       )}
+
+      <div className="px-3 py-3" style={{ borderTop: '1px solid rgba(15,23,42,0.08)', background: '#F8FAFC' }}>
+        <div className="rounded-xl border border-indigo-100 bg-white p-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-indigo-600">
+                {isAr ? 'متطلبات الإبداع' : 'Creative requirement'}
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-800">{creativeRequirementStatusLabel}</p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">{creativeRequirementExplanation}</p>
+            </div>
+            <span className="w-fit rounded-full border border-indigo-100 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700">
+              {isAr
+                ? `المقاس المقترح: ${creativeRequirement.aspectRatio}`
+                : `Recommended format: ${creativeRequirement.aspectRatio}`}
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+              {creativeRequirement.format}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+              {isAr ? `المصدر: ${sourcePreferenceLabel}` : `Use ${sourcePreferenceLabel}`}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600">
+              {isAr ? 'طبقات النص والشعار لاحقاً' : 'Text/logo layers come later'}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* ── Manual publishing (PR4): only for MANUAL + SCHEDULED posts ───── */}
       {post.status === 'SCHEDULED' && post.publishMode !== 'AUTO' && onManualPublish && (
