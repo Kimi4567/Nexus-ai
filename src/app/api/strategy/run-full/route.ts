@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthUser } from '@/lib/apiAuth'
 import { prisma } from '@/lib/prisma'
 import { runFullAgency } from '@/lib/agents/orchestrator'
-import { checkAndDeductCredits, refundCreditsForTransaction } from '@/lib/credits'
+import { checkAndDeductCredits, FREE_STARTER_CREDITS, refundCreditsForTransaction } from '@/lib/credits'
 // B1c-c-1 — allocation-aware refund-to-source for the wallet path (flag-gated).
 import { isCreditWalletEnabled } from '@/lib/credits/wallet'
 import { normalizeStrategyIntent } from '@/lib/ai/strategyKpiGuard'
@@ -38,7 +38,7 @@ function sanitizeStrategyRunError(error: string | undefined, language: unknown):
       return 'أوقف NEXUS حفظ هذه الاستراتيجية لأن النص الناتج لم يطابق اللغة أو جودة المراجعة المطلوبة. لم يتم حفظ حملة جديدة وتمت إعادة كريدت الاستراتيجية إن تم خصمها. حاول مرة أخرى، أو اختر الإنجليزية إذا أردت الاستراتيجية بالإنجليزية.'
     }
 
-    return 'NEXUS blocked this strategy because the generated draft did not match the selected language or review-quality requirements. No new campaign was saved and any strategy credits were restored. Please try again, or choose English if you want the brief in English.'
+    return 'NEXUS blocked this strategy because the generated draft did not match the selected language or review-quality requirements. No new campaign was saved, and strategy credits were not charged or were restored if already charged. Please try again, or choose English if you want the brief in English.'
   }
 
   return error
@@ -56,6 +56,82 @@ type DeductedStrategyCredit = {
   creditsRemaining: number
   creditsUsed: number
   transactionId?: string
+}
+
+type StrategyCreditPreflightOk = {
+  ok: true
+  visibleCredits: number
+  user: {
+    preferences: unknown
+    subscriptionStatus: string | null
+  }
+}
+
+type StrategyCreditPreflightFailure = {
+  ok: false
+  error: 'INSUFFICIENT_CREDITS'
+  message: string
+  requiredCredits: number
+  currentCredits: number
+  upgradeUrl: string
+}
+
+async function checkStrategyCreditsAvailable(
+  userId: string,
+  cost: number,
+): Promise<StrategyCreditPreflightOk | StrategyCreditPreflightFailure> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      subscriptionStatus: true,
+      aiCredits: true,
+      monthlyGenerations: true,
+      preferences: true,
+    },
+  })
+
+  if (!user) {
+    return {
+      ok: false,
+      error: 'INSUFFICIENT_CREDITS',
+      message: 'User not found.',
+      requiredCredits: cost,
+      currentCredits: 0,
+      upgradeUrl: '/billing',
+    }
+  }
+
+  if (user.aiCredits === -1) {
+    return {
+      ok: true,
+      visibleCredits: -1,
+      user: { preferences: user.preferences, subscriptionStatus: user.subscriptionStatus },
+    }
+  }
+
+  const isFree = user.subscriptionStatus === 'FREE'
+  const starterGrantAvailable = isFree && user.aiCredits === 0 && user.monthlyGenerations === 0
+  const spendableCredits = starterGrantAvailable ? FREE_STARTER_CREDITS : user.aiCredits
+
+  if (spendableCredits < cost) {
+    return {
+      ok: false,
+      error: 'INSUFFICIENT_CREDITS',
+      message: isFree
+        ? `You've used all your free credits. Upgrade to continue.`
+        : 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
+      requiredCredits: cost,
+      currentCredits: spendableCredits,
+      upgradeUrl: '/billing',
+    }
+  }
+
+  return {
+    ok: true,
+    visibleCredits: user.aiCredits,
+    user: { preferences: user.preferences, subscriptionStatus: user.subscriptionStatus },
+  }
 }
 
 async function refundDeductedStrategyCredits(
@@ -111,6 +187,8 @@ export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {}
   let chargedUserId: string | null = null
   let deductedCredit: DeductedStrategyCredit | null = null
+  let lateCreditFailure: StrategyCreditPreflightFailure | null = null
+  let preflightVisibleCredits: number | undefined
 
   try {
     const user = await getAuthUser(req)
@@ -159,6 +237,7 @@ export async function POST(req: NextRequest) {
         { status: 422 },
       )
     }
+    const strategyCreditCost: number = charge.cost
 
     // Get workspace
     const workspace = await prisma.workspace.findFirst({
@@ -226,26 +305,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // -- Unified credit check + deduction (variable, server-computed cost) ----
-    // Charge only after workspace, Brand Brain profile, readiness, and order
-    // validation have passed. Early setup failures must never spend credits.
-    const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', charge.cost)
-    if (!credit.ok) {
-      return NextResponse.json(credit, { status: 402 })
+    // -- Credit preflight only (no mutation) ---------------------------------
+    // Strategy generation can run long enough for provider/platform disconnects.
+    // Do not debit credits before AI + deterministic contract guards produce a
+    // saveable strategy. The real atomic deduction happens in runFullAgency's
+    // beforePersistStrategy callback, immediately before campaign rows are saved.
+    const creditPreflight = await checkStrategyCreditsAvailable(user.id, strategyCreditCost)
+    if (!creditPreflight.ok) {
+      return NextResponse.json(creditPreflight, { status: 402 })
     }
-    chargedUserId = user.id
-    deductedCredit = {
-      creditsRemaining: credit.creditsRemaining,
-      creditsUsed: credit.creditsUsed,
-      transactionId: credit.transactionId,
-    }
+    preflightVisibleCredits = creditPreflight.visibleCredits
+    const freshUser = creditPreflight.user
     // ------------------------------------------------------------------------
-
-    // Get user preferences for language detection + plan tier for the deliverables contract
-    const freshUser = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { preferences: true, subscriptionStatus: true },
-    })
 
     // Language detection: body -> user preferences -> fallback 'ar'
     const userPrefs = (freshUser?.preferences as Record<string, string> | null) ?? {}
@@ -355,7 +426,21 @@ export async function POST(req: NextRequest) {
     } catch { /* non-fatal — proceed without media context */ }
 
     // Run full orchestration
-    const result = await runFullAgency(workspace.id, brief)
+    const result = await runFullAgency(workspace.id, brief, {
+      beforePersistStrategy: async () => {
+        const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', strategyCreditCost)
+        if (!credit.ok) {
+          lateCreditFailure = credit
+          throw new Error('STRATEGY_CREDIT_DEDUCTION_FAILED')
+        }
+        chargedUserId = user.id
+        deductedCredit = {
+          creditsRemaining: credit.creditsRemaining,
+          creditsUsed: credit.creditsUsed,
+          transactionId: credit.transactionId,
+        }
+      },
+    })
 
     // Fetch the newly-created campaign
     const campaign = result.strategyCreated
@@ -367,6 +452,11 @@ export async function POST(req: NextRequest) {
       : null
 
     const success = result.strategyCreated && !!campaign?.id
+    const finalDeductedCredit = deductedCredit as DeductedStrategyCredit | null
+
+    if (!success && lateCreditFailure) {
+      return NextResponse.json(lateCreditFailure, { status: 402 })
+    }
 
     // ── Credit refund on complete failure ──────────────────────────────────
     // If strategy itself failed (no campaign created), refund the credits.
@@ -391,9 +481,11 @@ export async function POST(req: NextRequest) {
       campaignName: campaign?.name ?? null,
       suggestions: result.suggestions,
       creditsRemaining: success
-        ? credit.creditsRemaining
-        : credit.creditsRemaining + (refunded ? credit.creditsUsed : 0),
-      creditsUsed: success ? credit.creditsUsed : (refunded ? 0 : credit.creditsUsed),
+        ? finalDeductedCredit?.creditsRemaining
+        : (finalDeductedCredit
+            ? finalDeductedCredit.creditsRemaining + (refunded ? finalDeductedCredit.creditsUsed : 0)
+            : preflightVisibleCredits),
+      creditsUsed: success ? (finalDeductedCredit?.creditsUsed ?? 0) : (refunded ? 0 : (finalDeductedCredit?.creditsUsed ?? 0)),
       refunded,
       // Both formats for frontend compatibility
       errors: publicErrors,
@@ -401,8 +493,12 @@ export async function POST(req: NextRequest) {
     })
   } catch (err: any) {
     console.error('[api/strategy/run-full]', err)
+    if (lateCreditFailure && !deductedCredit) {
+      return NextResponse.json(lateCreditFailure, { status: 402 })
+    }
+    const finalDeductedCredit = deductedCredit as DeductedStrategyCredit | null
     const refunded = chargedUserId
-      ? await refundDeductedStrategyCredits(chargedUserId, deductedCredit, 'Run Full Strategy exception')
+      ? await refundDeductedStrategyCredits(chargedUserId, finalDeductedCredit, 'Run Full Strategy exception')
       : false
     const rawError = typeof err?.message === 'string' ? err.message : undefined
     const safeError = rawError && /Strategy OS contract/i.test(rawError)
@@ -415,10 +511,10 @@ export async function POST(req: NextRequest) {
         error: safeError,
         errors: [safeError],
         refunded,
-        creditsRemaining: deductedCredit
-          ? deductedCredit.creditsRemaining + (refunded ? deductedCredit.creditsUsed : 0)
+        creditsRemaining: finalDeductedCredit
+          ? finalDeductedCredit.creditsRemaining + (refunded ? finalDeductedCredit.creditsUsed : 0)
           : undefined,
-        creditsUsed: refunded ? 0 : (deductedCredit?.creditsUsed ?? 0),
+        creditsUsed: refunded ? 0 : (finalDeductedCredit?.creditsUsed ?? 0),
       },
       { status: 500 },
     )
