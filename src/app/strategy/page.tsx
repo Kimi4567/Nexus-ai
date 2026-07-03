@@ -27,6 +27,7 @@ import { BrandReadinessStatus } from '@/lib/brandReadiness'
 import { getStrategyPageReadinessSurface } from '@/lib/strategyBriefReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { getStrategyBrandAlignment } from '@/lib/strategy/strategyBrandAlignment'
+import { selectStrategyWorkbenchCampaign } from '@/lib/strategy/strategyWorkbenchCampaign'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import AppShell from '@/components/AppShell'
@@ -100,7 +101,7 @@ export default function StrategyPage() {
     if (!isAuthenticated) return
     try {
       const [cRes, bRes] = await Promise.all([
-        fetch('/api/campaigns?limit=5&sort=updatedAt', { headers: { Authorization: authHeader() } }),
+        fetch('/api/campaigns?limit=20&sort=updatedAt', { headers: { Authorization: authHeader() } }),
         fetch('/api/brand', { headers: { Authorization: authHeader() } }),
       ])
       if (cRes.ok) {
@@ -133,7 +134,7 @@ export default function StrategyPage() {
 
   // ── Derived, truthful state (no invention) ──────────────────────────────────
   const hasStrategy = total > 0
-  const recent = campaigns[0]
+  const recent = selectStrategyWorkbenchCampaign(campaigns, brandName)
   const hasDraftStrategy = Boolean(recent?.status && recent.status.toLowerCase() === 'draft')
   const rawAi = (recent?.aiOutput ?? null) as Record<string, unknown> | null
   const rawStrat = (rawAi?.strategy ?? rawAi ?? null) as Record<string, unknown> | null

@@ -7,6 +7,15 @@ import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract
 describe('guardStrategyOutputContract', () => {
   const allowed = ['INSTAGRAM', 'TIKTOK', 'FACEBOOK']
 
+  function weeklyCount(plan: any[]): number {
+    return plan.reduce((sum, week) => {
+      return sum + week.deliverables.reduce((weekSum: number, deliverable: string) => {
+        const match = deliverable.trim().match(/^(\d+)/)
+        return weekSum + (match ? Number(match[1]) : 1)
+      }, 0)
+    }, 0)
+  }
+
   it('removes unsupported channelMix platforms and keeps selected platforms only', () => {
     const out = guardStrategyOutputContract({
       channelMix: [
@@ -264,6 +273,40 @@ describe('guardStrategyOutputContract', () => {
     expect(report.valid).toBe(true)
     expect(report.weakFields).not.toContain('funnelStages')
     expect(report.weakFields).not.toContain('kpis')
+  })
+
+  it('aligns weekly deliverables to the paid exact organic post count', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [
+        { title: 'تنظيم المواعيد بفعالية', format: 'Reel', platform: 'Instagram' },
+        { title: 'تحسين المتابعة اليومية', format: 'Video', platform: 'YouTube Shorts' },
+        { title: 'تواصل ثنائي اللغة فعال', format: 'Carousel', platform: 'LinkedIn' },
+        { title: 'وضوح العمليات اليومية', format: 'Video', platform: 'YouTube Shorts' },
+        { title: 'تجربة المستخدم في ClinicFlow AI', format: 'Reel', platform: 'Instagram' },
+        { title: 'تجربة عملية ClinicFlow AI', format: 'Video', platform: 'YouTube Shorts' },
+        { title: 'تواصل فعال مع المرضى', format: 'Carousel', platform: 'LinkedIn' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, objective: 'زيادة الوعي', deliverables: ['2 Reels عن تنظيم المواعيد', '1 فيديو توضيحي'], platforms: ['Instagram', 'YouTube Shorts'], cta: 'اطلب عرض توضيحي', successMetric: 'عدد المشاهدات' },
+        { week: 2, objective: 'تحفيز الاهتمام', deliverables: ['1 مقال على LinkedIn', '1 فيديو قصير'], platforms: ['LinkedIn', 'YouTube Shorts'], cta: 'شاهد كيف يعمل', successMetric: 'عدد النقرات' },
+        { week: 3, objective: 'تحفيز التحويلات', deliverables: ['1 فيديو توضيحي', '1 Reel'], platforms: ['YouTube Shorts', 'Instagram'], cta: 'تعرف على المزيد', successMetric: 'عدد الطلبات' },
+        { week: 4, objective: 'تعزيز التحويلات', deliverables: ['1 مقال على LinkedIn', '1 فيديو قصير'], platforms: ['LinkedIn', 'YouTube Shorts'], cta: 'اطلب عرض توضيحي', successMetric: 'طلبات تجريبية' },
+      ],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'YOUTUBE_SHORTS', 'LINKEDIN'],
+      language: 'ar',
+      strategyType: 'organic',
+      organicPostCount: 7,
+    }) as any
+
+    expect(out.contentAnglesDetailed).toHaveLength(7)
+    expect(weeklyCount(out.weeklyExecutionPlan)).toBe(7)
+    expect(out.weeklyExecutionPlan.flatMap((week: any) => week.deliverables)).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^1 /),
+        expect.stringContaining('ClinicFlow AI'),
+      ]),
+    )
   })
 })
 

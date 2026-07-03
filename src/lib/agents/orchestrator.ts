@@ -189,6 +189,7 @@ export async function runFullAgency(
       allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
       language: brief.language,
       strategyType: brief.strategyType,
+      organicPostCount: brief.organicPostCount,
     })
     const contractReport = assertCampaignStrategyContract(strategy, { language: brief.language })
     console.log(
