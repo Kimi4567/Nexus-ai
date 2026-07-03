@@ -308,6 +308,12 @@ function CampaignDetailPageInner() {
     if (seconds < 86400) return cdT?.timeHoursAgo?.replace('{n}', String(Math.floor(seconds / 3600)))
     return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')
   }, [cdT, locale])
+  const scrollToStrategySection = useCallback((sectionId: string) => {
+    const section = document.getElementById(sectionId)
+    if (!section) return
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.history.replaceState(null, '', `#${sectionId}`)
+  }, [])
 
   function AgentBanner({ idx }: { idx: number }) {
     const agent = AGENT_TABS[idx]
@@ -523,6 +529,14 @@ function CampaignDetailPageInner() {
     }, 3000)
     return () => clearTimeout(t)
   }, [isNewCampaign, isPaid, billingStatus, generating])
+
+  useEffect(() => {
+    if (loading || fetching || !campaign?.aiOutput || activeTab !== 0) return
+    const sectionId = window.location.hash.replace('#', '')
+    if (!sectionId.startsWith('strategy-')) return
+    const timer = window.setTimeout(() => scrollToStrategySection(sectionId), 120)
+    return () => window.clearTimeout(timer)
+  }, [activeTab, campaign?.aiOutput, fetching, loading, scrollToStrategySection])
 
   const updateCampaign = async (data: Partial<Campaign>) => {
     const token = authHeader()
@@ -882,6 +896,30 @@ function CampaignDetailPageInner() {
   const safeExecutionAssumptions = uniqueCleanList(executionAssumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const safeAssumptions = uniqueCleanList(assumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const hasPaidPlanningGaps = paidPlanningMissingLabels.length > 0
+  const hasExecutiveStrategySection =
+    !!(strategy.diagnosis || strategy.keyMessage || strategy.positioning || strategy.differentiation || strategy.targetAudienceRefined || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
+  const hasDiagnosisSection = !!(strategy.diagnosis || diagnosisDetails)
+  const hasBusinessObjectiveSection = !!businessObjective
+  const hasAudienceSection = audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0
+  const hasOrganicContentSection =
+    !!(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
+  const hasExecutionSection =
+    !!(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
+  const hasReadinessSection =
+    !!(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan)
+  const hasRisksSection =
+    !!(doNotDoYet.length > 0 || riskNotes.length > 0 || safeExecutionAssumptions.length > 0 || safeAssumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false)
+  const strategySectionNavItems = [
+    { num: '01', label: locale === 'ar' ? 'الملخص' : 'Summary', id: 'strategy-summary', show: true },
+    { num: '02', label: locale === 'ar' ? 'القرار' : 'Decision', id: 'strategy-executive', show: hasExecutiveStrategySection },
+    { num: '03', label: locale === 'ar' ? 'التشخيص' : 'Diagnosis', id: 'strategy-diagnosis', show: hasDiagnosisSection },
+    { num: '04', label: locale === 'ar' ? 'الهدف' : 'Objective', id: 'strategy-objective', show: hasBusinessObjectiveSection },
+    { num: '05', label: locale === 'ar' ? 'الجمهور' : 'Audience', id: 'strategy-audience', show: hasAudienceSection },
+    { num: '06', label: locale === 'ar' ? 'المحتوى' : 'Content', id: 'strategy-content', show: hasOrganicContentSection },
+    { num: '07', label: locale === 'ar' ? 'التنفيذ' : 'Execution', id: 'strategy-execution', show: hasExecutionSection },
+    { num: '08', label: locale === 'ar' ? 'الجاهزية' : 'Readiness', id: 'strategy-readiness', show: hasReadinessSection },
+    { num: '09', label: locale === 'ar' ? 'المخاطر' : 'Risks', id: 'strategy-risks', show: hasRisksSection },
+  ].filter(item => item.show)
   const displayedConfidenceLevel = confidenceReport?.overall === 'high' && (missingDataLabels.length > 0 || competitorAnalysisComplete === false)
     ? 'medium'
     : confidenceReport?.overall
@@ -894,6 +932,7 @@ function CampaignDetailPageInner() {
     return map[lvl] ? (locale === 'ar' ? map[lvl].ar : map[lvl].en) : lvl
   }
   const confLevelColor = (lvl: string): string => (lvl === 'high' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444')
+
   // Sprint F — creative brief
   const creativeBrief = aiOutput?.creativeBrief || null
   const creativeMode: 'asset' | 'concept' | null = aiOutput?.creativeMode || null
@@ -1938,22 +1977,16 @@ function CampaignDetailPageInner() {
                 </section>
 
                 <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 text-sm shadow-sm">
-                  {[
-                    ['01', locale === 'ar' ? 'الملخص' : 'Summary', '#strategy-summary'],
-                    ['02', locale === 'ar' ? 'التشخيص' : 'Diagnosis', '#strategy-diagnosis'],
-                    ['03', locale === 'ar' ? 'الجمهور' : 'Audience', '#strategy-audience'],
-                    ['04', locale === 'ar' ? 'المحتوى' : 'Content', '#strategy-content'],
-                    ['05', locale === 'ar' ? 'التنفيذ' : 'Execution', '#strategy-execution'],
-                    ['06', locale === 'ar' ? 'المخاطر' : 'Risks', '#strategy-risks'],
-                  ].map(([num, label, href]) => (
-                    <a
-                      key={href}
-                      href={href}
+                  {strategySectionNavItems.map(({ num, label, id }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => scrollToStrategySection(id)}
                       className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                     >
                       <span className="text-[11px] text-slate-400">{num}</span>
                       {label}
-                    </a>
+                    </button>
                   ))}
                 </nav>
 
@@ -1983,7 +2016,7 @@ function CampaignDetailPageInner() {
                   </p>
                 </section>
 
-                {(strategy.diagnosis || strategy.keyMessage || strategy.positioning || strategy.differentiation || strategy.targetAudienceRefined || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                {hasExecutiveStrategySection && (
                   <StrategyDocSection
                     id="strategy-executive"
                     eyebrow="01"
@@ -2019,7 +2052,7 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {(strategy.diagnosis || diagnosisDetails) && (
+                {hasDiagnosisSection && (
                   <StrategyDocSection
                     id="strategy-diagnosis"
                     eyebrow="02"
@@ -2045,7 +2078,7 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {businessObjective && (
+                {hasBusinessObjectiveSection && (
                   <StrategyDocSection id="strategy-objective" eyebrow="03" title={cdT?.sectionBusinessObjective || 'Business Objective'}>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {[
@@ -2062,7 +2095,7 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {(audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0) && (
+                {hasAudienceSection && (
                   <StrategyDocSection id="strategy-audience" eyebrow="04" title={cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}>
                     {audienceSegmentsDetailed.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -2090,7 +2123,7 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0) && (
+                {hasOrganicContentSection && (
                   <StrategyDocSection
                     id="strategy-content"
                     eyebrow="05"
@@ -2171,7 +2204,7 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
+                {hasExecutionSection && (
                   <StrategyDocSection id="strategy-execution" eyebrow="06" title={cdT?.chapterExecution || 'Execution Plan'}>
                     <div className="space-y-5">
                       {(funnelStages.length > 0 || strategy.funnelStrategy) && (
@@ -2317,8 +2350,9 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan) && (
+                {hasReadinessSection && (
                   <StrategyDocSection
+                    id="strategy-readiness"
                     eyebrow="08"
                     title={locale === 'ar' ? 'الجاهزية والتخطيط المدفوع' : 'Readiness & Paid Planning'}
                     description={locale === 'ar'
@@ -2413,7 +2447,7 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {(doNotDoYet.length > 0 || riskNotes.length > 0 || executionAssumptions.length > 0 || assumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false) && (
+                {hasRisksSection && (
                   <StrategyDocSection
                     id="strategy-risks"
                     eyebrow="09"

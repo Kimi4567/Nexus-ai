@@ -37,6 +37,14 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.')
   })
 
+  it('uses functional section navigation for only visible strategy sections', () => {
+    expect(campaignRoomSource).toContain('strategySectionNavItems')
+    expect(campaignRoomSource).toContain('scrollToStrategySection')
+    expect(campaignRoomSource).toContain("document.getElementById(sectionId)")
+    expect(campaignRoomSource).toContain("window.location.hash.replace('#', '')")
+    expect(campaignRoomSource).not.toContain("['04', locale === 'ar' ? 'المحتوى' : 'Content', '#strategy-content']")
+  })
+
   it('does not surface unconfirmed budget assumptions as factual allocation', () => {
     expect(campaignRoomSource).toContain('sanitizeStrategyLimitText')
     expect(campaignRoomSource).toContain('Paid budget needs user confirmation before allocation.')
