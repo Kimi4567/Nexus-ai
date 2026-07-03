@@ -40,10 +40,10 @@ const richStrategy = {
   ],
   contentPillars: ['Office coffee routines', 'Home brewing guidance', 'Bean selection help'],
   contentAnglesDetailed: [
-    { title: 'Office reorder reminder', pain: 'Running out', format: 'Carousel', hook: 'Your office coffee should not be a weekly emergency.', platform: 'LinkedIn', cta: 'Ask for a bundle', asset: 'Office setup', funnelStage: 'consideration' },
-    { title: 'Grind-size guide', pain: 'Wrong grind', format: 'Reel', hook: 'The grind can change your whole cup.', platform: 'Instagram', cta: 'Message for help', asset: 'Brew setup', funnelStage: 'awareness' },
-    { title: 'Morning routine', pain: 'Inconsistent taste', format: 'Story', hook: 'Small coffee choices make mornings easier.', platform: 'Instagram', cta: 'Choose your bag', asset: 'Kitchen counter', funnelStage: 'conversion' },
-    { title: 'Team preference poll', pain: 'Mixed team taste', format: 'Post', hook: 'One office, many coffee preferences.', platform: 'Facebook', cta: 'Build a team pack', asset: 'Coffee bags', funnelStage: 'consideration' },
+    { title: 'Office reorder reminder', pain: 'Running out', desiredOutcome: 'Reliable reorder rhythm', objection: 'Will the team like this coffee?', format: 'Carousel', hook: 'Your office coffee should not be a weekly emergency.', platform: 'LinkedIn', cta: 'Ask for a bundle', asset: 'Office setup', funnelStage: 'consideration', proofNeeded: 'Office routine photo or reorder checklist', responseHandoff: 'Owner replies with bundle options and team-size question', reviewPoint: 'Review inquiry fit before repeating' },
+    { title: 'Grind-size guide', pain: 'Wrong grind', desiredOutcome: 'Consistent morning cup', objection: 'I do not know which grind to order', format: 'Reel', hook: 'The grind can change your whole cup.', platform: 'Instagram', cta: 'Message for help', asset: 'Brew setup', funnelStage: 'awareness', proofNeeded: 'Brew setup photos and grind examples', responseHandoff: 'Owner asks brewing method and recommends one grind', reviewPoint: 'Review saved posts and recommendation requests' },
+    { title: 'Morning routine', pain: 'Inconsistent taste', desiredOutcome: 'Simpler daily choice', objection: 'Will this work with my equipment?', format: 'Story', hook: 'Small coffee choices make mornings easier.', platform: 'Instagram', cta: 'Choose your bag', asset: 'Kitchen counter', funnelStage: 'conversion', proofNeeded: 'Routine sequence photos', responseHandoff: 'Owner confirms brew method before order', reviewPoint: 'Review reply quality and confusion points' },
+    { title: 'Team preference poll', pain: 'Mixed team taste', desiredOutcome: 'Office pack that matches team preference', objection: 'One coffee will not fit everyone', format: 'Post', hook: 'One office, many coffee preferences.', platform: 'Facebook', cta: 'Build a team pack', asset: 'Coffee bags', funnelStage: 'consideration', proofNeeded: 'Team preference poll or bundle menu', responseHandoff: 'Owner asks team size and taste range', reviewPoint: 'Review bundle inquiry readiness' },
   ],
   funnelStages: [
     { stage: 'awareness', userMindset: 'Curious', message: 'Daily coffee can be more consistent', contentType: 'Reel', platform: 'Instagram', cta: 'Save the guide', successMetric: 'Saved posts', nextStep: 'Compare beans', productArea: 'Organic' },
@@ -56,6 +56,16 @@ const richStrategy = {
     { week: 3, objective: 'Show routine', keyMessage: 'Daily cup made easier', deliverables: ['3 stories'], platforms: ['Instagram'], assetsNeeded: ['Cup sequence'], cta: 'Order on WhatsApp', successMetric: 'Replies', executionNote: 'Use simple steps', reviewPoints: ['Replies'] },
     { week: 4, objective: 'Test offer', keyMessage: 'Office bundle planning', deliverables: ['1 offer post'], platforms: ['Facebook'], assetsNeeded: ['Bundle shot'], cta: 'Request bundle', successMetric: 'WhatsApp starts', executionNote: 'No discount assumptions', reviewPoints: ['Inquiry fit'] },
   ],
+  assetRequirements: {
+    mustHave: ['Product photos', 'WhatsApp response owner'],
+    niceToHave: ['Office coffee setup'],
+    forAds: ['Paid proof later only'],
+    forOrganic: ['Routine visuals'],
+    forProof: ['Customer feedback before proof claims'],
+    canStartWithout: true,
+    canStartWithoutNote: 'Organic planning can start while proof is collected.',
+    nextToCreate: ['Office setup photo set'],
+  },
   channelMix: [{ platform: 'Instagram', budgetPercent: 0, rationale: 'Organic review surface only', contentFrequency: '3x/week' }],
   topHooks: ['Your office coffee should not be a weekly emergency.', 'Choose beans by routine, not guesswork.', 'The grind can change your whole cup.'],
   ctaVariations: ['Ask for a grind recommendation', 'Message for an office bundle', 'Choose your daily bag'],
@@ -156,11 +166,39 @@ describe('campaign strategy contract', () => {
         ...angle,
         hook: 'Build awareness',
         cta: '',
+        proofNeeded: '',
+        responseHandoff: '',
+        reviewPoint: '',
       })),
     }
 
     const report = validateCampaignStrategyContract(weakAngles)
     expect(report.valid).toBe(false)
     expect(report.weakFields).toContain('contentAnglesDetailed.operationalDepth')
+  })
+
+  it('rejects strategies with missing asset requirements', () => {
+    const weak = { ...richStrategy }
+    delete (weak as any).assetRequirements
+
+    const report = validateCampaignStrategyContract(weak)
+    expect(report.valid).toBe(false)
+    expect(report.missingFields).toContain('assetRequirements')
+  })
+
+  it('rejects weekly execution plans missing assets, handoff notes, or review points', () => {
+    const weak = {
+      ...richStrategy,
+      weeklyExecutionPlan: richStrategy.weeklyExecutionPlan.map((week) => ({
+        ...week,
+        assetsNeeded: [],
+        executionNote: '',
+        reviewPoints: [],
+      })),
+    }
+
+    const report = validateCampaignStrategyContract(weak)
+    expect(report.valid).toBe(false)
+    expect(report.weakFields).toContain('weeklyExecutionPlan.countableDeliverables')
   })
 })
