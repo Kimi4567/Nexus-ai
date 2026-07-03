@@ -180,6 +180,191 @@ function normalizeOrganicChannelMix(list: unknown): unknown {
   })
 }
 
+function isArabicLanguage(language: string | null | undefined): boolean {
+  return typeof language === 'string' && language.toLowerCase().startsWith('ar')
+}
+
+function firstPlatformLabel(ctx: NormalizedPlatformContext): string {
+  return ctx.fallbackLabel || 'Instagram'
+}
+
+function hasUsefulText(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length >= 3
+}
+
+function objectHasUsefulFields(value: unknown, fields: string[]): boolean {
+  if (!isObject(value)) return false
+  return fields.every(field => hasUsefulText(value[field]))
+}
+
+function hasOperationalFunnelStages(list: unknown): boolean {
+  if (!Array.isArray(list) || list.length < 3) return false
+  return list.every(item => objectHasUsefulFields(item, [
+    'stage',
+    'userMindset',
+    'message',
+    'contentType',
+    'platform',
+    'cta',
+    'successMetric',
+    'nextStep',
+    'productArea',
+  ]))
+}
+
+function hasKpiMinimum(list: unknown): boolean {
+  return Array.isArray(list) && list.length >= 2
+}
+
+function defaultOrganicKpis(language?: string | null): JsonObject[] {
+  if (isArabicLanguage(language)) {
+    return [
+      {
+        metric: 'طلبات عروض توضيحية مؤهلة',
+        target: 'تحديد خط أساس بعد أول ٣٠ يومًا',
+        timeframe: 'أول ٣٠ يومًا',
+        isHypothesis: true,
+      },
+      {
+        metric: 'تفاعل مع محتوى سير العمل',
+        target: 'تحديد خط أساس بعد مراجعة أول شهر',
+        timeframe: 'أول ٣٠ يومًا',
+        isHypothesis: true,
+      },
+    ]
+  }
+
+  return [
+    {
+      metric: 'Qualified demo requests',
+      target: 'Baseline needed after the first 30 days',
+      timeframe: 'First 30 days',
+      isHypothesis: true,
+    },
+    {
+      metric: 'Workflow-content engagement',
+      target: 'Baseline needed after first-month review',
+      timeframe: 'First 30 days',
+      isHypothesis: true,
+    },
+  ]
+}
+
+function defaultFunnelStages(ctx: NormalizedPlatformContext, language?: string | null): JsonObject[] {
+  const platform = firstPlatformLabel(ctx)
+
+  if (isArabicLanguage(language)) {
+    return [
+      {
+        stage: 'awareness',
+        userMindset: 'يعرف المشكلة اليومية لكنه لم يربطها بعد بنظام تشغيل واضح.',
+        message: 'حوّل الفوضى التشغيلية إلى سير عمل يمكن مراجعته قبل التنفيذ.',
+        contentType: 'منشور تعليمي قصير',
+        platform,
+        cta: 'راجع سير العمل',
+        successMetric: 'تفاعل نوعي يحتاج إلى خط أساس',
+        nextStep: 'توجيه المهتم إلى مثال عملي أو عرض توضيحي بعد مراجعة الرسالة.',
+        productArea: 'تثقيف وتشخيص المشكلة',
+      },
+      {
+        stage: 'consideration',
+        userMindset: 'يقارن بين العمل اليدوي وأداة منظمة لكنه يحتاج إثبات ملاءمة.',
+        message: 'اعرض كيف تصبح المتابعة، المسؤوليات، والردود أوضح بدون ادعاء نتائج مضمونة.',
+        contentType: 'كاروسيل أو فيديو قصير',
+        platform,
+        cta: 'اطلب عرضًا توضيحيًا',
+        successMetric: 'طلبات اهتمام مؤهلة تحتاج إلى خط أساس',
+        nextStep: 'تأهيل الطلب بسؤال عن حجم الفريق ومسار المتابعة الحالي.',
+        productArea: 'شرح الحل وتأهيل الطلب',
+      },
+      {
+        stage: 'conversion',
+        userMindset: 'يريد معرفة ما سيحدث بعد طلب العرض قبل مشاركة بياناته.',
+        message: 'اجعل الخطوة التالية واضحة: عرض سير عمل، مراجعة الاحتياج، ثم قرار متابعة.',
+        contentType: 'منشور CTA واضح',
+        platform,
+        cta: 'احجز عرضًا توضيحيًا',
+        successMetric: 'طلبات عروض توضيحية تحتاج إلى خط أساس',
+        nextStep: 'تحديد مسؤول الرد، رسالة التأكيد، وموعد المتابعة قبل توسيع الحملة.',
+        productArea: 'تحويل ومتابعة',
+      },
+      {
+        stage: 'followUp',
+        userMindset: 'تفاعل سابقًا لكنه يحتاج تذكيرًا عمليًا لا ضغطًا بيعيًا.',
+        message: 'ذكّره بفجوة تشغيلية واحدة وبالخطوة الصغيرة التالية لمراجعتها.',
+        contentType: 'رسالة متابعة أو منشور إعادة تذكير',
+        platform,
+        cta: 'راجع نقطة التشغيل هذه',
+        successMetric: 'استجابات متابعة تحتاج إلى خط أساس',
+        nextStep: 'تصنيف الردود حسب الجاهزية ثم تحديد المتابعة اليدوية المناسبة.',
+        productArea: 'متابعة ما بعد الاهتمام',
+      },
+    ]
+  }
+
+  return [
+    {
+      stage: 'awareness',
+      userMindset: 'Aware of the daily operational pain but not yet linking it to a clearer system.',
+      message: 'Turn scattered work into a workflow the team can review before execution.',
+      contentType: 'Short educational post',
+      platform,
+      cta: 'Review the workflow',
+      successMetric: 'Qualitative engagement needs a baseline',
+      nextStep: 'Send interested users to a practical example or demo after reviewing the message.',
+      productArea: 'Problem education',
+    },
+    {
+      stage: 'consideration',
+      userMindset: 'Comparing manual work against a more organized tool and needs fit proof.',
+      message: 'Show how follow-up, ownership, and responses become clearer without guaranteed-result claims.',
+      contentType: 'Carousel or short video',
+      platform,
+      cta: 'Request a demo',
+      successMetric: 'Qualified interest needs a baseline',
+      nextStep: 'Qualify the request with team size and current follow-up workflow questions.',
+      productArea: 'Solution explanation',
+    },
+    {
+      stage: 'conversion',
+      userMindset: 'Wants to know what happens after requesting a demo before sharing details.',
+      message: 'Make the next step clear: workflow walkthrough, need review, then a follow-up decision.',
+      contentType: 'Clear CTA post',
+      platform,
+      cta: 'Book a demo',
+      successMetric: 'Demo requests need a baseline',
+      nextStep: 'Confirm response owner, confirmation message, and follow-up timing before scaling.',
+      productArea: 'Conversion and handoff',
+    },
+    {
+      stage: 'followUp',
+      userMindset: 'Previously engaged and needs a practical reminder rather than sales pressure.',
+      message: 'Remind them of one operational gap and the small next step to review it.',
+      contentType: 'Follow-up message or reminder post',
+      platform,
+      cta: 'Review this workflow point',
+      successMetric: 'Follow-up responses need a baseline',
+      nextStep: 'Classify responses by readiness and choose the appropriate manual follow-up.',
+      productArea: 'Post-interest follow-up',
+    },
+  ]
+}
+
+function guardKpisMinimum(list: unknown, language?: string | null): unknown {
+  if (hasKpiMinimum(list)) return list
+  const existing = Array.isArray(list) ? list.filter(isObject) : []
+  return [...existing, ...defaultOrganicKpis(language)].slice(0, Math.max(2, existing.length))
+}
+
+function guardFunnelStagesMinimum(
+  list: unknown,
+  ctx: NormalizedPlatformContext,
+  language?: string | null,
+): unknown {
+  if (hasOperationalFunnelStages(list)) return list
+  return defaultFunnelStages(ctx, language)
+}
+
 function guardChannelMix(
   list: unknown,
   ctx: NormalizedPlatformContext,
@@ -317,6 +502,8 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   const output = guardValue(input, ctx) as JsonObject
 
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
+  output.kpis = guardKpisMinimum(output.kpis, context.language)
+  output.funnelStages = guardFunnelStagesMinimum(output.funnelStages, ctx, context.language)
   output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx)
