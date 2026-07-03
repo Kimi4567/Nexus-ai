@@ -181,8 +181,10 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // PR-I — generation-time strategy intent (not persisted; defaults Organic / 90 days).
   const [strategyType, setStrategyType] = useState<'organic' | 'paid' | 'full'>('organic')
   const [strategyDuration, setStrategyDuration] = useState<'30' | '90' | '180' | 'custom'>('90')
-  // PR-S1b — content intensity (review-only; NOT sent to the backend body — that is S1c).
+  // PR-S1b/S1c — content intensity and optional exact organic direction count.
   const [contentIntensity, setContentIntensity] = useState<ContentIntensity>('standard')
+  const [useCustomPostCount, setUseCustomPostCount] = useState(false)
+  const [customOrganicPostCount, setCustomOrganicPostCount] = useState<number>(12)
   // PR-S1b — custom horizon in days, only used when strategyDuration === 'custom'.
   const [customDurationDays, setCustomDurationDays] = useState<number>(45)
   // Cost confirmation — shown after language selection, before media check
@@ -326,6 +328,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           strategyDuration,
           contentIntensity,
           customDurationDays,
+          customOrganicPostCount: strategyType !== 'paid' && useCustomPostCount
+            ? customOrganicPostCount
+            : null,
         }),
       })
         .then(res => res.json().then((d: RunResult) => ({ ok: res.ok, data: d })))
@@ -498,6 +503,9 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     durationPreset: strategyDuration,
     durationDays: strategyHorizonDays,
     contentIntensity,
+    customOrganicPostCount: strategyType !== 'paid' && useCustomPostCount
+      ? customOrganicPostCount
+      : null,
     goal: '',
     language: strategyOrderLanguage,
   }
@@ -515,6 +523,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     strategyDuration === 'custom'
       ? (locale === 'ar' ? `${customDurationDays} يوم` : `${customDurationDays} days`)
       : (locale === 'ar' ? `${strategyHorizonDays} يوم` : `${strategyHorizonDays} days`)
+  const strategyPostCountPreviewLabel =
+    strategyType !== 'paid' && useCustomPostCount
+      ? (locale === 'ar'
+        ? `${customOrganicPostCount} اتجاه منشور`
+        : `${customOrganicPostCount} post directions`)
+      : intensityLabel(contentIntensity, locale)
   const strategyCostActionLabel =
     strategyCostPreview === null
       ? (locale === 'ar' ? 'مراجعة النطاق' : 'Review scope')
@@ -661,6 +675,41 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               <p className="mt-1.5 text-[10px] text-slate-500">
                 {locale === 'ar' ? 'اتجاهات منشورات عضوية لأول 30 يوم (قد تُقيَّد حسب خطتك).' : 'Organic post directions for the first 30 days (may be capped by your plan).'}
               </p>
+              {strategyType !== 'paid' && (
+                <div className="mt-2 rounded-xl p-2.5"
+                  style={{ background: '#ffffff', border: '1px solid #e2e8f0' }}>
+                  <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={useCustomPostCount}
+                      onChange={(e) => setUseCustomPostCount(e.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                    {locale === 'ar'
+                      ? 'استخدم عدد منشورات محدد'
+                      : 'Use an exact post count'}
+                  </label>
+                  {useCustomPostCount && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={customOrganicPostCount}
+                        onChange={e => setCustomOrganicPostCount(Math.min(30, Math.max(1, Math.floor(Number(e.target.value) || 1))))}
+                        className="w-24 px-2.5 py-1.5 rounded-lg text-xs text-slate-950 bg-white outline-none"
+                        style={{ border: '1px solid #cbd5e1' }}
+                        dir="ltr"
+                      />
+                      <span className="text-[11px] text-slate-500">
+                        {locale === 'ar'
+                          ? 'اتجاهات منشورات لأول 30 يوم'
+                          : 'post directions for the first 30 days'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="rounded-xl p-3 mb-5"
@@ -695,7 +744,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                {[strategyTypePreviewLabel, strategyDurationPreviewLabel, intensityLabel(contentIntensity, locale)].map((chip) => (
+                {[strategyTypePreviewLabel, strategyDurationPreviewLabel, strategyPostCountPreviewLabel].map((chip) => (
                   <span key={chip} className="px-2 py-1 rounded-lg text-[10px] font-semibold"
                     style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #c7d2fe' }}>
                     {chip}
@@ -874,7 +923,11 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       ar ? `أفق ${deliverables.planningHorizonDays} يوم` : `${deliverables.planningHorizonDays}-day horizon`,
                       ar ? `${deliverables.roadmapMonths} شهر خريطة طريق` : `${deliverables.roadmapMonths}-mo roadmap`,
                       ar ? `مخطط تنفيذ ${deliverables.detailedCalendarDays} يوم` : `${deliverables.detailedCalendarDays}-day execution outline`,
-                      includesOrganic ? `${intensityLabel(contentIntensity, locale)} · ${INTENSITY_RANGE_LABEL[contentIntensity]}` : null,
+                      includesOrganic
+                        ? useCustomPostCount
+                          ? (ar ? `${deliverables.organicPostCount} اتجاه منشور محدد` : `${deliverables.organicPostCount} exact post directions`)
+                          : `${intensityLabel(contentIntensity, locale)} · ${INTENSITY_RANGE_LABEL[contentIntensity]}`
+                        : null,
                     ].filter(Boolean).map((chip, i) => (
                       <span key={i} className="px-2 py-1 rounded-lg text-[10px] font-semibold"
                         style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #c7d2fe' }}>
@@ -966,9 +1019,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       {includesOrganic && (
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                           <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
-                          {ar
-                            ? `اتجاهات منشورات لأول 30 يوم: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`
-                            : `Organic post directions for the first 30 days: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`}
+                          {useCustomPostCount
+                            ? (ar
+                              ? `اتجاهات منشورات محددة لأول 30 يوم: ${deliverables.organicPostCount}`
+                              : `Exact organic post directions for the first 30 days: ${deliverables.organicPostCount}`)
+                            : (ar
+                              ? `اتجاهات منشورات لأول 30 يوم: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`
+                              : `Organic post directions for the first 30 days: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`)}
                         </div>
                       )}
                       {includesPaid && (

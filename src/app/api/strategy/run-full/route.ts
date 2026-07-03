@@ -220,6 +220,7 @@ export async function POST(req: NextRequest) {
       strategyType: body?.strategyType,
       strategyDuration: body?.strategyDuration,
       contentIntensity: body?.contentIntensity,
+      customOrganicPostCount: body?.customOrganicPostCount,
       customDurationDays: body?.customDurationDays,
       language: body?.language,
     })
@@ -227,11 +228,13 @@ export async function POST(req: NextRequest) {
     // Unsupported (custom > 180 days, or non-positive) → block BEFORE any
     // deduction. No credits are ever charged for an unsupported order.
     if (!charge.supported || charge.cost == null) {
+      const customPostCountError = /custom organic post count/i.test(charge.pricing.pricingExplanation)
       return NextResponse.json(
         {
-          error: 'UNSUPPORTED_DURATION',
-          message:
-            'Strategies longer than 180 days are not supported yet. Contact support for a custom quote — no credits were charged.',
+          error: customPostCountError ? 'UNSUPPORTED_POST_COUNT' : 'UNSUPPORTED_DURATION',
+          message: customPostCountError
+            ? 'Custom organic post count must be between 1 and 30 for the first detailed window — no credits were charged.'
+            : 'Strategies longer than 180 days are not supported yet. Contact support for a custom quote — no credits were charged.',
           supported: false,
         },
         { status: 422 },

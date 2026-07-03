@@ -17,6 +17,12 @@
  */
 
 import type { StrategyOrder, ContentIntensity } from './strategyOrder'
+import {
+  customOrganicPostCountUnsupported,
+  effectiveContentIntensityForOrder,
+  includesOrganicScope,
+  MAX_CUSTOM_ORGANIC_POST_COUNT,
+} from './strategyPostCount'
 
 export type DurationBucket = '30' | '90' | '180' | 'custom-unsupported'
 
@@ -82,10 +88,11 @@ function rowAndLabel(order: StrategyOrder): { row: PriceRow; tierLabel: string }
     const tier = PAID_TIER_FOR_INTENSITY[order.contentIntensity]
     return { row: PAID[tier], tierLabel: `Paid ${CAP(tier)}` }
   }
+  const effectiveIntensity = effectiveContentIntensityForOrder(order)
   if (order.strategyType === 'full') {
-    return { row: FULL[order.contentIntensity], tierLabel: `Full ${CAP(order.contentIntensity)}` }
+    return { row: FULL[effectiveIntensity], tierLabel: `Full ${CAP(effectiveIntensity)}` }
   }
-  return { row: ORGANIC[order.contentIntensity], tierLabel: `Organic ${CAP(order.contentIntensity)}` }
+  return { row: ORGANIC[effectiveIntensity], tierLabel: `Organic ${CAP(effectiveIntensity)}` }
 }
 
 /**
@@ -95,6 +102,17 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
   const { row, tierLabel } = rowAndLabel(order)
   const days = resolveDays(order)
   const isCustom = order.durationPreset === 'custom'
+  const hasOrganicCustomCount = includesOrganicScope(order) && order.customOrganicPostCount != null
+
+  if (customOrganicPostCountUnsupported(order)) {
+    return {
+      cost: null,
+      supported: false,
+      tierLabel,
+      durationBucket: 'custom-unsupported',
+      pricingExplanation: `${tierLabel} · custom organic post count must be 1-${MAX_CUSTOM_ORGANIC_POST_COUNT} for the first detailed window — no charge`,
+    }
+  }
 
   // ── Preset durations: direct matrix lookup ──
   if (!isCustom) {
@@ -105,7 +123,9 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       supported: true,
       tierLabel,
       durationBucket: bucket,
-      pricingExplanation: `${tierLabel} · ${bucket}-day price = ${cost} credits`,
+      pricingExplanation: hasOrganicCustomCount
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · ${bucket}-day price = ${cost} credits`
+        : `${tierLabel} · ${bucket}-day price = ${cost} credits`,
     }
   }
 
@@ -131,7 +151,9 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       supported: true,
       tierLabel,
       durationBucket: '30',
-      pricingExplanation: `${tierLabel} · custom ${days} days = 30-day price = ${row[30]} credits`,
+      pricingExplanation: hasOrganicCustomCount
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 30-day price = ${row[30]} credits`
+        : `${tierLabel} · custom ${days} days = 30-day price = ${row[30]} credits`,
     }
   }
   // 31–60 → 30-day price + 20%, rounded up.
@@ -142,7 +164,9 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       supported: true,
       tierLabel,
       durationBucket: '30',
-      pricingExplanation: `${tierLabel} · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`,
+      pricingExplanation: hasOrganicCustomCount
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`
+        : `${tierLabel} · custom ${days} days = 30-day price +20% (ceil) = ${cost} credits`,
     }
   }
   // 61–90 → 90-day price.
@@ -152,7 +176,9 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
       supported: true,
       tierLabel,
       durationBucket: '90',
-      pricingExplanation: `${tierLabel} · custom ${days} days = 90-day price = ${row[90]} credits`,
+      pricingExplanation: hasOrganicCustomCount
+        ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 90-day price = ${row[90]} credits`
+        : `${tierLabel} · custom ${days} days = 90-day price = ${row[90]} credits`,
     }
   }
   // 91–180 → 180-day price.
@@ -161,6 +187,8 @@ export function getStrategyCreditCost(order: StrategyOrder): StrategyCreditCost 
     supported: true,
     tierLabel,
     durationBucket: '180',
-    pricingExplanation: `${tierLabel} · custom ${days} days = 180-day price = ${row[180]} credits`,
+    pricingExplanation: hasOrganicCustomCount
+      ? `${tierLabel} · exact ${order.customOrganicPostCount} organic post directions · custom ${days} days = 180-day price = ${row[180]} credits`
+      : `${tierLabel} · custom ${days} days = 180-day price = ${row[180]} credits`,
   }
 }
