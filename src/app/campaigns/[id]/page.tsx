@@ -974,6 +974,7 @@ function CampaignDetailPageInner() {
   ).length
   const autopilotQueueHasScheduled = autopilotQueueScheduledCount > 0
   const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
+  const hasManualOrScheduledWorkflowRecords = operatingState.truthFlags.hasScheduledContent || operatingState.truthFlags.hasManualPublishedContent
 
   const nextCreativeAction = (() => {
     if (!operatingState.truthFlags.hasStrategy) {
@@ -3213,10 +3214,14 @@ function CampaignDetailPageInner() {
                     </p>
                   )}
                   {aiOutput && weeklyExecutionPlan.length === 0 && (
-                    <p className="mt-3 text-xs text-amber-700">
-                      {locale === 'ar'
-                        ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — أعد توليد الاستراتيجية'
-                        : '⚠ No weekly execution plan found — regenerate the strategy'}
+                    <p className={`mt-3 text-xs ${hasManualOrScheduledWorkflowRecords ? 'text-slate-600' : 'text-amber-700'}`}>
+                      {hasManualOrScheduledWorkflowRecords
+                        ? (locale === 'ar'
+                            ? '📌 الأوتوبايلوت غير مفعّل. المنشورات المجدولة أو المؤكدة يدويًا هي سجلات سير عمل، ولا تحتاج إعادة توليد الاستراتيجية لمجرد غياب خطة تنفيذ أسبوعية.'
+                            : '📌 Autopilot is not enabled. Scheduled or manually published posts are workflow records; they do not require strategy regeneration just because a weekly execution plan is missing.')
+                        : (locale === 'ar'
+                            ? '⚠ خطة التنفيذ الأسبوعية غير موجودة في هذه الاستراتيجية — راجع الاستراتيجية قبل إعداد الأوتوبايلوت'
+                            : '⚠ No weekly execution plan found — review strategy before setting up Autopilot')}
                     </p>
                   )}
                   {aiOutput && weeklyExecutionPlan.length > 0 && !hasVerifiedPublishingConnection && (
