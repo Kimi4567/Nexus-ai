@@ -139,6 +139,10 @@ describe('getStrategyBriefReadiness', () => {
     expect(surface.full.label).toBe('Organic ready · paid planning only')
     expect(surface.full.label).not.toContain('launch')
     expect(surface.full.label).not.toContain('spend')
+    expect(surface.nextAction.label).toBe('Review strategy / update after cost review')
+    expect(surface.nextAction.labelAr).toBe('راجع الاستراتيجية / حدّث بعد مراجعة التكلفة')
+    expect(surface.nextAction.label).not.toContain('run planning update')
+    expect(surface.nextAction.labelAr).not.toContain('شغّل تحديث تخطيطي')
   })
 
   it('labels the strategy page as not ready when organic core fields are incomplete', () => {
