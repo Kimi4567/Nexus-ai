@@ -81,6 +81,92 @@ function joinLines(lines: Array<string | false | null | undefined>): string {
 }
 
 /**
+ * UI-facing localization for deterministic internal deliverable labels.
+ * The contract itself stays English/stable for tests and prompt wiring; runtime
+ * surfaces should translate it before showing Arabic users the cost review.
+ */
+export function formatStrategyDeliverableForLocale(item: string, locale: 'ar' | 'en' = 'en'): string {
+  if (locale !== 'ar') return item
+
+  const translateSuffix = (suffix = ''): string => {
+    const trimmed = suffix.trim()
+    if (!trimmed) return ''
+    if (trimmed === 'for the first 30 days') return 'لأول 30 يوم'
+    return trimmed
+  }
+
+  const exactAfterCap = item.match(/^Exact organic post directions after plan cap \((\d+); requested (\d+)\)(.*)$/)
+  if (exactAfterCap) {
+    const suffix = translateSuffix(exactAfterCap[3])
+    return `اتجاهات منشورات عضوية محددة بعد حد الخطة (${exactAfterCap[1]}؛ المطلوب ${exactAfterCap[2]})${suffix ? ' ' + suffix : ''}`.trim()
+  }
+
+  const exactRequested = item.match(/^Exact organic post directions requested \((\d+)\)(.*)$/)
+  if (exactRequested) {
+    const suffix = translateSuffix(exactRequested[2])
+    return `اتجاهات منشورات عضوية محددة (${exactRequested[1]})${suffix ? ' ' + suffix : ''}`.trim()
+  }
+
+  const organicTarget = item.match(/^Organic post direction target \((\d+)\)(.*)$/)
+  if (organicTarget) {
+    const suffix = translateSuffix(organicTarget[2])
+    return `هدف اتجاهات المنشورات العضوية (${organicTarget[1]})${suffix ? ' ' + suffix : ''}`.trim()
+  }
+
+  const monthRoadmap = item.match(/^(\d+)-month organic roadmap$/)
+  if (monthRoadmap) return `خريطة طريق عضوية لمدة ${monthRoadmap[1]} أشهر`
+
+  const platformAdaptations = item.match(/^Platform adaptations \((\d+) active platforms\)$/)
+  if (platformAdaptations) return `تكييفات للمنصات (${platformAdaptations[1]} منصات نشطة)`
+
+  const adCopyVariations = item.match(/^Ad copy variations \((\d+)\)$/)
+  if (adCopyVariations) return `نسخ إعلانية للمراجعة (${adCopyVariations[1]})`
+
+  const creativeBriefs = item.match(/^Creative briefs \((\d+)\)$/)
+  if (creativeBriefs) return `بريفات إبداعية للمراجعة (${creativeBriefs[1]})`
+
+  const audienceHypotheses = item.match(/^Audience hypotheses \((\d+)\)$/)
+  if (audienceHypotheses) return `فرضيات جمهور للمراجعة (${audienceHypotheses[1]})`
+
+  const translations: Record<string, string> = {
+    'First 30-day strategy execution outline': 'مخطط تنفيذ استراتيجي لأول 30 يوم',
+    'Weekly themes and execution priorities for the first 30 days': 'محاور أسبوعية وأولويات تنفيذ لأول 30 يوم',
+    'Months 2+ as themes / backlog / future monthly cycles (not pre-generated posts)': 'الأشهر التالية كمحاور وقائمة أفكار ودورات شهرية مستقبلية، وليست منشورات مولدة مسبقاً',
+    'Content Hub draft posts generated separately after strategy review': 'مسودات Content Hub تُولَّد لاحقاً بعد مراجعة الاستراتيجية',
+    'Weekly extension outline beyond the detailed 30 days': 'مخطط أسبوعي امتدادي بعد أول 30 يوم المفصلة',
+    'Detailed 30-day strategy': 'استراتيجية مفصلة لمدة 30 يوم',
+    'First-month strategy execution outline': 'مخطط تنفيذ للشهر الأول',
+    'Weekly themes and execution priorities': 'محاور أسبوعية وأولويات تنفيذ',
+    'Captions / CTA direction': 'اتجاه التعليقات ودعوات الإجراء',
+    'Platform recommendations': 'توصيات المنصات',
+    'Pre-generated posts for every day of the full horizon': 'منشورات مولدة مسبقاً لكل يوم في كامل المدة',
+    'Saved Content Hub content plan': 'خطة محتوى محفوظة داخل Content Hub',
+    'Final SocialPost drafts / captions': 'مسودات SocialPost أو تعليقات نهائية',
+    'Scheduled calendar entries': 'عناصر تقويم مجدولة',
+    'Campaign objective': 'هدف الحملة للمراجعة',
+    'Funnel structure': 'هيكل القمع التسويقي',
+    'Ad angles (4)': 'زوايا إعلانية للمراجعة (4)',
+    'Budget split': 'تقسيم ميزانية كمراجعة تخطيطية',
+    'Tracking checklist': 'قائمة تحقق للتتبع',
+    'Launch blockers': 'عوائق الإطلاق',
+    'Planning-only warning': 'تنبيه أن المدفوع تخطيط فقط',
+    'Ad launch': 'إطلاق الإعلانات',
+    'Ad spend': 'صرف ميزانية إعلانية',
+    'Publishing': 'النشر',
+    'Campaign activation': 'تفعيل الحملة',
+    'Performance projections / invented metrics': 'توقعات أداء أو أرقام غير مثبتة',
+    'Shared message angles across organic + paid': 'زوايا رسائل مشتركة بين العضوي والمدفوع',
+    'Funnel alignment (organic ↔ paid)': 'مواءمة القمع بين العضوي والمدفوع',
+    'Retargeting direction': 'اتجاه إعادة الاستهداف كمراجعة مستقبلية',
+    'Creative angle alignment': 'مواءمة الزوايا الإبداعية',
+    'Paid campaign plan': 'خطة حملة مدفوعة',
+    'Organic content plan': 'خطة محتوى عضوي',
+  }
+
+  return translations[item] ?? item
+}
+
+/**
  * Build the contract. Pure: same inputs → same output, no side effects.
  */
 export function getStrategyDeliverables(

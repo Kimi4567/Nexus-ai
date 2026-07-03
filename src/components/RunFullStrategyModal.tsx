@@ -26,7 +26,7 @@ import {
 } from '@/lib/strategyBriefReadiness'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 // PR-S1b — deterministic Strategy Order Review (display-only; no generation change).
-import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
+import { formatStrategyDeliverableForLocale, getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 // PR-S1c-2 — variable strategy pricing (display side). The SAME pure function runs
 // server-side before deduction, so the displayed price equals the charged price.
 import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
@@ -1056,7 +1056,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       {deliverables.includedDeliverables.slice(0, 6).map(item => (
                         <div key={item} className="flex items-center gap-1.5 text-[10px] text-slate-500">
                           <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
-                          {item}
+                          {formatStrategyDeliverableForLocale(item, ar ? 'ar' : 'en')}
                         </div>
                       ))}
                     </div>
@@ -1073,7 +1073,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         {deliverables.excludedDeliverables.slice(0, 6).map(item => (
                           <div key={item} className="flex items-center gap-1.5 text-[10px] text-slate-500">
                             <XCircle className="w-3 h-3 flex-shrink-0 text-slate-400" />
-                            {item}
+                            {formatStrategyDeliverableForLocale(item, ar ? 'ar' : 'en')}
                           </div>
                         ))}
                       </div>

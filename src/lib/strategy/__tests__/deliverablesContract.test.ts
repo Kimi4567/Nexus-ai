@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { getStrategyDeliverables, INTENSITY_POST_TARGET } from '@/lib/strategy/deliverablesContract'
+import {
+  formatStrategyDeliverableForLocale,
+  getStrategyDeliverables,
+  INTENSITY_POST_TARGET,
+} from '@/lib/strategy/deliverablesContract'
 import type { StrategyOrder } from '@/lib/strategy/strategyOrder'
 
 const order = (over: Partial<StrategyOrder>): StrategyOrder => ({
@@ -244,5 +248,14 @@ describe('getStrategyDeliverables — shape & purity', () => {
     const d = getStrategyDeliverables(order({ language: 'both', durationPreset: '90', durationDays: 90 }))
     expect(d.userExplanation).toMatch(/roadmap/i)        // EN
     expect(d.userExplanation).toMatch(/خريطة طريق/)       // AR
+  })
+
+  it('localizes internal deliverable labels for Arabic cost-review UI', () => {
+    expect(formatStrategyDeliverableForLocale('Detailed 30-day strategy', 'ar')).toBe('استراتيجية مفصلة لمدة 30 يوم')
+    expect(formatStrategyDeliverableForLocale('Exact organic post directions requested (7) for the first 30 days', 'ar')).toBe('اتجاهات منشورات عضوية محددة (7) لأول 30 يوم')
+    expect(formatStrategyDeliverableForLocale('Organic post direction target (16) for the first 30 days', 'ar')).toBe('هدف اتجاهات المنشورات العضوية (16) لأول 30 يوم')
+    expect(formatStrategyDeliverableForLocale('Saved Content Hub content plan', 'ar')).toBe('خطة محتوى محفوظة داخل Content Hub')
+    expect(formatStrategyDeliverableForLocale('Paid campaign plan', 'ar')).toBe('خطة حملة مدفوعة')
+    expect(formatStrategyDeliverableForLocale('Detailed 30-day strategy', 'en')).toBe('Detailed 30-day strategy')
   })
 })
