@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
+import { formatStrategyPlatformLabel, guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
 
 describe('guardStrategyOutputContract', () => {
   const allowed = ['INSTAGRAM', 'TIKTOK', 'FACEBOOK']
@@ -48,6 +48,32 @@ describe('guardStrategyOutputContract', () => {
       { label: 'Create content assets', done: false },
     ])
   })
+
+  it('guards saved strategy display against unsupported platforms and unsupported download CTAs', () => {
+    const out = guardStrategyOutputContract({
+      contentAnglesDetailed: [
+        { title: 'Dashboard Insights', platform: 'LinkedIn', cta: 'Download now' },
+      ],
+      funnelStages: [
+        { stage: 'conversion', platform: 'LinkedIn', cta: 'Download now' },
+      ],
+      channelMix: [
+        { platform: 'LinkedIn', rationale: 'Professional audience' },
+        { platform: 'Youtube_shorts', rationale: 'Video education' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, platforms: ['LinkedIn', 'youtube_shorts'], deliverables: ['1 LinkedIn post'] },
+      ],
+    }, { allowedPlatforms: ['FACEBOOK', 'INSTAGRAM', 'YOUTUBE_SHORTS'] })
+
+    expect(JSON.stringify(out)).not.toMatch(/LinkedIn|Download now|Youtube_shorts/)
+    expect(out.contentAnglesDetailed[0].platform).toBe('Facebook')
+    expect(out.contentAnglesDetailed[0].cta).toBe('Request more information')
+    expect(out.funnelStages[0].platform).toBe('Facebook')
+    expect(out.funnelStages[0].cta).toBe('Request more information')
+    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Facebook', 'YouTube Shorts'])
+    expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Facebook', 'YouTube Shorts'])
+  })
 })
 
 describe('selectStrategyCampaignPlatforms', () => {
@@ -65,6 +91,14 @@ describe('selectStrategyCampaignPlatforms', () => {
     }, [])
 
     expect(platforms).toEqual(['Instagram', 'TikTok'])
+  })
+})
+
+describe('formatStrategyPlatformLabel', () => {
+  it('formats common YouTube Shorts variants for runtime display', () => {
+    expect(formatStrategyPlatformLabel('youtube_shorts')).toBe('YouTube Shorts')
+    expect(formatStrategyPlatformLabel('Youtube_shorts')).toBe('YouTube Shorts')
+    expect(formatStrategyPlatformLabel('youtube shorts')).toBe('YouTube Shorts')
   })
 })
 

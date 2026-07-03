@@ -28,19 +28,23 @@ describe('getBrandReadinessCopy (PR-1I — one readiness truth)', () => {
   it('building → partial copy, NOT "ready", NOT "all agents know your brand"', () => {
     const en = getBrandReadinessCopy('building', 'en', 'Acme')
     expect(en.isComplete).toBe(false)
-    expect(en.summary).toContain('partially configured')
+    expect(en.summary).toContain('core context')
+    expect(en.summary).toContain('reviewed signals')
+    expect(en.summary).not.toContain('complete your profile')
     expect(en.summary).not.toMatch(/\bis ready\b/)
     expect(en.summary).not.toContain('all agents know your brand')
 
     const ar = getBrandReadinessCopy('building', 'ar')
     expect(ar.isComplete).toBe(false)
-    expect(ar.summary).toContain('جزئياً')
+    expect(ar.summary).toContain('سياق أساسي')
+    expect(ar.summary).toContain('إشارات مراجَعة')
   })
 
   it('needs_data → needs-more-information copy, never "ready"', () => {
     const en = getBrandReadinessCopy('needs_data', 'en')
     expect(en.isComplete).toBe(false)
-    expect(en.summary).toContain('needs more information')
+    expect(en.summary).toContain('needs more core context')
+    expect(en.summary).not.toContain('complete your brand profile')
     expect(en.summary).not.toMatch(/\bready\b/)
     expect(en.label).toBe('Needs Data')
   })
@@ -57,6 +61,6 @@ describe('getBrandReadinessCopy (PR-1I — one readiness truth)', () => {
   })
 
   it('defaults to Arabic when no locale is given (matches app default)', () => {
-    expect(getBrandReadinessCopy('building').summary).toContain('جزئياً')
+    expect(getBrandReadinessCopy('building').summary).toContain('سياق أساسي')
   })
 })

@@ -68,6 +68,12 @@ function platformLabel(key: string, original?: string): string {
   return PLATFORM_LABELS[key] || original?.trim() || key
 }
 
+export function formatStrategyPlatformLabel(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const key = normalizePlatform(value)
+  return key ? platformLabel(key, value) : value.trim()
+}
+
 function buildPlatformContext(allowedPlatforms: string[] | null | undefined): NormalizedPlatformContext {
   const allowedLabels: string[] = []
   const allowedKeys = new Set<string>()
@@ -113,8 +119,14 @@ function replaceUnsupportedPlatformText(text: string, ctx: NormalizedPlatformCon
   return output
 }
 
+function replaceUnsupportedCtaText(text: string): string {
+  return text
+    .replace(/\bDownload\s+now\b/gi, 'Request more information')
+    .replace(/\bDownload\s+the\s+demo\b/gi, 'Request a demo')
+}
+
 function guardText(value: string, ctx: NormalizedPlatformContext): string {
-  return replaceUnsupportedPlatformText(value, ctx)
+  return replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
 }
 
 function guardValue(value: unknown, ctx: NormalizedPlatformContext): unknown {
@@ -232,6 +244,7 @@ export function selectStrategyCampaignPlatforms(
     ? strategy.channelMix
         .map((item) => isObject(item) ? item.platform : item)
         .filter((platform): platform is string => typeof platform === 'string' && platform.trim().length > 0)
+        .map(formatStrategyPlatformLabel)
     : []
 }
 

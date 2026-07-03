@@ -32,6 +32,7 @@ import {
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
+import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 
 interface Activity {
   id: string
@@ -86,6 +87,15 @@ const ACTIVITY_ICONS: Record<string, string> = {
 const PLATFORM_ICONS: Record<string, string> = {
   INSTAGRAM: '📸', TIKTOK: '🎵', FACEBOOK: '👥',
   YOUTUBE_SHORTS: '▶️', LINKEDIN: '💼', SNAPCHAT: '👻',
+}
+
+function formatCampaignToneLabel(tone: string | null | undefined): string {
+  if (!tone) return ''
+  return tone
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
 }
 
 function CopyBtn({ text, label }: { text: string; label: string }) {
@@ -841,7 +851,7 @@ function CampaignDetailPageInner() {
   }
 
   const aiOutput = campaign.aiOutput as any
-  const strategy = aiOutput?.strategy || {}
+  const strategy = guardStrategyOutputContract(aiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as any
   const topHooks: string[] = aiOutput?.topHooks || strategy.topHooks || []
   const ctaVariations: string[] = aiOutput?.ctaVariations || strategy.ctaVariations || []
   const captionFormulas: string[] = aiOutput?.captionFormulas || []
@@ -893,6 +903,7 @@ function CampaignDetailPageInner() {
   const missingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const paidPlanningMissingKeys = missingDataKeys.filter(k => ['marketingBudget', 'conversionDestination', 'leadHandling', 'pixel'].includes(k))
   const paidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
+  const campaignToneLabel = formatCampaignToneLabel(campaign.tone)
   const safeExecutionAssumptions = uniqueCleanList(executionAssumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const safeAssumptions = uniqueCleanList(assumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const hasPaidPlanningGaps = paidPlanningMissingLabels.length > 0
@@ -1402,13 +1413,17 @@ function CampaignDetailPageInner() {
                   <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
                     <span className="capitalize">{campaign.goal?.toLowerCase()}</span>
                     <span className="text-slate-300">·</span>
-                    <span>{locale === 'ar' ? 'نبرة: ' : 'Tone: '}{campaign.tone}</span>
-                    <span className="text-slate-300">·</span>
+                    {campaignToneLabel && (
+                      <>
+                        <span>{locale === 'ar' ? 'نبرة: ' : 'Tone: '}{campaignToneLabel}</span>
+                        <span className="text-slate-300">·</span>
+                      </>
+                    )}
                     <span>{cdT?.createdLabel?.replace('{timeAgo}', timeAgo(campaign.createdAt) ?? '')}</span>
                   </div>
                   <div className="flex gap-2 mt-2">
                     {campaign.platforms.map(p => (
-                      <span key={p} className="text-base" title={p}>{PLATFORM_ICONS[p] || '🌐'}</span>
+                      <span key={p} className="text-base" title={formatStrategyPlatformLabel(p) || p}>{PLATFORM_ICONS[p.toUpperCase()] || '🌐'}</span>
                     ))}
                   </div>
                   {campaign.audience && (
@@ -2189,7 +2204,7 @@ function CampaignDetailPageInner() {
                                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                                     {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.pain}</span>}
                                     {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.format}</span>}
-                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.platform}</span>}
+                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>}
                                     {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{angle.cta}</span>}
                                   </div>
                                 </div>
@@ -2219,7 +2234,7 @@ function CampaignDetailPageInner() {
                                     <StrategyDocCard label={cdT?.funnelMindset || 'Mindset'} value={stage.userMindset} />
                                     <StrategyDocCard label="Message" value={stage.message} />
                                     <StrategyDocCard label="Format" value={stage.contentType} />
-                                    <StrategyDocCard label="Platform" value={stage.platform} />
+                                    <StrategyDocCard label="Platform" value={formatStrategyPlatformLabel(stage.platform) || stage.platform} />
                                     <StrategyDocCard label="CTA" value={stage.cta} />
                                     <StrategyDocCard label={cdT?.weekSuccessMetric || 'Metric'} value={stage.successMetric} tone="muted" />
                                   </div>
@@ -2241,7 +2256,7 @@ function CampaignDetailPageInner() {
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {(channelStrategy.length > 0 ? channelStrategy : strategy.channelMix).map((ch: any, i: number) => (
                               <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-sm font-semibold capitalize text-slate-950">{ch.platform}</p>
+                                <p className="text-sm font-semibold capitalize text-slate-950">{formatStrategyPlatformLabel(ch.platform) || ch.platform}</p>
                                 <p className="mt-1 text-sm leading-6 text-slate-600">{ch.role || ch.rationale || ch.postingApproach}</p>
                                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                                   {ch.contentType && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{ch.contentType}</span>}
@@ -2290,7 +2305,7 @@ function CampaignDetailPageInner() {
                                 {(w.platforms?.length > 0 || w.channels?.length > 0) && (
                                   <div className="mt-3 flex flex-wrap gap-2">
                                     {(w.platforms || w.channels).map((p: string, pi: number) => (
-                                      <span key={pi} className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500">{p}</span>
+                                      <span key={pi} className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-500">{formatStrategyPlatformLabel(p) || p}</span>
                                     ))}
                                   </div>
                                 )}
@@ -2639,7 +2654,7 @@ function CampaignDetailPageInner() {
                             {angle.platform && (
                               <div>
                                 <span className="uppercase tracking-wide text-slate-400">Platform: </span>
-                                <span className="text-slate-600">{angle.platform}</span>
+                                <span className="text-slate-600">{formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>
                               </div>
                             )}
                             {angle.asset && (

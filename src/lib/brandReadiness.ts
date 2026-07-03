@@ -182,8 +182,8 @@ export function getBrandReadinessCopy(
       isComplete: false,
       label: ar ? 'قيد البناء' : 'Building',
       summary: ar
-        ? 'ذاكرة العلامة التجارية مكتملة جزئياً — لدى NEXUS بعض المعلومات عن علامتك، لكن النتائج قد تتحسن بعد إكمال الملف.'
-        : 'Brand Brain is partially configured — NEXUS has some brand context, but outputs may improve after completing your profile.',
+        ? 'لدى Brand Brain سياق أساسي — أضف إثباتات وتحليلات وإشارات مراجَعة مع الوقت لتحسين المخرجات.'
+        : 'Brand Brain has core context — add proof, analytics, and reviewed signals over time to sharpen future outputs.',
     }
   }
 
@@ -192,8 +192,8 @@ export function getBrandReadinessCopy(
     isComplete: false,
     label: ar ? 'يحتاج بيانات' : 'Needs Data',
     summary: ar
-      ? 'ذاكرة العلامة التجارية تحتاج مزيداً من المعلومات — أكمل ملف علامتك لتفعيل نتائج أفضل.'
-      : 'Brand Brain needs more information — complete your brand profile for better output.',
+      ? 'تحتاج Brand Brain إلى سياق أساسي أكثر قبل تحسين المخرجات.'
+      : 'Brand Brain needs more core context before outputs can become sharper.',
   }
 }
 
