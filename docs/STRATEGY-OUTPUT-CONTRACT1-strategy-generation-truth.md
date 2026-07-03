@@ -29,6 +29,11 @@ Strategy generation must not claim it created:
 - final ad launch/spend/activation,
 - analytics-backed learning without analytics data.
 
+Strategy UI copy follows the same boundary. Language selection and cost-review
+labels describe strategy output, execution outlines, and post directions. They
+must not imply that the strategy run creates final content drafts, saved Content
+Hub plans, or monthly scheduled post calendars.
+
 ## Platform scope
 
 If Brand Brain provides selected platforms, those platforms are the execution boundary. The strategist may not add unsupported execution channels such as Pinterest, blog, LinkedIn, or website unless those were explicitly selected.

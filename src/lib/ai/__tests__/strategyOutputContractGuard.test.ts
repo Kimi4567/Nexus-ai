@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
 
 describe('guardStrategyOutputContract', () => {
@@ -63,5 +65,25 @@ describe('selectStrategyCampaignPlatforms', () => {
     }, [])
 
     expect(platforms).toEqual(['Instagram', 'TikTok'])
+  })
+})
+
+describe('strategy runtime copy contract', () => {
+  const repoFile = (path: string) => readFileSync(join(process.cwd(), path), 'utf8')
+
+  it('does not imply strategy generation creates final content drafts', () => {
+    const i18n = repoFile('src/lib/i18n-context.tsx')
+    const modal = repoFile('src/components/RunFullStrategyModal.tsx')
+    const runtimeCopy = `${i18n}\n${modal}`
+
+    expect(runtimeCopy).not.toMatch(/strategy output and content will be generated/i)
+    expect(runtimeCopy).not.toMatch(/الاستراتيجية والمحتوى بالكامل/)
+    expect(runtimeCopy).not.toMatch(/Organic posts \/ month/i)
+    expect(runtimeCopy).not.toMatch(/منشورات عضوية شهرياً/)
+
+    expect(runtimeCopy).toMatch(/execution outline will use your selected language/i)
+    expect(runtimeCopy).toMatch(/مخطط التنفيذ باللغة اللي تختارها/)
+    expect(runtimeCopy).toMatch(/Organic post directions for the first 30 days/i)
+    expect(runtimeCopy).toMatch(/اتجاهات منشورات عضوية لأول 30 يوم/)
   })
 })

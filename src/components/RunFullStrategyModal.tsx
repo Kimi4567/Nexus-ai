@@ -750,7 +750,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 ))}
               </div>
               <p className="mt-1.5 text-[10px] text-slate-500">
-                {locale === 'ar' ? 'منشورات عضوية شهرياً (قد تُقيَّد حسب خطتك).' : 'Organic posts / month (may be capped by your plan).'}
+                {locale === 'ar' ? 'اتجاهات منشورات عضوية لأول 30 يوم (قد تُقيَّد حسب خطتك).' : 'Organic post directions for the first 30 days (may be capped by your plan).'}
               </p>
             </div>
 
