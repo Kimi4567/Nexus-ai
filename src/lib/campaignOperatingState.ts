@@ -114,8 +114,8 @@ const STAGE_COPY: Record<CampaignOperatingStage, StageCopy> = {
   strategy_review_needed: {
     stageLabel: 'Strategy needs review',
     stageLabelAr: 'الاستراتيجية تحتاج مراجعة',
-    stageHelper: 'Review the strategy quality before turning it into a content plan.',
-    stageHelperAr: 'راجع جودة الاستراتيجية قبل تحويلها إلى خطة محتوى.',
+    stageHelper: 'Review strategy quality before building the first content plan.',
+    stageHelperAr: 'راجع جودة الاستراتيجية قبل بناء أول خطة محتوى.',
     primaryAction: { label: 'Review strategy', labelAr: 'راجع الاستراتيجية', href: '#strategy' },
   },
   content_plan_missing: {

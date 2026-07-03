@@ -953,6 +953,35 @@ function CampaignDetailPageInner() {
     }
     return map[lvl] ? (locale === 'ar' ? map[lvl].ar : map[lvl].en) : lvl
   }
+  const strategyFieldLabel = (key: string): string => {
+    const normalized = key.replace(/[_\s-]+/g, '').toLowerCase()
+    const labels: Record<string, string> = {
+      situation: cdT?.fieldSituation || (locale === 'ar' ? 'الموقف' : 'Situation'),
+      pain: cdT?.fieldPain || (locale === 'ar' ? 'الألم' : 'Pain'),
+      desiredoutcome: cdT?.fieldDesiredOutcome || (locale === 'ar' ? 'النتيجة المطلوبة' : 'Desired Outcome'),
+      want: cdT?.fieldDesiredOutcome || (locale === 'ar' ? 'النتيجة المطلوبة' : 'Desired Outcome'),
+      objection: cdT?.fieldObjection || (locale === 'ar' ? 'الاعتراض' : 'Objection'),
+      message: cdT?.fieldMessage || (locale === 'ar' ? 'الرسالة' : 'Message'),
+      format: cdT?.fieldFormat || (locale === 'ar' ? 'الصيغة' : 'Format'),
+      contenttype: cdT?.fieldFormat || (locale === 'ar' ? 'الصيغة' : 'Format'),
+      platform: cdT?.fieldPlatform || (locale === 'ar' ? 'القناة' : 'Platform'),
+      cta: cdT?.fieldCta || (locale === 'ar' ? 'الدعوة للإجراء' : 'CTA'),
+      metric: cdT?.fieldMetric || (locale === 'ar' ? 'مؤشر القياس' : 'Metric'),
+      successmetric: cdT?.weekSuccessMetric || cdT?.fieldMetric || (locale === 'ar' ? 'مؤشر النجاح' : 'Success Metric'),
+      objective: cdT?.fieldObjective || (locale === 'ar' ? 'الهدف' : 'Objective'),
+      exclusions: cdT?.fieldExclusions || (locale === 'ar' ? 'استثناءات الاستهداف' : 'Exclusions'),
+      adcopyangles: cdT?.fieldAdCopyAngles || (locale === 'ar' ? 'زوايا نصوص الإعلانات' : 'Ad Copy Angles'),
+      funnelstage: cdT?.fieldFunnelStage || (locale === 'ar' ? 'مرحلة القمع' : 'Funnel Stage'),
+      usermindset: cdT?.funnelMindset || (locale === 'ar' ? 'حالة المستخدم الذهنية' : 'User Mindset'),
+      nextstep: cdT?.funnelNextStep || (locale === 'ar' ? 'الخطوة التالية' : 'Next Step'),
+      productarea: cdT?.funnelProductArea || (locale === 'ar' ? 'يُغذّي' : 'Powers'),
+    }
+    if (labels[normalized]) return labels[normalized]
+    return key
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase())
+  }
   const confLevelColor = (lvl: string): string => (lvl === 'high' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444')
 
   // Sprint F — creative brief
@@ -2129,15 +2158,15 @@ function CampaignDetailPageInner() {
                           <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                             <p className="text-sm font-semibold text-slate-950">{i + 1}. {seg.segment}</p>
                             <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-700">
-                              <StrategyDocCard label="Situation" value={seg.situation} />
-                              <StrategyDocCard label="Pain" value={seg.pain} tone="warning" />
-                              <StrategyDocCard label="Want" value={seg.desiredOutcome} tone="positive" />
-                              <StrategyDocCard label="Objection" value={seg.objection} tone="warning" />
-                              <StrategyDocCard label="Message" value={seg.message} />
+                              <StrategyDocCard label={strategyFieldLabel('situation')} value={seg.situation} />
+                              <StrategyDocCard label={strategyFieldLabel('pain')} value={seg.pain} tone="warning" />
+                              <StrategyDocCard label={strategyFieldLabel('desiredOutcome')} value={seg.desiredOutcome} tone="positive" />
+                              <StrategyDocCard label={strategyFieldLabel('objection')} value={seg.objection} tone="warning" />
+                              <StrategyDocCard label={strategyFieldLabel('message')} value={seg.message} />
                               <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                                {seg.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{seg.platform}</span>}
-                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{seg.format}</span>}
-                                {seg.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{seg.cta}</span>}
+                                {seg.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('platform')}: {formatStrategyPlatformLabel(seg.platform) || seg.platform}</span>}
+                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('format')}: {seg.format}</span>}
+                                {seg.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyFieldLabel('cta')}: {seg.cta}</span>}
                               </div>
                             </div>
                           </div>
@@ -2213,10 +2242,10 @@ function CampaignDetailPageInner() {
                                   <p className="text-sm font-semibold text-slate-950">{angle.title || `${locale === 'ar' ? 'زاوية' : 'Angle'} ${i + 1}`}</p>
                                   {angle.hook && <p className="mt-2 text-sm leading-6 text-slate-700">"{angle.hook}"</p>}
                                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                    {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.pain}</span>}
-                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{angle.format}</span>}
-                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>}
-                                    {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{angle.cta}</span>}
+                                    {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('pain')}: {angle.pain}</span>}
+                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('format')}: {angle.format}</span>}
+                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('platform')}: {formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>}
+                                    {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyFieldLabel('cta')}: {angle.cta}</span>}
                                   </div>
                                 </div>
                               ))}
@@ -2243,11 +2272,11 @@ function CampaignDetailPageInner() {
                                   <p className="text-sm font-semibold capitalize text-slate-950">{stage.stage || `${locale === 'ar' ? 'مرحلة' : 'Stage'} ${i + 1}`}</p>
                                   <div className="mt-3 grid gap-2">
                                     <StrategyDocCard label={cdT?.funnelMindset || 'Mindset'} value={stage.userMindset} />
-                                    <StrategyDocCard label="Message" value={stage.message} />
-                                    <StrategyDocCard label="Format" value={stage.contentType} />
-                                    <StrategyDocCard label="Platform" value={formatStrategyPlatformLabel(stage.platform) || stage.platform} />
-                                    <StrategyDocCard label="CTA" value={stage.cta} />
-                                    <StrategyDocCard label={cdT?.weekSuccessMetric || 'Metric'} value={stage.successMetric} tone="muted" />
+                                    <StrategyDocCard label={strategyFieldLabel('message')} value={stage.message} />
+                                    <StrategyDocCard label={strategyFieldLabel('contentType')} value={stage.contentType} />
+                                    <StrategyDocCard label={strategyFieldLabel('platform')} value={formatStrategyPlatformLabel(stage.platform) || stage.platform} />
+                                    <StrategyDocCard label={strategyFieldLabel('cta')} value={stage.cta} />
+                                    <StrategyDocCard label={strategyFieldLabel('successMetric')} value={stage.successMetric} tone="muted" />
                                   </div>
                                 </div>
                               ))}
@@ -2255,7 +2284,7 @@ function CampaignDetailPageInner() {
                           ) : (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               {Object.entries(strategy.funnelStrategy || {}).map(([key, value]) => (
-                                value ? <StrategyDocCard key={key} label={key} value={String(value)} /> : null
+                                value ? <StrategyDocCard key={key} label={strategyFieldLabel(key)} value={String(value)} /> : null
                               ))}
                             </div>
                           )}
@@ -2449,13 +2478,13 @@ function CampaignDetailPageInner() {
                                     { label: cdT?.adAbTest || 'A/B test plan', value: adSetupPlan.abTestPlan },
                                     { label: cdT?.adLandingPath || 'Landing path', value: adSetupPlan.landingPath },
                                     { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
-                                    { label: 'Objective', value: adSetupPlan.objective },
+                                    { label: strategyFieldLabel('objective'), value: adSetupPlan.objective },
                                   ].map((item, i) => <StrategyDocCard key={i} label={item.label} value={item.value} />)}
                                 </div>
                                 <StrategyDocCard label={cdT?.adTargeting || 'Targeting'} value={adSetupPlan.targeting} />
-                                <StrategyDocCard label="Exclusions" value={adSetupPlan.exclusions} />
+                                <StrategyDocCard label={strategyFieldLabel('exclusions')} value={adSetupPlan.exclusions} />
                                 {adSetupPlan.adCopyAngles?.length > 0 && (
-                                  <StrategyDocCard label="Ad copy angles" value={<StrategyDocList items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
+                                  <StrategyDocCard label={strategyFieldLabel('adCopyAngles')} value={<StrategyDocList items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
                                 )}
                                 {adSetupPlan.notReadyIf?.length > 0 && (
                                   <StrategyDocCard
@@ -2622,7 +2651,7 @@ function CampaignDetailPageInner() {
                     <h3 className="mb-4 flex items-center gap-2 text-base font-semibold text-slate-950"><span>📝</span> {cdT?.sectionScriptTemplate}</h3>
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <div className="flex items-start justify-between gap-3 mb-2">
-                        <span className="text-xs uppercase tracking-wide text-slate-400">Script Template</span>
+                        <span className="text-xs uppercase tracking-wide text-slate-400">{cdT?.sectionScriptTemplate || 'Script Template'}</span>
                         <CopyBtn text={scriptTemplate} label={cdT?.copyBtn || 'Copy'} />
                       </div>
                       <pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-slate-700">{scriptTemplate}</pre>
@@ -2658,13 +2687,13 @@ function CampaignDetailPageInner() {
                             )}
                             {angle.format && (
                               <div>
-                                <span className="uppercase tracking-wide text-slate-400">Format: </span>
+                                <span className="uppercase tracking-wide text-slate-400">{strategyFieldLabel('format')}: </span>
                                 <span className="text-slate-600">{angle.format}</span>
                               </div>
                             )}
                             {angle.platform && (
                               <div>
-                                <span className="uppercase tracking-wide text-slate-400">Platform: </span>
+                                <span className="uppercase tracking-wide text-slate-400">{strategyFieldLabel('platform')}: </span>
                                 <span className="text-slate-600">{formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>
                               </div>
                             )}
@@ -2733,7 +2762,7 @@ function CampaignDetailPageInner() {
                           <h3 className="font-semibold text-amber-700">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
                             <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                              CTA: {wk.cta}
+                              {strategyFieldLabel('cta')}: {wk.cta}
                             </span>
                           )}
                         </div>
@@ -2777,7 +2806,7 @@ function CampaignDetailPageInner() {
                         </div>
                         {wk.successMetric && (
                           <div className="mt-3 text-xs">
-                            <span className="uppercase tracking-wide text-slate-400">{cdT?.weekSuccessMetric || 'Metric'}: </span>
+                            <span className="uppercase tracking-wide text-slate-400">{strategyFieldLabel('successMetric')}: </span>
                             <span className="text-emerald-700">{wk.successMetric}</span>
                           </div>
                         )}
@@ -2813,7 +2842,7 @@ function CampaignDetailPageInner() {
                           <h3 className="font-semibold text-amber-700">{cdT?.weekLabel || 'Week'} {wk.week}</h3>
                           {wk.cta && (
                             <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                              CTA: {wk.cta}
+                              {strategyFieldLabel('cta')}: {wk.cta}
                             </span>
                           )}
                         </div>
