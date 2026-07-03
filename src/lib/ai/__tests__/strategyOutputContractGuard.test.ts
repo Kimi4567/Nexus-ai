@@ -115,9 +115,25 @@ describe('strategy runtime copy contract', () => {
     expect(runtimeCopy).not.toMatch(/Organic posts \/ month/i)
     expect(runtimeCopy).not.toMatch(/منشورات عضوية شهرياً/)
 
-    expect(runtimeCopy).toMatch(/execution outline will use your selected language/i)
-    expect(runtimeCopy).toMatch(/مخطط التنفيذ باللغة اللي تختارها/)
+    expect(runtimeCopy).toMatch(/Review language, strategy type, duration, content intensity, and cost before generation/i)
+    expect(runtimeCopy).toMatch(/راجع اللغة، نوع الاستراتيجية، المدة، كثافة المحتوى، والتكلفة قبل التوليد/)
     expect(runtimeCopy).toMatch(/Organic post directions for the first 30 days/i)
     expect(runtimeCopy).toMatch(/اتجاهات منشورات عضوية لأول 30 يوم/)
+  })
+
+  it('discloses strategy credit cost before the first modal action can continue', () => {
+    const i18n = repoFile('src/lib/i18n-context.tsx')
+    const modal = repoFile('src/components/RunFullStrategyModal.tsx')
+
+    expect(i18n).toContain("langStartBtn: 'Review cost'")
+    expect(i18n).toContain("langStartBtn: 'مراجعة التكلفة'")
+    expect(i18n).toContain("langSelectTitle: 'Review strategy scope'")
+    expect(i18n).toContain("langSelectTitle: 'مراجعة نطاق الاستراتيجية'")
+    expect(i18n).not.toContain("langSelectTitle: 'Choose Strategy Language'")
+    expect(modal).toContain('Strategy cost review')
+    expect(modal).toContain('No credits are spent here. The next screen shows your balance and final confirmation before generation.')
+    expect(modal).toContain('لا يتم خصم أي كريدت هنا')
+    expect(modal).toContain('Review cost —')
+    expect(modal).not.toContain('{rs.langStartBtn}')
   })
 })
