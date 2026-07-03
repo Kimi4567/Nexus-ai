@@ -43,8 +43,12 @@ describe('getBrandReadinessCopy (PR-1I — one readiness truth)', () => {
   it('needs_data → needs-more-information copy, never "ready"', () => {
     const en = getBrandReadinessCopy('needs_data', 'en')
     expect(en.isComplete).toBe(false)
-    expect(en.summary).toContain('needs more core context')
+    expect(en.summary).toContain('still early')
+    expect(en.summary).toContain('proof')
+    expect(en.summary).toContain('reviewed signals')
     expect(en.summary).not.toContain('complete your brand profile')
+    expect(en.summary).not.toContain('needs more core context')
+    expect(en.summary).not.toContain('sharper AI output')
     expect(en.summary).not.toMatch(/\bready\b/)
     expect(en.label).toBe('Needs Data')
   })

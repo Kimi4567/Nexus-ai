@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
       totalCampaigns,
       campaignsThisMonth,
       campaignsLastMonth,
+      draftCampaigns,
       recentActivities,
       recentCampaigns,
       publishedPostsTotal,
@@ -62,6 +63,12 @@ export async function GET(req: NextRequest) {
               createdAt: { gte: startOfLastMonth, lte: endOfLastMonth },
             },
           })
+        : Promise.resolve(0),
+
+      // Draft campaigns across the workspace. This powers dashboard truth copy
+      // and must not be guessed from a paginated recent-campaign list.
+      workspaceId
+        ? prisma.campaign.count({ where: { workspaceId, status: 'DRAFT' } })
         : Promise.resolve(0),
 
       // Recent activity feed (last 8 actions)
@@ -176,6 +183,7 @@ export async function GET(req: NextRequest) {
       stats: {
         campaigns: {
           total: totalCampaigns,
+          draft: draftCampaigns,
           thisMonth: campaignsThisMonth,
           change: campaignChange,
         },

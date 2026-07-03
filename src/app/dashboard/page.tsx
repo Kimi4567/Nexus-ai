@@ -39,6 +39,7 @@ import {
 
 interface Stats {
   campaigns: number
+  draftCampaigns: number
   activeCampaigns: number
   totalGenerations: number
   creditsRemaining: number
@@ -295,6 +296,7 @@ export default function DashboardPage() {
         const d = await statsRes.value.json()
         setStats({
           campaigns: d.stats?.campaigns?.total ?? 0,
+          draftCampaigns: d.stats?.campaigns?.draft ?? 0,
           activeCampaigns: d.stats?.campaigns?.thisMonth ?? 0,
           totalGenerations: d.stats?.generations?.total ?? 0,
           creditsRemaining: d.stats?.credits?.remaining ?? 0,
@@ -467,6 +469,7 @@ export default function DashboardPage() {
     contentPostsTotal: stats?.contentPostsTotal ?? 0,
   })
   const totalCampaigns = stats?.campaigns ?? campaigns.length
+  const draftCampaignCount = stats?.draftCampaigns ?? campaigns.filter(c => c.status === 'DRAFT').length
   const totalContentPosts = stats?.contentPostsTotal ?? 0
   const strategyState: StrategyState = totalCampaigns === 0 ? 'none' : (totalContentPosts > 0 ? 'approved' : 'draft')
   const firstJourneyStep = getFirstRunJourney({
@@ -613,7 +616,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'مسودات الحملات' : 'Campaign drafts'}</span>
-                        <span className="text-xs font-bold" style={{ color: '#0F172A' }}>0</span>
+                        <span className="text-xs font-bold" style={{ color: '#0F172A' }}>{draftCampaignCount}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs" style={{ color: '#64748B' }}>{ar ? 'رصيد AI' : 'AI credits'}</span>

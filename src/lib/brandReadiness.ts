@@ -192,8 +192,8 @@ export function getBrandReadinessCopy(
     isComplete: false,
     label: ar ? 'يحتاج بيانات' : 'Needs Data',
     summary: ar
-      ? 'تحتاج Brand Brain إلى سياق أساسي أكثر قبل تحسين المخرجات.'
-      : 'Brand Brain needs more core context before outputs can become sharper.',
+      ? 'ذاكرة Brand Brain ما زالت مبكرة — أضف سياقًا محفوظًا وإثباتات وتحليلات وإشارات مراجَعة قبل اعتبار المخرجات أدق.'
+      : 'Brand Brain is still early — add saved context, proof, analytics, and reviewed signals before treating outputs as sharper.',
   }
 }
 
