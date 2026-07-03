@@ -8,12 +8,14 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useI18n } from '@/lib/i18n-context'
 
 interface Insight {
   id: string
   type: 'action' | 'info' | 'warning' | 'success'
   icon: string
   message: string
+  messageAr?: string
   href?: string
 }
 
@@ -36,6 +38,7 @@ interface AIPresenceBarProps {
 }
 
 export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
+  const { locale } = useI18n()
   const [insights, setInsights] = useState<Insight[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
   const [visible, setVisible] = useState(true)
@@ -67,6 +70,7 @@ export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
   if (!loaded || insights.length === 0 || !visible) return null
 
   const current = insights[activeIndex]
+  const message = locale === 'ar' && current.messageAr ? current.messageAr : current.message
 
   const content = (
     <div className={`flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors ${TYPE_STYLE[current.type]}`}>
@@ -81,7 +85,7 @@ export default function AIPresenceBar({ authHeader }: AIPresenceBarProps) {
 
       {/* Message — slides on change */}
       <span key={current.id} className="flex-1 truncate" style={{ animation: 'slideDown 0.2s ease both' }}>
-        {current.icon} {current.message}
+        {current.icon} {message}
       </span>
 
       {/* Pagination dots */}

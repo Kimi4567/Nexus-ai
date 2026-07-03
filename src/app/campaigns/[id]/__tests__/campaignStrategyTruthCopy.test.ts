@@ -6,6 +6,18 @@ const campaignRoomSource = readFileSync(
   resolve(process.cwd(), 'src/app/campaigns/[id]/page.tsx'),
   'utf8',
 )
+const operatingStateSource = readFileSync(
+  resolve(process.cwd(), 'src/lib/campaignOperatingState.ts'),
+  'utf8',
+)
+const aiPresenceBarSource = readFileSync(
+  resolve(process.cwd(), 'src/components/AIPresenceBar.tsx'),
+  'utf8',
+)
+const analyticsInsightsRouteSource = readFileSync(
+  resolve(process.cwd(), 'src/app/api/analytics/insights/route.ts'),
+  'utf8',
+)
 
 describe('Campaign Room strategy truth copy', () => {
   it('does not tell progressed campaigns to turn strategy into content again', () => {
@@ -13,6 +25,10 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('before turning it into content planning')
     expect(campaignRoomSource).not.toContain('قبل تحويلها إلى محتوى')
     expect(campaignRoomSource).not.toContain('قبل تحويلها إلى خطة محتوى')
+    expect(operatingStateSource).toContain('Review strategy quality before building the first content plan.')
+    expect(operatingStateSource).toContain('راجع جودة الاستراتيجية قبل بناء أول خطة محتوى.')
+    expect(operatingStateSource).not.toContain('Review the strategy quality before turning it into a content plan.')
+    expect(operatingStateSource).not.toContain('قبل تحويلها إلى خطة محتوى')
   })
 
   it('frames strategy as reference material once Content Hub content exists', () => {
@@ -64,5 +80,13 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('label="Format"')
     expect(campaignRoomSource).not.toContain('label="Platform"')
     expect(campaignRoomSource).not.toContain('label="CTA"')
+  })
+
+  it('keeps the global AI presence bar localized on Arabic campaign pages', () => {
+    expect(aiPresenceBarSource).toContain('current.messageAr')
+    expect(aiPresenceBarSource).toContain("locale === 'ar'")
+    expect(analyticsInsightsRouteSource).toContain('messageAr')
+    expect(analyticsInsightsRouteSource).toContain('حملات في المسودة')
+    expect(analyticsInsightsRouteSource).toContain('راجعها قبل الجدولة')
   })
 })

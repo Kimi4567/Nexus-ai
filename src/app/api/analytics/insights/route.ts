@@ -16,6 +16,7 @@ interface Insight {
   type: 'action' | 'info' | 'warning' | 'success'
   icon: string
   message: string
+  messageAr?: string
   href?: string
 }
 
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
         type: 'action',
         icon: '⚡',
         message: 'Workspace ready — create your first campaign to get started',
+        messageAr: 'مساحة العمل جاهزة — أنشئ أول حملة للبدء',
         href: '/campaign/new',
       })
       return NextResponse.json({ insights })
@@ -79,6 +81,7 @@ export async function GET(req: Request) {
         type: 'warning',
         icon: '🧠',
         message: 'Brand memory not configured — campaigns generating without your voice',
+        messageAr: 'ذاكرة العلامة غير مكتملة — ستُنشأ الحملات بدون نبرة واضحة لعلامتك',
         href: '/brand',
       })
     } else {
@@ -93,6 +96,7 @@ export async function GET(req: Request) {
           type: 'success',
           icon: '🧠',
           message: `Brand voice active — AI campaigns using your ${brandProfile.toneKeywords?.[0] || 'custom'} tone`,
+          messageAr: `إشارات نبرة العلامة جاهزة — يستخدم NEXUS نبرة ${brandProfile.toneKeywords?.[0] || 'مخصصة'} عند إنشاء الحملات`,
           href: '/brand',
         })
       } else if (status === 'building') {
@@ -101,6 +105,7 @@ export async function GET(req: Request) {
           type: 'action',
           icon: '🧠',
           message: 'Brand memory has core context — add proof, analytics, and reviewed signals over time to sharpen output',
+          messageAr: 'Brand Brain يحتوي على سياق أساسي — أضف إثباتات وتحليلات وإشارات مراجَعة مع الوقت لتحسين المخرجات',
           href: '/brand',
         })
       } else {
@@ -109,6 +114,7 @@ export async function GET(req: Request) {
           type: 'warning',
           icon: '🧠',
           message: 'Brand memory is still early — add saved context, proof, analytics, and reviewed signals before treating outputs as sharper',
+          messageAr: 'إشارات Brand Brain ما زالت مبكرة — أضف سياقاً محفوظاً وإثباتات وتحليلات وإشارات مراجَعة قبل اعتبار المخرجات أكثر دقة',
           href: '/brand',
         })
       }
@@ -121,6 +127,7 @@ export async function GET(req: Request) {
         type: 'action',
         icon: '📋',
         message: `${draftCampaigns} campaign${draftCampaigns > 1 ? 's' : ''} in draft — review before scheduling`,
+        messageAr: `${draftCampaigns} ${draftCampaigns === 1 ? 'حملة في المسودة' : 'حملات في المسودة'} — راجعها قبل الجدولة`,
         href: '/campaigns',
       })
     }
@@ -132,6 +139,7 @@ export async function GET(req: Request) {
         type: 'success',
         icon: '✅',
         message: `${activeCampaigns} campaign${activeCampaigns > 1 ? 's' : ''} currently active`,
+        messageAr: `${activeCampaigns} ${activeCampaigns === 1 ? 'حملة نشطة حالياً' : 'حملات نشطة حالياً'}`,
         href: '/campaigns',
       })
     }
@@ -143,6 +151,7 @@ export async function GET(req: Request) {
         type: 'action',
         icon: '🎨',
         message: `${totalCampaigns} campaign${totalCampaigns > 1 ? 's have' : ' has'} no hero visuals — generate now`,
+        messageAr: `${totalCampaigns} ${totalCampaigns === 1 ? 'حملة بدون مرئيات رئيسية' : 'حملات بدون مرئيات رئيسية'} — راجع الاحتياج قبل التوليد`,
         href: recentCampaigns[0]?.id ? `/campaigns/${recentCampaigns[0].id}` : '/campaigns',
       })
     } else if (totalVisuals > 0) {
@@ -151,6 +160,7 @@ export async function GET(req: Request) {
         type: 'info',
         icon: '🎨',
         message: `${totalVisuals} visual asset${totalVisuals > 1 ? 's' : ''} generated across your campaigns`,
+        messageAr: `${totalVisuals} ${totalVisuals === 1 ? 'أصل بصري مُنشأ' : 'أصول بصرية مُنشأة'} عبر حملاتك`,
         href: '/campaigns',
       })
     }
@@ -165,6 +175,7 @@ export async function GET(req: Request) {
           type: 'info',
           icon: '⚡',
           message: `"${latest.name}" updated ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`,
+          messageAr: `تم تحديث "${latest.name}" ${hoursAgo < 1 ? 'الآن' : `منذ ${hoursAgo} ساعة`}`,
           href: `/campaigns/${latest.id}`,
         })
       }
@@ -177,6 +188,7 @@ export async function GET(req: Request) {
         type: 'action',
         icon: '🚀',
         message: 'No campaigns yet — launch your first AI marketing campaign',
+        messageAr: 'لا توجد حملات بعد — أنشئ أول حملة تسويقية بالذكاء الاصطناعي',
         href: '/campaign/new',
       })
     }
@@ -189,6 +201,7 @@ export async function GET(req: Request) {
       type: 'info',
       icon: '⚡',
       message: 'Nexus AI is ready — create a campaign to activate your marketing engine',
+      messageAr: 'NEXUS جاهز — أنشئ حملة لتشغيل محركك التسويقي',
       href: '/campaign/new',
     })
   }
