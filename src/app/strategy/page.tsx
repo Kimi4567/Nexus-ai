@@ -165,6 +165,8 @@ export default function StrategyPage() {
     ...asArray(strat?.ctaVariations),
   ].map(textLabel).filter(Boolean).slice(0, 4)
   const hasOrganicData = pillars.length > 0 || hooks.length > 0 || ctas.length > 0 || !platformSummary.isEmpty
+  const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns'
+  const recentContentHubHref = recent?.id ? `/campaigns/${recent.id}/content-hub` : '/content-hub'
   const primaryAction: StrategyPrimaryAction = !hasStrategy
     ? {
         label: ar ? 'إنشاء أول استراتيجية' : 'Create first strategy',
@@ -175,18 +177,18 @@ export default function StrategyPage() {
       }
     : hasDraftStrategy
       ? {
-          label: ar ? 'مراجعة الاستراتيجية' : 'Review strategy',
+          label: ar ? 'فتح بريف استراتيجية الحملة' : 'Open campaign strategy brief',
           description: hasOrganicData
-            ? (ar ? 'راجع المسودة الحالية كخطة تسويق قبل تحويلها إلى محتوى.' : 'Review the current draft as a marketing plan before turning it into content.')
-            : (ar ? 'راجع المسودة الحالية قبل تحويلها إلى محتوى.' : 'Review the current draft before turning it into content.'),
-          href: recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns',
+            ? (ar ? 'الـ brief الكامل موجود داخل الحملة. راجعه قبل تحويله إلى Content Hub.' : 'The full strategy brief lives inside the campaign. Review it before turning it into Content Hub work.')
+            : (ar ? 'افتح بريف الحملة الكامل قبل تحويله إلى محتوى.' : 'Open the full campaign brief before turning it into content.'),
+          href: recentStrategyHref,
         }
       : {
-          label: ar ? 'مراجعة الاستراتيجية' : 'Review strategy',
+          label: ar ? 'فتح بريف استراتيجية الحملة' : 'Open campaign strategy brief',
           description: hasOrganicData
-            ? (ar ? 'راجع اتجاه الاستراتيجية ثم تابع إلى المحتوى العضوي.' : 'Review the strategy direction, then continue into organic content.')
-            : (ar ? 'تابع من الاستراتيجية الحالية.' : 'Continue from the existing strategy.'),
-          href: recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns',
+            ? (ar ? 'استخدم هذه الصفحة كمركز متابعة، وافتح بريف الحملة للمراجعة التفصيلية.' : 'Use this page as a strategy workbench, then open the campaign brief for detailed review.')
+            : (ar ? 'افتح بريف الحملة الحالي.' : 'Open the current campaign brief.'),
+          href: recentStrategyHref,
         }
 
   const nextSteps = !hasStrategy
@@ -274,12 +276,12 @@ export default function StrategyPage() {
               </span>
             </div>
             <h1 className="text-2xl font-black" style={{ color: '#0f172a' }}>
-              {ar ? 'استراتيجية التسويق' : 'Marketing Strategy'}
+              {ar ? 'مركز عمل الاستراتيجية' : 'Strategy Workbench'}
             </h1>
             <p className="text-sm mt-1" style={{ color: '#64748b' }}>
               {ar
-                ? 'حوّل ذاكرة العلامة التجارية إلى خطة واضحة للمحتوى العضوي والإعلانات المدفوعة.'
-                : 'Turn your Brand Brain into a clear organic and paid marketing plan.'}
+                ? 'راقب جاهزية Brand Brain، وافتح بريف الاستراتيجية الكامل داخل كل حملة قبل تحويله إلى محتوى أو تخطيط مدفوع.'
+                : 'Monitor Brand Brain readiness, then open the full campaign strategy brief before turning it into content or paid planning.'}
             </p>
           </div>
 
@@ -372,13 +374,39 @@ export default function StrategyPage() {
                       className="inline-flex items-center gap-1 text-xs font-semibold"
                       style={{ color: '#8B5CF6' }}>
                       <RefreshCw className="w-3 h-3" />
-                      {ar ? 'تشغيل استراتيجية محدثة' : 'Run updated strategy'}
+                      {ar ? 'تحديث الاستراتيجية بعد مراجعة التكلفة' : 'Update strategy after cost review'}
                     </button>
                   )}
                 </div>
               </div>
             </div>
           </div>
+
+          {hasStrategy && recent && (
+            <div className={`${card} mb-6`} style={cardStyle}>
+              <p className={sectionLabel} style={{ color: '#94a3b8' }}>
+                {ar ? 'بريف استراتيجية الحملة' : 'Campaign strategy brief'}
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold truncate" style={{ color: '#0f172a' }}>
+                    {recent.name}
+                  </h2>
+                  <p className="text-sm mt-1 max-w-2xl" style={{ color: '#64748b' }}>
+                    {ar
+                      ? 'هذه الصفحة تعرض لوحة متابعة مختصرة. بريف الاستراتيجية الكامل، الافتراضات، القيود، وخطوات التنفيذ تعيش داخل صفحة الحملة.'
+                      : 'This page is a compact workbench. The full strategy brief, assumptions, limits, and execution decisions live inside the campaign page.'}
+                  </p>
+                </div>
+                <Link href={recentStrategyHref}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap"
+                  style={{ background: '#111827', color: '#FFFFFF' }}>
+                  <ArrowRight className="w-4 h-4" />
+                  {ar ? 'فتح البريف الكامل' : 'Open full brief'}
+                </Link>
+              </div>
+            </div>
+          )}
 
           {hasStrategy && hasOrganicData && (
             <div className={`${card} mb-6`} style={cardStyle}>
@@ -452,8 +480,8 @@ export default function StrategyPage() {
                       </ul>
                     </div>
                   )}
-                  <Link href="/content-hub" className="inline-flex items-center gap-1 text-xs font-semibold pt-1" style={{ color: '#8B5CF6' }}>
-                    <FileText className="w-3.5 h-3.5" /> {ar ? 'فتح مركز المحتوى' : 'Open Content Hub'} <ArrowRight className="w-3 h-3" />
+                  <Link href={recentContentHubHref} className="inline-flex items-center gap-1 text-xs font-semibold pt-1" style={{ color: '#8B5CF6' }}>
+                    <FileText className="w-3.5 h-3.5" /> {ar ? 'فتح Content Hub للحملة' : 'Open campaign Content Hub'} <ArrowRight className="w-3 h-3" />
                   </Link>
                 </div>
               )}
