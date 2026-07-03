@@ -33,6 +33,7 @@ Future saved campaign strategies must behave like reviewable operating briefs:
   - weekly assets/execution/review fields
   - asset requirements
   - Arabic format labels
+- The Campaign Room strategy surface passes the saved strategy language into the guard, so older Arabic saved strategies are also displayed without English fallback format labels such as `Video`, `Post`, or `Carousel or short social post`.
 
 ## Boundaries
 
@@ -44,4 +45,4 @@ This PR does not:
 - spend credits
 - change schema, billing, dashboard, media, paid launch, platform push, Autopilot, engine, or PR #164
 
-The fix affects future strategy generation persistence only.
+The fix affects future strategy generation persistence and safe runtime display of already saved strategy output. It does not change saved campaign data.

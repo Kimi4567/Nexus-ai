@@ -859,7 +859,7 @@ function CampaignDetailPageInner() {
   }
   const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
   const strategy = guardStrategyKpis(
-    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as Record<string, unknown>,
+    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage }) as Record<string, unknown>,
     [],
     { language: strategyLanguage },
   ) as any

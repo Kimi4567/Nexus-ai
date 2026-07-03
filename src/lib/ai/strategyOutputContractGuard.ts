@@ -128,18 +128,36 @@ function replaceUnsupportedCtaText(text: string): string {
     .replace(/\bDownload\s+the\s+demo\b/gi, 'Request a demo')
 }
 
-function guardText(value: string, ctx: NormalizedPlatformContext): string {
-  return replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
+function normalizeArabicFormatText(value: string): string {
+  return value
+    .replace(/\bCarousel\s+or\s+short\s+social\s+post\b/gi, 'كاروسيل أو منشور اجتماعي قصير')
+    .replace(/\bShort[-\s]?form\s+video\b/gi, 'فيديو قصير')
+    .replace(/\bShort\s+video\b/gi, 'فيديو قصير')
+    .replace(/\bSocial\s+post\b/gi, 'منشور اجتماعي قصير')
+    .replace(/\bShort\s+social\s+post\b/gi, 'منشور اجتماعي قصير')
+    .replace(/\bCarousel\s+post\b/gi, 'كاروسيل')
+    .replace(/\bCarousel\b/gi, 'كاروسيل')
+    .replace(/\bReels\b/gi, 'ريلز')
+    .replace(/\bReel\b/gi, 'ريل')
+    .replace(/\bVideo\b/gi, 'فيديو قصير')
+    .replace(/\bStories\b/gi, 'ستوري')
+    .replace(/\bStory\b/gi, 'ستوري')
+    .replace(/\bPost\b/gi, 'منشور')
 }
 
-function guardValue(value: unknown, ctx: NormalizedPlatformContext): unknown {
-  if (typeof value === 'string') return guardText(value, ctx)
-  if (Array.isArray(value)) return value.map(item => guardValue(item, ctx))
+function guardText(value: string, ctx: NormalizedPlatformContext, language?: string | null): string {
+  const platformGuarded = replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
+  return isArabicLanguage(language) ? normalizeArabicFormatText(platformGuarded) : platformGuarded
+}
+
+function guardValue(value: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
+  if (typeof value === 'string') return guardText(value, ctx, language)
+  if (Array.isArray(value)) return value.map(item => guardValue(item, ctx, language))
   if (!isObject(value)) return value
 
   const output: JsonObject = {}
   for (const [key, child] of Object.entries(value)) {
-    output[key] = guardValue(child, ctx)
+    output[key] = guardValue(child, ctx, language)
   }
   return output
 }
@@ -161,6 +179,9 @@ function normalizeFormatForPlatform(format: unknown, platform: string, language?
   const ar = isArabicLanguage(language)
   if (ar) {
     const normalized = format.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
+    const localized = normalizeArabicFormatText(format)
+    if (localized !== format) return localized
+
     if (/^(reel|reels|short form video|short video|video|youtube short|youtube shorts)$/.test(normalized)) {
       return 'فيديو قصير'
     }
@@ -763,7 +784,7 @@ export function selectStrategyCampaignPlatforms(
 export function guardStrategyOutputContract<T>(input: T, context: StrategyOutputContractContext = {}): T {
   if (!isObject(input)) return input
   const ctx = buildPlatformContext(context.allowedPlatforms)
-  const output = guardValue(input, ctx) as JsonObject
+  const output = guardValue(input, ctx, context.language) as JsonObject
 
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
   output.kpis = guardKpisMinimum(output.kpis, context.language)

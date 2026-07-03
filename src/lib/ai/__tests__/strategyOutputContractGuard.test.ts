@@ -352,7 +352,12 @@ describe('guardStrategyOutputContract', () => {
     }) as any
 
     expect(out.assetRequirements.mustHave.length).toBeGreaterThan(0)
-    expect(JSON.stringify(out.contentAnglesDetailed)).not.toMatch(/Carousel or short social post|Short-form video|Video|Post/)
+    expect(JSON.stringify(out)).not.toMatch(/Carousel or short social post|Short-form video|Video|Post/)
+    expect(out.audienceSegmentsDetailed.map((segment: any) => segment.format)).toEqual([
+      'كاروسيل أو منشور اجتماعي قصير',
+      'فيديو قصير',
+    ])
+    expect(out.weeklyExecutionPlan.flatMap((week: any) => week.deliverables).join('\n')).not.toMatch(/Reels|Video|Carousel|Post/)
     expect(JSON.stringify(out.contentAnglesDetailed)).toMatch(/proofNeeded|responseHandoff|reviewPoint/)
     expect(out.weeklyExecutionPlan.every((week: any) => week.assetsNeeded?.length && week.executionNote && week.reviewPoints?.length)).toBe(true)
 
@@ -448,6 +453,7 @@ describe('strategy runtime copy contract', () => {
   it('discloses strategy credit cost before the first modal action can continue', () => {
     const i18n = repoFile('src/lib/i18n-context.tsx')
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
+    const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
 
     expect(i18n).toContain("langStartBtn: 'Continue to cost review'")
     expect(i18n).toContain("langStartBtn: 'متابعة لمراجعة التكلفة'")
@@ -459,6 +465,7 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('لا يتم خصم أي كريدت هنا')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
+    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage })')
   })
 
   it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {
