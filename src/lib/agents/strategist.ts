@@ -445,6 +445,8 @@ RULES:
 - Positioning: "[Brand] is the [category] for [audience] who need [outcome] without [frustration]"
 - Hooks must be scroll-stopping, not clichéd
 - Weekly plan = real deliverables ("3 Reels scripts about X", not "create content")
+- Every weekly deliverable must be countable and concrete, not a generic task like "post consistently", "build awareness", or "increase engagement"
+- Every audience segment, content angle, and funnel stage must include the operational fields needed to execute: pain, message, platform, format/content type, CTA, and next step where applicable
 - Never use: transform / unlock / game-changer / cutting-edge / leverage / maximize ROI
 - All text must follow the language instruction above
 
@@ -549,11 +551,13 @@ Return JSON with these exact fields — all specific to this brand:
   "audienceSegmentsDetailed": [
     {
       "segment": "string — specific role/situation",
+      "situation": "string — what is happening in their business/life now",
       "pain": "string",
       "desiredOutcome": "string",
       "objection": "string",
       "message": "string",
       "platform": "string",
+      "format": "string",
       "cta": "string"
     }
   ],
@@ -568,6 +572,7 @@ Return JSON with these exact fields — all specific to this brand:
       "format": "string",
       "platform": "string",
       "cta": "string",
+      "asset": "string — visual or proof asset needed",
       "funnelStage": "awareness|consideration|conversion"
     }
   ],
@@ -586,8 +591,11 @@ Return JSON with these exact fields — all specific to this brand:
       "keyMessage": "string",
       "deliverables": ["string — concrete and countable: '2 Reels about X'"],
       "platforms": ["string"],
+      "assetsNeeded": ["string"],
       "cta": "string",
-      "successMetric": "string"
+      "successMetric": "string",
+      "executionNote": "string",
+      "reviewPoints": ["string"]
     },
     { "week": 2, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" },
     { "week": 3, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" },

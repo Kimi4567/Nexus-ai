@@ -103,6 +103,8 @@ Rules:
 - Do not invent competitor names, proof, performance data, budgets, platform readiness, or launch status.
 - If a fact is missing, say "Not enough data" and include the missing input in missingData.
 - Keep paid media planning separate from launch, spend, publishing, and activation.
+- Every content angle must be executable: hook, pain, format, platform, CTA, asset need, and funnel stage.
+- Weekly deliverables must be countable and concrete, e.g. "2 Reels about invoice reminders"; never write generic tasks like "create content" or "build awareness".
 - Return valid JSON only.`
 
   const user = `Create a Strategy OS campaign brief. Return ONLY this JSON shape:
@@ -201,6 +203,9 @@ Minimum completeness:
 - At least 2 audienceSegmentsDetailed
 - At least 4 contentAnglesDetailed
 - Exactly 4 weeklyExecutionPlan items
+- Every audience segment must include segment, situation, pain, desiredOutcome, objection, message, platform, format, and CTA.
+- Every content angle must include title, hook, pain, format, platform, CTA, asset, and funnelStage.
+- Every weekly deliverable must be countable and concrete, not generic planning filler.
 - At least 3 funnelStages
 - At least 3 readinessChecklist items
 - At least 2 KPIs, all hypotheses unless real analytics were provided
