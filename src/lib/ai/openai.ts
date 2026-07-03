@@ -90,40 +90,125 @@ async function callOpenAI(
 // ─────────────────────────────────────────────
 export async function generateMarketingStrategy(campaign: any, project: any): Promise<any> {
   const langInstruction = getLanguageInstruction(campaign.language)
+  const brand = campaign.brandProfile || campaign.workspace?.brandProfile || null
   const platformGuides = (campaign.platforms || [])
     .map((p: string) => PLATFORM_GUIDES[p])
     .filter(Boolean)
     .join('\n')
 
-  const system = `You are a world-class marketing strategist and brand consultant specializing in the MENA (Middle East & North Africa) market, with 15+ years of experience helping Arab startups and growth-stage companies build category-defining brands. You create clear, actionable, platform-native marketing strategies with specific copy examples, not generic frameworks.
+  const system = `You are a senior marketing strategist building an operating plan for a real business.
+Your output must be specific, operational, and honest. Never fill gaps with fake facts.
 ${langInstruction}
-Always respond with valid JSON only.`
+Rules:
+- Do not invent competitor names, proof, performance data, budgets, platform readiness, or launch status.
+- If a fact is missing, say "Not enough data" and include the missing input in missingData.
+- Keep paid media planning separate from launch, spend, publishing, and activation.
+- Return valid JSON only.`
 
-  const user = `Create a focused marketing strategy. Return ONLY this JSON (no extra keys, keep values SHORT):
+  const user = `Create a Strategy OS campaign brief. Return ONLY this JSON shape:
 
 {
-  "overview": "2 sentences max",
-  "audience": "1 sentence",
-  "valueProps": ["3 items, 8 words each max"],
-  "angles": ["4 angles, 10 words each max"],
-  "platformRecommendations": { "PLATFORM": "1 sentence per platform" },
-  "ctaStrategies": ["2 CTAs, 8 words each max"]
+  "campaignName": "string",
+  "goal": "LEADS|SALES|AWARENESS|ENGAGEMENT|TRAFFIC|BRAND_BUILDING",
+  "positioning": "Brand is the category for audience who need outcome without frustration",
+  "keyMessage": "one belief the audience must accept",
+  "differentiation": "specific difference, or Not enough data",
+  "targetAudienceRefined": "specific audience situation",
+  "businessStage": "pre-launch|early-stage|active|scaling",
+  "diagnosis": "2-3 sentences about the real marketing bottleneck",
+  "businessObjective": {
+    "primary": "business goal",
+    "marketing": "marketing objective",
+    "conversionAction": "conversion action or Not enough data",
+    "expectedUserAction": "specific next action",
+    "whyNow": "why this plan matters now",
+    "successIn30Days": "realistic non-guaranteed success definition"
+  },
+  "diagnosisDetails": {
+    "stage": "pre-launch|early-stage|active|scaling|recovery",
+    "bottleneck": "string",
+    "trustGap": "string",
+    "offerClarity": "clear|unclear|partial",
+    "contentGap": "string",
+    "assetReadiness": "string",
+    "conversionReadiness": "string",
+    "readyForPaidAds": false,
+    "readyForPaidAdsReason": "string",
+    "mainRisk": "string"
+  },
+  "audienceSegmentsDetailed": [
+    { "segment": "string", "situation": "string", "pain": "string", "desiredOutcome": "string", "objection": "string", "message": "string", "platform": "string", "format": "string", "cta": "string" }
+  ],
+  "contentPillars": ["4-5 specific pillars"],
+  "contentAnglesDetailed": [
+    { "title": "string", "pain": "string", "format": "string", "hook": "string", "platform": "string", "cta": "string", "asset": "string", "funnelStage": "awareness|consideration|conversion" }
+  ],
+  "funnelStages": [
+    { "stage": "awareness|consideration|conversion|followUp", "userMindset": "string", "message": "string", "contentType": "string", "platform": "string", "cta": "string", "successMetric": "string", "nextStep": "string", "productArea": "string" }
+  ],
+  "weeklyExecutionPlan": [
+    { "week": 1, "objective": "string", "keyMessage": "string", "deliverables": ["specific deliverable"], "platforms": ["string"], "assetsNeeded": ["string"], "cta": "string", "successMetric": "string", "executionNote": "string", "reviewPoints": ["string"] }
+  ],
+  "channelMix": [
+    { "platform": "string", "budgetPercent": 0, "rationale": "organic/planning role, no ad spend claim", "contentFrequency": "string" }
+  ],
+  "topHooks": ["5 brand-specific hooks"],
+  "ctaVariations": ["5 specific CTAs"],
+  "valueProps": ["3-5 value propositions"],
+  "kpis": [
+    { "metric": "string", "target": "validation target without invented performance numbers", "timeframe": "string", "isHypothesis": true }
+  ],
+  "readinessChecklist": [
+    { "label": "concrete readiness item", "done": false }
+  ],
+  "riskNotes": ["real risks and missing inputs"],
+  "assumptions": ["explicit assumptions"],
+  "missingData": ["missing inputs"],
+  "doNotDoYet": ["things not to do yet"],
+  "nextBestAction": "one specific next task",
+  "estimatedResults": "realistic, non-guaranteed, no fake numbers",
+  "readyForPaidAds": false,
+  "readyForPaidAdsReason": "string",
+  "confidenceReport": { "overall": "high|medium|low", "byCapability": { "contentStrategy": "high|low|none" } },
+  "competitorAnalysisComplete": false
 }
 
 CAMPAIGN: ${campaign.name} | Goal: ${campaign.goal} | Tone: ${campaign.tone}
 Audience: ${campaign.audience || 'General'}
 Platforms: ${(campaign.platforms || []).join(', ')}
 ${campaign.description ? `Description: ${campaign.description}` : ''}
-${campaign.brandProfile?.brandName ? `Brand: ${campaign.brandProfile.brandName}` : ''}
+${brand?.brandName ? `Brand: ${brand.brandName}` : ''}
+${brand?.industry ? `Industry: ${brand.industry}` : ''}
+${brand?.description ? `Brand description: ${brand.description}` : ''}
+${brand?.primaryOffer ? `Primary offer: ${brand.primaryOffer}` : ''}
+${brand?.businessGoal ? `Business goal: ${brand.businessGoal}` : ''}
+${brand?.targetAudience ? `Brand audience: ${brand.targetAudience}` : ''}
+${brand?.audienceLocation ? `Market/location: ${brand.audienceLocation}` : ''}
+${brand?.audiencePainPoints?.length ? `Audience pain points: ${brand.audiencePainPoints.join('; ')}` : ''}
+${brand?.audienceDesires?.length ? `Audience desires: ${brand.audienceDesires.join('; ')}` : ''}
+${brand?.uniqueAdvantages?.length ? `Unique advantages: ${brand.uniqueAdvantages.join('; ')}` : ''}
+${brand?.writingStyle ? `Writing style: ${brand.writingStyle}` : ''}
+${brand?.avoidKeywords?.length ? `Avoid words: ${brand.avoidKeywords.join(', ')}` : ''}
+${brand?.marketingBudget ? `User-provided marketing budget: ${brand.marketingBudget}` : 'Marketing budget: Not enough data'}
+${brand?.conversionDestination ? `Conversion destination: ${brand.conversionDestination}` : 'Conversion destination: Not enough data'}
+${brand?.leadHandling ? `Lead handling: ${brand.leadHandling}` : 'Lead handling: Not enough data'}
+${brand?.competitors?.length ? `Named competitors: ${brand.competitors.join(', ')}` : 'Named competitors: Not enough data'}
+${brand?.verifiedProof?.length ? `Verified proof: ${brand.verifiedProof.join('; ')}` : 'Verified proof: Not enough data'}
 ${platformGuides ? `Platform context:\n${platformGuides}` : ''}
 ${campaign.pastLearnings ? `\n${campaign.pastLearnings}` : ''}
 
-Be specific and concise. Real copy, not generic placeholders.
+Minimum completeness:
+- At least 2 audienceSegmentsDetailed
+- At least 4 contentAnglesDetailed
+- Exactly 4 weeklyExecutionPlan items
+- At least 3 funnelStages
+- At least 3 readinessChecklist items
+- At least 2 KPIs, all hypotheses unless real analytics were provided
+- Leave budgetBreakdown out unless a budget was explicitly provided.
+Be specific to the brand. Real operating guidance, not generic placeholders.
 ${getLanguageInstruction(campaign.language)}`
 
-  // Arabic JSON output is token-heavy; 1500 leaves headroom so the strategy
-  // JSON is never truncated mid-structure (the real cause of engine failures).
-  return callOpenAI(system, user, true, 1500)
+  return callOpenAI(system, user, true, 7000)
 }
 
 // ─────────────────────────────────────────────
