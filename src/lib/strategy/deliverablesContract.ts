@@ -25,6 +25,11 @@ import type {
   ContentIntensity,
   StrategyLanguage,
 } from './strategyOrder'
+import {
+  customOrganicPostCountUnsupported,
+  isValidCustomOrganicPostCount,
+  MAX_CUSTOM_ORGANIC_POST_COUNT,
+} from './strategyPostCount'
 
 export const MAX_SUPPORTED_DAYS = 180
 export const MAX_DETAILED_CALENDAR_DAYS = 30
@@ -87,15 +92,22 @@ export function getStrategyDeliverables(
   const both = order.language === 'both'
 
   // ── Unsupported: custom > 180 days (or non-positive) → block before charging ──
-  if (horizon > MAX_SUPPORTED_DAYS || horizon <= 0) {
+  if (horizon > MAX_SUPPORTED_DAYS || horizon <= 0 || customOrganicPostCountUnsupported(order)) {
+    const customCountInvalid = customOrganicPostCountUnsupported(order)
     const reason =
-      horizon > MAX_SUPPORTED_DAYS
+      customCountInvalid
+        ? `Custom organic post count must be between 1 and ${MAX_CUSTOM_ORGANIC_POST_COUNT}.`
+        : horizon > MAX_SUPPORTED_DAYS
         ? `Planning horizons over ${MAX_SUPPORTED_DAYS} days are not supported yet — request a custom quote / contact support.`
         : 'A valid positive planning horizon is required.'
-    const explEn = horizon > MAX_SUPPORTED_DAYS
+    const explEn = customCountInvalid
+      ? `Custom organic post count must be between 1 and ${MAX_CUSTOM_ORGANIC_POST_COUNT}. Nothing has been generated or charged.`
+      : horizon > MAX_SUPPORTED_DAYS
       ? `Strategies longer than ${MAX_SUPPORTED_DAYS} days aren’t supported yet. Please contact support for a custom quote — nothing has been generated or charged.`
       : 'Please choose a valid duration — nothing has been generated or charged.'
-    const explAr = horizon > MAX_SUPPORTED_DAYS
+    const explAr = customCountInvalid
+      ? `يجب أن يكون عدد اتجاهات المنشورات العضوية المخصص بين 1 و${MAX_CUSTOM_ORGANIC_POST_COUNT}. لم يتم توليد أو خصم أي شيء.`
+      : horizon > MAX_SUPPORTED_DAYS
       ? `الخطط الأطول من ${MAX_SUPPORTED_DAYS} يوماً غير مدعومة بعد. تواصل مع الدعم للحصول على عرض سعر مخصّص — لم يتم توليد أو خصم أي شيء.`
       : 'يرجى اختيار مدة صحيحة — لم يتم توليد أو خصم أي شيء.'
     return {
@@ -115,7 +127,9 @@ export function getStrategyDeliverables(
       includedDeliverables: [],
       excludedDeliverables: [],
       userExplanation: both ? `${explEn} ${explAr}` : ar ? explAr : explEn,
-      generationInstructions: 'DO NOT GENERATE. Unsupported planning horizon — requires a custom quote.',
+      generationInstructions: customCountInvalid
+        ? 'DO NOT GENERATE. Unsupported custom organic post count.'
+        : 'DO NOT GENERATE. Unsupported planning horizon — requires a custom quote.',
     }
   }
 
@@ -128,7 +142,12 @@ export function getStrategyDeliverables(
   const includesPaid = order.strategyType === 'paid' || order.strategyType === 'full'
 
   // ── Organic post count (intensity → request → plan cap) ──
-  const requestedOrganicPostCount = includesOrganic ? INTENSITY_POST_TARGET[order.contentIntensity] : 0
+  const customOrganicPostCount = includesOrganic && isValidCustomOrganicPostCount(order.customOrganicPostCount)
+    ? order.customOrganicPostCount
+    : null
+  const requestedOrganicPostCount = includesOrganic
+    ? (customOrganicPostCount ?? INTENSITY_POST_TARGET[order.contentIntensity])
+    : 0
   const quota = typeof planContext?.postsPerMonth === 'number' ? planContext.postsPerMonth : null
   const planCappedOrganicPostCount = quota
   const planCapApplied = includesOrganic && quota !== null && requestedOrganicPostCount > quota
@@ -151,10 +170,15 @@ export function getStrategyDeliverables(
   const excluded: string[] = []
 
   if (includesOrganic) {
+    const countLabel = customOrganicPostCount
+      ? planCapApplied
+        ? `Exact organic post directions after plan cap (${organicPostCount}; requested ${customOrganicPostCount})`
+        : `Exact organic post directions requested (${organicPostCount})`
+      : `Organic post direction target (${organicPostCount})`
     if (isMultiMonth) {
       included.push(`${roadmapMonths}-month organic roadmap`)
       included.push('First 30-day strategy execution outline')
-      included.push(`Organic post direction target for the first 30 days (${organicPostCount})`)
+      included.push(`${countLabel} for the first 30 days`)
       included.push('Weekly themes and execution priorities for the first 30 days')
       included.push('Months 2+ as themes / backlog / future monthly cycles (not pre-generated posts)')
       included.push('Content Hub draft posts generated separately after strategy review')
@@ -162,7 +186,7 @@ export function getStrategyDeliverables(
     } else {
       included.push(`Detailed ${detailedCalendarDays}-day strategy`)
       included.push('First-month strategy execution outline')
-      included.push(`Organic post direction target (${organicPostCount})`)
+      included.push(countLabel)
       included.push('Weekly themes and execution priorities')
       included.push('Content Hub draft posts generated separately after strategy review')
     }
@@ -225,6 +249,13 @@ export function getStrategyDeliverables(
       }
     : { en: '', ar: '' }
 
+  const customCountNote = customOrganicPostCount
+    ? {
+        en: ` You selected an exact first-30-day organic post-direction count: ${customOrganicPostCount}.`,
+        ar: ` اخترت عدداً محدداً لاتجاهات المنشورات العضوية في أول 30 يوماً: ${customOrganicPostCount}.`,
+      }
+    : { en: '', ar: '' }
+
   const paidNote = includesPaid
     ? {
         en: ' Paid is planning-only — no ads are launched, no budget is spent, and nothing is published without your explicit approval.',
@@ -232,8 +263,8 @@ export function getStrategyDeliverables(
       }
     : { en: '', ar: '' }
 
-  const explEn = joinLines([horizonNote.en, capNote.en, paidNote.en])
-  const explAr = joinLines([horizonNote.ar, capNote.ar, paidNote.ar])
+  const explEn = joinLines([horizonNote.en, customCountNote.en, capNote.en, paidNote.en])
+  const explAr = joinLines([horizonNote.ar, customCountNote.ar, capNote.ar, paidNote.ar])
   const userExplanation = both ? `${explEn} ${explAr}` : ar ? explAr : explEn
 
   // ── Generation instructions (single source of scope truth for the agents) ──
@@ -249,7 +280,7 @@ export function getStrategyDeliverables(
   }
   if (includesOrganic) {
     giParts.push(
-      `Organic: produce exactly ${organicPostCount} post directions / angle ideas for the detailed window (this number is fixed by the order — do NOT decide the count yourself). Return exactly ${organicPostCount} contentAnglesDetailed entries when organic scope is included. Distribute exactly ${organicPostCount} countable post directions across weeklyExecutionPlan.deliverables for the first ${detailedCalendarDays} days. These are planning directions, not final post drafts or scheduled Content Hub items.` +
+      `Organic: produce exactly ${organicPostCount} post directions / angle ideas for the detailed window (this number is fixed by ${customOrganicPostCount ? "the order's exact custom post count" : 'the order'} — do NOT decide the count yourself). Return exactly ${organicPostCount} contentAnglesDetailed entries when organic scope is included. Distribute exactly ${organicPostCount} countable post directions across weeklyExecutionPlan.deliverables for the first ${detailedCalendarDays} days. These are planning directions, not final post drafts or scheduled Content Hub items.` +
         (planCapApplied ? ` (Requested intensity ${requestedOrganicPostCount} was capped by the plan quota ${quota}.)` : ''),
     )
   }

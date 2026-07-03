@@ -24,6 +24,7 @@ import type {
   StrategyLanguage,
 } from './strategyOrder'
 import { getStrategyCreditCost, type StrategyCreditCost } from './strategyPricing'
+import { normalizeCustomOrganicPostCount } from './strategyPostCount'
 
 /** Loosely-typed input shape (e.g. a parsed request body). */
 export interface StrategyOrderInput {
@@ -31,6 +32,7 @@ export interface StrategyOrderInput {
   strategyDuration?: unknown
   durationPreset?: unknown
   contentIntensity?: unknown
+  customOrganicPostCount?: unknown
   customDurationDays?: unknown
   durationDays?: unknown
   goal?: unknown
@@ -89,6 +91,7 @@ export function normalizeStrategyOrder(input: StrategyOrderInput | null | undefi
     body.strategyDuration !== undefined ? body.strategyDuration : body.durationPreset,
   )
   const contentIntensity = normalizeContentIntensity(body.contentIntensity)
+  const customOrganicPostCount = normalizeCustomOrganicPostCount(body.customOrganicPostCount)
   const durationDays = resolveDurationDays(durationPreset, body.customDurationDays, body.durationDays)
   const language = normalizeLanguage(body.language)
   const goal = typeof body.goal === 'string' ? body.goal : ''
@@ -98,6 +101,7 @@ export function normalizeStrategyOrder(input: StrategyOrderInput | null | undefi
     durationPreset,
     durationDays,
     contentIntensity,
+    customOrganicPostCount,
     goal,
     language,
   }

@@ -61,6 +61,41 @@ describe('getStrategyDeliverables — content intensity', () => {
   })
 })
 
+describe('getStrategyDeliverables — exact organic post count', () => {
+  it('uses a custom exact post count instead of the intensity band-top', () => {
+    const d = getStrategyDeliverables(order({ contentIntensity: 'daily', customOrganicPostCount: 7 }))
+    expect(d.supported).toBe(true)
+    expect(d.requestedOrganicPostCount).toBe(7)
+    expect(d.organicPostCount).toBe(7)
+    expect(d.includedDeliverables.join(' ')).toMatch(/Exact organic post directions requested \(7\)/)
+    expect(d.userExplanation).toMatch(/exact first-30-day organic post-direction count: 7/i)
+    expect(d.generationInstructions).toMatch(/exactly 7 post directions/)
+    expect(d.generationInstructions).toMatch(/exact custom post count/)
+  })
+
+  it('still applies plan cap to an exact custom count if the plan allows fewer posts', () => {
+    const d = getStrategyDeliverables(order({ customOrganicPostCount: 12 }), { postsPerMonth: 10 })
+    expect(d.requestedOrganicPostCount).toBe(12)
+    expect(d.organicPostCount).toBe(10)
+    expect(d.planCapApplied).toBe(true)
+    expect(d.generationInstructions).toMatch(/capped by the plan quota 10/)
+  })
+
+  it('does not apply exact organic post count to paid-only strategy', () => {
+    const d = getStrategyDeliverables(order({ strategyType: 'paid', customOrganicPostCount: 7 }))
+    expect(d.supported).toBe(true)
+    expect(d.requestedOrganicPostCount).toBe(0)
+    expect(d.organicPostCount).toBe(0)
+  })
+
+  it('blocks exact custom post counts over 30 before generation', () => {
+    const d = getStrategyDeliverables(order({ customOrganicPostCount: 31 }))
+    expect(d.supported).toBe(false)
+    expect(d.userExplanation).toMatch(/1 and 30/)
+    expect(d.generationInstructions).toMatch(/DO NOT GENERATE/)
+  })
+})
+
 describe('getStrategyDeliverables — plan cap', () => {
   it('6. plan quota caps post count and marks planCapApplied', () => {
     const d = getStrategyDeliverables(order({ contentIntensity: 'daily' }), { postsPerMonth: 10 })

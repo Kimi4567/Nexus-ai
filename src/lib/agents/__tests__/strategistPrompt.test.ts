@@ -8,11 +8,13 @@ const order = (
   contentIntensity: ContentIntensity,
   durationPreset: DurationPreset,
   durationDays?: number,
+  customOrganicPostCount?: number,
 ): StrategyOrder => ({
   strategyType,
   contentIntensity,
   durationPreset,
   durationDays: durationDays ?? (durationPreset === 'custom' ? 45 : Number(durationPreset)),
+  customOrganicPostCount: customOrganicPostCount ?? null,
   goal: 'leads',
   language: 'en',
 })
@@ -154,6 +156,15 @@ describe('buildStrategistPrompts — content intensity / plan cap', () => {
 
   it('platform variants framed as adaptations', () => {
     expect(sys(briefWith(order('organic', 'standard', '90')))).toMatch(/Platform variants are ADAPTATIONS/i)
+  })
+
+  it('uses exact custom post count as the binding organic direction count', () => {
+    const s = sys(briefWith(order('organic', 'daily', '90', undefined, 7)))
+    expect(s).toMatch(/exact custom post count/)
+    expect(s).toMatch(/exactly 7 post directions/)
+    expect(s).toMatch(/return exactly 7 contentAnglesDetailed entries/i)
+    expect(s).toMatch(/weeklyExecutionPlan\.deliverables add up to exactly 7/i)
+    expect(s).not.toMatch(/exactly 30 post directions/)
   })
 
   it('binds execution fields to active platforms only', () => {

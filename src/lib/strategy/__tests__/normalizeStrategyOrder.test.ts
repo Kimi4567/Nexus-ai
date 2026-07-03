@@ -73,6 +73,23 @@ describe('normalizeStrategyOrder — customDurationDays validation', () => {
   })
 })
 
+describe('normalizeStrategyOrder — custom organic post count', () => {
+  it('accepts and floors an exact organic post count', () => {
+    expect(normalizeStrategyOrder({ customOrganicPostCount: 7.8 }).customOrganicPostCount).toBe(7)
+    expect(normalizeStrategyOrder({ customOrganicPostCount: '12' }).customOrganicPostCount).toBe(12)
+  })
+
+  it('keeps invalid exact post counts as unsupported signals instead of silently defaulting', () => {
+    expect(normalizeStrategyOrder({ customOrganicPostCount: 0 }).customOrganicPostCount).toBe(0)
+    expect(normalizeStrategyOrder({ customOrganicPostCount: -2 }).customOrganicPostCount).toBe(-2)
+    expect(normalizeStrategyOrder({ customOrganicPostCount: 'abc' }).customOrganicPostCount).toBe(0)
+  })
+
+  it('omits exact post count when not provided', () => {
+    expect(normalizeStrategyOrder({}).customOrganicPostCount).toBeNull()
+  })
+})
+
 describe('resolveStrategyCharge — required examples', () => {
   it('4a. Organic Standard 160 days (custom) = 18 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'standard', strategyDuration: 'custom', customDurationDays: 160 })
@@ -94,6 +111,31 @@ describe('resolveStrategyCharge — required examples', () => {
   it('4e. Custom 45 Organic Standard = 12 credits', () => {
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'standard', strategyDuration: 'custom', customDurationDays: 45 })
     expect(r.cost).toBe(12)
+  })
+
+  it('4f. Organic exact 7 posts uses the light pricing tier and preserves exact count', () => {
+    const r = resolveStrategyCharge({
+      strategyType: 'organic',
+      contentIntensity: 'daily',
+      strategyDuration: '30',
+      customOrganicPostCount: 7,
+    })
+    expect(r.supported).toBe(true)
+    expect(r.cost).toBe(8)
+    expect(r.order.customOrganicPostCount).toBe(7)
+    expect(r.pricing.tierLabel).toBe('Organic Light')
+  })
+
+  it('4g. Full exact 22 posts uses the growth pricing tier', () => {
+    const r = resolveStrategyCharge({
+      strategyType: 'full',
+      contentIntensity: 'light',
+      strategyDuration: '90',
+      customOrganicPostCount: 22,
+    })
+    expect(r.supported).toBe(true)
+    expect(r.cost).toBe(24)
+    expect(r.pricing.tierLabel).toBe('Full Growth')
   })
 })
 
@@ -117,6 +159,18 @@ describe('resolveStrategyCharge — unsupported custom > 180 (no charge)', () =>
     const r = resolveStrategyCharge({ strategyType: 'organic', contentIntensity: 'standard', strategyDuration: 'custom', customDurationDays: 180 })
     expect(r.supported).toBe(true)
     expect(r.cost).toBe(18) // 91–180 → 180-day price
+  })
+
+  it('5e. custom organic post count > 30 is unsupported and never chargeable', () => {
+    const r = resolveStrategyCharge({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+      customOrganicPostCount: 31,
+    })
+    expect(r.supported).toBe(false)
+    expect(r.cost).toBeNull()
+    expect(r.pricing.pricingExplanation).toMatch(/custom organic post count/i)
   })
 })
 

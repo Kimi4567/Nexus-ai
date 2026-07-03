@@ -26,6 +26,13 @@ export interface StrategyOrder {
   /** Resolved horizon in days. For presets this mirrors the preset; for custom it's the user value. */
   durationDays: number
   contentIntensity: ContentIntensity
+  /**
+   * Optional exact organic post-direction count for the first detailed window.
+   * Applies only to organic/full strategies. Paid-only ignores it.
+   * Valid range is 1..30 because the strategy run never generates more than the
+   * first 30 days of detailed post directions.
+   */
+  customOrganicPostCount?: number | null
   goal: string
   language: StrategyLanguage
   /** When true, the UI layer (later PR) persists this order back to Brand Brain defaults. */

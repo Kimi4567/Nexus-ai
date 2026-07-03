@@ -162,7 +162,8 @@ describe('strategy runtime copy contract', () => {
   it('does not imply strategy generation creates final content drafts', () => {
     const i18n = repoFile('src/lib/i18n-context.tsx')
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
-    const runtimeCopy = `${i18n}\n${modal}`
+    const orderDisplay = repoFile('src/lib/strategy/strategyOrderDisplay.ts')
+    const runtimeCopy = `${i18n}\n${modal}\n${orderDisplay}`
 
     expect(runtimeCopy).not.toMatch(/strategy output and content will be generated/i)
     expect(runtimeCopy).not.toMatch(/الاستراتيجية والمحتوى بالكامل/)
@@ -173,6 +174,8 @@ describe('strategy runtime copy contract', () => {
     expect(runtimeCopy).toMatch(/اختر نوع الاستراتيجية، المدة، كثافة المحتوى، ولغة المخرجات قبل مراجعة التكلفة/)
     expect(runtimeCopy).toMatch(/Organic post directions for the first 30 days/i)
     expect(runtimeCopy).toMatch(/اتجاهات منشورات عضوية لأول 30 يوم/)
+    expect(runtimeCopy).toMatch(/Sets the paid planning brief depth only/)
+    expect(runtimeCopy).toMatch(/يحدد مستوى تفصيل بريف التخطيط المدفوع فقط/)
   })
 
   it('discloses strategy credit cost before the first modal action can continue', () => {

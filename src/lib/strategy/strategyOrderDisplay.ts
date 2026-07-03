@@ -12,7 +12,7 @@
  * Pure, framework-free, no I/O. Does NOT change pricing or generation.
  */
 
-import type { ContentIntensity } from './strategyOrder'
+import type { ContentIntensity, StrategyType } from './strategyOrder'
 
 /** User-friendly post-per-month band per intensity (display only). */
 export const INTENSITY_RANGE_LABEL: Record<ContentIntensity, string> = {
@@ -20,6 +20,14 @@ export const INTENSITY_RANGE_LABEL: Record<ContentIntensity, string> = {
   standard: '12–16',
   growth: '20–25',
   daily: '30',
+}
+
+/** Paid planning uses the same pricing tiers, but must not imply organic post counts. */
+export const PAID_PLANNING_DEPTH_LABEL: Record<ContentIntensity, { ar: string; en: string }> = {
+  light: { ar: 'أساسي', en: 'Lean' },
+  standard: { ar: 'متوازن', en: 'Balanced' },
+  growth: { ar: 'موسع', en: 'Expanded' },
+  daily: { ar: 'أعلى تفصيل', en: 'Deep' },
 }
 
 /** Localized intensity name. */
@@ -31,6 +39,36 @@ export function intensityLabel(intensity: ContentIntensity, locale?: string): st
     growth: ar ? 'نمو' : 'Growth',
     daily: ar ? 'يومية' : 'Daily',
   }[intensity]
+}
+
+export function strategyIntensitySectionLabel(strategyType: StrategyType, locale?: string): string {
+  const ar = locale === 'ar'
+  if (strategyType === 'paid') return ar ? 'عمق التخطيط' : 'Planning depth'
+  return ar ? 'كثافة المحتوى' : 'Content intensity'
+}
+
+export function strategyIntensitySecondaryLabel(
+  intensity: ContentIntensity,
+  strategyType: StrategyType,
+  locale?: string,
+): string {
+  if (strategyType === 'paid') {
+    const label = PAID_PLANNING_DEPTH_LABEL[intensity]
+    return locale === 'ar' ? label.ar : label.en
+  }
+  return INTENSITY_RANGE_LABEL[intensity]
+}
+
+export function strategyIntensityHelperCopy(strategyType: StrategyType, locale?: string): string {
+  const ar = locale === 'ar'
+  if (strategyType === 'paid') {
+    return ar
+      ? 'يحدد مستوى تفصيل بريف التخطيط المدفوع فقط. لا ينشئ منشورات عضوية ولا يطلق إعلانات.'
+      : 'Sets the paid planning brief depth only. It does not create organic posts or launch ads.'
+  }
+  return ar
+    ? 'اتجاهات منشورات عضوية لأول 30 يوم (قد تُقيَّد حسب خطتك).'
+    : 'Organic post directions for the first 30 days (may be capped by your plan).'
 }
 
 /**

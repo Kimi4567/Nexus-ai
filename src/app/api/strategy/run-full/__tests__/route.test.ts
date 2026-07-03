@@ -143,6 +143,17 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14)
   })
 
+  it('uses server-recomputed pricing for exact custom organic post count', async () => {
+    await POST(makeReq({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'daily',
+      customOrganicPostCount: 7,
+      price: 1,
+    }))
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 8)
+  })
+
   it('9. insufficient credits → 402 during preflight before orchestration or deduction', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       preferences: {},
@@ -433,6 +444,32 @@ describe('POST /api/strategy/run-full — generation contract (S1c-3)', () => {
     const brief = briefArg()
     expect(brief.generationInstructions).toMatch(/PLANNING-ONLY/i)
     expect(brief.organicPostCount).toBe(0)
+  })
+
+  it('passes exact custom organic post count into the generation contract', async () => {
+    await POST(makeReq({
+      strategyType: 'organic',
+      strategyDuration: '90',
+      contentIntensity: 'daily',
+      customOrganicPostCount: 7,
+    }))
+    const brief = briefArg()
+    expect(brief.organicPostCount).toBe(7)
+    expect(brief.strategyOrder.customOrganicPostCount).toBe(7)
+    expect(brief.generationInstructions).toMatch(/exactly 7 post directions/)
+    expect(brief.generationInstructions).toMatch(/exact custom post count/)
+  })
+
+  it('blocks exact custom organic post counts over 30 before orchestration or deduction', async () => {
+    const res = await POST(makeReq({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+      customOrganicPostCount: 31,
+    }))
+    expect(res.status).toBe(422)
+    expect(mockRunFullAgency).not.toHaveBeenCalled()
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
   })
 
   it('13. custom > 180 still blocked (422) before any deliverables/generation', async () => {

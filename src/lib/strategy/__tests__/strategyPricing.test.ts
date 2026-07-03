@@ -116,6 +116,46 @@ describe('strategyPricing — custom duration rules', () => {
   })
 })
 
+describe('strategyPricing — exact organic post count', () => {
+  it('uses the exact post count to derive the organic tier', () => {
+    const r = getStrategyCreditCost({
+      ...order('organic', 'daily', '90'),
+      customOrganicPostCount: 7,
+    })
+    expect(r.cost).toBe(12)
+    expect(r.tierLabel).toBe('Organic Light')
+    expect(r.pricingExplanation).toMatch(/exact 7 organic post directions/i)
+  })
+
+  it('uses exact count to derive full-strategy tier', () => {
+    const r = getStrategyCreditCost({
+      ...order('full', 'light', '90'),
+      customOrganicPostCount: 17,
+    })
+    expect(r.cost).toBe(24)
+    expect(r.tierLabel).toBe('Full Growth')
+  })
+
+  it('ignores exact organic post count for paid-only pricing', () => {
+    const r = getStrategyCreditCost({
+      ...order('paid', 'standard', '90'),
+      customOrganicPostCount: 7,
+    })
+    expect(r.cost).toBe(16)
+    expect(r.tierLabel).toBe('Paid Standard')
+  })
+
+  it('blocks exact organic post counts outside the first-30-day supported range', () => {
+    const r = getStrategyCreditCost({
+      ...order('organic', 'standard', '30'),
+      customOrganicPostCount: 31,
+    })
+    expect(r.supported).toBe(false)
+    expect(r.cost).toBeNull()
+    expect(r.pricingExplanation).toMatch(/1-30/)
+  })
+})
+
 describe('strategyPricing — required examples', () => {
   it('Organic Standard 160 (custom) = 18', () => {
     expect(cost(order('organic', 'standard', 'custom', 160))).toBe(18)
