@@ -308,6 +308,12 @@ function CampaignDetailPageInner() {
     if (seconds < 86400) return cdT?.timeHoursAgo?.replace('{n}', String(Math.floor(seconds / 3600)))
     return new Date(date).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')
   }, [cdT, locale])
+  const scrollToStrategySection = useCallback((sectionId: string) => {
+    const section = document.getElementById(sectionId)
+    if (!section) return
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    window.history.replaceState(null, '', `#${sectionId}`)
+  }, [])
 
   function AgentBanner({ idx }: { idx: number }) {
     const agent = AGENT_TABS[idx]
@@ -523,6 +529,14 @@ function CampaignDetailPageInner() {
     }, 3000)
     return () => clearTimeout(t)
   }, [isNewCampaign, isPaid, billingStatus, generating])
+
+  useEffect(() => {
+    if (loading || fetching || !campaign?.aiOutput || activeTab !== 0) return
+    const sectionId = window.location.hash.replace('#', '')
+    if (!sectionId.startsWith('strategy-')) return
+    const timer = window.setTimeout(() => scrollToStrategySection(sectionId), 120)
+    return () => window.clearTimeout(timer)
+  }, [activeTab, campaign?.aiOutput, fetching, loading, scrollToStrategySection])
 
   const updateCampaign = async (data: Partial<Campaign>) => {
     const token = authHeader()
@@ -918,20 +932,6 @@ function CampaignDetailPageInner() {
     return map[lvl] ? (locale === 'ar' ? map[lvl].ar : map[lvl].en) : lvl
   }
   const confLevelColor = (lvl: string): string => (lvl === 'high' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444')
-  const scrollToStrategySection = useCallback((sectionId: string) => {
-    const section = document.getElementById(sectionId)
-    if (!section) return
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    window.history.replaceState(null, '', `#${sectionId}`)
-  }, [])
-
-  useEffect(() => {
-    if (activeTab !== 0 || !aiOutput) return
-    const sectionId = window.location.hash.replace('#', '')
-    if (!sectionId.startsWith('strategy-')) return
-    const timer = window.setTimeout(() => scrollToStrategySection(sectionId), 120)
-    return () => window.clearTimeout(timer)
-  }, [activeTab, aiOutput, scrollToStrategySection])
 
   // Sprint F — creative brief
   const creativeBrief = aiOutput?.creativeBrief || null
