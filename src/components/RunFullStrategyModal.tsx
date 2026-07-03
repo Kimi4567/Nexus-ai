@@ -610,6 +610,37 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     return locale === 'ar' ? ar[key] : en[key]
   }
 
+  const strategyOrderLanguage: StrategyOrder['language'] =
+    selectedLanguage === 'bilingual' ? 'both' : selectedLanguage
+  const strategyHorizonDays =
+    strategyDuration === 'custom' ? customDurationDays : Number(strategyDuration)
+  const strategyOrderPreview: StrategyOrder = {
+    strategyType,
+    durationPreset: strategyDuration,
+    durationDays: strategyHorizonDays,
+    contentIntensity,
+    goal: '',
+    language: strategyOrderLanguage,
+  }
+  const strategyPricingPreview = getStrategyCreditCost(strategyOrderPreview)
+  const strategyCostPreview = strategyPricingPreview.cost
+  const strategyCostText =
+    strategyCostPreview === null
+      ? (locale === 'ar' ? 'عرض سعر مخصص' : 'custom quote')
+      : `${strategyCostPreview} ${locale === 'ar' ? 'كريديت' : 'credits'}`
+  const strategyTypePreviewLabel =
+    locale === 'ar'
+      ? { organic: 'عضوية', paid: 'مدفوعة', full: 'كاملة' }[strategyType]
+      : { organic: 'Organic', paid: 'Paid', full: 'Full' }[strategyType]
+  const strategyDurationPreviewLabel =
+    strategyDuration === 'custom'
+      ? (locale === 'ar' ? `${customDurationDays} يوم` : `${customDurationDays} days`)
+      : (locale === 'ar' ? `${strategyHorizonDays} يوم` : `${strategyHorizonDays} days`)
+  const strategyCostActionLabel =
+    strategyCostPreview === null
+      ? (locale === 'ar' ? 'مراجعة النطاق' : 'Review scope')
+      : (locale === 'ar' ? `مراجعة التكلفة — ${strategyCostText}` : `Review cost — ${strategyCostText}`)
+
   const retry = () => {
     clearResultCache()
     setPhase('running')
@@ -754,13 +785,54 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
               </p>
             </div>
 
+            <div className="rounded-xl p-3 mb-5"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    {locale === 'ar' ? 'مراجعة تكلفة الاستراتيجية' : 'Strategy cost review'}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-950">
+                    {strategyCostPreview === null
+                      ? (locale === 'ar' ? 'هذه الخطة تحتاج عرض سعر مخصص' : 'This order needs a custom quote')
+                      : (locale === 'ar'
+                        ? `هذه الخطة ستستخدم ${strategyCostText}`
+                        : `This order will use ${strategyCostText}`)}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    {locale === 'ar'
+                      ? 'لا يتم خصم أي كريدت هنا. الشاشة التالية تعرض الرصيد والتأكيد النهائي قبل التوليد.'
+                      : 'No credits are spent here. The next screen shows your balance and final confirmation before generation.'}
+                  </p>
+                </div>
+                <div className="text-end shrink-0">
+                  <p className="text-lg font-bold" style={{ color: strategyCostPreview === null ? '#EA580C' : '#FF6B35' }}>
+                    {strategyCostText}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    {strategyPricingPreview.supported
+                      ? strategyPricingPreview.durationBucket
+                      : (locale === 'ar' ? 'غير مدعوم' : 'unsupported')}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {[strategyTypePreviewLabel, strategyDurationPreviewLabel, intensityLabel(contentIntensity, locale)].map((chip) => (
+                  <span key={chip} className="px-2 py-1 rounded-lg text-[10px] font-semibold"
+                    style={{ background: '#eef2ff', color: '#3730a3', border: '1px solid #c7d2fe' }}>
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            </div>
+
             {/* Start button */}
             <button
               onClick={() => setLangConfirmed(true)}
               className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90"
               style={primaryButtonStyle}>
               <Rocket className="w-4 h-4" />
-              {rs.langStartBtn}
+              {strategyCostActionLabel}
             </button>
           </div>
         )}
@@ -770,24 +842,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           // ── PR-S1b — deterministic Order Review (display-only). Counts come from the
           //    pure contract, never the AI. Plan quota (if known) caps organic posts.
           const ar = locale === 'ar'
-          const orderLanguage: StrategyOrder['language'] = ar ? 'ar' : 'en'
-          const horizonDays =
-            strategyDuration === 'custom' ? customDurationDays : Number(strategyDuration)
-          const order: StrategyOrder = {
-            strategyType,
-            durationPreset: strategyDuration,
-            durationDays: horizonDays,
-            contentIntensity,
-            goal: '',
-            language: orderLanguage,
-          }
+          const order = strategyOrderPreview
 
           // ── PR-S1c-2 — variable cost. getStrategyCreditCost is the SAME pure
           //    function the backend runs before deduction, so the displayed price
           //    equals the charged price. Unsupported orders (custom > 180) yield
           //    cost:null → COST falls back to 0 and the unsupported UI branch below
           //    blocks Generate before any charge.
-          const pricing = getStrategyCreditCost(order)
+          const pricing = strategyPricingPreview
           const COST = pricing.cost ?? 0
           const isUnlimited = creditBalance === -1
           const balanceAfter = isUnlimited ? -1 : creditBalance !== null ? Math.max(0, creditBalance - COST) : null
