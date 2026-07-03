@@ -1,46 +1,32 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  INTENSITY_RANGE_LABEL,
-  intensityLabel,
-  tierToPostsPerMonth,
-} from '@/lib/strategy/strategyOrderDisplay'
+  strategyIntensityHelperCopy,
+  strategyIntensitySecondaryLabel,
+  strategyIntensitySectionLabel,
+} from '../strategyOrderDisplay'
 
-describe('strategyOrderDisplay — intensity ranges', () => {
-  it('1. maps each intensity to its user-friendly range', () => {
-    expect(INTENSITY_RANGE_LABEL.light).toBe('8–10')
-    expect(INTENSITY_RANGE_LABEL.standard).toBe('12–16')
-    expect(INTENSITY_RANGE_LABEL.growth).toBe('20–25')
-    expect(INTENSITY_RANGE_LABEL.daily).toBe('30')
+describe('strategyOrderDisplay', () => {
+  it('keeps paid-only planning depth copy separate from organic post counts', () => {
+    expect(strategyIntensitySectionLabel('paid', 'ar')).toBe('عمق التخطيط')
+    expect(strategyIntensitySectionLabel('paid', 'en')).toBe('Planning depth')
+
+    expect(strategyIntensitySecondaryLabel('standard', 'paid', 'ar')).toBe('متوازن')
+    expect(strategyIntensitySecondaryLabel('standard', 'paid', 'en')).toBe('Balanced')
+
+    expect(strategyIntensityHelperCopy('paid', 'ar')).toContain('بريف التخطيط المدفوع')
+    expect(strategyIntensityHelperCopy('paid', 'ar')).not.toMatch(/منشورات عضوية لأول 30 يوم/)
+    expect(strategyIntensityHelperCopy('paid', 'en')).toContain('paid planning brief depth')
+    expect(strategyIntensityHelperCopy('paid', 'en')).not.toMatch(/Organic post directions/)
   })
 
-  it('4. localized intensity labels (EN/AR)', () => {
-    expect(intensityLabel('standard', 'en')).toBe('Standard')
-    expect(intensityLabel('standard', 'ar')).toBe('قياسية')
-    expect(intensityLabel('daily')).toBe('Daily')
-  })
-})
+  it('keeps organic/full copy tied to organic post-direction scope', () => {
+    expect(strategyIntensitySectionLabel('organic', 'ar')).toBe('كثافة المحتوى')
+    expect(strategyIntensitySectionLabel('full', 'en')).toBe('Content intensity')
 
-describe('strategyOrderDisplay — tier → postsPerMonth', () => {
-  it('2. maps known tiers to the right quota', () => {
-    expect(tierToPostsPerMonth('free')).toBe(3)
-    expect(tierToPostsPerMonth('starter')).toBe(10)
-    expect(tierToPostsPerMonth('growth')).toBe(25)
-    expect(tierToPostsPerMonth('pro')).toBe(25)
-    expect(tierToPostsPerMonth('active')).toBe(25)
-    expect(tierToPostsPerMonth('agency')).toBe(60)
-    expect(tierToPostsPerMonth('business')).toBe(60)
-  })
+    expect(strategyIntensitySecondaryLabel('standard', 'organic', 'ar')).toBe('12–16')
+    expect(strategyIntensitySecondaryLabel('growth', 'full', 'en')).toBe('20–25')
 
-  it('case-insensitive', () => {
-    expect(tierToPostsPerMonth('Growth')).toBe(25)
-    expect(tierToPostsPerMonth('ACTIVE')).toBe(25)
-    expect(tierToPostsPerMonth('AGENCY')).toBe(60)
-  })
-
-  it('3. unknown / null / undefined tier → undefined (caller omits planContext)', () => {
-    expect(tierToPostsPerMonth('enterprise')).toBeUndefined()
-    expect(tierToPostsPerMonth('')).toBeUndefined()
-    expect(tierToPostsPerMonth(null)).toBeUndefined()
-    expect(tierToPostsPerMonth(undefined)).toBeUndefined()
+    expect(strategyIntensityHelperCopy('organic', 'ar')).toContain('اتجاهات منشورات عضوية')
+    expect(strategyIntensityHelperCopy('full', 'en')).toContain('Organic post directions')
   })
 })

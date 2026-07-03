@@ -31,7 +31,14 @@ import { getStrategyDeliverables } from '@/lib/strategy/deliverablesContract'
 // server-side before deduction, so the displayed price equals the charged price.
 import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
 import type { StrategyOrder, ContentIntensity } from '@/lib/strategy/strategyOrder'
-import { INTENSITY_RANGE_LABEL, intensityLabel, tierToPostsPerMonth } from '@/lib/strategy/strategyOrderDisplay'
+import {
+  INTENSITY_RANGE_LABEL,
+  intensityLabel,
+  strategyIntensityHelperCopy,
+  strategyIntensitySecondaryLabel,
+  strategyIntensitySectionLabel,
+  tierToPostsPerMonth,
+} from '@/lib/strategy/strategyOrderDisplay'
 import {
   Cpu, BarChart3, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
@@ -658,7 +665,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             {/* PR-S1b — Content intensity picker (review-only; not sent to backend in S1b). */}
             <div className="mb-5">
               <div className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 text-slate-500">
-                {locale === 'ar' ? 'كثافة المحتوى' : 'Content intensity'}
+                {strategyIntensitySectionLabel(strategyType, locale)}
               </div>
               <div className="flex gap-1.5">
                 {(['light', 'standard', 'growth', 'daily'] as const).map(v => (
@@ -668,12 +675,14 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       ...(contentIntensity === v ? SELECTED_OPTION_STYLE : UNSELECTED_OPTION_STYLE),
                     }}>
                     {intensityLabel(v, locale)}
-                    <span className="block text-[9px] font-normal opacity-70">{INTENSITY_RANGE_LABEL[v]}</span>
+                    <span className="block text-[9px] font-normal opacity-70">
+                      {strategyIntensitySecondaryLabel(v, strategyType, locale)}
+                    </span>
                   </button>
                 ))}
               </div>
               <p className="mt-1.5 text-[10px] text-slate-500">
-                {locale === 'ar' ? 'اتجاهات منشورات عضوية لأول 30 يوم (قد تُقيَّد حسب خطتك).' : 'Organic post directions for the first 30 days (may be capped by your plan).'}
+                {strategyIntensityHelperCopy(strategyType, locale)}
               </p>
               {strategyType !== 'paid' && (
                 <div className="mt-2 rounded-xl p-2.5"

@@ -34,7 +34,7 @@ The modal now shows an optional exact-post-count control for Organic and Full mo
 - EN: `Use an exact post count`
 - AR: `استخدم عدد منشورات محدد`
 
-When enabled, the review screen describes the deliverable as exact post directions for the first 30 days. Paid-only mode does not show the control.
+When enabled, the review screen describes the deliverable as exact post directions for the first 30 days. Paid-only mode does not show the control and uses planning-depth copy instead of organic post-count ranges.
 
 ## Guardrails
 
