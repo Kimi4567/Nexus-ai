@@ -299,8 +299,8 @@ export function getStrategyPageReadinessSurface(
 
   const nextAction = full.canGenerate
     ? {
-        label: 'Review strategy / run planning update',
-        labelAr: 'راجع الاستراتيجية / شغّل تحديث تخطيطي',
+        label: 'Review strategy / update after cost review',
+        labelAr: 'راجع الاستراتيجية / حدّث بعد مراجعة التكلفة',
       }
     : organic.canGenerateOrganic
       ? {

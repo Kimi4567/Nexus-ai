@@ -4,7 +4,7 @@
  * /strategy — Marketing Strategy page (PR-B: read-only IA foundation).
  *
  * This is the Strategy stage of the journey:
- *   Brand Brain → Strategy → Organic Content Plan + Paid Campaign Plan → execution
+ *   Brand Brain → Strategy → Organic Content Direction + Paid Planning Brief → execution
  *
  * IMPORTANT — this page is the strategy workbench. It renders existing strategy
  * state and opens the explicit cost-review modal for strategy generation. It
@@ -354,7 +354,7 @@ export default function StrategyPage() {
                     ? (ar ? 'المسودة الموجودة تبدو من Brand Brain سابق. حدّثها قبل استخدامها كمصدر للتنفيذ.' : 'The existing draft appears to come from a previous Brand Brain. Update it before using it as an execution source.')
                   : hasDraftStrategy
                     ? (ar ? 'المسودة موجودة ويمكن مراجعتها أو تحديثها.' : 'The draft exists and can be reviewed or updated.')
-                    : (ar ? 'تابع من الاتجاه الحالي إلى المحتوى العضوي والتخطيط المدفوع بالموافقة.' : 'Continue from the current direction into organic content and approval-gated paid planning.')}
+                    : (ar ? 'استخدم الاتجاه الحالي كمادة مراجعة قبل Content Hub أو بريف التخطيط المدفوع.' : 'Use the current direction as review material before Content Hub or the paid planning brief.')}
               </p>
             </div>
           </div>
@@ -374,7 +374,7 @@ export default function StrategyPage() {
                       ? (ar ? 'حدّث الاستراتيجية لتطابق Brand Brain الحالي.' : 'Update strategy to match the current Brand Brain.')
                     : hasDraftStrategy
                       ? (ar ? 'مسودة الاستراتيجية جاهزة للمراجعة.' : 'Your strategy draft is ready for review.')
-                      : (ar ? 'استراتيجيتك جاهزة للمتابعة.' : 'Your strategy is ready to continue.')}
+                      : (ar ? 'اتجاه الاستراتيجية متاح للمراجعة.' : 'Strategy direction is available for review.')}
                 </h3>
                 <p className="text-sm mt-1 max-w-2xl" style={{ color: '#64748b' }}>
                   {primaryAction.description}
@@ -532,12 +532,12 @@ export default function StrategyPage() {
               )}
             </div>
 
-            {/* ── Paid Campaign Plan (conservative, read-only) ── */}
+            {/* ── Paid Planning Brief (conservative, read-only) ── */}
             <div className={card} style={cardStyle}>
               <div className="flex items-center gap-2 mb-3">
                 <Megaphone className="w-4 h-4" style={{ color: '#FF6B35' }} />
                 <h2 className="text-sm font-bold" style={{ color: '#0f172a' }}>
-                  {ar ? 'خطة الحملات المدفوعة' : 'Paid Campaign Plan'}
+                  {ar ? 'بريف التخطيط المدفوع' : 'Paid Planning Brief'}
                 </h2>
               </div>
 
@@ -550,8 +550,8 @@ export default function StrategyPage() {
 
               <p className="text-sm" style={{ color: '#94a3b8' }}>
                 {ar
-                  ? 'سيتم إعداد تخطيط الإعلانات المدفوعة بعد إنشاء الاستراتيجية والتحقق من جاهزية الحسابات.'
-                  : 'Paid planning will be prepared after strategy creation and account readiness checks.'}
+                  ? 'يبقى التخطيط المدفوع للمراجعة فقط حتى يتم تأكيد الميزانية، مسار التحويل، التتبع، جاهزية الحسابات، والموافقة الصريحة.'
+                  : 'Paid planning stays review-only until budget, conversion path, tracking, account readiness, and explicit approval are confirmed.'}
               </p>
 
               {/* Approval / no-spend guarantee */}

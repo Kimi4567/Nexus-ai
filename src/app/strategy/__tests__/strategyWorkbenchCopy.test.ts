@@ -23,6 +23,22 @@ describe('/strategy workbench source-of-truth copy', () => {
     expect(source).not.toContain('Run updated strategy')
   })
 
+  it('uses planning-safe paid brief copy instead of campaign-launch wording', () => {
+    expect(source).toContain('Paid Planning Brief')
+    expect(source).toContain('Paid planning stays review-only until budget, conversion path, tracking, account readiness, and explicit approval are confirmed.')
+    expect(source).toContain('بريف التخطيط المدفوع')
+    expect(source).toContain('يبقى التخطيط المدفوع للمراجعة فقط')
+    expect(source).not.toContain('Paid Campaign Plan')
+    expect(source).not.toContain('خطة الحملات المدفوعة')
+  })
+
+  it('does not describe an existing strategy as broadly ready to continue', () => {
+    expect(source).toContain('Strategy direction is available for review.')
+    expect(source).toContain('اتجاه الاستراتيجية متاح للمراجعة.')
+    expect(source).not.toContain('Your strategy is ready to continue.')
+    expect(source).not.toContain('استراتيجيتك جاهزة للمتابعة.')
+  })
+
   it('warns when the existing strategy draft does not match the current Brand Brain', () => {
     expect(source).toContain('Existing draft may not match current Brand Brain')
     expect(source).toContain('Update strategy for current Brand Brain')
