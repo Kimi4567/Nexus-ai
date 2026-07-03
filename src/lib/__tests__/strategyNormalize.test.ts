@@ -86,6 +86,14 @@ describe('unsupported performance numbers', () => {
     expect(out).not.toContain('5.0 ROAS')
     expect(out).toContain('$1,000')
   })
+  it('flags and scrubs Arabic percentages and Arabic-Indic numerals', () => {
+    const hits = findUnsupportedPerfNumbers('تحقيق زيادة ٢٥٪ في الحجوزات و20% في التفاعل', [])
+    expect(hits).toEqual(expect.arrayContaining(['٢٥٪', '20%']))
+
+    const out = scrubUnsupportedNumbers('تحقيق زيادة ٢٥٪ في الحجوزات و20% في التفاعل خلال 30 يومًا')
+    expect(out).not.toMatch(/٢٥\s*٪|20\s*%/)
+    expect(out).toContain('30 يومًا')
+  })
 })
 
 describe('invented competitors', () => {

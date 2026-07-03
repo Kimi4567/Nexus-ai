@@ -19,26 +19,75 @@
  * Pure + framework-free for deterministic unit testing. No network, no I/O.
  */
 
+const NUM_TOKEN = String.raw`[\d٠-٩۰-۹][\d٠-٩۰-۹.,٬٫]*`
+const NUM_CAPTURE = /[\d٠-٩۰-۹][\d٠-٩۰-۹.,٬٫]*/
+const NUM_GLOBAL = /[\d٠-٩۰-۹][\d٠-٩۰-۹.,٬٫]*/g
+
 // Calendar/time durations are legitimate — never treat these as perf numbers.
-const TIME_NUM = /\b\d[\d.,]*\s*(?:days?|weeks?|months?|years?|hours?|mins?|minutes?|quarters?|q[1-4])\b/gi
+const TIME_NUM = new RegExp(
+  String.raw`${NUM_TOKEN}\s*(?:days?|weeks?|months?|years?|hours?|mins?|minutes?|quarters?|q[1-4]|يوم(?:ًا|ا)?|أيام|ايام|أسبوع|اسبوع|أسابيع|اسابيع|شهر|شهور|أشهر|اشهر|سنة|سنوات|ساعة|ساعات|دقيقة|دقائق|ربع|أرباع|ارباع)`,
+  'gi',
+)
+
+const EN_DIRECTIONAL =
+  String.raw`\b(?:increase|improve|grow|reduce|boost|raise|lower|drive|generate|reach|add|gain|cut|save|expand|build)\b`
+const AR_DIRECTIONAL =
+  String.raw`(?:زيادة|تحسين|نمو|خفض|رفع|تعزيز|توليد|تحفيز|وصول|توسيع|بناء|توفير|تقليل|جذب|تحقيق)`
+const EN_PERFORMANCE_NOUNS =
+  String.raw`\b(?:leads?|sales?|sign[\s-]?ups?|customers?|conversions?|subscribers?|followers?|clients?|orders?|deals?|bookings?|views?|impressions?|clicks?|visits?|visitors?|downloads?|installs?|shares?|saves?|comments?|likes?|reactions?|opens?|sessions?)\b`
+const AR_PERFORMANCE_NOUNS =
+  String.raw`(?:عملاء|عميل|مبيعات|طلبات|طلب|استفسارات|استفسار|حجوزات|حجز|تحويلات|تحويل|متابعين|مشاهدات|مشاهدة|انطباعات|نقرات|نقرة|زيارات|زيارة|تحميلات|تنزيلات|مشاركات|حفظ|تعليقات|إعجابات|اعجابات|تفاعلات|تفاعل|جلسات|إيرادات|ايرادات|حركة المرور|زيارات الموقع)`
 
 // Performance-number patterns (the things that must be user/analytics-backed).
 const PERF_PATTERNS: RegExp[] = [
-  /[\d.,]+\s*%/gi, // 20%
-  /(?:\$|usd|aed|sar|eur|£|€)\s?[\d.,]+/gi, // $5,000 / AED 3000
-  /[\d.,]+\s?(?:x|×)\b/gi, // 2x / 10×
-  /\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b[^.\n]{0,12}?[\d.,]+/gi, // ROAS 3.2
-  /[\d.,]+[^.\n]{0,12}?\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b/gi, // 3.2 ROAS
-  /\b(?:increase|improve|grow|reduce|boost|raise|lower|drive|generate|reach|add|gain|cut|save)\b[^.\n]{0,16}?[\d.,]+/gi, // increase by 20
-  /[\d.,]+(?:[^.\n]{0,15}?)\b(?:leads?|sales?|sign[\s-]?ups?|customers?|conversions?|subscribers?|followers?|clients?|orders?|deals?|bookings?|views?|impressions?|clicks?|visits?|visitors?|downloads?|installs?|shares?|saves?|comments?|likes?|reactions?|opens?|sessions?)\b/gi, // 200 new leads / 50 sign-ups / 500 views / 1,000 impressions / 300 clicks / 200 website visits
+  new RegExp(String.raw`${NUM_TOKEN}\s*(?:%|٪)`, 'gi'), // 20% / ٢٥٪
+  new RegExp(String.raw`(?:\$|usd|aed|sar|eur|£|€|د\.إ|درهم|ريال)\s?${NUM_TOKEN}`, 'gi'), // $5,000 / AED 3000
+  new RegExp(String.raw`${NUM_TOKEN}\s?(?:x|×)\b`, 'gi'), // 2x / 10×
+  new RegExp(String.raw`\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b[^.\n]{0,12}?${NUM_TOKEN}`, 'gi'), // ROAS 3.2
+  new RegExp(String.raw`${NUM_TOKEN}[^.\n]{0,12}?\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b`, 'gi'), // 3.2 ROAS
+  new RegExp(String.raw`(?:${EN_DIRECTIONAL}|${AR_DIRECTIONAL})[^.\n]{0,24}?${NUM_TOKEN}`, 'gi'), // increase by 20 / زيادة بنسبة 20
+  new RegExp(String.raw`${NUM_TOKEN}(?:[^.\n]{0,20}?)(?:${EN_PERFORMANCE_NOUNS}|${AR_PERFORMANCE_NOUNS})`, 'gi'), // 200 leads / ٢٠ حجز
   /\b(?:roi|roas|cpl|cpa|cpm|cpc|ctr)\b/gi, // bare perf acronyms — scrubbed only when the line already has an unsupported number (gate requires a digit)
 ]
 
-const DIRECTIONAL_VERB = /\b(increase|improve|grow|reduce|boost|raise|lower|drive|generate|reach|expand|build|cut|save)\b/i
-const PERFORMANCE_CONTEXT = /\b(?:increase|improve|grow|growth|reduce|boost|raise|lower|drive|generate|reach|expand|cut|save|engagement|lead|leads|request|requests|inquir(?:y|ies)|conversion|conversions|sales|revenue|traffic|followers|views|impressions|clicks|visits|bookings|orders|roi|roas|return)\b/i
-const UNSUPPORTED_MULTIPLIER_WORD = /\b(?:double|triple|quadruple)\b[^.\n]{0,60}?\b(?:requests?|leads?|sales?|revenue|conversions?|engagement|traffic|followers?|views?|impressions?|clicks?|visits?|bookings?|orders?|inquir(?:y|ies))\b/i
+const DIRECTIONAL_VERB = new RegExp(String.raw`(?:${EN_DIRECTIONAL}|${AR_DIRECTIONAL})`, 'i')
+const PERFORMANCE_CONTEXT = new RegExp(
+  String.raw`(?:\b(?:increase|improve|grow|growth|reduce|boost|raise|lower|drive|generate|reach|expand|cut|save|engagement|lead|leads|request|requests|inquir(?:y|ies)|conversion|conversions|sales|revenue|traffic|followers|views|impressions|clicks|visits|bookings|orders|roi|roas|return)\b|زيادة|تحسين|نمو|خفض|رفع|تعزيز|توليد|تحفيز|وصول|توسيع|تقليل|تفاعل|تفاعلات|عميل|عملاء|طلب|طلبات|استفسار|استفسارات|حجز|حجوزات|مبيعات|إيرادات|ايرادات|زيارات|مشاهدات|انطباعات|نقرات|متابعين|تحويلات|نسبة|معدل)`,
+  'i',
+)
+const UNSUPPORTED_MULTIPLIER_WORD = new RegExp(
+  String.raw`(?:\b(?:double|triple|quadruple)\b|مضاعفة|ضعف|ضعفي|ثلاثة أضعاف)[^.\n]{0,60}?(?:requests?|leads?|sales|revenue|conversions?|engagement|traffic|followers?|views?|impressions?|clicks?|visits?|bookings?|orders?|inquir(?:y|ies)|طلبات|استفسارات|حجوزات|مبيعات|إيرادات|ايرادات|تحويلات|تفاعل|زيارات|مشاهدات|انطباعات|نقرات|متابعين)`,
+  'i',
+)
 
-const normNum = (s: string) => s.replace(/[\s,]/g, '').toLowerCase()
+const ARABIC_DIGITS: Record<string, string> = {
+  '٠': '0',
+  '١': '1',
+  '٢': '2',
+  '٣': '3',
+  '٤': '4',
+  '٥': '5',
+  '٦': '6',
+  '٧': '7',
+  '٨': '8',
+  '٩': '9',
+  '۰': '0',
+  '۱': '1',
+  '۲': '2',
+  '۳': '3',
+  '۴': '4',
+  '۵': '5',
+  '۶': '6',
+  '۷': '7',
+  '۸': '8',
+  '۹': '9',
+}
+
+const normalizeDigits = (s: string) => s.replace(/[٠-٩۰-۹]/g, (d) => ARABIC_DIGITS[d] ?? d)
+const normNum = (s: string) => normalizeDigits(s)
+  .replace(/[,\s٬]/g, '')
+  .replace(/٫/g, '.')
+  .toLowerCase()
 
 export interface StrategyKpiGuardOptions {
   language?: string | null
@@ -63,6 +112,21 @@ const ARABIC_DIRECTIONAL_VERBS: Record<string, string> = {
   build: 'بناء',
   cut: 'خفض',
   save: 'توفير',
+  'زيادة': 'زيادة',
+  'تحسين': 'تحسين',
+  'نمو': 'نمو',
+  'خفض': 'خفض',
+  'رفع': 'رفع',
+  'تعزيز': 'تعزيز',
+  'توليد': 'توليد',
+  'تحفيز': 'تحفيز',
+  'وصول': 'وصول',
+  'توسيع': 'توسيع',
+  'بناء': 'بناء',
+  'توفير': 'توفير',
+  'تقليل': 'تقليل',
+  'جذب': 'جذب',
+  'تحقيق': 'تحقيق',
 }
 
 function fallbackKpiTarget(verb: string | undefined, options: StrategyKpiGuardOptions = {}): string {
@@ -85,7 +149,7 @@ function buildAllowedNums(allowed: string[]): string[] {
   const out: string[] = []
   for (const a of allowed) {
     if (typeof a !== 'string') continue
-    for (const m of a.match(/[\d.,]+/g) || []) {
+    for (const m of a.match(NUM_GLOBAL) || []) {
       const n = normNum(m)
       if (n) out.push(n)
     }
@@ -103,7 +167,7 @@ function hasUnsupportedPerfNumber(text: string, allowedNums: string[]): boolean 
     re.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = re.exec(stripped)) !== null) {
-      const numTok = (m[0].match(/[\d.,]+/) || [''])[0]
+      const numTok = (m[0].match(NUM_CAPTURE) || [''])[0]
       const n = normNum(numTok)
       if (!n) continue
       const supported = allowedNums.some((a) => a.includes(n) || n.includes(a))
@@ -153,7 +217,7 @@ export function guardResultText(
   })
   for (const re of PERF_PATTERNS) {
     t = t.replace(re, (m) => {
-      const n = normNum((m.match(/[\d.,]+/) || [''])[0])
+      const n = normNum((m.match(NUM_CAPTURE) || [''])[0])
       return n && allowedNums.some((a) => a.includes(n) || n.includes(a)) ? m : '—'
     })
   }
@@ -170,6 +234,7 @@ export function guardResultText(
   t = t.replace(new RegExp(SENTINEL, 'g'), () => times[ti++] ?? '')
   return t
     .replace(/\b(?:of|by|to|around|about|up to)\s+—/gi, '')
+    .replace(/(?:بنسبة|بمعدل|نسبة)\s+—/g, '—')
     .replace(/—(?:\s+—)+/g, '—')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([.,;:!?])/g, '$1')
@@ -219,6 +284,9 @@ export function guardStrategyKpis<T extends Record<string, unknown>>(
 ): T {
   if (!strategy || typeof strategy !== 'object') return strategy
   const out: Record<string, unknown> = { ...strategy }
+  if (out.strategy && typeof out.strategy === 'object' && !Array.isArray(out.strategy)) {
+    out.strategy = guardStrategyKpis(out.strategy as Record<string, unknown>, allowed, options)
+  }
   if ('kpis' in out) out.kpis = guardKpiArray(out.kpis, allowed, options)
   if ('successMetricsDetailed' in out) out.successMetricsDetailed = guardKpiArray(out.successMetricsDetailed, allowed, options)
   if (Array.isArray(out.successMetrics)) {
