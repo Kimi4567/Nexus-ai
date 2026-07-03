@@ -40,6 +40,46 @@ const UNSUPPORTED_MULTIPLIER_WORD = /\b(?:double|triple|quadruple)\b[^.\n]{0,60}
 
 const normNum = (s: string) => s.replace(/[\s,]/g, '').toLowerCase()
 
+export interface StrategyKpiGuardOptions {
+  language?: string | null
+}
+
+function isArabicLanguage(language: string | null | undefined): boolean {
+  return typeof language === 'string' && language.toLowerCase().startsWith('ar')
+}
+
+const ARABIC_DIRECTIONAL_VERBS: Record<string, string> = {
+  increase: 'زيادة',
+  improve: 'تحسين',
+  grow: 'نمو',
+  reduce: 'خفض',
+  boost: 'تعزيز',
+  raise: 'رفع',
+  lower: 'خفض',
+  drive: 'تحفيز',
+  generate: 'توليد',
+  reach: 'وصول',
+  expand: 'توسيع',
+  build: 'بناء',
+  cut: 'خفض',
+  save: 'توفير',
+}
+
+function fallbackKpiTarget(verb: string | undefined, options: StrategyKpiGuardOptions = {}): string {
+  if (isArabicLanguage(options.language)) {
+    const normalizedVerb = verb?.toLowerCase()
+    const arabicVerb = normalizedVerb ? ARABIC_DIRECTIONAL_VERBS[normalizedVerb] : undefined
+    const suffix = 'نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا'
+    return arabicVerb ? `${arabicVerb} — ${suffix}` : suffix
+  }
+
+  if (verb) {
+    const v = verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase()
+    return v + ' — baseline needed (target to define after first 30 days)'
+  }
+  return 'Baseline needed — target to define after first 30 days'
+}
+
 /** Numbers (with $/AED prefixes too) the user explicitly provided — never scrub these. */
 function buildAllowedNums(allowed: string[]): string[] {
   const out: string[] = []
@@ -81,20 +121,24 @@ function hasUnsupportedMultiplierWord(text: string): boolean {
  * Rewrite an unsupported KPI target into honest directional wording.
  * Keeps the directional intent (Increase/Improve/…) when present.
  */
-export function guardKpiTarget(target: unknown, allowed: string[] = []): string {
+export function guardKpiTarget(
+  target: unknown,
+  allowed: string[] = [],
+  options: StrategyKpiGuardOptions = {},
+): string {
   if (typeof target !== 'string' || !target.trim()) return typeof target === 'string' ? target : ''
   const allowedNums = buildAllowedNums(allowed)
   if (!hasUnsupportedPerfNumber(target, allowedNums) && !hasUnsupportedMultiplierWord(target)) return target
   const verb = (target.match(DIRECTIONAL_VERB) || [])[0]
-  if (verb) {
-    const v = verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase()
-    return v + ' — baseline needed (target to define after first 30 days)'
-  }
-  return 'Baseline needed — target to define after first 30 days'
+  return fallbackKpiTarget(verb, options)
 }
 
 /** Scrub unsupported performance numbers from a free-text line (keeps timeframes). */
-export function guardResultText(text: unknown, allowed: string[] = []): string {
+export function guardResultText(
+  text: unknown,
+  allowed: string[] = [],
+  options: StrategyKpiGuardOptions = {},
+): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
   const allowedNums = buildAllowedNums(allowed)
   const hasMultiplier = hasUnsupportedMultiplierWord(text)
@@ -114,7 +158,12 @@ export function guardResultText(text: unknown, allowed: string[] = []): string {
     })
   }
   if (hasMultiplier) {
-    t = t.replace(UNSUPPORTED_MULTIPLIER_WORD, 'baseline-needed performance target')
+    t = t.replace(
+      UNSUPPORTED_MULTIPLIER_WORD,
+      isArabicLanguage(options.language)
+        ? 'هدف أداء يحتاج إلى خط أساس'
+        : 'baseline-needed performance target',
+    )
   }
   // Restore protected timeframes in order.
   let ti = 0
@@ -142,13 +191,13 @@ export function normalizeStrategyIntent(
 
 type KpiLike = { metric?: string; target?: string; timeframe?: string; isHypothesis?: boolean; [k: string]: unknown }
 
-function guardKpiArray(list: unknown, allowed: string[]): unknown {
+function guardKpiArray(list: unknown, allowed: string[], options: StrategyKpiGuardOptions): unknown {
   if (!Array.isArray(list)) return list
   return list.map((k) => {
     if (!k || typeof k !== 'object') return k
     const kpi = k as KpiLike
     if (typeof kpi.target !== 'string') return kpi
-    const guarded = guardKpiTarget(kpi.target, allowed)
+    const guarded = guardKpiTarget(kpi.target, allowed, options)
     if (guarded === kpi.target) return kpi
     // The number was unsupported → it is, by definition, a hypothesis.
     return { ...kpi, target: guarded, isHypothesis: true }
@@ -163,16 +212,22 @@ function guardKpiArray(list: unknown, allowed: string[]): unknown {
  * @param allowed numbers the user/analytics actually provided (e.g. brief
  *   marketingBudget, pastAdResults). Empty by default → all invented numbers scrubbed.
  */
-export function guardStrategyKpis<T extends Record<string, unknown>>(strategy: T, allowed: string[] = []): T {
+export function guardStrategyKpis<T extends Record<string, unknown>>(
+  strategy: T,
+  allowed: string[] = [],
+  options: StrategyKpiGuardOptions = {},
+): T {
   if (!strategy || typeof strategy !== 'object') return strategy
   const out: Record<string, unknown> = { ...strategy }
-  if ('kpis' in out) out.kpis = guardKpiArray(out.kpis, allowed)
-  if ('successMetricsDetailed' in out) out.successMetricsDetailed = guardKpiArray(out.successMetricsDetailed, allowed)
+  if ('kpis' in out) out.kpis = guardKpiArray(out.kpis, allowed, options)
+  if ('successMetricsDetailed' in out) out.successMetricsDetailed = guardKpiArray(out.successMetricsDetailed, allowed, options)
   if (Array.isArray(out.successMetrics)) {
     out.successMetrics = (out.successMetrics as unknown[]).map((s) =>
-      typeof s === 'string' ? guardResultText(s, allowed) : s,
+      typeof s === 'string' ? guardResultText(s, allowed, options) : s,
     )
   }
-  if (typeof out.estimatedResults === 'string') out.estimatedResults = guardResultText(out.estimatedResults, allowed)
+  if (typeof out.estimatedResults === 'string') {
+    out.estimatedResults = guardResultText(out.estimatedResults, allowed, options)
+  }
   return out as T
 }

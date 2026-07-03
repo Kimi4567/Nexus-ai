@@ -76,10 +76,29 @@ async function refundDeductedStrategyCredits(
       return true
     }
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { aiCredits: { increment: credit.creditsUsed } },
-    })
+    const refundData = {
+      userId,
+      action: 'REFUND',
+      amount: credit.creditsUsed,
+      description: `Refund — ${reason}`,
+      entityType: 'refund',
+    }
+
+    if (typeof (prisma as any).$transaction === 'function') {
+      await (prisma as any).$transaction(async (tx: any) => {
+        await tx.user.update({
+          where: { id: userId },
+          data: { aiCredits: { increment: credit.creditsUsed } },
+        })
+        await tx.creditTransaction.create({ data: refundData })
+      })
+    } else {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { aiCredits: { increment: credit.creditsUsed } },
+      })
+      await (prisma as any).creditTransaction.create({ data: refundData })
+    }
     console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${userId}`)
     return true
   } catch (refundErr) {
