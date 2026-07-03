@@ -93,7 +93,7 @@ const getStepCopy = (step: Step, locale: string) => {
 
 const INDUSTRIES_AR = ['تجارة إلكترونية','مطاعم وأغذية','موضة وأزياء','صحة وجمال','تقنية وتطبيقات','عقارات','تعليم وتدريب','خدمات مهنية','سياحة وسفر','رياضة ولياقة','ديكور وأثاث','سيارات','آخر']
 const INDUSTRIES_EN = ['E-commerce','Restaurants & Food','Fashion & Apparel','Health & Beauty','Tech & Apps','Real Estate','Education & Training','Professional Services','Travel & Tourism','Sports & Fitness','Home & Furniture','Automotive','Other']
-const PLATFORMS_LIST = ['Instagram','TikTok','Facebook','Snapchat','YouTube','LinkedIn','X / Twitter','Pinterest']
+const PLATFORMS_LIST = ['Instagram','TikTok','Facebook','WhatsApp','Snapchat','YouTube','LinkedIn','X / Twitter','Pinterest']
 const TONE_OPTIONS_AR = ['حماسي','احترافي','مرح','عاطفي','جريء','هادئ','ملهم','مباشر','راقي','شبابي']
 const TONE_OPTIONS_EN = ['Energetic','Professional','Playful','Emotional','Bold','Calm','Inspiring','Direct','Upscale','Youthful']
 const PRICE_OPTIONS = [
@@ -104,6 +104,14 @@ const PRICE_OPTIONS = [
 ]
 const AGE_OPTIONS_AR = ['13-17','18-24','25-34','35-44','45-54','55+','جميع الأعمار']
 const AGE_OPTIONS_EN = ['13-17','18-24','25-34','35-44','45-54','55+','All ages']
+
+function getPlatformOptions(selected?: string[] | null): string[] {
+  const base = new Set(PLATFORMS_LIST)
+  const extras = Array.isArray(selected)
+    ? selected.filter(platform => typeof platform === 'string' && platform.trim() && !base.has(platform))
+    : []
+  return [...PLATFORMS_LIST, ...extras]
+}
 
 /* ── Sub-components ───────────────────────────────────────────── */
 function TagInput({ label, placeholder, values, onChange, accentColor, onSuggest, suggesting, locale }: {
@@ -1517,9 +1525,13 @@ function BrandBrainInner() {
               </div>
               <p className="mt-4 text-sm text-slate-600">
                 {hasExistingBrandMemory
-                  ? (locale === 'ar'
-                      ? 'أنشأ الإعداد الأول الطبقة الأولى من Brand Brain. أكملها قبل توليد الاستراتيجية.'
-                      : 'Your onboarding created the first layer of your Brand Brain. Complete it before generating strategy.')
+                  ? brandIndicators.organicReadiness.ready
+                    ? (locale === 'ar'
+                        ? 'تم حفظ الحقول الأساسية في Brand Brain. يمكنك مراجعتها أو إثراء الملف قبل توليد الاستراتيجية.'
+                        : 'Your core Brand Brain fields are saved. You can review or enrich the file before generating strategy.')
+                    : (locale === 'ar'
+                        ? 'أنشأ الإعداد الأول الطبقة الأولى من Brand Brain. أكمل الحقول الناقصة قبل توليد الاستراتيجية.'
+                        : 'Your onboarding created the first layer of your Brand Brain. Complete the missing fields before generating strategy.')
                   : (locale === 'ar'
                       ? 'Brand Brain هو ملف الذاكرة الذي سيستخدمه NEXUS لتوجيه الاستراتيجية والمحتوى.'
                       : 'Brand Brain is the memory file NEXUS will use to guide strategy and content.')}
@@ -2367,7 +2379,7 @@ function BrandBrainInner() {
               {step === 'platforms' && (
                 <div className="space-y-5">
                   <Field label={t('brand.platformsActiveLabel')}>
-                    <ToggleGrid options={PLATFORMS_LIST} selected={form.topPlatforms||[]}
+                    <ToggleGrid options={getPlatformOptions(form.topPlatforms)} selected={form.topPlatforms||[]}
                       onChange={v=>set('topPlatforms',v)} color={currentStep.color}/>
                   </Field>
                   <Field label={t('brand.platformsVisualLabel')}>
