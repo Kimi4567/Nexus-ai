@@ -4,6 +4,7 @@ import { type CampaignContext } from '@/lib/agents/visual-director'
 import { type SentinelReviewInput } from '@/lib/agents/sentinel-reviewer'
 import { validateOutputObject, logQualityReport } from '@/lib/ai/outputValidator'
 import { runBrainLearning } from '@/lib/brain-learning'
+import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 const db = prisma as any
 
@@ -396,7 +397,11 @@ export async function runCampaignEngine(params: {
     // This is the only AI step in the engine to stay within Vercel Hobby 10s limit.
     // Creative Brief and Sentinel Review run via their own separate API routes.
     if (needsStrategy) {
-      const campaignWithLang = { ...campaign, language: aiOutput.language }
+      const campaignWithLang = {
+        ...campaign,
+        language: aiOutput.language,
+        brandProfile: brand,
+      }
       const [strategy, concepts] = await Promise.all([
         ai.generateMarketingStrategy(campaignWithLang, campaign.project),
         ai.generateAdConcepts(campaignWithLang, campaign.project),
@@ -407,6 +412,13 @@ export async function runCampaignEngine(params: {
         minScore: 45,
       })
       logQualityReport('campaign-engine.strategy', qualityReport, `campaign=${campaign.id}`)
+      if (!qualityReport.passed) {
+        throw new Error(`Campaign engine strategy failed AI quality guard (score=${qualityReport.score})`)
+      }
+      const contractReport = assertCampaignStrategyContract(strategy)
+      console.log(
+        `[Campaign Engine] Strategy OS contract passed score=${contractReport.score} campaign=${campaign.id}`,
+      )
 
       aiOutput = {
         ...aiOutput,
