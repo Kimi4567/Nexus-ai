@@ -185,7 +185,11 @@ export function deriveConfidenceReport(caps: StrategyCapabilities): ConfidenceRe
   }
   let overall: StrategyConfidenceLevel
   if (!caps.contentStrategy.ready) overall = 'low'
-  else if (caps.fullStrategy.ready) overall = 'high'
+  else if (
+    caps.fullStrategy.ready &&
+    caps.competitorAnalysis.ready &&
+    caps.retargeting.ready
+  ) overall = 'high'
   else overall = 'medium'
   return { overall, byCapability }
 }
@@ -204,6 +208,14 @@ export interface ApplyReadinessOptions {
   allowedCompetitors?: string[]
   /** User-provided numbers that ARE allowed to appear (budget band, price point). */
   allowedNumbers?: string[]
+  strategyType?: 'organic' | 'paid' | 'full' | string | null
+  language?: string | null
+}
+
+function organicOnlyPaidReadinessReason(language?: string | null): string {
+  return language?.toLowerCase().startsWith('ar')
+    ? 'تشغيل الاستراتيجية عضوي فقط؛ التخطيط المدفوع يحتاج مراجعة استراتيجية مدفوعة أو كاملة منفصلة.'
+    : 'Organic-only strategy run; paid planning requires a separate paid or full strategy review.'
 }
 
 /**
@@ -224,6 +236,25 @@ export function applyServerReadiness(
   s.confidenceReport = deriveConfidenceReport(caps)
   s.missingData = collectMissingKeys(caps)
   s.competitorAnalysisComplete = caps.competitorAnalysis.ready
+
+  // Organic-only strategy is not a paid-readiness decision. Keep any paid
+  // capability available to the global readiness surfaces, but do not persist it
+  // as "ready" inside an organic-only campaign strategy.
+  if (opts.strategyType === 'organic') {
+    const organicPaidReason = organicOnlyPaidReadinessReason(opts.language)
+    if (s.confidenceReport?.byCapability) {
+      s.confidenceReport.byCapability.paidStrategy = 'none'
+    }
+    s.readyForPaidAds = false
+    s.readyForPaidAdsReason = organicPaidReason
+    if (isObj(s.diagnosisDetails)) {
+      s.diagnosisDetails = {
+        ...(s.diagnosisDetails as Record<string, unknown>),
+        readyForPaidAds: false,
+        readyForPaidAdsReason: organicPaidReason,
+      } as any
+    }
+  }
 
   // 2. No historical data → every KPI / metric is a hypothesis.
   if (!opts.hasHistoricalData) {

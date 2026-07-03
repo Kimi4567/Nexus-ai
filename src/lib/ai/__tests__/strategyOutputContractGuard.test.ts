@@ -19,6 +19,31 @@ describe('guardStrategyOutputContract', () => {
     expect(JSON.stringify(out)).not.toMatch(/Pinterest/i)
   })
 
+  it('strips budgetPercent from organic-only channelMix and keeps effort share', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [
+        { platform: 'Instagram', budgetPercent: 40, rationale: 'Organic education cadence', contentFrequency: '4x/week' },
+        { platform: 'TikTok', effortSharePercent: 60, budgetPercent: 60, rationale: 'Short-form demos', contentFrequency: '3x/week' },
+      ],
+    }, { allowedPlatforms: allowed, strategyType: 'organic' })
+
+    expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Instagram', 'TikTok'])
+    expect(out.channelMix[0].effortSharePercent).toBe(40)
+    expect(out.channelMix[1].effortSharePercent).toBe(60)
+    expect(JSON.stringify(out.channelMix)).not.toMatch(/budgetPercent/)
+  })
+
+  it('keeps budgetPercent available for paid planning mode', () => {
+    const out = guardStrategyOutputContract({
+      channelMix: [
+        { platform: 'Instagram', budgetPercent: 40, rationale: 'Planning assumption', contentFrequency: '4x/week' },
+      ],
+    }, { allowedPlatforms: allowed, strategyType: 'paid' })
+
+    expect(out.channelMix[0].budgetPercent).toBe(40)
+    expect(JSON.stringify(out.channelMix)).not.toMatch(/effortSharePercent/)
+  })
+
   it('rewrites unsupported platform text in angles and weekly deliverables', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: [

@@ -41,6 +41,7 @@ const briefWith = (o: StrategyOrder, postsPerMonth?: number): BusinessBrief => {
 }
 
 const sys = (b: BusinessBrief) => buildStrategistPrompts(b).systemPrompt
+const user = (b: BusinessBrief) => buildStrategistPrompts(b).userPrompt
 
 describe('buildStrategistPrompts — binding scope wiring', () => {
   it('includes the binding-scope header when generationInstructions is present', () => {
@@ -116,6 +117,20 @@ describe('buildStrategistPrompts — Full + Organic enforcement', () => {
     const s = sys(briefWith(order('organic', 'standard', '90')))
     expect(s).toContain('Paid campaign plan') // listed under NOT included
     expect(s).toMatch(/ads will launch, budget will be spent/i)
+  })
+
+  it('organic channel mix uses effort share, not budget allocation', () => {
+    const b = briefWith(order('organic', 'standard', '90'))
+    expect(sys(b)).toMatch(/Organic-only mode is not paid planning/i)
+    expect(sys(b)).toMatch(/effortSharePercent only/i)
+    expect(user(b)).toContain('"effortSharePercent"')
+    expect(user(b)).not.toContain('"budgetPercent"')
+  })
+
+  it('paid planning may still use budgetPercent as a planning assumption', () => {
+    const b = briefWith(order('paid', 'standard', '90'))
+    expect(user(b)).toContain('"budgetPercent"')
+    expect(user(b)).toContain('planning assumption only')
   })
 })
 
