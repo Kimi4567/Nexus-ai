@@ -1191,6 +1191,36 @@ function CampaignDetailPageInner() {
     acc[key].push(item)
     return acc
   }, {})
+  const socialPostCalendarItems = campaignPosts
+    .filter((post: any) => (post.status === 'SCHEDULED' || post.status === 'PUBLISHED') && post.scheduledAt)
+    .sort((a: any, b: any) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+    .map((post: any, index: number) => ({
+      id: post.id || `social-post-${index}`,
+      date: post.scheduledAt
+        ? new Date(post.scheduledAt).toLocaleDateString(locale === 'ar' ? 'ar' : 'en', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+        : null,
+      platform: post.platform || 'GENERAL',
+      title: post.status === 'PUBLISHED'
+        ? (locale === 'ar' ? 'منشور مؤكد يدويًا' : 'User-confirmed manual publish')
+        : (locale === 'ar' ? 'منشور مجدول في NEXUS فقط' : 'Scheduled in NEXUS — not published'),
+      topic: post.caption ? String(post.caption).slice(0, 96) : 'Campaign Post',
+      caption: post.caption,
+      cta: post.status === 'PUBLISHED'
+        ? (locale === 'ar' ? 'سجل يدوي — ليس إثبات API' : 'Manual record — not API proof')
+        : (locale === 'ar' ? 'النشر يتطلب خطوة منفصلة' : 'Publishing requires a separate step'),
+      visualNote: post.imageUrl
+        ? (locale === 'ar' ? 'وسائط مرتبطة للمراجعة' : 'Post-linked media for review')
+        : (locale === 'ar' ? 'الوسائط تحتاج قرارًا' : 'Media decision needed'),
+      contentType: post.status === 'PUBLISHED'
+        ? (locale === 'ar' ? 'منشور يدويًا' : 'Manually published')
+        : (locale === 'ar' ? 'مجدول فقط' : 'Scheduled only'),
+      assetUrl: post.imageUrl || null,
+    }))
 
   // Platform-native card is now handled by PlatformNativeCard component
   const _postBrandName = brandDNA?.brandName || campaign.name || 'NEXUS'
@@ -2729,7 +2759,38 @@ function CampaignDetailPageInner() {
                   </div>
                 )}
 
-                {weeklyExecutionPlan.length === 0 && weeklyPlan.length === 0 && contentCalendar.length === 0 && monthlyPreviewItems.length === 0 && (
+                {monthlyPreviewItems.length === 0 && socialPostCalendarItems.length > 0 && (
+                  <div className="space-y-5">
+                    <div className="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm">
+                      <p className="text-xs uppercase tracking-wide text-violet-600">
+                        {locale === 'ar' ? 'تقويم من Content Hub' : 'Calendar from Content Hub'}
+                      </p>
+                      <h3 className="mt-1 font-semibold text-slate-950">
+                        {locale === 'ar'
+                          ? `${socialPostCalendarItems.length} منشورات مجدولة أو مؤكدة يدويًا`
+                          : `${socialPostCalendarItems.length} scheduled or user-confirmed posts`}
+                      </h3>
+                      <p className="mt-2 max-w-3xl text-xs leading-5 text-slate-600">
+                        {locale === 'ar'
+                          ? 'يعرض هذا التقويم سجلات SocialPost الحالية من Content Hub. المنشورات المجدولة محفوظة في NEXUS فقط وليست منشورة، والمنشور المؤكد يدويًا سجل من المستخدم وليس إثبات نشر عبر API.'
+                          : 'This calendar uses current SocialPost records from Content Hub. Scheduled posts are saved in NEXUS only and are not published; user-confirmed manual publish is a user record, not API proof.'}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {socialPostCalendarItems.map((item: any, index: number) => (
+                        <PlatformNativeCard
+                          key={item.id}
+                          item={item}
+                          index={index}
+                          locale={locale}
+                          brandName={_postBrandName}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {weeklyExecutionPlan.length === 0 && weeklyPlan.length === 0 && contentCalendar.length === 0 && monthlyPreviewItems.length === 0 && socialPostCalendarItems.length === 0 && (
                   <EmptySection icon="📅" message={cdT?.emptyCalendarDesc || 'Content calendar not available yet.'} />
                 )}
               </div>
