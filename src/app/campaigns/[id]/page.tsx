@@ -904,6 +904,23 @@ function CampaignDetailPageInner() {
   const operatingActionLabel = locale === 'ar'
     ? operatingState.primaryAction.labelAr
     : operatingState.primaryAction.label
+  const strategyGuidanceCopy = operatingState.truthFlags.hasContentPlan
+    ? {
+        hint: locale === 'ar'
+          ? '📌 الاستراتيجية أصبحت مادة مرجعية. حالة التنفيذ الحالية موجودة في Content Hub.'
+          : '📌 Strategy is reference material. Content Hub shows the current execution state.',
+        brief: locale === 'ar'
+          ? 'هذه هي الاستراتيجية الغنية الحالية للحملة كمادة مرجعية. راجع الاتجاه والافتراضات والقيود، لكن حالة المنشورات والتنفيذ الحالية موجودة في Content Hub.'
+          : 'This is the current rich strategy output for the campaign as reference material. Review the direction, assumptions, and limits, but use Content Hub for the current post and execution state.',
+      }
+    : {
+        hint: locale === 'ar'
+          ? '🔍 راجع جودة الاستراتيجية قبل إنشاء أول خطة محتوى.'
+          : '🔍 Review strategy quality before building the first content plan.',
+        brief: locale === 'ar'
+          ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل إنشاء أول خطة محتوى.'
+          : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before building the first content plan.',
+      }
   const operatingTone: Record<CampaignOperatingStage, string> = {
     strategy_missing: 'border-amber-200 bg-amber-50 text-amber-800',
     strategy_review_needed: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -1579,9 +1596,7 @@ function CampaignDetailPageInner() {
             {/* Not yet reviewed hint */}
             {!sentinelReview && sentinelState !== 'reviewing' && (
               <p className="mt-3 text-xs text-gray-600">
-                {locale === 'ar'
-                  ? '🔍 راجع جودة الاستراتيجية قبل تحويلها إلى محتوى.'
-                  : '🔍 Review strategy quality before turning it into content.'}
+                {strategyGuidanceCopy.hint}
               </p>
             )}
             {sentinelState === 'reviewing' && (
@@ -1768,9 +1783,7 @@ function CampaignDetailPageInner() {
                         {campaign.name}
                       </h1>
                       <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
-                        {locale === 'ar'
-                          ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل تحويلها إلى خطة محتوى.'
-                          : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before turning it into content planning.'}
+                        {strategyGuidanceCopy.brief}
                       </p>
                       <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                         {locale === 'ar'
