@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 export type Locale = 'ar' | 'en';
+const LOCALE_STORAGE_KEYS = ['nexus-lang', 'nexus_locale'] as const;
 
 interface I18nContextType {
   locale: Locale;
@@ -12,13 +13,44 @@ interface I18nContextType {
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
 
+export function isSupportedLocale(value: unknown): value is Locale {
+  return value === 'ar' || value === 'en';
+}
+
+export function readStoredLocale(storage: Pick<Storage, 'getItem'> | null | undefined): Locale | null {
+  if (!storage) return null;
+
+  for (const key of LOCALE_STORAGE_KEYS) {
+    try {
+      const value = storage.getItem(key);
+      if (isSupportedLocale(value)) return value;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+export function writeStoredLocale(storage: Pick<Storage, 'setItem'> | null | undefined, locale: Locale): boolean {
+  if (!storage) return false;
+
+  try {
+    for (const key of LOCALE_STORAGE_KEYS) {
+      storage.setItem(key, locale);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('ar');
 
   useEffect(() => {
-    // Use same key as LanguageContext ('nexus-lang') so landing page + dashboard stay in sync
-    const saved = localStorage.getItem('nexus-lang') as Locale | null;
-    if (saved === 'ar' || saved === 'en') {
+    const saved = readStoredLocale(typeof window !== 'undefined' ? window.localStorage : null);
+    if (saved) {
       setLocaleState(saved);
     } else {
       // Default to Arabic for Middle East
@@ -28,11 +60,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
-    // Write to both keys so both context systems stay synced
-    localStorage.setItem('nexus-lang', newLocale);
-    localStorage.setItem('nexus_locale', newLocale);
-    document.documentElement.lang = newLocale;
-    document.documentElement.dir = newLocale === 'ar' ? 'rtl' : 'ltr';
+    writeStoredLocale(typeof window !== 'undefined' ? window.localStorage : null, newLocale);
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = newLocale;
+      document.documentElement.dir = newLocale === 'ar' ? 'rtl' : 'ltr';
+    }
   }, []);
 
   // Simple dot-notation translator
