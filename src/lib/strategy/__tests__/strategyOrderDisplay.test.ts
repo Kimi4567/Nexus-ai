@@ -26,12 +26,14 @@ describe('strategyOrderDisplay — tier → postsPerMonth', () => {
     expect(tierToPostsPerMonth('starter')).toBe(10)
     expect(tierToPostsPerMonth('growth')).toBe(25)
     expect(tierToPostsPerMonth('pro')).toBe(25)
+    expect(tierToPostsPerMonth('active')).toBe(25)
     expect(tierToPostsPerMonth('agency')).toBe(60)
     expect(tierToPostsPerMonth('business')).toBe(60)
   })
 
   it('case-insensitive', () => {
     expect(tierToPostsPerMonth('Growth')).toBe(25)
+    expect(tierToPostsPerMonth('ACTIVE')).toBe(25)
     expect(tierToPostsPerMonth('AGENCY')).toBe(60)
   })
 
