@@ -206,6 +206,22 @@ describe('strategyProofGuard', () => {
     expect(guarded).toContain('Collect customer stories for future use')
   })
 
+  it('softens client-story and before-after transformation pillars when proof/assets are missing', () => {
+    const strategy = {
+      contentPillars: ['Client Stories', 'Before and After Transformations'],
+      weeklyExecutionPlan: [{ deliverables: ['Before/after transformation carousel'] }],
+    }
+
+    const guarded = guardStrategyProof(strategy, { verifiedProof: [] })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).toContain('client stories to collect')
+    expect(joined).toContain('transformation planning walkthroughs')
+    expect(joined).toContain('before/after assets to collect')
+    expect(joined).not.toContain('Client Stories')
+    expect(joined).not.toContain('Before and After Transformations')
+  })
+
   it('preserves review wording only when review proof is explicit', () => {
     expect(guardStrategyProofText('Customer reviews', {
       verifiedProof: ['4.8 average review from 120 user-provided reviews'],

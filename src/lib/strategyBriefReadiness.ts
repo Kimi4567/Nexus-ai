@@ -281,9 +281,9 @@ export function getStrategyPageReadinessSurface(
 
   const fullSurface = full.canGenerate
     ? {
-        ready: true,
-        label: 'Organic + paid planning ready',
-        labelAr: 'العضوي والتخطيط المدفوع جاهزان',
+        ready: false,
+        label: 'Organic ready · paid planning only',
+        labelAr: 'العضوي جاهز · المدفوع تخطيط فقط',
       }
     : organic.canGenerateOrganic
       ? {

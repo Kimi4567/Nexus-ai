@@ -2081,7 +2081,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       chipLangEn: 'إنجليزي',
       chipLangMix: 'مزيج',
       chipLang: 'لغة المخرجات',
-      langSelectTitle: 'اختار لغة الاستراتيجية',
+      langSelectTitle: 'اختر لغة الاستراتيجية',
       langSelectDesc: 'ستُولَّد الاستراتيجية والمحتوى بالكامل باللغة اللي تختارها',
       langOptAr: 'عربي',
       langOptArDesc: 'استراتيجية كاملة بالعربي الفصيح',

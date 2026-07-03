@@ -19,6 +19,7 @@ import { getStrategyCapabilities } from '@/lib/brandReadiness'
 import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormalize'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '@/lib/ai/strategyOutputContractGuard'
 import type { StrategyReadinessContext } from './strategist'
 
 // Re-export for API routes
@@ -165,6 +166,12 @@ export async function runFullAgency(
     // this backstop keeps unsupported testimonials/customer stories/awards from
     // being persisted when Brand Brain has no verified proof.
     strategy = guardStrategyProof(strategy, proofContext)
+    // STRATEGY-OUTPUT-CONTRACT1 — keep persisted strategy output inside the
+    // user-reviewed strategy contract: selected platforms only, no unverified
+    // readiness "done" states, and no invented platform execution paths.
+    strategy = guardStrategyOutputContract(strategy, {
+      allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
+    })
     strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
@@ -214,9 +221,10 @@ export async function runFullAgency(
       || brief.targetAudience
       || 'General audience'
 
-    const rawPlatforms = Array.isArray(strategy.channelMix)
-      ? strategy.channelMix.map((c: any) => c?.platform || c || '').filter(Boolean)
-      : []
+    const rawPlatforms = selectStrategyCampaignPlatforms(
+      strategy as unknown as { channelMix?: unknown },
+      Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
+    )
 
     console.log('[Orchestrator] Creating campaign:', {
       name: campaignName,
@@ -476,9 +484,10 @@ function mapPlatforms(platforms: string[]): string[] {
   const map: Record<string, string> = {
     instagram: 'INSTAGRAM', tiktok: 'TIKTOK', facebook: 'FACEBOOK',
     linkedin: 'LINKEDIN', twitter: 'TWITTER', youtube: 'YOUTUBE_SHORTS',
-    snapchat: 'SNAPCHAT', website: 'WEBSITE',
+    'youtube shorts': 'YOUTUBE_SHORTS', youtube_shorts: 'YOUTUBE_SHORTS',
+    snapchat: 'SNAPCHAT', website: 'WEBSITE', pinterest: 'PINTEREST',
   }
-  const valid = ['TIKTOK', 'INSTAGRAM', 'FACEBOOK', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'LINKEDIN', 'TWITTER', 'WEBSITE']
+  const valid = ['TIKTOK', 'INSTAGRAM', 'FACEBOOK', 'YOUTUBE_SHORTS', 'SNAPCHAT', 'LINKEDIN', 'TWITTER', 'WEBSITE', 'PINTEREST']
   return platforms
     .map(p => map[p.toLowerCase()] || p.toUpperCase())
     .filter(p => valid.includes(p))

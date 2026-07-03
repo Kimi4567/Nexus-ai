@@ -933,7 +933,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       typeLabel,
                       ar ? `أفق ${deliverables.planningHorizonDays} يوم` : `${deliverables.planningHorizonDays}-day horizon`,
                       ar ? `${deliverables.roadmapMonths} شهر خريطة طريق` : `${deliverables.roadmapMonths}-mo roadmap`,
-                      ar ? `تقويم تفصيلي ${deliverables.detailedCalendarDays} يوم` : `${deliverables.detailedCalendarDays}-day detailed`,
+                      ar ? `مخطط تنفيذ ${deliverables.detailedCalendarDays} يوم` : `${deliverables.detailedCalendarDays}-day execution outline`,
                       includesOrganic ? `${intensityLabel(contentIntensity, locale)} · ${INTENSITY_RANGE_LABEL[contentIntensity]}` : null,
                     ].filter(Boolean).map((chip, i) => (
                       <span key={i} className="px-2 py-1 rounded-lg text-[10px] font-semibold"
@@ -1011,8 +1011,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   {deliverables.planningHorizonDays > 30 && (
                     <p className="text-[11px] leading-relaxed mb-3 text-slate-500">
                       {ar
-                        ? 'خطط 90 و180 يوم تشمل خريطة طريق كاملة، وتقويم محتوى تفصيلي لأول 30 يوم فقط. يتم توليد تقاويم الشهور التالية لاحقًا بناءً على الأداء والتعلم.'
-                        : '90/180-day strategies include a full roadmap and a detailed first 30-day content calendar. Future monthly calendars are generated later as NEXUS learns from performance.'}
+                        ? 'خطط 90 و180 يوم تشمل خريطة طريق كاملة ومخطط تنفيذ لأول 30 يوم. مسودات Content Hub والتقويمات المحفوظة تُولَّد لاحقاً بعد مراجعة الاستراتيجية.'
+                        : '90/180-day strategies include a full roadmap and a first-30-day execution outline. Content Hub draft posts and saved calendars are generated separately after strategy review.'}
                     </p>
                   )}
 
@@ -1027,8 +1027,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                         <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                           <CheckCircle2 className="w-3 h-3 flex-shrink-0 text-emerald-600" />
                           {ar
-                            ? `منشورات عضوية لأول 30 يوم: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`
-                            : `Organic posts for the first 30 days: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`}
+                            ? `اتجاهات منشورات لأول 30 يوم: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`
+                            : `Organic post directions for the first 30 days: ${deliverables.organicPostCount} (${INTENSITY_RANGE_LABEL[contentIntensity]})`}
                         </div>
                       )}
                       {includesPaid && (
@@ -1090,8 +1090,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                       <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
                       <p className="text-[11px] leading-relaxed text-amber-800">
                         {ar
-                          ? `اخترت نطاق ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]} شهرياً) كهدف تخطيطي، لكن خطتك الحالية تحد أول 30 يوم إلى ${deliverables.planCappedOrganicPostCount} منشورات. لذلك سيتم توليد ${deliverables.organicPostCount} منشورات الآن.`
-                          : `You selected ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]}/mo) as the planning range, but your current plan caps the generated first 30 days at ${deliverables.planCappedOrganicPostCount} posts. ${deliverables.organicPostCount} posts will be generated now.`}
+                          ? `اخترت نطاق ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]} شهرياً) كهدف تخطيطي، لكن خطتك الحالية تحد أول 30 يوم إلى ${deliverables.planCappedOrganicPostCount} اتجاهات منشورات. لذلك سيستخدم المخطط ${deliverables.organicPostCount} اتجاهات الآن.`
+                          : `You selected ${intensityLabel(contentIntensity, locale)} (${INTENSITY_RANGE_LABEL[contentIntensity]}/mo) as the planning range, but your current plan caps the first 30 days at ${deliverables.planCappedOrganicPostCount} post directions. The strategy outline will use ${deliverables.organicPostCount} directions now.`}
                       </p>
                     </div>
                   )}

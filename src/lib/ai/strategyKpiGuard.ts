@@ -35,6 +35,8 @@ const PERF_PATTERNS: RegExp[] = [
 ]
 
 const DIRECTIONAL_VERB = /\b(increase|improve|grow|reduce|boost|raise|lower|drive|generate|reach|expand|build|cut|save)\b/i
+const PERFORMANCE_CONTEXT = /\b(?:increase|improve|grow|growth|reduce|boost|raise|lower|drive|generate|reach|expand|cut|save|engagement|lead|leads|request|requests|inquir(?:y|ies)|conversion|conversions|sales|revenue|traffic|followers|views|impressions|clicks|visits|bookings|orders|roi|roas|return)\b/i
+const UNSUPPORTED_MULTIPLIER_WORD = /\b(?:double|triple|quadruple)\b[^.\n]{0,60}?\b(?:requests?|leads?|sales?|revenue|conversions?|engagement|traffic|followers?|views?|impressions?|clicks?|visits?|bookings?|orders?|inquir(?:y|ies))\b/i
 
 const normNum = (s: string) => s.replace(/[\s,]/g, '').toLowerCase()
 
@@ -56,6 +58,7 @@ function hasUnsupportedPerfNumber(text: string, allowedNums: string[]): boolean 
   if (typeof text !== 'string' || !text) return false
   // Remove calendar timeframes first so "within 30 days" never trips the guard.
   const stripped = text.replace(TIME_NUM, ' ')
+  const performanceContext = PERFORMANCE_CONTEXT.test(stripped)
   for (const re of PERF_PATTERNS) {
     re.lastIndex = 0
     let m: RegExpExecArray | null
@@ -64,10 +67,14 @@ function hasUnsupportedPerfNumber(text: string, allowedNums: string[]): boolean 
       const n = normNum(numTok)
       if (!n) continue
       const supported = allowedNums.some((a) => a.includes(n) || n.includes(a))
-      if (!supported) return true
+      if (!supported || performanceContext) return true
     }
   }
   return false
+}
+
+function hasUnsupportedMultiplierWord(text: string): boolean {
+  return typeof text === 'string' && UNSUPPORTED_MULTIPLIER_WORD.test(text)
 }
 
 /**
@@ -77,7 +84,7 @@ function hasUnsupportedPerfNumber(text: string, allowedNums: string[]): boolean 
 export function guardKpiTarget(target: unknown, allowed: string[] = []): string {
   if (typeof target !== 'string' || !target.trim()) return typeof target === 'string' ? target : ''
   const allowedNums = buildAllowedNums(allowed)
-  if (!hasUnsupportedPerfNumber(target, allowedNums)) return target
+  if (!hasUnsupportedPerfNumber(target, allowedNums) && !hasUnsupportedMultiplierWord(target)) return target
   const verb = (target.match(DIRECTIONAL_VERB) || [])[0]
   if (verb) {
     const v = verb.charAt(0).toUpperCase() + verb.slice(1).toLowerCase()
@@ -90,7 +97,8 @@ export function guardKpiTarget(target: unknown, allowed: string[] = []): string 
 export function guardResultText(text: unknown, allowed: string[] = []): string {
   if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
   const allowedNums = buildAllowedNums(allowed)
-  if (!hasUnsupportedPerfNumber(text, allowedNums)) return text
+  const hasMultiplier = hasUnsupportedMultiplierWord(text)
+  if (!hasUnsupportedPerfNumber(text, allowedNums) && !hasMultiplier) return text
   // Protect calendar timeframes with a non-digit sentinel so the perf scrub can't
   // eat "30 days"/"Q1" — the sentinel has no digit, so no perf pattern matches it.
   const SENTINEL = '␟'
@@ -104,6 +112,9 @@ export function guardResultText(text: unknown, allowed: string[] = []): string {
       const n = normNum((m.match(/[\d.,]+/) || [''])[0])
       return n && allowedNums.some((a) => a.includes(n) || n.includes(a)) ? m : '—'
     })
+  }
+  if (hasMultiplier) {
+    t = t.replace(UNSUPPORTED_MULTIPLIER_WORD, 'baseline-needed performance target')
   }
   // Restore protected timeframes in order.
   let ti = 0
