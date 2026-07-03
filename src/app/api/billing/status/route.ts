@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adminClient } from '@/lib/supabaseAuth'
 import { prisma } from '@/lib/prisma'
 import { isBillingConfigured, PLAN_CREDITS } from '@/lib/stripe'
+import { resolveBillingStatusPlan } from '@/lib/billingStatusPlan'
 import { FREE_STARTER_CREDITS } from '@/lib/credits'
 
 export const dynamic = 'force-dynamic'
@@ -53,9 +54,16 @@ export async function GET(req: NextRequest) {
     })
 
     // ── Derive plan name ────────────────────────────────────────────────────
-    const planRaw = subscription?.plan?.toString().toLowerCase() ?? 'free'
-    const isActive = ['ACTIVE', 'active'].includes(subscription?.status?.toString() ?? '')
-    const planName = isActive ? planRaw : 'free'
+    // Stripe Subscription is preferred, but the admin console can mark internal
+    // QA/customer accounts ACTIVE without a Stripe row. Keep billing truth
+    // aligned with the rest of the app so paid quotas do not render as FREE.
+    const planStatus = resolveBillingStatusPlan({
+      subscriptionPlan: subscription?.plan,
+      subscriptionStatus: subscription?.status,
+      userSubscriptionStatus: dbUser.subscriptionStatus,
+    })
+    const planName = planStatus.plan
+    const isActive = planStatus.hasActiveSubscription
 
     const maxCredits = PLAN_CREDITS[planName] ?? 10  // 10 = FREE_STARTER_CREDITS default
     const storedCredits = dbUser.aiCredits ?? 0

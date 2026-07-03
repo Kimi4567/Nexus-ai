@@ -43,6 +43,7 @@ const TIER_POSTS_PER_MONTH: Record<string, number> = {
   starter: 10,
   pro: 25,
   growth: 25,
+  active: 25,
   business: 60,
   agency: 60,
 }

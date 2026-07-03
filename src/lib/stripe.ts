@@ -232,6 +232,7 @@ export const PLAN_CREDITS: Record<string, number> = {
   pro:      150,
   business: 500,
   agency:   500,
+  active:   150,
   ACTIVE:   150,
   ADMIN:    9999,
   admin:    9999,
