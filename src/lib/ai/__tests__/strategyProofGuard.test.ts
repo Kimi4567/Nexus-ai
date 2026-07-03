@@ -98,6 +98,43 @@ describe('strategyProofGuard', () => {
     expect(out).not.toContain('always stocked')
   })
 
+  it('softens unsupported service health, speed, absolute, and every-visit claims', () => {
+    const guarded = guardStrategyProof({
+      topHooks: [
+        'اختر خيارات صديقة للبيئة لمنزل أكثر صحة.',
+        'استمتع بجودة تنظيف متسقة في كل زيارة.',
+      ],
+      ctaVariations: [
+        'احجز تنظيف منزلك في ثوانٍ عبر WhatsApp!',
+        'لا مزيد من الإضافات المفاجئة!',
+      ],
+      englishExamples: [
+        'Choose eco-friendly options for a healthier home.',
+        'Book your cleaning in seconds via WhatsApp!',
+        'No more surprise add-ons!',
+        'Consistent cleaning quality for every visit.',
+      ],
+    }, { verifiedProof: [] })
+    const joined = JSON.stringify(guarded)
+
+    expect(joined).toContain('استفسر عن خيارات تنظيف صديقة للبيئة عند توفرها')
+    expect(joined).toContain('ابدأ طلب تنظيف منزلك عبر WhatsApp بخطوة بسيطة')
+    expect(joined).toContain('راجع الأسعار والتفاصيل بوضوح قبل الحجز')
+    expect(joined).toContain('استهدف تجربة تنظيف أكثر اتساقًا مع كل حجز')
+    expect(joined).toContain('Ask about eco-friendly options where available')
+    expect(joined).toContain('Start a cleaning request via WhatsApp')
+    expect(joined).toContain('Review pricing and add-ons before booking')
+    expect(joined).toContain('more consistent cleaning experience across bookings')
+    expect(joined).not.toContain('أكثر صحة')
+    expect(joined).not.toContain('في ثوان')
+    expect(joined).not.toContain('لا مزيد')
+    expect(joined).not.toContain('في كل زيارة')
+    expect(joined).not.toContain('healthier home')
+    expect(joined).not.toContain('in seconds')
+    expect(joined).not.toContain('No more')
+    expect(joined).not.toContain('every visit')
+  })
+
   it('rewrites team-always wording without leaving an awkward sentence fragment', () => {
     const out = guardStrategyProofText('Ensure your team always has access to great coffee.', {
       verifiedProof: [],
@@ -297,5 +334,18 @@ describe('strategyProofGuard', () => {
     expect(route).toContain('buildProofPolicyPrompt')
     expect(route).toContain('guardStrategyProof')
     expect(route).toContain('If the saved strategy contains unsupported proof terms')
+  })
+
+  it('campaign room strategy display applies the proof guard before rendering saved output', () => {
+    const page = readFileSync(
+      path.join(process.cwd(), 'src/app/campaigns/[id]/page.tsx'),
+      'utf8',
+    )
+
+    expect(page).toContain("import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'")
+    expect(page).toContain('const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any')
+    expect(page).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}')
+    expect(page).toContain('const topHooks: string[] = guardedAiOutput?.topHooks || strategy.topHooks || []')
+    expect(page).not.toContain('guardStrategyOutputContract(aiOutput?.strategy || {}')
   })
 })

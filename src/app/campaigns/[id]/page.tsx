@@ -34,6 +34,7 @@ import {
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 
 interface Activity {
   id: string
@@ -853,16 +854,20 @@ function CampaignDetailPageInner() {
 
   const aiOutput = campaign.aiOutput as any
   const strategyLanguage = typeof aiOutput?.language === 'string' ? aiOutput.language : locale
+  const proofContext = {
+    verifiedProof: Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : [],
+  }
+  const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
   const strategy = guardStrategyKpis(
-    guardStrategyOutputContract(aiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as Record<string, unknown>,
+    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as Record<string, unknown>,
     [],
     { language: strategyLanguage },
   ) as any
-  const topHooks: string[] = aiOutput?.topHooks || strategy.topHooks || []
-  const ctaVariations: string[] = aiOutput?.ctaVariations || strategy.ctaVariations || []
-  const captionFormulas: string[] = aiOutput?.captionFormulas || []
-  const scriptTemplate: string = aiOutput?.scriptTemplate || ''
-  const contentCalendar: any[] = aiOutput?.contentCalendar || strategy.contentCalendar || []
+  const topHooks: string[] = guardedAiOutput?.topHooks || strategy.topHooks || []
+  const ctaVariations: string[] = guardedAiOutput?.ctaVariations || strategy.ctaVariations || []
+  const captionFormulas: string[] = guardedAiOutput?.captionFormulas || []
+  const scriptTemplate: string = guardedAiOutput?.scriptTemplate || ''
+  const contentCalendar: any[] = guardedAiOutput?.contentCalendar || strategy.contentCalendar || []
   // Sprint D2 — deep strategy fields
   const contentAngles: string[] = strategy.contentAngles || []
   const audienceSegments: string[] = strategy.audienceSegments || []
