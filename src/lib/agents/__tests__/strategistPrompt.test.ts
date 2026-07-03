@@ -154,6 +154,13 @@ describe('buildStrategistPrompts — content intensity / plan cap', () => {
     expect(s).toMatch(/Do not invent a downloadable asset/)
   })
 
+  it('requires at least 3 concrete review-safe readiness checklist items', () => {
+    const s = sys(briefWith(order('organic', 'standard', '30')))
+    expect(s).toMatch(/readinessChecklist must contain at least 3 concrete/)
+    expect(s).toMatch(/done=false/)
+    expect(s).toMatch(/must not claim that assets, proof, tracking, publishing, scheduling, or platform setup are already complete/)
+  })
+
   it('adds an Arabic binding rule for Arabic strategy output', () => {
     const b = briefWith({ ...order('organic', 'standard', '30'), language: 'ar' })
     b.language = 'ar'

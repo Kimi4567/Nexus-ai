@@ -11,6 +11,7 @@ type JsonObject = Record<string, unknown>
 
 export interface StrategyOutputContractContext {
   allowedPlatforms?: string[] | null
+  language?: string | null
 }
 
 interface NormalizedPlatformContext {
@@ -220,17 +221,58 @@ function guardWeeklyExecutionPlan(list: unknown, ctx: NormalizedPlatformContext)
   })
 }
 
-function guardReadinessChecklist(list: unknown): unknown {
-  if (!Array.isArray(list)) return list
-  return list.map((item) => {
-    if (!isObject(item)) return item
-    const label = typeof item.label === 'string'
-      ? item.label
-          .replace(/\bSet up WhatsApp consultation process\b/gi, 'Confirm WhatsApp consultation intake process')
-          .replace(/\bWhatsApp consultation process is set up\b/gi, 'WhatsApp consultation intake process needs confirmation')
-      : item.label
-    return { ...item, label, done: false }
-  })
+const DEFAULT_READINESS_CHECKLIST_EN = [
+  'Confirm the conversion path, response owner, and handoff process before turning this strategy into execution.',
+  'Prepare or select real visual assets for the first Content Hub posts before approval or scheduling.',
+  'Collect verified proof assets before using testimonials, reviews, case studies, awards, or performance claims.',
+  'Review the first-month post directions in Content Hub before creating drafts or schedule decisions.',
+]
+
+const DEFAULT_READINESS_CHECKLIST_AR = [
+  'تأكيد مسار التحويل، مسؤول الرد، وآلية تسليم الطلبات قبل تحويل الاستراتيجية إلى تنفيذ.',
+  'تجهيز أو اختيار أصول بصرية حقيقية لأول منشورات Content Hub قبل الموافقة أو الجدولة.',
+  'جمع إثباتات موثّقة قبل استخدام شهادات، مراجعات، قصص عملاء، جوائز، أو ادعاءات أداء.',
+  'مراجعة اتجاهات منشورات الشهر الأول في Content Hub قبل إنشاء المسودات أو قرارات الجدولة.',
+]
+
+function normalizeChecklistLabel(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value
+    .replace(/\bSet up WhatsApp consultation process\b/gi, 'Confirm WhatsApp consultation intake process')
+    .replace(/\bWhatsApp consultation process is set up\b/gi, 'WhatsApp consultation intake process needs confirmation')
+    .trim()
+}
+
+function shouldUseArabicChecklist(language: string | null | undefined, labels: string[]): boolean {
+  if (language?.toLowerCase().startsWith('ar')) return true
+  return labels.some(label => /[\u0600-\u06FF]/.test(label))
+}
+
+function guardReadinessChecklist(list: unknown, language?: string | null): unknown {
+  const rawItems = Array.isArray(list) ? list : []
+  const guarded: JsonObject[] = []
+
+  for (const item of rawItems) {
+    if (!isObject(item)) continue
+    const label = normalizeChecklistLabel(item.label)
+    if (!label) continue
+    guarded.push({ ...item, label, done: false })
+  }
+
+  const seen = new Set(guarded.map(item => String(item.label).toLowerCase()))
+  const defaults = shouldUseArabicChecklist(language, guarded.map(item => String(item.label)))
+    ? DEFAULT_READINESS_CHECKLIST_AR
+    : DEFAULT_READINESS_CHECKLIST_EN
+
+  for (const label of defaults) {
+    if (guarded.length >= 3) break
+    const key = label.toLowerCase()
+    if (seen.has(key)) continue
+    guarded.push({ label, done: false })
+    seen.add(key)
+  }
+
+  return guarded
 }
 
 export function selectStrategyCampaignPlatforms(
@@ -259,7 +301,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx)
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)
-  output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist)
+  output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
 
   return output as T
 }
