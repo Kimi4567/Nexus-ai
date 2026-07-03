@@ -128,18 +128,36 @@ function replaceUnsupportedCtaText(text: string): string {
     .replace(/\bDownload\s+the\s+demo\b/gi, 'Request a demo')
 }
 
-function guardText(value: string, ctx: NormalizedPlatformContext): string {
-  return replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
+function normalizeArabicFormatText(value: string): string {
+  return value
+    .replace(/\bCarousel\s+or\s+short\s+social\s+post\b/gi, 'كاروسيل أو منشور اجتماعي قصير')
+    .replace(/\bShort[-\s]?form\s+video\b/gi, 'فيديو قصير')
+    .replace(/\bShort\s+video\b/gi, 'فيديو قصير')
+    .replace(/\bSocial\s+post\b/gi, 'منشور اجتماعي قصير')
+    .replace(/\bShort\s+social\s+post\b/gi, 'منشور اجتماعي قصير')
+    .replace(/\bCarousel\s+post\b/gi, 'كاروسيل')
+    .replace(/\bCarousel\b/gi, 'كاروسيل')
+    .replace(/\bReels\b/gi, 'ريلز')
+    .replace(/\bReel\b/gi, 'ريل')
+    .replace(/\bVideo\b/gi, 'فيديو قصير')
+    .replace(/\bStories\b/gi, 'ستوري')
+    .replace(/\bStory\b/gi, 'ستوري')
+    .replace(/\bPost\b/gi, 'منشور')
 }
 
-function guardValue(value: unknown, ctx: NormalizedPlatformContext): unknown {
-  if (typeof value === 'string') return guardText(value, ctx)
-  if (Array.isArray(value)) return value.map(item => guardValue(item, ctx))
+function guardText(value: string, ctx: NormalizedPlatformContext, language?: string | null): string {
+  const platformGuarded = replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
+  return isArabicLanguage(language) ? normalizeArabicFormatText(platformGuarded) : platformGuarded
+}
+
+function guardValue(value: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
+  if (typeof value === 'string') return guardText(value, ctx, language)
+  if (Array.isArray(value)) return value.map(item => guardValue(item, ctx, language))
   if (!isObject(value)) return value
 
   const output: JsonObject = {}
   for (const [key, child] of Object.entries(value)) {
-    output[key] = guardValue(child, ctx)
+    output[key] = guardValue(child, ctx, language)
   }
   return output
 }
@@ -156,16 +174,35 @@ function normalizeAllowedPlatformValue(value: unknown, ctx: NormalizedPlatformCo
   return ctx.fallbackLabel || (typeof value === 'string' ? value : '')
 }
 
-function normalizeFormatForPlatform(format: unknown, platform: string): unknown {
+function normalizeFormatForPlatform(format: unknown, platform: string, language?: string | null): unknown {
   if (typeof format !== 'string') return format
+  const ar = isArabicLanguage(language)
+  if (ar) {
+    const normalized = format.trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
+    const localized = normalizeArabicFormatText(format)
+    if (localized !== format) return localized
+
+    if (/^(reel|reels|short form video|short video|video|youtube short|youtube shorts)$/.test(normalized)) {
+      return 'فيديو قصير'
+    }
+    if (/^(carousel|carousel post|carousel or short social post)$/.test(normalized)) {
+      return 'كاروسيل'
+    }
+    if (/^(post|social post|short social post)$/.test(normalized)) {
+      return 'منشور اجتماعي قصير'
+    }
+    if (/^(story|stories)$/.test(normalized)) {
+      return 'ستوري'
+    }
+  }
   if (!/\b(blog|article|pin|board|platform-native educational)\b/i.test(format)) return format
 
   const platformKey = normalizePlatform(platform)
-  if (platformKey === 'tiktok' || platformKey === 'youtube') return 'Short-form video'
+  if (platformKey === 'tiktok' || platformKey === 'youtube') return ar ? 'فيديو قصير' : 'Short-form video'
   if (platformKey === 'instagram' || platformKey === 'facebook' || platformKey === 'linkedin') {
-    return 'Carousel or short social post'
+    return ar ? 'كاروسيل أو منشور اجتماعي قصير' : 'Carousel or short social post'
   }
-  return 'Platform-native educational post'
+  return ar ? 'منشور تعليمي داخل المنصة' : 'Platform-native educational post'
 }
 
 function normalizeOrganicChannelMix(list: unknown): unknown {
@@ -211,6 +248,63 @@ function hasOperationalFunnelStages(list: unknown): boolean {
     'nextStep',
     'productArea',
   ]))
+}
+
+function fallbackOperationalText(key: string, language?: string | null): string {
+  const ar = isArabicLanguage(language)
+  const text: Record<string, { en: string; ar: string }> = {
+    desiredOutcome: {
+      en: 'Make the practical outcome clear enough to review before draft creation.',
+      ar: 'توضيح النتيجة العملية بما يكفي لمراجعتها قبل إنشاء المسودات.',
+    },
+    objection: {
+      en: 'Buyer concern still needs validation before production.',
+      ar: 'اعتراض المشتري يحتاج تحققًا قبل الإنتاج.',
+    },
+    proofNeeded: {
+      en: 'Not enough data: collect a real demo detail, screenshot, customer quote, or compliance-safe proof before using stronger claims.',
+      ar: 'لا توجد بيانات كافية: اجمع تفصيل عرض حقيقي، لقطة شاشة، اقتباس عميل، أو إثباتًا آمنًا قبل استخدام ادعاءات أقوى.',
+    },
+    responseHandoff: {
+      en: 'Confirm the response owner, qualification question, and follow-up message before sending leads to this CTA.',
+      ar: 'تأكيد مسؤول الرد، سؤال التأهيل، ورسالة المتابعة قبل توجيه العملاء المحتملين إلى هذا النداء.',
+    },
+    reviewPoint: {
+      en: 'Review message clarity, proof availability, and lead quality before repeating or scaling.',
+      ar: 'مراجعة وضوح الرسالة، توفر الإثبات، وجودة الطلبات قبل التكرار أو التوسيع.',
+    },
+    asset: {
+      en: 'Real product/process visual or demo screenshot needed before production.',
+      ar: 'أصل بصري حقيقي للمنتج أو سير العمل، أو لقطة عرض توضيحي قبل الإنتاج.',
+    },
+    executionNote: {
+      en: 'Keep this as a reviewable planning direction; confirm response handoff before production.',
+      ar: 'احتفظ بهذا كاتجاه تخطيطي قابل للمراجعة؛ أكّد تسليم الرد قبل الإنتاج.',
+    },
+    successMetric: {
+      en: 'Baseline needed after first review cycle',
+      ar: 'يحتاج إلى خط أساس بعد أول دورة مراجعة',
+    },
+  }
+  const match = text[key]
+  return match ? (ar ? match.ar : match.en) : (ar ? 'يحتاج إلى مراجعة قبل التنفيذ.' : 'Needs review before execution.')
+}
+
+function guardContentAnglesOperationalDepth(list: unknown, language?: string | null): unknown {
+  if (!Array.isArray(list)) return list
+
+  return list.map((item) => {
+    if (!isObject(item)) return item
+    return {
+      ...item,
+      desiredOutcome: hasUsefulText(item.desiredOutcome) ? item.desiredOutcome : fallbackOperationalText('desiredOutcome', language),
+      objection: hasUsefulText(item.objection) ? item.objection : fallbackOperationalText('objection', language),
+      asset: hasUsefulText(item.asset) ? item.asset : fallbackOperationalText('asset', language),
+      proofNeeded: hasUsefulText(item.proofNeeded) ? item.proofNeeded : fallbackOperationalText('proofNeeded', language),
+      responseHandoff: hasUsefulText(item.responseHandoff) ? item.responseHandoff : fallbackOperationalText('responseHandoff', language),
+      reviewPoint: hasUsefulText(item.reviewPoint) ? item.reviewPoint : fallbackOperationalText('reviewPoint', language),
+    }
+  })
 }
 
 function hasKpiMinimum(list: unknown): boolean {
@@ -328,12 +422,23 @@ function alignWeeklyExecutionPlanToOrganicCount(
         : (ar ? 'رسالة تشغيلية قابلة للمراجعة قبل إنشاء المسودات.' : 'A reviewable operating message before draft creation.'),
       deliverables,
       platforms: platforms.length ? platforms : (ctx.fallbackLabel ? [ctx.fallbackLabel] : []),
+      assetsNeeded: Array.isArray(existing.assetsNeeded) && existing.assetsNeeded.length
+        ? existing.assetsNeeded
+        : bucket.map(angle => isObject(angle) && typeof angle.asset === 'string' && angle.asset.trim()
+          ? angle.asset.trim()
+          : fallbackOperationalText('asset', language)),
       cta: typeof existing.cta === 'string' && existing.cta.trim()
         ? existing.cta
         : (ar ? 'راجع الاتجاه' : 'Review the direction'),
       successMetric: typeof existing.successMetric === 'string' && existing.successMetric.trim()
         ? existing.successMetric
-        : (ar ? 'تفاعل يحتاج إلى خط أساس' : 'Engagement needs a baseline'),
+        : fallbackOperationalText('successMetric', language),
+      executionNote: typeof existing.executionNote === 'string' && existing.executionNote.trim()
+        ? existing.executionNote
+        : fallbackOperationalText('executionNote', language),
+      reviewPoints: Array.isArray(existing.reviewPoints) && existing.reviewPoints.length
+        ? existing.reviewPoints
+        : [fallbackOperationalText('reviewPoint', language)],
     }
   })
 }
@@ -517,7 +622,7 @@ function guardChannelMix(
   return fallback
 }
 
-function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext): unknown {
+function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
   if (!Array.isArray(list) || !ctx.allowedKeys.size) return list
 
   return list.map((item) => {
@@ -526,7 +631,7 @@ function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext):
     return {
       ...item,
       platform,
-      ...(typeof item.format === 'string' ? { format: normalizeFormatForPlatform(item.format, platform) } : {}),
+      ...(typeof item.format === 'string' ? { format: normalizeFormatForPlatform(item.format, platform, language) } : {}),
     }
   })
 }
@@ -545,6 +650,29 @@ function guardWeeklyExecutionPlan(list: unknown, ctx: NormalizedPlatformContext)
     return {
       ...item,
       platforms: platforms.length ? Array.from(new Set(platforms)) : ctx.allowedLabels.slice(0, 1),
+    }
+  })
+}
+
+function guardWeeklyExecutionOperationalDepth(list: unknown, language?: string | null): unknown {
+  if (!Array.isArray(list)) return list
+
+  return list.map((item) => {
+    if (!isObject(item)) return item
+    return {
+      ...item,
+      assetsNeeded: Array.isArray(item.assetsNeeded) && item.assetsNeeded.length
+        ? item.assetsNeeded
+        : [fallbackOperationalText('asset', language)],
+      successMetric: hasUsefulText(item.successMetric)
+        ? item.successMetric
+        : fallbackOperationalText('successMetric', language),
+      executionNote: hasUsefulText(item.executionNote)
+        ? item.executionNote
+        : fallbackOperationalText('executionNote', language),
+      reviewPoints: Array.isArray(item.reviewPoints) && item.reviewPoints.length
+        ? item.reviewPoints
+        : [fallbackOperationalText('reviewPoint', language)],
     }
   })
 }
@@ -603,6 +731,41 @@ function guardReadinessChecklist(list: unknown, language?: string | null): unkno
   return guarded
 }
 
+function guardAssetRequirements(value: unknown, language?: string | null): unknown {
+  if (isObject(value)) {
+    const output: JsonObject = { ...value }
+    const ar = isArabicLanguage(language)
+    const defaults = ar
+      ? {
+          mustHave: ['لقطات شاشة أو مثال عرض توضيحي حقيقي قبل تحويل الاتجاهات إلى مسودات.'],
+          niceToHave: ['مقارنة قبل/بعد آمنة أو مخطط سير عمل قابل للمراجعة.'],
+          forAds: ['أصول مدفوعة لاحقة فقط بعد تأكيد الميزانية، التتبع، والحسابات المتصلة.'],
+          forOrganic: ['خلفيات أو صور عملية لكل اتجاه منشور في أول 30 يومًا.'],
+          forProof: ['إثباتات موثقة أو ملاحظات عملاء حقيقية قبل أي ادعاء أداء.'],
+          nextToCreate: ['تجهيز مثال عرض توضيحي ومكتبة لقطات سير عمل قبل الإنتاج.'],
+          canStartWithoutNote: 'يمكن بدء التخطيط العضوي، لكن الإنتاج يحتاج أصولًا وإثباتات مراجعة.',
+        }
+      : {
+          mustHave: ['Real screenshot, demo example, or workflow visual before turning directions into drafts.'],
+          niceToHave: ['Safe before/after comparison or reviewable workflow diagram.'],
+          forAds: ['Paid assets only after budget, tracking, and connected-account readiness are confirmed.'],
+          forOrganic: ['Backgrounds or practical visuals for each first-30-day post direction.'],
+          forProof: ['Verified proof or real customer feedback before any performance or testimonial claim.'],
+          nextToCreate: ['Prepare a demo example and workflow screenshot library before production.'],
+          canStartWithoutNote: 'Organic planning can start, but production needs reviewable assets and proof.',
+        }
+
+    for (const key of ['mustHave', 'niceToHave', 'forAds', 'forOrganic', 'forProof', 'nextToCreate'] as const) {
+      output[key] = Array.isArray(output[key]) && (output[key] as unknown[]).length ? output[key] : defaults[key]
+    }
+    output.canStartWithout = typeof output.canStartWithout === 'boolean' ? output.canStartWithout : true
+    output.canStartWithoutNote = hasUsefulText(output.canStartWithoutNote) ? output.canStartWithoutNote : defaults.canStartWithoutNote
+    return output
+  }
+
+  return guardAssetRequirements({}, language)
+}
+
 export function selectStrategyCampaignPlatforms(
   strategy: { channelMix?: unknown },
   allowedPlatforms?: string[] | null,
@@ -621,15 +784,16 @@ export function selectStrategyCampaignPlatforms(
 export function guardStrategyOutputContract<T>(input: T, context: StrategyOutputContractContext = {}): T {
   if (!isObject(input)) return input
   const ctx = buildPlatformContext(context.allowedPlatforms)
-  const output = guardValue(input, ctx) as JsonObject
+  const output = guardValue(input, ctx, context.language) as JsonObject
 
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
   output.kpis = guardKpisMinimum(output.kpis, context.language)
   output.funnelStages = guardFunnelStagesMinimum(output.funnelStages, ctx, context.language)
-  output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx)
-  output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx)
-  output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx)
-  output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx)
+  output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx, context.language)
+  output.contentAnglesDetailed = guardContentAnglesOperationalDepth(output.contentAnglesDetailed, context.language)
+  output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx, context.language)
+  output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx, context.language)
+  output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx, context.language)
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)
   output.weeklyExecutionPlan = alignWeeklyExecutionPlanToOrganicCount(
     output.weeklyExecutionPlan,
@@ -638,6 +802,8 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
     context.organicPostCount,
     context.language,
   )
+  output.weeklyExecutionPlan = guardWeeklyExecutionOperationalDepth(output.weeklyExecutionPlan, context.language)
+  output.assetRequirements = guardAssetRequirements(output.assetRequirements, context.language)
   output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
 
   return output as T

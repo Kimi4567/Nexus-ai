@@ -275,6 +275,98 @@ describe('guardStrategyOutputContract', () => {
     expect(report.weakFields).not.toContain('kpis')
   })
 
+  it('backfills real-world weak Arabic strategy output into an operating brief before persistence', () => {
+    const out = guardStrategyOutputContract({
+      campaignName: 'استراتيجية نمو عضوي لـ ClinicFlow AI',
+      goal: 'LEADS',
+      positioning: 'ClinicFlow AI هي منصة تشغيل للعيادات التي تحتاج وضوحًا يوميًا دون تعقيد.',
+      keyMessage: 'ClinicFlow AI تجعل متابعة العمل اليومي أوضح للفريق.',
+      differentiation: 'توحيد المواعيد والمتابعة في سير عمل قابل للمراجعة.',
+      targetAudienceRefined: 'أصحاب العيادات ومديرو العمليات الذين يحتاجون تنظيم المواعيد والمتابعة.',
+      diagnosis: 'الفرصة العضوية واضحة لكن الإثباتات ومسار الرد يحتاجان مراجعة قبل التوسع.',
+      nextBestAction: 'راجع اتجاهات أول شهر وحدد مسؤول الرد على طلبات العرض.',
+      estimatedResults: 'يمكن استخدام أول شهر لتحديد خط أساس للطلبات والتفاعل دون وعود أداء.',
+      readyForPaidAdsReason: 'تشغيل الاستراتيجية عضوي فقط؛ التخطيط المدفوع يحتاج مدخلات منفصلة.',
+      businessObjective: {
+        primary: 'طلبات عروض توضيحية مؤهلة',
+        marketing: 'شرح سير العمل',
+        conversionAction: 'طلب عرض توضيحي',
+        expectedUserAction: 'طلب مراجعة سير العمل',
+        whyNow: 'الفريق يحتاج وضوحًا تشغيليًا',
+        successIn30Days: 'تحديد خط أساس للطلبات المؤهلة',
+      },
+      diagnosisDetails: {
+        stage: 'early-stage',
+        bottleneck: 'عدم وضوح مسار المتابعة',
+        trustGap: 'إثباتات موثقة غير مكتملة',
+        offerClarity: 'partial',
+        contentGap: 'لا توجد أمثلة تشغيلية كافية',
+        assetReadiness: 'تحتاج لقطات شاشة وعرض توضيحي',
+        conversionReadiness: 'مسؤول الرد يحتاج تأكيد',
+        readyForPaidAds: false,
+        readyForPaidAdsReason: 'تشغيل عضوي فقط',
+        mainRisk: 'ادعاءات أداء غير مثبتة',
+      },
+      confidenceReport: { overall: 'medium', byCapability: { contentStrategy: 'high' } },
+      contentPillars: ['تنظيم المواعيد', 'متابعة الفريق', 'وضوح الإدارة'],
+      topHooks: ['هل تضيع المتابعة؟', 'كيف يبدأ يوم العيادة بوضوح؟', 'من يتابع بعد الموعد؟'],
+      ctaVariations: ['اطلب عرض توضيحي', 'راجع سير العمل', 'شاهد المثال العملي'],
+      audienceSegmentsDetailed: [
+        { segment: 'صاحب عيادة', situation: 'يدير المواعيد يدويًا', pain: 'عدم وضوح اليوم', desiredOutcome: 'نظام متابعة أوضح', objection: 'لا يريد تعقيدًا إضافيًا', message: 'ابدأ بسير عمل قابل للمراجعة', platform: 'LinkedIn', format: 'Carousel or short social post', cta: 'اطلب عرض توضيحي' },
+        { segment: 'مدير عمليات', situation: 'يتابع المهام بين الفريق', pain: 'تشتت المسؤولية', desiredOutcome: 'توزيع أوضح للمتابعة', objection: 'يخشى بطء التنفيذ', message: 'راجع مثال سير عمل قبل القرار', platform: 'Instagram', format: 'Video', cta: 'شاهد كيف يعمل' },
+      ],
+      contentAnglesDetailed: [
+        { title: 'تنظيم المواعيد بفعالية', hook: 'هل تعاني من فوضى المواعيد؟', pain: 'فوضى في إدارة المواعيد', format: 'Reel', platform: 'Instagram', cta: 'اطلب عرض توضيحي', asset: '', funnelStage: 'awareness' },
+        { title: 'تحسين المتابعة اليومية', hook: 'هل تجد صعوبة في متابعة المهام؟', pain: 'تكرار المهام اليدوية', format: 'Video', platform: 'YouTube Shorts', cta: 'شاهد كيف يعمل', asset: 'فيديو توضيحي', funnelStage: 'consideration' },
+        { title: 'تواصل ثنائي اللغة', hook: 'هل تضيع الرسائل بين الفريق؟', pain: 'عدم وضوح التواصل', format: 'Carousel', platform: 'LinkedIn', cta: 'تعرف على المزيد', asset: 'لقطات شاشة', funnelStage: 'consideration' },
+        { title: 'وضوح العمليات اليومية', hook: 'كيف تعرف ما حدث اليوم؟', pain: 'غياب رؤية يومية', format: 'Post', platform: 'LinkedIn', cta: 'اطلب عرضًا', asset: 'مخطط سير عمل', funnelStage: 'conversion' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, objective: 'زيادة الوعي', keyMessage: 'وضوح اليوم يبدأ من المواعيد', deliverables: ['2 Reels عن تنظيم المواعيد'], platforms: ['Instagram'], cta: 'اطلب عرض توضيحي', successMetric: 'طلبات تحتاج خط أساس' },
+        { week: 2, objective: 'شرح المتابعة', keyMessage: 'المتابعة تحتاج مسؤولية واضحة', deliverables: ['1 Video عن المتابعة اليومية'], platforms: ['YouTube Shorts'], cta: 'شاهد كيف يعمل', successMetric: 'مشاهدات تحتاج خط أساس' },
+        { week: 3, objective: 'تخفيف الاعتراض', keyMessage: 'التنظيم لا يزيد التعقيد', deliverables: ['1 Carousel عن التواصل الثنائي'], platforms: ['LinkedIn'], cta: 'تعرف على المزيد', successMetric: 'نقرات تحتاج خط أساس' },
+        { week: 4, objective: 'دعوة للعرض', keyMessage: 'راجع سير العمل قبل القرار', deliverables: ['1 Post لدعوة عرض توضيحي'], platforms: ['LinkedIn'], cta: 'اطلب عرضًا', successMetric: 'طلبات عرض تحتاج خط أساس' },
+      ],
+      funnelStages: [
+        { stage: 'awareness', userMindset: 'يعرف المشكلة', message: 'العمل يحتاج وضوحًا', contentType: 'فيديو قصير', platform: 'Instagram', cta: 'راجع سير العمل', successMetric: 'تفاعل يحتاج خط أساس', nextStep: 'إرسال مثال عملي للمهتم', productArea: 'تثقيف' },
+        { stage: 'consideration', userMindset: 'يقارن الحلول', message: 'راجع سير العمل', contentType: 'كاروسيل', platform: 'LinkedIn', cta: 'اطلب عرض توضيحي', successMetric: 'طلبات تحتاج خط أساس', nextStep: 'تأهيل الطلب بسؤال عن حجم الفريق', productArea: 'شرح الحل' },
+        { stage: 'conversion', userMindset: 'يريد الخطوة التالية', message: 'احجز مراجعة سير العمل', contentType: 'منشور CTA', platform: 'LinkedIn', cta: 'اطلب عرضًا', successMetric: 'طلبات عرض تحتاج خط أساس', nextStep: 'تحديد مسؤول الرد وموعد المتابعة', productArea: 'تحويل' },
+      ],
+      kpis: [
+        { metric: 'طلبات عرض توضيحي', target: 'خط أساس بعد أول شهر', timeframe: 'أول 30 يومًا', isHypothesis: true },
+        { metric: 'تفاعل مع شرح سير العمل', target: 'خط أساس بعد أول شهر', timeframe: 'أول 30 يومًا', isHypothesis: true },
+      ],
+      readinessChecklist: [
+        { label: 'تأكيد مسؤول الرد قبل الإنتاج', done: false },
+        { label: 'تجهيز لقطات شاشة حقيقية', done: false },
+        { label: 'جمع إثباتات موثقة قبل ادعاءات الأداء', done: false },
+      ],
+      riskNotes: ['لا توجد إثباتات موثقة كافية'],
+      assumptions: ['لا توجد بيانات أداء تاريخية'],
+      missingData: [],
+    }, {
+      allowedPlatforms: ['INSTAGRAM', 'YOUTUBE_SHORTS', 'LINKEDIN'],
+      language: 'ar',
+      strategyType: 'organic',
+      organicPostCount: 4,
+    }) as any
+
+    expect(out.assetRequirements.mustHave.length).toBeGreaterThan(0)
+    expect(JSON.stringify(out)).not.toMatch(/Carousel or short social post|Short-form video|Video|Post/)
+    expect(out.audienceSegmentsDetailed.map((segment: any) => segment.format)).toEqual([
+      'كاروسيل أو منشور اجتماعي قصير',
+      'فيديو قصير',
+    ])
+    expect(out.weeklyExecutionPlan.flatMap((week: any) => week.deliverables).join('\n')).not.toMatch(/Reels|Video|Carousel|Post/)
+    expect(JSON.stringify(out.contentAnglesDetailed)).toMatch(/proofNeeded|responseHandoff|reviewPoint/)
+    expect(out.weeklyExecutionPlan.every((week: any) => week.assetsNeeded?.length && week.executionNote && week.reviewPoints?.length)).toBe(true)
+
+    const report = validateCampaignStrategyContract(out, { language: 'ar' })
+    expect(report.valid).toBe(true)
+    expect(report.weakFields).toEqual([])
+    expect(report.missingFields).toEqual([])
+  })
+
   it('aligns weekly deliverables to the paid exact organic post count', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: [
@@ -361,6 +453,7 @@ describe('strategy runtime copy contract', () => {
   it('discloses strategy credit cost before the first modal action can continue', () => {
     const i18n = repoFile('src/lib/i18n-context.tsx')
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
+    const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
 
     expect(i18n).toContain("langStartBtn: 'Continue to cost review'")
     expect(i18n).toContain("langStartBtn: 'متابعة لمراجعة التكلفة'")
@@ -372,6 +465,7 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('لا يتم خصم أي كريدت هنا')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
+    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage })')
   })
 
   it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {

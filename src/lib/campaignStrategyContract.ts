@@ -39,6 +39,7 @@ const REQUIRED_OBJECT_FIELDS = [
   'businessObjective',
   'diagnosisDetails',
   'confidenceReport',
+  'assetRequirements',
 ]
 
 const REQUIRED_ARRAY_FIELDS: Array<{ key: string; min: number }> = [
@@ -198,10 +199,16 @@ function hasOperationalContentAngles(value: unknown): boolean {
     'title',
     'hook',
     'pain',
+    'desiredOutcome',
+    'objection',
     'format',
     'platform',
     'cta',
+    'asset',
     'funnelStage',
+    'proofNeeded',
+    'responseHandoff',
+    'reviewPoint',
   ]))
 }
 
@@ -224,9 +231,11 @@ function hasOperationalWeeklyPlan(value: unknown): boolean {
   if (!Array.isArray(value)) return false
   return value.every((item) => {
     if (!isRecord(item)) return false
-    if (!objectHasUsefulFields(item, ['objective', 'keyMessage', 'cta', 'successMetric'])) return false
+    if (!objectHasUsefulFields(item, ['objective', 'keyMessage', 'cta', 'successMetric', 'executionNote'])) return false
     if (!Array.isArray(item.platforms) || item.platforms.length === 0) return false
     if (!Array.isArray(item.deliverables) || item.deliverables.length === 0) return false
+    if (!Array.isArray(item.assetsNeeded) || item.assetsNeeded.length === 0) return false
+    if (!Array.isArray(item.reviewPoints) || item.reviewPoints.length === 0) return false
     return item.deliverables.every(hasCountableDeliverable)
   })
 }

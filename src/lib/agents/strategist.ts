@@ -418,8 +418,9 @@ export function buildStrategistPrompts(
         'ARABIC OUTPUT CONTRACT (binding — applies to every generated value):',
         '- The selected language is Arabic. Every user-facing JSON value must be written in natural Modern Standard Arabic.',
         '- English Brand Context, source notes, field labels, and schema descriptions are source/instruction text only. Do not mirror their language in output values.',
-        '- Keep JSON keys exactly as requested in English. Keep brand names, product names, platform names, and technical format names such as Reels/Carousel/Video as provided.',
-        '- Translate or adapt all user-visible campaign names, positioning, diagnosis, hooks, CTAs, content angles, readiness labels, weekly deliverables, metrics, risks, assumptions, and missing-data explanations into Arabic.',
+        '- Keep JSON keys exactly as requested in English. Keep brand names, product names, and platform names as provided.',
+        '- Translate or adapt all user-visible campaign names, positioning, diagnosis, hooks, CTAs, content angles, readiness labels, weekly deliverables, metrics, risks, assumptions, missing-data explanations, and content format labels into Arabic.',
+        '- Do not output English fallback format labels such as "Carousel or short social post", "Short-form video", "Video", or "Post" inside Arabic user-facing values. Use Arabic labels such as "كاروسيل"، "فيديو قصير"، or "منشور اجتماعي قصير".',
         '- Bad campaignName: "BrightNest Home Care Organic Growth Strategy"; good campaignName: "استراتيجية نمو عضوي لـ BrightNest Home Care".',
         '- Bad CTA: "Book your cleaning in seconds with WhatsApp!"; good CTA: "احجز خدمة التنظيف عبر WhatsApp بخطوة بسيطة".',
         '- Bad readiness item: "Create content calendar for Instagram and Facebook"; good readiness item: "تجهيز خطة اتجاهات المحتوى لأول 30 يومًا على Instagram وFacebook".',
@@ -439,7 +440,9 @@ export function buildStrategistPrompts(
     '- Every funnel stage must explain the handoff after the CTA: what the user should do next, what the brand/team must respond with, and what must be reviewed before scaling.',
     '- Weekly execution deliverables must be countable post directions tied to a segment, message, format, platform, CTA, asset need, and review point. Do not use theme-only deliverables.',
     '- Each content angle must be meaningfully distinct. Do not recycle the same pain, hook, or promise under different titles.',
-    '- Each content angle must explain the buyer objection it addresses, the proof or asset needed, the response/follow-up handoff after the CTA, and what the marketer should review before production.',
+    '- Each content angle must include desiredOutcome, objection, asset, proofNeeded, responseHandoff, and reviewPoint. Never omit these fields. If a field is blocked by missing proof/data, write the missing-data gap and the exact review task instead of leaving it blank.',
+    '- assetRequirements is required. It must separate mustHave, niceToHave, forAds, forOrganic, forProof, canStartWithout, canStartWithoutNote, and nextToCreate.',
+    '- Each weeklyExecutionPlan item must include assetsNeeded, executionNote, and reviewPoints for every week. Do not shorten later weeks into partial objects.',
     '- If lead handling, conversion destination, proof, analytics, competitors, or budget are missing, turn them into explicit operating gaps and review tasks. Never fill those gaps with invented facts.',
     '- Include practical proof/compliance boundaries: what claims cannot be made yet, what proof assets must be collected, and which messages should stay educational until evidence exists.',
     '- Use sober, implementation-ready language. Prefer "validate", "review", "prepare", "collect", "test message clarity", and "follow up" over hype or certainty.',
@@ -609,7 +612,7 @@ Return JSON with these exact fields — all specific to this brand:
       "objection": "string",
       "message": "string — message this segment should believe before the CTA",
       "platform": "string",
-      "format": "string",
+      "format": "string — Arabic label if Arabic output is selected; do not use English fallback labels in Arabic output",
       "cta": "string — realistic next action; avoid unsupported downloads"
     }
   ],
@@ -648,16 +651,27 @@ Return JSON with these exact fields — all specific to this brand:
       "keyMessage": "string",
       "deliverables": ["string — concrete and countable: '2 Reels about X'"],
       "platforms": ["string"],
-      "assetsNeeded": ["string"],
+      "assetsNeeded": ["string — concrete asset or proof needed for this week's deliverables"],
       "cta": "string",
       "successMetric": "string",
       "executionNote": "string — include response owner/follow-up handoff if a lead action is requested",
       "reviewPoints": ["string — what a marketer should check before repeating or scaling"]
     },
-    { "week": 2, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" },
-    { "week": 3, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" },
-    { "week": 4, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" }
+    { "week": 2, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "assetsNeeded": ["string"], "cta": "string", "successMetric": "string", "executionNote": "string", "reviewPoints": ["string"] },
+    { "week": 3, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "assetsNeeded": ["string"], "cta": "string", "successMetric": "string", "executionNote": "string", "reviewPoints": ["string"] },
+    { "week": 4, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "assetsNeeded": ["string"], "cta": "string", "successMetric": "string", "executionNote": "string", "reviewPoints": ["string"] }
   ],
+
+  "assetRequirements": {
+    "mustHave": ["string — assets required before this can become real post drafts"],
+    "niceToHave": ["string"],
+    "forAds": ["string — paid assets only if paid planning is in scope; otherwise planning gaps"],
+    "forOrganic": ["string"],
+    "forProof": ["string — proof needed before proof/performance/customer claims"],
+    "canStartWithout": boolean,
+    "canStartWithoutNote": "string — what can start safely and what remains blocked",
+    "nextToCreate": ["string — next assets to prepare"]
+  },
 
   "valueProps": ["string — 3-5 value propositions"],
   "doNotDoYet": ["string — 3-5 specific traps to avoid"],
