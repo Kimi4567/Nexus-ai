@@ -162,7 +162,11 @@ export async function runFullAgency(
     //     "Increase by 20%" leaked through. This strips unsupported performance
     //     numbers from KPI targets / success metrics / estimated results, keeping
     //     only user/analytics-provided numbers (allowedNumbers) and calendar timeframes.
-    strategy = guardStrategyKpis(strategy as unknown as Record<string, unknown>, allowedNumbers) as unknown as StrategyOutput
+    strategy = guardStrategyKpis(
+      strategy as unknown as Record<string, unknown>,
+      allowedNumbers,
+      { language: brief.language },
+    ) as unknown as StrategyOutput
     // GEN-TRUTH1 — deterministic proof guard. Prompt policy prevents most issues;
     // this backstop keeps unsupported testimonials/customer stories/awards from
     // being persisted when Brand Brain has no verified proof.

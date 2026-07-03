@@ -70,6 +70,15 @@ describe('guardKpiTarget — strips unsupported performance numbers', () => {
     // a different invented number is still scrubbed even when another is allowed
     expect(guardKpiTarget('Hit 30% growth on the $1,000 budget', ['$1,000 / month'])).toMatch(/baseline needed/i)
   })
+
+  it('returns Arabic-safe fallback text when Arabic output is selected', () => {
+    expect(guardKpiTarget('Generate 50 leads', [], { language: 'ar' })).toBe(
+      'توليد — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
+    )
+    expect(guardKpiTarget('25% more engagement', [], { language: 'ar' })).toBe(
+      'نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
+    )
+  })
 })
 
 describe('guardResultText — free-text estimated results', () => {
@@ -82,6 +91,11 @@ describe('guardResultText — free-text estimated results', () => {
   it('leaves clean directional text unchanged', () => {
     const clean = 'Build consistent organic presence and a repeatable content rhythm.'
     expect(guardResultText(clean)).toBe(clean)
+  })
+  it('uses Arabic-safe replacement for multiplier claims in Arabic mode', () => {
+    const out = guardResultText('Aim to double current monthly requests in 30 days', [], { language: 'ar' })
+    expect(out).toContain('هدف أداء يحتاج إلى خط أساس')
+    expect(out).not.toContain('baseline-needed')
   })
 })
 
@@ -109,6 +123,25 @@ describe('guardStrategyKpis — full strategy object', () => {
     expect(g.estimatedResults).not.toMatch(/3x|ROAS/i)
     expect(g.estimatedResults).toContain('30 days')
     expect(g.positioning).toBe('unchanged field')        // non-KPI fields untouched
+  })
+
+  it('keeps Arabic strategy KPI fallbacks inside the Arabic language contract', () => {
+    const strategy = {
+      kpis: [
+        { metric: 'طلبات واتساب', target: 'Generate 50 leads', timeframe: '30 days', isHypothesis: false },
+      ],
+      successMetricsDetailed: [
+        { category: 'conversion', metric: 'استفسارات', target: 'Improve by 15%', timeframe: '30 days' },
+      ],
+      estimatedResults: 'Aim to double current monthly requests in 30 days',
+    }
+    const g = guardStrategyKpis(strategy, [], { language: 'ar' })
+    expect(g.kpis[0].target).toBe('توليد — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
+    expect((g.successMetricsDetailed[0] as { target: string }).target).toBe(
+      'تحسين — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
+    )
+    expect(g.estimatedResults).toContain('هدف أداء يحتاج إلى خط أساس')
+    expect(JSON.stringify(g)).not.toMatch(/baseline needed|target to define|performance target/)
   })
 
   it('handles missing / odd shapes safely', () => {

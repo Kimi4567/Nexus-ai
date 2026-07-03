@@ -32,6 +32,7 @@ const {
     workspace: { findFirst: vi.fn() },
     brandProfile: { findUnique: vi.fn() },
     user: { findUnique: vi.fn(), update: vi.fn() },
+    creditTransaction: { create: vi.fn() },
     media: { findMany: vi.fn() },
     campaign: { findFirst: vi.fn() },
   },
@@ -89,6 +90,7 @@ beforeEach(() => {
   })
   mockPrisma.user.findUnique.mockResolvedValue({ preferences: {} })
   mockPrisma.user.update.mockResolvedValue({})
+  mockPrisma.creditTransaction.create.mockResolvedValue({})
   mockPrisma.media.findMany.mockResolvedValue([])
   mockPrisma.campaign.findFirst.mockResolvedValue({ id: 'camp1', name: 'New Strategy' })
   mockRunFullAgency.mockResolvedValue({ strategyCreated: true, agentRunId: 'run1', suggestions: 3, errors: [] })
@@ -159,6 +161,15 @@ describe('POST /api/strategy/run-full — variable charge', () => {
         data: { aiCredits: { increment: 18 } },
       }),
     )
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'u1',
+        action: 'REFUND',
+        amount: 18,
+        entityType: 'refund',
+        description: expect.stringContaining('Run Full Strategy failed'),
+      }),
+    })
   })
 
   it('refunds the exact deducted amount when orchestration throws after credit deduction', async () => {
@@ -180,6 +191,15 @@ describe('POST /api/strategy/run-full — variable charge', () => {
         data: { aiCredits: { increment: 10 } },
       }),
     )
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'u1',
+        action: 'REFUND',
+        amount: 10,
+        entityType: 'refund',
+        description: expect.stringContaining('Run Full Strategy exception'),
+      }),
+    })
     expect(json.ok).toBe(false)
     expect(json.refunded).toBe(true)
     expect(json.creditsRemaining).toBe(355)
@@ -221,6 +241,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
   })
 
   // ── B1c-c-1 — refund path selection by CREDIT_WALLET_ENABLED ───────────────
@@ -235,6 +256,14 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'u1' }, data: { aiCredits: { increment: 18 } } }),
     )
+    expect(mockPrisma.creditTransaction.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: 'u1',
+        action: 'REFUND',
+        amount: 18,
+        entityType: 'refund',
+      }),
+    })
     expect(mockRefundForTxn).not.toHaveBeenCalled()
   })
 
@@ -251,6 +280,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     )
     // Wallet path must NOT also run the scalar increment.
     expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
   })
 
   it('flag ON but no transactionId → falls back to scalar increment', async () => {
