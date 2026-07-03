@@ -33,6 +33,7 @@ import {
 } from '@/lib/campaignRoomTabs'
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 
 interface Activity {
   id: string
@@ -851,7 +852,12 @@ function CampaignDetailPageInner() {
   }
 
   const aiOutput = campaign.aiOutput as any
-  const strategy = guardStrategyOutputContract(aiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as any
+  const strategyLanguage = typeof aiOutput?.language === 'string' ? aiOutput.language : locale
+  const strategy = guardStrategyKpis(
+    guardStrategyOutputContract(aiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as Record<string, unknown>,
+    [],
+    { language: strategyLanguage },
+  ) as any
   const topHooks: string[] = aiOutput?.topHooks || strategy.topHooks || []
   const ctaVariations: string[] = aiOutput?.ctaVariations || strategy.ctaVariations || []
   const captionFormulas: string[] = aiOutput?.captionFormulas || []
