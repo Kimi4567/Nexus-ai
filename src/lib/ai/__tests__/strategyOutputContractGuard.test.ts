@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
+import { validateCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 
 describe('guardStrategyOutputContract', () => {
   const allowed = ['INSTAGRAM', 'TIKTOK', 'FACEBOOK']
@@ -109,7 +110,39 @@ describe('guardStrategyOutputContract', () => {
         { title: 'Dashboard Insights', platform: 'LinkedIn', cta: 'Download now' },
       ],
       funnelStages: [
-        { stage: 'conversion', platform: 'LinkedIn', cta: 'Download now' },
+        {
+          stage: 'conversion',
+          userMindset: 'Ready to compare options',
+          message: 'Review the workflow before committing',
+          contentType: 'Carousel',
+          platform: 'LinkedIn',
+          cta: 'Download now',
+          successMetric: 'Qualified interest needs a baseline',
+          nextStep: 'Ask for workflow fit details',
+          productArea: 'Conversion',
+        },
+        {
+          stage: 'awareness',
+          userMindset: 'Recognizes the problem',
+          message: 'Understand the workflow gap',
+          contentType: 'Short post',
+          platform: 'LinkedIn',
+          cta: 'Download now',
+          successMetric: 'Engagement needs a baseline',
+          nextStep: 'Review educational response quality',
+          productArea: 'Education',
+        },
+        {
+          stage: 'consideration',
+          userMindset: 'Comparing workflow options',
+          message: 'See a practical path',
+          contentType: 'Carousel',
+          platform: 'LinkedIn',
+          cta: 'Download now',
+          successMetric: 'Interest needs a baseline',
+          nextStep: 'Qualify the request manually',
+          productArea: 'Consideration',
+        },
       ],
       channelMix: [
         { platform: 'LinkedIn', rationale: 'Professional audience' },
@@ -127,6 +160,110 @@ describe('guardStrategyOutputContract', () => {
     expect(out.funnelStages[0].cta).toBe('Request more information')
     expect(out.channelMix.map((c: any) => c.platform)).toEqual(['Facebook', 'YouTube Shorts'])
     expect(out.weeklyExecutionPlan[0].platforms).toEqual(['Facebook', 'YouTube Shorts'])
+  })
+
+  it('backfills weak Arabic funnel stages and KPIs with review-safe operating fields', () => {
+    const strategy = {
+      campaignName: 'استراتيجية نمو عضوي لـ ClinicFlow AI',
+      goal: 'LEADS',
+      positioning: 'ClinicFlow AI هي منصة تشغيل للعيادات الصغيرة التي تحتاج وضوحًا يوميًا بدون ادعاءات طبية.',
+      keyMessage: 'تنظيم العمل اليومي يجعل المتابعة أوضح للفريق.',
+      differentiation: 'دعم سير عمل ثنائي اللغة للعيادات الصغيرة والمتوسطة.',
+      targetAudienceRefined: 'مديرو عيادات وفرق استقبال يحتاجون تنظيم الحجوزات والمتابعة.',
+      diagnosis: 'العيادة لديها فرصة محتوى عضوي لكن تحتاج إثباتات موثقة قبل أي ادعاء أداء.',
+      nextBestAction: 'راجع أول سبعة اتجاهات منشورات قبل إنشاء مسودات Content Hub.',
+      estimatedResults: 'تحتاج النتائج إلى خط أساس بعد أول ٣٠ يومًا.',
+      readyForPaidAdsReason: 'تشغيل الاستراتيجية عضوي فقط؛ التخطيط المدفوع يحتاج مراجعة منفصلة.',
+      businessObjective: {
+        primary: 'طلبات عروض توضيحية مؤهلة',
+        marketing: 'شرح سير العمل',
+        conversionAction: 'طلب عرض توضيحي',
+        expectedUserAction: 'مراجعة العرض',
+        whyNow: 'الفريق يحتاج وضوحًا تشغيليًا',
+        successIn30Days: 'تحديد خط أساس للطلبات والتفاعل',
+      },
+      diagnosisDetails: {
+        stage: 'early-stage',
+        bottleneck: 'عدم وضوح سير المتابعة',
+        trustGap: 'إثباتات موثقة غير مكتملة',
+        offerClarity: 'clear',
+        contentGap: 'لا توجد مكتبة أمثلة تشغيلية كافية',
+        assetReadiness: 'تحتاج لقطات شاشة وأصول مراجعة',
+        conversionReadiness: 'مسار العرض يحتاج تأكيد مسؤول الرد',
+        readyForPaidAds: false,
+        readyForPaidAdsReason: 'تشغيل الاستراتيجية عضوي فقط',
+        mainRisk: 'استخدام ادعاءات طبية أو نتائج مضمونة',
+      },
+      confidenceReport: { overall: 'medium', byCapability: { contentStrategy: 'high' } },
+      contentPillars: ['تنظيم الحجوزات', 'متابعة المرضى', 'وضوح الإدارة'],
+      topHooks: ['هل تضيع المتابعة بين الفريق؟', 'كيف تبدأ العيادة يومها بوضوح؟', 'سير عمل أبسط قبل نهاية اليوم'],
+      ctaVariations: ['اطلب عرضًا توضيحيًا', 'راجع سير العمل', 'شاهد المثال العملي'],
+      audienceSegmentsDetailed: [
+        {
+          segment: 'مدير عيادة صغيرة',
+          situation: 'يتابع الفريق يدويًا',
+          pain: 'المهام تتشتت بين الأدوات',
+          desiredOutcome: 'رؤية يومية أوضح',
+          objection: 'لا يريد أداة معقدة',
+          message: 'ابدأ بسير متابعة قابل للمراجعة',
+          platform: 'LinkedIn',
+          format: 'كاروسيل',
+          cta: 'اطلب عرضًا توضيحيًا',
+        },
+        {
+          segment: 'فريق استقبال',
+          situation: 'يرسل تذكيرات ويتابع الردود',
+          pain: 'التواصل غير موحد',
+          desiredOutcome: 'قوالب عملية واضحة',
+          objection: 'يخاف من تغيير workflow اليومي',
+          message: 'التنظيم يساعد الفريق ولا يستبدله',
+          platform: 'Instagram',
+          format: 'ريل قصير',
+          cta: 'راجع سير العمل',
+        },
+      ],
+      contentAnglesDetailed: [
+        { title: 'بداية يوم العيادة', hook: 'ماذا يحدث قبل أول موعد؟', pain: 'عدم وضوح اليوم', format: 'كاروسيل', platform: 'LinkedIn', cta: 'راجع سير العمل', asset: 'لقطة سير عمل', funnelStage: 'awareness' },
+        { title: 'تذكيرات المواعيد', hook: 'التذكير ليس مجرد رسالة', pain: 'تأخر التذكير', format: 'ريل', platform: 'Instagram', cta: 'اطلب عرضًا', asset: 'خلفية عيادة', funnelStage: 'consideration' },
+        { title: 'مسؤولية المتابعة', hook: 'من يتابع بعد الموعد؟', pain: 'تشتت المسؤولية', format: 'منشور', platform: 'LinkedIn', cta: 'شاهد المثال', asset: 'مخطط بسيط', funnelStage: 'consideration' },
+        { title: 'عرض توضيحي عملي', hook: 'شاهد سير العمل قبل الالتزام', pain: 'غموض الخطوة التالية', format: 'منشور CTA', platform: 'LinkedIn', cta: 'احجز عرضًا', asset: 'سكرين mockup', funnelStage: 'conversion' },
+      ],
+      weeklyExecutionPlan: [
+        { week: 1, objective: 'شرح المشكلة', keyMessage: 'وضوح اليوم يبدأ من سير العمل', deliverables: ['2 منشورات تعليمية عن بداية يوم العيادة'], platforms: ['LinkedIn'], cta: 'راجع سير العمل', successMetric: 'تفاعل يحتاج خط أساس' },
+        { week: 2, objective: 'شرح الحل', keyMessage: 'التذكير والمتابعة عمل منظم', deliverables: ['2 منشورات عن التذكيرات والمتابعة'], platforms: ['Instagram'], cta: 'اطلب عرضًا', successMetric: 'طلبات اهتمام تحتاج خط أساس' },
+        { week: 3, objective: 'تخفيف الاعتراض', keyMessage: 'الأداة لا تستبدل الفريق', deliverables: ['2 منشورات عن مسؤولية الفريق'], platforms: ['LinkedIn'], cta: 'شاهد المثال', successMetric: 'ردود تحتاج خط أساس' },
+        { week: 4, objective: 'دعوة للعرض', keyMessage: 'راجع workflow قبل القرار', deliverables: ['1 منشور CTA لعرض توضيحي'], platforms: ['LinkedIn'], cta: 'احجز عرضًا', successMetric: 'طلبات عرض تحتاج خط أساس' },
+      ],
+      funnelStages: [
+        { stage: 'awareness', message: 'ضعيف' },
+      ],
+      kpis: [],
+      readinessChecklist: [
+        { label: 'تأكيد مسؤول الرد قبل تحويل الطلبات إلى تنفيذ', done: false },
+        { label: 'تجهيز أصول بصرية حقيقية قبل إنشاء المسودات', done: false },
+        { label: 'جمع إثباتات موثقة قبل استخدام قصص العملاء', done: false },
+      ],
+      riskNotes: ['غياب الإثباتات الموثقة'],
+      assumptions: ['لا توجد بيانات أداء تاريخية'],
+      missingData: [],
+    }
+
+    const out = guardStrategyOutputContract(strategy, {
+      allowedPlatforms: ['LINKEDIN', 'INSTAGRAM', 'YOUTUBE_SHORTS'],
+      language: 'ar',
+      strategyType: 'organic',
+    })
+
+    expect(out.kpis).toHaveLength(2)
+    expect(JSON.stringify(out.kpis)).toMatch(/تحديد خط أساس/)
+    expect(out.funnelStages).toHaveLength(4)
+    expect(JSON.stringify(out.funnelStages)).toMatch(/عرض توضيحي/)
+    expect(JSON.stringify(out)).not.toMatch(/Campaign active|published|scheduled|guaranteed|ROI|ROAS/)
+
+    const report = validateCampaignStrategyContract(out, { language: 'ar' })
+    expect(report.valid).toBe(true)
+    expect(report.weakFields).not.toContain('funnelStages')
+    expect(report.weakFields).not.toContain('kpis')
   })
 })
 
