@@ -176,6 +176,20 @@ describe('buildStrategistPrompts — content intensity / plan cap', () => {
     expect(s).toMatch(/must not claim that assets, proof, tracking, publishing, scheduling, or platform setup are already complete/)
   })
 
+  it('requires an agency-grade operating brief instead of generic strategy prose', () => {
+    const b = briefWith(order('organic', 'standard', '30'))
+    const { systemPrompt, userPrompt } = buildStrategistPrompts(b)
+
+    expect(systemPrompt).toMatch(/PROFESSIONAL STRATEGY OPERATING BRIEF CONTRACT/)
+    expect(systemPrompt).toMatch(/agency-grade operating brief for a real marketing team/)
+    expect(systemPrompt).toMatch(/handoff after the CTA/)
+    expect(systemPrompt).toMatch(/response\/follow-up handoff/)
+    expect(systemPrompt).toMatch(/proof\/compliance boundaries/)
+    expect(systemPrompt).toMatch(/Do not use theme-only deliverables/)
+    expect(userPrompt).toMatch(/response owner\/follow-up handoff/)
+    expect(userPrompt).toMatch(/what a marketer should check before repeating or scaling/)
+  })
+
   it('adds an Arabic binding rule for Arabic strategy output', () => {
     const b = briefWith({ ...order('organic', 'standard', '30'), language: 'ar' })
     b.language = 'ar'

@@ -425,6 +425,18 @@ export function buildStrategistPrompts(
   const allowedPlatformLine = brief.currentPlatforms?.length
     ? `Allowed content platforms from Brand Brain: ${brief.currentPlatforms.join(', ')}. Use ONLY these platforms in channelMix, contentAnglesDetailed.platform, audienceSegmentsDetailed.platform, funnelStages.platform, and weeklyExecutionPlan.platforms. Do not add Pinterest, LinkedIn, blog, website, or any other platform unless it appears in this allowed list. If another platform is strategically interesting, mention it only as a future consideration, not an execution channel.`
     : ''
+  const professionalOperatingBriefContract = [
+    '',
+    '',
+    'PROFESSIONAL STRATEGY OPERATING BRIEF CONTRACT (binding):',
+    '- Treat the output as an agency-grade operating brief for a real marketing team, not a motivational essay.',
+    '- Each audience segment must be executable: specific role/situation, concrete pain, desired outcome, objection, message, platform, format, and CTA. Avoid vague segment names like "busy professionals" unless the brief truly supports them.',
+    '- Every funnel stage must explain the handoff after the CTA: what the user should do next, what the brand/team must respond with, and what must be reviewed before scaling.',
+    '- Weekly execution deliverables must be countable post directions tied to a segment, message, format, platform, CTA, asset need, and review point. Do not use theme-only deliverables.',
+    '- If lead handling, conversion destination, proof, analytics, competitors, or budget are missing, turn them into explicit operating gaps and review tasks. Never fill those gaps with invented facts.',
+    '- Include practical proof/compliance boundaries: what claims cannot be made yet, what proof assets must be collected, and which messages should stay educational until evidence exists.',
+    '- Use sober, implementation-ready language. Prefer "validate", "review", "prepare", "collect", "test message clarity", and "follow up" over hype or certainty.',
+  ].join('\n')
 
   // ── PR-S1c-3 — binding scope from the deterministic deliverables contract. The
   //    counts/scope come from getStrategyDeliverables — never from the model. This
@@ -462,7 +474,7 @@ export function buildStrategistPrompts(
     : ''
 
   const systemPrompt = `${langInstruction}
-${planContext}${bindingScope}${arabicOutputContract}
+${planContext}${bindingScope}${arabicOutputContract}${professionalOperatingBriefContract}
 
 You are an expert marketing strategist. Build a complete, specific, actionable marketing strategy for the brand below.
 
@@ -472,7 +484,7 @@ RULES:
 - Hooks must be scroll-stopping, not clichéd
 - Weekly plan = real deliverables ("3 Reels scripts about X", not "create content")
 - Every weekly deliverable must be countable and concrete, not a generic task like "post consistently", "build awareness", or "increase engagement"
-- Every audience segment, content angle, and funnel stage must include the operational fields needed to execute: pain, message, platform, format/content type, CTA, and next step where applicable
+- Every audience segment, content angle, and funnel stage must include the operational fields needed to execute: situation, pain, desired outcome, objection, message, platform, format/content type, CTA, next step, asset need, review point, and response/follow-up handoff where applicable
 - readinessChecklist must contain at least 3 concrete, review-safe pre-execution items. They must all have done=false and must not claim that assets, proof, tracking, publishing, scheduling, or platform setup are already complete unless provided.
 - Never use: transform / unlock / game-changer / cutting-edge / leverage / maximize ROI
 - All text must follow the language instruction above
@@ -588,10 +600,10 @@ Return JSON with these exact fields — all specific to this brand:
       "pain": "string",
       "desiredOutcome": "string",
       "objection": "string",
-      "message": "string",
+      "message": "string — message this segment should believe before the CTA",
       "platform": "string",
       "format": "string",
-      "cta": "string"
+      "cta": "string — realistic next action; avoid unsupported downloads"
     }
   ],
 
@@ -605,7 +617,7 @@ Return JSON with these exact fields — all specific to this brand:
       "format": "string",
       "platform": "string",
       "cta": "string",
-      "asset": "string — visual or proof asset needed",
+      "asset": "string — visual or proof asset needed before this can be produced confidently",
       "funnelStage": "awareness|consideration|conversion"
     }
   ],
@@ -627,8 +639,8 @@ Return JSON with these exact fields — all specific to this brand:
       "assetsNeeded": ["string"],
       "cta": "string",
       "successMetric": "string",
-      "executionNote": "string",
-      "reviewPoints": ["string"]
+      "executionNote": "string — include response owner/follow-up handoff if a lead action is requested",
+      "reviewPoints": ["string — what a marketer should check before repeating or scaling"]
     },
     { "week": 2, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" },
     { "week": 3, "objective": "string", "keyMessage": "string", "deliverables": ["string"], "platforms": ["string"], "cta": "string", "successMetric": "string" },
@@ -654,7 +666,7 @@ Return JSON with these exact fields — all specific to this brand:
     "readyForPaidAds": boolean, "readyForPaidAdsReason": "string", "mainRisk": "string"
   },
   "funnelStages": [
-    { "stage": "awareness|consideration|conversion|followUp", "userMindset": "string", "message": "string", "contentType": "string", "platform": "string", "cta": "string", "successMetric": "string", "nextStep": "string", "productArea": "string" }
+    { "stage": "awareness|consideration|conversion|followUp", "userMindset": "string", "message": "string", "contentType": "string", "platform": "string", "cta": "string", "successMetric": "string", "nextStep": "string — include handoff after the CTA and what the team must do next", "productArea": "string" }
   ],
   "kpis": [
     { "metric": "string", "target": "string — NO invented performance numbers; a goal to validate", "timeframe": "string", "isHypothesis": true }
