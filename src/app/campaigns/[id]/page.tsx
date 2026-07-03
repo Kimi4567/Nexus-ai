@@ -31,7 +31,14 @@ import {
   campaignRoomTabIndexFromQuery,
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
-import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
+import {
+  derivePostCreativeRequirement,
+  summarizeCreativeRequirements,
+} from '@/lib/creativeRequirements'
+import { deriveCreativeCompositionPlan } from '@/lib/creativeComposition'
+import { deriveCreativeCompositionPreview } from '@/lib/creativeCompositionPreview'
+import { deriveCreativeCompositionPreviewCandidate } from '@/lib/creativeCompositionPreviewSurface'
+import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 
 interface Activity {
   id: string
@@ -1153,6 +1160,59 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const compositionPreviewCandidateResult = deriveCreativeCompositionPreviewCandidate(
+    campaignPosts.map((post: any) => ({
+      id: post.id,
+      platform: post.platform,
+      caption: post.caption,
+      imageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId,
+      mediaSource: post.mediaSource,
+      generationStatus: post.generationStatus,
+    })),
+  )
+  const compositionPreviewCandidate = compositionPreviewCandidateResult.candidate
+  const creativeCompositionPreview = (() => {
+    if (!compositionPreviewCandidate) return null
+    const post = compositionPreviewCandidate.post
+    const brandCreativeData = brandDNA as (BrandDNAData & {
+      logoUrl?: string | null
+      colorPalette?: string[] | string | null
+    }) | null
+    const requirement = derivePostCreativeRequirement({
+      postId: post.id,
+      platform: post.platform,
+      caption: post.caption,
+      status: campaign.status,
+      imageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId,
+      mediaSource: post.mediaSource,
+      generationStatus: post.generationStatus,
+      campaignGoal: campaign.goal,
+      campaignName: campaign.name,
+      brandName: brandCreativeData?.brandName,
+      language: locale,
+    })
+    const template = getDefaultTemplateForPlatform(requirement.platform)
+    const plan = deriveCreativeCompositionPlan({
+      postId: post.id,
+      postCaption: post.caption,
+      brandName: brandCreativeData?.brandName || campaign.name,
+      logoUrl: brandCreativeData?.logoUrl || null,
+      colorPalette: brandCreativeData?.colorPalette || null,
+      language: locale,
+      creativeRequirement: requirement,
+      creativeTemplate: template,
+      backgroundImageUrl: post.imageUrl,
+      uploadedMediaId: post.uploadedMediaId || null,
+    })
+    const preview = deriveCreativeCompositionPreview({
+      plan,
+      options: { locale: locale === 'ar' ? 'ar' : 'en', previewMode: 'review' },
+    })
+
+    return { post, requirement, template, plan, preview, candidate: compositionPreviewCandidate }
+  })()
 
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
@@ -3017,6 +3077,162 @@ function CampaignDetailPageInner() {
                       ? 'Content Hub هو مكان مراجعة وربط وسائط المنشورات النهائية. Creative Studio مساحة مستقبلية تبدأ لاحقاً من منشور محدد لطبقات النص والشعار وCTA، ولا تنشر أو تطلق إعلانات.'
                       : 'Content Hub is where final post media is reviewed and attached. Creative Studio is a future context-first workspace opened later from a specific post for headline, logo, and CTA layers; it does not publish or launch ads.'}
                   </p>
+                </div>
+
+                <div className="rounded-2xl border border-sky-100 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-sky-600">
+                        {locale === 'ar' ? 'خطة تركيب إبداعي — للمراجعة فقط' : 'Composition plan — review only'}
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold text-slate-950">
+                        {locale === 'ar' ? 'مخطط طبقات قابل للتعديل لاحقاً' : 'Future editable layer blueprint'}
+                      </h3>
+                      <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+                        {locale === 'ar'
+                          ? 'هذه خطة للطبقات القابلة للتعديل لاحقًا. ليست تصميمًا إعلانيًا مُصدّرًا، وليست مرتبطة بالمنشور، وليست نسخة نهائية.'
+                          : 'This is a planning blueprint for future editable layers. It is not a rendered ad, not attached to the post, and not final creative.'}
+                      </p>
+                    </div>
+                    <span className="inline-flex w-fit rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700">
+                      draft_composition_plan
+                    </span>
+                  </div>
+
+                  {creativeCompositionPreview ? (
+                    <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(300px,1.1fr)]">
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'تصنيف المخرَج' : 'Output classification'}
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                              {creativeCompositionPreview.candidate.outputClassification}
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                            {locale === 'ar' ? 'مراجعة فقط' : 'review-only'}
+                          </span>
+                        </div>
+
+                        <p className="mt-4 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
+                          {locale === 'ar'
+                            ? creativeCompositionPreview.candidate.planCopy.ar
+                            : creativeCompositionPreview.candidate.planCopy.en}
+                        </p>
+
+                        <div className="mt-4 grid gap-3">
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'المنشور المختار' : 'Selected post'}
+                            </p>
+                            <p className="mt-1 break-all text-xs font-semibold text-slate-800">
+                              {creativeCompositionPreview.post.id}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'المنصة والقالب' : 'Platform + template'}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-800">
+                              {creativeCompositionPreview.requirement.platform} · {creativeCompositionPreview.template.templateName}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">
+                              {creativeCompositionPreview.template.aspectRatio} · {creativeCompositionPreview.template.width}×{creativeCompositionPreview.template.height}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {locale === 'ar' ? 'مصدر الخلفية' : 'Background source'}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-800">
+                              {creativeCompositionPreview.candidate.backgroundSource === 'uploaded_asset'
+                                ? (locale === 'ar' ? 'أصل مرفوع ومؤكد' : 'confirmed uploaded asset')
+                                : (locale === 'ar' ? 'خلفية مولّدة مؤكدة' : 'confirmed generated background')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            {locale === 'ar' ? 'مخطط الطبقات' : 'Layer blueprint'}
+                          </p>
+                          <div className="mt-3 grid gap-2">
+                            {creativeCompositionPreview.preview.layers
+                              .filter(layer => ['background', 'headline', 'cta', 'logo_or_brand_name', 'subheading'].includes(layer.role))
+                              .map(layer => (
+                                <div key={layer.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold text-slate-800">
+                                      {layer.role === 'logo_or_brand_name'
+                                        ? (locale === 'ar' ? 'طبقة العلامة' : 'Brand layer')
+                                        : layer.role === 'headline'
+                                          ? (locale === 'ar' ? 'طبقة العنوان' : 'Headline layer')
+                                          : layer.role === 'cta'
+                                            ? (locale === 'ar' ? 'طبقة CTA' : 'CTA layer')
+                                            : layer.role === 'subheading'
+                                              ? (locale === 'ar' ? 'طبقة السياق' : 'Context layer')
+                                              : (locale === 'ar' ? 'الخلفية' : 'Background')}
+                                    </p>
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                      layer.safeZoneCompliant
+                                        ? 'bg-emerald-50 text-emerald-700'
+                                        : 'bg-amber-50 text-amber-700'
+                                    }`}>
+                                      {layer.safeZoneCompliant
+                                        ? (locale === 'ar' ? 'منطقة آمنة' : 'safe zone')
+                                        : (locale === 'ar' ? 'تحتاج مراجعة' : 'review needed')}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-[11px] text-slate-500">
+                                    {layer.role === 'background'
+                                      ? (locale === 'ar' ? 'أصل خلفية فقط؛ ليس تصميمًا مُصدّرًا.' : 'Background asset only; not an exported creative.')
+                                      : layer.role === 'logo_or_brand_name'
+                                        ? (layer.content.text
+                                            ? (locale === 'ar' ? `اسم العلامة كبديل للشعار: ${layer.content.text}` : `Brand-name fallback because no logo is available: ${layer.content.text}`)
+                                            : (locale === 'ar' ? 'موضع شعار قابل للتعديل لاحقًا.' : 'Future editable logo slot.'))
+                                        : (layer.content.text
+                                            ? layer.content.text
+                                            : (locale === 'ar' ? 'طبقة قابلة للتعديل لاحقًا.' : 'Future editable layer.'))}
+                                  </p>
+                                  <p className="mt-1 text-[10px] text-slate-400">
+                                    {layer.editable
+                                      ? (locale === 'ar' ? 'بيانات طبقة قابلة للتعديل لاحقًا' : 'future editable layer metadata')
+                                      : (locale === 'ar' ? 'مرجع الخلفية فقط' : 'background reference only')}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+
+                        <p className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+                          {locale === 'ar'
+                            ? 'هذه خطة قراءة فقط وليست معاينة إعلان نهائي. لا توجد أزرار ربط أو رفع أو حفظ أو تصدير أو توليد أو نشر أو جدولة في هذه البطاقة.'
+                            : 'This is a read-only plan, not a rendered or exported creative. This card has no attach, upload, save, export, generate, publish, or schedule action.'}
+                        </p>
+
+                        <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                          {locale === 'ar'
+                            ? 'Content Hub يظل مصدر الحقيقة لوسائط المنشورات النهائية. هذه الخطة ليست قيمة SocialPost.imageUrl، ولا تُرفق تلقائياً، وسيعالج Creative Studio المستقبلي الطبقات القابلة للتعديل لاحقاً.'
+                            : 'Content Hub remains the source of truth for final post media. This plan is not SocialPost.imageUrl, is not attached automatically, and future Creative Studio work will handle editable layers later.'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm leading-6 text-slate-600">
+                      {locale === 'ar'
+                        ? compositionPreviewCandidateResult.emptyStateCopy.ar
+                        : compositionPreviewCandidateResult.emptyStateCopy.en}
+                      <span className="mt-2 block text-[11px] text-slate-500">
+                        {locale === 'ar'
+                          ? 'لا يوجد زر توليد هنا. عند توفر خلفية مؤكدة، ستظهر معاينة قراءة فقط في هذا التبويب.'
+                          : 'There is no generation button here. Once a confirmed background exists, a read-only preview appears in this tab.'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Creative Brief Entry Card — Sprint F ── */}

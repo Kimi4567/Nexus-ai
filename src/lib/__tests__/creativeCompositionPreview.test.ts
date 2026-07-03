@@ -64,6 +64,17 @@ function expectValidationPass(preview: ReturnType<typeof deriveCreativeCompositi
   expect(preview.validations.find(validation => validation.id === id)?.passed).toBe(true)
 }
 
+function previewPanel(svg: string, role: string): { x: number; y: number; width: number; height: number } {
+  const match = svg.match(new RegExp(`data-preview-layer-panel="${role}"[^>]*x="([^"]+)"[^>]*y="([^"]+)"[^>]*width="([^"]+)"[^>]*height="([^"]+)"`))
+  expect(match).toBeTruthy()
+  return {
+    x: Number(match?.[1]),
+    y: Number(match?.[2]),
+    width: Number(match?.[3]),
+    height: Number(match?.[4]),
+  }
+}
+
 describe('deriveCreativeCompositionPreview', () => {
   it('creates draft_composition_preview from a valid CreativeCompositionPlan', () => {
     const plan = validPost3Plan()
@@ -149,7 +160,7 @@ describe('deriveCreativeCompositionPreview', () => {
     expect(brandLayer?.type).toBe('logo_or_brand_name')
     expect(brandLayer?.editable).toBe(true)
     expect(brandLayer?.content.text).toBe('Cairo Bloom Coffee')
-    expect(preview.artifact.svg).toContain('Cairo Bloom Coffee')
+    expect(preview.artifact.svg).toContain('Cairo Bloom')
     expectValidationPass(preview, 'logo_or_brand_name_fallback')
   })
 
@@ -171,7 +182,8 @@ describe('deriveCreativeCompositionPreview', () => {
     expect(headline?.content.text).toBe('قهوة صباحية أكثر اتساقًا <للفريق>')
     expect(headline?.content.renderMode).toBe('composited_text')
     expect(headline?.content.aiRenderedText).toBe(false)
-    expect(preview.artifact.svg).toContain('قهوة صباحية أكثر اتساقًا &lt;للفريق&gt;')
+    expect(preview.artifact.svg).toContain('قهوة صباحية أكثر')
+    expect(preview.artifact.svg).toContain('اتساقًا &lt;للفريق&gt;')
     expect(preview.artifact.svg).toContain('direction="rtl"')
     expectValidationPass(preview, 'arabic_text_remains_editable_metadata')
   })
@@ -186,7 +198,8 @@ describe('deriveCreativeCompositionPreview', () => {
       }),
     })
 
-    expect(preview.artifact.svg).toContain('Coffee &lt;script&gt;alert("x")&lt;/script&gt; &amp; safer breaks')
+    expect(preview.artifact.svg).toContain('Coffee')
+    expect(preview.artifact.svg).toContain('&lt;script&gt;alert("x")&lt;/script&gt;')
     expect(preview.artifact.svg).toContain('Review "options" &amp; plans')
     expect(preview.artifact.svg).not.toContain('<script>')
   })
@@ -212,6 +225,78 @@ describe('deriveCreativeCompositionPreview', () => {
     expect(check?.passed).toBe(false)
     expect(check?.message).toContain('headline')
     expect(preview.artifact.svg).toContain('stroke="#ef4444"')
+  })
+
+  it('clamps and truncates long headline text inside the canvas', () => {
+    const preview = deriveCreativeCompositionPreview({
+      plan: validPost3Plan({
+        creativeRequirement: {
+          headlineLayer: 'A very long office coffee planning headline that should wrap safely instead of running off the edge of the preview canvas',
+        },
+      }),
+    })
+    const headlineLayer = preview.layers.find(layer => layer.role === 'headline')
+    const headlinePanel = previewPanel(preview.artifact.svg, 'headline')
+
+    expect(headlineLayer?.render.x).toBeGreaterThanOrEqual(0)
+    expect(headlineLayer?.render.y).toBeGreaterThanOrEqual(0)
+    expect((headlineLayer?.render.x || 0) + (headlineLayer?.render.width || 0)).toBeLessThanOrEqual(preview.canvas.width)
+    expect(headlinePanel.x + headlinePanel.width).toBeLessThanOrEqual(preview.canvas.width)
+    expect(headlinePanel.y + headlinePanel.height).toBeLessThanOrEqual(preview.canvas.height)
+    expect(preview.artifact.svg).toContain('…')
+  })
+
+  it('keeps brand-name fallback panel inside the canvas safe zone', () => {
+    const preview = deriveCreativeCompositionPreview({
+      plan: validPost3Plan({
+        brandName: 'Cairo Bloom Coffee Roasters and Office Coffee Planning',
+        logoUrl: null,
+      }),
+    })
+    const brandLayer = preview.layers.find(layer => layer.role === 'logo_or_brand_name')
+    const brandPanel = previewPanel(preview.artifact.svg, 'logo_or_brand_name')
+
+    expect(brandLayer?.content.text).toContain('Cairo Bloom Coffee')
+    expect(brandPanel.x).toBeGreaterThanOrEqual(0)
+    expect(brandPanel.x + brandPanel.width).toBeLessThanOrEqual(preview.canvas.width)
+    expect(brandPanel.y + brandPanel.height).toBeLessThanOrEqual(preview.canvas.height)
+    expect(preview.artifact.svg).toContain('…')
+  })
+
+  it('renders CTA text with a readable minimum size', () => {
+    const preview = deriveCreativeCompositionPreview({ plan: validPost3Plan() })
+
+    expect(preview.artifact.svg).toMatch(/data-preview-layer-panel="cta"/)
+    expect(preview.artifact.svg).toMatch(/font-size="2[2-9]|font-size="30"/)
+    expect(preview.artifact.svg).toContain('Review options')
+  })
+
+  it('does not render filled full-layer debug placeholder blocks in normal preview mode', () => {
+    const preview = deriveCreativeCompositionPreview({ plan: validPost3Plan() })
+    const headlineLayer = preview.layers.find(layer => layer.role === 'headline')
+    const headlinePanel = previewPanel(preview.artifact.svg, 'headline')
+
+    expect(preview.artifact.svg).not.toContain('data-preview-layer-guide=')
+    expect(headlinePanel.height).toBeLessThan(headlineLayer?.render.height || 0)
+  })
+
+  it('keeps escaped Arabic text within layer bounds', () => {
+    const preview = deriveCreativeCompositionPreview({
+      plan: validPost3Plan({
+        language: 'ar',
+        creativeRequirement: {
+          headlineLayer: 'قهوة صباحية أكثر اتساقًا لفريق المكتب مع تخطيط عملي وطويل جدًا <للمراجعة>',
+          ctaLayer: 'راجع الخيارات الآن',
+        },
+      }),
+    })
+    const headlinePanel = previewPanel(preview.artifact.svg, 'headline')
+
+    expect(preview.artifact.svg).toContain('direction="rtl"')
+    expect(preview.artifact.svg).toContain('قهوة صباحية أكثر')
+    expect(headlinePanel.x).toBeGreaterThanOrEqual(0)
+    expect(headlinePanel.x + headlinePanel.width).toBeLessThanOrEqual(preview.canvas.width)
+    expect(headlinePanel.y + headlinePanel.height).toBeLessThanOrEqual(preview.canvas.height)
   })
 
   it('does not expose publish, schedule, Autopilot, or paid launch fields', () => {
@@ -253,7 +338,8 @@ describe('deriveCreativeCompositionPreview', () => {
 
     expect(preview.postId).toBe('cmqy4rgbc00041221gdbgqkhe')
     expect(preview.templateId).toBe('linkedin-landscape-insight-v1')
-    expect(preview.artifact.svg).toContain('Make team coffee breaks easier')
+    expect(preview.artifact.svg).toContain('Make team coffee breaks')
+    expect(preview.artifact.svg).toContain('easier')
     expect(preview.layers.map(layer => layer.role)).toEqual(expect.arrayContaining([
       'background',
       'headline',
