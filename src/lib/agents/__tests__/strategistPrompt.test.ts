@@ -166,6 +166,23 @@ describe('buildStrategistPrompts — content intensity / plan cap', () => {
     b.language = 'ar'
     const s = sys(b)
     expect(s).toMatch(/Arabic language is binding/)
-    expect(s).toMatch(/every user-facing JSON string must be Arabic/)
+    expect(s).toMatch(/ARABIC OUTPUT CONTRACT/)
+    expect(s).toMatch(/Every user-facing JSON value must be written in natural Modern Standard Arabic/)
+    expect(s).toMatch(/English Brand Context, source notes, field labels, and schema descriptions are source\/instruction text only/)
+    expect(s).toContain('استراتيجية نمو عضوي لـ BrightNest Home Care')
+    expect(s).toContain('احجز خدمة التنظيف عبر WhatsApp بخطوة بسيطة')
+    expect(s).toContain('تجهيز خطة اتجاهات المحتوى لأول 30 يومًا على Instagram وFacebook')
+    expect(s).toMatch(/schema description below is in English/)
+  })
+
+  it('repeats the Arabic output contract before the JSON schema so English field descriptions are not copied', () => {
+    const b = briefWith({ ...order('organic', 'standard', '30'), language: 'ar' })
+    b.language = 'ar'
+    const { userPrompt } = buildStrategistPrompts(b)
+    const contractIndex = userPrompt.indexOf('ARABIC OUTPUT CONTRACT')
+    const schemaIndex = userPrompt.indexOf('Return JSON with these exact fields')
+    expect(contractIndex).toBeGreaterThan(-1)
+    expect(schemaIndex).toBeGreaterThan(contractIndex)
+    expect(userPrompt).toMatch(/If a schema description below is in English/)
   })
 })

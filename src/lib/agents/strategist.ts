@@ -399,6 +399,22 @@ export function buildStrategistPrompts(
 ): { systemPrompt: string; userPrompt: string } {
   const langInstruction = getLanguageInstruction(language ?? brief.language)
   const selectedLanguage = (language ?? brief.language ?? '').toLowerCase()
+  const isArabicOutput = selectedLanguage.startsWith('ar')
+  const arabicOutputContract = isArabicOutput
+    ? [
+        '',
+        '',
+        'ARABIC OUTPUT CONTRACT (binding — applies to every generated value):',
+        '- The selected language is Arabic. Every user-facing JSON value must be written in natural Modern Standard Arabic.',
+        '- English Brand Context, source notes, field labels, and schema descriptions are source/instruction text only. Do not mirror their language in output values.',
+        '- Keep JSON keys exactly as requested in English. Keep brand names, product names, platform names, and technical format names such as Reels/Carousel/Video as provided.',
+        '- Translate or adapt all user-visible campaign names, positioning, diagnosis, hooks, CTAs, content angles, readiness labels, weekly deliverables, metrics, risks, assumptions, and missing-data explanations into Arabic.',
+        '- Bad campaignName: "BrightNest Home Care Organic Growth Strategy"; good campaignName: "استراتيجية نمو عضوي لـ BrightNest Home Care".',
+        '- Bad CTA: "Book your cleaning in seconds with WhatsApp!"; good CTA: "احجز خدمة التنظيف عبر WhatsApp بخطوة بسيطة".',
+        '- Bad readiness item: "Create content calendar for Instagram and Facebook"; good readiness item: "تجهيز خطة اتجاهات المحتوى لأول 30 يومًا على Instagram وFacebook".',
+        '- If a schema description below is in English, treat it as an instruction for what the field means, not wording to copy into the JSON value.',
+      ].join('\n')
+    : ''
   const planContext = getPlanContext(brief.planTier)
   const allowedPlatformLine = brief.currentPlatforms?.length
     ? `Allowed content platforms from Brand Brain: ${brief.currentPlatforms.join(', ')}. Use ONLY these platforms in channelMix, contentAnglesDetailed.platform, audienceSegmentsDetailed.platform, funnelStages.platform, and weeklyExecutionPlan.platforms. Do not add Pinterest, LinkedIn, blog, website, or any other platform unless it appears in this allowed list. If another platform is strategically interesting, mention it only as a future consideration, not an execution channel.`
@@ -426,8 +442,8 @@ export function buildStrategistPrompts(
         typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
           ? `Organic output count is binding: return exactly ${brief.organicPostCount} contentAnglesDetailed entries and make weeklyExecutionPlan.deliverables add up to exactly ${brief.organicPostCount} countable post directions for the first ${brief.detailedCalendarDays ?? 30} days.`
           : '',
-        selectedLanguage.startsWith('ar')
-          ? 'Arabic language is binding: every user-facing JSON string must be Arabic except brand names, product names, and platform names. Schema descriptions in English are instructions only; do not copy their English wording into output values.'
+        isArabicOutput
+          ? 'Arabic language is binding: follow the ARABIC OUTPUT CONTRACT below for every user-facing JSON value.'
           : '',
         'Do not use CTAs like "Download now" unless a downloadable asset, lead magnet, app download, or file download was explicitly provided. Prefer demo, consultation, review, trial, quote, or contact CTAs that match the provided offer.',
         d?.excludedDeliverables?.length
@@ -437,7 +453,7 @@ export function buildStrategistPrompts(
     : ''
 
   const systemPrompt = `${langInstruction}
-${planContext}${bindingScope}
+${planContext}${bindingScope}${arabicOutputContract}
 
 You are an expert marketing strategist. Build a complete, specific, actionable marketing strategy for the brand below.
 
@@ -537,6 +553,7 @@ Return ONLY valid JSON. No markdown outside the JSON.`
   const userPrompt = `
 ${extendedBrief}
 ${readinessBlock}
+${arabicOutputContract}
 
 Return JSON with these exact fields — all specific to this brand:
 

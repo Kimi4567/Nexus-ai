@@ -38,6 +38,6 @@ Each post, caption, hook, and CTA must be written ENTIRELY in ONE language — e
 
     case 'ar':
     default:
-      return `LANGUAGE REQUIREMENT: Respond in Arabic. Use clear, professional Modern Standard Arabic (MSA / الفصحى) suitable for UAE/GCC business users. Write naturally for Arabic-speaking audiences in Saudi Arabia, UAE, and the broader Arab world. All text content MUST be in Arabic — hooks, scripts, captions, CTAs, strategy text, content ideas. Only JSON keys, platform names, and format types (Video/Carousel/etc) stay in English.`
+      return `LANGUAGE REQUIREMENT: Respond in Arabic. Use clear, professional Modern Standard Arabic (MSA / الفصحى) suitable for UAE/GCC business users. Write naturally for Arabic-speaking audiences in Saudi Arabia, UAE, and the broader Arab world. All text content MUST be in Arabic — hooks, scripts, captions, CTAs, strategy text, content ideas. English source notes or schema descriptions are instructions only; translate or adapt user-facing values into Arabic instead of copying the source language. Only JSON keys, platform names, and format types (Video/Carousel/etc) stay in English.`
   }
 }
