@@ -119,8 +119,14 @@ function replaceUnsupportedPlatformText(text: string, ctx: NormalizedPlatformCon
   return output
 }
 
+function replaceUnsupportedCtaText(text: string): string {
+  return text
+    .replace(/\bDownload\s+now\b/gi, 'Request more information')
+    .replace(/\bDownload\s+the\s+demo\b/gi, 'Request a demo')
+}
+
 function guardText(value: string, ctx: NormalizedPlatformContext): string {
-  return replaceUnsupportedPlatformText(value, ctx)
+  return replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
 }
 
 function guardValue(value: unknown, ctx: NormalizedPlatformContext): unknown {

@@ -32,7 +32,7 @@ import {
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
-import { formatStrategyPlatformLabel } from '@/lib/ai/strategyOutputContractGuard'
+import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 
 interface Activity {
   id: string
@@ -851,7 +851,7 @@ function CampaignDetailPageInner() {
   }
 
   const aiOutput = campaign.aiOutput as any
-  const strategy = aiOutput?.strategy || {}
+  const strategy = guardStrategyOutputContract(aiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms }) as any
   const topHooks: string[] = aiOutput?.topHooks || strategy.topHooks || []
   const ctaVariations: string[] = aiOutput?.ctaVariations || strategy.ctaVariations || []
   const captionFormulas: string[] = aiOutput?.captionFormulas || []

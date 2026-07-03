@@ -15,6 +15,7 @@ Production QA after the Brand Brain reset found the new LedgerFlow strategy was 
 - The organic post direction count shown in the cost review is binding for the first detailed strategy window.
 - `contentAnglesDetailed` must return exactly the contracted organic direction count when organic scope is included.
 - `weeklyExecutionPlan.deliverables` must distribute exactly that count as countable post directions.
+- Saved strategy display must also pass through the runtime contract guard, so old JSON cannot show unsupported execution platforms or unsupported generic download CTAs.
 - Strategy output remains a review artifact only; it does not create saved Content Hub posts, SocialPost rows, schedules, publishing, or ads.
 - CTAs such as "Download now" are not allowed unless a downloadable asset, app, file, or lead magnet was explicitly provided.
 
@@ -26,6 +27,7 @@ Changed:
 - YouTube Shorts platform display normalization.
 - Strategy generation instructions and prompt contract for exact organic direction counts.
 - Campaign strategy display labels for platform and tone values.
+- Campaign strategy display guard for old saved strategy JSON.
 - Focused tests for the above contracts.
 
 Not changed:
