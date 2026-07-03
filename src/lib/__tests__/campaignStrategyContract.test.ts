@@ -120,4 +120,34 @@ describe('campaign strategy contract', () => {
     expect(report.valid).toBe(false)
     expect(report.weakFields).toEqual(expect.arrayContaining(['weeklyExecutionPlan', 'contentAnglesDetailed']))
   })
+
+  it('rejects strategies that look complete but use generic weekly execution filler', () => {
+    const generic = {
+      ...richStrategy,
+      weeklyExecutionPlan: richStrategy.weeklyExecutionPlan.map((week) => ({
+        ...week,
+        deliverables: ['Create content', 'Build awareness'],
+      })),
+    }
+
+    const report = validateCampaignStrategyContract(generic)
+    expect(report.valid).toBe(false)
+    expect(report.weakFields).toContain('weeklyExecutionPlan.countableDeliverables')
+    expect(() => assertCampaignStrategyContract(generic)).toThrow(/weeklyExecutionPlan\.countableDeliverables/)
+  })
+
+  it('rejects rich-shaped content angles that are not executable enough for a marketer', () => {
+    const weakAngles = {
+      ...richStrategy,
+      contentAnglesDetailed: richStrategy.contentAnglesDetailed.map((angle) => ({
+        ...angle,
+        hook: 'Build awareness',
+        cta: '',
+      })),
+    }
+
+    const report = validateCampaignStrategyContract(weakAngles)
+    expect(report.valid).toBe(false)
+    expect(report.weakFields).toContain('contentAnglesDetailed.operationalDepth')
+  })
 })

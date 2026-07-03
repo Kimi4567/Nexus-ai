@@ -67,6 +67,104 @@ function hasArray(value: unknown, min: number): boolean {
   return Array.isArray(value) && value.length >= min
 }
 
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function hasUsefulText(value: unknown): boolean {
+  const valueText = text(value)
+  return valueText.length >= 3 && !isGenericPlanningText(valueText)
+}
+
+const GENERIC_PLANNING_PATTERNS = [
+  /^create content$/i,
+  /^post consistently$/i,
+  /^build awareness$/i,
+  /^increase engagement$/i,
+  /^improve engagement$/i,
+  /^grow audience$/i,
+  /^promote (the )?offer$/i,
+  /^share tips$/i,
+  /^engage followers$/i,
+  /\bcutting-edge\b/i,
+  /\bgame-?changer\b/i,
+  /\bleverage\b/i,
+  /\bmaximize roi\b/i,
+  /\bunlock (your )?potential\b/i,
+  /\btransform your business\b/i,
+]
+
+const COUNTABLE_DELIVERABLE_PATTERN =
+  /(\b\d+\b|[٠-٩]|[۰-۹]|\b(one|two|three|four|five|six|seven|eight|nine|ten)\b|\b(واحد|واحدة|اثنين|إثنين|اثنان|اثنتين|ثلاثة|ثلاث|أربعة|اربع|أربع|خمسة|خمس|ستة|ست|سبعة|سبع|ثمانية|ثمان|تسعة|تسع|عشرة|عشر)\b)/i
+
+function isGenericPlanningText(value: string): boolean {
+  const normalized = value.trim().replace(/\s+/g, ' ')
+  return GENERIC_PLANNING_PATTERNS.some(pattern => pattern.test(normalized))
+}
+
+function hasCountableDeliverable(value: unknown): boolean {
+  const valueText = text(value)
+  if (!hasUsefulText(valueText)) return false
+  return COUNTABLE_DELIVERABLE_PATTERN.test(valueText)
+}
+
+function objectHasUsefulFields(value: unknown, fields: string[]): boolean {
+  if (!isRecord(value)) return false
+  return fields.every(field => hasUsefulText(value[field]))
+}
+
+function hasOperationalAudienceSegments(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return value.every(item => objectHasUsefulFields(item, [
+    'segment',
+    'pain',
+    'desiredOutcome',
+    'objection',
+    'message',
+    'platform',
+    'cta',
+  ]))
+}
+
+function hasOperationalContentAngles(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return value.every(item => objectHasUsefulFields(item, [
+    'title',
+    'hook',
+    'pain',
+    'format',
+    'platform',
+    'cta',
+    'funnelStage',
+  ]))
+}
+
+function hasOperationalFunnelStages(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return value.every(item => objectHasUsefulFields(item, [
+    'stage',
+    'userMindset',
+    'message',
+    'contentType',
+    'platform',
+    'cta',
+    'successMetric',
+    'nextStep',
+    'productArea',
+  ]))
+}
+
+function hasOperationalWeeklyPlan(value: unknown): boolean {
+  if (!Array.isArray(value)) return false
+  return value.every((item) => {
+    if (!isRecord(item)) return false
+    if (!objectHasUsefulFields(item, ['objective', 'keyMessage', 'cta', 'successMetric'])) return false
+    if (!Array.isArray(item.platforms) || item.platforms.length === 0) return false
+    if (!Array.isArray(item.deliverables) || item.deliverables.length === 0) return false
+    return item.deliverables.every(hasCountableDeliverable)
+  })
+}
+
 export function detectLegacyCampaignEngineStrategy(strategy: unknown): boolean {
   if (!isRecord(strategy)) return false
   const keys = Object.keys(strategy)
@@ -110,6 +208,22 @@ export function validateCampaignStrategyContract(strategy: unknown): CampaignStr
   for (const field of REQUIRED_ARRAY_FIELDS) {
     if (!(field.key in strategy)) missingFields.push(field.key)
     else if (!hasArray(strategy[field.key], field.min)) weakFields.push(field.key)
+  }
+
+  if ('audienceSegmentsDetailed' in strategy && !hasOperationalAudienceSegments(strategy.audienceSegmentsDetailed)) {
+    weakFields.push('audienceSegmentsDetailed.operationalDepth')
+  }
+
+  if ('contentAnglesDetailed' in strategy && !hasOperationalContentAngles(strategy.contentAnglesDetailed)) {
+    weakFields.push('contentAnglesDetailed.operationalDepth')
+  }
+
+  if ('funnelStages' in strategy && !hasOperationalFunnelStages(strategy.funnelStages)) {
+    weakFields.push('funnelStages.operationalDepth')
+  }
+
+  if ('weeklyExecutionPlan' in strategy && !hasOperationalWeeklyPlan(strategy.weeklyExecutionPlan)) {
+    weakFields.push('weeklyExecutionPlan.countableDeliverables')
   }
 
   const legacySchemaDetected = detectLegacyCampaignEngineStrategy(strategy)

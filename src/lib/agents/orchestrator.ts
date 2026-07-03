@@ -20,6 +20,7 @@ import { applyServerReadiness, collectMissingKeys } from '@/lib/strategyNormaliz
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '@/lib/ai/strategyOutputContractGuard'
+import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
 import type { StrategyReadinessContext } from './strategist'
 
 // Re-export for API routes
@@ -172,6 +173,10 @@ export async function runFullAgency(
     strategy = guardStrategyOutputContract(strategy, {
       allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
     })
+    const contractReport = assertCampaignStrategyContract(strategy)
+    console.log(
+      `[Orchestrator] Strategy OS contract passed score=${contractReport.score} workspace=${workspaceId}`,
+    )
     strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
