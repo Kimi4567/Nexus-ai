@@ -21,4 +21,10 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('الاستراتيجية أصبحت مادة مرجعية')
     expect(campaignRoomSource).toContain('حالة المنشورات والتنفيذ الحالية موجودة في Content Hub')
   })
+
+  it('uses Content Hub post truth for the organic plan readiness card', () => {
+    expect(campaignRoomSource).toContain('value={operatingState.truthFlags.hasContentPlan')
+    expect(campaignRoomSource).toContain('Available for review in Content Hub')
+    expect(campaignRoomSource).toContain('Ready for content planning')
+  })
 })

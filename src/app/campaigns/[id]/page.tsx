@@ -1822,7 +1822,7 @@ function CampaignDetailPageInner() {
                   />
                   <StrategyDocCard
                     label={locale === 'ar' ? 'الخطة العضوية' : 'Organic plan'}
-                    value={hasContentCalendar
+                    value={operatingState.truthFlags.hasContentPlan
                       ? (locale === 'ar' ? 'متاحة للمراجعة في مركز المحتوى' : 'Available for review in Content Hub')
                       : (locale === 'ar' ? 'جاهزة للتخطيط' : 'Ready for content planning')}
                     tone="positive"
