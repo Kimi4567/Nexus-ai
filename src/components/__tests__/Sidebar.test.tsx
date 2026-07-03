@@ -148,6 +148,8 @@ describe('Sidebar credit presentation', () => {
     expect(screen.getByText('Media Library')).toBeTruthy()
     expect(screen.getByText('Analytics')).toBeTruthy()
     expect(screen.getByText('Connections')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Connections Setup' })).toBeTruthy()
+    expect(document.body.textContent).toContain('Connections Setup')
     expect(screen.getAllByText('Billing').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Settings').length).toBeGreaterThan(0)
 

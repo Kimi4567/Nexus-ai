@@ -196,12 +196,17 @@ export interface FunnelStageDetailed {
 export interface ContentAngleDetailed {
   title: string
   pain: string
+  desiredOutcome?: string
+  objection?: string
   format: string
   hook: string
   platform: string
   cta: string
   asset: string
   funnelStage: string
+  proofNeeded?: string
+  responseHandoff?: string
+  reviewPoint?: string
 }
 
 /** Enriched weekly execution item */
@@ -433,6 +438,8 @@ export function buildStrategistPrompts(
     '- Each audience segment must be executable: specific role/situation, concrete pain, desired outcome, objection, message, platform, format, and CTA. Avoid vague segment names like "busy professionals" unless the brief truly supports them.',
     '- Every funnel stage must explain the handoff after the CTA: what the user should do next, what the brand/team must respond with, and what must be reviewed before scaling.',
     '- Weekly execution deliverables must be countable post directions tied to a segment, message, format, platform, CTA, asset need, and review point. Do not use theme-only deliverables.',
+    '- Each content angle must be meaningfully distinct. Do not recycle the same pain, hook, or promise under different titles.',
+    '- Each content angle must explain the buyer objection it addresses, the proof or asset needed, the response/follow-up handoff after the CTA, and what the marketer should review before production.',
     '- If lead handling, conversion destination, proof, analytics, competitors, or budget are missing, turn them into explicit operating gaps and review tasks. Never fill those gaps with invented facts.',
     '- Include practical proof/compliance boundaries: what claims cannot be made yet, what proof assets must be collected, and which messages should stay educational until evidence exists.',
     '- Use sober, implementation-ready language. Prefer "validate", "review", "prepare", "collect", "test message clarity", and "follow up" over hype or certainty.',
@@ -614,11 +621,16 @@ Return JSON with these exact fields — all specific to this brand:
       "title": "string",
       "hook": "string — scroll-stopping opening line",
       "pain": "string",
+      "desiredOutcome": "string — the practical outcome this post direction should make credible",
+      "objection": "string — buyer concern this angle answers",
       "format": "string",
       "platform": "string",
       "cta": "string",
       "asset": "string — visual or proof asset needed before this can be produced confidently",
-      "funnelStage": "awareness|consideration|conversion"
+      "funnelStage": "awareness|consideration|conversion",
+      "proofNeeded": "string — proof, screenshot, process detail, demo clip, or disclaimer needed; write Not enough data if missing",
+      "responseHandoff": "string — who follows up and what they send after the CTA",
+      "reviewPoint": "string — what a marketer must check before producing/repeating this angle"
     }
   ],
 

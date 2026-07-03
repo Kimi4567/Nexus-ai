@@ -93,6 +93,7 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
 
   return (
     <Link href={href} onClick={onClick}
+      aria-label={badge ? `${label} ${badge}` : label}
       className={`relative flex items-center gap-2.5 px-3 py-2 rounded-[9px] text-[13px] font-medium transition-all duration-150
         ${isActive ? 'text-slate-950' : 'text-slate-500 hover:text-slate-950 hover:bg-slate-100'}`}
       style={isActive ? { background: '#F2F2F7', boxShadow: 'inset 0 0 0 1px rgba(15,23,42,0.06)' } : {}}
@@ -109,7 +110,7 @@ function NavItem({ href, label, labelEn, icon, badge, badgeColor, dot, pathname,
       {badge && (
         <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide"
           style={{ background: badgeColor ? `${badgeColor}18` : 'rgba(139,92,246,0.15)', color: badgeColor || '#8B5CF6' }}>
-          {badge}
+          {' '}{badge}
         </span>
       )}
       {dot && <span className="w-1.5 h-1.5 rounded-full ml-auto" style={{ background: dot, boxShadow: `0 0 5px ${dot}` }} />}

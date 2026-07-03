@@ -197,8 +197,16 @@ describe('buildStrategistPrompts — content intensity / plan cap', () => {
     expect(systemPrompt).toMatch(/response\/follow-up handoff/)
     expect(systemPrompt).toMatch(/proof\/compliance boundaries/)
     expect(systemPrompt).toMatch(/Do not use theme-only deliverables/)
+    expect(systemPrompt).toMatch(/meaningfully distinct/)
+    expect(systemPrompt).toMatch(/buyer objection/)
+    expect(systemPrompt).toMatch(/proof or asset needed/)
     expect(userPrompt).toMatch(/response owner\/follow-up handoff/)
     expect(userPrompt).toMatch(/what a marketer should check before repeating or scaling/)
+    expect(userPrompt).toMatch(/"desiredOutcome"/)
+    expect(userPrompt).toMatch(/"objection"/)
+    expect(userPrompt).toMatch(/"proofNeeded"/)
+    expect(userPrompt).toMatch(/"responseHandoff"/)
+    expect(userPrompt).toMatch(/"reviewPoint"/)
   })
 
   it('adds an Arabic binding rule for Arabic strategy output', () => {
