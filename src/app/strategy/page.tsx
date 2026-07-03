@@ -6,9 +6,11 @@
  * This is the Strategy stage of the journey:
  *   Brand Brain → Strategy → Organic Content Plan + Paid Campaign Plan → execution
  *
- * IMPORTANT — this page is READ/RENDER ONLY. It does not generate strategy, run
- * any AI, create campaigns, spend credits, schedule, publish, or run ads. It
- * surfaces the Strategy stage using data that already exists:
+ * IMPORTANT — this page is the strategy workbench. It renders existing strategy
+ * state and opens the explicit cost-review modal for strategy generation. It
+ * never schedules, publishes, starts ads, or spends credits without the modal's
+ * final cost confirmation. It surfaces the Strategy stage using data that
+ * already exists:
  *   - GET /api/brand      → maturity.status (Building/Active) + brandName
  *   - GET /api/campaigns  → existing campaigns + their aiOutput.strategy
  * When no strategy/campaign exists yet, every section shows an honest empty
@@ -24,6 +26,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { BrandReadinessStatus } from '@/lib/brandReadiness'
 import { getStrategyPageReadinessSurface } from '@/lib/strategyBriefReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
+import { getStrategyBrandAlignment } from '@/lib/strategy/strategyBrandAlignment'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import AppShell from '@/components/AppShell'
@@ -165,39 +168,60 @@ export default function StrategyPage() {
     ...asArray(strat?.ctaVariations),
   ].map(textLabel).filter(Boolean).slice(0, 4)
   const hasOrganicData = pillars.length > 0 || hooks.length > 0 || ctas.length > 0 || !platformSummary.isEmpty
+  const strategyBrandAlignment = getStrategyBrandAlignment({
+    currentBrandName: brandName,
+    campaignName: recent?.name,
+    strategy: rawStrat,
+    aiOutput: rawAi,
+  })
+  const strategyBrandMismatch = hasStrategy && strategyBrandAlignment.isStale
+  const hasCurrentBrandOrganicData = hasOrganicData && !strategyBrandMismatch
   const recentStrategyHref = recent?.id ? `/campaigns/${recent.id}?tab=strategy` : '/campaigns'
   const recentContentHubHref = recent?.id ? `/campaigns/${recent.id}/content-hub` : '/content-hub'
-  const primaryAction: StrategyPrimaryAction = !hasStrategy
+  const primaryAction: StrategyPrimaryAction = !hasStrategy || strategyBrandMismatch
     ? {
-        label: ar ? 'إنشاء أول استراتيجية' : 'Create first strategy',
-        description: ar
-          ? 'سيتم تأكيد التكلفة قبل صرف أي رصيد.'
-          : 'Cost is confirmed before any credits are spent.',
+        label: !hasStrategy
+          ? (ar ? 'إنشاء أول استراتيجية' : 'Create first strategy')
+          : (ar ? 'تحديث الاستراتيجية للعلامة الحالية' : 'Update strategy for current Brand Brain'),
+        description: strategyBrandMismatch
+          ? (ar
+            ? 'المسودة الموجودة تبدو مرتبطة بذاكرة علامة سابقة. راجع التكلفة قبل إنشاء استراتيجية جديدة من Brand Brain الحالي.'
+            : 'The existing draft appears tied to a previous Brand Brain. Review cost before creating a new strategy from the current Brand Brain.')
+          : (ar
+            ? 'سيتم تأكيد التكلفة قبل صرف أي رصيد.'
+            : 'Cost is confirmed before any credits are spent.'),
         onClick: () => setRunStrategyOpen(true),
       }
     : hasDraftStrategy
       ? {
           label: ar ? 'فتح بريف استراتيجية الحملة' : 'Open campaign strategy brief',
-          description: hasOrganicData
+          description: hasCurrentBrandOrganicData
             ? (ar ? 'الـ brief الكامل موجود داخل الحملة. راجعه قبل تحويله إلى Content Hub.' : 'The full strategy brief lives inside the campaign. Review it before turning it into Content Hub work.')
             : (ar ? 'افتح بريف الحملة الكامل قبل تحويله إلى محتوى.' : 'Open the full campaign brief before turning it into content.'),
           href: recentStrategyHref,
         }
       : {
           label: ar ? 'فتح بريف استراتيجية الحملة' : 'Open campaign strategy brief',
-          description: hasOrganicData
+          description: hasCurrentBrandOrganicData
             ? (ar ? 'استخدم هذه الصفحة كمركز متابعة، وافتح بريف الحملة للمراجعة التفصيلية.' : 'Use this page as a strategy workbench, then open the campaign brief for detailed review.')
             : (ar ? 'افتح بريف الحملة الحالي.' : 'Open the current campaign brief.'),
           href: recentStrategyHref,
         }
 
   const nextSteps = !hasStrategy
-    ? [
-        ar ? 'أنشئ الاستراتيجية من ذاكرة العلامة التجارية' : 'Create strategy from Brand Brain',
-        ar ? 'راجع الاتجاه قبل تحويله إلى محتوى' : 'Review direction before turning it into content',
-        ar ? 'ولّد المحتوى إلى مركز المحتوى' : 'Generate content into Content Hub',
-        ar ? 'جهّز خطة الإعلانات المدفوعة بعد الجاهزية والموافقة' : 'Prepare paid planning only after readiness and approval',
-      ]
+      ? [
+          ar ? 'أنشئ الاستراتيجية من ذاكرة العلامة التجارية' : 'Create strategy from Brand Brain',
+          ar ? 'راجع الاتجاه قبل تحويله إلى محتوى' : 'Review direction before turning it into content',
+          ar ? 'ولّد المحتوى إلى مركز المحتوى' : 'Generate content into Content Hub',
+          ar ? 'جهّز خطة الإعلانات المدفوعة بعد الجاهزية والموافقة' : 'Prepare paid planning only after readiness and approval',
+        ]
+    : strategyBrandMismatch
+      ? [
+          ar ? 'حدّث الاستراتيجية من Brand Brain الحالي' : 'Update strategy from the current Brand Brain',
+          ar ? 'راجع المسودة الجديدة قبل تحويلها إلى محتوى' : 'Review the new draft before turning it into content',
+          ar ? 'لا تستخدم اتجاه المسودة القديمة للحملة الجديدة' : 'Do not use the old draft direction for the new brand',
+          ar ? 'يبقى التخطيط المدفوع مرتبطاً بالموافقة' : 'Paid planning remains approval-gated',
+        ]
     : hasDraftStrategy
       ? [
           ar ? 'راجع المسودة الحالية' : 'Review the current draft',
@@ -239,6 +263,8 @@ export default function StrategyPage() {
 
   const strategyStatusText = !hasStrategy
     ? (ar ? 'لم يتم إنشاء استراتيجية بعد' : 'Strategy not created yet')
+    : strategyBrandMismatch
+      ? (ar ? 'مسودة قديمة لا تطابق Brand Brain الحالي' : 'Existing draft may not match current Brand Brain')
     : recent?.status === 'DRAFT'
       ? (ar ? 'مسودة استراتيجية جاهزة للمراجعة' : 'Draft strategy ready for review')
       : (ar ? `استراتيجية مرتبطة بحملة: ${recent?.name}` : `Strategy linked to campaign: ${recent?.name}`)
@@ -314,15 +340,17 @@ export default function StrategyPage() {
               <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'حالة الاستراتيجية' : 'Strategy status'}</p>
               <div className="flex items-center gap-2 mt-2">
                 {hasStrategy
-                  ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: '#059669' }} />
+                  ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: strategyBrandMismatch ? '#EA580C' : '#059669' }} />
                   : <Circle className="w-4 h-4 flex-shrink-0" style={{ color: '#94a3b8' }} />}
-                <span className="text-sm font-bold" style={{ color: hasStrategy ? '#059669' : '#64748b' }}>
+                <span className="text-sm font-bold" style={{ color: hasStrategy ? (strategyBrandMismatch ? '#EA580C' : '#059669') : '#64748b' }}>
                   {strategyStatusText}
                 </span>
               </div>
               <p className="text-xs mt-3" style={{ color: '#64748b' }}>
                 {!hasStrategy
                   ? (ar ? 'تستخدم الاستراتيجية ذاكرة العلامة كمصدر. لا يتم صرف الرصيد قبل تأكيد التكلفة.' : 'Strategy uses Brand Brain as its source. Credits are not spent before cost confirmation.')
+                  : strategyBrandMismatch
+                    ? (ar ? 'المسودة الموجودة تبدو من Brand Brain سابق. حدّثها قبل استخدامها كمصدر للتنفيذ.' : 'The existing draft appears to come from a previous Brand Brain. Update it before using it as an execution source.')
                   : hasDraftStrategy
                     ? (ar ? 'المسودة موجودة ويمكن مراجعتها أو تحديثها.' : 'The draft exists and can be reviewed or updated.')
                     : (ar ? 'تابع من الاتجاه الحالي إلى المحتوى العضوي والتخطيط المدفوع بالموافقة.' : 'Continue from the current direction into organic content and approval-gated paid planning.')}
@@ -341,6 +369,8 @@ export default function StrategyPage() {
                 <h3 className="text-base font-bold" style={{ color: '#0f172a' }}>
                   {!hasStrategy
                     ? (ar ? 'أنشئ أول استراتيجية من ذاكرة العلامة.' : 'Create your first strategy from Brand Brain.')
+                    : strategyBrandMismatch
+                      ? (ar ? 'حدّث الاستراتيجية لتطابق Brand Brain الحالي.' : 'Update strategy to match the current Brand Brain.')
                     : hasDraftStrategy
                       ? (ar ? 'مسودة الاستراتيجية جاهزة للمراجعة.' : 'Your strategy draft is ready for review.')
                       : (ar ? 'استراتيجيتك جاهزة للمتابعة.' : 'Your strategy is ready to continue.')}
@@ -397,6 +427,16 @@ export default function StrategyPage() {
                       ? 'هذه الصفحة تعرض لوحة متابعة مختصرة. بريف الاستراتيجية الكامل، الافتراضات، القيود، وخطوات التنفيذ تعيش داخل صفحة الحملة.'
                       : 'This page is a compact workbench. The full strategy brief, assumptions, limits, and execution decisions live inside the campaign page.'}
                   </p>
+                  {strategyBrandMismatch && (
+                    <div className="mt-3 rounded-xl px-3 py-2.5"
+                      style={{ background: '#FFF7ED', border: '1px solid rgba(249,115,22,0.22)' }}>
+                      <p className="text-xs font-semibold" style={{ color: '#9a3412' }}>
+                        {ar
+                          ? `تنبيه: هذه المسودة لا تبدو مرتبطة بـ ${brandName || 'Brand Brain الحالي'}. حدّث الاستراتيجية قبل استخدامها كمصدر للتنفيذ.`
+                          : `Heads up: this draft does not appear to match ${brandName || 'the current Brand Brain'}. Update strategy before using it as an execution source.`}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <Link href={recentStrategyHref}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap"
@@ -408,7 +448,7 @@ export default function StrategyPage() {
             </div>
           )}
 
-          {hasStrategy && hasOrganicData && (
+          {hasStrategy && hasCurrentBrandOrganicData && (
             <div className={`${card} mb-6`} style={cardStyle}>
               <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'التسلسل التشغيلي' : 'Workstation hierarchy'}</p>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
@@ -439,11 +479,15 @@ export default function StrategyPage() {
                 </h2>
               </div>
 
-              {!hasStrategy || !hasOrganicData ? (
+              {!hasStrategy || !hasCurrentBrandOrganicData ? (
                 <p className="text-sm" style={{ color: '#94a3b8' }}>
-                  {ar
-                    ? 'سيظهر اتجاه المحتوى العضوي هنا بعد إنشاء أول استراتيجية.'
-                    : 'Organic content direction will appear here after your first strategy is created.'}
+                  {strategyBrandMismatch
+                    ? (ar
+                      ? 'المسودة الحالية لا تطابق Brand Brain الحالي. حدّث الاستراتيجية بعد مراجعة التكلفة قبل تحويلها إلى Content Hub.'
+                      : 'The current draft does not match the current Brand Brain. Update strategy after cost review before turning it into Content Hub work.')
+                    : (ar
+                      ? 'سيظهر اتجاه المحتوى العضوي هنا بعد إنشاء أول استراتيجية.'
+                      : 'Organic content direction will appear here after your first strategy is created.')}
                 </p>
               ) : (
                 <div className="space-y-4">

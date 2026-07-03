@@ -33,9 +33,9 @@ import { getStrategyCreditCost } from '@/lib/strategy/strategyPricing'
 import type { StrategyOrder, ContentIntensity } from '@/lib/strategy/strategyOrder'
 import { INTENSITY_RANGE_LABEL, intensityLabel, tierToPostsPerMonth } from '@/lib/strategy/strategyOrderDisplay'
 import {
-  Cpu, BarChart3, Film, Megaphone, Shield, Zap,
+  Cpu, BarChart3, Megaphone, Shield, Zap,
   CheckCircle2, XCircle, ArrowUpRight, X, Rocket, Sparkles,
-  Brain, Globe, AlertCircle, AlertTriangle, ImageIcon, Upload, RefreshCw,
+  Brain, Globe, AlertCircle, AlertTriangle, RefreshCw,
 } from 'lucide-react'
 
 // -- Types -------------------------------------------------------------------
@@ -55,7 +55,7 @@ interface RunResult {
   currentCredits?: number
 }
 
-type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'media_check' | 'lang_select' | 'cost_confirm'
+type Phase = 'running' | 'success' | 'no_campaign' | 'error' | 'credits' | 'no_brand' | 'gate' | 'lang_select' | 'cost_confirm'
 
 interface Props {
   isOpen: boolean
@@ -173,21 +173,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
   // runKey increments on retry to re-trigger the effect while modal stays open
   const [runKey, setRunKey]           = useState(0)
   const [showUpgrade, setShowUpgrade] = useState(false)
-  // Media check state — actual items for selection grid
-  interface MediaItem { id: string; url: string; type: string; fileName: string }
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [selectedMediaIds, setSelectedMediaIds] = useState<string[]>([])
-  // Ref to the "start API call" function — called from Continue button in media_check phase
-  const startStrategyFnRef = useRef<(() => void) | null>(null)
-  // Skip media check on retry (we already showed it once)
-  const skipMediaCheckRef = useRef(false)
   // Tab hidden during generation — show sticky warning banner
   const [tabHiddenDuringRun, setTabHiddenDuringRun] = useState(false)
-  // Inline media upload state (in media_check phase)
-  const [mediaUploading, setMediaUploading] = useState(false)
-  const [mediaUploadProgress, setMediaUploadProgress] = useState(0)
-  const [mediaUploadError, setMediaUploadError] = useState<string | null>(null)
-  const mediaFileInputRef = useRef<HTMLInputElement | null>(null)
   // Language selection — user picks before running strategy
   const [selectedLanguage, setSelectedLanguage] = useState<'ar' | 'en' | 'bilingual'>('ar')
   const [langConfirmed, setLangConfirmed] = useState(false)
@@ -334,7 +321,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         // the server is the single source of truth for the charged amount.
         body: JSON.stringify({
           language: selectedLanguage,
-          mediaIds: selectedMediaIds,
+          mediaIds: [],
           strategyType,
           strategyDuration,
           contentIntensity,
@@ -356,7 +343,7 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
             saveResultCache(d)
             saveStrategyHandoff(d.campaignId, {
               language: selectedLanguage,
-              selectedMediaIds,
+              selectedMediaIds: [],
             })
           }
 
@@ -397,9 +384,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
         })
     }
 
-    // Store so the Continue button can call it
-    startStrategyFnRef.current = startStrategyRun
-
     // Pre-flight: check Brand Brain readiness before spending credits
     fetch('/api/brand', {
       headers: { Authorization: authHeaderRef.current() },
@@ -426,31 +410,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
           return
         }
 
-        // Brand Brain ready — check if we should skip media check (e.g. on retry)
-        if (skipMediaCheckRef.current) {
-          skipMediaCheckRef.current = false
-          startStrategyRun()
-          return
-        }
-
-        // Fetch media items to show the selectable media grid
-        fetch('/api/media?limit=50', {
-          headers: { Authorization: authHeaderRef.current() },
-        })
-          .then(r => r.ok ? r.json() : { media: [] })
-          .then((mediaData: { media?: Array<{id: string; url: string; type: string; fileName: string}> }) => {
-            if (cancelled) return
-            const items = mediaData.media ?? []
-            setMediaItems(items)
-            // Pre-select all items by default
-            setSelectedMediaIds(items.map(m => m.id))
-            setPhase('media_check')
-          })
-          .catch(() => {
-            if (cancelled) return
-            // Media check failed — just proceed directly
-            startStrategyRun()
-          })
+        // Cost confirmation is the final user confirmation gate. Do not insert
+        // a second hidden media-selection step after a button that says
+        // "Generate strategy" and shows the exact credit cost. Existing media
+        // can be reviewed in Media Library/Content Hub; strategy generation
+        // starts here with no upload, attach, publish, schedule, or ad action.
+        startStrategyRun()
       })
       .catch(() => {
         if (!cancelled) {
@@ -462,94 +427,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     return () => {
       cancelled = true
       timers.forEach(clearTimeout)
-      startStrategyFnRef.current = null
     }
   }, [isOpen, runKey, langConfirmed, costConfirmed]) // runKey increments on retry; gates: lang_select → cost_confirm → running
-
-  // ── Inline media upload (in media_check phase) ────────────────────────────
-  const handleMediaUploadFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
-    setMediaUploadError(null)
-
-    for (const file of Array.from(files)) {
-      setMediaUploading(true)
-      setMediaUploadProgress(0)
-      try {
-        // 1. Create session
-        const sessionRes = await fetch('/api/uploads/session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: authHeaderRef.current() },
-          body: JSON.stringify({
-            resourceType: file.type.startsWith('video') ? 'video' : 'auto',
-            fileName: file.name,
-          }),
-        })
-        const { sessionToken } = await sessionRes.json()
-        if (!sessionRes.ok || !sessionToken) throw new Error('Upload session failed')
-
-        // 2. Get signature
-        const sigRes = await fetch('/api/uploads/cloudinary/signature', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: authHeaderRef.current() },
-          body: JSON.stringify({ sessionToken }),
-        })
-        const sigData = await sigRes.json()
-        if (!sigRes.ok) throw new Error('Signature failed')
-
-        // 3. Upload to Cloudinary
-        const cloudinaryData = await new Promise<Record<string, unknown>>((resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.open('POST', `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/auto/upload`)
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setMediaUploadProgress(Math.round((e.loaded / e.total) * 100))
-          }
-          xhr.onload = () => {
-            try {
-              const data = JSON.parse(xhr.responseText)
-              if (xhr.status >= 200 && xhr.status < 300 && data.secure_url) resolve(data)
-              else reject(new Error(data.error?.message || 'Cloudinary error'))
-            } catch { reject(new Error('Parse error')) }
-          }
-          xhr.onerror = () => reject(new Error('Network error'))
-          const form = new FormData()
-          form.append('file', file)
-          form.append('api_key', String(sigData.api_key))
-          form.append('timestamp', String(sigData.timestamp))
-          form.append('signature', String(sigData.signature))
-          form.append('folder', String(sigData.folder))
-          form.append('resource_type', String(sigData.resource_type))
-          xhr.send(form)
-        })
-
-        // 4. Notify backend
-        const notifyRes = await fetch('/api/uploads/cloudinary/notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: authHeaderRef.current() },
-          body: JSON.stringify({
-            fileName: cloudinaryData.original_filename || cloudinaryData.public_id,
-            mimeType: cloudinaryData.resource_type === 'video' ? `video/${cloudinaryData.format}` : `image/${cloudinaryData.format}`,
-            secureUrl: cloudinaryData.secure_url,
-            publicId: cloudinaryData.public_id,
-            bytes: cloudinaryData.bytes,
-            resourceType: cloudinaryData.resource_type,
-            sessionToken,
-          }),
-        })
-        const { media: newMedia } = await notifyRes.json()
-        if (newMedia?.id) {
-          setMediaItems(prev => [newMedia, ...prev])
-          setSelectedMediaIds(prev => [newMedia.id, ...prev])
-        }
-      } catch (err: unknown) {
-        setMediaUploadError(err instanceof Error ? err.message : 'Upload failed')
-      } finally {
-        setMediaUploading(false)
-        setMediaUploadProgress(0)
-      }
-    }
-    // reset input
-    if (mediaFileInputRef.current) mediaFileInputRef.current.value = ''
-  }
 
   if (!isOpen) return null
 
@@ -646,7 +525,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
     setPhase('running')
     setCurrentStep(0)
     setResult(null)
-    skipMediaCheckRef.current = true  // skip media check on retry — user already saw it
     setRunKey(k => k + 1)
   }
 
@@ -1329,200 +1207,6 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   <X className="w-3 h-3" />
                 </button>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ========== MEDIA CHECK PHASE ========== */}
-        {phase === 'media_check' && (
-          <div className="p-6">
-            <button onClick={onClose}
-              className="absolute top-4 end-4 p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-white/5 transition-all">
-              <X className="w-4 h-4" />
-            </button>
-
-            {/* Header row: icon+title on left, upload button on right */}
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: mediaItems.length > 0 ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.1)',
-                  border: `1px solid ${mediaItems.length > 0 ? '#bbf7d0' : '#c7d2fe'}`,
-                }}>
-                <ImageIcon className="w-5 h-5" style={{ color: mediaItems.length > 0 ? '#059669' : '#4F46E5' }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-base font-bold text-slate-950 leading-tight">
-                  {mediaItems.length > 0 ? rs.mediaCheckTitle : rs.mediaCheckTitleNoMedia}
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {mediaItems.length > 0
-                    ? (locale === 'ar' ? 'اختر الأصول التي تريد استخدامها' : 'Choose which assets to use')
-                    : rs.mediaCheckDescNone}
-                </p>
-              </div>
-              {/* Inline upload button */}
-              <label className="flex-shrink-0 cursor-pointer">
-                <input
-                  ref={mediaFileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={e => handleMediaUploadFiles(e.target.files)}
-                  disabled={mediaUploading}
-                />
-                <span
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                  style={{
-                    background: mediaUploading ? 'rgba(139,92,246,0.05)' : 'rgba(139,92,246,0.1)',
-                    border: '1px solid #c7d2fe',
-                    color: mediaUploading ? '#94a3b8' : '#4338ca',
-                    cursor: mediaUploading ? 'not-allowed' : 'pointer',
-                  }}>
-                  <Upload className="w-3 h-3" />
-                  {mediaUploading
-                    ? `${mediaUploadProgress}%`
-                    : (locale === 'ar' ? 'رفع' : 'Upload')}
-                </span>
-              </label>
-            </div>
-
-            {/* Upload error */}
-            {mediaUploadError && (
-              <div className="rounded-lg px-3 py-2 mb-3 flex items-center gap-2 text-xs"
-                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#FCA5A5' }}>
-                <AlertTriangle className="w-3 h-3 flex-shrink-0" />
-                <span className="flex-1 truncate">{mediaUploadError}</span>
-                <button onClick={() => setMediaUploadError(null)} className="flex-shrink-0 hover:text-slate-900">
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-            )}
-
-            {/* Upload progress bar */}
-            {mediaUploading && (
-              <div className="w-full h-1 rounded-full mb-3" style={{ background: '#e0e7ff' }}>
-                <div className="h-full rounded-full transition-all duration-200"
-                  style={{ width: `${mediaUploadProgress}%`, background: 'linear-gradient(90deg, #8B5CF6, #10B981)' }} />
-              </div>
-            )}
-
-            {/* Selectable thumbnail grid */}
-            {mediaItems.length > 0 ? (
-              <>
-                {/* Select All / Deselect All row */}
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-xs text-slate-500">
-                    {selectedMediaIds.length > 0
-                      ? (locale === 'ar' ? `${selectedMediaIds.length} مختار` : `${selectedMediaIds.length} selected`)
-                      : (locale === 'ar' ? 'لا يوجد مختار' : 'None selected')}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setSelectedMediaIds(mediaItems.map(m => m.id))}
-                      className="text-[10px] font-medium px-2 py-1 rounded-lg transition-all"
-                      style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', color: '#10B981' }}>
-                      {locale === 'ar' ? 'تحديد الكل' : 'Select all'}
-                    </button>
-                    <button
-                      onClick={() => setSelectedMediaIds([])}
-                      className="text-[10px] font-medium px-2 py-1 rounded-lg transition-all"
-                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569' }}>
-                      {locale === 'ar' ? 'إلغاء الكل' : 'Deselect all'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Thumbnail grid — fixed height, scrolls for 50+ items */}
-                <div className="grid grid-cols-5 gap-1.5 mb-4 overflow-y-auto pr-0.5" style={{ maxHeight: '180px' }}>
-                  {mediaItems.map(item => {
-                    const isSelected = selectedMediaIds.includes(item.id)
-                    const isVideo = item.type === 'VIDEO'
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setSelectedMediaIds(prev =>
-                          isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id]
-                        )}
-                        className="relative aspect-square rounded-lg overflow-hidden transition-all duration-150 focus:outline-none"
-                        style={{
-                         border: isSelected
-                            ? '2px solid #10B981'
-                            : '2px solid #e2e8f0',
-                        }}
-                        title={item.fileName}
-                      >
-                        {/* Thumbnail */}
-                        {isVideo ? (
-                          <div className="w-full h-full flex items-center justify-center"
-                            style={{ background: 'rgba(139,92,246,0.12)' }}>
-                            <Film className="w-5 h-5 text-indigo-600" />
-                          </div>
-                        ) : (
-                          <img
-                            src={item.url}
-                            alt={item.fileName}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        )}
-
-                        {/* Selection overlay */}
-                        <div className="absolute inset-0 transition-opacity duration-150"
-                          style={{
-                            background: isSelected
-                              ? 'rgba(16,185,129,0.18)'
-                              : 'rgba(255,255,255,0.0)',
-                          }} />
-
-                        {/* Checkmark */}
-                        {isSelected && (
-                          <div className="absolute top-1 end-1 w-4 h-4 rounded-full flex items-center justify-center"
-                            style={{ background: '#10B981' }}>
-                            <svg className="w-2.5 h-2.5 text-slate-950" viewBox="0 0 10 10" fill="none">
-                              <path d="M2 5l2.5 2.5 3.5-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </div>
-                        )}
-
-                        {/* Video badge */}
-                        {isVideo && (
-                          <div className="absolute bottom-1 start-1 px-1 rounded text-[8px] font-bold"
-                            style={{ background: 'rgba(67,56,202,0.95)', color: '#fff' }}>
-                            VID
-                          </div>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="rounded-xl p-3 mb-4 flex items-start gap-2.5"
-                style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FFB800' }} />
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  {locale === 'ar'
-                    ? 'الصور والفيديوهات تساعد الاستراتيجية على اقتراح محتوى مرئي أكثر دقة. يمكنك رفعها الآن أو المتابعة بدونها.'
-                    : 'Visual assets help the strategy suggest more precise content formats. You can upload now or continue without them.'}
-                </p>
-              </div>
-            )}
-
-            {/* Actions */}
-            <button
-              onClick={() => { startStrategyFnRef.current?.() }}
-              className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold text-slate-950 btn-gradient mb-2 transition-all hover:brightness-110">
-              <Rocket className="w-4 h-4" />
-              {selectedMediaIds.length > 0
-                ? (locale === 'ar' ? `ابدأ بـ ${selectedMediaIds.length} أصل` : `Run with ${selectedMediaIds.length} asset${selectedMediaIds.length !== 1 ? 's' : ''}`)
-                : (locale === 'ar' ? 'تابع بدون صور' : 'Continue without assets')}
-            </button>
-
-            {mediaItems.length === 0 && !mediaUploading && (
-              <p className="text-center text-[11px] text-slate-500 mb-1">
-                {locale === 'ar' ? '← اضغط "رفع" أعلاه لإضافة صور أو فيديوهات' : '← Click "Upload" above to add photos or videos'}
-              </p>
             )}
           </div>
         )}
