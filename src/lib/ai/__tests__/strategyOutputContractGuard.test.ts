@@ -165,4 +165,13 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
   })
+
+  it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {
+    const modal = repoFile('src/components/RunFullStrategyModal.tsx')
+
+    expect(modal).toContain('Cost confirmation is the final user confirmation gate')
+    expect(modal).toContain('starts here with no upload, attach, publish, schedule, or ad action')
+    expect(modal).not.toContain("'media_check'")
+    expect(modal).not.toContain("setPhase('media_check')")
+  })
 })

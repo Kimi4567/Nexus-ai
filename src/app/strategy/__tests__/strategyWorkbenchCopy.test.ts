@@ -22,4 +22,11 @@ describe('/strategy workbench source-of-truth copy', () => {
     expect(source).toContain('Update strategy after cost review')
     expect(source).not.toContain('Run updated strategy')
   })
+
+  it('warns when the existing strategy draft does not match the current Brand Brain', () => {
+    expect(source).toContain('Existing draft may not match current Brand Brain')
+    expect(source).toContain('Update strategy for current Brand Brain')
+    expect(source).toContain('this draft does not appear to match')
+    expect(source).toContain('Do not use the old draft direction for the new brand')
+  })
 })
