@@ -68,6 +68,12 @@ function platformLabel(key: string, original?: string): string {
   return PLATFORM_LABELS[key] || original?.trim() || key
 }
 
+export function formatStrategyPlatformLabel(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const key = normalizePlatform(value)
+  return key ? platformLabel(key, value) : value.trim()
+}
+
 function buildPlatformContext(allowedPlatforms: string[] | null | undefined): NormalizedPlatformContext {
   const allowedLabels: string[] = []
   const allowedKeys = new Set<string>()
@@ -232,6 +238,7 @@ export function selectStrategyCampaignPlatforms(
     ? strategy.channelMix
         .map((item) => isObject(item) ? item.platform : item)
         .filter((platform): platform is string => typeof platform === 'string' && platform.trim().length > 0)
+        .map(formatStrategyPlatformLabel)
     : []
 }
 

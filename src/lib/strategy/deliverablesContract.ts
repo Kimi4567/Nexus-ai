@@ -249,7 +249,7 @@ export function getStrategyDeliverables(
   }
   if (includesOrganic) {
     giParts.push(
-      `Organic: shape up to ${organicPostCount} post directions / angle ideas for the detailed window (this number is fixed by the order — do NOT decide the count yourself). These are planning directions, not final post drafts or scheduled Content Hub items.` +
+      `Organic: produce exactly ${organicPostCount} post directions / angle ideas for the detailed window (this number is fixed by the order — do NOT decide the count yourself). Return exactly ${organicPostCount} contentAnglesDetailed entries when organic scope is included. Distribute exactly ${organicPostCount} countable post directions across weeklyExecutionPlan.deliverables for the first ${detailedCalendarDays} days. These are planning directions, not final post drafts or scheduled Content Hub items.` +
         (planCapApplied ? ` (Requested intensity ${requestedOrganicPostCount} was capped by the plan quota ${quota}.)` : ''),
     )
   }

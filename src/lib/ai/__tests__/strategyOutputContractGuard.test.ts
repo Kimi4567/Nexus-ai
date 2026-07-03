@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
+import { formatStrategyPlatformLabel, guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '../strategyOutputContractGuard'
 
 describe('guardStrategyOutputContract', () => {
   const allowed = ['INSTAGRAM', 'TIKTOK', 'FACEBOOK']
@@ -65,6 +65,14 @@ describe('selectStrategyCampaignPlatforms', () => {
     }, [])
 
     expect(platforms).toEqual(['Instagram', 'TikTok'])
+  })
+})
+
+describe('formatStrategyPlatformLabel', () => {
+  it('formats common YouTube Shorts variants for runtime display', () => {
+    expect(formatStrategyPlatformLabel('youtube_shorts')).toBe('YouTube Shorts')
+    expect(formatStrategyPlatformLabel('Youtube_shorts')).toBe('YouTube Shorts')
+    expect(formatStrategyPlatformLabel('youtube shorts')).toBe('YouTube Shorts')
   })
 })
 

@@ -172,6 +172,9 @@ describe('getStrategyDeliverables — shape & purity', () => {
       expect(d.generationInstructions).toMatch(/do NOT generate posts for every day/i)
       expect(d.generationInstructions).toMatch(/does NOT create saved Content Hub posts/i)
       expect(d.generationInstructions).toMatch(/not final post drafts/i)
+      expect(d.generationInstructions).toMatch(/produce exactly 16 post directions/i)
+      expect(d.generationInstructions).toMatch(/Return exactly 16 contentAnglesDetailed entries/i)
+      expect(d.generationInstructions).toMatch(/Distribute exactly 16 countable post directions across weeklyExecutionPlan\.deliverables/i)
     }
   })
 

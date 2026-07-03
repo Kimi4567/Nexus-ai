@@ -100,7 +100,7 @@ export async function GET(req: Request) {
           id: 'brand-incomplete',
           type: 'action',
           icon: '🧠',
-          message: 'Brand memory partially configured — complete your profile for sharper AI output',
+          message: 'Brand memory has core context — add proof, analytics, and reviewed signals over time to sharpen output',
           href: '/brand',
         })
       } else {
@@ -108,7 +108,7 @@ export async function GET(req: Request) {
           id: 'brand-needs-data',
           type: 'warning',
           icon: '🧠',
-          message: 'Brand memory needs more information — complete your profile to enable sharper AI output',
+          message: 'Brand memory needs more core context before outputs can become sharper',
           href: '/brand',
         })
       }

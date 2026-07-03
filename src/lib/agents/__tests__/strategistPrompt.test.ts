@@ -122,17 +122,19 @@ describe('buildStrategistPrompts — Full + Organic enforcement', () => {
 describe('buildStrategistPrompts — content intensity / plan cap', () => {
   it('11. includes the fixed organic direction count (Organic Standard 90 = 16)', () => {
     const s = sys(briefWith(order('organic', 'standard', '90')))
-    expect(s).toMatch(/up to 16 post directions/i)
+    expect(s).toMatch(/exactly 16 post directions/i)
+    expect(s).toMatch(/return exactly 16 contentAnglesDetailed entries/i)
+    expect(s).toMatch(/weeklyExecutionPlan\.deliverables add up to exactly 16/i)
   })
 
   it('11. a different intensity yields a different direction count (Organic Light 90 = 10)', () => {
-    expect(sys(briefWith(order('organic', 'light', '90')))).toMatch(/up to 10 post directions/i)
+    expect(sys(briefWith(order('organic', 'light', '90')))).toMatch(/exactly 10 post directions/i)
   })
 
   it('12. states the plan cap honestly when planCapApplied (growth 25 capped to 10)', () => {
     const s = sys(briefWith(order('organic', 'growth', '90'), 10))
     expect(s).toMatch(/capped by the plan quota 10/i)
-    expect(s).toMatch(/up to 10 post directions/i) // capped count, not requested 25
+    expect(s).toMatch(/exactly 10 post directions/i) // capped count, not requested 25
   })
 
   it('platform variants framed as adaptations', () => {
@@ -144,5 +146,19 @@ describe('buildStrategistPrompts — content intensity / plan cap', () => {
     expect(s).toMatch(/Allowed content platforms from Brand Brain: INSTAGRAM, TIKTOK, FACEBOOK/)
     expect(s).toMatch(/Use ONLY these platforms in channelMix/)
     expect(s).toMatch(/Do not add Pinterest/)
+  })
+
+  it('blocks unsupported download CTAs unless a download asset is provided', () => {
+    const s = sys(briefWith(order('organic', 'standard', '30')))
+    expect(s).toMatch(/Do not use CTAs like "Download now"/)
+    expect(s).toMatch(/Do not invent a downloadable asset/)
+  })
+
+  it('adds an Arabic binding rule for Arabic strategy output', () => {
+    const b = briefWith({ ...order('organic', 'standard', '30'), language: 'ar' })
+    b.language = 'ar'
+    const s = sys(b)
+    expect(s).toMatch(/Arabic language is binding/)
+    expect(s).toMatch(/every user-facing JSON string must be Arabic/)
   })
 })

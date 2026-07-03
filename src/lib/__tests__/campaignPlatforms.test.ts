@@ -47,6 +47,7 @@ describe('platformLabel (PR-1M)', () => {
     expect(platformLabel('FACEBOOK')).toBe('Facebook')
     expect(platformLabel('tiktok')).toBe('TikTok')
     expect(platformLabel('LINKEDIN')).toBe('LinkedIn')
+    expect(platformLabel('youtube_shorts')).toBe('YouTube Shorts')
   })
   it('title-cases unknown keys', () => {
     expect(platformLabel('THREADS')).toBe('Threads')
@@ -55,10 +56,10 @@ describe('platformLabel (PR-1M)', () => {
 
 describe('getCampaignPlatformSummary (PR-1M)', () => {
   it('summarizes with labels and not-empty', () => {
-    const s = getCampaignPlatformSummary(['instagram', 'facebook'], 'en')
+    const s = getCampaignPlatformSummary(['instagram', 'facebook', 'youtube_shorts'], 'en')
     expect(s.isEmpty).toBe(false)
-    expect(s.platforms).toEqual(['FACEBOOK', 'INSTAGRAM'])
-    expect(s.labels).toEqual(['Facebook', 'Instagram'])
+    expect(s.platforms).toEqual(['FACEBOOK', 'INSTAGRAM', 'YOUTUBE_SHORTS'])
+    expect(s.labels).toEqual(['Facebook', 'Instagram', 'YouTube Shorts'])
   })
 
   it('empty campaign → isEmpty + localized "not set", never a default platform', () => {
