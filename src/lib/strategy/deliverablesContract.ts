@@ -8,8 +8,9 @@
  * shown before any charge (UI wiring is a later PR).
  *
  * Core rules enforced here:
- *  - Duration is a PLANNING HORIZON. Only the first ≤30 days get a detailed
- *    content calendar; 90/180-day plans are roadmap + first-30-days-detailed.
+ *  - Duration is a PLANNING HORIZON. Strategy runs produce a roadmap and an
+ *    execution outline for the first ≤30 days. Final Content Hub draft posts,
+ *    captions, SocialPost rows, and saved calendars are generated separately.
  *  - Content intensity sets the organic post target; the plan quota CAPS it.
  *  - Paid is planning-only (never launch/spend/publish/activation/fake metrics).
  *  - Full aligns organic + paid (shared angles/funnel/retargeting) without
@@ -152,20 +153,25 @@ export function getStrategyDeliverables(
   if (includesOrganic) {
     if (isMultiMonth) {
       included.push(`${roadmapMonths}-month organic roadmap`)
-      included.push('Detailed first 30-day content calendar')
-      included.push(`Organic posts for the first 30 days (${organicPostCount})`)
-      included.push('Weekly themes for the first 30 days')
+      included.push('First 30-day strategy execution outline')
+      included.push(`Organic post direction target for the first 30 days (${organicPostCount})`)
+      included.push('Weekly themes and execution priorities for the first 30 days')
       included.push('Months 2+ as themes / backlog / future monthly cycles (not pre-generated posts)')
+      included.push('Content Hub draft posts generated separately after strategy review')
       if (hasExtension) included.push('Weekly extension outline beyond the detailed 30 days')
     } else {
       included.push(`Detailed ${detailedCalendarDays}-day strategy`)
-      included.push('First-month content calendar')
-      included.push(`Organic posts (${organicPostCount})`)
-      included.push('Weekly themes')
+      included.push('First-month strategy execution outline')
+      included.push(`Organic post direction target (${organicPostCount})`)
+      included.push('Weekly themes and execution priorities')
+      included.push('Content Hub draft posts generated separately after strategy review')
     }
     included.push('Captions / CTA direction')
     included.push('Platform recommendations')
     excluded.push('Pre-generated posts for every day of the full horizon')
+    excluded.push('Saved Content Hub content plan')
+    excluded.push('Final SocialPost drafts / captions')
+    excluded.push('Scheduled calendar entries')
   }
 
   if (includesPaid) {
@@ -198,24 +204,24 @@ export function getStrategyDeliverables(
     excluded.push('Paid campaign plan')
   }
   if (order.strategyType === 'paid') {
-    excluded.push('Organic content calendar')
+    excluded.push('Organic Content Hub content plan')
   }
 
   // ── User explanation (localized) ──
   const horizonNote = isMultiMonth
     ? {
-        en: `Your ${horizon}-day plan includes a full ${roadmapMonths}-month roadmap and a detailed content calendar for the first 30 days only. Future monthly calendars are generated later as NEXUS learns from performance.`,
-        ar: `خطتك لمدة ${horizon} يوماً تشمل خريطة طريق كاملة لمدة ${roadmapMonths} أشهر، وتقويم محتوى تفصيلي لأول 30 يوماً فقط. تُولَّد تقاويم الشهور التالية لاحقاً بناءً على الأداء والتعلّم.`,
+        en: `Your ${horizon}-day plan includes a full ${roadmapMonths}-month roadmap and a first-30-day execution outline. Content Hub draft posts and saved calendars are generated separately after strategy review.`,
+        ar: `خطتك لمدة ${horizon} يوماً تشمل خريطة طريق كاملة لمدة ${roadmapMonths} أشهر، ومخطط تنفيذ لأول 30 يوماً. تُولَّد مسودات Content Hub والتقويمات المحفوظة لاحقاً بعد مراجعة الاستراتيجية.`,
       }
     : {
-        en: `Your ${horizon}-day plan includes a detailed strategy and content calendar for the full ${detailedCalendarDays} days.`,
-        ar: `خطتك لمدة ${horizon} يوماً تشمل استراتيجية وتقويم محتوى تفصيلي لكامل الـ${detailedCalendarDays} يوماً.`,
+        en: `Your ${horizon}-day plan includes a detailed strategy and execution outline for the full ${detailedCalendarDays} days. Content Hub draft posts are generated separately after review.`,
+        ar: `خطتك لمدة ${horizon} يوماً تشمل استراتيجية ومخطط تنفيذ لكامل الـ${detailedCalendarDays} يوماً. تُولَّد مسودات Content Hub لاحقاً بعد المراجعة.`,
       }
 
   const capNote = planCapApplied
     ? {
-        en: ` You chose ${order.contentIntensity} intensity (${INTENSITY_BAND[order.contentIntensity]} posts/month), but your current plan allows ${quota} posts/month — so ${organicPostCount} posts will be generated. Upgrade to unlock more.`,
-        ar: ` اخترت كثافة ${order.contentIntensity} (${INTENSITY_BAND[order.contentIntensity]} منشوراً شهرياً)، لكن خطتك الحالية تسمح بـ${quota} منشوراً شهرياً — لذلك سيتم توليد ${organicPostCount} منشوراً. قم بالترقية لفتح المزيد.`,
+        en: ` You chose ${order.contentIntensity} intensity (${INTENSITY_BAND[order.contentIntensity]} posts/month), but your current plan allows ${quota} posts/month — so the first-30-day plan will use ${organicPostCount} post directions. Upgrade to unlock more.`,
+        ar: ` اخترت كثافة ${order.contentIntensity} (${INTENSITY_BAND[order.contentIntensity]} منشوراً شهرياً)، لكن خطتك الحالية تسمح بـ${quota} منشوراً شهرياً — لذلك سيستخدم مخطط أول 30 يوماً ${organicPostCount} اتجاهات منشورات. قم بالترقية لفتح المزيد.`,
       }
     : { en: '', ar: '' }
 
@@ -235,15 +241,15 @@ export function getStrategyDeliverables(
   giParts.push(`Strategy type: ${order.strategyType}. Planning horizon: ${horizon} days. Goal: ${order.goal || 'unspecified'}.`)
   if (isMultiMonth) {
     giParts.push(
-      `Produce a ${roadmapMonths}-month roadmap, but generate a DETAILED day-by-day content calendar for the FIRST ${detailedCalendarDays} DAYS ONLY. Months 2+ must be themes / backlog / future cycles — do NOT generate posts for every day of the full ${horizon}-day horizon.`,
+      `Produce a ${roadmapMonths}-month roadmap and a FIRST-${detailedCalendarDays}-DAY STRATEGY EXECUTION OUTLINE using weeklyExecutionPlan/contentAnglesDetailed. This strategy run does NOT create saved Content Hub posts, final captions, SocialPost rows, scheduled calendar entries, or a persisted content plan. Months 2+ must be themes / backlog / future cycles — do NOT generate posts for every day of the full ${horizon}-day horizon.`,
     )
     if (hasExtension) giParts.push('Add a lightweight weekly extension outline for the days beyond the detailed 30, without per-day posts.')
   } else {
-    giParts.push(`Generate a detailed strategy and content calendar for the full ${detailedCalendarDays} days.`)
+    giParts.push(`Generate a detailed strategy and execution outline for the full ${detailedCalendarDays} days. This strategy run does NOT create saved Content Hub posts, final captions, SocialPost rows, scheduled calendar entries, or a persisted content plan.`)
   }
   if (includesOrganic) {
     giParts.push(
-      `Organic: generate exactly ${organicPostCount} post ideas for the detailed window (this number is fixed by the order — do NOT decide the count yourself).` +
+      `Organic: shape up to ${organicPostCount} post directions / angle ideas for the detailed window (this number is fixed by the order — do NOT decide the count yourself). These are planning directions, not final post drafts or scheduled Content Hub items.` +
         (planCapApplied ? ` (Requested intensity ${requestedOrganicPostCount} was capped by the plan quota ${quota}.)` : ''),
     )
   }

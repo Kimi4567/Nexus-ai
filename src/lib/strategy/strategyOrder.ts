@@ -8,7 +8,8 @@
  * and generation instructions.
  *
  * Critical rule: duration is the PLANNING HORIZON, not the number of posts
- * generated upfront. 90/180-day plans detail only the first 30 days.
+ * generated upfront. Strategy generation produces an execution outline; final
+ * Content Hub draft posts / saved calendars are generated separately.
  *
  * This file is pure types — no logic, no I/O.
  */
@@ -54,7 +55,7 @@ export interface StrategyDeliverables {
   unsupportedReason?: string
 
   planningHorizonDays: number
-  /** Always ≤ 30. The window that gets a concrete day-by-day content calendar. */
+  /** Always ≤ 30. The window that gets a concrete strategy execution outline. */
   detailedCalendarDays: number
   roadmapMonths: number
 

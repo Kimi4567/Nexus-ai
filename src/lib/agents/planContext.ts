@@ -2,9 +2,9 @@
  * planContext.ts — Research-backed plan context injected into every agent prompt.
  *
  * Why this exists:
- *   Agents must not generate a 60-post calendar for a Starter user who only gets
+ *   Agents must not generate a 60-post plan for a Starter user who only gets
  *   10 posts/month. Every agent must be aware of the user's plan so that output
- *   volume, depth, and calendar scope match what the user can actually execute.
+ *   volume, depth, and execution-outline scope match what the user can execute.
  *
  * Research basis (Nexus AI Pricing Study, June 2025):
  *   - HubSpot State of Marketing: 16+ posts/month = 4.5× more leads
@@ -136,13 +136,13 @@ export function getPlanContext(planTier?: string): string {
 
   const depthGuide: Record<StrategyDepth, string> = {
     basic:
-      'Basic scope: focus on 1 platform, 1 audience segment, 3-5 content angles, 1-week starter calendar.',
+      'Basic scope: focus on 1 platform, 1 audience segment, 3-5 content angles, 1-week starter execution outline.',
     standard:
-      'Standard scope: cover 1-2 platforms, 2 audience segments, 8 content angles, 2-week calendar.',
+      'Standard scope: cover 1-2 platforms, 2 audience segments, 8 content angles, 2-week execution outline.',
     advanced:
-      'Advanced scope: full 4-week calendar, 3 audience segments, 12+ content angles, multi-platform strategy.',
+      'Advanced scope: full 4-week execution outline, 3 audience segments, 12+ content angles, multi-platform strategy.',
     agency:
-      'Agency scope: full 4-week calendar, 4 audience segments, 15 content angles, 6 platforms, white-label ready.',
+      'Agency scope: full 4-week execution outline, 4 audience segments, 15 content angles, 6 platforms, white-label ready.',
   }
 
   const lines = [
@@ -150,13 +150,14 @@ export function getPlanContext(planTier?: string): string {
     `Plan: ${cfg.label}`,
     `Monthly post quota: ${cfg.postsPerMonth} posts/month`,
     `Max platforms: ${cfg.platformCount}`,
-    `Calendar depth: ${cfg.calendarWeeks}-week calendar`,
+    `Execution outline depth: ${cfg.calendarWeeks}-week strategy outline`,
     `Audience segments to generate: ${cfg.audienceSegments}`,
     `Content angles to generate: ${cfg.contentAngles}`,
     ``,
     `SCOPE INSTRUCTION: ${depthGuide[cfg.depth]}`,
     `Do NOT generate more posts or weeks than the quota above allows.`,
     `Every deliverable in the weekly plan must be achievable within this user's quota.`,
+    `Platform frequency ranges below are reference only. Do NOT add an execution platform unless it appears in the user's Active/Allowed Platforms.`,
     cfg.upgradeNote ? `\n${cfg.upgradeNote}` : null,
     ``,
     PLATFORM_FREQUENCY_SCIENCE.trim(),

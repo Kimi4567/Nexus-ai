@@ -24,6 +24,8 @@ import { useI18n } from '@/lib/i18n-context'
 import { BrandReadinessStatus } from '@/lib/brandReadiness'
 import { getStrategyPageReadinessSurface } from '@/lib/strategyBriefReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
+import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
+import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import AppShell from '@/components/AppShell'
 import RunFullStrategyModal from '@/components/RunFullStrategyModal'
 import {
@@ -63,6 +65,15 @@ function textLabel(p: unknown): string {
     return String(o.hook ?? o.text ?? o.cta ?? o.value ?? '').trim()
   }
   return ''
+}
+function uniqueLabels(items: string[]): string[] {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const key = item.trim().toLowerCase()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 export default function StrategyPage() {
@@ -121,13 +132,29 @@ export default function StrategyPage() {
   const hasStrategy = total > 0
   const recent = campaigns[0]
   const hasDraftStrategy = Boolean(recent?.status && recent.status.toLowerCase() === 'draft')
-  const ai = (recent?.aiOutput ?? null) as Record<string, unknown> | null
-  const strat = (ai?.strategy ?? ai ?? null) as Record<string, unknown> | null
+  const rawAi = (recent?.aiOutput ?? null) as Record<string, unknown> | null
+  const rawStrat = (rawAi?.strategy ?? rawAi ?? null) as Record<string, unknown> | null
+  const displayGuardContext = {
+    verifiedProof: Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
+  }
+  const displayAllowedPlatforms = (recent?.platforms?.length ? recent.platforms : brandProfile?.topPlatforms) ?? []
+  const ai = rawAi
+    ? guardStrategyOutputContract(
+        guardStrategyProof(rawAi, displayGuardContext),
+        { allowedPlatforms: displayAllowedPlatforms },
+      ) as Record<string, unknown>
+    : null
+  const strat = rawStrat
+    ? guardStrategyOutputContract(
+        guardStrategyProof(rawStrat, displayGuardContext),
+        { allowedPlatforms: displayAllowedPlatforms },
+      ) as Record<string, unknown>
+    : null
 
-  const pillars = [
+  const pillars = uniqueLabels([
     ...asArray(strat?.contentPillars),
     ...asArray(ai?.contentPillars),
-  ].map(pillarLabel).filter(Boolean).slice(0, 6)
+  ].map(pillarLabel).filter(Boolean)).slice(0, 6)
   const platformSummary = getCampaignPlatformSummary(recent?.platforms ?? [], locale)
   const hooks = [
     ...asArray(ai?.topHooks),
@@ -178,7 +205,7 @@ export default function StrategyPage() {
         ]
       : [
           ar ? 'تابع من الاستراتيجية الحالية' : 'Continue from the existing strategy',
-          ar ? 'راجع خطة المحتوى العضوي' : 'Review the organic content plan',
+          ar ? 'راجع اتجاه المحتوى العضوي' : 'Review the organic content direction',
           ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
           ar ? 'استخدم التخطيط المدفوع فقط بعد الجاهزية والموافقة' : 'Use paid planning only after readiness and approval',
         ]
@@ -359,7 +386,7 @@ export default function StrategyPage() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
                 {[
                   { label: ar ? 'اتجاه الاستراتيجية' : 'Strategy direction', value: strategyStatusText },
-                  { label: ar ? 'خطة المحتوى العضوي' : 'Organic content plan', value: ar ? 'متاحة للمراجعة' : 'Available to review' },
+                  { label: ar ? 'اتجاه المحتوى العضوي' : 'Organic content direction', value: ar ? 'متاح للمراجعة' : 'Available to review' },
                   { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label },
                   { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? readinessSurface.nextAction.labelAr : readinessSurface.nextAction.label },
                 ].map((item) => (
@@ -375,20 +402,20 @@ export default function StrategyPage() {
           {/* Two clearly-separated outputs: Organic + Paid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-            {/* ── Monthly Organic Content Plan ── */}
+            {/* ── Organic strategy direction (not saved Content Hub posts) ── */}
             <div className={card} style={cardStyle}>
               <div className="flex items-center gap-2 mb-3">
                 <Layers className="w-4 h-4" style={{ color: '#8B5CF6' }} />
                 <h2 className="text-sm font-bold" style={{ color: '#0f172a' }}>
-                  {ar ? 'خطة المحتوى العضوي الشهرية' : 'Monthly Organic Content Plan'}
+                  {ar ? 'اتجاه المحتوى العضوي' : 'Organic Content Direction'}
                 </h2>
               </div>
 
               {!hasStrategy || !hasOrganicData ? (
                 <p className="text-sm" style={{ color: '#94a3b8' }}>
                   {ar
-                    ? 'ستظهر خطة المحتوى العضوي هنا بعد إنشاء أول استراتيجية.'
-                    : 'Organic plan will appear here after your first strategy is created.'}
+                    ? 'سيظهر اتجاه المحتوى العضوي هنا بعد إنشاء أول استراتيجية.'
+                    : 'Organic content direction will appear here after your first strategy is created.'}
                 </p>
               ) : (
                 <div className="space-y-4">

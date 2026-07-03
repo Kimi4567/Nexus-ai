@@ -17,8 +17,14 @@ describe('normalizeStrategyIntent — safe defaults', () => {
 describe('guardKpiTarget — strips unsupported performance numbers', () => {
   it('strips invented percentages (20% / 25% / 15%) → directional', () => {
     expect(guardKpiTarget('Increase by 20%')).toBe('Increase — baseline needed (target to define after first 30 days)')
+    expect(guardKpiTarget('Increase by 20% over the next 30 days', ['20% gross margin'])).toBe('Increase — baseline needed (target to define after first 30 days)')
     expect(guardKpiTarget('Improve by 15%')).toMatch(/^Improve — baseline needed/)
     expect(guardKpiTarget('25% more engagement')).toBe('Baseline needed — target to define after first 30 days')
+  })
+
+  it('strips unsupported multiplier-word targets even without digits', () => {
+    expect(guardKpiTarget('Double the current monthly requests')).toBe('Baseline needed — target to define after first 30 days')
+    expect(guardResultText('Aim to double current monthly requests in 30 days')).toContain('baseline-needed performance target')
   })
 
   it('strips ROI / ROAS / revenue / lead-count style targets', () => {

@@ -29,6 +29,7 @@ const briefWith = (o: StrategyOrder, postsPerMonth?: number): BusinessBrief => {
     language: 'en',
     strategyType: o.strategyType,
     strategyDuration: o.durationPreset,
+    currentPlatforms: ['INSTAGRAM', 'TIKTOK', 'FACEBOOK'],
     strategyOrder: o,
     strategyDeliverables: d,
     generationInstructions: d.generationInstructions,
@@ -61,15 +62,16 @@ describe('buildStrategistPrompts — binding scope wiring', () => {
 })
 
 describe('buildStrategistPrompts — 30 / 90 / 180 horizon', () => {
-  it('3+4. 90-day: FIRST 30 DAYS ONLY + no day-by-day for the full 90-day horizon', () => {
+  it('3+4. 90-day: first-30-day execution outline + no day-by-day for the full 90-day horizon', () => {
     const s = sys(briefWith(order('organic', 'standard', '90')))
-    expect(s).toMatch(/FIRST 30 DAYS ONLY/i)
+    expect(s).toMatch(/FIRST-30-DAY STRATEGY EXECUTION OUTLINE/i)
     expect(s).toMatch(/do NOT generate posts for every day of the full 90-day horizon/i)
+    expect(s).toMatch(/does NOT create a saved Content Hub content calendar/i)
   })
 
-  it('3+4. 180-day: FIRST 30 DAYS ONLY + no day-by-day for the full 180-day horizon', () => {
+  it('3+4. 180-day: first-30-day execution outline + no day-by-day for the full 180-day horizon', () => {
     const s = sys(briefWith(order('organic', 'standard', '180')))
-    expect(s).toMatch(/FIRST 30 DAYS ONLY/i)
+    expect(s).toMatch(/FIRST-30-DAY STRATEGY EXECUTION OUTLINE/i)
     expect(s).toMatch(/do NOT generate posts for every day of the full 180-day horizon/i)
     expect(s).toContain('6-month roadmap')
   })
@@ -81,7 +83,7 @@ describe('buildStrategistPrompts — 30 / 90 / 180 horizon', () => {
 
   it('30-day: detailed full window, no multi-month roadmap sentence', () => {
     const s = sys(briefWith(order('organic', 'standard', '30')))
-    expect(s).toMatch(/detailed strategy and content calendar for the full 30 days/i)
+    expect(s).toMatch(/detailed strategy and execution outline for the full 30 days/i)
     expect(s).not.toMatch(/month roadmap\. Generate a DETAILED/i) // no multi-month block
   })
 })
@@ -118,22 +120,29 @@ describe('buildStrategistPrompts — Full + Organic enforcement', () => {
 })
 
 describe('buildStrategistPrompts — content intensity / plan cap', () => {
-  it('11. includes the exact organicPostCount (Organic Standard 90 = 16)', () => {
+  it('11. includes the fixed organic direction count (Organic Standard 90 = 16)', () => {
     const s = sys(briefWith(order('organic', 'standard', '90')))
-    expect(s).toMatch(/exactly 16 post ideas/i)
+    expect(s).toMatch(/up to 16 post directions/i)
   })
 
-  it('11. a different intensity yields a different exact count (Organic Light 90 = 10)', () => {
-    expect(sys(briefWith(order('organic', 'light', '90')))).toMatch(/exactly 10 post ideas/i)
+  it('11. a different intensity yields a different direction count (Organic Light 90 = 10)', () => {
+    expect(sys(briefWith(order('organic', 'light', '90')))).toMatch(/up to 10 post directions/i)
   })
 
   it('12. states the plan cap honestly when planCapApplied (growth 25 capped to 10)', () => {
     const s = sys(briefWith(order('organic', 'growth', '90'), 10))
     expect(s).toMatch(/capped by the plan quota 10/i)
-    expect(s).toMatch(/exactly 10 post ideas/i) // capped count, not requested 25
+    expect(s).toMatch(/up to 10 post directions/i) // capped count, not requested 25
   })
 
   it('platform variants framed as adaptations', () => {
     expect(sys(briefWith(order('organic', 'standard', '90')))).toMatch(/Platform variants are ADAPTATIONS/i)
+  })
+
+  it('binds execution fields to active platforms only', () => {
+    const s = sys(briefWith(order('organic', 'standard', '90')))
+    expect(s).toMatch(/Allowed content platforms from Brand Brain: INSTAGRAM, TIKTOK, FACEBOOK/)
+    expect(s).toMatch(/Use ONLY these platforms in channelMix/)
+    expect(s).toMatch(/Do not add Pinterest/)
   })
 })

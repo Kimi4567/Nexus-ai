@@ -122,10 +122,10 @@ export function buildProofPolicyPrompt(context: StrategyProofContext): string {
     'PROOF POLICY (strict):',
     proofLine,
     '- Use only the verified proof above as factual proof.',
-    '- Do not invent testimonials, customer stories, awards, reviews, satisfaction claims, case studies, guarantees, or performance claims.',
+    '- Do not invent testimonials, customer/client stories, before/after transformations, awards, reviews, satisfaction claims, case studies, guarantees, or performance claims.',
     '- Do not phrase proof gaps as if they already exist.',
     '- Do not create "Customer Testimonials" as a content pillar unless verified proof includes real testimonials.',
-    '- Do not write "Hear from satisfied customers" or "Read their stories" unless those customer stories were provided.',
+    '- Do not write "Hear from satisfied customers", "Read their stories", "Client Stories", or "Before and After Transformations" unless those proof/assets were provided.',
     '- If proof is missing, recommend collecting proof, asking customers for feedback, or using available factual proof only.',
   ].join('\n')
 }
@@ -149,9 +149,19 @@ export function guardStrategyProofText(text: unknown, context: StrategyProofCont
 
   if (!proof.hasCustomerStories) {
     guarded = guarded
+      .replace(/\bclient stories\b/gi, 'client stories to collect')
+      .replace(/\bclient story\b/gi, 'client story to collect')
       .replace(/\bcustomer stories\b/gi, 'customer stories to collect')
       .replace(/\bcustomer story\b/gi, 'customer story to collect')
       .replace(/\bRead their stories\b/gi, 'Collect customer stories for future use')
+  }
+
+  if (!proof.hasCustomerStories && !proof.hasCaseStudies) {
+    guarded = guarded
+      .replace(/\bbefore\s+and\s+after\s+transformations\b/gi, 'transformation planning walkthroughs')
+      .replace(/\bbefore\s*\/\s*after\s+transformations\b/gi, 'transformation planning walkthroughs')
+      .replace(/\bbefore\s+and\s+after\b/gi, 'before/after assets to collect')
+      .replace(/\bbefore\s*\/\s*after\b/gi, 'before/after assets to collect')
   }
 
   if (!proof.hasReviews) {

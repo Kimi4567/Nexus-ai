@@ -39,8 +39,9 @@ describe('getStrategyDeliverables — duration', () => {
     for (const preset of ['90', '180'] as const) {
       const d = getStrategyDeliverables(order({ durationPreset: preset, durationDays: Number(preset) }))
       expect(d.detailedCalendarDays).toBeLessThanOrEqual(30)
-      expect(d.includedDeliverables.join(' ')).toMatch(/first 30-day/i)
+      expect(d.includedDeliverables.join(' ')).toMatch(/First 30-day strategy execution outline/i)
       expect(d.includedDeliverables.join(' ')).toMatch(/themes \/ backlog|backlog/i)
+      expect(d.includedDeliverables.join(' ')).not.toMatch(/Detailed first 30-day content calendar/i)
       // organic post count is for the detailed window only, never horizon-sized
       expect(d.organicPostCount).toBeLessThanOrEqual(INTENSITY_POST_TARGET.daily)
     }
@@ -68,6 +69,7 @@ describe('getStrategyDeliverables — plan cap', () => {
     expect(d.planCappedOrganicPostCount).toBe(10)
     expect(d.planCapApplied).toBe(true)
     expect(d.userExplanation.toLowerCase()).toMatch(/plan allows 10/)
+    expect(d.userExplanation).toMatch(/post directions/i)
   })
 
   it('does not cap when the request is within quota', () => {
@@ -166,9 +168,21 @@ describe('getStrategyDeliverables — shape & purity', () => {
   it('12. generationInstructions say first-30-days-only for 90/180', () => {
     for (const preset of ['90', '180'] as const) {
       const d = getStrategyDeliverables(order({ durationPreset: preset, durationDays: Number(preset) }))
-      expect(d.generationInstructions).toMatch(/FIRST 30 DAYS ONLY/i)
+      expect(d.generationInstructions).toMatch(/FIRST-30-DAY STRATEGY EXECUTION OUTLINE/i)
       expect(d.generationInstructions).toMatch(/do NOT generate posts for every day/i)
+      expect(d.generationInstructions).toMatch(/does NOT create saved Content Hub posts/i)
+      expect(d.generationInstructions).toMatch(/not final post drafts/i)
     }
+  })
+
+  it('strategy run excludes saved Content Hub drafts and scheduling artifacts', () => {
+    const d = getStrategyDeliverables(order({ strategyType: 'organic', durationPreset: '90', durationDays: 90 }))
+    expect(d.excludedDeliverables).toEqual(expect.arrayContaining([
+      'Saved Content Hub content plan',
+      'Final SocialPost drafts / captions',
+      'Scheduled calendar entries',
+    ]))
+    expect(d.includedDeliverables.join(' ')).toMatch(/Content Hub draft posts generated separately/i)
   })
 
   it('13. returns no charged credit/price values (informational counts only)', () => {

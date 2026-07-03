@@ -72,7 +72,21 @@ beforeEach(() => {
   mockGetMemories.mockResolvedValue([])
   mockFormatMemories.mockReturnValue(undefined)
   mockPrisma.workspace.findFirst.mockResolvedValue({ id: 'w1', ownerId: 'u1' })
-  mockPrisma.brandProfile.findUnique.mockResolvedValue({ brandName: 'B', industry: 'Tech', targetAudience: 'A' })
+  mockPrisma.brandProfile.findUnique.mockResolvedValue({
+    brandName: 'B',
+    industry: 'Tech',
+    description: 'AI marketing operating system for small businesses.',
+    primaryOffer: 'Strategy and content planning workspace.',
+    targetAudience: 'A',
+    businessGoal: 'leads',
+    writingStyle: 'clear and practical',
+    topPlatforms: ['INSTAGRAM', 'TIKTOK', 'FACEBOOK'],
+    marketingBudget: '$1,000/month planning budget',
+    conversionDestination: 'Website lead form',
+    leadHandling: 'Sales team follows up within one business day',
+    audienceLocation: 'United States',
+    verifiedProof: ['User-provided proof: internal pilot users reviewed strategy drafts.'],
+  })
   mockPrisma.user.findUnique.mockResolvedValue({ preferences: {} })
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.media.findMany.mockResolvedValue([])
@@ -221,7 +235,7 @@ describe('POST /api/strategy/run-full — generation contract (S1c-3)', () => {
     expect(mockRunFullAgency).toHaveBeenCalledTimes(1)
     const brief = briefArg()
     expect(typeof brief.generationInstructions).toBe('string')
-    expect(brief.generationInstructions).toMatch(/FIRST 30 DAYS ONLY/i)
+    expect(brief.generationInstructions).toMatch(/FIRST-30-DAY STRATEGY EXECUTION OUTLINE/i)
     expect(brief.strategyDeliverables).toBeTruthy()
     expect(brief.strategyDeliverables.supported).toBe(true)
     // counts come from the contract, not the AI
@@ -229,6 +243,7 @@ describe('POST /api/strategy/run-full — generation contract (S1c-3)', () => {
     expect(brief.detailedCalendarDays).toBe(30)
     expect(brief.roadmapMonths).toBe(3)
     expect(brief.strategyOrder.goal).toBe('leads') // order goal enriched from goalOverride
+    expect(brief.currentPlatforms).toEqual(['INSTAGRAM', 'TIKTOK', 'FACEBOOK'])
   })
 
   it('paid order carries paid planning-only scope into generationInstructions', async () => {
