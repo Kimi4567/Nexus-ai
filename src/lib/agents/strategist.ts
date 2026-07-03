@@ -109,7 +109,13 @@ export interface OfferCTAStrategy {
 
 export interface ChannelAllocation {
   platform: string
-  budgetPercent: number
+  /**
+   * Organic strategy should describe effort/rhythm, not spend.
+   * Legacy saved strategies may still contain budgetPercent; the output guard
+   * strips it for organic-only runs before persistence.
+   */
+  effortSharePercent?: number
+  budgetPercent?: number
   rationale: string
   contentFrequency: string
 }
@@ -437,6 +443,9 @@ export function buildStrategistPrompts(
         'Do NOT imply that all days across the planning horizon are scheduled or published.',
         'This strategy run does NOT create a saved Content Hub content calendar, final SocialPost drafts, final captions, or scheduled calendar entries. Treat weeklyExecutionPlan and contentAnglesDetailed as strategy outline / planning direction only.',
         'Platform variants are ADAPTATIONS of the same content per channel — not separate additional posts.',
+        brief.strategyType === 'organic'
+          ? 'Organic-only mode is not paid planning: channelMix must describe organic effort/rhythm with effortSharePercent only. Do NOT include budgetPercent, paid readiness, ad launch, spend, activation, or platform-execution claims.'
+          : '',
         allowedPlatformLine,
         'Never claim ads will launch, budget will be spent, campaigns will be activated, or that posts are scheduled/published — nothing is published or activated without explicit user approval.',
         typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
@@ -550,6 +559,10 @@ Return ONLY valid JSON. No markdown outside the JSON.`
       ].join('\n')
     : ''
 
+  const channelMixSchemaItem = brief.strategyType === 'organic'
+    ? '{ "platform": "string", "effortSharePercent": number, "rationale": "string", "contentFrequency": "string" }'
+    : '{ "platform": "string", "budgetPercent": number, "rationale": "string — planning assumption only", "contentFrequency": "string" }'
+
   const userPrompt = `
 ${extendedBrief}
 ${readinessBlock}
@@ -598,7 +611,7 @@ Return JSON with these exact fields — all specific to this brand:
   ],
 
   "channelMix": [
-    { "platform": "string", "budgetPercent": number, "rationale": "string", "contentFrequency": "string" }
+    ${channelMixSchemaItem}
   ],
 
   "topHooks": ["string — 5+ hooks specific to this brand"],

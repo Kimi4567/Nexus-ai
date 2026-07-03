@@ -130,6 +130,65 @@ describe('server-authoritative readiness', () => {
     expect(s.kpis[0].isHypothesis).toBe(true)               // no historical data
   })
 
+  it('caps overall confidence below high when competitors or analytics/pixel are missing', () => {
+    const fullButNoCompetitorsOrPixel = getStrategyCapabilities({
+      ...contentReady,
+      businessGoal: 'Generate qualified demos',
+      primaryOffer: 'AI finance operations platform',
+      audienceLocation: 'UAE',
+      uniqueAdvantages: ['Arabic/English workflows'],
+      marketingBudget: '$3,000/month',
+      conversionDestination: 'Demo booking page',
+      leadHandling: 'Sales replies within one business day',
+    }, { hasPixel: false })
+
+    expect(fullButNoCompetitorsOrPixel.fullStrategy.ready).toBe(true)
+    expect(deriveConfidenceReport(fullButNoCompetitorsOrPixel).overall).toBe('medium')
+
+    const fullWithCompetitorsAndPixel = getStrategyCapabilities({
+      ...contentReady,
+      businessGoal: 'Generate qualified demos',
+      primaryOffer: 'AI finance operations platform',
+      audienceLocation: 'UAE',
+      uniqueAdvantages: ['Arabic/English workflows'],
+      marketingBudget: '$3,000/month',
+      conversionDestination: 'Demo booking page',
+      leadHandling: 'Sales replies within one business day',
+      competitorNotes: 'Competitor X focuses on enterprise teams.',
+    }, { hasPixel: true })
+
+    expect(deriveConfidenceReport(fullWithCompetitorsAndPixel).overall).toBe('high')
+  })
+
+  it('keeps paid readiness out of organic-only persisted strategy output', () => {
+    const caps = getStrategyCapabilities({
+      ...contentReady,
+      businessGoal: 'Generate qualified demos',
+      primaryOffer: 'AI finance operations platform',
+      audienceLocation: 'UAE',
+      uniqueAdvantages: ['Arabic/English workflows'],
+      marketingBudget: '$3,000/month',
+      conversionDestination: 'Demo booking page',
+      leadHandling: 'Sales replies within one business day',
+      competitorNotes: 'Competitor X focuses on enterprise teams.',
+    }, { hasPixel: true })
+    const s: any = applyServerReadiness({
+      campaignName: 'Organic only',
+      goal: 'LEADS',
+      positioning: 'p',
+      targetAudienceRefined: 'a',
+      readyForPaidAds: true,
+      readyForPaidAdsReason: 'Model overclaimed paid readiness',
+      diagnosisDetails: { readyForPaidAds: true, readyForPaidAdsReason: 'Overclaim' },
+    } as any, caps, { hasHistoricalData: false, strategyType: 'organic', language: 'ar' })
+
+    expect(s.readyForPaidAds).toBe(false)
+    expect(s.diagnosisDetails.readyForPaidAds).toBe(false)
+    expect(s.confidenceReport.byCapability.paidStrategy).toBe('none')
+    expect(s.readyForPaidAdsReason).toMatch(/عضوي فقط/)
+    expect(s.readyForPaidAdsReason).not.toMatch(/Organic-only/)
+  })
+
   it('competitorAnalysisComplete true only when competitors provided', () => {
     const caps = getStrategyCapabilities({ ...contentReady, competitorNotes: 'Clinic X undercuts on price' })
     const s: any = applyServerReadiness({ campaignName: 'X', goal: '', positioning: '', targetAudienceRefined: '' } as any, caps, { hasHistoricalData: false })

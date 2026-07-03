@@ -166,7 +166,7 @@ export async function runFullAgency(
     //     The model's confidenceReport/missingData/competitorAnalysisComplete are
     //     DISCARDED and replaced from getStrategyCapabilities() here.
     strategy = applyServerReadiness(strategy, capabilities, {
-      hasHistoricalData, allowedCompetitors, allowedNumbers,
+      hasHistoricalData, allowedCompetitors, allowedNumbers, strategyType: brief.strategyType, language: brief.language,
     })
     // 2c. PR-I — KPI Truth Guard. applyServerReadiness flags KPIs as hypotheses but
     //     does NOT scrub the KPI/metric `target` strings, so invented figures like
@@ -188,6 +188,7 @@ export async function runFullAgency(
     strategy = guardStrategyOutputContract(strategy, {
       allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
       language: brief.language,
+      strategyType: brief.strategyType,
     })
     const contractReport = assertCampaignStrategyContract(strategy, { language: brief.language })
     console.log(

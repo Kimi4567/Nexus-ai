@@ -12,6 +12,7 @@ type JsonObject = Record<string, unknown>
 export interface StrategyOutputContractContext {
   allowedPlatforms?: string[] | null
   language?: string | null
+  strategyType?: 'organic' | 'paid' | 'full' | string | null
 }
 
 interface NormalizedPlatformContext {
@@ -166,8 +167,27 @@ function normalizeFormatForPlatform(format: unknown, platform: string): unknown 
   return 'Platform-native educational post'
 }
 
-function guardChannelMix(list: unknown, ctx: NormalizedPlatformContext): unknown {
-  if (!Array.isArray(list) || !ctx.allowedKeys.size) return list
+function normalizeOrganicChannelMix(list: unknown): unknown {
+  if (!Array.isArray(list)) return list
+
+  return list.map((item) => {
+    if (!isObject(item)) return item
+    const output: JsonObject = { ...item }
+    const effortShare = output.effortSharePercent ?? output.budgetPercent
+    delete output.budgetPercent
+    if (typeof effortShare === 'number') output.effortSharePercent = effortShare
+    return output
+  })
+}
+
+function guardChannelMix(
+  list: unknown,
+  ctx: NormalizedPlatformContext,
+  strategyType?: string | null,
+): unknown {
+  const organicOnly = strategyType === 'organic'
+  if (!Array.isArray(list)) return list
+  if (!ctx.allowedKeys.size) return organicOnly ? normalizeOrganicChannelMix(list) : list
 
   const seen = new Set<string>()
   const guarded: unknown[] = []
@@ -179,14 +199,15 @@ function guardChannelMix(list: unknown, ctx: NormalizedPlatformContext): unknown
     guarded.push({ ...item, platform: platformLabel(key, typeof item.platform === 'string' ? item.platform : undefined) })
   }
 
-  if (guarded.length) return guarded
+  if (guarded.length) return organicOnly ? normalizeOrganicChannelMix(guarded) : guarded
 
-  return ctx.allowedLabels.map(platform => ({
+  const fallback = ctx.allowedLabels.map(platform => ({
     platform,
-    budgetPercent: 0,
+    ...(organicOnly ? { effortSharePercent: 0 } : { budgetPercent: 0 }),
     rationale: 'Selected in Brand Brain; refine channel role before execution.',
     contentFrequency: 'To define in the Content Hub plan.',
   }))
+  return fallback
 }
 
 function guardPlatformObjectList(list: unknown, ctx: NormalizedPlatformContext): unknown {
@@ -295,7 +316,7 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   const ctx = buildPlatformContext(context.allowedPlatforms)
   const output = guardValue(input, ctx) as JsonObject
 
-  output.channelMix = guardChannelMix(output.channelMix, ctx)
+  output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
   output.contentAnglesDetailed = guardPlatformObjectList(output.contentAnglesDetailed, ctx)
   output.audienceSegmentsDetailed = guardPlatformObjectList(output.audienceSegmentsDetailed, ctx)
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx)
