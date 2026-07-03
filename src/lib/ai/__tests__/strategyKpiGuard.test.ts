@@ -79,6 +79,15 @@ describe('guardKpiTarget — strips unsupported performance numbers', () => {
       'نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
     )
   })
+
+  it('strips Arabic KPI percentage targets observed in production', () => {
+    expect(guardKpiTarget('زيادة بنسبة 20% في 30 يومًا', [], { language: 'ar' })).toBe(
+      'زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
+    )
+    expect(guardKpiTarget('زيادة بنسبة ٢٥٪ خلال ٣٠ يومًا', [], { language: 'ar' })).toBe(
+      'زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
+    )
+  })
 })
 
 describe('guardResultText — free-text estimated results', () => {
@@ -129,19 +138,53 @@ describe('guardStrategyKpis — full strategy object', () => {
     const strategy = {
       kpis: [
         { metric: 'طلبات واتساب', target: 'Generate 50 leads', timeframe: '30 days', isHypothesis: false },
+        { metric: 'حجوزات واتساب', target: 'زيادة بنسبة 20% في 30 يومًا', timeframe: '30 يومًا', isHypothesis: false },
       ],
       successMetricsDetailed: [
         { category: 'conversion', metric: 'استفسارات', target: 'Improve by 15%', timeframe: '30 days' },
+        { category: 'engagement', metric: 'تفاعلات', target: 'زيادة بنسبة 25% في 30 يومًا', timeframe: '30 يومًا' },
       ],
       estimatedResults: 'Aim to double current monthly requests in 30 days',
     }
     const g = guardStrategyKpis(strategy, [], { language: 'ar' })
     expect(g.kpis[0].target).toBe('توليد — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
+    expect(g.kpis[1].target).toBe('زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
     expect((g.successMetricsDetailed[0] as { target: string }).target).toBe(
       'تحسين — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
     )
+    expect((g.successMetricsDetailed[1] as { target: string }).target).toBe(
+      'زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا',
+    )
     expect(g.estimatedResults).toContain('هدف أداء يحتاج إلى خط أساس')
     expect(JSON.stringify(g)).not.toMatch(/baseline needed|target to define|performance target/)
+    expect(JSON.stringify(g)).not.toMatch(/20\s*%|25\s*%|٢٥\s*٪/)
+  })
+
+  it('guards nested persisted aiOutput.strategy shapes as a defensive backstop', () => {
+    const wrapped = {
+      language: 'ar',
+      strategy: {
+        kpis: [
+          { metric: 'عدد الحجوزات عبر WhatsApp', target: 'زيادة بنسبة 20% في 30 يومًا', timeframe: '30 يومًا' },
+        ],
+        successMetricsDetailed: [
+          { metric: 'عدد التفاعلات مع المحتوى', target: 'زيادة بنسبة 25% في 30 يومًا', timeframe: '30 يومًا' },
+        ],
+        successMetrics: ['تحقيق زيادة 25% في الحجوزات خلال 30 يومًا'],
+      },
+    }
+    const g = guardStrategyKpis(wrapped, [], { language: 'ar' })
+    const nested = g.strategy as unknown as {
+      kpis: Array<{ target: string; isHypothesis?: boolean }>
+      successMetricsDetailed: Array<{ target: string; isHypothesis?: boolean }>
+      successMetrics: string[]
+    }
+    expect(nested.kpis[0].target).toBe('زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
+    expect(nested.kpis[0].isHypothesis).toBe(true)
+    expect(nested.successMetricsDetailed[0].target).toBe('زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
+    expect(nested.successMetricsDetailed[0].isHypothesis).toBe(true)
+    expect(nested.successMetrics[0]).not.toMatch(/25\s*%/)
+    expect(nested.successMetrics[0]).toContain('30 يومًا')
   })
 
   it('handles missing / odd shapes safely', () => {

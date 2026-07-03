@@ -79,17 +79,51 @@ export function normalizeStrategyOutput(raw: unknown): StrategyOutput {
 
 // ── unsupported performance numbers ─────────────────────────────────────────────
 
+const NUM_TOKEN = String.raw`[\d٠-٩۰-۹][\d٠-٩۰-۹.,٬٫]*`
+
 // Performance metrics that must never be fabricated (with an adjacent number).
 const PERF_TOKEN = /\b(ROAS|CPL|CPA|CPM|CPC|CTR|conversion rate|click[- ]?through rate)\b/i
 // e.g. "3.2 ROAS", "CPL $12", "CTR 4%", "conversion rate of 5%"
-const PERF_WITH_NUMBER =
-  /(\d[\d.,]*\s*%?\s*(?:ROAS|CPL|CPA|CPM|CPC|CTR))|((?:ROAS|CPL|CPA|CPM|CPC|CTR|conversion rate|click[- ]?through rate)[^.\n]{0,20}?\d[\d.,]*\s*%?)/gi
+const PERF_WITH_NUMBER = new RegExp(
+  String.raw`(${NUM_TOKEN}\s*(?:%|٪)?\s*(?:ROAS|CPL|CPA|CPM|CPC|CTR))|((?:ROAS|CPL|CPA|CPM|CPC|CTR|conversion rate|click[- ]?through rate)[^.\n]{0,20}?${NUM_TOKEN}\s*(?:%|٪)?)`,
+  'gi',
+)
 // bare percentages like "30% conversion", "a 12% lift"
-const PERCENT = /\b\d[\d.,]*\s*%/g
+const PERCENT = new RegExp(String.raw`${NUM_TOKEN}\s*(?:%|٪)`, 'g')
 // currency like "$5,000", "5000 USD", "AED 3,000"
-const CURRENCY = /((?:\$|USD|AED|SAR|EUR|£|€)\s?\d[\d.,]*)|(\d[\d.,]*\s?(?:USD|AED|SAR|EUR))/gi
+const CURRENCY = new RegExp(
+  String.raw`((?:\$|USD|AED|SAR|EUR|£|€|د\.إ|درهم|ريال)\s?${NUM_TOKEN})|(${NUM_TOKEN}\s?(?:USD|AED|SAR|EUR|درهم|ريال))`,
+  'gi',
+)
 
-const norm = (s: string) => s.replace(/[\s,]/g, '').toLowerCase()
+const ARABIC_DIGITS: Record<string, string> = {
+  '٠': '0',
+  '١': '1',
+  '٢': '2',
+  '٣': '3',
+  '٤': '4',
+  '٥': '5',
+  '٦': '6',
+  '٧': '7',
+  '٨': '8',
+  '٩': '9',
+  '۰': '0',
+  '۱': '1',
+  '۲': '2',
+  '۳': '3',
+  '۴': '4',
+  '۵': '5',
+  '۶': '6',
+  '۷': '7',
+  '۸': '8',
+  '۹': '9',
+}
+
+const normalizeDigits = (s: string) => s.replace(/[٠-٩۰-۹]/g, (d) => ARABIC_DIGITS[d] ?? d)
+const norm = (s: string) => normalizeDigits(s)
+  .replace(/[,\s٬]/g, '')
+  .replace(/٫/g, '.')
+  .toLowerCase()
 
 /**
  * Return the list of unsupported performance/currency numbers found in `text`
