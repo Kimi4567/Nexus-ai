@@ -6,6 +6,11 @@ export interface CampaignStrategyContractReport {
   legacySchemaDetected: boolean
   missingFields: string[]
   weakFields: string[]
+  languageViolations: string[]
+}
+
+export interface CampaignStrategyContractOptions {
+  language?: string | null
 }
 
 const LEGACY_ENGINE_KEYS = new Set([
@@ -69,6 +74,67 @@ function hasArray(value: unknown, min: number): boolean {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function isArabicLanguage(language: string | null | undefined): boolean {
+  return typeof language === 'string' && language.toLowerCase().startsWith('ar')
+}
+
+function latinLetterCount(value: string): number {
+  return (value.match(/[A-Za-z]/g) || []).length
+}
+
+function arabicLetterCount(value: string): number {
+  return (value.match(/[\u0600-\u06FF]/g) || []).length
+}
+
+function isEnglishHeavyForArabicOutput(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+
+  const latin = latinLetterCount(trimmed)
+  if (latin < 22) return false
+
+  const arabic = arabicLetterCount(trimmed)
+  if (arabic === 0) return true
+  return latin >= 32 && latin > arabic * 2
+}
+
+const NON_LANGUAGE_USER_KEYS = new Set([
+  'goal',
+  'businessStage',
+  'stage',
+  'category',
+  'platform',
+  'platforms',
+  'format',
+  'contentType',
+  'productArea',
+  'timeframe',
+  'overall',
+  'contentStrategy',
+  'fullStrategy',
+  'paidPlanning',
+  'organicContent',
+])
+
+function collectArabicLanguageViolations(value: unknown, path = 'strategy'): string[] {
+  if (typeof value === 'string') {
+    return isEnglishHeavyForArabicOutput(value) ? [path] : []
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectArabicLanguageViolations(item, `${path}[${index}]`))
+  }
+
+  if (!isRecord(value)) return []
+
+  const violations: string[] = []
+  for (const [key, child] of Object.entries(value)) {
+    if (NON_LANGUAGE_USER_KEYS.has(key)) continue
+    violations.push(...collectArabicLanguageViolations(child, `${path}.${key}`))
+  }
+  return violations
 }
 
 function hasUsefulText(value: unknown): boolean {
@@ -181,9 +247,13 @@ export function detectLegacyCampaignEngineStrategy(strategy: unknown): boolean {
   return keys.every(key => LEGACY_ENGINE_KEYS.has(key)) && !richSignals.some(key => key in strategy)
 }
 
-export function validateCampaignStrategyContract(strategy: unknown): CampaignStrategyContractReport {
+export function validateCampaignStrategyContract(
+  strategy: unknown,
+  options: CampaignStrategyContractOptions = {},
+): CampaignStrategyContractReport {
   const missingFields: string[] = []
   const weakFields: string[] = []
+  const languageViolations: string[] = []
 
   if (!isRecord(strategy)) {
     return {
@@ -192,6 +262,7 @@ export function validateCampaignStrategyContract(strategy: unknown): CampaignStr
       legacySchemaDetected: false,
       missingFields: ['strategy'],
       weakFields: [],
+      languageViolations: [],
     }
   }
 
@@ -226,27 +297,36 @@ export function validateCampaignStrategyContract(strategy: unknown): CampaignStr
     weakFields.push('weeklyExecutionPlan.countableDeliverables')
   }
 
+  if (isArabicLanguage(options.language)) {
+    languageViolations.push(...collectArabicLanguageViolations(strategy))
+  }
+
   const legacySchemaDetected = detectLegacyCampaignEngineStrategy(strategy)
   const totalChecks = REQUIRED_STRING_FIELDS.length + REQUIRED_OBJECT_FIELDS.length + REQUIRED_ARRAY_FIELDS.length
-  const failedChecks = missingFields.length + weakFields.length + (legacySchemaDetected ? 4 : 0)
+  const failedChecks = missingFields.length + weakFields.length + languageViolations.length + (legacySchemaDetected ? 4 : 0)
   const score = Math.max(0, Math.round(((totalChecks - failedChecks) / totalChecks) * 100))
 
   return {
-    valid: !legacySchemaDetected && missingFields.length === 0 && weakFields.length === 0,
+    valid: !legacySchemaDetected && missingFields.length === 0 && weakFields.length === 0 && languageViolations.length === 0,
     score,
     legacySchemaDetected,
     missingFields,
     weakFields,
+    languageViolations,
   }
 }
 
-export function assertCampaignStrategyContract(strategy: unknown): CampaignStrategyContractReport {
-  const report = validateCampaignStrategyContract(strategy)
+export function assertCampaignStrategyContract(
+  strategy: unknown,
+  options: CampaignStrategyContractOptions = {},
+): CampaignStrategyContractReport {
+  const report = validateCampaignStrategyContract(strategy, options)
   if (!report.valid) {
     const details = [
       report.legacySchemaDetected ? 'legacy engine schema detected' : '',
       report.missingFields.length ? `missing: ${report.missingFields.join(', ')}` : '',
       report.weakFields.length ? `weak: ${report.weakFields.join(', ')}` : '',
+      report.languageViolations.length ? `language: ${report.languageViolations.slice(0, 8).join(', ')}` : '',
     ].filter(Boolean).join('; ')
     throw new Error(`Campaign engine strategy failed Strategy OS contract (${details || 'unknown reason'})`)
   }

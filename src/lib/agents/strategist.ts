@@ -398,6 +398,7 @@ export function buildStrategistPrompts(
   readiness?: StrategyReadinessContext,
 ): { systemPrompt: string; userPrompt: string } {
   const langInstruction = getLanguageInstruction(language ?? brief.language)
+  const selectedLanguage = (language ?? brief.language ?? '').toLowerCase()
   const planContext = getPlanContext(brief.planTier)
   const allowedPlatformLine = brief.currentPlatforms?.length
     ? `Allowed content platforms from Brand Brain: ${brief.currentPlatforms.join(', ')}. Use ONLY these platforms in channelMix, contentAnglesDetailed.platform, audienceSegmentsDetailed.platform, funnelStages.platform, and weeklyExecutionPlan.platforms. Do not add Pinterest, LinkedIn, blog, website, or any other platform unless it appears in this allowed list. If another platform is strategically interesting, mention it only as a future consideration, not an execution channel.`
@@ -425,8 +426,8 @@ export function buildStrategistPrompts(
         typeof brief.organicPostCount === 'number' && brief.organicPostCount > 0
           ? `Organic output count is binding: return exactly ${brief.organicPostCount} contentAnglesDetailed entries and make weeklyExecutionPlan.deliverables add up to exactly ${brief.organicPostCount} countable post directions for the first ${brief.detailedCalendarDays ?? 30} days.`
           : '',
-        (language ?? brief.language)?.toLowerCase().startsWith('ar')
-          ? 'Arabic language is binding: every user-facing JSON string must be Arabic except brand names, product names, and platform names.'
+        selectedLanguage.startsWith('ar')
+          ? 'Arabic language is binding: every user-facing JSON string must be Arabic except brand names, product names, and platform names. Schema descriptions in English are instructions only; do not copy their English wording into output values.'
           : '',
         'Do not use CTAs like "Download now" unless a downloadable asset, lead magnet, app download, or file download was explicitly provided. Prefer demo, consultation, review, trial, quote, or contact CTAs that match the provided offer.',
         d?.excludedDeliverables?.length
@@ -450,6 +451,7 @@ RULES:
 - readinessChecklist must contain at least 3 concrete, review-safe pre-execution items. They must all have done=false and must not claim that assets, proof, tracking, publishing, scheduling, or platform setup are already complete unless provided.
 - Never use: transform / unlock / game-changer / cutting-edge / leverage / maximize ROI
 - All text must follow the language instruction above
+- If Arabic is selected, campaignName, positioning, diagnosis, pillars, hooks, CTAs, weekly deliverables, metrics, risks, assumptions, and readinessChecklist labels must be Arabic. Platform names and brand/product names may remain as provided.
 
 ANTI-HALLUCINATION RULES (strict — these override any urge to sound complete):
 1. Never invent competitor names or facts. Use ONLY competitors explicitly provided. If none are provided, set "competitorAnalysisComplete": false and do not name any competitor.

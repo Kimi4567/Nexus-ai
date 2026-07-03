@@ -106,7 +106,20 @@ describe('campaign strategy contract', () => {
     expect(report.legacySchemaDetected).toBe(false)
     expect(report.missingFields).toEqual([])
     expect(report.weakFields).toEqual([])
+    expect(report.languageViolations).toEqual([])
     expect(report.score).toBe(100)
+  })
+
+  it('rejects English-heavy user-facing strategy text when Arabic output is selected', () => {
+    const report = validateCampaignStrategyContract(richStrategy, { language: 'ar' })
+
+    expect(report.valid).toBe(false)
+    expect(report.languageViolations).toEqual(expect.arrayContaining([
+      'strategy.campaignName',
+      'strategy.topHooks[0]',
+      'strategy.readinessChecklist[0].label',
+    ]))
+    expect(() => assertCampaignStrategyContract(richStrategy, { language: 'ar' })).toThrow(/language: .*campaignName/)
   })
 
   it('flags weak operational sections before strategy can be saved as successful', () => {
