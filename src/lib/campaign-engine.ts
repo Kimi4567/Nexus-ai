@@ -415,7 +415,7 @@ export async function runCampaignEngine(params: {
       if (!qualityReport.passed) {
         throw new Error(`Campaign engine strategy failed AI quality guard (score=${qualityReport.score})`)
       }
-      const contractReport = assertCampaignStrategyContract(strategy)
+      const contractReport = assertCampaignStrategyContract(strategy, { language: aiOutput.language })
       console.log(
         `[Campaign Engine] Strategy OS contract passed score=${contractReport.score} campaign=${campaign.id}`,
       )

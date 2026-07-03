@@ -174,7 +174,7 @@ export async function runFullAgency(
       allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
       language: brief.language,
     })
-    const contractReport = assertCampaignStrategyContract(strategy)
+    const contractReport = assertCampaignStrategyContract(strategy, { language: brief.language })
     console.log(
       `[Orchestrator] Strategy OS contract passed score=${contractReport.score} workspace=${workspaceId}`,
     )
