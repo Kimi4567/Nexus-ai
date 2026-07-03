@@ -42,6 +42,7 @@ vi.mock('@/lib/apiAuth', () => ({ getAuthUser: mockGetAuthUser }))
 vi.mock('@/lib/dbRateLimit', () => ({ aiRateLimitDb: mockAiRateLimitDb }))
 vi.mock('@/lib/credits', () => ({
   checkAndDeductCredits: mockCheckAndDeduct,
+  FREE_STARTER_CREDITS: 10,
   refundCreditsForTransaction: mockRefundForTxn,
 }))
 vi.mock('@/lib/credits/wallet', () => ({ isCreditWalletEnabled: mockIsWalletEnabled }))
@@ -88,12 +89,20 @@ beforeEach(() => {
     audienceLocation: 'United States',
     verifiedProof: ['User-provided proof: internal pilot users reviewed strategy drafts.'],
   })
-  mockPrisma.user.findUnique.mockResolvedValue({ preferences: {} })
+  mockPrisma.user.findUnique.mockResolvedValue({
+    preferences: {},
+    subscriptionStatus: 'ACTIVE',
+    aiCredits: 100,
+    monthlyGenerations: 1,
+  })
   mockPrisma.user.update.mockResolvedValue({})
   mockPrisma.creditTransaction.create.mockResolvedValue({})
   mockPrisma.media.findMany.mockResolvedValue([])
   mockPrisma.campaign.findFirst.mockResolvedValue({ id: 'camp1', name: 'New Strategy' })
-  mockRunFullAgency.mockResolvedValue({ strategyCreated: true, agentRunId: 'run1', suggestions: 3, errors: [] })
+  mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+    await options?.beforePersistStrategy?.()
+    return { strategyCreated: true, agentRunId: 'run1', suggestions: 3, errors: [] }
+  })
 })
 
 describe('POST /api/strategy/run-full — variable charge', () => {
@@ -134,19 +143,31 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 14)
   })
 
-  it('9. insufficient credits → 402 (deduction attempted with variable cost)', async () => {
-    mockCheckAndDeduct.mockResolvedValue({ ok: false, error: 'INSUFFICIENT_CREDITS', requiredCredits: 21 })
+  it('9. insufficient credits → 402 during preflight before orchestration or deduction', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      preferences: {},
+      subscriptionStatus: 'ACTIVE',
+      aiCredits: 7,
+      monthlyGenerations: 1,
+    })
     const res = await POST(makeReq({
       strategyType: 'full', strategyDuration: '90', contentIntensity: 'standard', // = 21
     }))
     expect(res.status).toBe(402)
-    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 21)
+    const json = await res.json()
+    expect(json.error).toBe('INSUFFICIENT_CREDITS')
+    expect(json.requiredCredits).toBe(21)
+    expect(json.currentCredits).toBe(7)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
     expect(mockRunFullAgency).not.toHaveBeenCalled()
   })
 
   it('13. refund-on-failure refunds the EXACT deducted amount (credit.creditsUsed)', async () => {
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false })
-    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      return { strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] }
+    })
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     const res = await POST(makeReq({
@@ -174,7 +195,10 @@ describe('POST /api/strategy/run-full — variable charge', () => {
 
   it('refunds the exact deducted amount when orchestration throws after credit deduction', async () => {
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 10, creditsRemaining: 345, isUnlimited: false })
-    mockRunFullAgency.mockRejectedValue(new Error('provider timeout'))
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      throw new Error('provider timeout')
+    })
 
     const res = await POST(makeReq({
       language: 'ar',
@@ -208,8 +232,67 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     expect(json.error).not.toMatch(/provider timeout/)
   })
 
+  it('does not deduct or refund when orchestration fails before the persistence credit gate', async () => {
+    mockRunFullAgency.mockRejectedValue(new Error('provider timeout before persist'))
+
+    const res = await POST(makeReq({
+      language: 'ar',
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
+    expect(json.refunded).toBe(false)
+    expect(json.creditsUsed).toBe(0)
+    expect(json.error).toMatch(/تعذر إكمال توليد الاستراتيجية/)
+    expect(json.error).not.toMatch(/provider timeout/)
+  })
+
+  it('returns 402 without saving a campaign if credits become insufficient at the late persistence gate', async () => {
+    mockCheckAndDeduct.mockResolvedValue({
+      ok: false,
+      error: 'INSUFFICIENT_CREDITS',
+      message: 'Monthly credits exhausted. Upgrade your plan or wait for the next billing cycle.',
+      requiredCredits: 10,
+      currentCredits: 3,
+      upgradeUrl: '/billing',
+    })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      try {
+        await options?.beforePersistStrategy?.()
+      } catch (err) {
+        return {
+          strategyCreated: false,
+          agentRunId: 'run1',
+          suggestions: 0,
+          errors: [err instanceof Error ? err.message : 'late credit failure'],
+        }
+      }
+      return { strategyCreated: true, agentRunId: 'run1', suggestions: 3, errors: [] }
+    })
+
+    const res = await POST(makeReq({
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(402)
+    expect(json.error).toBe('INSUFFICIENT_CREDITS')
+    expect(json.currentCredits).toBe(3)
+    expect(mockCheckAndDeduct).toHaveBeenCalledWith('u1', 'RUN_FULL_STRATEGY', 10)
+    expect(mockPrisma.campaign.findFirst).not.toHaveBeenCalled()
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
+  })
+
   it('returns a user-safe message instead of internal Strategy OS contract details', async () => {
-    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 10, creditsRemaining: 90, isUnlimited: false })
     mockRunFullAgency.mockResolvedValue({
       strategyCreated: false,
       agentRunId: 'run1',
@@ -227,7 +310,11 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     const json = await res.json()
 
     expect(json.ok).toBe(false)
-    expect(json.refunded).toBe(true)
+    expect(json.refunded).toBe(false)
+    expect(json.creditsUsed).toBe(0)
+    expect(mockCheckAndDeduct).not.toHaveBeenCalled()
+    expect(mockPrisma.user.update).not.toHaveBeenCalled()
+    expect(mockPrisma.creditTransaction.create).not.toHaveBeenCalled()
     expect(json.error).toMatch(/أوقف NEXUS حفظ هذه الاستراتيجية/)
     expect(json.error).toMatch(/لم يتم حفظ حملة جديدة/)
     expect(json.error).not.toMatch(/Strategy OS contract|strategy\.campaignName|topHooks/)
@@ -236,7 +323,10 @@ describe('POST /api/strategy/run-full — variable charge', () => {
 
   it('does not refund unlimited-plan users (creditsUsed=0) on failure', async () => {
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true })
-    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      return { strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] }
+    })
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: '90', contentIntensity: 'standard' }))
@@ -248,7 +338,10 @@ describe('POST /api/strategy/run-full — variable charge', () => {
   it('flag OFF → scalar refund only; refundCreditsForTransaction is NOT called', async () => {
     mockIsWalletEnabled.mockReturnValue(false)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false, transactionId: 'txn_should_be_ignored' })
-    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      return { strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] }
+    })
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
@@ -270,7 +363,10 @@ describe('POST /api/strategy/run-full — variable charge', () => {
   it('flag ON + transactionId → refundCreditsForTransaction with the debit id; no scalar increment', async () => {
     mockIsWalletEnabled.mockReturnValue(true)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false, transactionId: 'txn_99' })
-    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      return { strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] }
+    })
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))
@@ -286,7 +382,10 @@ describe('POST /api/strategy/run-full — variable charge', () => {
   it('flag ON but no transactionId → falls back to scalar increment', async () => {
     mockIsWalletEnabled.mockReturnValue(true)
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 18, creditsRemaining: 50, isUnlimited: false }) // no transactionId
-    mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
+    mockRunFullAgency.mockImplementation(async (_workspaceId: string, _brief: Record<string, unknown>, options?: { beforePersistStrategy?: () => Promise<void> }) => {
+      await options?.beforePersistStrategy?.()
+      return { strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] }
+    })
     mockPrisma.campaign.findFirst.mockResolvedValue(null)
 
     await POST(makeReq({ strategyType: 'organic', strategyDuration: 'custom', customDurationDays: 160, contentIntensity: 'standard' }))

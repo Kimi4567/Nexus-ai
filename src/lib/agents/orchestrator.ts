@@ -36,13 +36,24 @@ export interface OrchestratorResult {
   errors: string[]
 }
 
+export interface RunFullAgencyOptions {
+  /**
+   * Called after the strategy has passed deterministic guards/contracts and
+   * immediately before any campaign/suggestion rows are created. Expensive
+   * routes can use this to charge only when there is a saveable strategy, so
+   * upstream AI/provider timeouts never leave a user charged with no campaign.
+   */
+  beforePersistStrategy?: () => Promise<void>
+}
+
 /**
  * Full agency run — Strategist → Content Director → save to DB
  * Called when user submits the /start briefing form
  */
 export async function runFullAgency(
   workspaceId: string,
-  brief: BusinessBrief
+  brief: BusinessBrief,
+  options: RunFullAgencyOptions = {},
 ): Promise<OrchestratorResult> {
   const errors: string[] = []
   let strategyCreated = false
@@ -182,6 +193,11 @@ export async function runFullAgency(
     console.log(
       `[Orchestrator] Strategy OS contract passed score=${contractReport.score} workspace=${workspaceId}`,
     )
+
+    if (options.beforePersistStrategy) {
+      await options.beforePersistStrategy()
+    }
+
     strategyCreated = true
 
     // 3. Content Director REMOVED from runFullAgency to avoid Vercel 60s timeout.
