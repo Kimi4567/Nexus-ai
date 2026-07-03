@@ -13,6 +13,7 @@ export interface StrategyOutputContractContext {
   allowedPlatforms?: string[] | null
   language?: string | null
   strategyType?: 'organic' | 'paid' | 'full' | string | null
+  organicPostCount?: number | null
 }
 
 interface NormalizedPlatformContext {
@@ -214,6 +215,127 @@ function hasOperationalFunnelStages(list: unknown): boolean {
 
 function hasKpiMinimum(list: unknown): boolean {
   return Array.isArray(list) && list.length >= 2
+}
+
+function readLeadingCount(value: unknown): number {
+  if (typeof value !== 'string') return 0
+  const normalized = value
+    .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+    .trim()
+  const match = normalized.match(/^(\d{1,2})\b/)
+  if (!match) return 1
+  const count = Number(match[1])
+  return Number.isFinite(count) && count > 0 ? count : 1
+}
+
+function deliverableCount(list: unknown): number {
+  if (!Array.isArray(list)) return 0
+  return list.reduce((sum, item) => sum + readLeadingCount(item), 0)
+}
+
+function weeklyDeliverableCount(list: unknown): number {
+  if (!Array.isArray(list)) return 0
+  return list.reduce((sum, item) => {
+    if (!isObject(item)) return sum
+    return sum + deliverableCount(item.deliverables)
+  }, 0)
+}
+
+function angleTitle(angle: unknown, index: number, ar: boolean): string {
+  if (isObject(angle)) {
+    const candidates = [angle.title, angle.hook, angle.message, angle.pain]
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    }
+  }
+  return ar ? `اتجاه منشور ${index + 1}` : `Post direction ${index + 1}`
+}
+
+function angleFormat(angle: unknown, ar: boolean): string {
+  if (isObject(angle) && typeof angle.format === 'string' && angle.format.trim()) {
+    return angle.format.trim()
+  }
+  return ar ? 'منشور' : 'post'
+}
+
+function anglePlatform(angle: unknown, fallback: string | null): string | null {
+  return isObject(angle) && typeof angle.platform === 'string' && angle.platform.trim()
+    ? angle.platform.trim()
+    : fallback
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>()
+  const output: string[] = []
+  for (const value of values) {
+    const text = value?.trim()
+    if (!text) continue
+    const key = text.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    output.push(text)
+  }
+  return output
+}
+
+function distributeAnglesAcrossWeeks(angles: unknown[], targetCount: number): unknown[][] {
+  const selected = angles.slice(0, targetCount)
+  const weekCount = Math.min(4, Math.max(1, selected.length))
+  const buckets = Array.from({ length: weekCount }, () => [] as unknown[])
+  selected.forEach((angle, index) => {
+    buckets[index % weekCount].push(angle)
+  })
+  return buckets
+}
+
+function alignWeeklyExecutionPlanToOrganicCount(
+  weeklyPlan: unknown,
+  contentAngles: unknown,
+  ctx: NormalizedPlatformContext,
+  targetCount?: number | null,
+  language?: string | null,
+): unknown {
+  if (!targetCount || targetCount <= 0 || !Array.isArray(contentAngles) || contentAngles.length === 0) {
+    return weeklyPlan
+  }
+  const currentCount = weeklyDeliverableCount(weeklyPlan)
+  if (currentCount === targetCount) return weeklyPlan
+
+  const ar = isArabicLanguage(language)
+  const existingWeeks = Array.isArray(weeklyPlan) ? weeklyPlan.filter(isObject) : []
+  const buckets = distributeAnglesAcrossWeeks(contentAngles, targetCount)
+
+  return buckets.map((bucket, index) => {
+    const existing = existingWeeks[index] ?? {}
+    const platforms = uniqueStrings(bucket.map(angle => anglePlatform(angle, ctx.fallbackLabel)))
+    const deliverables = bucket.map((angle, angleIndex) => {
+      const title = angleTitle(angle, index + angleIndex, ar)
+      const format = angleFormat(angle, ar)
+      return ar
+        ? `1 ${format}: ${title}`
+        : `1 ${format}: ${title}`
+    })
+
+    return {
+      ...existing,
+      week: index + 1,
+      objective: typeof existing.objective === 'string' && existing.objective.trim()
+        ? existing.objective
+        : (ar ? `مراجعة وتنفيذ اتجاهات الأسبوع ${index + 1}` : `Review and execute week ${index + 1} directions`),
+      keyMessage: typeof existing.keyMessage === 'string' && existing.keyMessage.trim()
+        ? existing.keyMessage
+        : (ar ? 'رسالة تشغيلية قابلة للمراجعة قبل إنشاء المسودات.' : 'A reviewable operating message before draft creation.'),
+      deliverables,
+      platforms: platforms.length ? platforms : (ctx.fallbackLabel ? [ctx.fallbackLabel] : []),
+      cta: typeof existing.cta === 'string' && existing.cta.trim()
+        ? existing.cta
+        : (ar ? 'راجع الاتجاه' : 'Review the direction'),
+      successMetric: typeof existing.successMetric === 'string' && existing.successMetric.trim()
+        ? existing.successMetric
+        : (ar ? 'تفاعل يحتاج إلى خط أساس' : 'Engagement needs a baseline'),
+    }
+  })
 }
 
 function defaultOrganicKpis(language?: string | null): JsonObject[] {
@@ -509,6 +631,13 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   output.funnelStages = guardPlatformObjectList(output.funnelStages, ctx)
   output.channelStrategy = guardPlatformObjectList(output.channelStrategy, ctx)
   output.weeklyExecutionPlan = guardWeeklyExecutionPlan(output.weeklyExecutionPlan, ctx)
+  output.weeklyExecutionPlan = alignWeeklyExecutionPlanToOrganicCount(
+    output.weeklyExecutionPlan,
+    output.contentAnglesDetailed,
+    ctx,
+    context.organicPostCount,
+    context.language,
+  )
   output.readinessChecklist = guardReadinessChecklist(output.readinessChecklist, context.language)
 
   return output as T
