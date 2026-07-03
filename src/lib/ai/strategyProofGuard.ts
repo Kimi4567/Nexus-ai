@@ -53,6 +53,23 @@ function guardUnsafeStatusLanguage(text: string): string {
 
 function softenAbsoluteOutcomeClaims(text: string): string {
   return text
+    .replace(/اختر\s+خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة\.?/gi, 'استفسر عن خيارات تنظيف صديقة للبيئة عند توفرها.')
+    .replace(/خيارات\s+صديقة\s+للبيئة\s+لمنزل\s+أكثر\s+صحة/gi, 'خيارات تنظيف صديقة للبيئة عند توفرها')
+    .replace(/منزل\s+أكثر\s+صحة/gi, 'منزل يلائم احتياجاتك')
+    .replace(/\bchoose\s+eco-friendly\s+options\s+for\s+a\s+healthier\s+home\.?/gi, 'Ask about eco-friendly options where available.')
+    .replace(/\bfor\s+a\s+healthier\s+home\b/gi, 'where available')
+    .replace(/احجز\s+تنظيف\s+منزلك\s+في\s+ثوان(?:ٍ|ي)?\s+عبر\s+WhatsApp!?/gi, 'ابدأ طلب تنظيف منزلك عبر WhatsApp بخطوة بسيطة.')
+    .replace(/احجز\s+خدمة\s+التنظيف\s+في\s+ثوان(?:ٍ|ي)?\s+عبر\s+WhatsApp!?/gi, 'احجز خدمة التنظيف عبر WhatsApp بخطوة بسيطة.')
+    .replace(/في\s+ثوان(?:ٍ|ي)?\s+عبر\s+WhatsApp/gi, 'عبر WhatsApp بخطوة بسيطة')
+    .replace(/\bbook\s+(?:your\s+)?(?:home\s+)?cleaning\s+in\s+seconds\s+via\s+WhatsApp!?/gi, 'Start a cleaning request via WhatsApp.')
+    .replace(/\bin\s+seconds\s+via\s+WhatsApp\b/gi, 'via WhatsApp')
+    .replace(/لا\s+مزيد\s+من\s+الإضافات\s+المفاجئة!?/gi, 'راجع الأسعار والتفاصيل بوضوح قبل الحجز.')
+    .replace(/لا\s+مزيد\s+من\s+الرسوم\s+المفاجئة!?/gi, 'راجع الأسعار والتفاصيل بوضوح قبل الحجز.')
+    .replace(/\bno\s+more\s+surprise\s+(?:add-ons|fees|charges)!?/gi, 'Review pricing and add-ons before booking.')
+    .replace(/استمتع\s+بجودة\s+تنظيف\s+متسقة\s+في\s+كل\s+زيارة\.?/gi, 'استهدف تجربة تنظيف أكثر اتساقًا مع كل حجز.')
+    .replace(/جودة\s+تنظيف\s+متسقة\s+في\s+كل\s+زيارة/gi, 'تجربة تنظيف أكثر اتساقًا مع كل حجز')
+    .replace(/\bconsistent\s+cleaning\s+quality\s+(?:on|in|for)\s+every\s+visit\b/gi, 'a more consistent cleaning experience across bookings')
+    .replace(/\bevery\s+visit\b/gi, 'future bookings')
     .replace(/\bEnsure your office has the best coffee every day\b/gi, 'Help keep your office stocked with better coffee')
     .replace(/\bEnsure your office is always\b[^.?!]*/gi, 'Help keep your office stocked with better coffee')
     .replace(/\bEnsure your office has\b[^.?!]*/gi, 'Help keep your office stocked with better coffee')
