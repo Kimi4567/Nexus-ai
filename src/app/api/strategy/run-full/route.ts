@@ -26,6 +26,24 @@ import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
 
+function isArabicLanguage(language: unknown): boolean {
+  return typeof language === 'string' && language.toLowerCase().startsWith('ar')
+}
+
+function sanitizeStrategyRunError(error: string | undefined, language: unknown): string | undefined {
+  if (!error) return undefined
+
+  if (/Strategy OS contract/i.test(error)) {
+    if (isArabicLanguage(language)) {
+      return 'أوقف NEXUS حفظ هذه الاستراتيجية لأن النص الناتج لم يطابق اللغة أو جودة المراجعة المطلوبة. لم يتم حفظ حملة جديدة وتمت إعادة كريدت الاستراتيجية إن تم خصمها. حاول مرة أخرى، أو اختر الإنجليزية إذا أردت الاستراتيجية بالإنجليزية.'
+    }
+
+    return 'NEXUS blocked this strategy because the generated draft did not match the selected language or review-quality requirements. No new campaign was saved and any strategy credits were restored. Please try again, or choose English if you want the brief in English.'
+  }
+
+  return error
+}
+
 export async function POST(req: NextRequest) {
   try {
     const user = await getAuthUser(req)
@@ -309,6 +327,10 @@ export async function POST(req: NextRequest) {
     }
     // ──────────────────────────────────────────────────────────────────────
 
+    const rawError = !success && result.errors.length > 0 ? result.errors[0] : undefined
+    const publicError = sanitizeStrategyRunError(rawError, body?.language)
+    const publicErrors = result.errors.map(error => sanitizeStrategyRunError(error, body?.language) || error)
+
     return NextResponse.json({
       ok: success,
       agentRunId: result.agentRunId,
@@ -318,8 +340,8 @@ export async function POST(req: NextRequest) {
       creditsRemaining: success ? credit.creditsRemaining : credit.creditsRemaining + credit.creditsUsed,
       creditsUsed: success ? credit.creditsUsed : 0,
       // Both formats for frontend compatibility
-      errors: result.errors,
-      error: !success && result.errors.length > 0 ? result.errors[0] : undefined,
+      errors: publicErrors,
+      error: publicError,
     })
   } catch (err: any) {
     console.error('[api/strategy/run-full]', err)
