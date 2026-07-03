@@ -172,6 +172,7 @@ export async function runFullAgency(
     // readiness "done" states, and no invented platform execution paths.
     strategy = guardStrategyOutputContract(strategy, {
       allowedPlatforms: Array.isArray(brief.currentPlatforms) ? brief.currentPlatforms : [],
+      language: brief.language,
     })
     const contractReport = assertCampaignStrategyContract(strategy)
     console.log(

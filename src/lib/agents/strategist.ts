@@ -447,6 +447,7 @@ RULES:
 - Weekly plan = real deliverables ("3 Reels scripts about X", not "create content")
 - Every weekly deliverable must be countable and concrete, not a generic task like "post consistently", "build awareness", or "increase engagement"
 - Every audience segment, content angle, and funnel stage must include the operational fields needed to execute: pain, message, platform, format/content type, CTA, and next step where applicable
+- readinessChecklist must contain at least 3 concrete, review-safe pre-execution items. They must all have done=false and must not claim that assets, proof, tracking, publishing, scheduling, or platform setup are already complete unless provided.
 - Never use: transform / unlock / game-changer / cutting-edge / leverage / maximize ROI
 - All text must follow the language instruction above
 
@@ -629,7 +630,11 @@ Return JSON with these exact fields — all specific to this brand:
   "successMetricsDetailed": [
     { "category": "lead|engagement|conversion|operational", "metric": "string", "target": "string — NO invented numbers", "timeframe": "string", "isHypothesis": true }
   ],
-  "readinessChecklist": [ { "label": "string — a concrete pre-launch readiness item", "done": false } ],
+  "readinessChecklist": [
+    { "label": "string — concrete pre-execution readiness item 1; not a result claim", "done": false },
+    { "label": "string — concrete pre-execution readiness item 2; not a result claim", "done": false },
+    { "label": "string — concrete pre-execution readiness item 3; not a result claim", "done": false }
+  ],
   "riskNotes": ["string — real risks; flag funnel/paid risk if conversion destination or budget is missing"],
   "executionAssumptions": ["string — assumptions this plan rests on"],
   "assumptions": ["string — explicit assumptions you made due to missing data"],

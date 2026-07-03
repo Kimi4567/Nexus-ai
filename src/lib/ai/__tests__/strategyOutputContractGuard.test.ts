@@ -46,7 +46,36 @@ describe('guardStrategyOutputContract', () => {
     expect(out.readinessChecklist).toEqual([
       { label: 'Confirm WhatsApp consultation intake process', done: false },
       { label: 'Create content assets', done: false },
+      { label: 'Confirm the conversion path, response owner, and handoff process before turning this strategy into execution.', done: false },
     ])
+  })
+
+  it('fills weak readiness checklists with concrete review-safe defaults before persistence', () => {
+    const out = guardStrategyOutputContract({
+      readinessChecklist: [
+        { label: 'Confirm booking handoff', done: true },
+      ],
+    }, { allowedPlatforms: allowed })
+
+    expect(out.readinessChecklist).toHaveLength(3)
+    expect(out.readinessChecklist.every((item: any) => item.done === false)).toBe(true)
+    expect(out.readinessChecklist.map((item: any) => item.label)).toEqual([
+      'Confirm booking handoff',
+      'Confirm the conversion path, response owner, and handoff process before turning this strategy into execution.',
+      'Prepare or select real visual assets for the first Content Hub posts before approval or scheduling.',
+    ])
+  })
+
+  it('fills missing Arabic readiness checklists in the selected strategy language', () => {
+    const out = guardStrategyOutputContract({
+      readinessChecklist: [],
+    }, { allowedPlatforms: allowed, language: 'ar' })
+
+    expect(out.readinessChecklist).toHaveLength(3)
+    expect(out.readinessChecklist.every((item: any) => item.done === false)).toBe(true)
+    expect(JSON.stringify(out.readinessChecklist)).toMatch(/تأكيد مسار التحويل/)
+    expect(JSON.stringify(out.readinessChecklist)).toMatch(/أصول بصرية/)
+    expect(JSON.stringify(out.readinessChecklist)).toMatch(/إثباتات موثّقة/)
   })
 
   it('guards saved strategy display against unsupported platforms and unsupported download CTAs', () => {
