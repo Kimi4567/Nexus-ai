@@ -1912,7 +1912,7 @@ function BrandBrainInner() {
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
                       style={{ background: '#111827', color: '#FFFFFF' }}>
                       <Check size={12} strokeWidth={3} />
-                      {locale === 'ar' ? 'تطبيق على Brand Brain' : 'Apply to Brand Brain'}
+                      {locale === 'ar' ? 'أضف للمسودة للمراجعة' : 'Add to draft for review'}
                     </button>
                     <button
                       onClick={() => setShowScanPreview(false)}
@@ -2010,7 +2010,7 @@ function BrandBrainInner() {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 size={14} style={{ color: '#a78bfa' }} />
                       <span className="text-xs font-bold" style={{ color: '#5E5CE6' }}>
-                        {locale === 'ar' ? 'تم استخراج أنماط المحتوى' : 'Content patterns extracted'}
+                        {locale === 'ar' ? 'تم استخراج إشارات للمراجعة' : 'Review signals extracted'}
                       </span>
                     </div>
                     <button onClick={() => setShowAnalyzePreview(false)}>
@@ -2021,7 +2021,7 @@ function BrandBrainInner() {
                     {Array.isArray(analyzeResult.winningHooks) && (analyzeResult.winningHooks as string[]).length > 0 && (
                       <div>
                         <div className="text-[10px] font-mono font-bold mb-1.5" style={{ color: '#a78bfa' }}>
-                          {locale === 'ar' ? 'الـ HOOKS الناجحة' : 'WINNING HOOKS'}
+                          {locale === 'ar' ? 'إشارات خطافات للمراجعة' : 'Reviewed hook signals'}
                         </div>
                         <div className="space-y-1">
                           {(analyzeResult.winningHooks as string[]).slice(0, 3).map((h, i) => (
@@ -2064,7 +2064,7 @@ function BrandBrainInner() {
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all"
                       style={{ background: '#111827', color: '#ffffff' }}>
                       <Check size={12} strokeWidth={3} />
-                      {locale === 'ar' ? 'تطبيق على Brand Brain' : 'Apply to Brand Brain'}
+                      {locale === 'ar' ? 'أضف للمسودة للمراجعة' : 'Add to draft for review'}
                     </button>
                     <button
                       onClick={() => setShowAnalyzePreview(false)}
@@ -2880,8 +2880,8 @@ function BrandBrainInner() {
               without the decoration. order:60 keeps it last, below the enrichment group. */}
           <p style={{ order: 60 }} className="text-center text-[11px] text-slate-400 pt-1 pb-2">
             {locale === 'ar'
-              ? 'تغذي Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي والتعلّم المستقبلي.'
-              : 'Your Brand Brain powers strategy, content, creative direction, and future signals.'}
+              ? 'توجّه Brand Brain الاستراتيجية والمحتوى والاتجاه الإبداعي. إشارات المراجعة محفوظة، وتعلّم الأداء يحتاج تحليلات حقيقية.'
+              : 'Your Brand Brain guides strategy, content, and creative direction. Review signals are saved; performance learning needs real analytics.'}
           </p>
 
         </div>
