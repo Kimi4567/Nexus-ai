@@ -161,6 +161,31 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     )
   })
 
+  it('returns a user-safe message instead of internal Strategy OS contract details', async () => {
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 10, creditsRemaining: 90, isUnlimited: false })
+    mockRunFullAgency.mockResolvedValue({
+      strategyCreated: false,
+      agentRunId: 'run1',
+      suggestions: 0,
+      errors: ['Campaign engine strategy failed Strategy OS contract (language: strategy.campaignName, strategy.topHooks[0])'],
+    })
+    mockPrisma.campaign.findFirst.mockResolvedValue(null)
+
+    const res = await POST(makeReq({
+      language: 'ar',
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+    }))
+    const json = await res.json()
+
+    expect(json.ok).toBe(false)
+    expect(json.error).toMatch(/أوقف NEXUS حفظ هذه الاستراتيجية/)
+    expect(json.error).toMatch(/لم يتم حفظ حملة جديدة/)
+    expect(json.error).not.toMatch(/Strategy OS contract|strategy\.campaignName|topHooks/)
+    expect(json.errors[0]).toBe(json.error)
+  })
+
   it('does not refund unlimited-plan users (creditsUsed=0) on failure', async () => {
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 0, creditsRemaining: -1, isUnlimited: true })
     mockRunFullAgency.mockResolvedValue({ strategyCreated: false, agentRunId: 'run1', suggestions: 0, errors: ['failed'] })
