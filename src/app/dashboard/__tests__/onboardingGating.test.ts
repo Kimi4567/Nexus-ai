@@ -85,4 +85,11 @@ describe('Dashboard onboarding gating', () => {
     expect(SRC).toMatch(/Campaign drafts/)
     expect(SRC).toMatch(/مسودات الحملات/)
   })
+
+  it('FIRST-PAID-TRUTH1 shows real draft campaign count in early operating summary', () => {
+    expect(SRC).toMatch(/draftCampaigns: d\.stats\?\.campaigns\?\.draft \?\? 0/)
+    expect(SRC).toMatch(/const draftCampaignCount = stats\?\.draftCampaigns \?\? campaigns\.filter/)
+    expect(SRC).toMatch(/\{draftCampaignCount\}/)
+    expect(SRC).not.toMatch(/Campaign drafts[\s\S]{0,260}>0<\/span>/)
+  })
 })

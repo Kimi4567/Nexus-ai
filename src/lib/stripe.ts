@@ -130,7 +130,7 @@ export const PLANS: PlanDefinition[] = [
       '5 campaigns / month',
       '25 AI posts / month — crosses the 16+ leads threshold',
       'All social platforms (unlimited)',
-      'Campaign Memory — AI learns your brand',
+      'Campaign Memory — reviewed signals across campaigns',
       'Media uploads + Brand overlays',
       'A/B Testing + AI Rewrite',
       'Analytics + ROI Dashboard',

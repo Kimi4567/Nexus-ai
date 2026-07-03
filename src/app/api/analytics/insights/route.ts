@@ -108,7 +108,7 @@ export async function GET(req: Request) {
           id: 'brand-needs-data',
           type: 'warning',
           icon: '🧠',
-          message: 'Brand memory needs more core context before outputs can become sharper',
+          message: 'Brand memory is still early — add saved context, proof, analytics, and reviewed signals before treating outputs as sharper',
           href: '/brand',
         })
       }
