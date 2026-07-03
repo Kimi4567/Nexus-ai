@@ -13,7 +13,9 @@ const LanguageSwitcher = memo(function LanguageSwitcher() {
 
   return (
     <button
+      type="button"
       onClick={toggle}
+      aria-label={locale === 'ar' ? t('language.switchTo') as string : 'Switch to Arabic'}
       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:scale-[1.02]"
       style={{
         background: '#FFFFFF',
