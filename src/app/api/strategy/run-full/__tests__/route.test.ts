@@ -161,6 +161,33 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     )
   })
 
+  it('refunds the exact deducted amount when orchestration throws after credit deduction', async () => {
+    mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 10, creditsRemaining: 345, isUnlimited: false })
+    mockRunFullAgency.mockRejectedValue(new Error('provider timeout'))
+
+    const res = await POST(makeReq({
+      language: 'ar',
+      strategyType: 'organic',
+      strategyDuration: '30',
+      contentIntensity: 'standard',
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(500)
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'u1' },
+        data: { aiCredits: { increment: 10 } },
+      }),
+    )
+    expect(json.ok).toBe(false)
+    expect(json.refunded).toBe(true)
+    expect(json.creditsRemaining).toBe(355)
+    expect(json.creditsUsed).toBe(0)
+    expect(json.error).toMatch(/تعذر إكمال توليد الاستراتيجية/)
+    expect(json.error).not.toMatch(/provider timeout/)
+  })
+
   it('returns a user-safe message instead of internal Strategy OS contract details', async () => {
     mockCheckAndDeduct.mockResolvedValue({ ok: true, creditsUsed: 10, creditsRemaining: 90, isUnlimited: false })
     mockRunFullAgency.mockResolvedValue({
@@ -180,6 +207,7 @@ describe('POST /api/strategy/run-full — variable charge', () => {
     const json = await res.json()
 
     expect(json.ok).toBe(false)
+    expect(json.refunded).toBe(true)
     expect(json.error).toMatch(/أوقف NEXUS حفظ هذه الاستراتيجية/)
     expect(json.error).toMatch(/لم يتم حفظ حملة جديدة/)
     expect(json.error).not.toMatch(/Strategy OS contract|strategy\.campaignName|topHooks/)

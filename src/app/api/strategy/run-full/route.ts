@@ -44,7 +44,55 @@ function sanitizeStrategyRunError(error: string | undefined, language: unknown):
   return error
 }
 
+function genericStrategyRunFailureMessage(language: unknown): string {
+  if (isArabicLanguage(language)) {
+    return 'تعذر إكمال توليد الاستراتيجية قبل حفظ حملة جديدة. تمت إعادة كريدت هذه المحاولة إن تم خصمها. حاول مرة أخرى.'
+  }
+
+  return 'Strategy generation could not be completed before a new campaign was saved. Credits for this attempt were restored if they were charged. Please try again.'
+}
+
+type DeductedStrategyCredit = {
+  creditsRemaining: number
+  creditsUsed: number
+  transactionId?: string
+}
+
+async function refundDeductedStrategyCredits(
+  userId: string,
+  credit: DeductedStrategyCredit | null,
+  reason: string,
+): Promise<boolean> {
+  if (!credit || credit.creditsUsed <= 0) return false
+
+  try {
+    if (isCreditWalletEnabled() && credit.transactionId) {
+      await refundCreditsForTransaction({
+        userId,
+        transactionId: credit.transactionId,
+        reason,
+      })
+      console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${userId} (wallet)`)
+      return true
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiCredits: { increment: credit.creditsUsed } },
+    })
+    console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${userId}`)
+    return true
+  } catch (refundErr) {
+    console.error('[strategy/run-full] Credit refund failed:', refundErr)
+    return false
+  }
+}
+
 export async function POST(req: NextRequest) {
+  let body: Record<string, unknown> = {}
+  let chargedUserId: string | null = null
+  let deductedCredit: DeductedStrategyCredit | null = null
+
   try {
     const user = await getAuthUser(req)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -58,7 +106,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json().catch(() => ({}))
+    body = await req.json().catch(() => ({}))
     const goalOverride = (body?.goal as string | undefined) || 'leads'
     const selectedMediaIds = Array.isArray(body?.mediaIds)
       ? (body.mediaIds as unknown[]).filter((id): id is string => typeof id === 'string' && id.length > 0)
@@ -165,6 +213,12 @@ export async function POST(req: NextRequest) {
     const credit = await checkAndDeductCredits(user.id, 'RUN_FULL_STRATEGY', charge.cost)
     if (!credit.ok) {
       return NextResponse.json(credit, { status: 402 })
+    }
+    chargedUserId = user.id
+    deductedCredit = {
+      creditsRemaining: credit.creditsRemaining,
+      creditsUsed: credit.creditsUsed,
+      transactionId: credit.transactionId,
     }
     // ------------------------------------------------------------------------
 
@@ -302,29 +356,9 @@ export async function POST(req: NextRequest) {
     // refund the fixed CREDIT_COSTS.RUN_FULL_STRATEGY (8) and over/under-refund a
     // variable charge. creditsUsed is 0 for unlimited plans, so the guard below
     // correctly skips the refund for them.
-    if (!success && credit.creditsUsed > 0) {
-      if (isCreditWalletEnabled() && credit.transactionId) {
-        // Wallet ON (B1c-c-1): restore the exact amounts to their source grants
-        // via the debit's allocation rows. Does NOT also run the scalar increment.
-        await refundCreditsForTransaction({
-          userId: user.id,
-          transactionId: credit.transactionId,
-          reason: 'Run Full Strategy failed',
-        })
-        console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${user.id} (wallet)`)
-      } else {
-        // Flag OFF — unchanged exact scalar refund (no REFUND ledger row, as today).
-        try {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { aiCredits: { increment: credit.creditsUsed } },
-          })
-          console.log(`[strategy/run-full] Refunded ${credit.creditsUsed} credits to user ${user.id}`)
-        } catch (refundErr) {
-          console.error('[strategy/run-full] Credit refund failed:', refundErr)
-        }
-      }
-    }
+    const refunded = !success
+      ? await refundDeductedStrategyCredits(user.id, deductedCredit, 'Run Full Strategy failed')
+      : false
     // ──────────────────────────────────────────────────────────────────────
 
     const rawError = !success && result.errors.length > 0 ? result.errors[0] : undefined
@@ -337,14 +371,37 @@ export async function POST(req: NextRequest) {
       campaignId: campaign?.id ?? null,
       campaignName: campaign?.name ?? null,
       suggestions: result.suggestions,
-      creditsRemaining: success ? credit.creditsRemaining : credit.creditsRemaining + credit.creditsUsed,
-      creditsUsed: success ? credit.creditsUsed : 0,
+      creditsRemaining: success
+        ? credit.creditsRemaining
+        : credit.creditsRemaining + (refunded ? credit.creditsUsed : 0),
+      creditsUsed: success ? credit.creditsUsed : (refunded ? 0 : credit.creditsUsed),
+      refunded,
       // Both formats for frontend compatibility
       errors: publicErrors,
       error: publicError,
     })
   } catch (err: any) {
     console.error('[api/strategy/run-full]', err)
-    return NextResponse.json({ error: err?.message || 'Failed' }, { status: 500 })
+    const refunded = chargedUserId
+      ? await refundDeductedStrategyCredits(chargedUserId, deductedCredit, 'Run Full Strategy exception')
+      : false
+    const rawError = typeof err?.message === 'string' ? err.message : undefined
+    const safeError = rawError && /Strategy OS contract/i.test(rawError)
+      ? sanitizeStrategyRunError(rawError, body?.language) || genericStrategyRunFailureMessage(body?.language)
+      : genericStrategyRunFailureMessage(body?.language)
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: safeError,
+        errors: [safeError],
+        refunded,
+        creditsRemaining: deductedCredit
+          ? deductedCredit.creditsRemaining + (refunded ? deductedCredit.creditsUsed : 0)
+          : undefined,
+        creditsUsed: refunded ? 0 : (deductedCredit?.creditsUsed ?? 0),
+      },
+      { status: 500 },
+    )
   }
 }
