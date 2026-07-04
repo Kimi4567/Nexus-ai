@@ -18,16 +18,17 @@ export async function GET(req: NextRequest) {
 
 function suggestionSpec(actionId: string): {
   agent: 'STRATEGIST' | 'CONTENT_DIRECTOR' | 'CAMPAIGN_MANAGER' | 'REPORTING'
-  type: 'STRATEGY' | 'CONTENT_SWAP' | 'BUDGET_CHANGE' | 'AUDIENCE_SHIFT' | 'PLATFORM_ADD' | 'PLATFORM_PAUSE' | 'CAMPAIGN_PAUSE' | 'CAMPAIGN_LAUNCH'
+  type: 'STRATEGY' | 'CONTENT_SWAP' | 'BUDGET_CHANGE' | 'AUDIENCE_SHIFT' | 'PLATFORM_ADD' | 'PLATFORM_PAUSE' | 'CAMPAIGN_PAUSE'
   priority: 1 | 2 | 3
 } {
   switch (actionId) {
     case 'complete-brand-brain':
     case 'capture-learning':
     case 'run-full-strategy':
+    case 'create-first-strategy':
       return { agent: 'STRATEGIST', type: 'STRATEGY', priority: 1 }
     case 'launch-first-campaign':
-      return { agent: 'STRATEGIST', type: 'CAMPAIGN_LAUNCH', priority: 1 }
+      return { agent: 'STRATEGIST', type: 'STRATEGY', priority: 1 }
     case 'generate-content-plan':
     case 'schedule-drafts':
     case 'create-ab-test':

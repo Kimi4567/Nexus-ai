@@ -163,7 +163,7 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     'Finish onboarding',
     'أكمل الإعداد',
     'NEXUS needs a workspace before it can coordinate strategy, content, publishing, signals, and analytics.',
-    'NEXUS يحتاج مساحة عمل قبل تنسيق الاستراتيجية والمحتوى والنشر والتعلم.'
+    'NEXUS يحتاج مساحة عمل قبل تنسيق الاستراتيجية والمحتوى والنشر والإشارات والتحليلات.'
   )
 
   if (!workspace) {
@@ -304,16 +304,16 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
     // turn the Brand Brain into a plan on the Strategy page — NOT to jump
     // straight into campaign creation. This routes to /strategy only (a planning
     // entry point); it does not create a campaign, does not open Run Full
-    // Strategy, and triggers no generation. Campaign-launch guidance returns via
-    // the later states once a strategy/campaign exists.
+    // Strategy, and triggers no generation. Execution guidance returns via later
+    // states once a strategy/campaign exists.
     actions.push(action(
       'create-first-strategy',
       'high',
       '/strategy',
       'Create your first strategy',
       'إنشاء أول استراتيجية',
-      'Turn your Brand Brain into a clear plan first. On the Strategy page, NEXUS organizes your organic content plan and paid campaign planning before any campaign is launched.',
-      'حوّل ذاكرة علامتك التجارية إلى خطة واضحة أولاً. في صفحة الاستراتيجية، ينظّم NEXUS خطة المحتوى العضوي وتخطيط الحملات المدفوعة قبل إطلاق أي حملة.'
+      'Turn your Brand Brain into a clear plan first. On the Strategy page, NEXUS organizes organic content direction and paid planning before any execution step.',
+      'حوّل ذاكرة علامتك التجارية إلى خطة واضحة أولاً. في صفحة الاستراتيجية، ينظّم NEXUS اتجاه المحتوى العضوي والتخطيط المدفوع قبل أي خطوة تنفيذ.'
     ))
   }
   if (totalCampaigns > 0 && !hasStrategy) {
@@ -334,8 +334,8 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       contentPlanHref,
       'Generate a content plan',
       'ولّد خطة محتوى',
-      'The strategy layer exists, but the machine needs planned posts before publishing and analytics-backed learning can start.',
-      'طبقة الاستراتيجية موجودة، لكن الماكينة تحتاج منشورات مخططة قبل النشر والتعلم.'
+      'The strategy layer exists, but the workflow needs planned posts before publishing decisions and analytics-backed learning are possible.',
+      'طبقة الاستراتيجية موجودة، لكن سير العمل يحتاج منشورات مخططة قبل قرارات النشر وقبل أن يصبح تعلم الأداء المبني على التحليلات ممكناً.'
     ))
   }
   if (recentPosts.length > 0 && connectedIntegrations === 0) {
@@ -367,8 +367,8 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       '/brand?from=brief',
       'Review published-content signals',
       'راجع إشارات المحتوى المنشور',
-      'Published work can feed Brand Brain as a signal; performance learning needs analytics data.',
-      'يمكن للمحتوى المنشور أن يغذي Brand Brain كإشارة؛ أما تعلم الأداء فيحتاج بيانات تحليلات.'
+      'Published or manually recorded work can be reviewed as workflow signals; performance learning needs real analytics data.',
+      'يمكن مراجعة المحتوى المنشور أو المسجل يدوياً كإشارات سير عمل؛ أما تعلم الأداء فيحتاج بيانات تحليلات حقيقية.'
     ))
   }
   if (publishedPosts >= 2 && !hasAbTests) {
@@ -390,8 +390,8 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
       '/analytics',
       'Inspect performance trends',
       'راجع اتجاهات الأداء',
-      'The core loop is active; the best next move is to inspect what is compounding and what is slowing down.',
-      'الدورة الأساسية نشطة؛ أفضل خطوة هي مراجعة ما يتراكم وما يبطئ النمو.'
+      'The core loop has evidence; the best next move is to inspect what is compounding and what is slowing down.',
+      'الدورة الأساسية لديها أدلة؛ أفضل خطوة هي مراجعة ما يتراكم وما يبطئ النمو.'
     ))
   }
 
@@ -488,27 +488,27 @@ export async function buildMarketingIntelligenceBrief(userId: string): Promise<M
   if (totalCampaigns > 0 && activeCampaigns === 0) {
     risks.push({
       id: 'no-active-campaigns',
-      title: 'No active campaigns',
-      titleAr: 'لا توجد حملات نشطة',
-      detail: 'The system has campaign assets, but nothing is currently marked active for ongoing management.',
-      detailAr: 'النظام لديه أصول حملات، لكن لا توجد حملة نشطة لإدارتها باستمرار.',
+      title: 'No campaign in ongoing management',
+      titleAr: 'لا توجد حملة في إدارة مستمرة',
+      detail: 'The system has campaign assets, but no campaign workflow is currently marked for ongoing management inside NEXUS.',
+      detailAr: 'النظام لديه أصول حملات، لكن لا يوجد سير عمل حملة محدد للإدارة المستمرة داخل NEXUS.',
     })
   }
 
   const summary = maturityScore >= 80
-    ? 'NEXUS is operating as a coordinated marketing system: strategy, content, execution, signals, and analytics are connected.'
+    ? 'NEXUS has a coordinated marketing operating view: strategy, content, execution records, reviewed signals, and analytics are connected.'
     : maturityScore >= 55
     ? 'NEXUS has the pieces of a marketing machine; the next gain is tightening execution and feedback.'
     : maturityScore >= 30
-    ? 'NEXUS can guide campaigns now, but needs stronger memory and execution signals to become autonomous.'
+    ? 'NEXUS can guide campaigns now, but needs stronger memory and execution signals before it becomes more dependable.'
     : 'NEXUS is still in setup mode; complete the operating loop before judging output quality.'
 
   const summaryAr = maturityScore >= 80
-    ? 'NEXUS يعمل كنظام تسويق منسق: الاستراتيجية والمحتوى والتنفيذ والتعلم متصلة.'
+    ? 'NEXUS لديه رؤية تشغيل تسويقية منسقة: الاستراتيجية والمحتوى وسجلات التنفيذ والإشارات المراجَعة والتحليلات متصلة.'
     : maturityScore >= 55
     ? 'NEXUS لديه مكونات ماكينة تسويق؛ المكسب التالي هو إحكام التنفيذ والتغذية الراجعة.'
     : maturityScore >= 30
-    ? 'NEXUS قادر على توجيه الحملات الآن، لكنه يحتاج ذاكرة أقوى وإشارات تنفيذ ليصبح ذاتيا.'
+    ? 'NEXUS قادر على توجيه الحملات الآن، لكنه يحتاج ذاكرة أقوى وإشارات تنفيذ ليصبح أكثر اعتمادية.'
     : 'NEXUS لا يزال في مرحلة الإعداد؛ أكمل دورة التشغيل قبل الحكم على جودة المخرجات.'
 
   return {

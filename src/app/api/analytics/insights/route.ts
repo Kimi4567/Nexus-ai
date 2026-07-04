@@ -37,9 +37,9 @@ export async function GET(req: Request) {
         id: 'setup',
         type: 'action',
         icon: '⚡',
-        message: 'Workspace ready — create your first campaign to get started',
-        messageAr: 'مساحة العمل جاهزة — أنشئ أول حملة للبدء',
-        href: '/campaign/new',
+        message: 'Workspace created — create your first campaign brief to get started',
+        messageAr: 'تم إنشاء مساحة العمل — أنشئ أول بريف حملة للبدء',
+        href: '/campaigns/new',
       })
       return NextResponse.json({ insights })
     }
@@ -80,8 +80,8 @@ export async function GET(req: Request) {
         id: 'brand-empty',
         type: 'warning',
         icon: '🧠',
-        message: 'Brand memory not configured — campaigns generating without your voice',
-        messageAr: 'ذاكرة العلامة غير مكتملة — ستُنشأ الحملات بدون نبرة واضحة لعلامتك',
+        message: 'Brand memory needs setup — add your voice before relying on generated strategy',
+        messageAr: 'ذاكرة العلامة تحتاج إعداداً — أضف نبرة علامتك قبل الاعتماد على الاستراتيجية المولّدة',
         href: '/brand',
       })
     } else {
@@ -95,8 +95,8 @@ export async function GET(req: Request) {
           id: 'brand-active',
           type: 'success',
           icon: '🧠',
-          message: `Brand voice active — AI campaigns using your ${brandProfile.toneKeywords?.[0] || 'custom'} tone`,
-          messageAr: `إشارات نبرة العلامة جاهزة — يستخدم NEXUS نبرة ${brandProfile.toneKeywords?.[0] || 'مخصصة'} عند إنشاء الحملات`,
+          message: `Brand voice signals available — NEXUS can apply your ${brandProfile.toneKeywords?.[0] || 'custom'} tone during generation`,
+          messageAr: `إشارات نبرة العلامة متاحة — يستطيع NEXUS تطبيق نبرة ${brandProfile.toneKeywords?.[0] || 'مخصصة'} أثناء التوليد`,
           href: '/brand',
         })
       } else if (status === 'building') {
@@ -138,8 +138,8 @@ export async function GET(req: Request) {
         id: 'active',
         type: 'success',
         icon: '✅',
-        message: `${activeCampaigns} campaign${activeCampaigns > 1 ? 's' : ''} currently active`,
-        messageAr: `${activeCampaigns} ${activeCampaigns === 1 ? 'حملة نشطة حالياً' : 'حملات نشطة حالياً'}`,
+        message: `${activeCampaigns} campaign workflow${activeCampaigns > 1 ? 's' : ''} in progress inside NEXUS`,
+        messageAr: `${activeCampaigns} ${activeCampaigns === 1 ? 'سير عمل حملة داخل NEXUS' : 'مسارات عمل حملات داخل NEXUS'}`,
         href: '/campaigns',
       })
     }
@@ -150,7 +150,7 @@ export async function GET(req: Request) {
         id: 'no-visuals',
         type: 'action',
         icon: '🎨',
-        message: `${totalCampaigns} campaign${totalCampaigns > 1 ? 's have' : ' has'} no hero visuals — generate now`,
+        message: `${totalCampaigns} campaign${totalCampaigns > 1 ? 's have' : ' has'} no hero visuals — review media needs before generation`,
         messageAr: `${totalCampaigns} ${totalCampaigns === 1 ? 'حملة بدون مرئيات رئيسية' : 'حملات بدون مرئيات رئيسية'} — راجع الاحتياج قبل التوليد`,
         href: recentCampaigns[0]?.id ? `/campaigns/${recentCampaigns[0].id}` : '/campaigns',
       })
@@ -187,9 +187,9 @@ export async function GET(req: Request) {
         id: 'first-campaign',
         type: 'action',
         icon: '🚀',
-        message: 'No campaigns yet — launch your first AI marketing campaign',
+        message: 'No campaigns yet — create your first campaign workspace',
         messageAr: 'لا توجد حملات بعد — أنشئ أول حملة تسويقية بالذكاء الاصطناعي',
-        href: '/campaign/new',
+        href: '/campaigns/new',
       })
     }
 
@@ -200,9 +200,9 @@ export async function GET(req: Request) {
       id: 'system-ready',
       type: 'info',
       icon: '⚡',
-      message: 'Nexus AI is ready — create a campaign to activate your marketing engine',
-      messageAr: 'NEXUS جاهز — أنشئ حملة لتشغيل محركك التسويقي',
-      href: '/campaign/new',
+      message: 'NEXUS is available — create a campaign workspace when ready',
+      messageAr: 'NEXUS متاح — أنشئ مساحة عمل حملة عندما تكون مستعداً',
+      href: '/campaigns/new',
     })
   }
 
