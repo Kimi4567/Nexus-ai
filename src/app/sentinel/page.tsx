@@ -435,7 +435,7 @@ export default function SentinelPage() {
                 <a href="/brand" className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309' }}>
                   <span>⚡</span>
-                  <span>{t('sentinel.activateBrain')}</span>
+                  <span>{t('sentinel.setupBrain')}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"

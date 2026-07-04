@@ -126,9 +126,10 @@ export function getBrandBrainReadiness(
 // functional getBrandBrainReadiness() gate above, and never from an invented
 // score. `status` is produced by calculateBrandMaturity() (brandMaturity.ts) using
 // the real thresholds: 'active' = score ≥ 80, 'building' = 50–79, 'needs_data' < 50.
-// Only 'active' may say "ready" / "all agents know your brand"; below that the copy
-// must say partial/incomplete. This guarantees Dashboard, Analytics, and the Brand
-// Brain page can never contradict each other.
+// Even at 'active', copy should describe an available core profile, not imply
+// every agent fully "knows" the brand or that performance learning has happened.
+// Below active the copy must say partial/incomplete. This guarantees Dashboard,
+// Analytics, and the Brand Brain page can never contradict each other.
 // ════════════════════════════════════════════════════════════════════════════
 
 /** Maturity status from calculateBrandMaturity() — the readiness source of truth. */
@@ -165,14 +166,14 @@ export function getBrandReadinessCopy(
     return {
       status: s,
       isComplete: true,
-      label: ar ? 'عقل نشط' : 'Active Brain',
+      label: ar ? 'ملف أساسي متاح' : 'Core profile available',
       summary: brandName
         ? (ar
-            ? `عقل ${brandName} جاهز — الوكلاء يعرفون علامتك التجارية`
-            : `${brandName}'s brain is ready — all agents know your brand`)
+            ? `ملف ${brandName} الأساسي متاح — يستخدمه NEXUS كسياق عند إنشاء الاستراتيجية والمحتوى`
+            : `${brandName}'s core profile is available — NEXUS uses it as context for strategy and content generation`)
         : (ar
-            ? 'ذاكرة العلامة التجارية جاهزة — الوكلاء يعرفون علامتك التجارية'
-            : 'Brand Brain is ready — all agents know your brand'),
+            ? 'ملف Brand Brain الأساسي متاح — يستخدمه NEXUS كسياق عند إنشاء الاستراتيجية والمحتوى'
+            : 'Brand Brain core profile is available — NEXUS uses it as context for strategy and content generation'),
     }
   }
 

@@ -153,7 +153,7 @@ export function formatStrategyDeliverableForLocale(item: string, locale: 'ar' | 
     'Ad launch': 'إطلاق الإعلانات',
     'Ad spend': 'صرف ميزانية إعلانية',
     'Publishing': 'النشر',
-    'Campaign activation': 'تفعيل الحملة',
+    'Campaign execution': 'تنفيذ الحملة',
     'Performance projections / invented metrics': 'توقعات أداء أو أرقام غير مثبتة',
     'Shared message angles across organic + paid': 'زوايا رسائل مشتركة بين العضوي والمدفوع',
     'Funnel alignment (organic ↔ paid)': 'مواءمة القمع بين العضوي والمدفوع',
@@ -299,7 +299,7 @@ export function getStrategyDeliverables(
     excluded.push('Ad launch')
     excluded.push('Ad spend')
     excluded.push('Publishing')
-    excluded.push('Campaign activation')
+    excluded.push('Campaign execution')
     excluded.push('Performance projections / invented metrics')
   }
 

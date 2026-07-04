@@ -26,7 +26,7 @@ const full: VerdictInput = {
   kpisAreHypotheses: true,
 }
 
-const PAID_FORBIDDEN = /\blaunch|\bspend|\bad set|\bads? are active|will launch|execute/i
+const PAID_FORBIDDEN = /\blaunch|\bspend|\bad set|\bads? are active|will launch|activate|activation/i
 
 describe('deriveStrategicVerdict', () => {
   it('builds a verdict from existing fields (organic-first + honest paid clause)', () => {
@@ -35,7 +35,7 @@ describe('deriveStrategicVerdict', () => {
     expect(text).toMatch(/organic content first/i)
     expect(text).toMatch(/Anxious Patients/)
     expect(text).toMatch(/Abu Dhabi/)
-    expect(text).toMatch(/before activation/i)
+    expect(text).toMatch(/before paid execution/i)
     // Oxford "and" before the final paid prerequisite (copy polish).
     expect(text).toMatch(/budget, conversion data, and tracking/)
   })

@@ -9,7 +9,7 @@
  * it falls back to a calm honest line rather than forcing a "smart" sentence.
  *
  * Paid honesty: the verdict never implies paid is active / will launch / will spend.
- * Paid only ever appears as "paid planning needs … before activation."
+ * Paid only ever appears as planning that needs prerequisites before paid execution.
  */
 
 export type VerdictLocale = 'en' | 'ar'
@@ -92,8 +92,8 @@ export function deriveStrategicVerdict(input: VerdictInput): { text: string; isF
       ? joinAnd(needs, lo)
       : L(lo, 'more data', 'بيانات إضافية')
     paidClause = L(lo,
-      ` — paid planning needs ${needsTxt} before activation`,
-      ` — يحتاج تخطيط المدفوع إلى ${needsTxt} قبل التفعيل`)
+      ` — paid planning needs ${needsTxt} before paid execution`,
+      ` — يحتاج تخطيط المدفوع إلى ${needsTxt} قبل أي تنفيذ مدفوع`)
   }
 
   const core = L(lo,
