@@ -243,7 +243,7 @@ export default function NexStudioPage() {
               ) : (
                 <a href="/brand" className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-all hover:opacity-80"
                   style={{ background: '#E0F2FE', border: '1px solid rgba(14,165,233,0.25)', color: '#0369A1' }}>
-                  <span>{t('nex.activateBrain')}</span>
+                  <span>{t('nex.setupBrain')}</span>
                 </a>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"

@@ -618,12 +618,12 @@ function NewCampaignPageInner() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-violet-800 mb-0.5">
-                      {locale === 'ar' ? 'NEXUS يقترح إطلاق أول حملة' : 'NEXUS recommends launching your first campaign'}
+                      {locale === 'ar' ? 'NEXUS يقترح إعداد أول خطة محتوى' : 'NEXUS recommends preparing your first content plan'}
                     </p>
                     <p className="text-xs text-slate-500 leading-relaxed">
                       {locale === 'ar'
-                        ? 'Brand Brain جاهز — أنشئ خطة محتوى الآن لتحريك منظومتك التسويقية.'
-                        : 'Brand Brain is ready — create a content plan now to activate your marketing system.'}
+                        ? 'سياق Brand Brain متاح — أنشئ خطة محتوى للمراجعة قبل أي جدولة أو نشر.'
+                        : 'Brand Brain context is available — create a content plan for review before any scheduling or publishing.'}
                     </p>
                   </div>
                 </div>

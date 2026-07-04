@@ -130,7 +130,7 @@ describe('getStrategyDeliverables — paid', () => {
     // organic content not part of a paid-only order
     expect(d.organicPostCount).toBe(0)
     expect(d.excludedDeliverables).toEqual(
-      expect.arrayContaining(['Ad launch', 'Ad spend', 'Publishing', 'Campaign activation']),
+      expect.arrayContaining(['Ad launch', 'Ad spend', 'Publishing', 'Campaign execution']),
     )
     expect(d.excludedDeliverables.join(' ')).toMatch(/projection|metric/i)
     expect(d.generationInstructions).toMatch(/PLANNING-ONLY/i)
