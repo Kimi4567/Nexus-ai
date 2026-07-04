@@ -1027,6 +1027,14 @@ function CampaignDetailPageInner() {
   const operatingActionLabel = locale === 'ar'
     ? operatingState.primaryAction.labelAr
     : operatingState.primaryAction.label
+  const displayOperatingLabel = isPaidOnlyStrategy
+    ? (locale === 'ar' ? 'بريف تخطيط مدفوع للمراجعة' : 'Paid planning brief for review')
+    : operatingLabel
+  const displayOperatingHelper = isPaidOnlyStrategy
+    ? (locale === 'ar'
+      ? 'لا توجد خطة محتوى عضوية من هذا التوليد. أكمل التتبع والحسابات والموافقة قبل أي إطلاق أو صرف.'
+      : 'No organic content plan was created by this run. Complete tracking, accounts, and approval before any launch or spend.')
+    : operatingHelper
   const strategyGuidanceCopy = isPaidOnlyStrategy
     ? {
         hint: locale === 'ar'
@@ -1163,7 +1171,32 @@ function CampaignDetailPageInner() {
     }
   })()
 
-  const progressSteps = ([
+  const progressSteps = (isPaidOnlyStrategy ? [
+    {
+      key: 'strategy',
+      label: locale === 'ar' ? 'الاستراتيجية' : 'Strategy',
+      done: operatingState.truthFlags.hasStrategy,
+      active: false,
+    },
+    {
+      key: 'paid-brief',
+      label: locale === 'ar' ? 'بريف مدفوع' : 'Paid brief',
+      done: true,
+      active: false,
+    },
+    {
+      key: 'launch-readiness',
+      label: locale === 'ar' ? 'جاهزية الإطلاق' : 'Launch readiness',
+      done: false,
+      active: true,
+    },
+    {
+      key: 'execution',
+      label: locale === 'ar' ? 'تنفيذ مؤكد' : 'Confirmed execution',
+      done: false,
+      active: false,
+    },
+  ] : [
     {
       key: 'strategy',
       label: locale === 'ar' ? 'الاستراتيجية' : 'Strategy',
@@ -1489,10 +1522,10 @@ function CampaignDetailPageInner() {
                   <div className="flex items-center gap-2 mt-3">
                     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${operatingTone[operatingState.stage]}`}>
                       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                      {operatingLabel}
+                      {displayOperatingLabel}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {operatingHelper}
+                      {displayOperatingHelper}
                     </span>
                   </div>
                 </div>
@@ -1636,10 +1669,10 @@ function CampaignDetailPageInner() {
                 <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
                   {engineRunning
                     ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
-                    : operatingLabel}
+                    : displayOperatingLabel}
                 </p>
                 {!engineRunning && (
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{operatingHelper}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">{displayOperatingHelper}</p>
                 )}
                 {(engineError || generateError) && (
                   <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
@@ -1664,7 +1697,7 @@ function CampaignDetailPageInner() {
                   </button>
                 )}
 
-                {activeTab !== 0 && !engineRunning && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' && (
+                {activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed' && operatingState.stage === 'content_plan_missing' && (
                   <button
                     onClick={handleApproveAndLaunch}
                     disabled={approvalState === 'approving' || launchState === 'approving' || launchState === 'generating'}
@@ -2005,7 +2038,7 @@ function CampaignDetailPageInner() {
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
                       <StrategyDocCard
                         label={locale === 'ar' ? 'حالة الاستراتيجية' : 'Strategy state'}
-                        value={operatingLabel}
+                        value={displayOperatingLabel}
                         tone="positive"
                       />
                       <StrategyDocCard

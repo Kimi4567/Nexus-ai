@@ -558,6 +558,15 @@ describe('strategy runtime copy contract', () => {
     expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type })')
   })
 
+  it('keeps paid-only campaign pages separate from the organic content-plan workflow', () => {
+    const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
+
+    expect(campaignPage).toContain("label: locale === 'ar' ? 'بريف مدفوع' : 'Paid brief'")
+    expect(campaignPage).toContain("label: locale === 'ar' ? 'جاهزية الإطلاق' : 'Launch readiness'")
+    expect(campaignPage).toContain("const displayOperatingLabel = isPaidOnlyStrategy")
+    expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed'")
+  })
+
   it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
 
