@@ -140,6 +140,7 @@ export default function StrategyPage() {
   const rawAi = (recent?.aiOutput ?? null) as Record<string, unknown> | null
   const rawStrat = (rawAi?.strategy ?? rawAi ?? null) as Record<string, unknown> | null
   const strategyScope = resolveStrategyScope(rawAi)
+  const includesPaidPlanning = strategyScope.includesPaid
   const displayGuardContext = {
     verifiedProof: Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
   }
@@ -484,8 +485,22 @@ export default function StrategyPage() {
                 {[
                   { label: ar ? 'اتجاه الاستراتيجية' : 'Strategy direction', value: strategyStatusText },
                   { label: strategyScope.paidOnly ? (ar ? 'النطاق العضوي' : 'Organic scope') : (ar ? 'اتجاه المحتوى العضوي' : 'Organic content direction'), value: strategyScope.paidOnly ? (ar ? 'غير مشمول في هذا التوليد' : 'Not included in this run') : (ar ? 'متاح للمراجعة' : 'Available to review') },
-                  { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: strategyScope.paidOnly ? (ar ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only') : (ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label) },
-                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: strategyScope.paidOnly ? (ar ? 'راجع البريف وأكمل شروط الإطلاق' : 'Review brief and complete launch readiness') : (ar ? readinessSurface.nextAction.labelAr : readinessSurface.nextAction.label) },
+                  {
+                    label: ar ? 'التخطيط المدفوع' : 'Paid planning',
+                    value: strategyScope.paidOnly
+                      ? (ar ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only')
+                      : includesPaidPlanning
+                        ? (ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label)
+                        : (ar ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run'),
+                  },
+                  {
+                    label: ar ? 'الإجراء التالي' : 'Next recommended action',
+                    value: strategyScope.paidOnly
+                      ? (ar ? 'راجع البريف وأكمل شروط الإطلاق' : 'Review brief and complete launch readiness')
+                      : includesPaidPlanning
+                        ? (ar ? readinessSurface.nextAction.labelAr : readinessSurface.nextAction.label)
+                        : (ar ? 'راجع الاتجاه العضوي أو شغّل Paid/Full لاحقاً' : 'Review organic direction or run Paid/Full later'),
+                  },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl px-3 py-3" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.06)' }}>
                     <p className="text-[11px] font-semibold" style={{ color: '#94a3b8' }}>{item.label}</p>

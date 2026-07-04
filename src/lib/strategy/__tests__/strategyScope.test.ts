@@ -6,6 +6,7 @@ describe('resolveStrategyScope', () => {
     expect(resolveStrategyScope({ strategyType: 'paid', strategyOrder: { strategyType: 'full' } })).toMatchObject({
       type: 'paid',
       includesOrganic: false,
+      includesPaid: true,
       paidOnly: true,
       source: 'aiOutput.strategyType',
     })
@@ -15,6 +16,7 @@ describe('resolveStrategyScope', () => {
     expect(resolveStrategyScope({ strategyOrder: { strategyType: 'full' } })).toMatchObject({
       type: 'full',
       includesOrganic: true,
+      includesPaid: true,
       paidOnly: false,
       source: 'aiOutput.strategyOrder.strategyType',
     })
@@ -24,8 +26,18 @@ describe('resolveStrategyScope', () => {
     expect(resolveStrategyScope({ strategy: { contentPillars: ['Proof'] } })).toMatchObject({
       type: 'organic',
       includesOrganic: true,
+      includesPaid: false,
       paidOnly: false,
       source: 'fallback',
+    })
+  })
+
+  it('keeps explicit organic runs separate from paid planning readiness', () => {
+    expect(resolveStrategyScope({ strategyType: 'organic' })).toMatchObject({
+      type: 'organic',
+      includesOrganic: true,
+      includesPaid: false,
+      paidOnly: false,
     })
   })
 })

@@ -919,7 +919,8 @@ function CampaignDetailPageInner() {
   const campaignToneLabel = formatCampaignToneLabel(campaign.tone)
   const safeExecutionAssumptions = uniqueCleanList(executionAssumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const safeAssumptions = uniqueCleanList(assumptions.map((item: string) => sanitizeStrategyLimitText(item)))
-  const hasPaidPlanningGaps = paidPlanningMissingLabels.length > 0
+  const includesPaidPlanningStrategy = strategyScope.includesPaid
+  const hasPaidPlanningGaps = includesPaidPlanningStrategy && paidPlanningMissingLabels.length > 0
   const hasExecutiveStrategySection =
     !!(strategy.diagnosis || strategy.keyMessage || strategy.positioning || strategy.differentiation || strategy.targetAudienceRefined || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
   const hasDiagnosisSection = !!(strategy.diagnosis || diagnosisDetails)
@@ -2054,14 +2055,16 @@ function CampaignDetailPageInner() {
                       />
                       <StrategyDocCard
                         label={locale === 'ar' ? 'الإعلانات المدفوعة' : 'Paid planning'}
-                        value={hasPaidPlanningGaps
-                          ? (locale === 'ar'
-                              ? `غير جاهز: ${paidPlanningMissingLabels.slice(0, 3).join('، ')}`
-                              : `Not ready: ${paidPlanningMissingLabels.slice(0, 3).join(', ')}`)
-                          : isPaidOnlyStrategy
-                            ? (locale === 'ar' ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only')
-                            : (locale === 'ar' ? 'تخطيط فقط — لا صرف بدون موافقة' : 'Planning only — no spend without approval')}
-                        tone="warning"
+                        value={!includesPaidPlanningStrategy
+                          ? (locale === 'ar' ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run')
+                          : hasPaidPlanningGaps
+                            ? (locale === 'ar'
+                                ? `غير جاهز: ${paidPlanningMissingLabels.slice(0, 3).join('، ')}`
+                                : `Not ready: ${paidPlanningMissingLabels.slice(0, 3).join(', ')}`)
+                            : isPaidOnlyStrategy
+                              ? (locale === 'ar' ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only')
+                              : (locale === 'ar' ? 'تخطيط فقط — لا صرف بدون موافقة' : 'Planning only — no spend without approval')}
+                        tone={includesPaidPlanningStrategy ? 'warning' : 'muted'}
                       />
                       <StrategyDocCard
                         label={locale === 'ar' ? 'الثقة' : 'Confidence'}
@@ -2494,10 +2497,16 @@ function CampaignDetailPageInner() {
                   <StrategyDocSection
                     id="strategy-readiness"
                     eyebrow="08"
-                    title={locale === 'ar' ? 'الجاهزية والتخطيط المدفوع' : 'Readiness & Paid Planning'}
+                    title={includesPaidPlanningStrategy
+                      ? (locale === 'ar' ? 'الجاهزية والتخطيط المدفوع' : 'Readiness & Paid Planning')
+                      : (locale === 'ar' ? 'الجاهزية وحدود التنفيذ' : 'Readiness & Execution Boundaries')}
                     description={locale === 'ar'
-                      ? 'تخطيط فقط. لا يتم صرف ميزانية أو نشر محتوى من هذه الصفحة.'
-                      : 'Planning only. No budget is spent and no content goes out from this page.'}
+                      ? (includesPaidPlanningStrategy
+                        ? 'تخطيط فقط. لا يتم صرف ميزانية أو نشر محتوى من هذه الصفحة.'
+                        : 'هذا تشغيل عضوي فقط. لا يتضمن بريف تخطيط مدفوع أو صرف ميزانية أو إطلاق إعلانات.')
+                      : (includesPaidPlanningStrategy
+                        ? 'Planning only. No budget is spent and no content goes out from this page.'
+                        : 'This is an organic-only run. It does not include a paid planning brief, budget spend, or ad launch.')}
                   >
                     <div className="space-y-5">
                       {readinessChecklist.length > 0 && (
@@ -2518,7 +2527,17 @@ function CampaignDetailPageInner() {
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                           <StrategyDocCard label={cdT?.assetMustHave || 'Must have'} value={assetRequirements.mustHave?.length ? <StrategyDocList items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
                           <StrategyDocCard label={cdT?.assetNiceToHave || 'Nice to have'} value={assetRequirements.niceToHave?.length ? <StrategyDocList items={assetRequirements.niceToHave.map((a: string) => a)} /> : null} />
-                          <StrategyDocCard label={cdT?.assetForAds || 'For paid planning'} value={assetRequirements.forAds?.length ? <StrategyDocList items={assetRequirements.forAds.map((a: string) => a)} /> : null} tone="warning" />
+                          <StrategyDocCard
+                            label={includesPaidPlanningStrategy
+                              ? (cdT?.assetForAds || 'For paid planning')
+                              : (locale === 'ar' ? 'المدفوع غير مشمول' : 'Paid not included')}
+                            value={includesPaidPlanningStrategy
+                              ? (assetRequirements.forAds?.length ? <StrategyDocList items={assetRequirements.forAds.map((a: string) => a)} /> : null)
+                              : (locale === 'ar'
+                                ? 'التشغيل العضوي لا يحتاج أصول إعلان مدفوعة. شغّل Paid أو Full لاحقاً عند توفر ميزانية ووجهة تحويل.'
+                                : 'This organic run does not require paid ad assets. Run Paid or Full later when budget and conversion inputs are available.')}
+                            tone={includesPaidPlanningStrategy ? 'warning' : 'muted'}
+                          />
                           <StrategyDocCard label={cdT?.assetForProof || 'Social proof'} value={assetRequirements.forProof?.length ? <StrategyDocList items={assetRequirements.forProof.map((a: string) => a)} /> : null} />
                         </div>
                       )}
@@ -2535,6 +2554,15 @@ function CampaignDetailPageInner() {
                           adSetupPlan.adCopyAngles?.length > 0 || adSetupPlan.notReadyIf?.length > 0 ||
                           adSetupPlan.objective || adSetupPlan.platformPriority?.length > 0
                         )
+                        if (!includesPaidPlanningStrategy) {
+                          return (
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+                              {locale === 'ar'
+                                ? 'التخطيط المدفوع غير مشمول في هذا التشغيل العضوي. يمكن إنشاء بريف Paid أو Full منفصل بعد إضافة الميزانية ووجهة التحويل ومدخلات التتبع.'
+                                : 'Paid planning is not included in this organic run. Create a separate Paid or Full brief after adding budget, conversion, and tracking inputs.'}
+                            </div>
+                          )
+                        }
                         if (!hasAdContent) {
                           return (
                             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">

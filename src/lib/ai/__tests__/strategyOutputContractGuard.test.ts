@@ -595,6 +595,21 @@ describe('strategy runtime copy contract', () => {
     expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed'")
   })
 
+  it('keeps organic-only runs separate from paid planning readiness surfaces', () => {
+    const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
+    const strategyPage = repoFile('src/app/strategy/page.tsx')
+    const modal = repoFile('src/components/RunFullStrategyModal.tsx')
+
+    expect(campaignPage).toContain('const includesPaidPlanningStrategy = strategyScope.includesPaid')
+    expect(campaignPage).toContain('Not included in this organic run')
+    expect(campaignPage).toContain('Paid planning is not included in this organic run')
+    expect(strategyPage).toContain('const includesPaidPlanning = strategyScope.includesPaid')
+    expect(strategyPage).toContain('Not included in this organic run')
+    expect(modal).toContain('Paid not included')
+    expect(modal).toContain('This request is organic only')
+    expect(modal).not.toContain('90/180-day strategies include a full roadmap')
+  })
+
   it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {
     const modal = repoFile('src/components/RunFullStrategyModal.tsx')
 
