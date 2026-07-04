@@ -272,13 +272,13 @@ export default function StrategyPage() {
       ? (ar ? 'قيد التطوّر' : 'Developing')
       : (ar ? 'مبكرة' : 'Early')
   const capRows: { label: string; value: string; ready?: boolean }[] = [
-    { label: ar ? 'العضوي' : 'Organic',
+    { label: ar ? 'طلب عضوي جديد' : 'New organic request',
       value: ar ? readinessSurface.organic.labelAr : readinessSurface.organic.label,
       ready: readinessSurface.organic.ready },
-    { label: ar ? 'الاستراتيجية الكاملة' : 'Full strategy',
+    { label: ar ? 'طلب كامل جديد' : 'New full request',
       value: ar ? readinessSurface.full.labelAr : readinessSurface.full.label,
       ready: readinessSurface.full.ready },
-    { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads',
+    { label: ar ? 'طلب تخطيط مدفوع جديد' : 'New paid planning request',
       value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label,
       ready: readinessSurface.paid.ready },
     { label: ar ? 'التحليلات' : 'Analytics', value: ar ? 'غير متصلة' : 'Not connected' },
@@ -330,21 +330,26 @@ export default function StrategyPage() {
             </h1>
             <p className="text-sm mt-1" style={{ color: '#64748b' }}>
               {ar
-                ? 'راقب جاهزية Brand Brain، وافتح بريف الاستراتيجية الكامل داخل كل حملة قبل تحويله إلى محتوى أو تخطيط مدفوع.'
-                : 'Monitor Brand Brain readiness, then open the full campaign strategy brief before turning it into content or paid planning.'}
+                ? 'راجع جاهزية Brand Brain للطلبات الجديدة، وافتح بريف الحملة الحالي لمعرفة نطاق هذه الحملة قبل تحويلها إلى محتوى أو تخطيط مدفوع.'
+                : 'Review Brand Brain readiness for new requests, then open the current campaign brief to understand this campaign scope before turning it into content or paid planning.'}
             </p>
           </div>
 
           {/* Status row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
             <div className={card} style={cardStyle}>
-              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'ذاكرة العلامة التجارية' : 'Brand Memory'}</p>
+              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'جاهزية Brand Brain لطلبات جديدة' : 'Brand Brain readiness for new requests'}</p>
               <div className="flex items-center gap-2 mt-2">
                 <Brain className="w-4 h-4 flex-shrink-0" style={{ color: brandActive ? '#10b981' : '#f59e0b' }} />
                 <span className="text-sm font-bold" style={{ color: brandActive ? '#059669' : '#d97706' }}>
                   {memStage}
                 </span>
               </div>
+              <p className="mt-2 text-[11px] leading-relaxed" style={{ color: '#64748b' }}>
+                {ar
+                  ? 'هذه لقطة جاهزية لطلب استراتيجية جديد. لا تغيّر نطاق الحملة الحالية ولا تعني أن المدفوع مشمول فيها.'
+                  : 'This is input readiness for a new strategy request. It does not change the current campaign scope or mean paid planning is included there.'}
+              </p>
               {/* PX-2B.1 — capability-specific readiness; never a bare "Ready". */}
               <div className="mt-3 space-y-1.5">
                 {capRows.map((r, i) => (
@@ -361,7 +366,7 @@ export default function StrategyPage() {
               )}
             </div>
             <div className={card} style={cardStyle}>
-              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'حالة الاستراتيجية' : 'Strategy status'}</p>
+              <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'استراتيجية الحملة الحالية' : 'Current campaign strategy'}</p>
               <div className="flex items-center gap-2 mt-2">
                 {hasStrategy
                   ? <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: strategyBrandMismatch ? '#EA580C' : '#059669' }} />
