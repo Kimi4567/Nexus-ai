@@ -145,8 +145,33 @@ function normalizeArabicFormatText(value: string): string {
     .replace(/\bPost\b/gi, 'منشور')
 }
 
+function guardBroadStrategyHypeText(value: string): string {
+  return value
+    .replace(/\bthe\s+perfect\s+solution\s+for\b/gi, 'a practical solution for')
+    .replace(/\bperfect\s+solution\s+for\b/gi, 'practical solution for')
+    .replace(/\bthe\s+best\s+solution\s+for\b/gi, 'a practical solution for')
+    .replace(/\bbest\s+solution\s+for\b/gi, 'practical solution for')
+    .replace(/\bthe\s+ideal\s+solution\s+for\b/gi, 'a practical solution for')
+    .replace(/\bideal\s+solution\s+for\b/gi, 'practical solution for')
+    .replace(/\bthe\s+perfect\s+solution\b/gi, 'a practical solution')
+    .replace(/\bperfect\s+solution\b/gi, 'practical solution')
+    .replace(/\bthe\s+best\s+solution\b/gi, 'a practical solution')
+    .replace(/\bbest\s+solution\b/gi, 'practical solution')
+    .replace(/\bthe\s+ideal\s+solution\b/gi, 'a practical solution')
+    .replace(/\bideal\s+solution\b/gi, 'practical solution')
+    .replace(/هو\s+الحل\s+الأمثل\s+ل/g, 'هو حل عملي ل')
+    .replace(/هي\s+الحل\s+الأمثل\s+ل/g, 'هي حل عملي ل')
+    .replace(/هو\s+الحل\s+الأمثل/g, 'هو حل عملي')
+    .replace(/هي\s+الحل\s+الأمثل/g, 'هي حل عملي')
+    .replace(/الحل\s+الأمثل\s+ل/g, 'حل عملي ل')
+    .replace(/الحل\s+الأمثل/g, 'حل عملي')
+    .replace(/حل\s+مثالي\s+ل/g, 'حل عملي ل')
+    .replace(/حل\s+مثالي/g, 'حل عملي')
+}
+
 function guardText(value: string, ctx: NormalizedPlatformContext, language?: string | null): string {
-  const platformGuarded = replaceUnsupportedCtaText(replaceUnsupportedPlatformText(value, ctx))
+  const hypeGuarded = guardBroadStrategyHypeText(value)
+  const platformGuarded = replaceUnsupportedCtaText(replaceUnsupportedPlatformText(hypeGuarded, ctx))
   return isArabicLanguage(language) ? normalizeArabicFormatText(platformGuarded) : platformGuarded
 }
 

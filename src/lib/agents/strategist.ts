@@ -446,6 +446,7 @@ export function buildStrategistPrompts(
     '- If lead handling, conversion destination, proof, analytics, competitors, or budget are missing, turn them into explicit operating gaps and review tasks. Never fill those gaps with invented facts.',
     '- Include practical proof/compliance boundaries: what claims cannot be made yet, what proof assets must be collected, and which messages should stay educational until evidence exists.',
     '- Use sober, implementation-ready language. Prefer "validate", "review", "prepare", "collect", "test message clarity", and "follow up" over hype or certainty.',
+    '- Avoid broad absolute solution claims such as "perfect solution", "best solution", "ideal solution", "الحل الأمثل", or "حل مثالي". Prefer practical, reviewable language such as "practical solution", "clearer workflow", or "حل عملي".',
   ].join('\n')
 
   // ── PR-S1c-3 — binding scope from the deterministic deliverables contract. The
@@ -497,6 +498,7 @@ RULES:
 - Every audience segment, content angle, and funnel stage must include the operational fields needed to execute: situation, pain, desired outcome, objection, message, platform, format/content type, CTA, next step, asset need, review point, and response/follow-up handoff where applicable
 - readinessChecklist must contain at least 3 concrete, review-safe pre-execution items. They must all have done=false and must not claim that assets, proof, tracking, publishing, scheduling, or platform setup are already complete unless provided.
 - Never use: transform / unlock / game-changer / cutting-edge / leverage / maximize ROI
+- Never use broad absolute solution claims: perfect solution / best solution / ideal solution / الحل الأمثل / حل مثالي.
 - All text must follow the language instruction above
 - If Arabic is selected, campaignName, positioning, diagnosis, pillars, hooks, CTAs, weekly deliverables, metrics, risks, assumptions, and readinessChecklist labels must be Arabic. Platform names and brand/product names may remain as provided.
 
