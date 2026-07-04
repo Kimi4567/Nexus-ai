@@ -69,6 +69,20 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.')
   })
 
+  it('adds a review-only execution checklist before Content Hub preparation', () => {
+    expect(campaignRoomSource).toContain('Before Content Hub checklist')
+    expect(campaignRoomSource).toContain('Use this as the go/no-go check before preparing the first content plan.')
+    expect(campaignRoomSource).toContain('This panel does not generate, approve, schedule, publish, or update Brand Brain.')
+    expect(campaignRoomSource).toContain('Message and audience direction')
+    expect(campaignRoomSource).toContain('Content plan status')
+    expect(campaignRoomSource).toContain('Proof and trust')
+    expect(campaignRoomSource).toContain('Creative assets')
+    expect(campaignRoomSource).toContain('Analytics baseline')
+    expect(campaignRoomSource).toContain('Paid planning scope')
+    expect(campaignRoomSource).toContain('قائمة ما قبل Content Hub')
+    expect(campaignRoomSource).toContain('هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.')
+  })
+
   it('uses functional section navigation for only visible strategy sections', () => {
     expect(campaignRoomSource).toContain('strategySectionNavItems')
     expect(campaignRoomSource).toContain('scrollToStrategySection')
