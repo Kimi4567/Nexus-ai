@@ -55,6 +55,14 @@ const PERFORMANCE_CONTEXT = new RegExp(
   String.raw`(?:\b(?:increase|improve|grow|growth|reduce|boost|raise|lower|drive|generate|reach|expand|cut|save|engagement|lead|leads|request|requests|inquir(?:y|ies)|conversion|conversions|sales|revenue|traffic|followers|views|impressions|clicks|visits|bookings|orders|roi|roas|return)\b|زيادة|تحسين|نمو|خفض|رفع|تعزيز|توليد|تحفيز|وصول|توسيع|تقليل|تفاعل|تفاعلات|عميل|عملاء|طلب|طلبات|استفسار|استفسارات|حجز|حجوزات|مبيعات|إيرادات|ايرادات|زيارات|مشاهدات|انطباعات|نقرات|متابعين|تحويلات|نسبة|معدل)`,
   'i',
 )
+const BASELINE_OR_VALIDATION_CONTEXT = new RegExp(
+  String.raw`(?:\b(?:baseline|validate|validated|validation|review|measure|measurement|learn from data|define the target|first[-\s]?month data)\b|خط أساس|تحديد الهدف|تحديد خط|مراجعة|تحقق|اختبار|قياس|بيانات حقيقية|أول ٣٠|أول 30|أول شهر)`,
+  'i',
+)
+const UNSUPPORTED_QUALITATIVE_SUCCESS = new RegExp(
+  String.raw`(?:\b(?:increase|improve|grow|drive|generate|boost|raise|expand|build)\b[^.\n]{0,70}\b(?:leads?|requests?|demo(?:s)?|inquir(?:y|ies)|conversions?|sales|bookings?|engagement|awareness|traffic|views?|clicks?|visits?)\b|(?:زيادة|تحسين|نمو|رفع|تعزيز|توليد|تحفيز|جذب|تحقيق)[^.\n]{0,70}(?:طلبات|طلب|استفسارات|استفسار|حجوزات|حجز|تحويلات|تحويل|مبيعات|تفاعل|تفاعلات|وعي|زيارات|مشاهدات|نقرات))`,
+  'i',
+)
 const UNSUPPORTED_MULTIPLIER_WORD = new RegExp(
   String.raw`(?:\b(?:double|triple|quadruple)\b|مضاعفة|ضعف|ضعفي|ثلاثة أضعاف)[^.\n]{0,60}?(?:requests?|leads?|sales|revenue|conversions?|engagement|traffic|followers?|views?|impressions?|clicks?|visits?|bookings?|orders?|inquir(?:y|ies)|طلبات|استفسارات|حجوزات|مبيعات|إيرادات|ايرادات|تحويلات|تفاعل|زيارات|مشاهدات|انطباعات|نقرات|متابعين)`,
   'i',
@@ -181,6 +189,29 @@ function hasUnsupportedMultiplierWord(text: string): boolean {
   return typeof text === 'string' && UNSUPPORTED_MULTIPLIER_WORD.test(text)
 }
 
+function fallbackSuccessDefinition(options: StrategyKpiGuardOptions = {}): string {
+  return isArabicLanguage(options.language)
+    ? 'تحديد خط أساس للطلبات والتفاعل بعد أول ٣٠ يومًا من البيانات الحقيقية'
+    : 'Define a baseline for qualified demand and engagement after the first 30 days of real data'
+}
+
+function guardSuccessDefinition(
+  text: unknown,
+  allowed: string[] = [],
+  options: StrategyKpiGuardOptions = {},
+): string {
+  if (typeof text !== 'string' || !text.trim()) return typeof text === 'string' ? text : ''
+  if (BASELINE_OR_VALIDATION_CONTEXT.test(text)) return text
+
+  const allowedNums = buildAllowedNums(allowed)
+  const unsupportedPerformance =
+    hasUnsupportedPerfNumber(text, allowedNums) ||
+    hasUnsupportedMultiplierWord(text) ||
+    UNSUPPORTED_QUALITATIVE_SUCCESS.test(text)
+
+  return unsupportedPerformance ? fallbackSuccessDefinition(options) : text
+}
+
 /**
  * Rewrite an unsupported KPI target into honest directional wording.
  * Keeps the directional intent (Increase/Improve/…) when present.
@@ -286,6 +317,13 @@ export function guardStrategyKpis<T extends Record<string, unknown>>(
   const out: Record<string, unknown> = { ...strategy }
   if (out.strategy && typeof out.strategy === 'object' && !Array.isArray(out.strategy)) {
     out.strategy = guardStrategyKpis(out.strategy as Record<string, unknown>, allowed, options)
+  }
+  if (out.businessObjective && typeof out.businessObjective === 'object' && !Array.isArray(out.businessObjective)) {
+    const businessObjective = out.businessObjective as Record<string, unknown>
+    out.businessObjective = {
+      ...businessObjective,
+      successIn30Days: guardSuccessDefinition(businessObjective.successIn30Days, allowed, options),
+    }
   }
   if ('kpis' in out) out.kpis = guardKpiArray(out.kpis, allowed, options)
   if ('successMetricsDetailed' in out) out.successMetricsDetailed = guardKpiArray(out.successMetricsDetailed, allowed, options)
