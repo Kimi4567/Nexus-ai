@@ -367,6 +367,34 @@ describe('guardStrategyOutputContract', () => {
     expect(report.missingFields).toEqual([])
   })
 
+  it('softens broad best/perfect solution claims in strategy output', () => {
+    const out = guardStrategyOutputContract({
+      campaignName: 'استراتيجية نمو لـ ClinicFlow AI',
+      keyMessage: 'ClinicFlow AI هو الحل الأمثل لإدارة العيادات.',
+      weeklyExecutionPlan: [
+        {
+          week: 4,
+          objective: 'دعوة للعرض',
+          keyMessage: 'ClinicFlow AI هو الحل الأمثل لإدارة العيادات.',
+          deliverables: ['1 Post: Position the product as the perfect solution for clinic operations.'],
+          platforms: ['LinkedIn'],
+          cta: 'اطلب عرضًا',
+          successMetric: 'طلبات تحتاج خط أساس',
+        },
+      ],
+    }, {
+      allowedPlatforms: ['LINKEDIN'],
+      language: 'ar',
+      strategyType: 'full',
+    }) as any
+
+    const serialized = JSON.stringify(out)
+    expect(serialized).not.toMatch(/الحل الأمثل|حل مثالي|perfect solution|best solution|ideal solution/i)
+    expect(out.keyMessage).toContain('حل عملي')
+    expect(out.weeklyExecutionPlan[0].keyMessage).toContain('حل عملي')
+    expect(out.weeklyExecutionPlan[0].deliverables.join(' ')).toMatch(/practical solution/i)
+  })
+
   it('aligns weekly deliverables to the paid exact organic post count', () => {
     const out = guardStrategyOutputContract({
       contentAnglesDetailed: [
