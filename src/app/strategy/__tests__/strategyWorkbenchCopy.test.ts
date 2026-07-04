@@ -7,9 +7,20 @@ describe('/strategy workbench source-of-truth copy', () => {
   it('frames the page as a workbench and points to the campaign brief for full strategy review', () => {
     expect(source).toContain('Strategy Workbench')
     expect(source).toContain('Campaign strategy brief')
+    expect(source).toContain('Review Brand Brain readiness for new requests')
     expect(source).toContain('The full strategy brief lives inside the campaign')
     expect(source).toContain('The full strategy brief, assumptions, limits, and execution decisions live inside the campaign page.')
     expect(source).toContain('Open full brief')
+  })
+
+  it('separates new-request readiness from the current campaign scope', () => {
+    expect(source).toContain('Brand Brain readiness for new requests')
+    expect(source).toContain('This is input readiness for a new strategy request. It does not change the current campaign scope')
+    expect(source).toContain('New organic request')
+    expect(source).toContain('New full request')
+    expect(source).toContain('New paid planning request')
+    expect(source).toContain('Current campaign strategy')
+    expect(source).toContain('Workstation hierarchy')
   })
 
   it('keeps Content Hub actions scoped to the active campaign when a recent campaign exists', () => {
