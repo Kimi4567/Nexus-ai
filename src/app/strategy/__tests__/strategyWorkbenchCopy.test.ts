@@ -43,6 +43,14 @@ describe('/strategy workbench source-of-truth copy', () => {
     expect(source).not.toContain('خطة الحملات المدفوعة')
   })
 
+  it('does not show a paid planning brief as current scope for organic-only strategies', () => {
+    expect(source).toContain('Paid planning not included')
+    expect(source).toContain('Not included in this campaign')
+    expect(source).toContain('This campaign is an organic-only strategy. There is no paid planning brief saved here')
+    expect(source).toContain('Paid planning is not included; run Paid or Full later if needed')
+    expect(source).toContain('To add paid planning, run a new Paid or Full request after cost review.')
+  })
+
   it('does not describe an existing strategy as broadly ready to continue', () => {
     expect(source).toContain('Strategy direction is available for review.')
     expect(source).toContain('اتجاه الاستراتيجية متاح للمراجعة.')
