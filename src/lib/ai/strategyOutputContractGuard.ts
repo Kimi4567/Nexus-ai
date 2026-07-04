@@ -230,6 +230,38 @@ function hasUsefulText(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length >= 3
 }
 
+function latinLetterCount(value: string): number {
+  return (value.match(/[A-Za-z]/g) || []).length
+}
+
+function isEnglishHeavyForArabicText(value: string): boolean {
+  if (!value.trim()) return false
+  const latin = latinLetterCount(value)
+  if (latin < 18) return false
+  const arabic = (value.match(/[\u0600-\u06FF]/g) || []).length
+  return arabic === 0 || latin > arabic * 2
+}
+
+function extractBrandFromCampaignName(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value
+    .replace(/\b(?:paid\s+planning\s+brief|paid\s+strategy|full\s+strategy|organic\s+growth\s+strategy|organic\s+strategy|campaign\s+strategy|marketing\s+strategy)\b/gi, '')
+    .replace(/\b(?:for|of)\b/gi, '')
+    .replace(/[—–\-:|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function guardCampaignName(value: unknown, strategyType?: string | null, language?: string | null): unknown {
+  if (!isArabicLanguage(language) || typeof value !== 'string') return value
+  if (!isEnglishHeavyForArabicText(value)) return value
+
+  const brand = extractBrandFromCampaignName(value) || 'العلامة'
+  if (strategyType === 'paid') return `بريف تخطيط مدفوع لـ ${brand}`
+  if (strategyType === 'full') return `استراتيجية كاملة لـ ${brand}`
+  return `استراتيجية نمو عضوي لـ ${brand}`
+}
+
 function objectHasUsefulFields(value: unknown, fields: string[]): boolean {
   if (!isObject(value)) return false
   return fields.every(field => hasUsefulText(value[field]))
@@ -659,8 +691,23 @@ function guardWeeklyExecutionOperationalDepth(list: unknown, language?: string |
 
   return list.map((item) => {
     if (!isObject(item)) return item
+    const ar = isArabicLanguage(language)
+    const deliverables = Array.isArray(item.deliverables)
+      ? item.deliverables
+          .filter(hasUsefulText)
+          .map((deliverable) => {
+            const text = String(deliverable).trim()
+            return readLeadingCount(text) > 1 || /^1\b/.test(text)
+              ? text
+              : ar ? `1 مهمة تخطيط: ${text}` : `1 planning task: ${text}`
+          })
+      : []
+
     return {
       ...item,
+      deliverables: deliverables.length
+        ? deliverables
+        : [ar ? '1 مهمة تخطيط قابلة للمراجعة قبل التنفيذ' : '1 reviewable planning task before execution'],
       assetsNeeded: Array.isArray(item.assetsNeeded) && item.assetsNeeded.length
         ? item.assetsNeeded
         : [fallbackOperationalText('asset', language)],
@@ -766,6 +813,200 @@ function guardAssetRequirements(value: unknown, language?: string | null): unkno
   return guardAssetRequirements({}, language)
 }
 
+function paidPlanningFallbackStrings(kind: 'pillars' | 'hooks' | 'ctas', language?: string | null): string[] {
+  const ar = isArabicLanguage(language)
+  if (kind === 'pillars') {
+    return ar
+      ? ['هدف الحملة المدفوعة', 'فرضيات الجمهور', 'زوايا الرسائل الإعلانية', 'متطلبات التتبع والجاهزية']
+      : ['Paid campaign objective', 'Audience hypotheses', 'Paid message angles', 'Tracking and readiness requirements']
+  }
+  if (kind === 'hooks') {
+    return ar
+      ? ['ما المشكلة التشغيلية التي يجب اختبارها أولاً؟', 'أي رسالة تستحق اختبارًا مدفوعًا محدودًا؟', 'ما الدليل المطلوب قبل التوسيع؟', 'ما الاعتراض الذي يجب الرد عليه في الإعلان؟']
+      : ['Which operating problem should be tested first?', 'Which message deserves a limited paid test?', 'What proof is needed before scaling?', 'Which objection must the ad answer?']
+  }
+  return ar
+    ? ['راجع العرض المدفوع', 'اختبر الرسالة', 'اطلب عرضًا توضيحيًا', 'راجع مسار التحويل']
+    : ['Review the paid offer', 'Test the message', 'Request a demo', 'Review the conversion path']
+}
+
+function ensureMinStringArray(list: unknown, fallback: string[], min: number): unknown {
+  const values = Array.isArray(list) ? list.filter(hasUsefulText).map(String) : []
+  const seen = new Set(values.map(value => value.toLowerCase()))
+  for (const item of fallback) {
+    if (values.length >= min) break
+    const key = item.toLowerCase()
+    if (seen.has(key)) continue
+    values.push(item)
+    seen.add(key)
+  }
+  return values
+}
+
+function paidPlanningContentAngles(list: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
+  const ar = isArabicLanguage(language)
+  const platform = firstPlatformLabel(ctx)
+  const existing = Array.isArray(list) ? list.filter(isObject) : []
+  const fallbacks: JsonObject[] = ar
+    ? [
+        {
+          title: 'اختبار مشكلة التشغيل الأساسية',
+          hook: 'قبل الإنفاق، ما المشكلة التي تستحق الاختبار؟',
+          pain: 'عدم وضوح أي رسالة ستجذب طلبات مؤهلة.',
+          desiredOutcome: 'تحديد زاوية اختبار مدفوعة آمنة وقابلة للمراجعة.',
+          objection: 'الخوف من إنفاق ميزانية قبل وضوح الرسالة.',
+          format: 'إعلان صورة أو فيديو قصير للمراجعة',
+          platform,
+          cta: 'راجع مسار التحويل',
+          asset: 'لقطة شاشة أو عرض توضيحي حقيقي قبل الإنتاج.',
+          funnelStage: 'consideration',
+          proofNeeded: 'لا توجد بيانات كافية: اجمع دليلًا أو مثالًا عمليًا قبل ادعاءات أقوى.',
+          responseHandoff: 'تأكيد مسؤول الرد وسؤال التأهيل قبل أي اختبار مدفوع.',
+          reviewPoint: 'مراجعة وضوح الرسالة ومسار التحويل قبل إطلاق أي إعلان.',
+        },
+        {
+          title: 'اختبار اعتراض الجمهور',
+          hook: 'ما الاعتراض الذي يمنع الطلب الآن؟',
+          pain: 'اعتراضات السعر أو الثقة أو ملاءمة الحل غير مؤكدة.',
+          desiredOutcome: 'صياغة رد إعلاني يختبر اعتراضًا واحدًا فقط.',
+          objection: 'هل الحل مناسب قبل مشاركة بيانات التواصل؟',
+          format: 'نسخة إعلان قصيرة للمراجعة',
+          platform,
+          cta: 'اطلب عرضًا توضيحيًا',
+          asset: 'مثال استخدام أو لقطة منتج قابلة للمراجعة.',
+          funnelStage: 'conversion',
+          proofNeeded: 'إثبات موثق أو ملاحظة عميل حقيقية قبل استخدام ادعاءات أقوى.',
+          responseHandoff: 'تحديد رسالة المتابعة بعد طلب العرض.',
+          reviewPoint: 'قياس جودة الطلبات بعد توفر بيانات فعلية.',
+        },
+        {
+          title: 'فرضية جمهور مدفوعة',
+          hook: 'أي شريحة يجب اختبارها أولًا؟',
+          pain: 'استهداف واسع قد يبدد الميزانية.',
+          desiredOutcome: 'تحويل الشريحة إلى فرضية اختبار محددة.',
+          objection: 'هل الجمهور المختار هو صاحب القرار؟',
+          format: 'زاوية إعلان مخصصة لشريحة واحدة',
+          platform,
+          cta: 'راجع الملاءمة',
+          asset: 'وصف شريحة ورسالة مؤهلة قبل الإنتاج.',
+          funnelStage: 'awareness',
+          proofNeeded: 'بيانات أداء أو ردود حقيقية بعد الاختبار الأول.',
+          responseHandoff: 'تأهيل الردود حسب الدور والاحتياج.',
+          reviewPoint: 'عدم توسيع الاستهداف قبل قراءة النتائج.',
+        },
+        {
+          title: 'جاهزية التتبع قبل الإنفاق',
+          hook: 'لا تختبر إعلانًا لا يمكنك قياسه.',
+          pain: 'غياب التتبع يجعل نتيجة الإنفاق غير قابلة للتعلم.',
+          desiredOutcome: 'تحديد متطلبات القياس قبل أي إطلاق.',
+          objection: 'هل يمكن معرفة مصدر الطلب؟',
+          format: 'قائمة تحقق مدفوعة للمراجعة',
+          platform,
+          cta: 'أكمل متطلبات التتبع',
+          asset: 'قائمة تحقق للوجهة والتحويل والتتبع.',
+          funnelStage: 'conversion',
+          proofNeeded: 'تأكيد وجهة التحويل والتتبع قبل التنفيذ.',
+          responseHandoff: 'ربط كل طلب بمصدره يدويًا أو عبر التتبع قبل التوسيع.',
+          reviewPoint: 'التحقق من الجاهزية قبل صرف أي ميزانية.',
+        },
+      ]
+    : [
+        {
+          title: 'Core paid problem test',
+          hook: 'Before spending, which problem is worth testing?',
+          pain: 'The strongest paid message is not validated yet.',
+          desiredOutcome: 'Choose one safe paid test angle for review.',
+          objection: 'Concern about spending before message clarity.',
+          format: 'Image or short-video ad concept for review',
+          platform,
+          cta: 'Review the conversion path',
+          asset: 'Real screenshot or demo detail before production.',
+          funnelStage: 'consideration',
+          proofNeeded: 'Not enough data: collect proof or demo details before stronger claims.',
+          responseHandoff: 'Confirm response owner and qualification question before any paid test.',
+          reviewPoint: 'Review message clarity and conversion path before launching ads.',
+        },
+        {
+          title: 'Audience objection test',
+          hook: 'Which objection is blocking demand now?',
+          pain: 'Price, trust, and fit concerns are not validated.',
+          desiredOutcome: 'Write one ad response to one objection.',
+          objection: 'Is this right for me before I share contact details?',
+          format: 'Short ad-copy variation for review',
+          platform,
+          cta: 'Request a demo',
+          asset: 'Use-case example or product screenshot.',
+          funnelStage: 'conversion',
+          proofNeeded: 'Verified proof or real feedback before stronger claims.',
+          responseHandoff: 'Define the follow-up message after demo request.',
+          reviewPoint: 'Measure lead quality only after real data exists.',
+        },
+        {
+          title: 'Paid audience hypothesis',
+          hook: 'Which segment should be tested first?',
+          pain: 'Broad targeting can waste budget.',
+          desiredOutcome: 'Turn one segment into a narrow test hypothesis.',
+          objection: 'Is this segment the decision maker?',
+          format: 'Segment-specific ad angle',
+          platform,
+          cta: 'Review fit',
+          asset: 'Segment description and qualified message.',
+          funnelStage: 'awareness',
+          proofNeeded: 'Real performance data after the first test.',
+          responseHandoff: 'Qualify replies by role and need.',
+          reviewPoint: 'Do not expand targeting before reading results.',
+        },
+        {
+          title: 'Tracking readiness before spend',
+          hook: 'Do not run an ad you cannot measure.',
+          pain: 'Missing tracking makes spend impossible to learn from.',
+          desiredOutcome: 'Define measurement requirements before launch.',
+          objection: 'Can we identify where the lead came from?',
+          format: 'Paid readiness checklist for review',
+          platform,
+          cta: 'Complete tracking requirements',
+          asset: 'Checklist for destination, conversion, and tracking.',
+          funnelStage: 'conversion',
+          proofNeeded: 'Confirm conversion destination and tracking before execution.',
+          responseHandoff: 'Connect every inquiry to source manually or through tracking before scaling.',
+          reviewPoint: 'Verify readiness before spending budget.',
+        },
+      ]
+
+  return [...existing, ...fallbacks].slice(0, Math.max(4, existing.length))
+}
+
+function paidPlanningWeeklyPlan(list: unknown, ctx: NormalizedPlatformContext, language?: string | null): unknown {
+  const ar = isArabicLanguage(language)
+  const platform = firstPlatformLabel(ctx)
+  const existing = Array.isArray(list) ? list.filter(isObject) : []
+  if (existing.length >= 4) return list
+
+  const fallbacks: JsonObject[] = ar
+    ? [
+        { week: 1, objective: 'تأكيد هدف الحملة ومسار التحويل', keyMessage: 'التخطيط المدفوع يبدأ من وضوح التحويل قبل الإنفاق.', deliverables: ['1 مهمة تخطيط: مراجعة هدف الحملة ووجهة التحويل'], platforms: [platform], assetsNeeded: ['وجهة تحويل ومسؤول رد واضحان'], cta: 'راجع مسار التحويل', successMetric: 'جاهزية تحتاج تحققًا قبل الإنفاق', executionNote: 'لا إطلاق ولا صرف ميزانية من هذا البريف.', reviewPoints: ['تأكيد الوجهة ومسؤول المتابعة'] },
+        { week: 2, objective: 'تحديد فرضيات الجمهور', keyMessage: 'اختبر شريحة محددة بدل استهداف واسع.', deliverables: ['1 مهمة تخطيط: صياغة فرضية جمهور مدفوعة'], platforms: [platform], assetsNeeded: ['وصف الشريحة والاعتراض الأساسي'], cta: 'راجع الملاءمة', successMetric: 'فرضيات جاهزة للمراجعة', executionNote: 'تظل الفرضيات غير مثبتة حتى تظهر بيانات حقيقية.', reviewPoints: ['هل الشريحة محددة وقابلة للتأهيل؟'] },
+        { week: 3, objective: 'تحضير زوايا ورسائل الإعلان', keyMessage: 'كل زاوية يجب أن تختبر وعدًا واحدًا بلا مبالغة.', deliverables: ['1 مهمة تخطيط: مراجعة زوايا الإعلان والنسخ'], platforms: [platform], assetsNeeded: ['أصل بصري أو لقطة عرض توضيحي'], cta: 'اطلب عرضًا توضيحيًا', successMetric: 'رسائل جاهزة للمراجعة', executionNote: 'لا تستخدم ادعاءات أداء أو إثباتًا غير موثق.', reviewPoints: ['وضوح الرسالة وغياب الادعاءات غير المثبتة'] },
+        { week: 4, objective: 'مراجعة عوائق الإطلاق', keyMessage: 'لا يوجد إطلاق حتى تكتمل الجاهزية والتأكيد الصريح.', deliverables: ['1 مهمة تخطيط: مراجعة عوائق الإطلاق والتتبع'], platforms: [platform], assetsNeeded: ['قائمة تحقق للتتبع والحسابات'], cta: 'أكمل متطلبات الجاهزية', successMetric: 'قائمة عوائق واضحة', executionNote: 'هذا بريف تخطيط فقط وليس تنفيذًا مدفوعًا.', reviewPoints: ['التتبع، الحسابات، الموافقة، والأصول'] },
+      ]
+    : [
+        { week: 1, objective: 'Confirm campaign objective and conversion path', keyMessage: 'Paid planning starts with conversion clarity before spend.', deliverables: ['1 planning task: review campaign objective and conversion destination'], platforms: [platform], assetsNeeded: ['Clear conversion destination and response owner'], cta: 'Review the conversion path', successMetric: 'Readiness needs validation before spend', executionNote: 'No launch or ad spend happens from this brief.', reviewPoints: ['Confirm destination and response owner'] },
+        { week: 2, objective: 'Define audience hypotheses', keyMessage: 'Test a narrow segment instead of broad targeting.', deliverables: ['1 planning task: write paid audience hypothesis'], platforms: [platform], assetsNeeded: ['Segment description and main objection'], cta: 'Review fit', successMetric: 'Hypotheses ready for review', executionNote: 'Hypotheses remain unproven until real data exists.', reviewPoints: ['Is the segment specific and qualifiable?'] },
+        { week: 3, objective: 'Prepare ad angles and copy', keyMessage: 'Each angle should test one claim without exaggeration.', deliverables: ['1 planning task: review ad angles and copy'], platforms: [platform], assetsNeeded: ['Visual asset or demo screenshot'], cta: 'Request a demo', successMetric: 'Messages ready for review', executionNote: 'Do not use unverified proof or performance claims.', reviewPoints: ['Message clarity and claim safety'] },
+        { week: 4, objective: 'Review launch blockers', keyMessage: 'No launch happens until readiness and explicit confirmation exist.', deliverables: ['1 planning task: review launch blockers and tracking'], platforms: [platform], assetsNeeded: ['Tracking and account-readiness checklist'], cta: 'Complete readiness requirements', successMetric: 'Clear blocker list', executionNote: 'This is a planning brief only, not paid execution.', reviewPoints: ['Tracking, accounts, approval, and assets'] },
+      ]
+
+  return [...existing, ...fallbacks].slice(0, Math.max(4, existing.length))
+}
+
+function guardPaidPlanningMinimums(output: JsonObject, ctx: NormalizedPlatformContext, language?: string | null): void {
+  output.contentPillars = ensureMinStringArray(output.contentPillars, paidPlanningFallbackStrings('pillars', language), 3)
+  output.topHooks = ensureMinStringArray(output.topHooks, paidPlanningFallbackStrings('hooks', language), 3)
+  output.ctaVariations = ensureMinStringArray(output.ctaVariations, paidPlanningFallbackStrings('ctas', language), 3)
+  output.contentAnglesDetailed = paidPlanningContentAngles(output.contentAnglesDetailed, ctx, language)
+  output.weeklyExecutionPlan = paidPlanningWeeklyPlan(output.weeklyExecutionPlan, ctx, language)
+}
+
 export function selectStrategyCampaignPlatforms(
   strategy: { channelMix?: unknown },
   allowedPlatforms?: string[] | null,
@@ -785,6 +1026,11 @@ export function guardStrategyOutputContract<T>(input: T, context: StrategyOutput
   if (!isObject(input)) return input
   const ctx = buildPlatformContext(context.allowedPlatforms)
   const output = guardValue(input, ctx, context.language) as JsonObject
+  output.campaignName = guardCampaignName(output.campaignName, context.strategyType, context.language)
+
+  if (context.strategyType === 'paid') {
+    guardPaidPlanningMinimums(output, ctx, context.language)
+  }
 
   output.channelMix = guardChannelMix(output.channelMix, ctx, context.strategyType)
   output.kpis = guardKpisMinimum(output.kpis, context.language)
