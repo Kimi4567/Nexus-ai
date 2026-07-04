@@ -974,10 +974,12 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                           : (ar ? 'العضوي يحتاج بيانات' : 'Organic needs inputs')}
                       </div>
                       <div className="rounded-lg px-2 py-1.5 text-[10px]"
-                        style={{ background: '#fff', border: '1px solid #e2e8f0', color: strategyReadiness.canGeneratePaidPlan ? '#047857' : '#9a3412' }}>
-                        {strategyReadiness.canGeneratePaidPlan
-                          ? (ar ? 'المدفوع تخطيط فقط' : 'Paid planning only')
-                          : (ar ? 'المدفوع يحتاج بيانات' : 'Paid needs inputs')}
+                        style={{ background: '#fff', border: '1px solid #e2e8f0', color: !includesPaid ? '#64748b' : strategyReadiness.canGeneratePaidPlan ? '#047857' : '#9a3412' }}>
+                        {!includesPaid
+                          ? (ar ? 'المدفوع غير مشمول' : 'Paid not included')
+                          : strategyReadiness.canGeneratePaidPlan
+                            ? (ar ? 'المدفوع تخطيط فقط' : 'Paid planning only')
+                            : (ar ? 'المدفوع يحتاج بيانات' : 'Paid needs inputs')}
                       </div>
                     </div>
                     {strategyBriefLoading && (
@@ -1013,8 +1015,8 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                   {deliverables.planningHorizonDays > 30 && (
                     <p className="text-[11px] leading-relaxed mb-3 text-slate-500">
                       {ar
-                        ? 'خطط 90 و180 يوم تشمل خريطة طريق كاملة ومخطط تنفيذ لأول 30 يوم. مسودات Content Hub والتقويمات المحفوظة تُولَّد لاحقاً بعد مراجعة الاستراتيجية.'
-                        : '90/180-day strategies include a full roadmap and a first-30-day execution outline. Content Hub draft posts and saved calendars are generated separately after strategy review.'}
+                        ? `استراتيجية ${deliverables.planningHorizonDays} يوم تشمل خريطة طريق ومخطط تنفيذ لأول 30 يوم. مسودات Content Hub والتقويمات المحفوظة تُولَّد لاحقاً بعد مراجعة الاستراتيجية.`
+                        : `${deliverables.planningHorizonDays}-day strategies include a roadmap and a first-30-day execution outline. Content Hub draft posts and saved calendars are generated separately after strategy review.`}
                     </p>
                   )}
 
@@ -1133,9 +1135,13 @@ export default function RunFullStrategyModal({ isOpen, onClose, onSuccess }: Pro
                 style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                 <Brain className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: '#4F46E5' }} />
                 <p className="text-[11px] leading-relaxed text-slate-600">
-                  {locale === 'ar'
-                    ? 'ميزانية، KPIs، وتخطيط الإعلانات المدفوعة تُفتح عند إضافة بياناتها في Brand Brain. بدونها تبقى منخفضة الثقة.'
-                    : 'Budget, KPI, and paid-ads planning unlock as you add that data in Brand Brain — without it they stay low-confidence.'}
+                  {includesPaid
+                    ? (locale === 'ar'
+                      ? 'ميزانية، KPIs، وتخطيط الإعلانات المدفوعة تُفتح عند إضافة بياناتها في Brand Brain. بدونها تبقى منخفضة الثقة.'
+                      : 'Budget, KPI, and paid-ads planning unlock as you add that data in Brand Brain — without it they stay low-confidence.')
+                    : (locale === 'ar'
+                      ? 'هذا الطلب عضوي فقط. لن ينشئ بريف تخطيط مدفوع أو يفترض ميزانية إعلانية.'
+                      : 'This request is organic only. It will not create a paid planning brief or assume an ad budget.')}
                 </p>
               </div>
 

@@ -14,6 +14,7 @@ function normalizeStrategyScopeType(value: unknown): StrategyScopeType | null {
 export function resolveStrategyScope(aiOutput: unknown): {
   type: StrategyScopeType
   includesOrganic: boolean
+  includesPaid: boolean
   paidOnly: boolean
   source: 'aiOutput.strategyType' | 'aiOutput.strategyOrder.strategyType' | 'strategy.strategyType' | 'fallback'
 } {
@@ -26,6 +27,7 @@ export function resolveStrategyScope(aiOutput: unknown): {
     return {
       type: direct,
       includesOrganic: direct !== 'paid',
+      includesPaid: direct !== 'organic',
       paidOnly: direct === 'paid',
       source: 'aiOutput.strategyType',
     }
@@ -36,6 +38,7 @@ export function resolveStrategyScope(aiOutput: unknown): {
     return {
       type: orderType,
       includesOrganic: orderType !== 'paid',
+      includesPaid: orderType !== 'organic',
       paidOnly: orderType === 'paid',
       source: 'aiOutput.strategyOrder.strategyType',
     }
@@ -46,6 +49,7 @@ export function resolveStrategyScope(aiOutput: unknown): {
     return {
       type: strategyType,
       includesOrganic: strategyType !== 'paid',
+      includesPaid: strategyType !== 'organic',
       paidOnly: strategyType === 'paid',
       source: 'strategy.strategyType',
     }
@@ -54,6 +58,7 @@ export function resolveStrategyScope(aiOutput: unknown): {
   return {
     type: 'organic',
     includesOrganic: true,
+    includesPaid: false,
     paidOnly: false,
     source: 'fallback',
   }
