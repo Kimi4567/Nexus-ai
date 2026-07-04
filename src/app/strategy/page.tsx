@@ -238,6 +238,13 @@ export default function StrategyPage() {
             ar ? 'لا توجد خطة Content Hub عضوية من هذا التوليد' : 'No organic Content Hub plan was created by this run',
             ar ? 'لا صرف ولا نشر ولا إطلاق بدون تأكيد صريح' : 'No spend, publishing, or launch without explicit confirmation',
           ]
+        : !includesPaidPlanning
+          ? [
+              ar ? 'راجع المسودة العضوية الحالية' : 'Review the current organic draft',
+              ar ? 'تابع إلى Content Hub للمحتوى العضوي' : 'Continue to Content Hub for organic content',
+              ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
+              ar ? 'التخطيط المدفوع غير مشمول؛ شغّل Paid أو Full لاحقاً عند الحاجة' : 'Paid planning is not included; run Paid or Full later if needed',
+            ]
         : [
             ar ? 'راجع المسودة الحالية' : 'Review the current draft',
             ar ? 'تابع إلى مركز المحتوى' : 'Continue to Content Hub',
@@ -252,7 +259,14 @@ export default function StrategyPage() {
                 ar ? 'أكمل التتبع والحسابات والموافقة الصريحة' : 'Complete tracking, accounts, and explicit approval',
                 ar ? 'لا توجد خطة Content Hub عضوية من هذا التوليد' : 'No organic Content Hub plan was created by this run',
               ]
-            : [
+            : !includesPaidPlanning
+              ? [
+                  ar ? 'تابع من الاستراتيجية العضوية الحالية' : 'Continue from the current organic strategy',
+                  ar ? 'راجع اتجاه المحتوى العضوي' : 'Review the organic content direction',
+                  ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
+                  ar ? 'التخطيط المدفوع غير مشمول؛ شغّل Paid أو Full لاحقاً عند الحاجة' : 'Paid planning is not included; run Paid or Full later if needed',
+                ]
+              : [
                 ar ? 'تابع من الاستراتيجية الحالية' : 'Continue from the existing strategy',
                 ar ? 'راجع اتجاه المحتوى العضوي' : 'Review the organic content direction',
                 ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
@@ -601,19 +615,27 @@ export default function StrategyPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Megaphone className="w-4 h-4" style={{ color: '#FF6B35' }} />
                 <h2 className="text-sm font-bold" style={{ color: '#0f172a' }}>
-                  {ar ? 'بريف التخطيط المدفوع' : 'Paid Planning Brief'}
+                  {includesPaidPlanning
+                    ? (ar ? 'بريف التخطيط المدفوع' : 'Paid Planning Brief')
+                    : (ar ? 'التخطيط المدفوع غير مشمول' : 'Paid planning not included')}
                 </h2>
               </div>
 
               <div className="flex items-center gap-2 mb-3">
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
                   style={{ background: '#F1F5F9', color: '#64748b', border: '1px solid rgba(15,23,42,0.08)' }}>
-                  {ar ? 'تخطيط فقط' : 'Planning only'}
+                  {includesPaidPlanning
+                    ? (ar ? 'تخطيط فقط' : 'Planning only')
+                    : (ar ? 'غير مشمول في هذه الحملة' : 'Not included in this campaign')}
                 </span>
               </div>
 
               <p className="text-sm" style={{ color: '#94a3b8' }}>
-                {strategyScope.paidOnly
+                {!includesPaidPlanning
+                  ? (ar
+                    ? 'هذه الحملة استراتيجية عضوية فقط. لا يوجد بريف تخطيط مدفوع محفوظ هنا، ولا توجد ميزانية أو إطلاق إعلاني مرتبط بهذا التشغيل.'
+                    : 'This campaign is an organic-only strategy. There is no paid planning brief saved here, and no budget or ad launch is attached to this run.')
+                  : strategyScope.paidOnly
                   ? (ar
                     ? 'هذا هو نطاق الحملة الحالي: بريف تخطيط مدفوع للمراجعة فقط. لا ينشئ منشورات، لا يطلق إعلانات، ولا يصرف ميزانية.'
                     : 'This is the current campaign scope: a paid planning brief for review only. It creates no posts, launches no ads, and spends no budget.')
@@ -624,10 +646,14 @@ export default function StrategyPage() {
 
               {/* Approval / no-spend guarantee */}
               <div className="flex items-start gap-2 mt-4 px-3 py-2.5 rounded-xl"
-                style={{ background: '#FFF7ED', border: '1px solid rgba(249,115,22,0.18)' }}>
-                <ShieldCheck className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#ea580c' }} />
-                <p className="text-xs font-semibold" style={{ color: '#9a3412' }}>
-                  {ar ? 'لن يتم صرف أي ميزانية إعلانية بدون موافقة صريحة.' : 'No ad spend will happen without explicit approval.'}
+                style={includesPaidPlanning
+                  ? { background: '#FFF7ED', border: '1px solid rgba(249,115,22,0.18)' }
+                  : { background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
+                <ShieldCheck className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: includesPaidPlanning ? '#ea580c' : '#64748b' }} />
+                <p className="text-xs font-semibold" style={{ color: includesPaidPlanning ? '#9a3412' : '#475569' }}>
+                  {includesPaidPlanning
+                    ? (ar ? 'لن يتم صرف أي ميزانية إعلانية بدون موافقة صريحة.' : 'No ad spend will happen without explicit approval.')
+                    : (ar ? 'لإضافة تخطيط مدفوع، شغّل طلب Paid أو Full جديد بعد مراجعة التكلفة.' : 'To add paid planning, run a new Paid or Full request after cost review.')}
                 </p>
               </div>
             </div>
