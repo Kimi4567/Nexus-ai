@@ -48,6 +48,9 @@ describe('Campaign Room strategy truth copy', () => {
   it('does not describe the pre-content-plan Content Hub action as review', () => {
     expect(campaignRoomSource).toContain('Open Content Hub to prepare content plan')
     expect(campaignRoomSource).toContain('افتح Content Hub لتحضير خطة المحتوى')
+    expect(campaignRoomSource).toContain('These are planning inputs, not final post drafts')
+    expect(campaignRoomSource).toContain('Hooks and angles here are strategy material for building the first content plan.')
+    expect(campaignRoomSource).toContain('Final post previews do not exist until Content Hub is prepared.')
     expect(campaignRoomSource).not.toContain('Open Content Hub for review')
     expect(campaignRoomSource).not.toContain('افتح Content Hub للمراجعة')
   })
@@ -67,6 +70,18 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('Missing before execution decisions')
     expect(campaignRoomSource).toContain('This page keeps the full strategy value, but organizes it into reviewable decisions.')
     expect(campaignRoomSource).toContain('No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.')
+  })
+
+  it('labels campaign room tabs as review material before execution records exist', () => {
+    expect(campaignRoomSource).toContain('Content planning inputs')
+    expect(campaignRoomSource).toContain('Hooks and angles for review')
+    expect(campaignRoomSource).toContain('Execution rhythm')
+    expect(campaignRoomSource).toContain('Planned, not scheduled')
+    expect(campaignRoomSource).toContain('Execution rhythm for review — not scheduled posts')
+    expect(campaignRoomSource).toContain('No Content Hub posts are scheduled or published until a content plan is built and explicitly reviewed.')
+    expect(campaignRoomSource).not.toContain('Content workflow')
+    expect(campaignRoomSource).not.toContain('Drafts and hooks for review')
+    expect(campaignRoomSource).not.toContain('Campaign calendar')
   })
 
   it('adds a review-only execution checklist before Content Hub preparation', () => {

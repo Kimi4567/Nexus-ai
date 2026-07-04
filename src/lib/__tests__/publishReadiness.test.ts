@@ -125,6 +125,22 @@ describe('getPublishReadiness — gate ordering', () => {
 })
 
 describe('derivePublishTabReadinessSummary', () => {
+  it('does not imply scheduled posts exist before Content Hub creates posts', () => {
+    const summary = derivePublishTabReadinessSummary({
+      posts: [],
+      hasConnectedPublishingAccount: false,
+      hasAutopilotEnabled: false,
+    })
+
+    expect(summary.totalPosts).toBe(0)
+    expect(summary.scheduledNotPublished).toBe(0)
+    expect(summary.safeCopy.helper.en).toBe('Review publishing readiness. No Content Hub posts exist yet, so nothing can be published from this campaign tab.')
+    expect(summary.safeCopy.scheduled.en).toBe('No scheduled posts in NEXUS yet')
+    expect(summary.safeCopy.helper.ar).toBe('راجع جاهزية النشر. لا توجد منشورات Content Hub بعد، لذلك لا يوجد ما يمكن نشره من تبويب هذه الحملة.')
+    expect(summary.safeCopy.scheduled.ar).toBe('لا توجد منشورات مجدولة داخل NEXUS بعد')
+    expect(JSON.stringify(summary.safeCopy)).not.toContain('0 scheduled in NEXUS')
+  })
+
   it('no connected accounts + scheduled posts stays locked-sounding and not published', () => {
     const summary = derivePublishTabReadinessSummary({
       posts: [
