@@ -290,18 +290,18 @@ function CampaignDetailPageInner() {
   const AGENT_TABS = [
     { name: cdT?.agentStrategyName || 'Strategist', icon: '🧠', title: cdT?.agentStrategyTitle, color: 'text-indigo-400',  border: 'border-indigo-500/30', bg: 'bg-indigo-500/5',  label: cdT?.tabStrategy },
     {
-      name: locale === 'ar' ? 'سير عمل المحتوى' : 'Content workflow',
+      name: locale === 'ar' ? 'مدخلات تخطيط المحتوى' : 'Content planning inputs',
       icon: '✍️',
-      title: locale === 'ar' ? 'مسودات وهوكس للمراجعة' : 'Drafts and hooks for review',
+      title: locale === 'ar' ? 'هوكس وزوايا للمراجعة' : 'Hooks and angles for review',
       color: 'text-pink-500',
       border: 'border-pink-200',
       bg: 'bg-pink-50',
       label: cdT?.tabContent,
     },
     {
-      name: locale === 'ar' ? 'تقويم الحملة' : 'Campaign calendar',
+      name: locale === 'ar' ? 'إيقاع التنفيذ' : 'Execution rhythm',
       icon: '⚡',
-      title: locale === 'ar' ? 'خطة تنفيذ قابلة للمراجعة' : 'Reviewable execution plan',
+      title: locale === 'ar' ? 'خطة مراجعة — ليست جدولة' : 'Planned, not scheduled',
       color: 'text-amber-600',
       border: 'border-amber-200',
       bg: 'bg-amber-50',
@@ -2792,14 +2792,22 @@ function CampaignDetailPageInner() {
                 <BrandDNABadge brand={brandDNA} locale={locale} />
                 <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
                   <p className="text-sm font-semibold text-indigo-900">
-                    {locale === 'ar'
-                      ? 'Content Hub هو المسار النهائي لمعاينة المنشورات'
-                      : 'Content Hub is the final post preview path'}
+                    {operatingState.truthFlags.hasContentPlan
+                      ? (locale === 'ar'
+                        ? 'Content Hub هو المسار النهائي لمعاينة المنشورات'
+                        : 'Content Hub is the final post preview path')
+                      : (locale === 'ar'
+                        ? 'هذه مدخلات تخطيط وليست خطة منشورات نهائية'
+                        : 'These are planning inputs, not final post drafts')}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-indigo-800">
-                    {locale === 'ar'
-                      ? 'راجع النسخ، جاهزية الوسائط، حالة دورة الحياة، وحالة النشر اليدوي في Content Hub. ملاحظات الحملة المحفوظة هنا للمراجعة فقط.'
-                      : 'Review copy, media readiness, lifecycle state, and manual publish status in Content Hub. Saved campaign notes here are review material only.'}
+                    {operatingState.truthFlags.hasContentPlan
+                      ? (locale === 'ar'
+                        ? 'راجع النسخ، جاهزية الوسائط، حالة دورة الحياة، وحالة النشر اليدوي في Content Hub. ملاحظات الحملة المحفوظة هنا للمراجعة فقط.'
+                        : 'Review copy, media readiness, lifecycle state, and manual publish status in Content Hub. Saved campaign notes here are review material only.')
+                      : (locale === 'ar'
+                        ? 'الهوكس والزوايا هنا مواد استراتيجية تساعد على بناء أول خطة محتوى. لا توجد معاينات منشورات نهائية حتى يتم تحضير Content Hub.'
+                        : 'Hooks and angles here are strategy material for building the first content plan. Final post previews do not exist until Content Hub is prepared.')}
                   </p>
                   <p className="mt-3 rounded-xl border border-indigo-200 bg-white/70 px-3 py-2 text-xs leading-5 text-indigo-800">
                     {locale === 'ar'
@@ -2811,7 +2819,9 @@ function CampaignDetailPageInner() {
                       href={`/campaigns/${campaignId}/content-hub`}
                       className="inline-flex items-center justify-center rounded-xl bg-indigo-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-800"
                     >
-                      {locale === 'ar' ? 'راجع معاينات المنشورات النهائية' : 'Review final post previews'}
+                      {operatingState.truthFlags.hasContentPlan
+                        ? (locale === 'ar' ? 'راجع معاينات المنشورات النهائية' : 'Review final post previews')
+                        : (locale === 'ar' ? 'افتح Content Hub لتحضير خطة المحتوى' : 'Open Content Hub to prepare content plan')}
                     </Link>
                     <Link
                       href="/brand"
@@ -2981,6 +2991,18 @@ function CampaignDetailPageInner() {
             {activeTab === 2 && (
               <div className="space-y-4">
                 <AgentBanner idx={2} />
+                {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && socialPostCalendarItems.length === 0 && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                    <p className="text-sm font-semibold text-amber-950">
+                      {locale === 'ar' ? 'خطة تنفيذ للمراجعة — ليست جدولة منشورات' : 'Execution rhythm for review — not scheduled posts'}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-amber-900">
+                      {locale === 'ar'
+                        ? 'يعرض هذا التبويب أسابيع ورسائل وأصول مقترحة من الاستراتيجية فقط. لا توجد منشورات Content Hub مجدولة أو منشورة حتى يتم بناء خطة محتوى ومراجعتها صراحةً.'
+                        : 'This tab shows strategy weeks, messages, and suggested assets only. No Content Hub posts are scheduled or published until a content plan is built and explicitly reviewed.'}
+                    </p>
+                  </div>
+                )}
 
                 {/* Weekly Execution Plan — Sprint M detailed (shown when available) */}
                 {weeklyExecutionPlan.length > 0 && (
@@ -3503,8 +3525,12 @@ function CampaignDetailPageInner() {
                       </p>
                       <p className="mt-1 text-xs leading-5 text-amber-800">
                         {locale === 'ar'
-                          ? 'المنشورات المجدولة محفوظة داخل NEXUS، لكن النشر عبر المنصات/API يتطلب حساب نشر متصلًا، والتحقق من الصفحة والصلاحيات والوسائط، وتأكيدًا صريحًا.'
-                          : 'Scheduled posts are saved in NEXUS, but platform/API publishing requires a connected publishing account, page/permission checks, media readiness, and explicit confirmation.'}
+                          ? (publishTabSummary.scheduledNotPublished > 0
+                            ? 'المنشورات المجدولة محفوظة داخل NEXUS، لكن النشر عبر المنصات/API يتطلب حساب نشر متصلًا، والتحقق من الصفحة والصلاحيات والوسائط، وتأكيدًا صريحًا.'
+                            : 'لا توجد منشورات Content Hub مجدولة بعد. النشر عبر المنصات/API يتطلب منشورات جاهزة، وحساب نشر متصلًا، والتحقق من الصفحة والصلاحيات والوسائط، وتأكيدًا صريحًا.')
+                          : (publishTabSummary.scheduledNotPublished > 0
+                            ? 'Scheduled posts are saved in NEXUS, but platform/API publishing requires a connected publishing account, page/permission checks, media readiness, and explicit confirmation.'
+                            : 'No Content Hub posts are scheduled yet. Platform/API publishing requires ready posts, a connected publishing account, page/permission checks, media readiness, and explicit confirmation.')}
                       </p>
                     </div>
                   )}
@@ -3879,7 +3905,9 @@ function CampaignDetailPageInner() {
                         <div className="text-4xl mb-3">📊</div>
                         <h3 className="mb-1 text-base font-semibold text-slate-950">No published performance data yet</h3>
                         <p className="mx-auto max-w-xl text-sm text-slate-500">
-                          This campaign has planned or draft content, but performance appears only after posts are published and analytics are fetched.
+                          {operatingState.truthFlags.hasContentPlan
+                            ? 'This campaign has planned or draft post records, but performance appears only after posts are published and analytics are fetched.'
+                            : 'This campaign has strategy planning material, but no published post analytics yet. Performance appears only after posts are published and analytics are fetched.'}
                         </p>
                       </div>
                     )

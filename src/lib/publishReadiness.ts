@@ -246,12 +246,20 @@ export function derivePublishTabReadinessSummary(input: {
         ar: 'جاهزية النشر',
       },
       helper: {
-        en: 'Review what can and cannot be published. Scheduled posts are not published until the user publishes manually or a connected-account API publish is explicitly ready and confirmed.',
-        ar: 'راجع ما يمكن وما لا يمكن نشره. المنشورات المجدولة غير منشورة حتى ينشرها المستخدم يدويًا أو يصبح النشر عبر حساب متصل جاهزًا ومؤكدًا صراحةً.',
+        en: posts.length > 0
+          ? 'Review what can and cannot be published. Scheduled posts are not published until the user publishes manually or a connected-account API publish is explicitly ready and confirmed.'
+          : 'Review publishing readiness. No Content Hub posts exist yet, so nothing can be published from this campaign tab.',
+        ar: posts.length > 0
+          ? 'راجع ما يمكن وما لا يمكن نشره. المنشورات المجدولة غير منشورة حتى ينشرها المستخدم يدويًا أو يصبح النشر عبر حساب متصل جاهزًا ومؤكدًا صراحةً.'
+          : 'راجع جاهزية النشر. لا توجد منشورات Content Hub بعد، لذلك لا يوجد ما يمكن نشره من تبويب هذه الحملة.',
       },
       scheduled: {
-        en: `${scheduledNotPublished} scheduled in NEXUS — not published`,
-        ar: `${scheduledNotPublished} مجدولة داخل NEXUS — غير منشورة`,
+        en: scheduledNotPublished > 0
+          ? `${scheduledNotPublished} scheduled in NEXUS — not published`
+          : 'No scheduled posts in NEXUS yet',
+        ar: scheduledNotPublished > 0
+          ? `${scheduledNotPublished} مجدولة داخل NEXUS — غير منشورة`
+          : 'لا توجد منشورات مجدولة داخل NEXUS بعد',
       },
       manual: {
         en: manualPublishedPosts.length > 0
