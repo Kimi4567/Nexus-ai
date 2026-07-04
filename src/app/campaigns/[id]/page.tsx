@@ -1062,6 +1062,78 @@ function CampaignDetailPageInner() {
           ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل إنشاء أول خطة محتوى.'
           : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before building the first content plan.',
       }
+  const mustHaveAssetCount = Array.isArray(assetRequirements?.mustHave) ? assetRequirements.mustHave.length : 0
+  const proofAssetCount = Array.isArray(assetRequirements?.forProof) ? assetRequirements.forProof.length : 0
+  const verifiedProofCount = proofContext.verifiedProof.length
+  const analyticsBaselineMissing = missingDataKeys.includes('pixel') || confidenceReport?.byCapability?.measurement !== 'high'
+  const strategyExecutionReadinessItems = [
+    {
+      label: locale === 'ar' ? 'اتجاه الرسالة والجمهور' : 'Message and audience direction',
+      value: hasExecutiveStrategySection && hasBusinessObjectiveSection && hasAudienceSection
+        ? (locale === 'ar' ? 'جاهز للمراجعة' : 'Ready for review')
+        : (locale === 'ar' ? 'يحتاج هدفاً وجمهوراً أوضح' : 'Needs clearer objective or audience'),
+      helper: locale === 'ar'
+        ? 'راجع القرار، التشخيص، والشرائح قبل تحويل الاستراتيجية إلى خطة عمل.'
+        : 'Review the decision, diagnosis, and segments before turning the strategy into work.',
+      tone: hasExecutiveStrategySection && hasBusinessObjectiveSection && hasAudienceSection ? 'positive' : 'warning',
+    },
+    {
+      label: locale === 'ar' ? 'حالة خطة المحتوى' : 'Content plan status',
+      value: isPaidOnlyStrategy
+        ? (locale === 'ar' ? 'غير منشأة في تشغيل Paid فقط' : 'Not created in a Paid-only run')
+        : operatingState.truthFlags.hasContentPlan
+          ? (locale === 'ar' ? 'موجودة في Content Hub' : 'Exists in Content Hub')
+          : (locale === 'ar' ? 'حضّرها بعد مراجعة الاستراتيجية' : 'Prepare it after strategy review'),
+      helper: locale === 'ar'
+        ? 'Content Hub هو مكان خطة المنشورات النهائية وحالة الوسائط، وليس هذه الصفحة.'
+        : 'Content Hub owns final post planning and media state, not this page.',
+      tone: operatingState.truthFlags.hasContentPlan ? 'positive' : 'muted',
+    },
+    {
+      label: locale === 'ar' ? 'الإثبات والثقة' : 'Proof and trust',
+      value: verifiedProofCount > 0
+        ? (locale === 'ar' ? `${verifiedProofCount} دليل موثق للمراجعة` : `${verifiedProofCount} verified proof signal${verifiedProofCount === 1 ? '' : 's'} for review`)
+        : proofAssetCount > 0
+          ? (locale === 'ar' ? `${proofAssetCount} أصل ثقة مطلوب` : `${proofAssetCount} proof asset${proofAssetCount === 1 ? '' : 's'} needed`)
+          : (locale === 'ar' ? 'استخدم ادعاءات محافظة حتى تتوفر أدلة' : 'Keep claims conservative until proof exists'),
+      helper: locale === 'ar'
+        ? 'لا تعتبر الشهادات أو النتائج مثبتة إلا إذا أضافها المستخدم أو جاءت من تحليلات حقيقية.'
+        : 'Testimonials and outcomes are not proven unless the user supplied them or real analytics support them.',
+      tone: verifiedProofCount > 0 ? 'positive' : 'warning',
+    },
+    {
+      label: locale === 'ar' ? 'الأصول الإبداعية' : 'Creative assets',
+      value: mustHaveAssetCount > 0
+        ? (locale === 'ar' ? `${mustHaveAssetCount} أصل أساسي قبل التنفيذ` : `${mustHaveAssetCount} must-have asset${mustHaveAssetCount === 1 ? '' : 's'} before execution`)
+        : (locale === 'ar' ? 'لا توجد أصول أساسية مذكورة' : 'No must-have assets listed'),
+      helper: locale === 'ar'
+        ? 'لقطات المنتج، الفيديو التوضيحي، والإثباتات تتحكم في جودة المحتوى أكثر من طول التقرير.'
+        : 'Product shots, demos, and proof assets matter more than report length for execution quality.',
+      tone: mustHaveAssetCount > 0 ? 'warning' : 'muted',
+    },
+    {
+      label: locale === 'ar' ? 'خط أساس التحليلات' : 'Analytics baseline',
+      value: analyticsBaselineMissing
+        ? (locale === 'ar' ? 'مطلوب قبل الحكم على الأداء' : 'Needed before judging performance')
+        : (locale === 'ar' ? 'متاح للمراجعة' : 'Available for review'),
+      helper: locale === 'ar'
+        ? 'الأرقام في الاستراتيجية تظل فرضيات حتى تظهر بيانات نشر أو تحليلات حقيقية.'
+        : 'Strategy numbers stay hypotheses until published content or analytics data exists.',
+      tone: analyticsBaselineMissing ? 'warning' : 'positive',
+    },
+    {
+      label: locale === 'ar' ? 'نطاق التخطيط المدفوع' : 'Paid planning scope',
+      value: !includesPaidPlanningStrategy
+        ? (locale === 'ar' ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run')
+        : hasPaidPlanningGaps
+          ? (locale === 'ar' ? 'مدخلات مدفوعة ناقصة' : 'Paid inputs missing')
+          : (locale === 'ar' ? 'تخطيط للمراجعة فقط' : 'Planning for review only'),
+      helper: locale === 'ar'
+        ? 'لا يوجد صرف أو إطلاق أو جاهزية حسابات من صفحة الاستراتيجية.'
+        : 'No spend, launch, or account readiness happens from the Strategy page.',
+      tone: includesPaidPlanningStrategy && hasPaidPlanningGaps ? 'warning' : 'muted',
+    },
+  ]
   const operatingTone: Record<CampaignOperatingStage, string> = {
     strategy_missing: 'border-amber-200 bg-amber-50 text-amber-800',
     strategy_review_needed: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -2075,6 +2147,49 @@ function CampaignDetailPageInner() {
                           : (locale === 'ar' ? 'تحتاج مراجعة' : 'Needs review')}
                         tone={displayedConfidenceLevel === 'low' ? 'warning' : 'muted'}
                       />
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-950">
+                            {locale === 'ar' ? 'قائمة ما قبل Content Hub' : 'Before Content Hub checklist'}
+                          </p>
+                          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+                            {locale === 'ar'
+                              ? 'استخدمها كفحص قرار قبل تحضير أول خطة محتوى. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
+                              : 'Use this as the go/no-go check before preparing the first content plan. This panel does not generate, approve, schedule, publish, or update Brand Brain.'}
+                          </p>
+                        </div>
+                        <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
+                          {locale === 'ar' ? 'مراجعة فقط' : 'Review only'}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                        {strategyExecutionReadinessItems.map((item, i) => {
+                          const toneClass = item.tone === 'warning'
+                            ? 'border-amber-200 bg-amber-50 text-amber-950'
+                            : item.tone === 'positive'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                              : 'border-slate-200 bg-slate-50 text-slate-700'
+                          const dotClass = item.tone === 'warning'
+                            ? 'bg-amber-500'
+                            : item.tone === 'positive'
+                              ? 'bg-emerald-500'
+                              : 'bg-slate-400'
+                          return (
+                            <div key={i} className={`rounded-xl border p-3 ${toneClass}`}>
+                              <div className="flex items-start gap-3">
+                                <span className={`mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full ${dotClass}`} />
+                                <div>
+                                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-400">{item.label}</p>
+                                  <p className="mt-1 text-sm font-semibold leading-5">{item.value}</p>
+                                  <p className="mt-1 text-xs leading-5 opacity-80">{item.helper}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
                     {missingDataLabels.length > 0 && (
                       <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
