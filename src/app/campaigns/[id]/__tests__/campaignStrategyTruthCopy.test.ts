@@ -52,6 +52,15 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('افتح Content Hub للمراجعة')
   })
 
+  it('keeps paid planning diagnosis scope-aware for organic-only strategies', () => {
+    expect(campaignRoomSource).toContain('!includesPaidPlanningStrategy')
+    expect(campaignRoomSource).toContain('Not included in this organic run')
+    expect(campaignRoomSource).toContain('غير مشمول في هذا التشغيل العضوي')
+    expect(campaignRoomSource).toContain('Paid inputs missing; no spend without approval')
+    expect(campaignRoomSource).not.toContain('Needs setup before any spend')
+    expect(campaignRoomSource).not.toContain('يحتاج إعداداً قبل الصرف')
+  })
+
   it('frames the strategy tab as a decision cockpit rather than a long report', () => {
     expect(campaignRoomSource).toContain('Strategy decision brief')
     expect(campaignRoomSource).toContain('Review before execution')

@@ -2188,10 +2188,12 @@ function CampaignDetailPageInner() {
                         <StrategyDocCard label={cdT?.diagRisk || 'Main risk'} value={diagnosisDetails.mainRisk} tone="warning" />
                         <StrategyDocCard
                           label={locale === 'ar' ? 'جاهزية التخطيط المدفوع' : 'Paid planning status'}
-                          value={diagnosisDetails.readyForPaidAds
-                            ? (locale === 'ar' ? 'يمكن إعداد خطة للمراجعة' : 'Can prepare a plan for review')
-                            : (locale === 'ar' ? 'يحتاج إعداداً قبل الصرف' : 'Needs setup before any spend')}
-                          tone="warning"
+                          value={!includesPaidPlanningStrategy
+                            ? (locale === 'ar' ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run')
+                            : diagnosisDetails.readyForPaidAds
+                              ? (locale === 'ar' ? 'يمكن إعداد خطة للمراجعة' : 'Can prepare a plan for review')
+                              : (locale === 'ar' ? 'مدخلات مدفوعة ناقصة؛ لا صرف بدون موافقة' : 'Paid inputs missing; no spend without approval')}
+                          tone={!includesPaidPlanningStrategy ? 'muted' : 'warning'}
                         />
                         <StrategyDocCard label={locale === 'ar' ? 'السبب' : 'Reason'} value={diagnosisDetails.readyForPaidAdsReason} />
                       </div>
