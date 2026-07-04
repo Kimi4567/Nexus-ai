@@ -683,7 +683,8 @@ Return JSON with these exact fields — all specific to this brand:
   "businessObjective": {
     "primary": "string — the business goal in plain terms",
     "marketing": "string", "conversionAction": "string",
-    "expectedUserAction": "string", "whyNow": "string", "successIn30Days": "string"
+    "expectedUserAction": "string", "whyNow": "string",
+    "successIn30Days": "string — review-safe definition of what to validate in the first 30 days; if no analytics baseline exists, define the baseline to establish, not an increase/growth/result claim"
   },
   "diagnosisDetails": {
     "stage": "pre-launch|early-stage|active|scaling|recovery",

@@ -164,6 +164,9 @@ describe('guardStrategyKpis — full strategy object', () => {
     const wrapped = {
       language: 'ar',
       strategy: {
+        businessObjective: {
+          successIn30Days: 'زيادة ملحوظة في عدد الطلبات التجريبية.',
+        },
         kpis: [
           { metric: 'عدد الحجوزات عبر WhatsApp', target: 'زيادة بنسبة 20% في 30 يومًا', timeframe: '30 يومًا' },
         ],
@@ -178,13 +181,43 @@ describe('guardStrategyKpis — full strategy object', () => {
       kpis: Array<{ target: string; isHypothesis?: boolean }>
       successMetricsDetailed: Array<{ target: string; isHypothesis?: boolean }>
       successMetrics: string[]
+      businessObjective: { successIn30Days: string }
     }
+    expect(nested.businessObjective.successIn30Days).toBe(
+      'تحديد خط أساس للطلبات والتفاعل بعد أول ٣٠ يومًا من البيانات الحقيقية',
+    )
     expect(nested.kpis[0].target).toBe('زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
     expect(nested.kpis[0].isHypothesis).toBe(true)
     expect(nested.successMetricsDetailed[0].target).toBe('زيادة — نحتاج إلى خط أساس لتحديد الهدف بعد أول ٣٠ يومًا')
     expect(nested.successMetricsDetailed[0].isHypothesis).toBe(true)
     expect(nested.successMetrics[0]).not.toMatch(/25\s*%/)
     expect(nested.successMetrics[0]).toContain('30 يومًا')
+  })
+
+  it('guards non-numeric 30-day success claims while preserving baseline definitions', () => {
+    const guardedAr = guardStrategyKpis({
+      businessObjective: {
+        successIn30Days: 'زيادة ملحوظة في عدد الطلبات التجريبية.',
+      },
+    }, [], { language: 'ar' })
+    expect((guardedAr.businessObjective as { successIn30Days: string }).successIn30Days).toBe(
+      'تحديد خط أساس للطلبات والتفاعل بعد أول ٣٠ يومًا من البيانات الحقيقية',
+    )
+
+    const guardedEn = guardStrategyKpis({
+      businessObjective: {
+        successIn30Days: 'Increase qualified demo requests in the first month.',
+      },
+    })
+    expect((guardedEn.businessObjective as { successIn30Days: string }).successIn30Days).toBe(
+      'Define a baseline for qualified demand and engagement after the first 30 days of real data',
+    )
+
+    const clean = 'تحديد خط أساس للطلبات والتفاعل'
+    const preserved = guardStrategyKpis({
+      businessObjective: { successIn30Days: clean },
+    }, [], { language: 'ar' })
+    expect((preserved.businessObjective as { successIn30Days: string }).successIn30Days).toBe(clean)
   })
 
   it('handles missing / odd shapes safely', () => {
