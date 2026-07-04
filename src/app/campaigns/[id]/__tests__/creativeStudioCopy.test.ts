@@ -36,6 +36,26 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).toMatch(/NEXUS does not publish, schedule, or start paid campaigns from this tab/)
   })
 
+  it('makes the Creative tab follow the selected strategy scope and campaign state', () => {
+    expect(CAMPAIGN_SRC).toContain('creativeStrategyScopeLabel')
+    expect(CAMPAIGN_SRC).toContain('Creative path for organic strategy only')
+    expect(CAMPAIGN_SRC).toContain('Creative path for paid planning only')
+    expect(CAMPAIGN_SRC).toContain('Creative path for a full strategy')
+    expect(CAMPAIGN_SRC).toContain('Review strategy quality first')
+    expect(CAMPAIGN_SRC).toContain('Prepare the content plan before creative decisions')
+    expect(CAMPAIGN_SRC).toContain('This is an organic-only strategy. Paid ad creative, budget, and platform launch decisions are outside this run.')
+    expect(CAMPAIGN_SRC).toContain('Paid creative is outside this strategy run')
+  })
+
+  it('does not present concept visual generation as the normal next step before post and brief readiness', () => {
+    expect(CAMPAIGN_SRC).toContain('creativeCanUseConceptGallery')
+    expect(CAMPAIGN_SRC).toContain('Concept gallery is not the current step')
+    expect(CAMPAIGN_SRC).toContain('Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation.')
+    expect(CAMPAIGN_SRC).toContain('This page does not treat zero media counts as readiness.')
+    expect(CAMPAIGN_SRC).toContain('Plan concept directions for review')
+    expect(CAMPAIGN_SRC).not.toContain('Generate concept directions for review')
+  })
+
   it('frames the campaign visual generator as concept-gallery output only', () => {
     expect(VISUAL_GENERATOR_SRC).toMatch(/Campaign concept visuals/)
     expect(VISUAL_GENERATOR_SRC).toMatch(/Generate campaign concept visual/)

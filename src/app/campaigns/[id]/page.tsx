@@ -1189,6 +1189,16 @@ function CampaignDetailPageInner() {
   const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
   const hasManualOrScheduledWorkflowRecords = operatingState.truthFlags.hasScheduledContent || operatingState.truthFlags.hasManualPublishedContent
 
+  const creativeNeedsStrategyReview = operatingState.stage === 'strategy_review_needed'
+  const creativeHasPostRecords = operatingState.counts.totalPosts > 0 || operatingState.truthFlags.hasContentPlan
+  const creativeCanUsePostMediaFlow = creativeHasPostRecords && !creativeNeedsStrategyReview
+  const creativeCanUseConceptGallery = creativeCanUsePostMediaFlow && !!creativeBrief
+  const creativeStrategyScopeLabel = isPaidOnlyStrategy
+    ? (locale === 'ar' ? 'مسار إبداعي للتخطيط المدفوع فقط' : 'Creative path for paid planning only')
+    : includesPaidPlanningStrategy
+      ? (locale === 'ar' ? 'مسار إبداعي لاستراتيجية شاملة' : 'Creative path for a full strategy')
+      : (locale === 'ar' ? 'مسار إبداعي لاستراتيجية عضوية فقط' : 'Creative path for organic strategy only')
+
   const nextCreativeAction = (() => {
     if (!operatingState.truthFlags.hasStrategy) {
       return {
@@ -1198,6 +1208,28 @@ function CampaignDetailPageInner() {
           : 'Start from the campaign direction so creative work follows the message and audience.',
         cta: locale === 'ar' ? 'راجع الاستراتيجية' : 'Review strategy',
         href: `/campaigns/${campaign.id}?tab=strategy`,
+      }
+    }
+
+    if (creativeNeedsStrategyReview) {
+      return {
+        title: locale === 'ar' ? 'راجع جودة الاستراتيجية أولاً' : 'Review strategy quality first',
+        helper: locale === 'ar'
+          ? 'لا يبدأ المسار الإبداعي العملي قبل تثبيت الرسالة والجمهور ونطاق التشغيل. هذه الصفحة تعرض الحدود التالية فقط حتى تنتهي مراجعة الاستراتيجية.'
+          : 'The practical creative path should not start before the message, audience, and execution scope are reviewed. This tab shows the next boundaries until strategy review is complete.',
+        cta: locale === 'ar' ? 'راجع جودة الاستراتيجية' : 'Review strategy quality',
+        href: `/campaigns/${campaign.id}?tab=strategy`,
+      }
+    }
+
+    if (!creativeHasPostRecords) {
+      return {
+        title: locale === 'ar' ? 'حضّر خطة المحتوى قبل قرارات الإبداع' : 'Prepare the content plan before creative decisions',
+        helper: locale === 'ar'
+          ? 'لا توجد منشورات Content Hub بعد. حوّل الاستراتيجية إلى خطة محتوى أولاً، ثم تصبح متطلبات الوسائط والطبقات الإبداعية مرتبطة بمنشورات حقيقية.'
+          : 'No Content Hub posts exist yet. Turn the strategy into a content plan first, then media requirements and creative layers can attach to real posts.',
+        cta: locale === 'ar' ? 'حضّر خطة المحتوى' : 'Prepare content plan',
+        href: `/campaigns/${campaign.id}/content-hub`,
       }
     }
 
@@ -1225,11 +1257,11 @@ function CampaignDetailPageInner() {
 
     if (!creativeBrief) {
       return {
-        title: locale === 'ar' ? 'أنشئ موجزاً إبداعياً' : 'Create creative brief',
+        title: locale === 'ar' ? 'افتح مخطط الموجز الإبداعي' : 'Open the creative brief planner',
         helper: locale === 'ar'
-          ? 'موجز تخطيطي فقط يحوّل الاستراتيجية إلى احتياجات أصول، اتجاهات مفاهيمية، وملاحظات إنتاج. لا يعتمد أو يجدول أو ينشر شيئاً.'
-          : 'A planning artifact that turns strategy into asset needs, concept direction, and production notes. It does not approve, schedule, or publish anything.',
-        cta: locale === 'ar' ? 'إنشاء موجز إبداعي' : 'Create creative brief',
+          ? 'الموجز الإبداعي خطوة تخطيط بعد وضوح منشورات Content Hub. يحدد احتياجات الأصول والطبقات ولا يعتمد أو يجدول أو ينشر شيئاً.'
+          : 'The creative brief is a planning step after Content Hub posts are clear. It defines asset and layer needs; it does not approve, schedule, or publish anything.',
+        cta: locale === 'ar' ? 'افتح مخطط الموجز' : 'Open brief planner',
         href: `/campaigns/${campaign.id}/creative-brief`,
       }
     }
@@ -3254,7 +3286,7 @@ function CampaignDetailPageInner() {
                   <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <h3 className="text-base font-semibold text-slate-950">
-                        {locale === 'ar' ? 'متطلبات الإبداع وجاهزية الوسائط' : 'Creative requirements and media readiness'}
+                        {creativeStrategyScopeLabel}
                       </h3>
                       <p className="mt-1 text-sm font-medium text-slate-800">{nextCreativeAction.title}</p>
                       <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
@@ -3265,6 +3297,13 @@ function CampaignDetailPageInner() {
                           ? 'يتبع العمل الإبداعي حالة الحملة. لا ينشر NEXUS أو يجدول المحتوى أو يطلق إعلانات من هذا التبويب. وسائط المنشورات النهائية تُراجع في Content Hub.'
                           : 'Creative work follows the campaign state. NEXUS does not publish, schedule, or start paid campaigns from this tab. Final post media is reviewed in Content Hub.'}
                       </p>
+                      {!includesPaidPlanningStrategy && (
+                        <p className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
+                          {locale === 'ar'
+                            ? 'هذه استراتيجية عضوية فقط. متطلبات الإعلانات المدفوعة والميزانية وإطلاق المنصات خارج نطاق هذا التشغيل.'
+                            : 'This is an organic-only strategy. Paid ad creative, budget, and platform launch decisions are outside this run.'}
+                        </p>
+                      )}
                     </div>
                     <a
                       href={nextCreativeAction.href}
@@ -3290,9 +3329,13 @@ function CampaignDetailPageInner() {
                           : 'Requirements before any media generation or attachment'}
                       </h3>
                       <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-                        {locale === 'ar'
-                          ? 'تُستمد متطلبات الإبداع من الحملة وسياق Brand Brain والمنصة ونص المنشور. هي توجه قرارات الوسائط ولا تولّد أو تنشر أي شيء.'
-                          : 'Creative requirements are derived from the campaign, Brand Brain context, platform, and post copy. They guide media decisions; they do not generate or publish anything.'}
+                        {creativeHasPostRecords
+                          ? (locale === 'ar'
+                            ? 'تُستمد متطلبات الإبداع من الحملة وسياق Brand Brain والمنصة ونص المنشور. هي توجه قرارات الوسائط ولا تولّد أو تنشر أي شيء.'
+                            : 'Creative requirements are derived from the campaign, Brand Brain context, platform, and post copy. They guide media decisions; they do not generate or publish anything.')
+                          : (locale === 'ar'
+                            ? 'لا توجد منشورات Content Hub بعد، لذلك لا توجد متطلبات وسائط مرتبطة بمنشورات حقيقية. ابدأ بخطة المحتوى قبل قرارات الصور أو الطبقات.'
+                            : 'No Content Hub posts exist yet, so there are no post-linked media requirements. Prepare the content plan before image or layer decisions.')}
                       </p>
                     </div>
                     <a
@@ -3301,24 +3344,32 @@ function CampaignDetailPageInner() {
                       rel="noopener noreferrer"
                       className="inline-flex flex-shrink-0 items-center justify-center rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
                     >
-                      {locale === 'ar' ? 'افتح Content Hub' : 'Open Content Hub'}
+                      {locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
                       <span className="ml-2 text-xs text-indigo-400">↗</span>
                     </a>
                   </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
-                      <div className="text-lg font-semibold text-amber-700">{creativeRequirementsSummary.mediaNeeded}</div>
-                      <div className="text-[10px] leading-4 text-amber-700">{locale === 'ar' ? 'تحتاج وسائط للمنشور' : 'need post media'}</div>
+                  {creativeHasPostRecords ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3">
+                        <div className="text-lg font-semibold text-amber-700">{creativeRequirementsSummary.mediaNeeded}</div>
+                        <div className="text-[10px] leading-4 text-amber-700">{locale === 'ar' ? 'تحتاج وسائط للمنشور' : 'need post media'}</div>
+                      </div>
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3">
+                        <div className="text-lg font-semibold text-blue-700">{creativeRequirementsSummary.readinessPending}</div>
+                        <div className="text-[10px] leading-4 text-blue-700">{locale === 'ar' ? 'معاينات تحتاج تأكيداً' : 'previews need confirmation'}</div>
+                      </div>
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3">
+                        <div className="text-lg font-semibold text-emerald-700">{creativeRequirementsSummary.attachedToPost}</div>
+                        <div className="text-[10px] leading-4 text-emerald-700">{locale === 'ar' ? 'مرتبطة بالمنشورات' : 'attached to posts'}</div>
+                      </div>
                     </div>
-                    <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-3">
-                      <div className="text-lg font-semibold text-blue-700">{creativeRequirementsSummary.readinessPending}</div>
-                      <div className="text-[10px] leading-4 text-blue-700">{locale === 'ar' ? 'معاينات تحتاج تأكيداً' : 'previews need confirmation'}</div>
-                    </div>
-                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-3">
-                      <div className="text-lg font-semibold text-emerald-700">{creativeRequirementsSummary.attachedToPost}</div>
-                      <div className="text-[10px] leading-4 text-emerald-700">{locale === 'ar' ? 'مرتبطة بالمنشورات' : 'attached to posts'}</div>
-                    </div>
-                  </div>
+                  ) : (
+                    <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
+                      {locale === 'ar'
+                        ? 'لا تعرض هذه الصفحة أرقام وسائط صفرية كأنها جاهزية. ستظهر متطلبات الصور والطبقات بعد إنشاء منشورات Content Hub.'
+                        : 'This page does not treat zero media counts as readiness. Image and layer requirements appear after Content Hub posts exist.'}
+                    </p>
+                  )}
                   <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                     {locale === 'ar'
                       ? 'Content Hub هو مكان مراجعة وربط وسائط المنشورات النهائية. Creative Studio مساحة مستقبلية تبدأ لاحقاً من منشور محدد لطبقات النص والشعار وCTA، ولا تنشر أو تطلق إعلانات.'
@@ -3362,22 +3413,26 @@ function CampaignDetailPageInner() {
                       <span>🤖</span>
                       <div>
                         <p className="text-xs font-bold text-pink-700">{cdT?.creativeModeConceptLabel || 'AI Concept Mode'}</p>
-                        <p className="text-xs text-slate-500">{cdT?.creativeModeConceptDesc || 'Generate concept directions for review'}</p>
+                        <p className="text-xs text-slate-500">{cdT?.creativeModeConceptDesc || 'Plan concept directions for review'}</p>
                       </div>
                     </div>
                   </div>
 
                   <button
                     onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-bold transition-all hover:bg-purple-500"
-                    style={{ color: '#fff' }}
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
+                      creativeCanUsePostMediaFlow
+                        ? 'bg-purple-600 hover:bg-purple-500'
+                        : 'border border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    }`}
+                    style={creativeCanUsePostMediaFlow ? { color: '#fff' } : undefined}
                   >
                     <span>🎨</span>
                     {creativeBrief
                       ? (cdT?.openCreativeBriefBtn || 'View / Update Creative Brief')
-                      : (cdT?.startCreativeBriefBtn || 'Create Creative Brief')
+                      : (locale === 'ar' ? 'افتح مخطط الموجز الإبداعي' : 'Open Creative Brief Planner')
                     }
-                    <span className="text-purple-300 text-xs">↗</span>
+                    <span className={creativeCanUsePostMediaFlow ? 'text-purple-300 text-xs' : 'text-purple-400 text-xs'}>↗</span>
                   </button>
                 </div>
 
@@ -3430,32 +3485,52 @@ function CampaignDetailPageInner() {
                     <span className="text-2xl">📋</span>
                     <div className="flex-1">
                       <h3 className="text-base font-semibold text-slate-950">
-                        {locale === 'ar' ? 'متطلبات الإبداع للإعلانات المدفوعة' : 'Paid creative requirements'}
+                        {includesPaidPlanningStrategy
+                          ? (locale === 'ar' ? 'متطلبات الإبداع للإعلانات المدفوعة' : 'Paid creative requirements')
+                          : (locale === 'ar' ? 'الإعلانات المدفوعة خارج نطاق هذه الاستراتيجية' : 'Paid creative is outside this strategy run')}
                       </h3>
                       <p className="mt-0.5 text-xs text-slate-500">
-                        {locale === 'ar'
-                          ? 'موجز التخطيط المدفوع يوضح احتياجات الإبداع والزوايا للمراجعة فقط، مستنداً إلى Brand Brain.'
-                          : 'The paid planning brief captures creative needs and angles for review only, informed by Brand Brain.'}
+                        {includesPaidPlanningStrategy
+                          ? (locale === 'ar'
+                            ? 'موجز التخطيط المدفوع يوضح احتياجات الإبداع والزوايا للمراجعة فقط، مستنداً إلى Brand Brain.'
+                            : 'The paid planning brief captures creative needs and angles for review only, informed by Brand Brain.')
+                          : (locale === 'ar'
+                            ? 'هذا التشغيل عضوي فقط، لذلك لا تعرض الصفحة المدفوع كخطوة تنفيذ حالية. أنشئ Paid أو Full strategy لاحقاً عند توفر الميزانية ووجهة التحويل.'
+                            : 'This is an organic-only run, so paid creative is not presented as an active execution step. Create a Paid or Full strategy later when budget and conversion inputs are ready.')}
                       </p>
                     </div>
                   </div>
                   <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-800">
-                    {locale === 'ar'
-                      ? 'تخطيط ومراجعة فقط — لا يتم إطلاق إعلانات أو صرف ميزانية أو دفع أصول إلى المنصات من تبويب الإبداع.'
-                      : 'Planning and review only — no ads launch, no budget is spent, and no assets are pushed to platforms from Creative.'}
+                    {includesPaidPlanningStrategy
+                      ? (locale === 'ar'
+                        ? 'تخطيط ومراجعة فقط — لا يتم إطلاق إعلانات أو صرف ميزانية أو دفع أصول إلى المنصات من تبويب الإبداع.'
+                        : 'Planning and review only — no ads launch, no budget is spent, and no assets are pushed to platforms from Creative.')
+                      : (locale === 'ar'
+                        ? 'لا توجد ميزانية مدفوعة أو إطلاق منصات داخل هذا المسار العضوي.'
+                        : 'There is no paid budget or platform launch inside this organic creative path.')}
                   </p>
-                  <div className="flex gap-2 mb-4 flex-wrap">
-                    {['𝓕 Meta', 'G Google', '♪ TikTok', 'in LinkedIn'].map(p => (
-                      <span key={p} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">{p}</span>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
-                  >
-                    {locale === 'ar' ? 'راجع موجز التخطيط المدفوع' : 'Review paid planning brief'}
-                    <span className="text-xs text-slate-400">↗</span>
-                  </button>
+                  {includesPaidPlanningStrategy ? (
+                    <>
+                      <div className="flex gap-2 mb-4 flex-wrap">
+                        {['𝓕 Meta', 'G Google', '♪ TikTok', 'in LinkedIn'].map(p => (
+                          <span key={p} className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">{p}</span>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => window.open(`/campaigns/${campaign.id}/paid-launch`, '_blank')}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
+                      >
+                        {locale === 'ar' ? 'راجع موجز التخطيط المدفوع' : 'Review paid planning brief'}
+                        <span className="text-xs text-slate-400">↗</span>
+                      </button>
+                    </>
+                  ) : (
+                    <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                      {locale === 'ar'
+                        ? 'عند اختيار استراتيجية مدفوعة أو شاملة، ستظهر هنا متطلبات الإعلان المدفوع كخطة مراجعة فقط قبل أي صرف أو إطلاق.'
+                        : 'When the user chooses a Paid or Full strategy, paid creative requirements appear here as review-only planning before any spend or launch.'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Visual Direction from strategy */}
@@ -3472,7 +3547,20 @@ function CampaignDetailPageInner() {
                       ? 'المرئيات المفهومية للحملة هي أصول معرض للمراجعة. لا تُرفق بالمنشورات تلقائياً، ولا تُجدول أو تُنشر أو تُستخدم في الإعلانات تلقائياً.'
                       : 'Campaign concept visuals are gallery assets for review. They are not attached to posts automatically, scheduled, published, or used in ads automatically.'}
                   </p>
-                  <VisualGenerator context={visualContext} />
+                  {creativeCanUseConceptGallery ? (
+                    <VisualGenerator context={visualContext} />
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {locale === 'ar' ? 'معرض المفاهيم غير متاح كخطوة حالية' : 'Concept gallery is not the current step'}
+                      </p>
+                      <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-slate-500">
+                        {locale === 'ar'
+                          ? 'راجع الاستراتيجية وأنشئ منشورات Content Hub أولاً، ثم افتح الموجز الإبداعي قبل أي توليد مرئيات. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
+                          : 'Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation. This prevents credit spend or assets outside the campaign path.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
               </div>
