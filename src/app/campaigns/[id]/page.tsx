@@ -2024,7 +2024,7 @@ function CampaignDetailPageInner() {
                             ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع' : 'Review paid planning brief')
                             : operatingState.truthFlags.hasContentPlan
                             ? (locale === 'ar' ? 'راجع التنفيذ في Content Hub' : 'Review execution in Content Hub')
-                            : (locale === 'ar' ? 'افتح Content Hub للمراجعة' : 'Open Content Hub for review')}
+                            : (locale === 'ar' ? 'افتح Content Hub لتحضير خطة المحتوى' : 'Open Content Hub to prepare content plan')}
                         </Link>
                         <Link
                           href="/strategy"
