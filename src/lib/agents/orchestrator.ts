@@ -281,6 +281,12 @@ export async function runFullAgency(
           captionFormulas: content.captionFormulas || [],
           scriptTemplate: content.scriptTemplate || '',
           contentPillars: content.contentPillars?.length ? content.contentPillars : strategy.contentPillars || [],
+          strategyType: brief.strategyType || 'organic',
+          strategyDuration: brief.strategyDuration || '90',
+          strategyOrder: (brief as any).strategyOrder || null,
+          strategyDeliverables: (brief as any).strategyDeliverables || null,
+          organicPostCount: typeof (brief as any).organicPostCount === 'number' ? (brief as any).organicPostCount : null,
+          detailedCalendarDays: typeof (brief as any).detailedCalendarDays === 'number' ? (brief as any).detailedCalendarDays : null,
           // Persist language so all downstream agents (content plan, images) use the same language
           language: brief.language || 'ar',
           selectedMediaIds: Array.isArray((brief as any).selectedMediaIds) ? (brief as any).selectedMediaIds : [],

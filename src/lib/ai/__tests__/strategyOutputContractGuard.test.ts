@@ -400,6 +400,96 @@ describe('guardStrategyOutputContract', () => {
       ]),
     )
   })
+
+  it('keeps Arabic paid-only planning briefs inside the Strategy OS contract without pretending organic posts were generated', () => {
+    const paidDraft = {
+      campaignName: 'ClinicFlow AI Paid Planning Brief',
+      goal: 'LEADS',
+      positioning: 'ClinicFlow AI هي منصة تشغيل للعيادات التي تحتاج وضوحًا في المواعيد والمتابعة بدون ادعاءات طبية.',
+      keyMessage: 'التخطيط المدفوع هنا يراجع الرسالة والجاهزية فقط قبل أي إنفاق.',
+      differentiation: 'تجربة تشغيل ثنائية اللغة وسير متابعة واضح للعيادات.',
+      targetAudienceRefined: 'أصحاب العيادات ومديرو العمليات الذين يحتاجون وضوحًا في الطلبات والمتابعة.',
+      diagnosis: 'العلامة جاهزة لمراجعة فرضيات مدفوعة، لكن الإطلاق يحتاج تتبعًا وموافقة صريحة.',
+      nextBestAction: 'راجع هدف الحملة ومسار التحويل قبل أي اختبار مدفوع.',
+      estimatedResults: 'تحتاج النتائج إلى بيانات فعلية وخط أساس قبل أي حكم أداء.',
+      readyForPaidAdsReason: 'التخطيط المدفوع فقط؛ لا إطلاق ولا صرف ميزانية من هذا البريف.',
+      businessObjective: {
+        primary: 'طلبات عروض توضيحية مؤهلة',
+        marketing: 'اختبار رسائل مدفوعة آمنة',
+        conversionAction: 'طلب عرض توضيحي',
+        expectedUserAction: 'مراجعة العرض وطلب تواصل',
+        whyNow: 'الرسالة الأساسية تحتاج اختبارًا منضبطًا',
+        successIn30Days: 'تحديد خط أساس لجودة الطلبات بعد بيانات حقيقية',
+      },
+      diagnosisDetails: {
+        stage: 'early-stage',
+        bottleneck: 'غياب خط أساس للتتبع',
+        trustGap: 'إثباتات موثقة غير مكتملة',
+        offerClarity: 'partial',
+        contentGap: 'الحاجة إلى زوايا إعلان قابلة للمراجعة',
+        assetReadiness: 'تحتاج أصولًا بصرية قبل الإنتاج',
+        conversionReadiness: 'مسار التحويل يحتاج تأكيدًا',
+        readyForPaidAds: false,
+        readyForPaidAdsReason: 'يحتاج تتبعًا وموافقة صريحة',
+        mainRisk: 'الإنفاق قبل وضوح التتبع',
+      },
+      audienceSegmentsDetailed: [
+        {
+          segment: 'مدير عيادة صغيرة',
+          situation: 'يريد تنظيم المواعيد والمتابعة',
+          pain: 'فوضى تشغيلية يومية',
+          desiredOutcome: 'سير متابعة أوضح',
+          objection: 'الخوف من تعقيد الأداة',
+          message: 'راجع سير العمل قبل القرار',
+          platform: 'LinkedIn',
+          format: 'كاروسيل',
+          cta: 'اطلب عرضًا توضيحيًا',
+        },
+        {
+          segment: 'مالك عيادة',
+          situation: 'يفكر في تحسين التشغيل',
+          pain: 'عدم وضوح مصدر الطلبات',
+          desiredOutcome: 'تأهيل طلبات أوضح',
+          objection: 'هل سيظهر أثر الإعلانات؟',
+          message: 'ابدأ بتتبع واضح قبل الإنفاق',
+          platform: 'Instagram',
+          format: 'فيديو قصير',
+          cta: 'راجع مسار التحويل',
+        },
+      ],
+      channelMix: [{ platform: 'LinkedIn', budgetPercent: 50, rationale: 'تخطيط فقط', contentFrequency: 'اختبار محدود بعد الموافقة' }],
+      contentPillars: [],
+      contentAnglesDetailed: [],
+      topHooks: [],
+      ctaVariations: [],
+      weeklyExecutionPlan: [],
+      funnelStages: [],
+      kpis: [],
+      readinessChecklist: [],
+      riskNotes: ['لا يوجد إطلاق مدفوع بدون موافقة صريحة.'],
+      assumptions: ['لا توجد بيانات أداء فعلية بعد.'],
+      missingData: ['pixel / analytics'],
+      confidenceReport: { overall: 'medium', byCapability: { paidPlanning: 'low' } },
+      assetRequirements: {},
+    }
+
+    const out = guardStrategyOutputContract(paidDraft, {
+      allowedPlatforms: ['LINKEDIN', 'INSTAGRAM'],
+      language: 'ar',
+      strategyType: 'paid',
+    })
+
+    expect(out.campaignName).toBe('بريف تخطيط مدفوع لـ ClinicFlow AI')
+    expect(out.contentAnglesDetailed).toHaveLength(4)
+    expect(out.weeklyExecutionPlan).toHaveLength(4)
+    expect(JSON.stringify(out)).toMatch(/تخطيط مدفوع|لا إطلاق|لا صرف ميزانية/)
+    expect(JSON.stringify(out)).not.toMatch(/Organic Content Hub content plan/i)
+
+    const report = validateCampaignStrategyContract(out, { language: 'ar' })
+    expect(report.valid).toBe(true)
+    expect(report.languageViolations).toEqual([])
+    expect(report.weakFields).toEqual([])
+  })
 })
 
 describe('selectStrategyCampaignPlatforms', () => {
@@ -465,7 +555,16 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('لا يتم خصم أي كريدت هنا')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
-    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage })')
+    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type })')
+  })
+
+  it('keeps paid-only campaign pages separate from the organic content-plan workflow', () => {
+    const campaignPage = repoFile('src/app/campaigns/[id]/page.tsx')
+
+    expect(campaignPage).toContain("label: locale === 'ar' ? 'بريف مدفوع' : 'Paid brief'")
+    expect(campaignPage).toContain("label: locale === 'ar' ? 'جاهزية الإطلاق' : 'Launch readiness'")
+    expect(campaignPage).toContain("const displayOperatingLabel = isPaidOnlyStrategy")
+    expect(campaignPage).toContain("activeTab !== 0 && !isPaidOnlyStrategy && !engineRunning && sentinelStatus === 'passed'")
   })
 
   it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {
