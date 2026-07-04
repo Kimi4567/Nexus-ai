@@ -1695,10 +1695,10 @@ export const translations: Record<Locale, Record<string, any>> = {
     creativeBriefSubtitle: 'خطط اتجاه الفن واحتياجات الأصول وتعليمات التوليد وملاحظات الإنتاج قبل إنشاء الأصول.',
       creativeModeAsset: 'تم تحليل الأصول',
       creativeModeConceptGen: 'تم إنشاء المفاهيم',
-      creativeModeAssetLabel: 'وضع الأصول الح��يقية',
+      creativeModeAssetLabel: 'وضع الأصول الحقيقية',
       creativeModeAssetDesc: 'استخدم الصور والشعارات المرفوعة عند توفرها',
       creativeModeConceptLabel: 'وضع المفاهيم الذكية',
-      creativeModeConceptDesc: 'أنشئ اتجاهات مفاهيمية للمراجعة',
+      creativeModeConceptDesc: 'خطط اتجاهات مفاهيمية للمراجعة',
       openCreativeBriefBtn: 'عرض / تحديث الموجز الإبداعي',
       startCreativeBriefBtn: 'إنشاء موجز إبداعي',
       // Sprint G — Sentinel Review Gate
@@ -3792,7 +3792,7 @@ export const translations: Record<Locale, Record<string, any>> = {
       creativeModeAssetLabel: 'User Asset Mode',
       creativeModeAssetDesc: 'Use uploaded photos and logos when available',
       creativeModeConceptLabel: 'AI Concept Mode',
-      creativeModeConceptDesc: 'Generate concept directions for review',
+      creativeModeConceptDesc: 'Plan concept directions for review',
       openCreativeBriefBtn: 'View / Update Creative Brief',
       startCreativeBriefBtn: 'Create Creative Brief',
       // Sprint G — Sentinel Review Gate
