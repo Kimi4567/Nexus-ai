@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { calculateBrandMaturity, type BrandMaturityResult } from '@/lib/brandMaturity'
 
@@ -75,6 +75,31 @@ const ARRAY_FIELDS: (keyof BrandProfile)[] = [
   'customerObjections',
   'verifiedProof',
 ]
+
+export type BrandBrainLoadGate =
+  | { status: 'wait-for-auth' }
+  | { status: 'skip-unauthenticated' }
+  | { status: 'load'; authorization: string }
+
+export function getBrandBrainLoadGate(input: {
+  authLoading: boolean
+  isAuthenticated: boolean
+  authorization: string
+}): BrandBrainLoadGate {
+  if (input.authLoading) return { status: 'wait-for-auth' }
+  if (!input.isAuthenticated) return { status: 'skip-unauthenticated' }
+
+  const authorization = input.authorization.trim()
+  if (!authorization) return { status: 'wait-for-auth' }
+
+  return { status: 'load', authorization }
+}
+
+const BRAND_LOAD_AUTH_RETRY_DELAY_MS = 650
+
+async function wait(ms: number) {
+  await new Promise(resolve => setTimeout(resolve, ms))
+}
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -163,14 +188,36 @@ export function getBrandCompleteness(brand: BrandProfile | null, locale?: string
 
 // ── Hook ───────────────────────────────────────────────────────
 export function useBrandBrain() {
-  const { authHeader } = useAuth()
+  const { authHeader, loading: authLoading, isAuthenticated } = useAuth()
   const [brand, setBrand] = useState<BrandProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [maturity, setMaturity] = useState<BrandMaturityResult | null>(null)
+  const requestSeq = useRef(0)
 
   const fetchBrand = useCallback(async () => {
+    const seq = ++requestSeq.current
+    const gate = getBrandBrainLoadGate({
+      authLoading,
+      isAuthenticated,
+      authorization: authHeader(),
+    })
+
+    if (gate.status === 'wait-for-auth') {
+      setLoading(true)
+      setError(null)
+      return
+    }
+
+    if (gate.status === 'skip-unauthenticated') {
+      setBrand(null)
+      setMaturity(null)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     // PR-E: every fetch attempt (initial load, auth-token-ready re-fetch, or an
     // explicit Retry) returns the UI to the loading state and clears any stale
     // error. This prevents the transient "Could not load your Brand Brain" flash
@@ -179,20 +226,56 @@ export function useBrandBrain() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/brand', {
-        headers: { Authorization: authHeader() },
+      let res = await fetch('/api/brand', {
+        headers: { Authorization: gate.authorization },
       })
+
+      if (res.status === 401) {
+        await wait(BRAND_LOAD_AUTH_RETRY_DELAY_MS)
+        if (seq !== requestSeq.current) return
+
+        const retryGate = getBrandBrainLoadGate({
+          authLoading,
+          isAuthenticated,
+          authorization: authHeader(),
+        })
+
+        if (retryGate.status === 'wait-for-auth') {
+          setLoading(true)
+          setError(null)
+          return
+        }
+
+        if (retryGate.status === 'skip-unauthenticated') {
+          setBrand(null)
+          setMaturity(null)
+          setLoading(false)
+          setError(null)
+          return
+        }
+
+        res = await fetch('/api/brand', {
+          headers: { Authorization: retryGate.authorization },
+        })
+      }
+
+      if (seq !== requestSeq.current) return
       if (!res.ok) throw new Error('Failed to load brand')
       const data = await res.json()
+      if (seq !== requestSeq.current) return
       const normalized = normalizeBrandProfile(data.brandProfile)
       setBrand(normalized)
       setMaturity(data.maturity ?? (normalized ? calculateBrandMaturity(normalized) : null))
     } catch {
-      setError('تعذّر تحميل بيانات العلامة التجارية')
+      if (seq === requestSeq.current) {
+        setError('تعذّر تحميل بيانات العلامة التجارية')
+      }
     } finally {
-      setLoading(false)
+      if (seq === requestSeq.current) {
+        setLoading(false)
+      }
     }
-  }, [authHeader])
+  }, [authHeader, authLoading, isAuthenticated])
 
   useEffect(() => { fetchBrand() }, [fetchBrand])
 
