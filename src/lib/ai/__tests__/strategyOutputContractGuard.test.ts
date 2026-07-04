@@ -555,7 +555,7 @@ describe('strategy runtime copy contract', () => {
     expect(modal).toContain('لا يتم خصم أي كريدت هنا')
     expect(modal).toContain('Review cost —')
     expect(modal).not.toContain('{rs.langStartBtn}')
-    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage })')
+    expect(campaignPage).toContain('guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type })')
   })
 
   it('starts strategy generation directly after final cost confirmation without a hidden media step', () => {

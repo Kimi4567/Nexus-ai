@@ -31,6 +31,7 @@ import {
   campaignRoomTabIndexFromQuery,
   campaignRoomTabKeyFromIndex,
 } from '@/lib/campaignRoomTabs'
+import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
@@ -853,13 +854,14 @@ function CampaignDetailPageInner() {
   }
 
   const aiOutput = campaign.aiOutput as any
+  const strategyScope = resolveStrategyScope(aiOutput)
   const strategyLanguage = typeof aiOutput?.language === 'string' ? aiOutput.language : locale
   const proofContext = {
     verifiedProof: Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : [],
   }
   const guardedAiOutput = guardStrategyProof(aiOutput || {}, proofContext) as any
   const strategy = guardStrategyKpis(
-    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage }) as Record<string, unknown>,
+    guardStrategyOutputContract(guardedAiOutput?.strategy || {}, { allowedPlatforms: campaign.platforms, language: strategyLanguage, strategyType: strategyScope.type }) as Record<string, unknown>,
     [],
     { language: strategyLanguage },
   ) as any
@@ -923,8 +925,13 @@ function CampaignDetailPageInner() {
   const hasDiagnosisSection = !!(strategy.diagnosis || diagnosisDetails)
   const hasBusinessObjectiveSection = !!businessObjective
   const hasAudienceSection = audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0
+  const isPaidOnlyStrategy = strategyScope.paidOnly
+  const includesOrganicStrategy = strategyScope.includesOrganic
   const hasOrganicContentSection =
-    !!(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
+    includesOrganicStrategy && !!(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
+  const hasPaidPlanningAnglesSection =
+    isPaidOnlyStrategy && !!(topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
+  const hasStrategyContentSection = hasOrganicContentSection || hasPaidPlanningAnglesSection
   const hasExecutionSection =
     !!(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
   const hasReadinessSection =
@@ -937,7 +944,7 @@ function CampaignDetailPageInner() {
     { num: '03', label: locale === 'ar' ? 'التشخيص' : 'Diagnosis', id: 'strategy-diagnosis', show: hasDiagnosisSection },
     { num: '04', label: locale === 'ar' ? 'الهدف' : 'Objective', id: 'strategy-objective', show: hasBusinessObjectiveSection },
     { num: '05', label: locale === 'ar' ? 'الجمهور' : 'Audience', id: 'strategy-audience', show: hasAudienceSection },
-    { num: '06', label: locale === 'ar' ? 'المحتوى' : 'Content', id: 'strategy-content', show: hasOrganicContentSection },
+    { num: '06', label: isPaidOnlyStrategy ? (locale === 'ar' ? 'زوايا مدفوعة' : 'Paid angles') : (locale === 'ar' ? 'المحتوى' : 'Content'), id: 'strategy-content', show: hasStrategyContentSection },
     { num: '07', label: locale === 'ar' ? 'التنفيذ' : 'Execution', id: 'strategy-execution', show: hasExecutionSection },
     { num: '08', label: locale === 'ar' ? 'الجاهزية' : 'Readiness', id: 'strategy-readiness', show: hasReadinessSection },
     { num: '09', label: locale === 'ar' ? 'المخاطر' : 'Risks', id: 'strategy-risks', show: hasRisksSection },
@@ -1020,8 +1027,17 @@ function CampaignDetailPageInner() {
   const operatingActionLabel = locale === 'ar'
     ? operatingState.primaryAction.labelAr
     : operatingState.primaryAction.label
-  const strategyGuidanceCopy = operatingState.truthFlags.hasContentPlan
+  const strategyGuidanceCopy = isPaidOnlyStrategy
     ? {
+        hint: locale === 'ar'
+          ? '📌 هذا بريف تخطيط مدفوع فقط. لا توجد خطة Content Hub من هذا التوليد.'
+          : '📌 This is a paid planning brief only. No Content Hub plan was created by this run.',
+        brief: locale === 'ar'
+          ? 'راجع فرضيات الجمهور والزوايا والقيود قبل أي قرار إطلاق. التنفيذ والصرف والنشر يتطلبون جاهزية وموافقة صريحة منفصلة.'
+          : 'Review audience hypotheses, paid angles, and limits before any launch decision. Execution, spend, and publishing require separate readiness and explicit approval.',
+      }
+    : operatingState.truthFlags.hasContentPlan
+      ? {
         hint: locale === 'ar'
           ? '📌 الاستراتيجية أصبحت مادة مرجعية. حالة التنفيذ الحالية موجودة في Content Hub.'
           : '📌 Strategy is reference material. Content Hub shows the current execution state.',
@@ -1029,7 +1045,7 @@ function CampaignDetailPageInner() {
           ? 'هذه هي الاستراتيجية الغنية الحالية للحملة كمادة مرجعية. راجع الاتجاه والافتراضات والقيود، لكن حالة المنشورات والتنفيذ الحالية موجودة في Content Hub.'
           : 'This is the current rich strategy output for the campaign as reference material. Review the direction, assumptions, and limits, but use Content Hub for the current post and execution state.',
       }
-    : {
+      : {
         hint: locale === 'ar'
           ? '🔍 راجع جودة الاستراتيجية قبل إنشاء أول خطة محتوى.'
           : '🔍 Review strategy quality before building the first content plan.',
@@ -1943,7 +1959,9 @@ function CampaignDetailPageInner() {
                               {locale === 'ar' ? 'القرار التالي' : 'Next decision'}
                             </p>
                             <p className="mt-1 text-sm leading-6 text-white">
-                              {operatingState.truthFlags.hasContentPlan
+                              {isPaidOnlyStrategy
+                                ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع وأكمل التتبع والحسابات قبل أي إطلاق.' : 'Review the paid planning brief and complete tracking/accounts before any launch.')
+                                : operatingState.truthFlags.hasContentPlan
                                 ? (locale === 'ar' ? 'راجع التنفيذ الحالي في Content Hub.' : 'Review current execution in Content Hub.')
                                 : (locale === 'ar' ? 'راجع جودة الاستراتيجية قبل بناء أول خطة محتوى.' : 'Review strategy quality before building the first content plan.')}
                             </p>
@@ -1965,10 +1983,12 @@ function CampaignDetailPageInner() {
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                         <Link
-                          href={`/campaigns/${campaignId}/content-hub`}
+                          href={isPaidOnlyStrategy ? `/campaigns/${campaignId}/paid-launch` : `/campaigns/${campaignId}/content-hub`}
                           className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
                         >
-                          {operatingState.truthFlags.hasContentPlan
+                          {isPaidOnlyStrategy
+                            ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع' : 'Review paid planning brief')
+                            : operatingState.truthFlags.hasContentPlan
                             ? (locale === 'ar' ? 'راجع التنفيذ في Content Hub' : 'Review execution in Content Hub')
                             : (locale === 'ar' ? 'افتح Content Hub للمراجعة' : 'Open Content Hub for review')}
                         </Link>
@@ -1989,11 +2009,15 @@ function CampaignDetailPageInner() {
                         tone="positive"
                       />
                       <StrategyDocCard
-                        label={locale === 'ar' ? 'الخطة العضوية' : 'Organic plan'}
-                        value={operatingState.truthFlags.hasContentPlan
+                        label={isPaidOnlyStrategy
+                          ? (locale === 'ar' ? 'النطاق العضوي' : 'Organic scope')
+                          : (locale === 'ar' ? 'الخطة العضوية' : 'Organic plan')}
+                        value={isPaidOnlyStrategy
+                          ? (locale === 'ar' ? 'غير مشمولة في هذا التوليد' : 'Not included in this run')
+                          : operatingState.truthFlags.hasContentPlan
                           ? (locale === 'ar' ? 'متاحة للمراجعة في Content Hub' : 'Available for review in Content Hub')
                           : (locale === 'ar' ? 'جاهزة لبناء خطة محتوى بعد المراجعة' : 'Ready to build a content plan after review')}
-                        tone="positive"
+                        tone={isPaidOnlyStrategy ? 'muted' : 'positive'}
                       />
                       <StrategyDocCard
                         label={locale === 'ar' ? 'الإعلانات المدفوعة' : 'Paid planning'}
@@ -2001,7 +2025,9 @@ function CampaignDetailPageInner() {
                           ? (locale === 'ar'
                               ? `غير جاهز: ${paidPlanningMissingLabels.slice(0, 3).join('، ')}`
                               : `Not ready: ${paidPlanningMissingLabels.slice(0, 3).join(', ')}`)
-                          : (locale === 'ar' ? 'تخطيط فقط — لا صرف بدون موافقة' : 'Planning only — no spend without approval')}
+                          : isPaidOnlyStrategy
+                            ? (locale === 'ar' ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only')
+                            : (locale === 'ar' ? 'تخطيط فقط — لا صرف بدون موافقة' : 'Planning only — no spend without approval')}
                         tone="warning"
                       />
                       <StrategyDocCard
@@ -2065,9 +2091,13 @@ function CampaignDetailPageInner() {
                     />
                   </div>
                   <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
-                    {locale === 'ar'
-                      ? 'هذه الصفحة تحفظ قيمة الاستراتيجية كاملة، لكنها تقسمها إلى قرارات قابلة للمراجعة. Content Hub يظل مصدر الحقيقة لحالة المنشورات والوسائط.'
-                      : 'This page keeps the full strategy value, but organizes it into reviewable decisions. Content Hub remains the source of truth for post and media state.'}
+                    {isPaidOnlyStrategy
+                      ? (locale === 'ar'
+                        ? 'هذه الصفحة تحفظ بريف التخطيط المدفوع كمادة مراجعة فقط. لا توجد منشورات Content Hub من هذا التوليد، ولا إطلاق أو صرف بدون تأكيد صريح.'
+                        : 'This page keeps the paid planning brief as review material only. No Content Hub posts were created by this run, and no launch or spend happens without explicit confirmation.')
+                      : (locale === 'ar'
+                        ? 'هذه الصفحة تحفظ قيمة الاستراتيجية كاملة، لكنها تقسمها إلى قرارات قابلة للمراجعة. Content Hub يظل مصدر الحقيقة لحالة المنشورات والوسائط.'
+                        : 'This page keeps the full strategy value, but organizes it into reviewable decisions. Content Hub remains the source of truth for post and media state.')}
                   </p>
                 </section>
 
@@ -2178,19 +2208,29 @@ function CampaignDetailPageInner() {
                   </StrategyDocSection>
                 )}
 
-                {hasOrganicContentSection && (
+                {hasStrategyContentSection && (
                   <StrategyDocSection
                     id="strategy-content"
                     eyebrow="05"
-                    title={locale === 'ar' ? 'خطة المحتوى العضوي' : 'Organic Content Plan'}
-                    description={locale === 'ar'
-                      ? 'الرسائل والركائز والخطافات التي تحوّل الاستراتيجية إلى محتوى قابل للمراجعة.'
-                      : 'The messages, pillars, hooks, and angles that turn the strategy into reviewable content.'}
+                    title={isPaidOnlyStrategy
+                      ? (locale === 'ar' ? 'زوايا التخطيط المدفوع' : 'Paid Planning Angles')
+                      : (locale === 'ar' ? 'خطة المحتوى العضوي' : 'Organic Content Plan')}
+                    description={isPaidOnlyStrategy
+                      ? (locale === 'ar'
+                        ? 'فرضيات الجمهور والزوايا والنسخ الإعلانية للمراجعة فقط. ليست خطة منشورات عضوية ولا Content Hub.'
+                        : 'Audience hypotheses, paid angles, and ad-copy directions for review only. This is not an organic post plan or Content Hub output.')
+                      : (locale === 'ar'
+                        ? 'الرسائل والركائز والخطافات التي تحوّل الاستراتيجية إلى محتوى قابل للمراجعة.'
+                        : 'The messages, pillars, hooks, and angles that turn the strategy into reviewable content.')}
                   >
                     <div className="space-y-5">
                       {strategy.contentPillars?.length > 0 && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionContentPillars || 'Content Pillars'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {isPaidOnlyStrategy
+                              ? (locale === 'ar' ? 'محاور التخطيط المدفوع' : 'Paid planning pillars')
+                              : (cdT?.sectionContentPillars || 'Content Pillars')}
+                          </p>
                           <div className="flex flex-wrap gap-2">
                             {strategy.contentPillars.map((p: string, i: number) => (
                               <span key={i} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700">{p}</span>
@@ -2200,7 +2240,11 @@ function CampaignDetailPageInner() {
                       )}
                       {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults) && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionValueProps || 'Value Propositions'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {isPaidOnlyStrategy
+                              ? (locale === 'ar' ? 'فرضيات قيمة للمراجعة' : 'Value hypotheses for review')
+                              : (cdT?.sectionValueProps || 'Value Propositions')}
+                          </p>
                           {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0) ? (
                             <StrategyDocList items={(strategy.valueProps || strategy.valuePropositions).map((vp: string) => vp)} />
                           ) : (
@@ -2210,7 +2254,11 @@ function CampaignDetailPageInner() {
                       )}
                       {topHooks.length > 0 && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionTopHooks || 'Top Hooks'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {isPaidOnlyStrategy
+                              ? (locale === 'ar' ? 'خطافات إعلانية للمراجعة' : 'Paid hooks for review')
+                              : (cdT?.sectionTopHooks || 'Top Hooks')}
+                          </p>
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                             {topHooks.slice(0, 8).map((hook: string, i: number) => (
                               <div key={i} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -2234,7 +2282,11 @@ function CampaignDetailPageInner() {
                       )}
                       {(contentAnglesDetailed.length > 0 || contentAngles.length > 0) && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {isPaidOnlyStrategy
+                              ? (locale === 'ar' ? 'زوايا إعلانية للمراجعة' : 'Paid ad angles for review')
+                              : (cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles')}
+                          </p>
                           {contentAnglesDetailed.length > 0 ? (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               {contentAnglesDetailed.map((angle: any, i: number) => (

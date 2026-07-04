@@ -28,6 +28,7 @@ import { getStrategyPageReadinessSurface } from '@/lib/strategyBriefReadiness'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { getStrategyBrandAlignment } from '@/lib/strategy/strategyBrandAlignment'
 import { selectStrategyWorkbenchCampaign } from '@/lib/strategy/strategyWorkbenchCampaign'
+import { resolveStrategyScope } from '@/lib/strategy/strategyScope'
 import { guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import AppShell from '@/components/AppShell'
@@ -138,6 +139,7 @@ export default function StrategyPage() {
   const hasDraftStrategy = Boolean(recent?.status && recent.status.toLowerCase() === 'draft')
   const rawAi = (recent?.aiOutput ?? null) as Record<string, unknown> | null
   const rawStrat = (rawAi?.strategy ?? rawAi ?? null) as Record<string, unknown> | null
+  const strategyScope = resolveStrategyScope(rawAi)
   const displayGuardContext = {
     verifiedProof: Array.isArray(brandProfile?.verifiedProof) ? brandProfile.verifiedProof : [],
   }
@@ -145,13 +147,13 @@ export default function StrategyPage() {
   const ai = rawAi
     ? guardStrategyOutputContract(
         guardStrategyProof(rawAi, displayGuardContext),
-        { allowedPlatforms: displayAllowedPlatforms },
+        { allowedPlatforms: displayAllowedPlatforms, strategyType: strategyScope.type },
       ) as Record<string, unknown>
     : null
   const strat = rawStrat
     ? guardStrategyOutputContract(
         guardStrategyProof(rawStrat, displayGuardContext),
-        { allowedPlatforms: displayAllowedPlatforms },
+        { allowedPlatforms: displayAllowedPlatforms, strategyType: strategyScope.type },
       ) as Record<string, unknown>
     : null
 
@@ -168,7 +170,7 @@ export default function StrategyPage() {
     ...asArray(ai?.ctaVariations),
     ...asArray(strat?.ctaVariations),
   ].map(textLabel).filter(Boolean).slice(0, 4)
-  const hasOrganicData = pillars.length > 0 || hooks.length > 0 || ctas.length > 0 || !platformSummary.isEmpty
+  const hasOrganicData = strategyScope.includesOrganic && (pillars.length > 0 || hooks.length > 0 || ctas.length > 0 || !platformSummary.isEmpty)
   const strategyBrandAlignment = getStrategyBrandAlignment({
     currentBrandName: brandName,
     campaignName: recent?.name,
@@ -196,16 +198,20 @@ export default function StrategyPage() {
     : hasDraftStrategy
       ? {
           label: ar ? 'فتح بريف استراتيجية الحملة' : 'Open campaign strategy brief',
-          description: hasCurrentBrandOrganicData
-            ? (ar ? 'الـ brief الكامل موجود داخل الحملة. راجعه قبل تحويله إلى Content Hub.' : 'The full strategy brief lives inside the campaign. Review it before turning it into Content Hub work.')
-            : (ar ? 'افتح بريف الحملة الكامل قبل تحويله إلى محتوى.' : 'Open the full campaign brief before turning it into content.'),
+          description: strategyScope.paidOnly
+            ? (ar ? 'هذا بريف تخطيط مدفوع للمراجعة فقط. لا ينشئ خطة Content Hub عضوية ولا يطلق إعلانات.' : 'This is a paid planning brief for review only. It does not create an organic Content Hub plan or launch ads.')
+            : hasCurrentBrandOrganicData
+              ? (ar ? 'الـ brief الكامل موجود داخل الحملة. راجعه قبل تحويله إلى Content Hub.' : 'The full strategy brief lives inside the campaign. Review it before turning it into Content Hub work.')
+              : (ar ? 'افتح بريف الحملة الكامل قبل تحويله إلى محتوى.' : 'Open the full campaign brief before turning it into content.'),
           href: recentStrategyHref,
         }
       : {
           label: ar ? 'فتح بريف استراتيجية الحملة' : 'Open campaign strategy brief',
-          description: hasCurrentBrandOrganicData
-            ? (ar ? 'استخدم هذه الصفحة كمركز متابعة، وافتح بريف الحملة للمراجعة التفصيلية.' : 'Use this page as a strategy workbench, then open the campaign brief for detailed review.')
-            : (ar ? 'افتح بريف الحملة الحالي.' : 'Open the current campaign brief.'),
+          description: strategyScope.paidOnly
+            ? (ar ? 'افتح بريف التخطيط المدفوع الحالي. التنفيذ والصرف والنشر خطوات منفصلة ومقفلة.' : 'Open the current paid planning brief. Execution, spend, and publishing remain separate locked steps.')
+            : hasCurrentBrandOrganicData
+              ? (ar ? 'استخدم هذه الصفحة كمركز متابعة، وافتح بريف الحملة للمراجعة التفصيلية.' : 'Use this page as a strategy workbench, then open the campaign brief for detailed review.')
+              : (ar ? 'افتح بريف الحملة الحالي.' : 'Open the current campaign brief.'),
           href: recentStrategyHref,
         }
 
@@ -224,17 +230,33 @@ export default function StrategyPage() {
           ar ? 'يبقى التخطيط المدفوع مرتبطاً بالموافقة' : 'Paid planning remains approval-gated',
         ]
     : hasDraftStrategy
-      ? [
-          ar ? 'راجع المسودة الحالية' : 'Review the current draft',
-          ar ? 'تابع إلى مركز المحتوى' : 'Continue to Content Hub',
-          ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
-          ar ? 'يبقى التخطيط المدفوع مرتبطاً بالموافقة' : 'Paid planning remains approval-gated',
-        ]
+      ? strategyScope.paidOnly
+        ? [
+            ar ? 'راجع بريف التخطيط المدفوع الحالي' : 'Review the current paid planning brief',
+            ar ? 'أكمل التتبع والحسابات والموافقة قبل أي إطلاق' : 'Complete tracking, accounts, and approval before any launch',
+            ar ? 'لا توجد خطة Content Hub عضوية من هذا التوليد' : 'No organic Content Hub plan was created by this run',
+            ar ? 'لا صرف ولا نشر ولا إطلاق بدون تأكيد صريح' : 'No spend, publishing, or launch without explicit confirmation',
+          ]
+        : [
+            ar ? 'راجع المسودة الحالية' : 'Review the current draft',
+            ar ? 'تابع إلى مركز المحتوى' : 'Continue to Content Hub',
+            ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
+            ar ? 'يبقى التخطيط المدفوع مرتبطاً بالموافقة' : 'Paid planning remains approval-gated',
+          ]
       : [
-          ar ? 'تابع من الاستراتيجية الحالية' : 'Continue from the existing strategy',
-          ar ? 'راجع اتجاه المحتوى العضوي' : 'Review the organic content direction',
-          ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
-          ar ? 'استخدم التخطيط المدفوع فقط بعد الجاهزية والموافقة' : 'Use paid planning only after readiness and approval',
+          ...(strategyScope.paidOnly
+            ? [
+                ar ? 'تابع من بريف التخطيط المدفوع الحالي' : 'Continue from the current paid planning brief',
+                ar ? 'راجع فرضيات الجمهور والزوايا قبل أي صرف' : 'Review audience hypotheses and angles before any spend',
+                ar ? 'أكمل التتبع والحسابات والموافقة الصريحة' : 'Complete tracking, accounts, and explicit approval',
+                ar ? 'لا توجد خطة Content Hub عضوية من هذا التوليد' : 'No organic Content Hub plan was created by this run',
+              ]
+            : [
+                ar ? 'تابع من الاستراتيجية الحالية' : 'Continue from the existing strategy',
+                ar ? 'راجع اتجاه المحتوى العضوي' : 'Review the organic content direction',
+                ar ? 'حضّر الجدول بعد الموافقة على المحتوى' : 'Prepare the schedule after content approval',
+                ar ? 'استخدم التخطيط المدفوع فقط بعد الجاهزية والموافقة' : 'Use paid planning only after readiness and approval',
+              ]),
         ]
 
   const brandActive = brandStatus === 'active'
@@ -354,7 +376,9 @@ export default function StrategyPage() {
                     ? (ar ? 'المسودة الموجودة تبدو من Brand Brain سابق. حدّثها قبل استخدامها كمصدر للتنفيذ.' : 'The existing draft appears to come from a previous Brand Brain. Update it before using it as an execution source.')
                   : hasDraftStrategy
                     ? (ar ? 'المسودة موجودة ويمكن مراجعتها أو تحديثها.' : 'The draft exists and can be reviewed or updated.')
-                    : (ar ? 'استخدم الاتجاه الحالي كمادة مراجعة قبل Content Hub أو بريف التخطيط المدفوع.' : 'Use the current direction as review material before Content Hub or the paid planning brief.')}
+                    : strategyScope.paidOnly
+                      ? (ar ? 'استخدم بريف التخطيط المدفوع الحالي كمادة مراجعة فقط قبل أي قرار إطلاق أو صرف.' : 'Use the current paid planning brief as review material only before any launch or spend decision.')
+                      : (ar ? 'استخدم الاتجاه الحالي كمادة مراجعة قبل Content Hub أو بريف التخطيط المدفوع.' : 'Use the current direction as review material before Content Hub or the paid planning brief.')}
               </p>
             </div>
           </div>
@@ -424,9 +448,13 @@ export default function StrategyPage() {
                     {recent.name}
                   </h2>
                   <p className="text-sm mt-1 max-w-2xl" style={{ color: '#64748b' }}>
-                    {ar
-                      ? 'هذه الصفحة تعرض لوحة متابعة مختصرة. بريف الاستراتيجية الكامل، الافتراضات، القيود، وخطوات التنفيذ تعيش داخل صفحة الحملة.'
-                      : 'This page is a compact workbench. The full strategy brief, assumptions, limits, and execution decisions live inside the campaign page.'}
+                    {strategyScope.paidOnly
+                      ? (ar
+                        ? 'هذه الصفحة تعرض آخر بريف تخطيط مدفوع فقط. لا توجد خطة محتوى عضوي أو إطلاق إعلانات من هذا التوليد.'
+                        : 'This page shows the latest paid planning brief only. No organic content plan or ad launch was created by this run.')
+                      : (ar
+                        ? 'هذه الصفحة تعرض لوحة متابعة مختصرة. بريف الاستراتيجية الكامل، الافتراضات، القيود، وخطوات التنفيذ تعيش داخل صفحة الحملة.'
+                        : 'This page is a compact workbench. The full strategy brief, assumptions, limits, and execution decisions live inside the campaign page.')}
                   </p>
                   {strategyBrandMismatch && (
                     <div className="mt-3 rounded-xl px-3 py-2.5"
@@ -449,15 +477,15 @@ export default function StrategyPage() {
             </div>
           )}
 
-          {hasStrategy && hasCurrentBrandOrganicData && (
+          {hasStrategy && !strategyBrandMismatch && (
             <div className={`${card} mb-6`} style={cardStyle}>
               <p className={sectionLabel} style={{ color: '#94a3b8' }}>{ar ? 'التسلسل التشغيلي' : 'Workstation hierarchy'}</p>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
                 {[
                   { label: ar ? 'اتجاه الاستراتيجية' : 'Strategy direction', value: strategyStatusText },
-                  { label: ar ? 'اتجاه المحتوى العضوي' : 'Organic content direction', value: ar ? 'متاح للمراجعة' : 'Available to review' },
-                  { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label },
-                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: ar ? readinessSurface.nextAction.labelAr : readinessSurface.nextAction.label },
+                  { label: strategyScope.paidOnly ? (ar ? 'النطاق العضوي' : 'Organic scope') : (ar ? 'اتجاه المحتوى العضوي' : 'Organic content direction'), value: strategyScope.paidOnly ? (ar ? 'غير مشمول في هذا التوليد' : 'Not included in this run') : (ar ? 'متاح للمراجعة' : 'Available to review') },
+                  { label: ar ? 'التخطيط المدفوع' : 'Paid planning', value: strategyScope.paidOnly ? (ar ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only') : (ar ? readinessSurface.paid.labelAr : readinessSurface.paid.label) },
+                  { label: ar ? 'الإجراء التالي' : 'Next recommended action', value: strategyScope.paidOnly ? (ar ? 'راجع البريف وأكمل شروط الإطلاق' : 'Review brief and complete launch readiness') : (ar ? readinessSurface.nextAction.labelAr : readinessSurface.nextAction.label) },
                 ].map((item) => (
                   <div key={item.label} className="rounded-xl px-3 py-3" style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.06)' }}>
                     <p className="text-[11px] font-semibold" style={{ color: '#94a3b8' }}>{item.label}</p>
@@ -476,11 +504,27 @@ export default function StrategyPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Layers className="w-4 h-4" style={{ color: '#8B5CF6' }} />
                 <h2 className="text-sm font-bold" style={{ color: '#0f172a' }}>
-                  {ar ? 'اتجاه المحتوى العضوي' : 'Organic Content Direction'}
+                  {strategyScope.paidOnly ? (ar ? 'النطاق العضوي' : 'Organic Scope') : (ar ? 'اتجاه المحتوى العضوي' : 'Organic Content Direction')}
                 </h2>
               </div>
 
-              {!hasStrategy || !hasCurrentBrandOrganicData ? (
+              {strategyScope.paidOnly ? (
+                <div className="space-y-3">
+                  <p className="text-sm" style={{ color: '#64748b' }}>
+                    {ar
+                      ? 'غير مشمول في هذا التوليد. هذه الحملة بريف تخطيط مدفوع فقط، ولا تنشئ خطة Content Hub أو منشورات عضوية.'
+                      : 'Not included in this run. This campaign is a paid planning brief only; it does not create a Content Hub plan or organic post directions.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setRunStrategyOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold pt-1"
+                    style={{ color: '#8B5CF6' }}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> {ar ? 'ولّد استراتيجية عضوية أو كاملة بعد مراجعة التكلفة' : 'Generate organic or full strategy after cost review'}
+                  </button>
+                </div>
+              ) : !hasStrategy || !hasCurrentBrandOrganicData ? (
                 <p className="text-sm" style={{ color: '#94a3b8' }}>
                   {strategyBrandMismatch
                     ? (ar
@@ -549,9 +593,13 @@ export default function StrategyPage() {
               </div>
 
               <p className="text-sm" style={{ color: '#94a3b8' }}>
-                {ar
-                  ? 'يبقى التخطيط المدفوع للمراجعة فقط حتى يتم تأكيد الميزانية، مسار التحويل، التتبع، جاهزية الحسابات، والموافقة الصريحة.'
-                  : 'Paid planning stays review-only until budget, conversion path, tracking, account readiness, and explicit approval are confirmed.'}
+                {strategyScope.paidOnly
+                  ? (ar
+                    ? 'هذا هو نطاق الحملة الحالي: بريف تخطيط مدفوع للمراجعة فقط. لا ينشئ منشورات، لا يطلق إعلانات، ولا يصرف ميزانية.'
+                    : 'This is the current campaign scope: a paid planning brief for review only. It creates no posts, launches no ads, and spends no budget.')
+                  : (ar
+                    ? 'يبقى التخطيط المدفوع للمراجعة فقط حتى يتم تأكيد الميزانية، مسار التحويل، التتبع، جاهزية الحسابات، والموافقة الصريحة.'
+                    : 'Paid planning stays review-only until budget, conversion path, tracking, account readiness, and explicit approval are confirmed.')}
               </p>
 
               {/* Approval / no-spend guarantee */}

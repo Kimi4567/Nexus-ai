@@ -161,6 +161,7 @@ export function formatStrategyDeliverableForLocale(item: string, locale: 'ar' | 
     'Creative angle alignment': 'مواءمة الزوايا الإبداعية',
     'Paid campaign plan': 'خطة حملة مدفوعة',
     'Organic content plan': 'خطة محتوى عضوي',
+    'Organic Content Hub content plan': 'خطة Content Hub عضوية',
   }
 
   return translations[item] ?? item
