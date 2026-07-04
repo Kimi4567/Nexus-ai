@@ -39,10 +39,17 @@ describe('Campaign Room strategy truth copy', () => {
   })
 
   it('uses Content Hub post truth for the organic plan readiness card', () => {
-    expect(campaignRoomSource).toContain('value={operatingState.truthFlags.hasContentPlan')
+    expect(campaignRoomSource).toContain('operatingState.truthFlags.hasContentPlan')
     expect(campaignRoomSource).toContain('Available for review in Content Hub')
     expect(campaignRoomSource).toContain('Ready to build a content plan after review')
     expect(campaignRoomSource).not.toContain('Ready for content planning')
+  })
+
+  it('does not describe the pre-content-plan Content Hub action as review', () => {
+    expect(campaignRoomSource).toContain('Open Content Hub to prepare content plan')
+    expect(campaignRoomSource).toContain('افتح Content Hub لتحضير خطة المحتوى')
+    expect(campaignRoomSource).not.toContain('Open Content Hub for review')
+    expect(campaignRoomSource).not.toContain('افتح Content Hub للمراجعة')
   })
 
   it('frames the strategy tab as a decision cockpit rather than a long report', () => {
