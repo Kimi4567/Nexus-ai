@@ -32,6 +32,10 @@ import {
   guardContentDraftText,
   guardContentDraftTruth,
 } from '@/lib/ai/contentDraftTruthGuard'
+import {
+  renderContentPlanDraftCaption,
+  validateContentPlanDraftForSave,
+} from '@/lib/contentPlanStructuredRenderer'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -310,24 +314,12 @@ export async function POST(req: NextRequest, { params }: Params) {
       }
     }
 
-    // ── 6. Clear any existing DRAFT content plan posts ────────────────────
-    // Delete ALL DRAFT posts (not just PENDING/FAILED) so regeneration is clean.
-    // COMPLETED posts with uploaded images would otherwise persist and duplicate.
-    await (prisma.socialPost as any).deleteMany({
-      where: {
-        campaignId: params.id,
-        workspaceId,
-        status: 'DRAFT',
-        publishedAt: null,
-      },
-    })
-
-    // ── 7. Build slot distribution ─────────────────────────────────────────
+    // ── 6. Build slot distribution ─────────────────────────────────────────
     // Use postsPerCampaign (per-run count) instead of the monthly billing quota
     const campaignPostCount = quota.postsPerCampaign ?? 12
     const slots = distributePosts(campaignPostCount, quota.videoSlotsPerMonth, platforms)
 
-    // ── 8. Generate all post content via GPT-4o-mini ─────────────────────
+    // ── 7. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length
       ? contentPillars.slice(0, 5).join(', ')
       : 'brand awareness, engagement, conversion'
@@ -473,7 +465,18 @@ Rules:
       const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
       // Video slots return videoCaption (not caption). Prefer real AI copy; only
       // fall back to language-aware brand copy — never an English placeholder.
-      const caption = guardContentDraftText(
+      const caption = renderContentPlanDraftCaption(gen, {
+        ...proofContext,
+        isArabic,
+        brand: brandName,
+        campaignName,
+        keyMessage,
+        targetAudience,
+        contentPillars,
+        offer,
+        platform: slot.platform,
+        postIndex: i,
+      }) || guardContentDraftText(
         resolvePostCaption(gen, { isArabic, brand: brandName, hint: keyMessage || offer || campaignName }),
         proofContext,
       )
@@ -539,6 +542,41 @@ Rules:
         variantLabel:  (!slot.isVideoPost && enableABTesting) ? 'A' : null,
         variantWinner: false,
       }
+    })
+
+    const saveGateIssues = postsToCreate.flatMap((post, index) =>
+      validateContentPlanDraftForSave({
+        caption: post.caption,
+        imagePrompt: post.imagePrompt ?? '',
+        videoPrompt: post.videoPrompt ?? '',
+      }).issues.map(issue => ({ index: index + 1, ...issue })),
+    )
+
+    if (saveGateIssues.length > 0) {
+      if (contentPlanCharged) {
+        await refundCredits(userId, 'CONTENT_PLAN_GENERATION', 'Unsafe content plan draft blocked before save')
+      }
+      console.error('[generate-content-plan] blocked unsafe content before save', saveGateIssues.slice(0, 8))
+      return NextResponse.json(
+        {
+          error: 'Content plan draft failed safety review before save. Please try again.',
+          reason: 'unsafe_content_plan_draft',
+          refunded: contentPlanCharged,
+          issues: saveGateIssues.slice(0, 8),
+        },
+        { status: 502 },
+      )
+    }
+
+    // Delete existing DRAFT posts only after the new plan has generated and
+    // passed the save gate, so a failed run cannot wipe the current review plan.
+    await (prisma.socialPost as any).deleteMany({
+      where: {
+        campaignId: params.id,
+        workspaceId,
+        status: 'DRAFT',
+        publishedAt: null,
+      },
     })
 
     await (prisma.socialPost as any).createMany({ data: postsToCreate })
@@ -734,7 +772,16 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           }
         })
 
-        if (bVariantsToCreate.length > 0) {
+        const bVariantIssues = bVariantsToCreate.flatMap((post, index) =>
+          validateContentPlanDraftForSave({
+            caption: post.caption,
+            imagePrompt: post.imagePrompt ?? '',
+          }).issues.map(issue => ({ index: index + 1, ...issue })),
+        )
+
+        if (bVariantIssues.length > 0) {
+          console.warn('[generate-content-plan] skipped unsafe B variants before save', bVariantIssues.slice(0, 8))
+        } else if (bVariantsToCreate.length > 0) {
           await (prisma.socialPost as any).createMany({ data: bVariantsToCreate })
           bVariantsCreated = bVariantsToCreate.length
         }
