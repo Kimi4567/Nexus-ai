@@ -36,6 +36,7 @@ import {
   renderContentPlanDraftCaption,
   validateContentPlanDraftForSave,
 } from '@/lib/contentPlanStructuredRenderer'
+import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
 
 // Heavy gpt-4o generation (up to 18 posts) + optional media vision can run well
 // past the platform default. Match the sibling routes (engine, /generate) so the
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       include: {
         workspace: {
           include: {
-            brandProfile: { select: { verifiedProof: true } },
+            brandProfile: { select: { brandName: true, verifiedProof: true } },
           },
         },
       },
@@ -201,7 +202,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
     contentPlanCharged = creditCheck.creditsUsed > 0 // skip refund for unlimited plans
 
-    const brandName    = campaign.workspace?.name ?? 'Brand'
+    const brandName    = resolveContentPlanBrandName(campaign)
     const campaignName = campaign.name ?? 'Campaign'
 
     // FL2: Prefer connected platforms from Integration table over wizard selection.
