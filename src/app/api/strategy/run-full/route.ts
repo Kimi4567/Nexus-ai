@@ -25,6 +25,7 @@ import { getBrandBrainReadiness } from '@/lib/brandReadiness'
 import { getStrategyBriefReadiness } from '@/lib/strategyBriefReadiness'
 import { getRelevantMemories, formatMemoriesForPrompt, saveCampaignMemory } from '@/lib/campaign-memory'
 import { aiRateLimitDb } from '@/lib/dbRateLimit'
+import { getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 
 function isArabicLanguage(language: unknown): boolean {
   return typeof language === 'string' && language.toLowerCase().startsWith('ar')
@@ -335,44 +336,45 @@ export async function POST(req: NextRequest) {
     // the generation is told to produce. Counts/scope come from getStrategyDeliverables
     // — never from the AI. (Custom > 180 was already 422-blocked above, so the contract
     // here is always supported; the unsupported branch returns DO-NOT-GENERATE anyway.)
-    const order = { ...charge.order, goal: charge.order.goal || brandProfile.businessGoal || goalOverride }
+    const safeBrandProfile = getBrandBrainGenerationSafety(brandProfile as any).safeProfile as any
+    const order = { ...charge.order, goal: charge.order.goal || safeBrandProfile.businessGoal || goalOverride }
     const postsPerMonth = tierToPostsPerMonth(freshUser?.subscriptionStatus)
     const deliverables = getStrategyDeliverables(
       order,
       typeof postsPerMonth === 'number' ? { postsPerMonth } : undefined,
     )
 
-    // Build brief from full Brand Brain data -- inject everything
+    // Build brief from Brand Brain data after generation-safety screening.
     const brief = {
-      companyName: brandProfile.brandName ?? 'My Brand',
-      businessType: brandProfile.industry ?? 'General Business',
-      targetAudience: brandProfile.targetAudience ?? 'General audience',
+      companyName: safeBrandProfile.brandName ?? 'My Brand',
+      businessType: safeBrandProfile.industry ?? 'General Business',
+      targetAudience: safeBrandProfile.targetAudience ?? 'General audience',
       // Internal numeric compatibility only. The strategist prompt gets the
       // real user-provided budget from Brand Brain readiness context. Missing
       // budget must stay "Not provided" and must never become a default spend.
       monthlyBudget: 0,
-      primaryGoal: brandProfile.businessGoal || goalOverride,
+      primaryGoal: safeBrandProfile.businessGoal || goalOverride,
       // Extended brand brain fields
-      competitors: brandProfile.competitorNotes || undefined,
-      region: brandProfile.audienceLocation || undefined,
-      uniqueValue: brandProfile.uniqueAdvantages?.length
-        ? brandProfile.uniqueAdvantages.join(', ')
+      competitors: safeBrandProfile.competitorNotes || undefined,
+      region: safeBrandProfile.audienceLocation || undefined,
+      uniqueValue: safeBrandProfile.uniqueAdvantages?.length
+        ? safeBrandProfile.uniqueAdvantages.join(', ')
         : undefined,
-      avoidWords: brandProfile.avoidKeywords?.length
-        ? brandProfile.avoidKeywords.join(', ')
+      avoidWords: safeBrandProfile.avoidKeywords?.length
+        ? safeBrandProfile.avoidKeywords.join(', ')
         : undefined,
-      writingStyle: brandProfile.writingStyle || undefined,
-      pricePoint: brandProfile.pricePoint || undefined,
-      painPoints: brandProfile.audiencePainPoints?.length
-        ? brandProfile.audiencePainPoints.join(', ')
+      writingStyle: safeBrandProfile.writingStyle || undefined,
+      pricePoint: safeBrandProfile.pricePoint || undefined,
+      painPoints: safeBrandProfile.audiencePainPoints?.length
+        ? safeBrandProfile.audiencePainPoints.join(', ')
         : undefined,
-      desires: brandProfile.audienceDesires?.length
-        ? brandProfile.audienceDesires.join(', ')
+      desires: safeBrandProfile.audienceDesires?.length
+        ? safeBrandProfile.audienceDesires.join(', ')
         : undefined,
-      primaryOffer: brandProfile.primaryOffer || undefined,
-      currentPlatforms: brandProfile.topPlatforms?.length ? brandProfile.topPlatforms : undefined,
-      winningHooks: brandProfile.winningHooks?.length
-        ? brandProfile.winningHooks.slice(0, 3).join(' | ')
+      primaryOffer: safeBrandProfile.primaryOffer || undefined,
+      currentPlatforms: safeBrandProfile.topPlatforms?.length ? safeBrandProfile.topPlatforms : undefined,
+      winningHooks: safeBrandProfile.winningHooks?.length
+        ? safeBrandProfile.winningHooks.slice(0, 3).join(' | ')
         : undefined,
       // Language preference -- drives AI output language
       language,
