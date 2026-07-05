@@ -57,6 +57,47 @@ describe('contentDraftTruthGuard', () => {
     expect(out.toLowerCase()).not.toContain('perfect choice')
   })
 
+  it('grounds Arabic healthcare SaaS draft claims from operational QA', () => {
+    const appointment = guardContentDraftText(
+      'ClinicFlow AI هو الحل الأمثل لتنظيم المواعيد بشكل يضمن كفاءة وفعالية أكبر.',
+    )
+    expect(appointment).toContain('خيار عملي لتنظيم المواعيد')
+    expect(appointment).toContain('وضوحًا أكبر في العمل اليومي')
+    expect(appointment).not.toContain('الحل الأمثل')
+    expect(appointment).not.toContain('يضمن')
+
+    const operations = guardContentDraftText(
+      'تحقيق النجاح يبدأ بتحسين العمليات وزيادة كفاءة فريقك.',
+    )
+    expect(operations).toContain('تحسين العمليات يبدأ بمراجعة خطوات العمل اليومية')
+    expect(operations).toContain('مساعدة فريقك على متابعة المهام بوضوح')
+    expect(operations).not.toContain('تحقيق النجاح')
+    expect(operations).not.toContain('زيادة كفاءة فريقك')
+
+    const care = guardContentDraftText(
+      'تحسين تجربتك مع المرضى يساعد على توفير رعاية صحية متميزة. ابدأ الآن!',
+    )
+    expect(care).toContain('تنظيم متابعة المرضى إداريًا')
+    expect(care).toContain('تنظيم تجربة إدارية أوضح حول مواعيد المرضى')
+    expect(care).not.toContain('تحسين تجربتك مع المرضى')
+    expect(care).not.toContain('رعاية صحية متميزة')
+  })
+
+  it('softens healthcare SaaS hype without changing safe operational Arabic', () => {
+    const hype = guardContentDraftText(
+      'يغير منظورك لإدارة العيادات. حلول ذكية تساعدك على إدارة عيادتك بشكل أكثر احترافية.',
+    )
+    expect(hype).toContain('يساعدك على مراجعة طريقة إدارة العيادة')
+    expect(hype).toContain('أدوات عملية')
+    expect(hype).toContain('إدارة عيادتك بخطوات أكثر تنظيمًا')
+    expect(hype).not.toContain('يغير منظورك')
+    expect(hype).not.toContain('حلول ذكية')
+    expect(hype).not.toContain('أكثر احترافية')
+
+    const safe = 'راجع مواعيد اليوم ورتّب مهام الفريق قبل بداية العيادة.'
+    expect(guardContentDraftText(safe)).toBe(safe)
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 
