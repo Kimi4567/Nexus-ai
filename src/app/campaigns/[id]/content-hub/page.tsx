@@ -267,6 +267,8 @@ export default function ContentHubPage() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'DONE' | 'SCHEDULED' | 'PUBLISHED'>('ALL')
   const [showBulkImageConfirm, setShowBulkImageConfirm] = useState(false)
   const [bulkImageAcknowledged, setBulkImageAcknowledged] = useState(false)
+  const [showGeneratePlanConfirm, setShowGeneratePlanConfirm] = useState(false)
+  const [generatePlanAcknowledged, setGeneratePlanAcknowledged] = useState(false)
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
   const [regenerateAcknowledged, setRegenerateAcknowledged] = useState(false)
   const [rewriteConfirm, setRewriteConfirm] = useState<{ postId: string; instruction: string } | null>(null)
@@ -473,6 +475,37 @@ export default function ContentHubPage() {
   const contentPlanAutopilotDisclosure = isAr
     ? 'لا يتم تفعيل الأوتوبايلوت.'
     : 'Autopilot is not activated.'
+  const firstPlanHeaderSubtitle = isAr
+    ? 'حوّل الاستراتيجية الحالية إلى مسودات منشورات قابلة للمراجعة. لا يتم الاعتماد أو الجدولة أو النشر من هذه الخطوة.'
+    : 'Turn the current strategy into reviewable draft posts. Nothing is approved, scheduled, or published from this step.'
+  const preContentTitle = isAr ? 'خطة المحتوى لم تبدأ بعد' : 'Content planning has not started yet'
+  const preContentBody = isAr
+    ? 'هذه الحملة لديها استراتيجية، لكن مركز المحتوى لا يحتوي منشورات بعد. راجع جودة الاستراتيجية أولاً إذا كانت الرسائل أو العروض أو المنصات غير نهائية، ثم أنشئ مسودات المحتوى للمراجعة.'
+    : 'This campaign has a strategy, but Content Hub does not have posts yet. Review strategy quality first if positioning, offers, or platforms are not final, then create draft content for review.'
+  const preContentChecks = isAr
+    ? [
+      'الاستراتيجية هي مصدر الاتجاه، وليست منشورات جاهزة للنشر.',
+      'خطة المحتوى تنشئ مسودات فقط للمراجعة والتحرير.',
+      'الاعتماد والجدولة والنشر وتوليد الصور خطوات منفصلة لاحقاً.',
+    ]
+    : [
+      'The strategy is the direction source, not publish-ready posts.',
+      'The content plan creates draft posts only for review and editing.',
+      'Approval, scheduling, publishing, and image generation remain separate later steps.',
+    ]
+  const preContentStrategyCta = isAr ? 'مراجعة الاستراتيجية أولاً' : 'Review strategy first'
+  const preContentGenerateCta = contentPlanLocked ? addCreditsForDraftPlanLabel : draftPlanLabel
+  const generatePlanConfirmTitle = isAr ? 'تأكيد إنشاء خطة محتوى مسودة' : 'Confirm draft content plan generation'
+  const generatePlanConfirmBody = isAr
+    ? `سيستخدم NEXUS الاستراتيجية الحالية لإنشاء مسودات منشورات للمراجعة فقط. التكلفة ${contentPlanCostLabel}.`
+    : `NEXUS will use the current strategy to create draft posts for review only. Cost: ${contentPlanCostLabel}.`
+  const generatePlanConfirmSafety = isAr
+    ? 'لن يتم اعتماد أو جدولة أو نشر أي منشور. لن يتم توليد صور، ولن يتم تفعيل الأوتوبايلوت أو تحديث Brand Brain كنتيجة أداء.'
+    : 'No post will be approved, scheduled, or published. No images are generated, Autopilot is not activated, and Brand Brain is not updated as performance learning.'
+  const generatePlanAcknowledgeLabel = isAr
+    ? 'أفهم أن هذا ينشئ مسودات محتوى فقط للمراجعة ويصرف الرصيد الموضح.'
+    : 'I understand this creates draft content only for review and spends the shown credits.'
+  const generatePlanFinalCta = isAr ? 'تأكيد إنشاء المسودات' : 'Confirm draft generation'
   const creditBalanceLabel = billingLoading
     ? (isAr ? 'جارٍ تحديث الرصيد' : 'Checking credit balance')
     : isUnlimited
@@ -547,6 +580,24 @@ export default function ContentHubPage() {
     } finally {
       setGeneratingPlan(false)
     }
+  }
+
+  function openGeneratePlanConfirm() {
+    setGeneratePlanAcknowledged(false)
+    setShowGeneratePlanConfirm(true)
+  }
+
+  function closeGeneratePlanConfirm() {
+    if (generatingPlan) return
+    setGeneratePlanAcknowledged(false)
+    setShowGeneratePlanConfirm(false)
+  }
+
+  async function confirmGeneratePlan() {
+    if (!generatePlanAcknowledged) return
+    setShowGeneratePlanConfirm(false)
+    setGeneratePlanAcknowledged(false)
+    await generatePlan()
   }
 
   function openRegenerateConfirm() {
@@ -1108,7 +1159,7 @@ export default function ContentHubPage() {
                 </div>
               </>
             ) : (
-              <p className="text-sm text-slate-500 mt-0.5">{t('contentHub.generatePrompt')}</p>
+              <p className="text-sm text-slate-500 mt-0.5 max-w-2xl">{firstPlanHeaderSubtitle}</p>
             )}
           </div>
 
@@ -1243,7 +1294,7 @@ export default function ContentHubPage() {
                 </button>
                 <div className="flex max-w-sm flex-col items-start gap-1 sm:items-end">
                   <button
-                    onClick={contentPlanLocked ? () => router.push('/billing') : () => generatePlan()}
+                    onClick={contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
                     disabled={generatingPlan}
                     className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                     style={{
@@ -1404,15 +1455,59 @@ export default function ContentHubPage() {
 
         {/* ── Empty state ───────────────────────────────────────────── */}
         {posts.length === 0 && !generatingPlan && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
-              style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)' }}>
-              📅
+          <div className="py-6">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-800">
+                    <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+                    {isAr ? 'مرحلة ما قبل المحتوى' : 'Pre-content planning stage'}
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-950">{preContentTitle}</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{preContentBody}</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/campaigns/${campaignId}?tab=strategy`)}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-violet-200 hover:text-violet-700"
+                  >
+                    {preContentStrategyCta}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
+                    disabled={generatingPlan}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-60"
+                    style={{
+                      background: contentPlanLocked ? '#B91C1C' : '#111827',
+                    }}
+                  >
+                    {contentPlanLocked ? addCreditsForDraftPlanLabel : preContentGenerateCta}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {preContentChecks.map((item, index) => (
+                  <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-bold text-slate-700 ring-1 ring-slate-200">
+                      {index + 1}
+                    </div>
+                    <p className="text-sm leading-relaxed text-slate-700">{item}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-900">
+                  {isAr ? 'حارس الرصيد والتشغيل' : 'Credit and execution guard'}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-amber-900/80">
+                  {contentPlanRequirementDisclosure} {contentPlanDisclosure} {contentPlanAutopilotDisclosure} {creditBalanceLabel}.
+                </p>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold text-slate-950 mb-2">{t('contentHub.emptyTitle')}</h3>
-            <p className="text-sm text-slate-500 max-w-sm mx-auto mb-6">
-              {t('contentHub.emptyDesc')}
-            </p>
           </div>
         )}
 
@@ -2070,6 +2165,48 @@ export default function ContentHubPage() {
                     {generatingImageId
                       ? (isAr ? 'جارٍ التوليد...' : 'Generating...')
                       : (isAr ? `تأكيد توليد الصورة — ${CONTENT_HUB_IMAGE_COST} كريديت` : `Confirm image generation — ${CONTENT_HUB_IMAGE_COST} credits`)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showGeneratePlanConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.30)', backdropFilter: 'blur(10px)' }} onClick={closeGeneratePlanConfirm}>
+            <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid rgba(15,23,42,0.10)' }} onClick={e => e.stopPropagation()}>
+              <div className="p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-950">{generatePlanConfirmTitle}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{generatePlanConfirmBody}</p>
+                  </div>
+                  <button onClick={closeGeneratePlanConfirm} disabled={generatingPlan} className="text-xl leading-none text-slate-400 hover:text-slate-700 disabled:opacity-40">×</button>
+                </div>
+                <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                  <p>{generatePlanConfirmSafety}</p>
+                  <p>{isAr ? 'يمكنك مراجعة المسودات وتحريرها قبل أي خطوة اعتماد أو جدولة.' : 'You can review and edit the drafts before any approval or scheduling step.'}</p>
+                  <p>{creditBalanceLabel}</p>
+                </div>
+                <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                  <input
+                    type="checkbox"
+                    checked={generatePlanAcknowledged}
+                    onChange={e => setGeneratePlanAcknowledged(e.target.checked)}
+                    disabled={generatingPlan}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#4F46E5] focus:ring-[#4F46E5]"
+                  />
+                  <span className="text-xs font-semibold text-slate-800">{generatePlanAcknowledgeLabel}</span>
+                </label>
+                <div className="mt-4 flex justify-end gap-2">
+                  <button onClick={closeGeneratePlanConfirm} disabled={generatingPlan} className="rounded-xl px-4 py-2 text-sm text-slate-500 hover:text-slate-950">{t('contentHub.cancel')}</button>
+                  <button
+                    onClick={confirmGeneratePlan}
+                    disabled={generatingPlan || !generatePlanAcknowledged}
+                    className="rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed"
+                    style={{ background: '#111827', opacity: generatingPlan || !generatePlanAcknowledged ? 0.45 : 1 }}
+                  >
+                    {generatingPlan ? t('contentHub.buildingPlanShort') : generatePlanFinalCta}
                   </button>
                 </div>
               </div>
