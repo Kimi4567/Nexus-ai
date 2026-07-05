@@ -34,6 +34,7 @@ import {
 } from '@/lib/ai/contentDraftTruthGuard'
 import {
   renderContentPlanDraftCaption,
+  renderContentPlanDraftImagePrompt,
   validateContentPlanDraftForSave,
 } from '@/lib/contentPlanStructuredRenderer'
 import { resolveContentPlanBrandName } from '@/lib/contentPlanBrandContext'
@@ -481,7 +482,18 @@ Rules:
         resolvePostCaption(gen, { isArabic, brand: brandName, hint: keyMessage || offer || campaignName }),
         proofContext,
       )
-      const imagePrompt = guardContentDraftText(gen.imagePrompt ?? '', proofContext)
+      const imagePrompt = renderContentPlanDraftImagePrompt(gen, {
+        ...proofContext,
+        isArabic,
+        brand: brandName,
+        campaignName,
+        keyMessage,
+        targetAudience,
+        contentPillars,
+        offer,
+        platform: slot.platform,
+        postIndex: i,
+      })
       const videoPrompt = guardContentDraftText(gen.videoScript ?? gen.videoCaption ?? '', proofContext)
       const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
 
@@ -739,7 +751,18 @@ ${imageSlotsWithAB.map(({ slot, i }) => JSON.stringify({
           const gen = generatedPosts[i] ?? generatedPosts.find((g: any) => g.index === slot.index) ?? {}
           const bGen = bPosts[bIdx] ?? bPosts.find((b: any) => b.index === i) ?? {}
           const caption = guardContentDraftText(bGen.caption ?? gen.caption ?? `B Variant Post ${i + 1}`, proofContext)
-          const imagePrompt = guardContentDraftText(gen.imagePrompt ?? '', proofContext) // reuse same image prompt for B
+          const imagePrompt = renderContentPlanDraftImagePrompt(gen, {
+            ...proofContext,
+            isArabic,
+            brand: brandName,
+            campaignName,
+            keyMessage,
+            targetAudience,
+            contentPillars,
+            offer,
+            platform: slot.platform,
+            postIndex: i,
+          }) // reuse the same safe image prompt for B
 
           const dayOffset = Math.max(1, Math.min(30, gen.scheduledDayOffset ?? i + 1))
           const scheduledAt = new Date(now)
