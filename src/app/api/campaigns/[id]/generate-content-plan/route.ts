@@ -415,7 +415,7 @@ Rules:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMsg },
       ],
-      temperature: 0.8,
+      temperature: 0.45,
       response_format: { type: 'json_object' },
     })
 

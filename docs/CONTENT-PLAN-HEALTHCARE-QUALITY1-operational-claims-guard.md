@@ -66,6 +66,21 @@ A third controlled regeneration exposed broader escape hatches:
 
 The guard now treats clinic efficiency, patient satisfaction, and digital-transformation wording as claims that must be grounded into operational review language unless proof exists.
 
+## Fourth Regeneration Finding
+
+A fourth controlled regeneration still produced broader unsupported benefit language:
+
+- `تحسين كفاءة العيادة`
+- `تحسين متابعة المرضى`
+- `توفير الوقت`
+- `تواصل فعال وسهل`
+- `تحسين الخدمة`
+- `حقق نتائج أفضل`
+- `لكفاءة أكبر`
+- `تجربة أكثر تنظيماً وكفاءة`
+
+The guard now broadens clinic SaaS replacements for time-saving, service-improvement, better-results, effectiveness, and communication claims. Content-plan generation temperature was also lowered to reduce decorative/hype phrasing and keep drafts closer to operational review language.
+
 ## Boundary
 
 This PR does not mutate existing SocialPost rows or campaign output. Existing generated drafts remain unchanged until a future controlled regeneration or manual rewrite runs through the updated guard.

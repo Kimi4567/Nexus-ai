@@ -170,6 +170,32 @@ describe('contentDraftTruthGuard', () => {
     expect(copy).not.toContain('تحسين رضا المرضى')
   })
 
+  it('grounds current clinic draft escape hatches for time, results, service, and communication claims', () => {
+    const copy = guardContentDraftText(
+      'ClinicFlow AI يساعدك في تنظيم المواعيد وتحسين كفاءة العيادة. تعرف على كيفية تحسين متابعة المرضى. توفير الوقت وزيادة وضوح سير العمل هما في متناول يديك. تواصل فعال وسهل مع مرضاك لتحسين الخدمة. نظم فريقك وحقق نتائج أفضل اليوم! لكفاءة أكبر وتوفير للوقت. احصل على تجربة أكثر تنظيماً وكفاءة. الحلول العملية لتحقيق التوازن في عيادتك. #تواصل_فعال #فعالية',
+    )
+
+    expect(copy).toContain('تنظيم عمل العيادة بوضوح')
+    expect(copy).toContain('تنظيم متابعة المرضى إداريًا')
+    expect(copy).toContain('تنظيم الوقت الإداري')
+    expect(copy).toContain('يمكن مراجعتها خطوة بخطوة')
+    expect(copy).toContain('تواصل إداري أوضح')
+    expect(copy).toContain('مراجعة الخدمة الإدارية')
+    expect(copy).toContain('راجع نتائج العمل لاحقًا')
+    expect(copy).toContain('وضوح أكبر في سير العمل')
+    expect(copy).toContain('تجربة إدارية أكثر تنظيمًا ووضوحًا')
+    expect(copy).toContain('الحلول العملية لمراجعة توزيع المهام داخل العيادة')
+    expect(copy).toContain('#تواصل_إداري')
+    expect(copy).toContain('#تنظيم_العمل')
+    expect(copy).not.toContain('تحسين كفاءة')
+    expect(copy).not.toContain('تحسين متابعة المرضى')
+    expect(copy).not.toContain('توفير الوقت')
+    expect(copy).not.toContain('تواصل فعال')
+    expect(copy).not.toContain('تحسين الخدمة')
+    expect(copy).not.toContain('نتائج أفضل')
+    expect(copy).not.toContain('#فعالية')
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 
