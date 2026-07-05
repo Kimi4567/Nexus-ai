@@ -41,6 +41,19 @@ After the first guard deployed, one controlled regeneration improved the origina
 
 The guard now also softens these phrases into review-safe operational language about clearer appointment organization, administrative patient experience, workflow visibility, and practical features.
 
+## Second Regeneration Finding
+
+A second controlled regeneration removed the previous phrases, but still produced softer patient-outcome and growth-adjacent wording:
+
+- `تحسين تجربة مرضاك`
+- `يعزز ... تنظيم عملك الطبي`
+- `يعزز ... وضوح العمليات`
+- `تحسين الكفاءة التشغيلية`
+- `نمو عيادتك العضوي`
+- `#رعاية_المرضى`
+
+The guard now treats these as review-risk phrases for clinic SaaS unless proof exists, and replaces them with administrative patient-experience, workflow visibility, task review, and follow-up language.
+
 ## Boundary
 
 This PR does not mutate existing SocialPost rows or campaign output. Existing generated drafts remain unchanged until a future controlled regeneration or manual rewrite runs through the updated guard.
