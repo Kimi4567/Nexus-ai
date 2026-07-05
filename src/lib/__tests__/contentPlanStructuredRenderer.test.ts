@@ -76,6 +76,8 @@ describe('contentPlanStructuredRenderer', () => {
     expect(new Set(captions).size).toBe(8)
     expect(captions.join('\n')).toContain('فريق الاستقبال')
     expect(captions.join('\n')).toContain('العربية والإنجليزية')
+    expect(captions.join('\n')).not.toContain('تنظيم تنظيم')
+    expect(captions.join('\n')).not.toContain('اجتماع الفريق أقصر')
     expect(captions.join('\n')).not.toContain('تحسين كفاءة')
     expect(captions.join('\n')).not.toContain('رضا')
     expect(captions.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
