@@ -98,6 +98,33 @@ describe('contentDraftTruthGuard', () => {
     expect(guardContentDraftText(safe)).toBe(safe)
   })
 
+  it('grounds regenerated clinic SaaS draft copy that still implies guarantees or patient satisfaction', () => {
+    const post = guardContentDraftText(
+      'تنظيم المواعيد في العيادات لم يكن أبداً بهذه السهولة! مع ClinicFlow AI، يمكنك ضمان مواعيد منظمة ومرضى راضين. تعرف على الحلول الذكية التي نقدمها لتحسين عملك.',
+    )
+
+    expect(post).toContain('يمكن تنظيمه بخطوات أوضح')
+    expect(post).toContain('تنظيم المواعيد ومراجعة تجربة المرضى الإدارية بوضوح')
+    expect(post).toContain('الأدوات العملية')
+    expect(post).not.toContain('لم يكن أبداً بهذه السهولة')
+    expect(post).not.toContain('ضمان')
+    expect(post).not.toContain('مرضى راضين')
+    expect(post).not.toContain('الحلول الذكية')
+  })
+
+  it('softens broad Arabic clinic efficiency and innovation wording', () => {
+    const text = guardContentDraftText(
+      'نحن نقدم لك الأدوات اللازمة لتعزيز وضوح العمليات وزيادة الكفاءة. شاهد كيف يمكن للتكنولوجيا أن تعزز الكفاءة وتوضح العمليات. اكتشف الابتكارات التي نقدمها.',
+    )
+
+    expect(text).toContain('زيادة وضوح سير العمل')
+    expect(text).toContain('توضح سير العمل')
+    expect(text).toContain('الميزات العملية التي نقدمها')
+    expect(text).not.toContain('زيادة الكفاءة')
+    expect(text).not.toContain('تعزز الكفاءة')
+    expect(text).not.toContain('الابتكارات التي نقدمها')
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 

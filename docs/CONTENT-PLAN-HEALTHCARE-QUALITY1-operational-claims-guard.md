@@ -29,6 +29,18 @@ Unsafe broad claims are replaced with grounded operational wording, such as:
 
 The prompt policy also instructs content-plan generation to avoid patient outcome, care-quality, guarantee, or transformation claims unless exact verified proof exists.
 
+## Follow-up Regeneration Finding
+
+After the first guard deployed, one controlled regeneration improved the original blocker but still produced broad operational/patient-satisfaction wording:
+
+- `لم يكن أبداً بهذه السهولة`
+- `ضمان مواعيد منظمة ومرضى راضين`
+- `الحلول الذكية`
+- `تعزز الكفاءة`
+- `الابتكارات التي نقدمها`
+
+The guard now also softens these phrases into review-safe operational language about clearer appointment organization, administrative patient experience, workflow visibility, and practical features.
+
 ## Boundary
 
 This PR does not mutate existing SocialPost rows or campaign output. Existing generated drafts remain unchanged until a future controlled regeneration or manual rewrite runs through the updated guard.
