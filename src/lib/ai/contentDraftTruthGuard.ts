@@ -229,6 +229,7 @@ function guardOperationalSaasAndHealthcareClaims(text: string): string {
     .replace(/توفير رعاية صحية متميزة/g, 'تنظيم تجربة إدارية أوضح حول مواعيد المرضى')
     .replace(/رعاية صحية متميزة/g, 'تجربة إدارية أوضح للعيادة')
     .replace(/تحسين تجربتك مع المرضى/g, 'تنظيم متابعة المرضى إداريًا')
+    .replace(/تحسين متابعة المرضى/g, 'تنظيم متابعة المرضى إداريًا')
     .replace(/تحسين تجربة مرضاك/g, 'تنظيم تجربة المرضى الإدارية')
     .replace(/تحسين تجربة المرضى/g, 'تنظيم تجربة المرضى الإدارية')
     .replace(/تحسين رضا المرضى/g, 'تنظيم تجربة المرضى الإدارية')
@@ -248,6 +249,24 @@ function guardOperationalSaasAndHealthcareClaims(text: string): string {
     .replace(/تحسين الكفاءة التشغيلية/g, 'زيادة وضوح سير العمل التشغيلي')
     .replace(/الكفاءة التشغيلية/g, 'وضوح سير العمل التشغيلي')
     .replace(/تحسين عملك الطبي/g, 'تنظيم العمل الإداري للعيادة')
+    .replace(/تحسين خدماتك/g, 'مراجعة خطوات الخدمة الإدارية')
+    .replace(/تحسين الخدمة/g, 'مراجعة الخدمة الإدارية')
+    .replace(/توفير الوقت/g, 'تنظيم الوقت الإداري')
+    .replace(/توفير للوقت/g, 'تنظيم الوقت الإداري')
+    .replace(/هما في متناول يديك/g, 'يمكن مراجعتها خطوة بخطوة')
+    .replace(/حقق نتائج أفضل اليوم/g, 'راجع نتائج العمل لاحقًا')
+    .replace(/نتائج أفضل/g, 'نتائج عمل قابلة للمراجعة')
+    .replace(/لكفاءة أكبر/g, 'لوضوح أكبر في سير العمل')
+    .replace(/كفاءة أكبر/g, 'وضوح أكبر في سير العمل')
+    .replace(/تجربة أكثر تنظيماً وكفاءة/g, 'تجربة إدارية أكثر تنظيمًا ووضوحًا')
+    .replace(/تجربة أكثر تنظيمًا وكفاءة/g, 'تجربة إدارية أكثر تنظيمًا ووضوحًا')
+    .replace(/تواصل فعال وسهل/g, 'تواصل إداري أوضح')
+    .replace(/تواصل فعال/g, 'تواصل إداري واضح')
+    .replace(/فعال وسهل/g, 'واضح ومنظم')
+    .replace(/#تواصل_فعال/g, '#تواصل_إداري')
+    .replace(/#فعالية/g, '#تنظيم_العمل')
+    .replace(/تحقيق التوازن في عيادتك/g, 'مراجعة توزيع المهام داخل العيادة')
+    .replace(/الحلول العملية لتحقيق التوازن في عيادتك/g, 'أدوات عملية لمراجعة توزيع المهام داخل العيادة')
     .replace(/تعزز الكفاءة/g, 'توضح سير العمل')
     .replace(/يعزز\s+(?:#?\w+\s+)?تنظيم عملك الطبي/g, 'يساعد على توضيح العمل الإداري للعيادة')
     .replace(/يعزز\s+(?:#?\w+\s+)?وضوح العمليات في العيادات/g, 'يساعد على عرض العمليات اليومية في العيادات بوضوح')
@@ -546,6 +565,7 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',
     '- For healthcare, clinic, medical, patient, or appointment-management SaaS content, avoid patient outcome, care-quality, guarantee, or broad transformation claims such as ultimate solution, key to success, game-changer, premium care, excellent healthcare, الحل الأمثل, مفتاح النجاح, يغير منظورك, رعاية صحية متميزة, or تجربة مرضى متميزة unless exact verified proof exists.',
     '- For healthcare/clinic SaaS, use operational language instead: appointment organization, administrative follow-up, clearer team tasks, reviewable workflows, and proof gaps to collect. Do not imply medical results or improved care quality from the software.',
+    '- For healthcare/clinic SaaS, avoid broad efficiency, time-saving, patient-satisfaction, service-improvement, digital-transformation, and better-results claims unless verified proof exists. Use administrative workflow visibility, reviewable follow-up, and task organization language instead.',
     '- Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof.',
     '- For office coffee content, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks, not productivity or performance outcomes.',
     '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
