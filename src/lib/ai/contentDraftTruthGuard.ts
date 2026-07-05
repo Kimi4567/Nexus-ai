@@ -200,6 +200,53 @@ function guardBroadQualityClaims(text: string): string {
     .replace(/\bunmatched flavor\b/gi, 'balanced flavor')
 }
 
+function guardOperationalSaasAndHealthcareClaims(text: string): string {
+  return text
+    .replace(/الحل الأمثل لتنظيم المواعيد/g, 'خيار عملي لتنظيم المواعيد')
+    .replace(/الحل الأمثل لإدارة العيادات/g, 'خيار عملي لإدارة العيادات')
+    .replace(/الحل الأمثل/g, 'خيار عملي')
+    .replace(/بشكل يضمن/g, 'بطريقة تساعد على')
+    .replace(/(?:^|[\s،.])يضمن\s+(?:كفاءة|فعالية|تحسين|نتائج|تجربة|رعاية)/g, match =>
+      match.replace(/يضمن/, 'يساعد على تنظيم'),
+    )
+    .replace(/مفتاح النجاح/g, 'جزء من تنظيم العمل')
+    .replace(/تحقيق النجاح يبدأ بتحسين العمليات/g, 'تحسين العمليات يبدأ بمراجعة خطوات العمل اليومية')
+    .replace(/تحقيق النجاح/g, 'متابعة مؤشرات العمل')
+    .replace(/يغير منظورك لإدارة العيادات/g, 'يساعدك على مراجعة طريقة إدارة العيادة')
+    .replace(/يغير منظورك/g, 'يساعدك على مراجعة طريقة العمل')
+    .replace(/حلول ذكية لإدارة العيادات/g, 'أدوات عملية لإدارة العيادات')
+    .replace(/حلول ذكية/g, 'أدوات عملية')
+    .replace(/حلول بسيطة لتنظيم العمل اليومي/g, 'خطوات عملية لتنظيم العمل اليومي')
+    .replace(/إدارة عيادتك بشكل أكثر احترافية/g, 'إدارة عيادتك بخطوات أكثر تنظيمًا')
+    .replace(/بشكل أكثر احترافية/g, 'بخطوات أكثر تنظيمًا')
+    .replace(/توفير رعاية صحية متميزة/g, 'تنظيم تجربة إدارية أوضح حول مواعيد المرضى')
+    .replace(/رعاية صحية متميزة/g, 'تجربة إدارية أوضح للعيادة')
+    .replace(/تحسين تجربتك مع المرضى/g, 'تنظيم متابعة المرضى إداريًا')
+    .replace(/تحسين تجربة المرضى/g, 'تنظيم تجربة المرضى الإدارية')
+    .replace(/تجربة مرضى متميزة/g, 'تجربة إدارية أكثر وضوحًا للمرضى')
+    .replace(/تجربة متميزة للمرضى/g, 'تجربة إدارية أكثر وضوحًا للمرضى')
+    .replace(/كفاءة وفعالية أكبر/g, 'وضوحًا أكبر في العمل اليومي')
+    .replace(/زيادة كفاءة فريقك/g, 'مساعدة فريقك على متابعة المهام بوضوح')
+    .replace(/زيادة كفاءة الفريق/g, 'مساعدة الفريق على متابعة المهام بوضوح')
+    .replace(/تزيد كفاءة الفريق/g, 'تساعد الفريق على متابعة المهام بوضوح')
+    .replace(/كفاءة أكبر للفريق/g, 'وضوح أكبر في مهام الفريق')
+    .replace(/تُحسن من متابعة المرضى/g, 'تساعد على تنظيم متابعة المرضى إداريًا')
+    .replace(/تحسن من متابعة المرضى/g, 'تساعد على تنظيم متابعة المرضى إداريًا')
+    .replace(/\bthe ultimate solution for appointment management\b/gi, 'a practical option for appointment management')
+    .replace(/\bthe ultimate solution\b/gi, 'a practical option')
+    .replace(/\bguarantees? greater efficiency and effectiveness\b/gi, 'can support clearer daily workflows')
+    .replace(/\bsuccess starts with improving operations\b/gi, 'operations improve when daily workflows are reviewed')
+    .replace(/\bkey to success\b/gi, 'part of a clearer operating workflow')
+    .replace(/\bgame[-\s]?changer for clinic management\b/gi, 'practical workflow support for clinic management')
+    .replace(/\btransform(?:s)? your clinic management\b/gi, 'helps review clinic management workflows')
+    .replace(/\bsmart solutions for clinic management\b/gi, 'practical tools for clinic management')
+    .replace(/\bmore professional clinic management\b/gi, 'more organized clinic management workflows')
+    .replace(/\bimprove patient experience\b/gi, 'organize the administrative patient experience')
+    .replace(/\bimproves patient follow[-\s]?up\b/gi, 'helps organize patient follow-up workflows')
+    .replace(/\bpremium patient care\b/gi, 'clearer administrative patient workflows')
+    .replace(/\bexcellent healthcare\b/gi, 'clearer clinic workflows')
+}
+
 function softenAbsoluteClaims(text: string): string {
   return text
     .replace(/\bSupport more reliable team planning has access to great coffee\b/gi, 'Help teams plan better office coffee routines')
@@ -400,8 +447,10 @@ export function guardContentDraftText(
           guardFitClaims(
             guardArabicGeneralPerfectionClaims(
               guardBroadQualityClaims(
-                softenAbsoluteClaims(
-                  guardProofClaims(text, context),
+                guardOperationalSaasAndHealthcareClaims(
+                  softenAbsoluteClaims(
+                    guardProofClaims(text, context),
+                  ),
                 ),
               ),
             ),
@@ -447,6 +496,8 @@ export function buildContentDraftTruthPolicyPrompt(): string {
     '- Do not invent testimonials, customer stories, reviews, awards, case studies, guarantees, or performance proof.',
     '- If proof is missing, ask for feedback, collect proof, or mention proof gaps as future work.',
     '- Do not invent ad spend, ROAS, CAC, paid launch, or budget allocation assumptions.',
+    '- For healthcare, clinic, medical, patient, or appointment-management SaaS content, avoid patient outcome, care-quality, guarantee, or broad transformation claims such as ultimate solution, key to success, game-changer, premium care, excellent healthcare, الحل الأمثل, مفتاح النجاح, يغير منظورك, رعاية صحية متميزة, or تجربة مرضى متميزة unless exact verified proof exists.',
+    '- For healthcare/clinic SaaS, use operational language instead: appointment organization, administrative follow-up, clearer team tasks, reviewable workflows, and proof gaps to collect. Do not imply medical results or improved care quality from the software.',
     '- Do not claim coffee improves productivity, morale, focus, energy, team performance, workplace output, or business results unless the user provided verified proof.',
     '- For office coffee content, frame benefits as easier planning, more consistent coffee routines, and more enjoyable breaks, not productivity or performance outcomes.',
     '- Arabic output must avoid إنتاجية, معنويات, طاقة, تركيز, and أداء as performance promises unless user-provided proof exists.',
