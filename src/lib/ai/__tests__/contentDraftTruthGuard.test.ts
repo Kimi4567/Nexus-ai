@@ -125,6 +125,34 @@ describe('contentDraftTruthGuard', () => {
     expect(text).not.toContain('الابتكارات التي نقدمها')
   })
 
+  it('removes patient-experience, clinic-growth, and broad operational-efficiency claims from clinic drafts', () => {
+    const patient = guardContentDraftText(
+      'تعرّف على كيف يمكنك تحسين تجربة مرضاك اليوم! #رعاية_المرضى',
+    )
+    expect(patient).toContain('تنظيم تجربة المرضى الإدارية')
+    expect(patient).toContain('#متابعة_المرضى')
+    expect(patient).not.toContain('تحسين تجربة مرضاك')
+    expect(patient).not.toContain('#رعاية_المرضى')
+
+    const operations = guardContentDraftText(
+      'تعرف على كيف يعزز #ClinicFlowAI تنظيم عملك الطبي. شاهد كيف يعزز #ClinicFlowAI وضوح العمليات في العيادات. فيديو يوضح كيفية تحسين الكفاءة التشغيلية.',
+    )
+    expect(operations).toContain('يساعد على توضيح العمل الإداري للعيادة')
+    expect(operations).toContain('يساعد على عرض العمليات اليومية في العيادات بوضوح')
+    expect(operations).toContain('زيادة وضوح سير العمل التشغيلي')
+    expect(operations).not.toContain('يعزز')
+    expect(operations).not.toContain('تحسين الكفاءة التشغيلية')
+
+    const growth = guardContentDraftText(
+      'التحسين المستمر هو جزء من تنظيم العمل. يدعم ClinicFlow AI نمو عيادتك العضوي. إبدأ اليوم واستمتع بإدارة أكثر سهولة.',
+    )
+    expect(growth).toContain('مراجعة خطوات العمل داخل العيادة')
+    expect(growth).toContain('ابدأ بالمراجعة')
+    expect(growth).toContain('راجع طريقة إدارة المواعيد بوضوح أكبر')
+    expect(growth).not.toContain('نمو عيادتك العضوي')
+    expect(growth).not.toContain('استمتع بإدارة أكثر سهولة')
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 
