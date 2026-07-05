@@ -153,6 +153,23 @@ describe('contentDraftTruthGuard', () => {
     expect(growth).not.toContain('استمتع بإدارة أكثر سهولة')
   })
 
+  it('broadly grounds clinic efficiency, satisfaction, and digital-transformation escape hatches', () => {
+    const copy = guardContentDraftText(
+      'إليك الحل مع ClinicFlow AI. كيف يمكن لـ ClinicFlow AI تعزيز كفاءة العيادات وإدارة المواعيد؟ عندما يتعلق الأمر بتحسين المتابعة، ClinicFlow AI هو الأداة المناسبة لرفع وضوح العمليات اليومية لديك. انضم إلى رحلة التحول الرقمي. تعرف على كيف يمكن للتواصل ثنائي اللغة تحسين رضا المرضى.',
+    )
+
+    expect(copy).toContain('إليك خيارًا عمليًا')
+    expect(copy).toContain('تنظيم عمل العيادات بوضوح')
+    expect(copy).toContain('أداة عملية لمراجعة وضوح العمليات اليومية')
+    expect(copy).toContain('مراجعة خطوات العمل الرقمية')
+    expect(copy).toContain('تنظيم تجربة المرضى الإدارية')
+    expect(copy).not.toContain('إليك الحل')
+    expect(copy).not.toContain('تعزيز كفاءة العيادات')
+    expect(copy).not.toContain('الأداة المناسبة لرفع وضوح العمليات اليومية')
+    expect(copy).not.toContain('رحلة التحول الرقمي')
+    expect(copy).not.toContain('تحسين رضا المرضى')
+  })
+
   it('softens perfectly roasted claims', () => {
     const out = guardContentDraftText('perfectly roasted beans')
 
