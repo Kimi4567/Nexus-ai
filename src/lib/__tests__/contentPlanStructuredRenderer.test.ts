@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   isClinicOperationalSaasContent,
   renderContentPlanDraftCaption,
+  renderContentPlanDraftImagePrompt,
   validateContentPlanDraftForSave,
   type ContentPlanRenderContext,
 } from '@/lib/contentPlanStructuredRenderer'
@@ -38,8 +39,8 @@ describe('contentPlanStructuredRenderer', () => {
     }, clinicCtx)
 
     expect(caption).toContain('تنظيم المواعيد')
-    expect(caption).toContain('المهام الإدارية')
-    expect(caption).toContain('مراجعة')
+    expect(caption).toContain('العمل الإداري')
+    expect(caption).toMatch(/مراجع|راجع/)
     expect(caption).not.toContain('تحسين كفاءة')
     expect(caption).not.toContain('تواصل فعال')
     expect(caption).not.toContain('تحسين الخدمة')
@@ -65,6 +66,36 @@ describe('contentPlanStructuredRenderer', () => {
     expect(validateContentPlanDraftForSave({ caption: bilingual }).ok).toBe(true)
   })
 
+  it('renders a varied eight-post Arabic clinic sequence instead of repeating three generic templates', () => {
+    const captions = Array.from({ length: 8 }, (_, postIndex) =>
+      renderContentPlanDraftCaption({
+        caption: 'ClinicFlow AI يساعدك في تنظيم المواعيد ومتابعة المرضى.',
+      }, { ...clinicCtx, postIndex }),
+    )
+
+    expect(new Set(captions).size).toBe(8)
+    expect(captions.join('\n')).toContain('فريق الاستقبال')
+    expect(captions.join('\n')).toContain('العربية والإنجليزية')
+    expect(captions.join('\n')).not.toContain('تحسين كفاءة')
+    expect(captions.join('\n')).not.toContain('رضا')
+    expect(captions.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+  })
+
+  it('renders clinic image prompts as review-only background visuals without fake product UI', () => {
+    const prompt = renderContentPlanDraftImagePrompt({
+      imagePrompt: 'صورة لواجهة تطبيق ClinicFlow AI على هاتف ذكي مع لوحة تحكم تعرض بيانات العيادة',
+    }, clinicCtx)
+
+    expect(prompt).toContain('review-only background visual')
+    expect(prompt).toContain('No readable text')
+    expect(prompt).toContain('no invented software visuals')
+    expect(prompt).toContain('negative space')
+    expect(prompt).not.toContain('واجهة تطبيق')
+    expect(prompt).not.toContain('لوحة تحكم')
+    expect(prompt).not.toContain('ClinicFlow AI على هاتف')
+    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
+  })
+
   it('save gate blocks observed unsafe regenerated clinic claims before SocialPost persistence', () => {
     const result = validateContentPlanDraftForSave({
       caption: 'وضوح العمليات في العيادة يساعد على من كفاءة العمل. اكتشف كيف يسهل ClinicFlow AI التواصل مع المرضى بلغتهم المفضلة، مما يساعد على من رضاهم وثقتهم.',
@@ -74,6 +105,16 @@ describe('contentPlanStructuredRenderer', () => {
     expect(result.ok).toBe(false)
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_clinic_outcome_claim')
     expect(result.issues.map(issue => issue.reason)).toContain('unsupported_absolute_claim')
+  })
+
+  it('save gate blocks fake generated SaaS product screens before SocialPost persistence', () => {
+    const result = validateContentPlanDraftForSave({
+      caption: 'راجع تنظيم المواعيد في العيادة بخطوات أوضح.',
+      imagePrompt: 'صورة لواجهة المستخدم في تطبيق ClinicFlow AI على شاشة تعرض لوحة تحكم المواعيد',
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues.map(issue => issue.reason)).toContain('unsupported_fake_product_visual')
   })
 
   it('preserves non-clinic guarded copy instead of forcing the clinic template', () => {
