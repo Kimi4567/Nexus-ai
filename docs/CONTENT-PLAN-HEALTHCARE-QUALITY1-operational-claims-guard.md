@@ -54,6 +54,18 @@ A second controlled regeneration removed the previous phrases, but still produce
 
 The guard now treats these as review-risk phrases for clinic SaaS unless proof exists, and replaces them with administrative patient-experience, workflow visibility, task review, and follow-up language.
 
+## Third Regeneration Finding
+
+A third controlled regeneration exposed broader escape hatches:
+
+- `تعزيز كفاءة العيادات`
+- `تحسين رضا المرضى`
+- `رحلة التحول الرقمي`
+- `الأداة المناسبة لرفع وضوح العمليات اليومية`
+- `إليك الحل`
+
+The guard now treats clinic efficiency, patient satisfaction, and digital-transformation wording as claims that must be grounded into operational review language unless proof exists.
+
 ## Boundary
 
 This PR does not mutate existing SocialPost rows or campaign output. Existing generated drafts remain unchanged until a future controlled regeneration or manual rewrite runs through the updated guard.
