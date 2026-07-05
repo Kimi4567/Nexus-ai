@@ -21,6 +21,10 @@ import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { buildProofPolicyPrompt, guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { guardStrategyOutputContract, selectStrategyCampaignPlatforms } from '@/lib/ai/strategyOutputContractGuard'
 import { assertCampaignStrategyContract } from '@/lib/campaignStrategyContract'
+import {
+  formatBrandBrainGenerationSafetyNote,
+  getBrandBrainGenerationSafety,
+} from '@/lib/brandBrainGenerationSafety'
 import type { StrategyReadinessContext } from './strategist'
 
 // Re-export for API routes
@@ -90,50 +94,53 @@ export async function runFullAgency(
       brief = { ...brief, planTier }
     }
 
-    // 1. Brand context — inject ALL Brand Brain fields
+    // 1. Brand context — inject Brand Brain fields after generation-safety screening.
     const brandProfile = await prisma.brandProfile.findUnique({ where: { workspaceId } })
+    const brandSafety = getBrandBrainGenerationSafety(brandProfile as any)
+    const safeBrandProfile = brandSafety.safeProfile as any
     const brandContext = brandProfile
       ? [
-          `Brand: ${brandProfile.brandName || 'Unknown'}`,
-          brandProfile.industry ? `Industry: ${brandProfile.industry}` : '',
-          brandProfile.description ? `Business Description: ${brandProfile.description}` : '',
-          brandProfile.primaryOffer ? `Core Offer: ${brandProfile.primaryOffer}` : '',
-          brandProfile.pricePoint ? `Price Positioning: ${brandProfile.pricePoint}` : '',
-          brandProfile.uniqueAdvantages?.length ? `Unique Advantages: ${brandProfile.uniqueAdvantages.join(', ')}` : '',
-          brandProfile.targetAudience ? `Target Audience: ${brandProfile.targetAudience}` : '',
-          brandProfile.audienceAge ? `Audience Age Range: ${brandProfile.audienceAge}` : '',
-          brandProfile.audienceLocation ? `Market / Region: ${brandProfile.audienceLocation}` : '',
-          brandProfile.audiencePainPoints?.length ? `Audience Pain Points: ${brandProfile.audiencePainPoints.join(', ')}` : '',
-          brandProfile.audienceDesires?.length ? `Audience Desires: ${brandProfile.audienceDesires.join(', ')}` : '',
-          brandProfile.toneKeywords?.length ? `Brand Tone: ${brandProfile.toneKeywords.join(', ')}` : '',
-          brandProfile.writingStyle ? `Writing Style: ${brandProfile.writingStyle}` : '',
-          brandProfile.avoidKeywords?.length ? `Never use these words: ${brandProfile.avoidKeywords.join(', ')}` : '',
-          brandProfile.topPlatforms?.length ? `Best Platforms: ${brandProfile.topPlatforms.join(', ')}` : '',
-          brandProfile.winningHooks?.length ? `Reviewed Hook Signals (use as style reference): ${brandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
-          brandProfile.winningAngles?.length ? `Content Angle Signals: ${brandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
-          buildProofPolicyPrompt({ verifiedProof: brandProfile.verifiedProof }),
-          brandProfile.competitorNotes ? `Competitor Notes: ${brandProfile.competitorNotes}` : '',
-          (brandProfile as any).competitors?.length ? `Named Competitors (use ONLY these — never invent others): ${(brandProfile as any).competitors.join(', ')}` : '',
-          brandProfile.strategicNotes ? `Strategic Notes: ${brandProfile.strategicNotes}` : '',
+          `Brand: ${safeBrandProfile.brandName || 'Unknown'}`,
+          safeBrandProfile.industry ? `Industry: ${safeBrandProfile.industry}` : '',
+          safeBrandProfile.description ? `Business Description: ${safeBrandProfile.description}` : '',
+          safeBrandProfile.primaryOffer ? `Core Offer: ${safeBrandProfile.primaryOffer}` : '',
+          safeBrandProfile.pricePoint ? `Price Positioning: ${safeBrandProfile.pricePoint}` : '',
+          safeBrandProfile.uniqueAdvantages?.length ? `Unique Advantages: ${safeBrandProfile.uniqueAdvantages.join(', ')}` : '',
+          safeBrandProfile.targetAudience ? `Target Audience: ${safeBrandProfile.targetAudience}` : '',
+          safeBrandProfile.audienceAge ? `Audience Age Range: ${safeBrandProfile.audienceAge}` : '',
+          safeBrandProfile.audienceLocation ? `Market / Region: ${safeBrandProfile.audienceLocation}` : '',
+          safeBrandProfile.audiencePainPoints?.length ? `Audience Pain Points: ${safeBrandProfile.audiencePainPoints.join(', ')}` : '',
+          safeBrandProfile.audienceDesires?.length ? `Audience Desires: ${safeBrandProfile.audienceDesires.join(', ')}` : '',
+          safeBrandProfile.toneKeywords?.length ? `Brand Tone: ${safeBrandProfile.toneKeywords.join(', ')}` : '',
+          safeBrandProfile.writingStyle ? `Writing Style: ${safeBrandProfile.writingStyle}` : '',
+          safeBrandProfile.avoidKeywords?.length ? `Never use these words: ${safeBrandProfile.avoidKeywords.join(', ')}` : '',
+          safeBrandProfile.topPlatforms?.length ? `Best Platforms: ${safeBrandProfile.topPlatforms.join(', ')}` : '',
+          safeBrandProfile.winningHooks?.length ? `Reviewed Hook Signals (use as style reference): ${safeBrandProfile.winningHooks.slice(0, 3).join(' | ')}` : '',
+          safeBrandProfile.winningAngles?.length ? `Content Angle Signals: ${safeBrandProfile.winningAngles.slice(0, 3).join(', ')}` : '',
+          buildProofPolicyPrompt({ verifiedProof: safeBrandProfile.verifiedProof }),
+          safeBrandProfile.competitorNotes ? `Competitor Notes: ${safeBrandProfile.competitorNotes}` : '',
+          safeBrandProfile.competitors?.length ? `Named Competitors (use ONLY these — never invent others): ${safeBrandProfile.competitors.join(', ')}` : '',
+          safeBrandProfile.strategicNotes ? `Strategic Notes: ${safeBrandProfile.strategicNotes}` : '',
+          formatBrandBrainGenerationSafetyNote(brandSafety),
           // PR-2B1 — wire the PR-2A strategy-data fields into the strategist context.
-          (brandProfile as any).businessGoal ? `Business Goal: ${(brandProfile as any).businessGoal}` : '',
-          (brandProfile as any).marketingBudget ? `Marketing Budget (band): ${(brandProfile as any).marketingBudget}` : '',
-          (brandProfile as any).conversionDestination ? `Conversion Destination: ${(brandProfile as any).conversionDestination}` : '',
-          (brandProfile as any).leadHandling ? `Lead Handling / Sales Process: ${(brandProfile as any).leadHandling}` : '',
-          (brandProfile as any).customerObjections?.length ? `Customer Objections: ${(brandProfile as any).customerObjections.join(', ')}` : '',
-          (brandProfile as any).complianceNotes ? `Compliance Notes: ${(brandProfile as any).complianceNotes}` : '',
-          (brandProfile as any).averageOrderValue ? `Average Order Value: ${(brandProfile as any).averageOrderValue}` : '',
-          (brandProfile as any).grossMargin ? `Gross Margin: ${(brandProfile as any).grossMargin}` : '',
-          (brandProfile as any).customerLifetimeValue ? `Customer Lifetime Value: ${(brandProfile as any).customerLifetimeValue}` : '',
-          (brandProfile as any).salesCycleLength ? `Sales Cycle Length: ${(brandProfile as any).salesCycleLength}` : '',
-          (brandProfile as any).seasonality ? `Seasonality: ${(brandProfile as any).seasonality}` : '',
-          (brandProfile as any).pastAdResults ? `Past Ad Results (historical data): ${(brandProfile as any).pastAdResults}` : '',
+          safeBrandProfile.businessGoal ? `Business Goal: ${safeBrandProfile.businessGoal}` : '',
+          safeBrandProfile.marketingBudget ? `Marketing Budget (band): ${safeBrandProfile.marketingBudget}` : '',
+          safeBrandProfile.conversionDestination ? `Conversion Destination: ${safeBrandProfile.conversionDestination}` : '',
+          safeBrandProfile.leadHandling ? `Lead Handling / Sales Process: ${safeBrandProfile.leadHandling}` : '',
+          safeBrandProfile.customerObjections?.length ? `Customer Objections: ${safeBrandProfile.customerObjections.join(', ')}` : '',
+          safeBrandProfile.complianceNotes ? `Compliance Notes: ${safeBrandProfile.complianceNotes}` : '',
+          safeBrandProfile.averageOrderValue ? `Average Order Value: ${safeBrandProfile.averageOrderValue}` : '',
+          safeBrandProfile.grossMargin ? `Gross Margin: ${safeBrandProfile.grossMargin}` : '',
+          safeBrandProfile.customerLifetimeValue ? `Customer Lifetime Value: ${safeBrandProfile.customerLifetimeValue}` : '',
+          safeBrandProfile.salesCycleLength ? `Sales Cycle Length: ${safeBrandProfile.salesCycleLength}` : '',
+          safeBrandProfile.seasonality ? `Seasonality: ${safeBrandProfile.seasonality}` : '',
+          safeBrandProfile.pastAdResults ? `Past Ad Results (historical data): ${safeBrandProfile.pastAdResults}` : '',
         ].filter(Boolean).join('\n')
       : ''
 
     // 1b. PR-2B1 — compute capability readiness server-side (single source of truth)
     //     and build the compact readiness context passed into the strategist.
-    const bp: any = brandProfile || {}
+    const bp: any = brandProfile ? safeBrandProfile : {}
     const capabilities = getStrategyCapabilities(bp, { hasPixel: false })
     const hasHistoricalData = Boolean(bp.pastAdResults)
     const readiness: StrategyReadinessContext = {
