@@ -2240,12 +2240,13 @@ function CampaignDetailPageInner() {
                             ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع' : 'Review paid planning brief')
                             : strategyRoomStateCopy.contentHubCta}
                         </Link>
-                        <Link
-                          href="/strategy"
+                        <button
+                          type="button"
+                          onClick={() => scrollToStrategySection('strategy-executive')}
                           className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
-                          {locale === 'ar' ? 'فتح مساحة الاستراتيجية' : 'Open Strategy workspace'}
-                        </Link>
+                          {locale === 'ar' ? 'راجع أقسام الاستراتيجية' : 'Review strategy sections'}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2773,8 +2774,8 @@ function CampaignDetailPageInner() {
                                 </span>
                                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
                                   {locale === 'ar'
-                                    ? `${strategyExecutionBridge.readyCount} متاح · ${strategyExecutionBridge.blockedCount} يحتاج مراجعة`
-                                    : `${strategyExecutionBridge.readyCount} available · ${strategyExecutionBridge.blockedCount} need review`}
+                                    ? `${strategyExecutionBridge.readyCount} جاهز · ${strategyExecutionBridge.blockedCount} تحتاج ربطاً أو دعماً`
+                                    : `${strategyExecutionBridge.readyCount} ready · ${strategyExecutionBridge.blockedCount} need connection/support`}
                                 </span>
                               </div>
                             </div>
