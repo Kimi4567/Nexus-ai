@@ -1,14 +1,15 @@
 'use client'
 
 /**
- * /paid-campaigns — Paid Ads Planning hub
+ * /paid-campaigns — Paid Ads Control Center
  *
- * Shows paid planning drafts and reported platform metrics across Meta, Google,
- * TikTok, and LinkedIn. Planning surfaces do not launch ads or spend budget.
+ * Shows paid planning drafts, paused platform drafts, explicit activation state,
+ * and reported platform metrics across Meta, Google, TikTok, and LinkedIn.
+ * Nothing launches or spends budget without explicit final approval.
  *
  * Features:
  * - Platform-filtered view (All / Meta / Google / TikTok / LinkedIn)
- * - Planning draft cards with reported spend + CTR + ROAS
+ * - Draft cards with reported spend + CTR + ROAS
  * - Quick actions: new paid planning draft, connect account when ready
  * - Empty state with onboarding guide
  */
@@ -197,7 +198,7 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
         </svg>
       </div>
 
-      <h3 className="text-[18px] font-bold text-slate-950 mb-2">No paid planning drafts yet</h3>
+      <h3 className="text-[18px] font-bold text-slate-950 mb-2">No paid drafts yet</h3>
       <p className="text-slate-500 text-[13px] max-w-[360px] leading-relaxed mb-8">
         {hasAccounts
           ? 'Create a paid planning draft for review. NEXUS will not take real Ad Manager action or spend budget without explicit confirmation.'
@@ -231,11 +232,12 @@ function EmptyState({ hasAccounts, onConnect }: { hasAccounts: boolean; onConnec
       </div>
 
       {/* How it works */}
-      <div className="mt-12 grid grid-cols-3 gap-6 max-w-[560px]">
+      <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-[720px]">
         {[
           { step: '01', title: 'Plan', desc: 'Start from a campaign strategy or create a paid planning draft' },
           { step: '02', title: 'Review', desc: 'Use Brand Brain context to review audience, copy, and budget assumptions' },
-          { step: '03', title: 'Prepare', desc: 'Export a planning payload or create paused platform drafts only after confirmation' },
+          { step: '03', title: 'Draft', desc: 'Create paused platform drafts only after setup confirmation' },
+          { step: '04', title: 'Activate', desc: 'Launch only after final approval for spend, budget, and platform readiness' },
         ].map(item => (
           <div key={item.step} className="text-center">
             <div className="text-[11px] font-bold mb-1.5" style={{ color: '#F97316' }}>{item.step}</div>
@@ -356,17 +358,17 @@ export default function PaidCampaignsPage() {
                   </svg>
                 </div>
                 <h1 className="text-[20px] font-bold text-slate-950">
-                  {locale === 'ar' ? 'تخطيط الإعلانات المدفوعة' : 'Paid Ads Planning'}
+                  {locale === 'ar' ? 'مركز التحكم في الإعلانات المدفوعة' : 'Paid Ads Control Center'}
                 </h1>
                 <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                   style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid rgba(249,115,22,0.2)' }}>
-                  {locale === 'ar' ? 'تخطيط فقط' : 'PLANNING ONLY'}
+                  {locale === 'ar' ? 'تشغيل بموافقة' : 'APPROVAL-GATED'}
                 </span>
               </div>
               <p className="text-slate-500 text-[13px]">
                 {locale === 'ar'
-                  ? 'أنشئ وراجع مسودات التخطيط المدفوع. لا صرف أو إطلاق إعلانات بدون موافقة صريحة.'
-                  : 'Create and review paid planning drafts. No ads launch and no spend without explicit approval.'}
+                  ? 'خطط الإعلانات، أنشئ مسودات منصة متوقفة، ثم فعّل فقط بعد موافقة نهائية صريحة.'
+                  : 'Plan paid campaigns, create paused platform drafts, then activate only after explicit final approval.'}
               </p>
             </div>
             <div className="flex items-center gap-2">

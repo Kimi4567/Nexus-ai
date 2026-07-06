@@ -99,6 +99,38 @@ export function mapPausedPlatformPushStatus(currentStatus: unknown): 'DRAFT' | '
   return 'PAUSED'
 }
 
+export function canActivatePlatformCampaign({
+  platform,
+  localStatus,
+  platformCampaignId,
+  platformStatus,
+  adAccountHasApiAccess,
+  explicitPlatformActivationConfirmed,
+  explicitSpendActivationConfirmed,
+  explicitBudgetConfirmed,
+}: {
+  platform: unknown
+  localStatus: unknown
+  platformCampaignId: unknown
+  platformStatus: unknown
+  adAccountHasApiAccess: unknown
+  explicitPlatformActivationConfirmed: unknown
+  explicitSpendActivationConfirmed: unknown
+  explicitBudgetConfirmed: unknown
+}): boolean {
+  return (
+    platform === 'META' &&
+    localStatus === 'PAUSED' &&
+    typeof platformCampaignId === 'string' &&
+    platformCampaignId.trim().length > 0 &&
+    platformStatus === 'PAUSED' &&
+    adAccountHasApiAccess === true &&
+    explicitPlatformActivationConfirmed === true &&
+    explicitSpendActivationConfirmed === true &&
+    explicitBudgetConfirmed === true
+  )
+}
+
 export function canCreatePlatformDraft({
   explicitPlatformDraftConfirmed,
   explicitBudgetConfirmed,

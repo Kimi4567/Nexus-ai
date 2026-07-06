@@ -126,6 +126,13 @@ export async function PATCH(
       avgROAS,
     } = body
 
+    if (status === 'ACTIVE' || platformStatus === 'ACTIVE') {
+      return NextResponse.json({
+        error: 'Paid campaigns cannot be marked active through generic updates. Use the explicit platform activation route after final approval.',
+        mode: 'activation_route_required',
+      }, { status: 400 })
+    }
+
     const updated = await db.adCampaign.update({
       where: { id: params.id },
       data: {
