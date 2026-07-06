@@ -1545,6 +1545,98 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const strategyExecutionPathStatus = (() => {
+    if (strategyExecutionBridge.overallStatus === 'ready') {
+      return strategyDocText('متطلبات التنفيذ متاحة للمراجعة', 'Execution prerequisites available for review')
+    }
+    if (strategyExecutionBridge.overallStatus === 'checking') {
+      return strategyDocText('قيد فحص الاتصالات', 'Checking connections')
+    }
+    if (strategyExecutionBridge.overallStatus === 'not_in_scope') {
+      return strategyDocText('خارج نطاق هذا التشغيل', 'Outside this run')
+    }
+    return strategyDocText('تحتاج اتصالات أو صلاحيات', 'Needs connections or permissions')
+  })()
+  const strategyExecutionPathItems: Array<{
+    step: string
+    title: string
+    status: string
+    helper: string
+    href: string
+    cta: string
+    tone: 'positive' | 'warning' | 'muted'
+  }> = [
+    {
+      step: '01',
+      title: isPaidOnlyStrategy
+        ? strategyDocText('بريف التخطيط المدفوع', 'Paid planning brief')
+        : strategyDocText('مراجعة منشورات Content Hub', 'Review Content Hub posts'),
+      status: isPaidOnlyStrategy
+        ? strategyDocText('مراجعة فقط — لا إطلاق', 'Review only — no launch')
+        : strategyDocStateCopy.contentPlanStatusValue,
+      helper: isPaidOnlyStrategy
+        ? (strategyDocIsArabic
+          ? 'راجع الزوايا والقيود ومدخلات الإطلاق قبل أي صرف أو إنشاء مسودات منصة.'
+          : 'Review paid angles, constraints, and launch inputs before any spend or platform draft creation.')
+        : operatingState.truthFlags.hasContentPlan
+          ? (strategyDocIsArabic
+            ? 'راجع النسخ، حالة الوسائط، وحالة كل منشور قبل أي جدولة أو نشر.'
+            : 'Review copy, media state, and each post lifecycle before scheduling or publishing.')
+          : (strategyDocIsArabic
+            ? 'حضّر أول خطة محتوى بعد مراجعة القرار والافتراضات.'
+            : 'Prepare the first content plan after reviewing the decision and assumptions.'),
+      href: isPaidOnlyStrategy ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
+      cta: isPaidOnlyStrategy
+        ? strategyDocText('افتح بريف التخطيط', 'Open planning brief')
+        : strategyDocStateCopy.contentHubCta,
+      tone: operatingState.truthFlags.hasContentPlan || isPaidOnlyStrategy ? 'positive' : 'muted',
+    },
+    {
+      step: '02',
+      title: strategyDocText('جاهزية الإبداع والوسائط', 'Creative and media readiness'),
+      status: creativeHasPostRecords
+        ? (strategyDocIsArabic
+          ? `${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط · ${creativeRequirementsSummary.attachedToPost} مرتبطة`
+          : `${creativeRequirementsSummary.mediaNeeded} need media · ${creativeRequirementsSummary.attachedToPost} attached`)
+        : strategyDocText('ينتظر منشورات Content Hub', 'Waiting for Content Hub posts'),
+      helper: creativeHasPostRecords
+        ? (strategyDocIsArabic
+          ? 'راجع متطلبات الوسائط والطبقات في تبويب الإبداع. لا توليد أو ربط تلقائي من هنا.'
+          : 'Review media and layer requirements in Creative. Nothing generates or attaches automatically here.')
+        : (strategyDocIsArabic
+          ? 'تظهر متطلبات الإبداع العملية بعد وجود منشورات مرتبطة في Content Hub.'
+          : 'Practical creative requirements appear after post-linked Content Hub records exist.'),
+      href: `/campaigns/${campaign.id}?tab=creative`,
+      cta: strategyDocText('راجع الإبداع', 'Review Creative'),
+      tone: creativeRequirementsSummary.mediaNeeded > 0 ? 'warning' : creativeHasPostRecords ? 'positive' : 'muted',
+    },
+    {
+      step: '03',
+      title: includesPaidPlanningStrategy
+        ? strategyDocText('جاهزية المنصات والمدفوع', 'Platform and paid readiness')
+        : strategyDocText('جاهزية منصات النشر', 'Publishing platform readiness'),
+      status: strategyExecutionPathStatus,
+      helper: strategyExecutionBridge.overallStatus === 'ready'
+        ? (strategyDocIsArabic
+          ? 'المتطلبات متاحة للمراجعة فقط. أي نشر أو إطلاق يحتاج تأكيداً صريحاً في مكانه الصحيح.'
+          : 'Prerequisites are available for review only. Any publishing or launch still needs explicit confirmation in the right surface.')
+        : (strategyDocIsArabic
+          ? 'راجع الاتصالات والصلاحيات قبل اعتبار النشر أو الإعلانات قابلة للتنفيذ.'
+          : 'Review connections and permissions before treating publishing or ads as executable.'),
+      href: '/connections',
+      cta: strategyDocText('راجع الاتصالات', 'Review Connections'),
+      tone: strategyExecutionBridge.overallStatus === 'ready'
+        ? 'positive'
+        : strategyExecutionBridge.overallStatus === 'not_in_scope'
+          ? 'muted'
+          : 'warning',
+    },
+  ]
+  const strategyExecutionPathTone: Record<'positive' | 'warning' | 'muted', string> = {
+    positive: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    warning: 'border-amber-200 bg-amber-50 text-amber-950',
+    muted: 'border-slate-200 bg-slate-50 text-slate-700',
+  }
 
   // ── Empty section component ──────────────────────────────────────────────
   function EmptySection({ icon, message }: { icon: string; message: string }) {
@@ -2359,7 +2451,7 @@ function CampaignDetailPageInner() {
                           onClick={() => scrollToStrategySection('strategy-executive')}
                           className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
-                          {strategyDocText('راجع أقسام الاستراتيجية', 'Review strategy sections')}
+                          {strategyDocText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
                         </button>
                       </div>
                     </div>
@@ -2404,6 +2496,48 @@ function CampaignDetailPageInner() {
                           : strategyDocText('تحتاج مراجعة', 'Needs review')}
                         tone={displayedConfidenceLevel === 'low' ? 'warning' : 'muted'}
                       />
+                    </div>
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white shadow-sm">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {strategyDocText('مسار التشغيل التالي', 'Next operating path')}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-white">
+                            {strategyDocText('اتبع هذا الترتيب: محتوى، إبداع، ثم جاهزية المنصات.', 'Follow this order: content, creative, then platform readiness.')}
+                          </p>
+                        </div>
+                        <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold text-slate-200">
+                          {strategyDocText('قراءة وتوجيه فقط', 'Read and route only')}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                        {strategyExecutionPathItems.map((item) => (
+                          <div key={item.step} className={`rounded-xl border p-3 ${strategyExecutionPathTone[item.tone]}`}>
+                            <div className="flex items-start gap-3">
+                              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-current/15 bg-white/60 text-[11px] font-bold">
+                                {item.step}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold leading-5">{item.title}</p>
+                                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] opacity-70">{item.status}</p>
+                                <p className="mt-1 text-xs leading-5 opacity-85">{item.helper}</p>
+                                <Link
+                                  href={item.href}
+                                  className="mt-3 inline-flex rounded-full border border-current/15 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-50"
+                                >
+                                  {item.cta}
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                        {strategyDocIsArabic
+                          ? 'هذه الروابط لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تطلق إعلانات. هي تنقل كل قرار إلى سطحه التشغيلي الصحيح.'
+                          : 'These links do not generate, approve, schedule, publish, or launch ads. They route each decision to the correct operating surface.'}
+                      </p>
                     </div>
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
