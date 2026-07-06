@@ -9,7 +9,7 @@
  *
  *   1. Brand completeness   (core durable fields)
  *   2. Organic readiness    (minimum organic strategy set)
- *   3. Paid readiness       (planning-only until prerequisites + tracking exist)
+ *   3. Paid readiness       (approval-gated until prerequisites + tracking exist)
  *   4. Memory richness       (saved signals/memory — NOT readiness)
  *
  * Pure presentational. `theme` adapts colors for the dark campaign card vs the
@@ -109,19 +109,19 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
           </p>
         </Cell>
 
-        {/* 3. Paid readiness — honest planning-only */}
+        {/* 3. Paid readiness — honest approval-gated setup */}
         <Cell>
           <div className="flex items-center justify-between">
             <Label>{ar ? 'جاهزية المدفوع' : 'Paid readiness'}</Label>
             <span className="text-[10px] font-bold" style={{ color: paid.ready ? AMBER : textSub }}>
-              {paid.ready ? (ar ? 'المتطلبات مكتملة' : 'Prereqs met') : (ar ? 'تخطيط فقط' : 'Planning only')}
+              {paid.ready ? (ar ? 'المتطلبات مكتملة' : 'Prereqs met') : (ar ? 'يحتاج متطلبات' : 'Needs prerequisites')}
             </span>
           </div>
           <Bar score={paid.score} />
           <p className="text-[9px] mt-1" style={{ color: paid.ready ? textSub : AMBER }}>
             {paid.ready
-              ? (ar ? 'جاهز للتخطيط — لا إطلاق أو إنفاق بدون موافقة' : 'Ready to plan — no launch or spend without approval')
-              : (ar ? 'تخطيط فقط — غير جاهز للإطلاق' : 'Planning only — not launch-ready')}
+              ? (ar ? 'جاهز للمراجعة — لا إطلاق أو إنفاق بدون موافقة' : 'Ready for review — no launch or spend without approval')
+              : (ar ? 'يحتاج إعداد التنفيذ قبل أي إطلاق' : 'Needs execution setup before launch')}
           </p>
         </Cell>
 
@@ -157,10 +157,10 @@ export default function BrandIndicatorsPanel({ indicators, locale = 'en', theme 
               : ['Brand completeness', 'affected by your saved core Brand Brain fields only. AI suggestions, Scanner, or Analyzer don’t change it unless you save them.'],
             ar
               ? ['جاهزية المحتوى العضوي', 'تتأثر بالحد الأدنى لحقول الاستراتيجية العضوية. لا تعني أن الإعلانات المدفوعة جاهزة، ولا تَعِد بأي أداء.']
-              : ['Organic readiness', 'affected by the minimum organic field set. It does not mean paid ads are ready, and promises no performance.'],
+              : ['Organic readiness', 'affected by the minimum organic field set. It does not mean paid ads can execute, and promises no performance.'],
             ar
-              ? ['جاهزية المدفوع', 'تخطيط فقط — تحتاج ميزانية ووجهة تحويل وموقعاً/هدفاً وتتبعاً عند الحاجة. لا تُشغَّل إعلانات ولا تُصرف ميزانية دون موافقتك.']
-              : ['Paid readiness', 'planning only — needs budget, conversion destination, location/objective, and tracking where relevant. No ads run and no budget is spent without your approval.'],
+              ? ['جاهزية المدفوع', 'تحتاج ميزانية ووجهة تحويل وموقعاً/هدفاً وتتبعاً عند الحاجة. لا تُشغَّل إعلانات ولا تُصرف ميزانية دون موافقتك.']
+              : ['Paid readiness', 'needs budget, conversion destination, location/objective, and tracking where relevant. No ads run and no budget is spent without your approval.'],
             ar
               ? ['ثراء الذاكرة', 'ينمو من الموافقات والتعديلات والحملات والنشر والنتائج الحقيقية. ليس مؤشر جاهزية، ولا يعني أن إعدادك ناقص.']
               : ['Memory richness', 'grows from real approvals, edits, campaigns, publishing, and results. It’s not a readiness signal and doesn’t mean your setup is incomplete.'],
