@@ -2643,7 +2643,7 @@ function PostCard({
           {post.variantWinner && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md"
               style={{ background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' }}>
-              🏆 {t('contentHub.winner')}
+              ✓ {t('contentHub.winner')}
             </span>
           )}
         </div>
@@ -2890,7 +2890,7 @@ function PostCard({
           >
             {isPickingWinner
               ? <><span className="w-2.5 h-2.5 border border-yellow-400/40 border-t-yellow-400 rounded-full animate-spin" />{t('contentHub.picking')}</>
-              : <>🏆 {t('contentHub.win')}</>
+              : <>✓ {t('contentHub.win')}</>
             }
           </button>
         ) : (
