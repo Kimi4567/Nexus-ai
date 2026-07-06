@@ -73,6 +73,8 @@ describe('post-aware creative requirements', () => {
     expect(deriveCreativePlatformFormat('META')).toMatchObject({ aspectRatio: '4:5' })
     expect(deriveCreativePlatformFormat('LINKEDIN')).toMatchObject({ aspectRatio: '1.91:1' })
     expect(deriveCreativePlatformFormat('TIKTOK')).toMatchObject({ aspectRatio: '9:16' })
+    expect(deriveCreativePlatformFormat('YOUTUBE')).toMatchObject({ aspectRatio: '9:16' })
+    expect(deriveCreativePlatformFormat('YOUTUBE_SHORTS')).toMatchObject({ aspectRatio: '9:16' })
     expect(deriveCreativePlatformFormat('UNKNOWN')).toMatchObject({ aspectRatio: '1:1' })
   })
 

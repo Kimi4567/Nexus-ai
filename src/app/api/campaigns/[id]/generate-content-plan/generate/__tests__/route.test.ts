@@ -175,6 +175,35 @@ describe('POST /api/campaigns/[id]/generate-content-plan/generate — RF-6A refu
     expect(fetch).not.toHaveBeenCalled()
   })
 
+  it('normalizes persisted YOUTUBE square prompts to vertical portrait generation', async () => {
+    mockPrisma.socialPost.findMany.mockResolvedValue([{
+      id: 'post_youtube',
+      platform: 'YOUTUBE',
+      imagePrompt: 'square 1:1 composition; clinic operations table with paper notes.',
+    }])
+    mockCheckAndDeduct
+      .mockReset()
+      .mockResolvedValueOnce({ ok: true, creditsUsed: 3, creditsRemaining: 27, transactionId: 'txn_youtube' })
+    const fetchMock = vi.fn(async () => ({
+      json: async () => ({ data: [{ b64_json: 'raw-youtube' }] }),
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const { POST } = await loadRoute()
+
+    const res = await POST(makeReq({
+      explicitBulkImageGenerationConfirmed: true,
+      acknowledgedImageCount: 1,
+      acknowledgedCreditCost: 3,
+    }), params)
+
+    expect(res.status).toBe(200)
+    const firstFetchCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const requestBody = JSON.parse(firstFetchCall[1].body as string)
+    expect(requestBody.size).toBe('1024x1536')
+    expect(requestBody.prompt).toContain('vertical 9:16 composition')
+    expect(requestBody.prompt).not.toContain('square 1:1 composition')
+  })
+
   it('refunds only the failed image transaction when another image succeeds', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ json: async () => ({ data: [{ b64_json: 'raw-a' }] }) })
