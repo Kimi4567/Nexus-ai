@@ -50,6 +50,9 @@ describe('Meta Ads connect route', () => {
       'business_management',
     ])
     expect(scopes).not.toContain('read_insights')
+    expect(scopes).not.toContain('pages_manage_posts')
+    expect(scopes).not.toContain('instagram_basic')
+    expect(scopes).not.toContain('instagram_content_publish')
   })
 
   it('requires an authenticated user before returning an OAuth URL', async () => {
