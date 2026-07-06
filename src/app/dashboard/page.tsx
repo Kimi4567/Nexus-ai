@@ -916,8 +916,8 @@ export default function DashboardPage() {
                         </p>
                         <p>
                           {ar
-                            ? 'الإعلانات المدفوعة تبقى تخطيطاً فقط — غير جاهزة للإطلاق ما لم تكتمل المتطلبات.'
-                            : 'Paid ads remain planning-only — not launch-ready unless the prerequisites are met.'}
+                            ? 'الإعلانات المدفوعة تحتاج متطلبات تنفيذ وموافقة نهائية قبل أي إطلاق أو إنفاق.'
+                            : 'Paid ads need execution prerequisites and final approval before any launch or spend.'}
                         </p>
                       </div>
                     </details>

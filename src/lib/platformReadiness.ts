@@ -6,9 +6,11 @@
  * conservative per-platform readiness state.
  *
  * Non-negotiable honesty rules (enforced here, asserted in tests):
- *   - "ready" is ALLOW-LISTED to Facebook with a connected Page only.
+ *   - "ready" is ALLOW-LISTED to Facebook with a connected Page, plus Meta paid
+ *     execution only when an AdAccount has API access and a publishing Page.
  *   - Instagram / TikTok / LinkedIn are CAPPED at "permission_unverified" — never "ready" in PR-1A.
- *   - Paid ads is ALWAYS "planning_only" in PR-1A (no live execution claim).
+ *   - Paid ads is never inferred from a social connection. It depends on AdAccount
+ *     readiness, API access, and explicit approval-gated activation routes.
  *   - YouTube Shorts / Google / Snapchat / WhatsApp are "not_available" (no integration exists) — no connect CTA.
  *   - Unknown / missing data → "needs_setup" or "not_connected", NEVER "ready".
  *
@@ -36,10 +38,12 @@ export type ReadinessStatus =
 
 export type ReadinessAction =
   | 'connect-meta'
+  | 'connect-meta-ads'
   | 'select-page'
   | 'link-instagram'
   | 'connect-tiktok'
   | 'connect-linkedin'
+  | 'open-paid-ads'
   | 'open-connections'
   | 'none'
 
@@ -69,6 +73,15 @@ export interface SocialAccount {
   pages?: Array<{ id?: string | null; name?: string | null; igAccountId?: string | null }> | null
 }
 
+/** Minimal safe shape from GET /api/ad-accounts (tokens stripped by the route). */
+export interface AdAccountReadinessInput {
+  platform?: string | null
+  status?: string | null
+  platformAccountId?: string | null
+  pageId?: string | null
+  hasApiAccess?: boolean | null
+}
+
 const R = 'connections.readiness'
 const chipKeyFor: Record<ReadinessStatus, string> = {
   ready: `${R}.chip.ready`,
@@ -95,6 +108,13 @@ function find(accounts: SocialAccount[], platform: string): SocialAccount | unde
   return accounts.find((a) => (a.platform || '').toUpperCase() === platform && isConnected(a))
 }
 
+function findActiveAdAccount(accounts: AdAccountReadinessInput[], platform: string): AdAccountReadinessInput | undefined {
+  return accounts.find((a) => {
+    const status = (a.status || '').toUpperCase()
+    return (a.platform || '').toUpperCase() === platform && status !== 'DISCONNECTED' && status !== 'ERROR'
+  })
+}
+
 function mk(
   key: PlatformKey,
   status: ReadinessStatus,
@@ -118,14 +138,19 @@ function mk(
  * Derive honest platform readiness from the existing /api/social/accounts payload.
  * @param accounts the `accounts` array from GET /api/social/accounts (may be empty)
  */
-export function derivePlatformReadiness(accounts: SocialAccount[] | null | undefined): PlatformState[] {
+export function derivePlatformReadiness(
+  accounts: SocialAccount[] | null | undefined,
+  adAccounts?: AdAccountReadinessInput[] | null,
+): PlatformState[] {
   const list = Array.isArray(accounts) ? accounts : []
+  const adList = Array.isArray(adAccounts) ? adAccounts : []
   const meta = find(list, 'META')
   const metaPages = meta?.pages ?? []
   const hasPage = metaPages.some((p) => !!p?.id)
   const hasIg = metaPages.some((p) => !!p?.igAccountId)
   const tiktok = find(list, 'TIKTOK')
   const linkedin = find(list, 'LINKEDIN')
+  const metaAdAccount = findActiveAdAccount(adList, 'META')
 
   const out: PlatformState[] = []
 
@@ -168,8 +193,19 @@ export function derivePlatformReadiness(accounts: SocialAccount[] | null | undef
   out.push(mk('snapchat', 'not_available', `${R}.line.snapchatNotAvailable`, 'none', null))
   out.push(mk('whatsapp', 'not_available', `${R}.line.whatsappNotAvailable`, 'none', null))
 
-  // Paid ads — ALWAYS planning only in PR-1A; NO execution CTA
-  out.push(mk('paid', 'planning_only', `${R}.line.paidPlanningOnly`, 'none', null))
+  // Paid ads — Meta-first execution, approval-gated. A social Meta connection
+  // does NOT imply paid execution readiness.
+  if (!metaAdAccount) {
+    out.push(mk('paid', 'not_connected', `${R}.line.paidMetaAdAccountNotConnected`, 'connect-meta-ads', `${R}.action.connectMetaAds`))
+  } else if (!metaAdAccount.pageId) {
+    out.push(mk('paid', 'needs_setup', `${R}.line.paidNeedsPageIdentity`, 'open-paid-ads', `${R}.action.openPaidAds`))
+  } else if (metaAdAccount.hasApiAccess !== true) {
+    out.push(mk('paid', 'permission_unverified', `${R}.line.paidNeedsApiAccess`, 'open-paid-ads', `${R}.action.openPaidAds`))
+  } else if (typeof metaAdAccount.platformAccountId === 'string' && metaAdAccount.platformAccountId.trim()) {
+    out.push(mk('paid', 'ready', `${R}.line.paidMetaReady`, 'open-paid-ads', `${R}.action.openPaidAds`))
+  } else {
+    out.push(mk('paid', 'needs_setup', `${R}.line.paidNeedsAdAccount`, 'connect-meta-ads', `${R}.action.connectMetaAds`))
+  }
 
   return out
 }

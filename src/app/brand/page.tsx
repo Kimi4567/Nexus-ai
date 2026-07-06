@@ -226,7 +226,7 @@ function BrandStatusPanel({ indicators, locale }: { indicators: BrandIndicators;
     },
     {
       label: ar ? 'التخطيط المدفوع' : 'Paid planning',
-      value: indicators.paidReadiness.ready ? (ar ? 'جاهز للتخطيط المدفوع' : 'Paid planning ready') : (ar ? 'تخطيط فقط' : 'Planning-only'),
+      value: indicators.paidReadiness.ready ? (ar ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (ar ? 'يحتاج متطلبات' : 'Needs prerequisites'),
       helper: ar ? 'يتطلب موافقة قبل أي صرف' : 'Approval required before any spend',
     },
     {
@@ -1175,7 +1175,7 @@ function BrandBrainInner() {
                         const memLvl = m.level === 'high' ? (locale === 'ar' ? 'غنية' : 'rich') : m.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'building') : (locale === 'ar' ? 'مبكرة' : 'early')
                         return [
                           o.ready ? (locale === 'ar' ? 'العضوي جاهز لموجز أولي' : 'Organic ready for an initial brief') : (locale === 'ar' ? 'العضوي غير مكتمل' : 'Organic incomplete'),
-                          p.ready ? (locale === 'ar' ? 'التخطيط المدفوع جاهز' : 'Paid planning ready') : (locale === 'ar' ? 'المدفوع تخطيط فقط' : 'Paid planning-only'),
+                          p.ready ? (locale === 'ar' ? 'المدفوع جاهز للمراجعة' : 'Paid review ready') : (locale === 'ar' ? 'المدفوع يحتاج متطلبات' : 'Paid needs prerequisites'),
                           (locale === 'ar' ? 'الذاكرة ' : 'Memory ') + memLvl,
                         ].join('  ·  ')
                       })()}
@@ -1309,8 +1309,8 @@ function BrandBrainInner() {
                         {!paid.ready && (
                           <p className="text-[13px] leading-relaxed" style={{ color: '#b45309' }}>
                             {ar
-                              ? `المدفوع تخطيط فقط — لتجهيزه أضف: ${labelFor(paid.missingKeys)}. لا تُطلق إعلانات ولا تُصرف ميزانية دون موافقتك.`
-                              : `Paid is planning-only — to prepare it, add: ${labelFor(paid.missingKeys)}. No ads run and no budget is spent without your approval.`}
+                              ? `المدفوع يحتاج متطلبات تنفيذ — لتجهيزه أضف: ${labelFor(paid.missingKeys)}. لا تُطلق إعلانات ولا تُصرف ميزانية دون موافقتك.`
+                              : `Paid needs execution prerequisites — to prepare it, add: ${labelFor(paid.missingKeys)}. No ads run and no budget is spent without your approval.`}
                           </p>
                         )}
                       </>
@@ -1409,7 +1409,7 @@ function BrandBrainInner() {
               { label: ar ? 'خطة المحتوى' : 'Content plan',
                 text: caps.contentStrategy.ready ? (ar ? 'جاهزة مبدئيًا' : 'Initially ready') : (ar ? 'تحتاج بيانات' : 'Needs data'),
                 tone: caps.contentStrategy.ready ? 'good' : 'neutral' },
-              { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', text: ar ? 'للتخطيط فقط' : 'Planning-only', tone: 'neutral' },
+              { label: ar ? 'الإعلانات المدفوعة' : 'Paid ads', text: ar ? 'تحتاج متطلبات' : 'Needs prerequisites', tone: 'neutral' },
               { label: ar ? 'التحليلات' : 'Analytics', text: ar ? 'غير متصلة' : 'Not connected', tone: 'neutral' },
               { label: ar ? 'ذاكرة الإشارات' : 'Signal memory',
                 text: memLevel === 'low' ? (ar ? 'مبكرة' : 'Early') : (ar ? 'تتطور' : 'Developing'), tone: 'neutral' },
@@ -1556,7 +1556,7 @@ function BrandBrainInner() {
                 {[
                   [locale === 'ar' ? 'اكتمال العلامة' : 'Brand completeness', `${brandIndicators.brandCompleteness.score}%`],
                   [locale === 'ar' ? 'العضوي' : 'Organic', brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز لموجز' : 'Ready for brief') : (locale === 'ar' ? 'يحتاج بيانات' : 'Needs data')],
-                  [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز للتخطيط المدفوع' : 'Paid planning ready') : (locale === 'ar' ? 'تخطيط فقط' : 'Planning-only')],
+                  [locale === 'ar' ? 'المدفوع' : 'Paid', brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'جاهز لمراجعة المدفوع' : 'Paid review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs prerequisites')],
                   [locale === 'ar' ? 'ثراء الذاكرة' : 'Memory richness', brandIndicators.memoryRichness.level === 'high' ? (locale === 'ar' ? 'غنية' : 'Rich') : brandIndicators.memoryRichness.level === 'medium' ? (locale === 'ar' ? 'تتكوّن' : 'Building') : (locale === 'ar' ? 'مبكرة' : 'Early')],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-xl px-3 py-2" style={{ background:'#F8FAFC', border:'1px solid rgba(15,23,42,0.08)' }}>
@@ -2480,7 +2480,7 @@ function BrandBrainInner() {
               )}
 
               {/* PR-M3.2 — Goals & Strategy is now step 7 (relocated from the old review
-                  stage). Existing fields/state only; paid stays planning-only. */}
+                stage). Existing fields/state only; paid execution still requires prerequisites. */}
               {step === 'goals' && (() => {
                 const ar = locale === 'ar'
                 const pill = (selected: boolean, color = '#5E5CE6') => ({
@@ -2562,7 +2562,7 @@ function BrandBrainInner() {
                           <p className="text-[10px] text-slate-400 mt-1">{ar ? 'يُحفظ مع الاستراتيجية لاحقاً.' : 'Saved with the strategy later.'}</p>
                         </div>
                         <div className="rounded-lg px-3 py-2" style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)' }}>
-                          <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'تخطيط فقط — يحتاج موافقة قبل التشغيل' : 'Planning only — approval required before running'}</p>
+                          <p className="text-[12px] font-semibold" style={{ color:'#b45309' }}>{ar ? 'يتطلب موافقة قبل التشغيل' : 'Approval required before running'}</p>
                           <p className="text-[11px] text-slate-600 mt-0.5">
                             {ar
                               ? 'لن يتم إنفاق أي ميزانية أو إطلاق إعلانات دون موافقتك الصريحة. اربط البكسل/حساب الإعلانات وتتبّع التحويل في صفحة الربط للجاهزية.'

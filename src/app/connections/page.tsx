@@ -33,6 +33,16 @@ interface ConnectedAccount {
   connectedAt: string
 }
 
+interface ConnectedAdAccount {
+  id: string
+  platform: string
+  status: string
+  platformAccountId: string
+  platformAccountName: string | null
+  hasApiAccess: boolean
+  pageId: string | null
+}
+
 interface PlatformDef {
   id: string
   nameKey: string    // t() key for platform name
@@ -162,6 +172,7 @@ export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader, session } = useAuth()
   const { locale, dir, t } = useI18n()
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
+  const [adAccounts, setAdAccounts] = useState<ConnectedAdAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
   const [connecting, setConnecting] = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -172,13 +183,17 @@ export default function ConnectionsPage() {
     if (!token) return
     setLoadingAccounts(true)
     try {
-      const res = await fetch('/api/social/accounts', {
-        headers: { Authorization: token },
-      })
-      const data = await res.json()
-      setAccounts(data.accounts || [])
+      const [socialRes, adRes] = await Promise.all([
+        fetch('/api/social/accounts', { headers: { Authorization: token } }),
+        fetch('/api/ad-accounts', { headers: { Authorization: token } }),
+      ])
+      const socialData = await socialRes.json()
+      const adData = await adRes.json()
+      setAccounts(socialData.accounts || [])
+      setAdAccounts(adData.accounts || [])
     } catch {
       setAccounts([])
+      setAdAccounts([])
     } finally {
       setLoadingAccounts(false)
     }
@@ -249,6 +264,7 @@ export default function ConnectionsPage() {
 
   const CONNECT_ROUTES: Record<string, string> = {
     META:     '/api/social/connect/meta',
+    META_ADS: '/api/social/connect/meta-ads',
     LINKEDIN: '/api/social/connect/linkedin',
     TIKTOK:   '/api/social/connect/tiktok',
   }
@@ -332,7 +348,7 @@ export default function ConnectionsPage() {
     connectablePlatforms.some((platform) => platform.id === account.platform),
   ).length
   const totalPlatforms = connectablePlatforms.length
-  const readinessStates = derivePlatformReadiness(accounts as any)
+  const readinessStates = derivePlatformReadiness(accounts as any, adAccounts)
 
   return (
     <AppShell>
@@ -380,8 +396,13 @@ export default function ConnectionsPage() {
                 t={t as (k: string) => string}
                 onAction={(action: ReadinessAction) => {
                   if (action === 'connect-meta') return handleConnect('META')
+                  if (action === 'connect-meta-ads') return handleConnect('META_ADS')
                   if (action === 'connect-tiktok') return handleConnect('TIKTOK')
                   if (action === 'connect-linkedin') return handleConnect('LINKEDIN')
+                  if (action === 'open-paid-ads') {
+                    window.location.href = '/paid-campaigns'
+                    return
+                  }
                   // select-page / link-instagram / review-setup / open-connections:
                   // controls live in the platform cards below — scroll the user to them.
                   document.getElementById('platform-cards')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -461,7 +482,7 @@ export default function ConnectionsPage() {
               : platform.id === 'YOUTUBE'
               ? readinessStates.filter((s) => s.key === 'youtube')
               : platform.id === 'GOOGLE'
-              ? readinessStates.filter((s) => s.key === 'google' || s.key === 'paid')
+              ? readinessStates.filter((s) => s.key === 'google')
               : platform.id === 'SNAPCHAT'
               ? readinessStates.filter((s) => s.key === 'snapchat')
               : []
@@ -635,7 +656,7 @@ export default function ConnectionsPage() {
               : platform.id === 'YOUTUBE'
               ? readinessStates.filter((s) => s.key === 'youtube')
               : platform.id === 'GOOGLE'
-              ? readinessStates.filter((s) => s.key === 'google' || s.key === 'paid')
+              ? readinessStates.filter((s) => s.key === 'google')
               : platform.id === 'SNAPCHAT'
               ? readinessStates.filter((s) => s.key === 'snapchat')
               : []
