@@ -120,11 +120,53 @@ function formatCampaignToneForLocale(tone: string | null | undefined, locale: st
   return arToneLabels[normalized] || normalized
 }
 
+const STRATEGY_DISPLAY_VALUE_TRANSLATIONS: Record<string, { en: string; ar: string }> = {
+  awareness: { en: 'Awareness', ar: 'الوعي' },
+  consideration: { en: 'Consideration', ar: 'المقارنة والتفكير' },
+  conversion: { en: 'Conversion', ar: 'التحويل' },
+  retention: { en: 'Retention', ar: 'الاحتفاظ' },
+  loyalty: { en: 'Loyalty', ar: 'الولاء' },
+  advocacy: { en: 'Advocacy', ar: 'التوصية' },
+  tofu: { en: 'Top of funnel', ar: 'أعلى القمع' },
+  mofu: { en: 'Middle of funnel', ar: 'منتصف القمع' },
+  bofu: { en: 'Bottom of funnel', ar: 'أسفل القمع' },
+  lead: { en: 'Lead', ar: 'عميل محتمل' },
+  leads: { en: 'Leads', ar: 'عملاء محتملون' },
+  organic: { en: 'Organic', ar: 'عضوي' },
+  paid: { en: 'Paid', ar: 'مدفوع' },
+  full: { en: 'Full', ar: 'شامل' },
+  carousel: { en: 'Carousel', ar: 'كاروسيل' },
+  reel: { en: 'Reel', ar: 'ريل' },
+  reels: { en: 'Reels', ar: 'ريلز' },
+  story: { en: 'Story', ar: 'قصة' },
+  stories: { en: 'Stories', ar: 'قصص' },
+  staticpost: { en: 'Static post', ar: 'منشور ثابت' },
+  socialpost: { en: 'Social post', ar: 'منشور اجتماعي' },
+  shortformvideo: { en: 'Short-form video', ar: 'فيديو قصير' },
+  explainervideo: { en: 'Explainer video', ar: 'فيديو توضيحي' },
+  educationalpost: { en: 'Educational post', ar: 'منشور تعليمي' },
+  casestudy: { en: 'Case study', ar: 'دراسة حالة' },
+  checklist: { en: 'Checklist', ar: 'قائمة تحقق' },
+  guide: { en: 'Guide', ar: 'دليل' },
+  demo: { en: 'Demo', ar: 'عرض توضيحي' },
+  pending: { en: 'Pending', ar: 'قيد الانتظار' },
+  ready: { en: 'Ready', ar: 'جاهز' },
+  checking: { en: 'Checking', ar: 'قيد الفحص' },
+  blocked: { en: 'Blocked', ar: 'محجوب' },
+  review: { en: 'Review', ar: 'مراجعة' },
+}
+
+function strategyDisplayValueKey(value: string): string {
+  return value.trim().toLowerCase().replace(/[\s_/-]+/g, '')
+}
+
 function formatStrategyDisplayText(value: string, locale: string): string {
   const trimmed = value.trim()
   if (!trimmed) return trimmed
   const normalized = trimmed.replace(/\s+/g, ' ')
   const lower = normalized.toLowerCase()
+  const translated = STRATEGY_DISPLAY_VALUE_TRANSLATIONS[strategyDisplayValueKey(normalized)]
+  if (translated) return locale === 'ar' ? translated.ar : translated.en
 
   if (lower === 'planning/review' || lower === 'planning/review stage') {
     return locale === 'ar' ? 'مرحلة التخطيط والمراجعة' : 'Planning and review stage'
@@ -1100,6 +1142,10 @@ function CampaignDetailPageInner() {
       .replace(/\b\w/g, char => char.toUpperCase())
   }
   const strategyDocFieldLabel = (key: string): string => strategyFieldLabel(key, strategyDocumentLocale)
+  const strategyDocDisplayValue = (value: unknown): string => {
+    if (typeof value === 'string') return formatStrategyDisplayText(value, strategyDocumentLocale)
+    return value == null ? '' : String(value)
+  }
   const confLevelColor = (lvl: string): string => (lvl === 'high' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444')
 
   // Sprint F — creative brief
@@ -2539,7 +2585,7 @@ function CampaignDetailPageInner() {
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         {audienceSegmentsDetailed.map((seg: any, i: number) => (
                           <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                            <p className="text-sm font-semibold text-slate-950">{i + 1}. {seg.segment}</p>
+                            <p className="text-sm font-semibold text-slate-950">{i + 1}. {strategyDocDisplayValue(seg.segment)}</p>
                             <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-700">
                               <StrategyDocCard label={strategyDocFieldLabel('situation')} value={seg.situation} locale={strategyDocumentLocale} />
                               <StrategyDocCard label={strategyDocFieldLabel('pain')} value={seg.pain} locale={strategyDocumentLocale} tone="warning" />
@@ -2548,7 +2594,7 @@ function CampaignDetailPageInner() {
                               <StrategyDocCard label={strategyDocFieldLabel('message')} value={seg.message} locale={strategyDocumentLocale} />
                               <div className="flex flex-wrap gap-2 text-xs text-slate-500">
                                 {seg.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('platform')}: {formatStrategyPlatformLabel(seg.platform) || seg.platform}</span>}
-                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('format')}: {seg.format}</span>}
+                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('format')}: {strategyDocDisplayValue(seg.format)}</span>}
                                 {seg.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyDocFieldLabel('cta')}: {seg.cta}</span>}
                               </div>
                             </div>
@@ -2648,7 +2694,7 @@ function CampaignDetailPageInner() {
                                   {angle.hook && <p className="mt-2 text-sm leading-6 text-slate-700">"{angle.hook}"</p>}
                                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
                                     {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('pain')}: {angle.pain}</span>}
-                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('format')}: {angle.format}</span>}
+                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('format')}: {strategyDocDisplayValue(angle.format)}</span>}
                                     {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('platform')}: {formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>}
                                     {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyDocFieldLabel('cta')}: {angle.cta}</span>}
                                   </div>
@@ -2674,7 +2720,7 @@ function CampaignDetailPageInner() {
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               {funnelStages.map((stage: any, i: number) => (
                                 <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                  <p className="text-sm font-semibold capitalize text-slate-950">{stage.stage || `${strategyDocText('مرحلة', 'Stage')} ${i + 1}`}</p>
+                                  <p className="text-sm font-semibold text-slate-950">{stage.stage ? strategyDocDisplayValue(stage.stage) : `${strategyDocText('مرحلة', 'Stage')} ${i + 1}`}</p>
                                   <div className="mt-3 grid gap-2">
                                     <StrategyDocCard label={strategyDocFieldLabel('userMindset')} value={stage.userMindset} locale={strategyDocumentLocale} />
                                     <StrategyDocCard label={strategyDocFieldLabel('message')} value={stage.message} locale={strategyDocumentLocale} />
@@ -2704,7 +2750,7 @@ function CampaignDetailPageInner() {
                                 <p className="text-sm font-semibold capitalize text-slate-950">{formatStrategyPlatformLabel(ch.platform) || ch.platform}</p>
                                 <p className="mt-1 text-sm leading-6 text-slate-600">{ch.role || ch.rationale || ch.postingApproach}</p>
                                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                                  {ch.contentType && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{ch.contentType}</span>}
+                                  {ch.contentType && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocDisplayValue(ch.contentType)}</span>}
                                   {ch.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{ch.cta}</span>}
                                 </div>
                               </div>
@@ -2738,7 +2784,7 @@ function CampaignDetailPageInner() {
                             {(weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan : weeklyPlan).map((w: any) => (
                               <div key={w.week} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                  <p className="text-sm font-semibold text-slate-950">{strategyDocText('الأسبوع', 'Week')} {w.week}: {w.objective}</p>
+                                  <p className="text-sm font-semibold text-slate-950">{strategyDocText('الأسبوع', 'Week')} {w.week}: {strategyDocDisplayValue(w.objective)}</p>
                                   {w.cta && <span className="text-xs font-semibold text-indigo-600">{w.cta}</span>}
                                 </div>
                                 {w.keyMessage && <p className="mt-2 text-sm leading-6 text-slate-600">"{w.keyMessage}"</p>}
@@ -2777,9 +2823,9 @@ function CampaignDetailPageInner() {
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                           {strategy.kpis.map((kpi: any, i: number) => (
                             <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <p className="text-lg font-semibold text-slate-950">{kpi.target || strategyDocText('يُحدد لاحقاً', 'Target to define')}</p>
-                              <p className="mt-1 text-sm text-slate-600">{kpi.metric}</p>
-                              <p className="mt-2 text-xs text-slate-400">{kpi.timeframe || strategyDocText('بعد أول 30 يوماً', 'After the first 30 days')}</p>
+                              <p className="text-lg font-semibold text-slate-950">{kpi.target ? strategyDocDisplayValue(kpi.target) : strategyDocText('يُحدد لاحقاً', 'Target to define')}</p>
+                              <p className="mt-1 text-sm text-slate-600">{strategyDocDisplayValue(kpi.metric)}</p>
+                              <p className="mt-2 text-xs text-slate-400">{kpi.timeframe ? strategyDocDisplayValue(kpi.timeframe) : strategyDocText('بعد أول 30 يوماً', 'After the first 30 days')}</p>
                               <span className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
                                 {strategyDocText('فرضية', 'Hypothesis')}
                               </span>
@@ -2792,7 +2838,7 @@ function CampaignDetailPageInner() {
                           {successMetricsDetailed.map((m: any, i: number) => (
                             <StrategyDocCard
                               key={i}
-                              label={m.category || strategyDocText('مؤشر', 'Metric')}
+                              label={m.category ? strategyDocDisplayValue(m.category) : strategyDocText('مؤشر', 'Metric')}
                               value={`${m.metric}${m.target ? ` — ${m.target}` : ''}${m.timeframe ? ` (${m.timeframe})` : ''}`}
                               locale={strategyDocumentLocale}
                               tone="muted"
@@ -3191,7 +3237,7 @@ function CampaignDetailPageInner() {
                             {angle.format && (
                               <div>
                                 <span className="uppercase tracking-wide text-slate-400">{strategyFieldLabel('format')}: </span>
-                                <span className="text-slate-600">{angle.format}</span>
+                                <span className="text-slate-600">{formatStrategyDisplayText(angle.format, locale)}</span>
                               </div>
                             )}
                             {angle.platform && (
@@ -3210,7 +3256,7 @@ function CampaignDetailPageInner() {
                           {(angle.cta || angle.funnelStage) && (
                             <div className="mt-2 flex items-center gap-3 border-t border-slate-200 pt-2 text-xs">
                               {angle.funnelStage && (
-                                <span className="capitalize text-slate-500">{angle.funnelStage}</span>
+                                <span className="capitalize text-slate-500">{formatStrategyDisplayText(angle.funnelStage, locale)}</span>
                               )}
                               {angle.cta && (
                                 <span className="ml-auto font-semibold text-indigo-700">{angle.cta}</span>
