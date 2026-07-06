@@ -39,13 +39,28 @@ export type BrandBrainGenerationProfile = {
   competitorNotes?: string | null
   secondaryOffers?: string[] | null
   strategicNotes?: string | null
-  [key: string]: unknown
 }
 
 export interface BrandBrainGenerationSafety {
   anchorCategory: 'clinicOperationsSaas' | 'homeCleaning' | 'unknown'
   excludedFields: BrandBrainGenerationField[]
   safeProfile: BrandBrainGenerationProfile
+}
+
+const FIELD_LABELS: Record<BrandBrainGenerationField, { en: string; ar: string }> = {
+  competitorNotes: { en: 'Competitor notes', ar: 'ملاحظات المنافسين' },
+  businessGoal: { en: 'Business goal', ar: 'الهدف التجاري' },
+  marketingBudget: { en: 'Marketing budget', ar: 'ميزانية التسويق' },
+  conversionDestination: { en: 'Conversion destination', ar: 'وجهة التحويل' },
+  leadHandling: { en: 'Lead handling', ar: 'إدارة العملاء المحتملين' },
+  customerObjections: { en: 'Customer objections', ar: 'اعتراضات العملاء' },
+  complianceNotes: { en: 'Compliance notes', ar: 'ملاحظات الامتثال' },
+  averageOrderValue: { en: 'Average order value', ar: 'متوسط قيمة الطلب' },
+  grossMargin: { en: 'Gross margin', ar: 'هامش الربح' },
+  customerLifetimeValue: { en: 'Customer lifetime value', ar: 'القيمة العمرية للعميل' },
+  salesCycleLength: { en: 'Sales cycle length', ar: 'مدة دورة البيع' },
+  seasonality: { en: 'Seasonality', ar: 'الموسمية' },
+  pastAdResults: { en: 'Past ad results', ar: 'نتائج الإعلانات السابقة' },
 }
 
 const CLINIC_MARKERS = [
@@ -158,4 +173,8 @@ export function formatBrandBrainGenerationSafetyNote(safety: BrandBrainGeneratio
     `Excluded stale cross-industry fields from this generation context: ${safety.excludedFields.join(', ')}.`,
     'Do not use or infer from excluded fields. Treat them as needing user review in Brand Brain.',
   ].join(' ')
+}
+
+export function getBrandBrainGenerationFieldLabel(field: BrandBrainGenerationField, locale: 'en' | 'ar' = 'en'): string {
+  return FIELD_LABELS[field]?.[locale] ?? field
 }

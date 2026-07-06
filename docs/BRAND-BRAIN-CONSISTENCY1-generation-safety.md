@@ -17,6 +17,7 @@ This change does not edit production data and does not rewrite Brand Brain. It o
 - Exclude fields that clearly belong to a different industry category.
 - Pass a prompt-safe note listing excluded field names only, never the stale values.
 - Use the safe profile for server-side strategy capability/readiness context.
+- Surface a read-only Brand Brain warning when excluded fields exist, using safe field labels only.
 
 ## Current covered case
 
@@ -29,7 +30,16 @@ This change does not edit production data and does not rewrite Brand Brain. It o
 
 ## Product truth
 
-This is not a data repair tool. The user still needs a visible Brand Brain review/cleanup experience later. This guard prevents contaminated context from being used silently during strategy generation.
+This is not a data repair tool. The user still needs to review or edit the underlying Brand Brain fields manually. This guard prevents contaminated context from being used silently during strategy generation and makes the inconsistency visible without changing saved data.
+
+The visible warning:
+
+- Names the fields that need review.
+- Does not show stale field values.
+- Does not auto-clean Brand Brain.
+- Does not call AI.
+- Does not mutate data.
+- Does not change readiness scores.
 
 ## Non-goals
 
