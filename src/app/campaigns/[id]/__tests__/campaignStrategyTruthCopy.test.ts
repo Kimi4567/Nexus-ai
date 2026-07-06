@@ -168,6 +168,19 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('label="CTA"')
   })
 
+  it('normalizes raw strategy output values before rendering them to users', () => {
+    expect(campaignRoomSource).toContain('formatStrategyDisplayText')
+    expect(campaignRoomSource).toContain('مرحلة التخطيط والمراجعة')
+    expect(campaignRoomSource).toContain('Planning and review stage')
+    expect(campaignRoomSource).toContain('بيانات غير كافية بعد')
+    expect(campaignRoomSource).toContain('Not enough data yet')
+    expect(campaignRoomSource).toContain('formatCampaignToneForLocale')
+    expect(campaignRoomSource).toContain("Modern: 'حديثة'")
+    expect(campaignRoomSource).toContain('effectiveLocale')
+    expect(campaignRoomSource).toContain('StrategyDocList locale={locale}')
+    expect(campaignRoomSource).toContain('formatStrategyDisplayText(item, locale)')
+  })
+
   it('keeps the global AI presence bar localized on Arabic campaign pages', () => {
     expect(aiPresenceBarSource).toContain('current.messageAr')
     expect(aiPresenceBarSource).toContain("locale === 'ar'")
