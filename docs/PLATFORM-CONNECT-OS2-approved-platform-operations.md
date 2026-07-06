@@ -44,6 +44,7 @@ This PR does not:
 - Connections exposes a Meta Ads connect path, but activation remains in Paid Ads.
 - Brand/Dashboard copy avoids saying paid ads are permanently planning-only.
 - Meta Ads OAuth scopes mirror the current Meta Marketing API use case: `public_profile`, `ads_management`, `ads_read`, and `business_management`. Ads insights are covered by `ads_read`; `read_insights` is intentionally not requested for the paid connection.
+- Meta Ads App Review is documented separately in `docs/META_ADS_APP_REVIEW_PACKAGE.md` so the paid review flow stays distinct from organic Facebook Page publishing.
 
 ## QA plan
 

@@ -1,9 +1,11 @@
-# NEXUS AI — Meta App Review Package
+# NEXUS AI - Meta Organic App Review Package
 
 **App:** Nexus AI · **Domain:** https://www.nexus-grow.com
 **Use case:** An AI marketing platform that lets a business connect its own Facebook Page and publish organic posts it has created and approved, with transparent credits.
 
-This document is the submission reference for Meta App Review + Business Verification.
+This document is the submission reference for Meta App Review + Business Verification for organic Facebook Page publishing only.
+
+For Meta Ads / Marketing API review, use `docs/META_ADS_APP_REVIEW_PACKAGE.md`. Organic publishing and paid ads execution are separate review packages because they request different permissions and demonstrate different product flows.
 
 ---
 
