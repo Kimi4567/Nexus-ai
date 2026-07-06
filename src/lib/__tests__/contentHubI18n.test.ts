@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { translations } from '@/lib/i18n-context'
 
 const REQUIRED_KEYS = [
@@ -64,5 +65,21 @@ describe('Content Hub i18n dictionary', () => {
   it('7. caption placeholder is not the old English "Post N for" fake placeholder', () => {
     expect(translations.en.contentHub.captionPlaceholder).not.toMatch(PLACEHOLDER)
     expect(translations.ar.contentHub.captionPlaceholder).not.toMatch(PLACEHOLDER)
+  })
+
+  it('8. A/B draft selection copy is preference language, not winner/performance learning language', () => {
+    expect(translations.en.contentHub.winner).toBe('Selected variant')
+    expect(translations.en.contentHub.pickWinner).toBe('Select variant')
+    expect(translations.en.contentHub.win).toBe('Select')
+    expect(translations.ar.contentHub.winner).toBe('النسخة المختارة')
+    expect(translations.ar.contentHub.pickWinner).toBe('اختر النسخة المفضلة')
+    expect(translations.ar.contentHub.win).toBe('اختر')
+
+    const pageSource = readFileSync(
+      new URL('../../app/campaigns/[id]/content-hub/page.tsx', import.meta.url),
+      'utf8',
+    )
+    expect(pageSource).not.toMatch(/Winner selected|Hook added to Brand Brain|Pick Winner/)
+    expect(pageSource).not.toMatch(/🏆\s*\{t\('contentHub\.(winner|win)'\)\}/)
   })
 })
