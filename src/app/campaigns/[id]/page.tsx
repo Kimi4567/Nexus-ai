@@ -3508,9 +3508,13 @@ function CampaignDetailPageInner() {
                         {locale === 'ar' ? 'معرض المفاهيم غير متاح كخطوة حالية' : 'Concept gallery is not the current step'}
                       </p>
                       <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-slate-500">
-                        {locale === 'ar'
-                          ? 'راجع الاستراتيجية وأنشئ منشورات Content Hub أولاً، ثم افتح الموجز الإبداعي قبل أي توليد مرئيات. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
-                          : 'Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation. This prevents credit spend or assets outside the campaign path.'}
+                        {creativeHasPostRecords
+                          ? (locale === 'ar'
+                            ? 'منشورات Content Hub موجودة بالفعل. افتح الموجز الإبداعي أولاً لتحديد احتياجات الأصول والطبقات قبل أي توليد مرئيات مفهومية. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
+                            : 'Content Hub posts already exist. Open the creative brief first to define asset and layer needs before any concept visual generation. This prevents credit spend or assets outside the campaign path.')
+                          : (locale === 'ar'
+                            ? 'راجع الاستراتيجية وأنشئ منشورات Content Hub أولاً، ثم افتح الموجز الإبداعي قبل أي توليد مرئيات. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
+                            : 'Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation. This prevents credit spend or assets outside the campaign path.')}
                       </p>
                     </div>
                   )}
