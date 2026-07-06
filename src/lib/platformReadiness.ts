@@ -9,7 +9,7 @@
  *   - "ready" is ALLOW-LISTED to Facebook with a connected Page only.
  *   - Instagram / TikTok / LinkedIn are CAPPED at "permission_unverified" — never "ready" in PR-1A.
  *   - Paid ads is ALWAYS "planning_only" in PR-1A (no live execution claim).
- *   - Google / Snapchat / WhatsApp are "not_available" (no integration exists) — no connect CTA.
+ *   - YouTube Shorts / Google / Snapchat / WhatsApp are "not_available" (no integration exists) — no connect CTA.
  *   - Unknown / missing data → "needs_setup" or "not_connected", NEVER "ready".
  *
  * The function returns i18n KEYS (not literal copy) so the UI renders EN/AR via t().
@@ -20,6 +20,7 @@ export type PlatformKey =
   | 'instagram'
   | 'tiktok'
   | 'linkedin'
+  | 'youtube'
   | 'google'
   | 'snapchat'
   | 'whatsapp'
@@ -160,7 +161,9 @@ export function derivePlatformReadiness(accounts: SocialAccount[] | null | undef
     out.push(mk('linkedin', 'permission_unverified', `${R}.line.linkedinUnverified`, 'open-connections', `${R}.action.reviewSetup`))
   }
 
-  // Not available yet — no integration code exists; NO connect CTA
+  // Not available yet — no integration code exists; NO connect CTA.
+  // YouTube Shorts can be planned in Content Hub, but API upload/publish is not wired.
+  out.push(mk('youtube', 'not_available', `${R}.line.youtubeNotAvailable`, 'none', null))
   out.push(mk('google', 'not_available', `${R}.line.googleNotAvailable`, 'none', null))
   out.push(mk('snapchat', 'not_available', `${R}.line.snapchatNotAvailable`, 'none', null))
   out.push(mk('whatsapp', 'not_available', `${R}.line.whatsappNotAvailable`, 'none', null))
@@ -173,7 +176,7 @@ export function derivePlatformReadiness(accounts: SocialAccount[] | null | undef
 
 /** Compact summary for the dashboard strip (subset + short chips). */
 export function summarizeForStrip(states: PlatformState[]): PlatformState[] {
-  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'paid']
+  const order: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'paid']
   return order
     .map((k) => states.find((s) => s.key === k))
     .filter((s): s is PlatformState => !!s)

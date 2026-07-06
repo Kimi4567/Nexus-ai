@@ -68,9 +68,9 @@ describe('derivePlatformReadiness — honesty rules', () => {
     expect(get(s, 'linkedin').status).toBe('permission_unverified')
   })
 
-  it('Google / Snapchat / WhatsApp → not_available with no CTA', () => {
+  it('YouTube Shorts / Google / Snapchat / WhatsApp → not_available with no CTA', () => {
     const s = derivePlatformReadiness([])
-    for (const k of ['google', 'snapchat', 'whatsapp']) {
+    for (const k of ['youtube', 'google', 'snapchat', 'whatsapp']) {
       expect(get(s, k).status).toBe('not_available')
       expect(get(s, k).action).toBe('none')
       expect(get(s, k).actionKey).toBeNull()
@@ -92,11 +92,11 @@ describe('derivePlatformReadiness — honesty rules', () => {
   it('null/undefined input does not crash', () => {
     expect(() => derivePlatformReadiness(null)).not.toThrow()
     expect(() => derivePlatformReadiness(undefined)).not.toThrow()
-    expect(derivePlatformReadiness(null).length).toBe(8)
+    expect(derivePlatformReadiness(null).length).toBe(9)
   })
 
-  it('summarizeForStrip returns FB, IG, TikTok, LinkedIn, Paid in order', () => {
+  it('summarizeForStrip returns FB, IG, TikTok, LinkedIn, YouTube, Paid in order', () => {
     const s = summarizeForStrip(derivePlatformReadiness([metaWithPageAndIg]))
-    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'paid'])
+    expect(s.map((x) => x.key)).toEqual(['facebook', 'instagram', 'tiktok', 'linkedin', 'youtube', 'paid'])
   })
 })
