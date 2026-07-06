@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
+import { readFileSync } from 'fs'
 import {
   parseContentPlanResponse,
   generateContentPlanWithRetry,
@@ -264,5 +265,15 @@ describe('resolveContentPlanSlotScope', () => {
       blockedReason: 'no-organic-post-count',
       totalSlots: 0,
     })
+  })
+
+  it('keeps paid-only/no-scope route blocking before credit deduction', () => {
+    const routeSource = readFileSync('src/app/api/campaigns/[id]/generate-content-plan/route.ts', 'utf8')
+    const scopeIndex = routeSource.indexOf('const slotScope = resolveContentPlanSlotScope')
+    const creditIndex = routeSource.indexOf("checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')")
+
+    expect(scopeIndex).toBeGreaterThan(-1)
+    expect(creditIndex).toBeGreaterThan(-1)
+    expect(scopeIndex).toBeLessThan(creditIndex)
   })
 })
