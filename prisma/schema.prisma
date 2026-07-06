@@ -1492,6 +1492,7 @@ model AdAccount {
 
   // Relations
   adCampaigns     AdCampaign[]
+  apiAccessReviews AdAccountApiAccessReview[]
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -1500,6 +1501,41 @@ model AdAccount {
   @@index([workspaceId])
   @@index([platform])
   @@index([status])
+}
+
+// Immutable operator ledger for Meta Ads API access readiness.
+// This records founder/admin review decisions after Meta App Review approval.
+model AdAccountApiAccessReview {
+  id                    String      @id @default(cuid())
+
+  adAccountId           String
+  adAccount             AdAccount   @relation(fields: [adAccountId], references: [id], onDelete: Cascade)
+  workspaceId           String
+
+  reviewedById          String
+  reviewedByEmail       String?
+
+  platform              AdPlatform
+  platformAccountId     String
+  platformAccountName   String?
+  businessId            String?
+  businessName          String?
+  pageId                String?
+  pageName              String?
+
+  previousHasApiAccess  Boolean
+  nextHasApiAccess      Boolean
+  confirmation          String
+  evidenceUrl           String?     @db.Text
+  reason                String?     @db.Text
+  missingScopes         String[]    @default([])
+
+  createdAt             DateTime    @default(now())
+
+  @@index([adAccountId, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([reviewedById, createdAt])
+  @@index([nextHasApiAccess])
 }
 
 // A paid advertising campaign (separate from organic Campaign)

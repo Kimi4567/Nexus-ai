@@ -54,11 +54,9 @@ Disablement uses:
 }
 ```
 
-## Known Audit Boundary
+## Durable Audit Ledger
 
-The route updates the existing `AdAccount.hasApiAccess` flag and returns an operator receipt. It intentionally does not introduce a schema migration in this PR.
-
-Before broad self-serve customer rollout, add a durable `AdAccountApiAccessReview` audit table or equivalent ledger with:
+META-ADS-AUDIT-LEDGER1 adds a durable `AdAccountApiAccessReview` table with:
 
 - adAccountId
 - reviewedBy
@@ -68,7 +66,19 @@ Before broad self-serve customer rollout, add a durable `AdAccountApiAccessRevie
 - next value
 - reason
 
-Until then, this route is for controlled founder/operator use only.
+The `AdAccount.hasApiAccess` flag and the `AdAccountApiAccessReview` row are
+written in the same admin-only transaction, so there is no API-ready state
+change without a corresponding review record.
+
+The route also supports:
+
+`GET /api/admin/ad-accounts/[id]/api-access`
+
+This returns the current safe account readiness and the 25 latest review ledger
+rows without exposing access tokens.
+
+Until a broader admin console is finished, this route remains for controlled
+founder/operator use only.
 
 ## User-Facing Truth
 
@@ -90,6 +100,13 @@ Run:
 
 ```bash
 npm run test -- src/lib/__tests__/metaAdsApiAccess.test.ts src/app/api/admin/ad-accounts/[id]/api-access/__tests__/route.test.ts src/lib/__tests__/platformReadiness.test.ts
+npm run test -- src/lib/__tests__/metaAdsApiAccessAuditLedger.test.ts
 npm run type-check
 npm run build
+```
+
+Apply the production migration manually through Supabase SQL Editor:
+
+```sql
+-- prisma/migrations/meta_ads_api_access_review_ledger.sql
 ```

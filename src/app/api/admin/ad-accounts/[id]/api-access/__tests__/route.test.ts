@@ -3,11 +3,20 @@ import {
   META_ADS_API_ACCESS_ENABLE_CONFIRMATION,
 } from '@/lib/metaAdsApiAccess'
 
-const { mockGetAuthUser, mockUserFindUnique, mockAdAccountFindUnique, mockAdAccountUpdate } = vi.hoisted(() => ({
+const {
+  mockGetAuthUser,
+  mockUserFindUnique,
+  mockAdAccountFindUnique,
+  mockAdAccountUpdate,
+  mockReviewCreate,
+  mockTransaction,
+} = vi.hoisted(() => ({
   mockGetAuthUser: vi.fn(),
   mockUserFindUnique: vi.fn(),
   mockAdAccountFindUnique: vi.fn(),
   mockAdAccountUpdate: vi.fn(),
+  mockReviewCreate: vi.fn(),
+  mockTransaction: vi.fn(),
 }))
 
 vi.mock('@/lib/apiAuth', () => ({
@@ -16,6 +25,7 @@ vi.mock('@/lib/apiAuth', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
+    $transaction: mockTransaction,
     user: {
       findUnique: mockUserFindUnique,
     },
@@ -23,10 +33,13 @@ vi.mock('@/lib/prisma', () => ({
       findUnique: mockAdAccountFindUnique,
       update: mockAdAccountUpdate,
     },
+    adAccountApiAccessReview: {
+      create: mockReviewCreate,
+    },
   },
 }))
 
-import { PATCH } from '../route'
+import { GET, PATCH } from '../route'
 
 function req(body: unknown) {
   return {
@@ -54,6 +67,18 @@ const connectedMetaAdAccount = {
   updatedAt: new Date('2026-07-06T00:00:00Z'),
 }
 
+const reviewRow = {
+  id: 'review_1',
+  reviewedById: 'admin_1',
+  reviewedByEmail: 'admin@nexus-grow.com',
+  previousHasApiAccess: false,
+  nextHasApiAccess: true,
+  evidenceUrl: 'https://developers.facebook.com/apps/123/app-review/',
+  reason: 'Meta App Review approved for Marketing API.',
+  missingScopes: [],
+  createdAt: new Date('2026-07-06T01:00:00Z'),
+}
+
 describe('PATCH /api/admin/ad-accounts/[id]/api-access', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -61,6 +86,11 @@ describe('PATCH /api/admin/ad-accounts/[id]/api-access', () => {
     mockUserFindUnique.mockResolvedValue({ role: 'ADMIN', email: 'admin@nexus-grow.com' })
     mockAdAccountFindUnique.mockResolvedValue(connectedMetaAdAccount)
     mockAdAccountUpdate.mockResolvedValue({ ...connectedMetaAdAccount, hasApiAccess: true })
+    mockReviewCreate.mockResolvedValue(reviewRow)
+    mockTransaction.mockImplementation(async (fn) => fn({
+      adAccount: { update: mockAdAccountUpdate },
+      adAccountApiAccessReview: { create: mockReviewCreate },
+    }))
   })
 
   it('requires admin role', async () => {
@@ -69,7 +99,9 @@ describe('PATCH /api/admin/ad-accounts/[id]/api-access', () => {
     const res = await PATCH(req({ hasApiAccess: true }), params)
 
     expect(res.status).toBe(403)
+    expect(mockTransaction).not.toHaveBeenCalled()
     expect(mockAdAccountUpdate).not.toHaveBeenCalled()
+    expect(mockReviewCreate).not.toHaveBeenCalled()
   })
 
   it('rejects enablement without explicit Meta review confirmation', async () => {
@@ -81,17 +113,21 @@ describe('PATCH /api/admin/ad-accounts/[id]/api-access', () => {
 
     expect(res.status).toBe(400)
     expect(await res.json()).toEqual({ error: 'explicit_meta_review_confirmation_required' })
+    expect(mockTransaction).not.toHaveBeenCalled()
     expect(mockAdAccountUpdate).not.toHaveBeenCalled()
+    expect(mockReviewCreate).not.toHaveBeenCalled()
   })
 
-  it('marks API access ready only after explicit confirmation and evidence', async () => {
+  it('marks API access ready and writes a durable review ledger row', async () => {
     const res = await PATCH(req({
       hasApiAccess: true,
       confirmation: META_ADS_API_ACCESS_ENABLE_CONFIRMATION,
       evidenceUrl: 'https://developers.facebook.com/apps/123/app-review/',
+      reason: 'Meta App Review approved for Marketing API.',
     }), params)
 
     expect(res.status).toBe(200)
+    expect(mockTransaction).toHaveBeenCalled()
     expect(mockAdAccountUpdate).toHaveBeenCalledWith({
       where: { id: 'ad_account_1' },
       data: { hasApiAccess: true },
@@ -101,11 +137,50 @@ describe('PATCH /api/admin/ad-accounts/[id]/api-access', () => {
         platformAccountId: true,
       }),
     })
+    expect(mockReviewCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        adAccountId: 'ad_account_1',
+        workspaceId: 'workspace_1',
+        reviewedById: 'admin_1',
+        reviewedByEmail: 'admin@nexus-grow.com',
+        previousHasApiAccess: false,
+        nextHasApiAccess: true,
+        confirmation: META_ADS_API_ACCESS_ENABLE_CONFIRMATION,
+        evidenceUrl: 'https://developers.facebook.com/apps/123/app-review/',
+        reason: 'Meta App Review approved for Marketing API.',
+        missingScopes: [],
+      }),
+      select: expect.objectContaining({
+        id: true,
+        reviewedById: true,
+        previousHasApiAccess: true,
+        nextHasApiAccess: true,
+      }),
+    })
     const json = await res.json()
     expect(json.ok).toBe(true)
     expect(json.apiAccessState).toBe('reviewed_api_ready')
     expect(json.operatorReceipt.reviewedBy).toBe('admin_1')
-    expect(json.operatorReceipt.durableAuditLog).toBe(false)
+    expect(json.operatorReceipt.reviewId).toBe('review_1')
+    expect(json.operatorReceipt.durableAuditLog).toBe(true)
+    expect(json.review.id).toBe('review_1')
+  })
+
+  it('returns recent review history without exposing access tokens', async () => {
+    mockAdAccountFindUnique.mockResolvedValue({
+      ...connectedMetaAdAccount,
+      hasApiAccess: true,
+      apiAccessReviews: [reviewRow],
+    })
+
+    const res = await GET(req(null), params)
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.apiAccessState).toBe('reviewed_api_ready')
+    expect(json.account.accessToken).toBeUndefined()
+    expect(json.reviews).toHaveLength(1)
+    expect(json.reviews[0].id).toBe('review_1')
   })
 
   it('does not call platform APIs, credits, generation, or publish routes', async () => {
