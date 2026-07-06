@@ -80,8 +80,17 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('Missing before execution decisions')
     expect(campaignRoomSource).toContain('This page keeps the full strategy value, but organizes it into reviewable decisions.')
     expect(campaignRoomSource).toContain('No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.')
-    expect(campaignRoomSource).toContain('Open Strategy workspace')
+    expect(campaignRoomSource).toContain('Review strategy sections')
+    expect(campaignRoomSource).toContain("scrollToStrategySection('strategy-executive')")
+    expect(campaignRoomSource).not.toContain('Open Strategy workspace')
     expect(campaignRoomSource).not.toContain('Back to Strategy')
+  })
+
+  it('keeps execution readiness labels specific instead of vague review language', () => {
+    expect(campaignRoomSource).toContain('need connection/support')
+    expect(campaignRoomSource).toContain('تحتاج ربطاً أو دعماً')
+    expect(campaignRoomSource).not.toContain('need review')
+    expect(campaignRoomSource).not.toContain('يحتاج مراجعة')
   })
 
   it('keeps campaign tabs and the strategy map visible in one operating navigation surface', () => {

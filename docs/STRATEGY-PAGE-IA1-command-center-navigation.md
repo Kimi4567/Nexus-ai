@@ -21,7 +21,8 @@ Keep the full strategy value, but make the page behave like an operating brief:
 6. The primary action remains tied to the correct owner surface:
    - Organic/current post execution goes to Content Hub.
    - Paid-only planning goes to the Paid Planning Brief.
-   - The global Strategy workspace remains available as a secondary navigation path.
+   - The secondary action reviews the strategy sections in-place instead of opening the same Strategy workspace again.
+   - Platform readiness labels distinguish ready channels from channels that need connection or unsupported-channel handling.
 7. The Strategy tab stays read-only:
    - no publishing
    - no scheduling
