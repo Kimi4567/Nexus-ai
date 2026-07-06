@@ -144,6 +144,12 @@ function formatStrategyDisplayText(value: string, locale: string): string {
   return value
 }
 
+function resolveStrategyDocumentLocale(strategyLanguage: string | null | undefined, fallbackLocale: string): 'ar' | 'en' {
+  const normalized = String(strategyLanguage || fallbackLocale || '').trim().toLowerCase()
+  if (normalized.startsWith('ar') || normalized.includes('arabic') || normalized.includes('عربي')) return 'ar'
+  return fallbackLocale === 'ar' ? 'ar' : 'en'
+}
+
 function CopyBtn({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
   return (
@@ -943,6 +949,9 @@ function CampaignDetailPageInner() {
   const aiOutput = campaign.aiOutput as any
   const strategyScope = resolveStrategyScope(aiOutput)
   const strategyLanguage = typeof aiOutput?.language === 'string' ? aiOutput.language : locale
+  const strategyDocumentLocale = resolveStrategyDocumentLocale(strategyLanguage, locale)
+  const strategyDocIsArabic = strategyDocumentLocale === 'ar'
+  const strategyDocText = (ar: string, en: string): string => strategyDocIsArabic ? ar : en
   const proofContext = {
     verifiedProof: Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : [],
   }
@@ -1001,8 +1010,10 @@ function CampaignDetailPageInner() {
     pixel: { en: 'pixel / analytics', ar: 'بكسل / تحليلات' },
   }
   const missingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
+  const strategyDocMissingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const paidPlanningMissingKeys = missingDataKeys.filter(k => ['marketingBudget', 'conversionDestination', 'leadHandling', 'pixel'].includes(k))
   const paidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
+  const strategyDocPaidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (strategyDocIsArabic ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const campaignToneLabel = formatCampaignToneForLocale(campaign.tone, locale)
   const safeExecutionAssumptions = uniqueCleanList(executionAssumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const safeAssumptions = uniqueCleanList(assumptions.map((item: string) => sanitizeStrategyLimitText(item)))
@@ -1036,49 +1047,51 @@ function CampaignDetailPageInner() {
   const hasRisksSection =
     !!(doNotDoYet.length > 0 || riskNotes.length > 0 || safeExecutionAssumptions.length > 0 || safeAssumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false)
   const strategySectionNavItems = [
-    { num: '01', label: locale === 'ar' ? 'التنفيذي' : 'Executive', id: 'strategy-executive', show: hasExecutiveStrategySection },
-    { num: '02', label: locale === 'ar' ? 'التشخيص' : 'Diagnosis', id: 'strategy-diagnosis', show: hasDiagnosisSection },
-    { num: '03', label: locale === 'ar' ? 'الهدف' : 'Objective', id: 'strategy-objective', show: hasBusinessObjectiveSection },
-    { num: '04', label: locale === 'ar' ? 'الجمهور' : 'Audience', id: 'strategy-audience', show: hasAudienceSection },
-    { num: '05', label: isPaidOnlyStrategy ? (locale === 'ar' ? 'زوايا مدفوعة' : 'Paid angles') : (locale === 'ar' ? 'المحتوى' : 'Content'), id: 'strategy-content', show: hasStrategyContentSection },
-    { num: '06', label: locale === 'ar' ? 'التنفيذ' : 'Execution', id: 'strategy-execution', show: hasExecutionSection },
-    { num: '07', label: locale === 'ar' ? 'القياس' : 'Metrics', id: 'strategy-metrics', show: hasMetricsSection },
-    { num: '08', label: locale === 'ar' ? 'الجاهزية' : 'Readiness', id: 'strategy-readiness', show: hasReadinessSection },
-    { num: '09', label: locale === 'ar' ? 'المخاطر' : 'Risks', id: 'strategy-risks', show: hasRisksSection },
+    { num: '01', label: strategyDocText('التنفيذي', 'Executive'), id: 'strategy-executive', show: hasExecutiveStrategySection },
+    { num: '02', label: strategyDocText('التشخيص', 'Diagnosis'), id: 'strategy-diagnosis', show: hasDiagnosisSection },
+    { num: '03', label: strategyDocText('الهدف', 'Objective'), id: 'strategy-objective', show: hasBusinessObjectiveSection },
+    { num: '04', label: strategyDocText('الجمهور', 'Audience'), id: 'strategy-audience', show: hasAudienceSection },
+    { num: '05', label: isPaidOnlyStrategy ? strategyDocText('زوايا مدفوعة', 'Paid angles') : strategyDocText('المحتوى', 'Content'), id: 'strategy-content', show: hasStrategyContentSection },
+    { num: '06', label: strategyDocText('التنفيذ', 'Execution'), id: 'strategy-execution', show: hasExecutionSection },
+    { num: '07', label: strategyDocText('القياس', 'Metrics'), id: 'strategy-metrics', show: hasMetricsSection },
+    { num: '08', label: strategyDocText('الجاهزية', 'Readiness'), id: 'strategy-readiness', show: hasReadinessSection },
+    { num: '09', label: strategyDocText('المخاطر', 'Risks'), id: 'strategy-risks', show: hasRisksSection },
   ].filter(item => item.show)
   const displayedConfidenceLevel = confidenceReport?.overall === 'high' && (missingDataLabels.length > 0 || competitorAnalysisComplete === false)
     ? 'medium'
     : confidenceReport?.overall
-  const confLevelLabel = (lvl: string): string => {
+  const confLevelLabel = (lvl: string, labelLocale: string = locale): string => {
     const map: Record<string, { en: string; ar: string }> = {
       high: { en: 'High confidence', ar: 'ثقة عالية' },
       medium: { en: 'Medium confidence', ar: 'ثقة متوسطة' },
       low: { en: 'Low confidence — needs more data', ar: 'ثقة منخفضة — تحتاج بيانات أكثر' },
     }
-    return map[lvl] ? (locale === 'ar' ? map[lvl].ar : map[lvl].en) : lvl
+    return map[lvl] ? (labelLocale === 'ar' ? map[lvl].ar : map[lvl].en) : lvl
   }
-  const strategyFieldLabel = (key: string): string => {
+  const strategyFieldLabel = (key: string, labelLocale: string = locale): string => {
     const normalized = key.replace(/[_\s-]+/g, '').toLowerCase()
+    const useRuntimeTranslations = labelLocale === locale
+    const isArabicLabel = labelLocale === 'ar'
     const labels: Record<string, string> = {
-      situation: cdT?.fieldSituation || (locale === 'ar' ? 'الموقف' : 'Situation'),
-      pain: cdT?.fieldPain || (locale === 'ar' ? 'الألم' : 'Pain'),
-      desiredoutcome: cdT?.fieldDesiredOutcome || (locale === 'ar' ? 'النتيجة المطلوبة' : 'Desired Outcome'),
-      want: cdT?.fieldDesiredOutcome || (locale === 'ar' ? 'النتيجة المطلوبة' : 'Desired Outcome'),
-      objection: cdT?.fieldObjection || (locale === 'ar' ? 'الاعتراض' : 'Objection'),
-      message: cdT?.fieldMessage || (locale === 'ar' ? 'الرسالة' : 'Message'),
-      format: cdT?.fieldFormat || (locale === 'ar' ? 'الصيغة' : 'Format'),
-      contenttype: cdT?.fieldFormat || (locale === 'ar' ? 'الصيغة' : 'Format'),
-      platform: cdT?.fieldPlatform || (locale === 'ar' ? 'القناة' : 'Platform'),
-      cta: cdT?.fieldCta || (locale === 'ar' ? 'الدعوة للإجراء' : 'CTA'),
-      metric: cdT?.fieldMetric || (locale === 'ar' ? 'مؤشر القياس' : 'Metric'),
-      successmetric: cdT?.weekSuccessMetric || cdT?.fieldMetric || (locale === 'ar' ? 'مؤشر النجاح' : 'Success Metric'),
-      objective: cdT?.fieldObjective || (locale === 'ar' ? 'الهدف' : 'Objective'),
-      exclusions: cdT?.fieldExclusions || (locale === 'ar' ? 'استثناءات الاستهداف' : 'Exclusions'),
-      adcopyangles: cdT?.fieldAdCopyAngles || (locale === 'ar' ? 'زوايا نصوص الإعلانات' : 'Ad Copy Angles'),
-      funnelstage: cdT?.fieldFunnelStage || (locale === 'ar' ? 'مرحلة القمع' : 'Funnel Stage'),
-      usermindset: cdT?.funnelMindset || (locale === 'ar' ? 'حالة المستخدم الذهنية' : 'User Mindset'),
-      nextstep: cdT?.funnelNextStep || (locale === 'ar' ? 'الخطوة التالية' : 'Next Step'),
-      productarea: cdT?.funnelProductArea || (locale === 'ar' ? 'يُغذّي' : 'Powers'),
+      situation: (useRuntimeTranslations && cdT?.fieldSituation) || (isArabicLabel ? 'الموقف' : 'Situation'),
+      pain: (useRuntimeTranslations && cdT?.fieldPain) || (isArabicLabel ? 'الألم' : 'Pain'),
+      desiredoutcome: (useRuntimeTranslations && cdT?.fieldDesiredOutcome) || (isArabicLabel ? 'النتيجة المطلوبة' : 'Desired Outcome'),
+      want: (useRuntimeTranslations && cdT?.fieldDesiredOutcome) || (isArabicLabel ? 'النتيجة المطلوبة' : 'Desired Outcome'),
+      objection: (useRuntimeTranslations && cdT?.fieldObjection) || (isArabicLabel ? 'الاعتراض' : 'Objection'),
+      message: (useRuntimeTranslations && cdT?.fieldMessage) || (isArabicLabel ? 'الرسالة' : 'Message'),
+      format: (useRuntimeTranslations && cdT?.fieldFormat) || (isArabicLabel ? 'الصيغة' : 'Format'),
+      contenttype: (useRuntimeTranslations && cdT?.fieldFormat) || (isArabicLabel ? 'الصيغة' : 'Format'),
+      platform: (useRuntimeTranslations && cdT?.fieldPlatform) || (isArabicLabel ? 'القناة' : 'Platform'),
+      cta: (useRuntimeTranslations && cdT?.fieldCta) || (isArabicLabel ? 'الدعوة للإجراء' : 'CTA'),
+      metric: (useRuntimeTranslations && cdT?.fieldMetric) || (isArabicLabel ? 'مؤشر القياس' : 'Metric'),
+      successmetric: (useRuntimeTranslations && (cdT?.weekSuccessMetric || cdT?.fieldMetric)) || (isArabicLabel ? 'مؤشر النجاح' : 'Success Metric'),
+      objective: (useRuntimeTranslations && cdT?.fieldObjective) || (isArabicLabel ? 'الهدف' : 'Objective'),
+      exclusions: (useRuntimeTranslations && cdT?.fieldExclusions) || (isArabicLabel ? 'استثناءات الاستهداف' : 'Exclusions'),
+      adcopyangles: (useRuntimeTranslations && cdT?.fieldAdCopyAngles) || (isArabicLabel ? 'زوايا نصوص الإعلانات' : 'Ad Copy Angles'),
+      funnelstage: (useRuntimeTranslations && cdT?.fieldFunnelStage) || (isArabicLabel ? 'مرحلة القمع' : 'Funnel Stage'),
+      usermindset: (useRuntimeTranslations && cdT?.funnelMindset) || (isArabicLabel ? 'حالة المستخدم الذهنية' : 'User Mindset'),
+      nextstep: (useRuntimeTranslations && cdT?.funnelNextStep) || (isArabicLabel ? 'الخطوة التالية' : 'Next Step'),
+      productarea: (useRuntimeTranslations && cdT?.funnelProductArea) || (isArabicLabel ? 'يُغذّي' : 'Powers'),
     }
     if (labels[normalized]) return labels[normalized]
     return key
@@ -1086,6 +1099,7 @@ function CampaignDetailPageInner() {
       .replace(/[_-]+/g, ' ')
       .replace(/\b\w/g, char => char.toUpperCase())
   }
+  const strategyDocFieldLabel = (key: string): string => strategyFieldLabel(key, strategyDocumentLocale)
   const confLevelColor = (lvl: string): string => (lvl === 'high' ? '#10b981' : lvl === 'medium' ? '#f59e0b' : '#ef4444')
 
   // Sprint F — creative brief
@@ -1119,90 +1133,97 @@ function CampaignDetailPageInner() {
     posts: campaignPosts,
     pendingLearningCount,
   })
-  const operatingLabel = locale === 'ar' ? operatingState.stageLabelAr : operatingState.stageLabel
-  const operatingHelper = locale === 'ar' ? operatingState.stageHelperAr : operatingState.stageHelper
+  const strategyDocOperatingLabel = strategyDocIsArabic ? operatingState.stageLabelAr : operatingState.stageLabel
+  const strategyDocOperatingHelper = strategyDocIsArabic ? operatingState.stageHelperAr : operatingState.stageHelper
   const operatingActionLabel = locale === 'ar'
     ? operatingState.primaryAction.labelAr
     : operatingState.primaryAction.label
   const displayOperatingLabel = isPaidOnlyStrategy
-    ? (locale === 'ar' ? 'بريف تخطيط مدفوع للمراجعة' : 'Paid planning brief for review')
-    : operatingLabel
+    ? strategyDocText('بريف تخطيط مدفوع للمراجعة', 'Paid planning brief for review')
+    : strategyDocOperatingLabel
   const displayOperatingHelper = isPaidOnlyStrategy
-    ? (locale === 'ar'
+    ? (strategyDocIsArabic
       ? 'لا توجد خطة محتوى عضوية من هذا التوليد. أكمل التتبع والحسابات والموافقة قبل أي إطلاق أو صرف.'
       : 'No organic content plan was created by this run. Complete tracking, accounts, and approval before any launch or spend.')
-    : operatingHelper
+    : strategyDocOperatingHelper
   const strategyRoomStateCopy = deriveStrategyRoomStateCopy({
     locale,
     isPaidOnlyStrategy,
     hasContentPlan: operatingState.truthFlags.hasContentPlan,
     operatingSnapshotsLoaded,
   })
+  const strategyDocStateCopy = deriveStrategyRoomStateCopy({
+    locale: strategyDocumentLocale,
+    isPaidOnlyStrategy,
+    hasContentPlan: operatingState.truthFlags.hasContentPlan,
+    operatingSnapshotsLoaded,
+  })
   const strategyGuidanceCopy = strategyRoomStateCopy.guidance
-  const strategyReviewChecklistCopy = strategyRoomStateCopy.checklist
+  const strategyDocGuidanceCopy = strategyDocStateCopy.guidance
+  const strategyReviewChecklistCopy = strategyDocStateCopy.checklist
   const mustHaveAssetCount = Array.isArray(assetRequirements?.mustHave) ? assetRequirements.mustHave.length : 0
   const proofAssetCount = Array.isArray(assetRequirements?.forProof) ? assetRequirements.forProof.length : 0
   const verifiedProofCount = proofContext.verifiedProof.length
   const analyticsBaselineMissing = missingDataKeys.includes('pixel') || confidenceReport?.byCapability?.measurement !== 'high'
   const strategyExecutionReadinessItems = [
     {
-      label: locale === 'ar' ? 'اتجاه الرسالة والجمهور' : 'Message and audience direction',
+      label: strategyDocText('اتجاه الرسالة والجمهور', 'Message and audience direction'),
       value: hasExecutiveStrategySection && hasBusinessObjectiveSection && hasAudienceSection
-        ? (locale === 'ar' ? 'جاهز للمراجعة' : 'Ready for review')
-        : (locale === 'ar' ? 'يحتاج هدفاً وجمهوراً أوضح' : 'Needs clearer objective or audience'),
-      helper: locale === 'ar'
+        ? strategyDocText('جاهز للمراجعة', 'Ready for review')
+        : strategyDocText('يحتاج هدفاً وجمهوراً أوضح', 'Needs clearer objective or audience'),
+      helper: strategyDocIsArabic
         ? 'راجع القرار، التشخيص، والشرائح قبل تحويل الاستراتيجية إلى خطة عمل.'
         : 'Review the decision, diagnosis, and segments before turning the strategy into work.',
       tone: hasExecutiveStrategySection && hasBusinessObjectiveSection && hasAudienceSection ? 'positive' : 'warning',
     },
     {
-      label: locale === 'ar' ? 'حالة خطة المحتوى' : 'Content plan status',
-      value: strategyRoomStateCopy.contentPlanStatusValue,
-      helper: locale === 'ar'
+      label: strategyDocText('حالة خطة المحتوى', 'Content plan status'),
+      value: strategyDocStateCopy.contentPlanStatusValue,
+      helper: strategyDocIsArabic
         ? 'Content Hub هو مكان خطة المنشورات النهائية وحالة الوسائط، وليس هذه الصفحة.'
         : 'Content Hub owns final post planning and media state, not this page.',
-      tone: strategyRoomStateCopy.contentPlanTone,
+      tone: strategyDocStateCopy.contentPlanTone,
     },
     {
-      label: locale === 'ar' ? 'الإثبات والثقة' : 'Proof and trust',
+      label: strategyDocText('الإثبات والثقة', 'Proof and trust'),
       value: verifiedProofCount > 0
-        ? (locale === 'ar' ? `${verifiedProofCount} دليل موثق للمراجعة` : `${verifiedProofCount} verified proof signal${verifiedProofCount === 1 ? '' : 's'} for review`)
+        ? (strategyDocIsArabic ? `${verifiedProofCount} دليل موثق للمراجعة` : `${verifiedProofCount} verified proof signal${verifiedProofCount === 1 ? '' : 's'} for review`)
         : proofAssetCount > 0
-          ? (locale === 'ar' ? `${proofAssetCount} أصل ثقة مطلوب` : `${proofAssetCount} proof asset${proofAssetCount === 1 ? '' : 's'} needed`)
-          : (locale === 'ar' ? 'استخدم ادعاءات محافظة حتى تتوفر أدلة' : 'Keep claims conservative until proof exists'),
-      helper: locale === 'ar'
+          ? (strategyDocIsArabic ? `${proofAssetCount} أصل ثقة مطلوب` : `${proofAssetCount} proof asset${proofAssetCount === 1 ? '' : 's'} needed`)
+          : strategyDocText('استخدم ادعاءات محافظة حتى تتوفر أدلة', 'Keep claims conservative until proof exists'),
+      helper: strategyDocIsArabic
         ? 'لا تعتبر الشهادات أو النتائج مثبتة إلا إذا أضافها المستخدم أو جاءت من تحليلات حقيقية.'
         : 'Testimonials and outcomes are not proven unless the user supplied them or real analytics support them.',
       tone: verifiedProofCount > 0 ? 'positive' : 'warning',
     },
     {
-      label: locale === 'ar' ? 'الأصول الإبداعية' : 'Creative assets',
+      label: strategyDocText('الأصول الإبداعية', 'Creative assets'),
       value: mustHaveAssetCount > 0
-        ? (locale === 'ar' ? `${mustHaveAssetCount} أصل أساسي قبل التنفيذ` : `${mustHaveAssetCount} must-have asset${mustHaveAssetCount === 1 ? '' : 's'} before execution`)
-        : (locale === 'ar' ? 'لا توجد أصول أساسية مذكورة' : 'No must-have assets listed'),
-      helper: locale === 'ar'
+        ? (strategyDocIsArabic ? `${mustHaveAssetCount} أصل أساسي قبل التنفيذ` : `${mustHaveAssetCount} must-have asset${mustHaveAssetCount === 1 ? '' : 's'} before execution`)
+        : strategyDocText('لا توجد أصول أساسية مذكورة', 'No must-have assets listed'),
+      helper: strategyDocIsArabic
         ? 'لقطات المنتج، الفيديو التوضيحي، والإثباتات تتحكم في جودة المحتوى أكثر من طول التقرير.'
         : 'Product shots, demos, and proof assets matter more than report length for execution quality.',
       tone: mustHaveAssetCount > 0 ? 'warning' : 'muted',
     },
     {
-      label: locale === 'ar' ? 'خط أساس التحليلات' : 'Analytics baseline',
+      label: strategyDocText('خط أساس التحليلات', 'Analytics baseline'),
       value: analyticsBaselineMissing
-        ? (locale === 'ar' ? 'مطلوب قبل الحكم على الأداء' : 'Needed before judging performance')
-        : (locale === 'ar' ? 'متاح للمراجعة' : 'Available for review'),
-      helper: locale === 'ar'
+        ? strategyDocText('مطلوب قبل الحكم على الأداء', 'Needed before judging performance')
+        : strategyDocText('متاح للمراجعة', 'Available for review'),
+      helper: strategyDocIsArabic
         ? 'الأرقام في الاستراتيجية تظل فرضيات حتى تظهر بيانات نشر أو تحليلات حقيقية.'
         : 'Strategy numbers stay hypotheses until published content or analytics data exists.',
       tone: analyticsBaselineMissing ? 'warning' : 'positive',
     },
     {
-      label: locale === 'ar' ? 'نطاق التخطيط المدفوع' : 'Paid planning scope',
+      label: strategyDocText('نطاق التخطيط المدفوع', 'Paid planning scope'),
       value: !includesPaidPlanningStrategy
-        ? (locale === 'ar' ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run')
+        ? strategyDocText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
         : hasPaidPlanningGaps
-          ? (locale === 'ar' ? 'مدخلات مدفوعة ناقصة' : 'Paid inputs missing')
-          : (locale === 'ar' ? 'تخطيط للمراجعة فقط' : 'Planning for review only'),
-      helper: locale === 'ar'
+          ? strategyDocText('مدخلات مدفوعة ناقصة', 'Paid inputs missing')
+          : strategyDocText('تخطيط للمراجعة فقط', 'Planning for review only'),
+      helper: strategyDocIsArabic
         ? 'لا يوجد صرف أو إطلاق أو جاهزية حسابات من صفحة الاستراتيجية.'
         : 'No spend, launch, or account readiness happens from the Strategy page.',
       tone: includesPaidPlanningStrategy && hasPaidPlanningGaps ? 'warning' : 'muted',
@@ -1221,23 +1242,23 @@ function CampaignDetailPageInner() {
     not_in_scope: 'border-slate-200 bg-white text-slate-600',
   }
   const strategyExecutionStatusLabel = (requirement: StrategyExecutionRequirement): string => {
-    if (requirement.status === 'ready') return locale === 'ar' ? 'متاح للمراجعة' : 'Available for review'
-    if (requirement.status === 'checking') return locale === 'ar' ? 'قيد الفحص' : 'Checking'
-    if (requirement.readinessStatus === 'permission_unverified') return locale === 'ar' ? 'الصلاحية غير مثبتة' : 'Permission unverified'
-    if (requirement.readinessStatus === 'not_available') return locale === 'ar' ? 'غير متاح بعد' : 'Not available yet'
-    if (requirement.readinessStatus === 'not_connected') return locale === 'ar' ? 'غير متصل' : 'Not connected'
-    if (requirement.readinessStatus === 'needs_setup') return locale === 'ar' ? 'يحتاج إعداداً' : 'Needs setup'
-    return locale === 'ar' ? 'غير جاهز' : 'Not ready'
+    if (requirement.status === 'ready') return strategyDocText('متاح للمراجعة', 'Available for review')
+    if (requirement.status === 'checking') return strategyDocText('قيد الفحص', 'Checking')
+    if (requirement.readinessStatus === 'permission_unverified') return strategyDocText('الصلاحية غير مثبتة', 'Permission unverified')
+    if (requirement.readinessStatus === 'not_available') return strategyDocText('غير متاح بعد', 'Not available yet')
+    if (requirement.readinessStatus === 'not_connected') return strategyDocText('غير متصل', 'Not connected')
+    if (requirement.readinessStatus === 'needs_setup') return strategyDocText('يحتاج إعداداً', 'Needs setup')
+    return strategyDocText('غير جاهز', 'Not ready')
   }
   const renderStrategyExecutionRequirement = (requirement: StrategyExecutionRequirement) => (
     <div key={requirement.id} className={`rounded-2xl border p-4 ${strategyExecutionRequirementTone[requirement.status]}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold">
-            {locale === 'ar' ? requirement.titleAr : requirement.titleEn}
+            {strategyDocIsArabic ? requirement.titleAr : requirement.titleEn}
           </p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            {locale === 'ar' ? requirement.reasonAr : requirement.reasonEn}
+            {strategyDocIsArabic ? requirement.reasonAr : requirement.reasonEn}
           </p>
         </div>
         <span className="w-fit rounded-full border border-current/20 px-2.5 py-1 text-[11px] font-semibold">
@@ -1249,7 +1270,7 @@ function CampaignDetailPageInner() {
           href={requirement.actionHref}
           className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
         >
-          {locale === 'ar' ? requirement.actionLabelAr : requirement.actionLabelEn}
+          {strategyDocIsArabic ? requirement.actionLabelAr : requirement.actionLabelEn}
         </Link>
       )}
     </div>
@@ -2212,7 +2233,7 @@ function CampaignDetailPageInner() {
                     <div className="flex flex-shrink-0 items-center gap-2 px-1">
                       <span className="h-2 w-2 rounded-full bg-indigo-500" />
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-                        {locale === 'ar' ? 'خريطة الاستراتيجية' : 'Strategy map'}
+                        {strategyDocText('خريطة الاستراتيجية', 'Strategy map')}
                       </span>
                     </div>
                     <div className="flex gap-1.5 overflow-x-auto">
@@ -2242,40 +2263,40 @@ function CampaignDetailPageInner() {
                       <div className="max-w-3xl">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
-                            {locale === 'ar' ? 'مركز قيادة الاستراتيجية' : 'Strategy command center'}
+                            {strategyDocText('مركز قيادة الاستراتيجية', 'Strategy command center')}
                           </span>
                           <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                            {locale === 'ar' ? 'مراجعة قبل التنفيذ' : 'Review before execution'}
+                            {strategyDocText('مراجعة قبل التنفيذ', 'Review before execution')}
                           </span>
                         </div>
                         <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
                           {campaign.name}
                         </h1>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                          {strategyGuidanceCopy.brief}
+                          {strategyDocGuidanceCopy.brief}
                         </p>
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500">
-                              {locale === 'ar' ? 'الإجراء التالي' : 'Next action'}
+                              {strategyDocText('الإجراء التالي', 'Next action')}
                             </p>
                             <p className="mt-1 text-sm font-semibold leading-6 text-slate-950">
-                              {strategyRoomStateCopy.nextDecision}
+                              {strategyDocStateCopy.nextDecision}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                              {locale === 'ar' ? 'حدود التشغيل' : 'Operating boundary'}
+                              {strategyDocText('حدود التشغيل', 'Operating boundary')}
                             </p>
                             <p className="mt-1 text-sm leading-6 text-slate-700">
-                              {locale === 'ar'
+                              {strategyDocIsArabic
                                 ? 'لا نشر، لا جدولة، لا صرف إعلاني، ولا تحديث Brand Brain من هذه الصفحة.'
                                 : 'No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.'}
                             </p>
                           </div>
                         </div>
                         <p className="mt-4 text-xs text-slate-500">
-                          {locale === 'ar' ? 'آخر تحديث' : 'Last updated'}: {new Date(campaign.updatedAt).toLocaleDateString(locale === 'ar' ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {strategyDocText('آخر تحديث', 'Last updated')}: {new Date(campaign.updatedAt).toLocaleDateString(strategyDocIsArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -2284,15 +2305,15 @@ function CampaignDetailPageInner() {
                           className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                           {isPaidOnlyStrategy
-                            ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع' : 'Review paid planning brief')
-                            : strategyRoomStateCopy.contentHubCta}
+                            ? strategyDocText('راجع بريف التخطيط المدفوع', 'Review paid planning brief')
+                            : strategyDocStateCopy.contentHubCta}
                         </Link>
                         <button
                           type="button"
                           onClick={() => scrollToStrategySection('strategy-executive')}
                           className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
-                          {locale === 'ar' ? 'راجع أقسام الاستراتيجية' : 'Review strategy sections'}
+                          {strategyDocText('راجع أقسام الاستراتيجية', 'Review strategy sections')}
                         </button>
                       </div>
                     </div>
@@ -2300,37 +2321,41 @@ function CampaignDetailPageInner() {
                   <div className="px-5 py-5 sm:px-7">
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
                       <StrategyDocCard
-                        label={locale === 'ar' ? 'حالة الاستراتيجية' : 'Strategy state'}
+                        label={strategyDocText('حالة الاستراتيجية', 'Strategy state')}
+                        locale={strategyDocumentLocale}
                         value={displayOperatingLabel}
                         tone="positive"
                       />
                       <StrategyDocCard
                         label={isPaidOnlyStrategy
-                          ? (locale === 'ar' ? 'النطاق العضوي' : 'Organic scope')
-                          : (locale === 'ar' ? 'الخطة العضوية' : 'Organic plan')}
-                        value={strategyRoomStateCopy.organicPlanValue}
-                        tone={strategyRoomStateCopy.contentPlanTone}
+                          ? strategyDocText('النطاق العضوي', 'Organic scope')
+                          : strategyDocText('الخطة العضوية', 'Organic plan')}
+                        locale={strategyDocumentLocale}
+                        value={strategyDocStateCopy.organicPlanValue}
+                        tone={strategyDocStateCopy.contentPlanTone}
                       />
                       <StrategyDocCard
-                        label={locale === 'ar' ? 'الإعلانات المدفوعة' : 'Paid planning'}
+                        label={strategyDocText('الإعلانات المدفوعة', 'Paid planning')}
+                        locale={strategyDocumentLocale}
                         value={!includesPaidPlanningStrategy
-                          ? (locale === 'ar' ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run')
+                          ? strategyDocText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
                           : hasPaidPlanningGaps
-                            ? (locale === 'ar'
-                                ? `غير جاهز: ${paidPlanningMissingLabels.slice(0, 3).join('، ')}`
-                                : `Not ready: ${paidPlanningMissingLabels.slice(0, 3).join(', ')}`)
+                            ? (strategyDocIsArabic
+                                ? `غير جاهز: ${strategyDocPaidPlanningMissingLabels.slice(0, 3).join('، ')}`
+                                : `Not ready: ${strategyDocPaidPlanningMissingLabels.slice(0, 3).join(', ')}`)
                             : isPaidOnlyStrategy
-                              ? (locale === 'ar' ? 'بريف تخطيط للمراجعة فقط' : 'Planning brief for review only')
-                              : (locale === 'ar' ? 'تخطيط فقط — لا صرف بدون موافقة' : 'Planning only — no spend without approval')}
+                              ? strategyDocText('بريف تخطيط للمراجعة فقط', 'Planning brief for review only')
+                              : strategyDocText('تخطيط فقط — لا صرف بدون موافقة', 'Planning only — no spend without approval')}
                         tone={includesPaidPlanningStrategy ? 'warning' : 'muted'}
                       />
                       <StrategyDocCard
-                        label={locale === 'ar' ? 'الثقة' : 'Confidence'}
+                        label={strategyDocText('الثقة', 'Confidence')}
+                        locale={strategyDocumentLocale}
                         value={displayedConfidenceLevel
-                          ? `${confLevelLabel(displayedConfidenceLevel)}${confidenceReport?.overall === 'high' && displayedConfidenceLevel !== 'high'
-                            ? (locale === 'ar' ? ' بسبب بيانات ناقصة' : ' due to missing inputs')
+                          ? `${confLevelLabel(displayedConfidenceLevel, strategyDocumentLocale)}${confidenceReport?.overall === 'high' && displayedConfidenceLevel !== 'high'
+                            ? strategyDocText(' بسبب بيانات ناقصة', ' due to missing inputs')
                             : ''}`
-                          : (locale === 'ar' ? 'تحتاج مراجعة' : 'Needs review')}
+                          : strategyDocText('تحتاج مراجعة', 'Needs review')}
                         tone={displayedConfidenceLevel === 'low' ? 'warning' : 'muted'}
                       />
                     </div>
@@ -2345,7 +2370,7 @@ function CampaignDetailPageInner() {
                           </p>
                         </div>
                         <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                          {locale === 'ar' ? 'مراجعة فقط' : 'Review only'}
+                          {strategyDocText('مراجعة فقط', 'Review only')}
                         </span>
                       </div>
                       <div className="mt-4 grid grid-cols-1 gap-2 lg:grid-cols-2">
@@ -2375,13 +2400,13 @@ function CampaignDetailPageInner() {
                         })}
                       </div>
                     </div>
-                    {missingDataLabels.length > 0 && (
+                    {strategyDocMissingDataLabels.length > 0 && (
                       <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                         <p className="text-sm font-semibold text-amber-950">
-                          {locale === 'ar' ? 'ما ينقص قبل قرارات التنفيذ' : 'Missing before execution decisions'}
+                          {strategyDocText('ما ينقص قبل قرارات التنفيذ', 'Missing before execution decisions')}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {missingDataLabels.map((label, i) => (
+                          {strategyDocMissingDataLabels.map((label, i) => (
                             <span key={i} className="rounded-full border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800">
                               {label}
                             </span>
@@ -2395,28 +2420,31 @@ function CampaignDetailPageInner() {
                 <section id="strategy-summary" className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                     <StrategyDocCard
-                      label={locale === 'ar' ? 'المصدر' : 'Source'}
-                      value={locale === 'ar' ? 'Brand Brain وبيانات الحملة' : 'Brand Brain and campaign inputs'}
+                      label={strategyDocText('المصدر', 'Source')}
+                      value={strategyDocText('Brand Brain وبيانات الحملة', 'Brand Brain and campaign inputs')}
+                      locale={strategyDocumentLocale}
                     />
                     <StrategyDocCard
-                      label={locale === 'ar' ? 'التحليلات' : 'Analytics'}
+                      label={strategyDocText('التحليلات', 'Analytics')}
+                      locale={strategyDocumentLocale}
                       value={confidenceReport?.byCapability?.measurement === 'high'
-                        ? (locale === 'ar' ? 'بيانات متاحة جزئياً' : 'Partial data available')
-                        : (locale === 'ar' ? 'تحتاج خط أساس' : 'Baseline needed')}
+                        ? strategyDocText('بيانات متاحة جزئياً', 'Partial data available')
+                        : strategyDocText('تحتاج خط أساس', 'Baseline needed')}
                       tone="muted"
                     />
                     <StrategyDocCard
-                      label={locale === 'ar' ? 'حدود التنفيذ' : 'Execution limits'}
-                      value={locale === 'ar' ? 'لا إعلانات ولا نشر بدون مراجعة صريحة' : 'No ads or publishing without explicit review'}
+                      label={strategyDocText('حدود التنفيذ', 'Execution limits')}
+                      value={strategyDocText('لا إعلانات ولا نشر بدون مراجعة صريحة', 'No ads or publishing without explicit review')}
+                      locale={strategyDocumentLocale}
                       tone="muted"
                     />
                   </div>
                   <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                     {isPaidOnlyStrategy
-                      ? (locale === 'ar'
+                      ? (strategyDocIsArabic
                         ? 'هذه الصفحة تحفظ بريف التخطيط المدفوع كمادة مراجعة فقط. لا توجد منشورات Content Hub من هذا التوليد، ولا إطلاق أو صرف بدون تأكيد صريح.'
                         : 'This page keeps the paid planning brief as review material only. No Content Hub posts were created by this run, and no launch or spend happens without explicit confirmation.')
-                      : (locale === 'ar'
+                      : (strategyDocIsArabic
                         ? 'هذه الصفحة تحفظ قيمة الاستراتيجية كاملة، لكنها تقسمها إلى قرارات قابلة للمراجعة. Content Hub يظل مصدر الحقيقة لحالة المنشورات والوسائط.'
                         : 'This page keeps the full strategy value, but organizes it into reviewable decisions. Content Hub remains the source of truth for post and media state.')}
                   </p>
@@ -2426,8 +2454,8 @@ function CampaignDetailPageInner() {
                   <StrategyDocSection
                     id="strategy-executive"
                     eyebrow="01"
-                    title={locale === 'ar' ? 'الاستراتيجية التنفيذية' : 'Executive Strategy'}
-                    description={locale === 'ar'
+                    title={strategyDocText('الاستراتيجية التنفيذية', 'Executive Strategy')}
+                    description={strategyDocIsArabic
                       ? 'الاتجاه الأساسي، لماذا يناسب العلامة، وما يجب التركيز عليه أولاً.'
                       : 'The core direction, why it fits the brand, and what to focus on first.'}
                   >
@@ -2435,7 +2463,7 @@ function CampaignDetailPageInner() {
                       {strategy.keyMessage && (
                         <div className="rounded-3xl border border-indigo-100 bg-indigo-50 p-5">
                           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-500">
-                            {cdT?.sectionKeyMessage || 'Key Message'}
+                            {strategyDocText('الرسالة الأساسية', 'Key Message')}
                           </p>
                           <p className="mt-2 text-xl font-semibold leading-8 text-slate-950">"{strategy.keyMessage}"</p>
                           <div className="mt-3">
@@ -2444,12 +2472,13 @@ function CampaignDetailPageInner() {
                         </div>
                       )}
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <StrategyDocCard label={cdT?.sectionPositioning || 'Positioning'} value={strategy.positioning} />
-                        <StrategyDocCard label={cdT?.sectionDifferentiation || 'Differentiation'} value={strategy.differentiation} />
+                        <StrategyDocCard label={strategyDocText('التموضع', 'Positioning')} value={strategy.positioning} locale={strategyDocumentLocale} />
+                        <StrategyDocCard label={strategyDocText('التميّز', 'Differentiation')} value={strategy.differentiation} locale={strategyDocumentLocale} />
                       </div>
                       {strategy.nextBestAction && (
                         <StrategyDocCard
-                          label={locale === 'ar' ? 'الخطوة التالية المقترحة' : 'Suggested next step'}
+                          label={strategyDocText('الخطوة التالية المقترحة', 'Suggested next step')}
+                          locale={strategyDocumentLocale}
                           value={strategy.nextBestAction}
                           tone="muted"
                         />
@@ -2462,71 +2491,72 @@ function CampaignDetailPageInner() {
                   <StrategyDocSection
                     id="strategy-diagnosis"
                     eyebrow="02"
-                    title={cdT?.sectionDiagnosis || 'Marketing Diagnosis'}
+                    title={strategyDocText('تشخيص التسويق', 'Marketing Diagnosis')}
                     description={strategy.diagnosis}
                   >
                     {diagnosisDetails && (
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <StrategyDocCard label={cdT?.diagStage || 'Business stage'} value={diagnosisDetails.stage} />
-                        <StrategyDocCard label={cdT?.diagBottleneck || 'Main bottleneck'} value={diagnosisDetails.bottleneck} />
-                        <StrategyDocCard label={cdT?.diagTrustGap || 'Trust gap'} value={diagnosisDetails.trustGap} tone="warning" />
-                        <StrategyDocCard label={cdT?.diagRisk || 'Main risk'} value={diagnosisDetails.mainRisk} tone="warning" />
+                        <StrategyDocCard label={strategyDocText('مرحلة النشاط', 'Business stage')} value={diagnosisDetails.stage} locale={strategyDocumentLocale} />
+                        <StrategyDocCard label={strategyDocText('العائق الأساسي', 'Main bottleneck')} value={diagnosisDetails.bottleneck} locale={strategyDocumentLocale} />
+                        <StrategyDocCard label={strategyDocText('فجوة الثقة', 'Trust gap')} value={diagnosisDetails.trustGap} locale={strategyDocumentLocale} tone="warning" />
+                        <StrategyDocCard label={strategyDocText('الخطر الأساسي', 'Main risk')} value={diagnosisDetails.mainRisk} locale={strategyDocumentLocale} tone="warning" />
                         <StrategyDocCard
-                          label={locale === 'ar' ? 'جاهزية التخطيط المدفوع' : 'Paid planning status'}
+                          label={strategyDocText('جاهزية التخطيط المدفوع', 'Paid planning status')}
+                          locale={strategyDocumentLocale}
                           value={!includesPaidPlanningStrategy
-                            ? (locale === 'ar' ? 'غير مشمول في هذا التشغيل العضوي' : 'Not included in this organic run')
+                            ? strategyDocText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
                             : diagnosisDetails.readyForPaidAds
-                              ? (locale === 'ar' ? 'يمكن إعداد خطة للمراجعة' : 'Can prepare a plan for review')
-                              : (locale === 'ar' ? 'مدخلات مدفوعة ناقصة؛ لا صرف بدون موافقة' : 'Paid inputs missing; no spend without approval')}
+                              ? strategyDocText('يمكن إعداد خطة للمراجعة', 'Can prepare a plan for review')
+                              : strategyDocText('مدخلات مدفوعة ناقصة؛ لا صرف بدون موافقة', 'Paid inputs missing; no spend without approval')}
                           tone={!includesPaidPlanningStrategy ? 'muted' : 'warning'}
                         />
-                        <StrategyDocCard label={locale === 'ar' ? 'السبب' : 'Reason'} value={diagnosisDetails.readyForPaidAdsReason} />
+                        <StrategyDocCard label={strategyDocText('السبب', 'Reason')} value={diagnosisDetails.readyForPaidAdsReason} locale={strategyDocumentLocale} />
                       </div>
                     )}
                   </StrategyDocSection>
                 )}
 
                 {hasBusinessObjectiveSection && (
-                  <StrategyDocSection id="strategy-objective" eyebrow="03" title={cdT?.sectionBusinessObjective || 'Business Objective'}>
+                  <StrategyDocSection id="strategy-objective" eyebrow="03" title={strategyDocText('الهدف التجاري', 'Business Objective')}>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       {[
-                        { label: cdT?.businessObjPrimary || 'Business objective', value: businessObjective.primary },
-                        { label: cdT?.businessObjMarketing || 'Marketing objective', value: businessObjective.marketing },
-                        { label: cdT?.businessObjConversion || 'Conversion action', value: businessObjective.conversionAction },
-                        { label: cdT?.businessObjAction || 'Expected user action', value: businessObjective.expectedUserAction },
-                        { label: cdT?.businessObjWhyNow || 'Why now', value: businessObjective.whyNow },
-                        { label: cdT?.businessObjSuccess30 || 'Success definition', value: businessObjective.successIn30Days },
+                        { label: strategyDocText('الهدف التجاري', 'Business objective'), value: businessObjective.primary },
+                        { label: strategyDocText('هدف التسويق', 'Marketing objective'), value: businessObjective.marketing },
+                        { label: strategyDocText('إجراء التحويل', 'Conversion action'), value: businessObjective.conversionAction },
+                        { label: strategyDocText('الفعل المتوقع من المستخدم', 'Expected user action'), value: businessObjective.expectedUserAction },
+                        { label: strategyDocText('لماذا الآن', 'Why now'), value: businessObjective.whyNow },
+                        { label: strategyDocText('تعريف النجاح', 'Success definition'), value: businessObjective.successIn30Days },
                       ].map((item, i) => (
-                        <StrategyDocCard key={i} label={item.label} value={item.value} />
+                        <StrategyDocCard key={i} label={item.label} value={item.value} locale={strategyDocumentLocale} />
                       ))}
                     </div>
                   </StrategyDocSection>
                 )}
 
                 {hasAudienceSection && (
-                  <StrategyDocSection id="strategy-audience" eyebrow="04" title={cdT?.sectionAudienceSegmentsDetailed || cdT?.sectionAudienceSegments || 'Audience Segments'}>
+                  <StrategyDocSection id="strategy-audience" eyebrow="04" title={strategyDocText('شرائح الجمهور', 'Audience Segments')}>
                     {audienceSegmentsDetailed.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         {audienceSegmentsDetailed.map((seg: any, i: number) => (
                           <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                             <p className="text-sm font-semibold text-slate-950">{i + 1}. {seg.segment}</p>
                             <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-slate-700">
-                              <StrategyDocCard label={strategyFieldLabel('situation')} value={seg.situation} />
-                              <StrategyDocCard label={strategyFieldLabel('pain')} value={seg.pain} tone="warning" />
-                              <StrategyDocCard label={strategyFieldLabel('desiredOutcome')} value={seg.desiredOutcome} tone="positive" />
-                              <StrategyDocCard label={strategyFieldLabel('objection')} value={seg.objection} tone="warning" />
-                              <StrategyDocCard label={strategyFieldLabel('message')} value={seg.message} />
+                              <StrategyDocCard label={strategyDocFieldLabel('situation')} value={seg.situation} locale={strategyDocumentLocale} />
+                              <StrategyDocCard label={strategyDocFieldLabel('pain')} value={seg.pain} locale={strategyDocumentLocale} tone="warning" />
+                              <StrategyDocCard label={strategyDocFieldLabel('desiredOutcome')} value={seg.desiredOutcome} locale={strategyDocumentLocale} tone="positive" />
+                              <StrategyDocCard label={strategyDocFieldLabel('objection')} value={seg.objection} locale={strategyDocumentLocale} tone="warning" />
+                              <StrategyDocCard label={strategyDocFieldLabel('message')} value={seg.message} locale={strategyDocumentLocale} />
                               <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-                                {seg.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('platform')}: {formatStrategyPlatformLabel(seg.platform) || seg.platform}</span>}
-                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('format')}: {seg.format}</span>}
-                                {seg.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyFieldLabel('cta')}: {seg.cta}</span>}
+                                {seg.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('platform')}: {formatStrategyPlatformLabel(seg.platform) || seg.platform}</span>}
+                                {seg.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('format')}: {seg.format}</span>}
+                                {seg.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyDocFieldLabel('cta')}: {seg.cta}</span>}
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <StrategyDocList ordered locale={locale} items={audienceSegments.map((seg: string) => seg)} />
+                      <StrategyDocList ordered locale={strategyDocumentLocale} items={audienceSegments.map((seg: string) => seg)} />
                     )}
                   </StrategyDocSection>
                 )}
@@ -2536,13 +2566,13 @@ function CampaignDetailPageInner() {
                     id="strategy-content"
                     eyebrow="05"
                     title={isPaidOnlyStrategy
-                      ? (locale === 'ar' ? 'زوايا التخطيط المدفوع' : 'Paid Planning Angles')
-                      : (locale === 'ar' ? 'خطة المحتوى العضوي' : 'Organic Content Plan')}
+                      ? strategyDocText('زوايا التخطيط المدفوع', 'Paid Planning Angles')
+                      : strategyDocText('خطة المحتوى العضوي', 'Organic Content Plan')}
                     description={isPaidOnlyStrategy
-                      ? (locale === 'ar'
+                      ? (strategyDocIsArabic
                         ? 'فرضيات الجمهور والزوايا والنسخ الإعلانية للمراجعة فقط. ليست خطة منشورات عضوية ولا Content Hub.'
                         : 'Audience hypotheses, paid angles, and ad-copy directions for review only. This is not an organic post plan or Content Hub output.')
-                      : (locale === 'ar'
+                      : (strategyDocIsArabic
                         ? 'الرسائل والركائز والخطافات التي تحوّل الاستراتيجية إلى محتوى قابل للمراجعة.'
                         : 'The messages, pillars, hooks, and angles that turn the strategy into reviewable content.')}
                   >
@@ -2551,8 +2581,8 @@ function CampaignDetailPageInner() {
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                             {isPaidOnlyStrategy
-                              ? (locale === 'ar' ? 'محاور التخطيط المدفوع' : 'Paid planning pillars')
-                              : (cdT?.sectionContentPillars || 'Content Pillars')}
+                              ? strategyDocText('محاور التخطيط المدفوع', 'Paid planning pillars')
+                              : strategyDocText('ركائز المحتوى', 'Content Pillars')}
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {strategy.contentPillars.map((p: string, i: number) => (
@@ -2565,11 +2595,11 @@ function CampaignDetailPageInner() {
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                             {isPaidOnlyStrategy
-                              ? (locale === 'ar' ? 'فرضيات قيمة للمراجعة' : 'Value hypotheses for review')
-                              : (cdT?.sectionValueProps || 'Value Propositions')}
+                              ? strategyDocText('فرضيات قيمة للمراجعة', 'Value hypotheses for review')
+                              : strategyDocText('وعود القيمة', 'Value Propositions')}
                           </p>
                           {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0) ? (
-                            <StrategyDocList locale={locale} items={(strategy.valueProps || strategy.valuePropositions).map((vp: string) => vp)} />
+                            <StrategyDocList locale={strategyDocumentLocale} items={(strategy.valueProps || strategy.valuePropositions).map((vp: string) => vp)} />
                           ) : (
                             <p className="text-sm leading-6 text-slate-700">{strategy.estimatedResults}</p>
                           )}
@@ -2579,8 +2609,8 @@ function CampaignDetailPageInner() {
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                             {isPaidOnlyStrategy
-                              ? (locale === 'ar' ? 'خطافات إعلانية للمراجعة' : 'Paid hooks for review')
-                              : (cdT?.sectionTopHooks || 'Top Hooks')}
+                              ? strategyDocText('خطافات إعلانية للمراجعة', 'Paid hooks for review')
+                              : strategyDocText('خطافات المحتوى', 'Content Hooks')}
                           </p>
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                             {topHooks.slice(0, 8).map((hook: string, i: number) => (
@@ -2595,7 +2625,7 @@ function CampaignDetailPageInner() {
                       )}
                       {ctaVariations.length > 0 && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionCtaVariations || 'CTAs'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('دعوات الإجراء', 'CTAs')}</p>
                           <div className="flex flex-wrap gap-2">
                             {ctaVariations.map((cta: string, i: number) => (
                               <span key={i} className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700">{cta}</span>
@@ -2607,26 +2637,26 @@ function CampaignDetailPageInner() {
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                             {isPaidOnlyStrategy
-                              ? (locale === 'ar' ? 'زوايا إعلانية للمراجعة' : 'Paid ad angles for review')
-                              : (cdT?.sectionContentAnglesDetailed || cdT?.sectionContentAngles || 'Content Angles')}
+                              ? strategyDocText('زوايا إعلانية للمراجعة', 'Paid ad angles for review')
+                              : strategyDocText('زوايا المحتوى', 'Content Angles')}
                           </p>
                           {contentAnglesDetailed.length > 0 ? (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               {contentAnglesDetailed.map((angle: any, i: number) => (
                                 <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                  <p className="text-sm font-semibold text-slate-950">{angle.title || `${locale === 'ar' ? 'زاوية' : 'Angle'} ${i + 1}`}</p>
+                                  <p className="text-sm font-semibold text-slate-950">{angle.title || `${strategyDocText('زاوية', 'Angle')} ${i + 1}`}</p>
                                   {angle.hook && <p className="mt-2 text-sm leading-6 text-slate-700">"{angle.hook}"</p>}
                                   <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                                    {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('pain')}: {angle.pain}</span>}
-                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('format')}: {angle.format}</span>}
-                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyFieldLabel('platform')}: {formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>}
-                                    {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyFieldLabel('cta')}: {angle.cta}</span>}
+                                    {angle.pain && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('pain')}: {angle.pain}</span>}
+                                    {angle.format && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('format')}: {angle.format}</span>}
+                                    {angle.platform && <span className="rounded-full bg-white px-2 py-1 ring-1 ring-slate-200">{strategyDocFieldLabel('platform')}: {formatStrategyPlatformLabel(angle.platform) || angle.platform}</span>}
+                                    {angle.cta && <span className="rounded-full bg-white px-2 py-1 font-semibold text-indigo-600 ring-1 ring-indigo-100">{strategyDocFieldLabel('cta')}: {angle.cta}</span>}
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <StrategyDocList locale={locale} items={contentAngles.map((angle: string) => angle)} />
+                            <StrategyDocList locale={strategyDocumentLocale} items={contentAngles.map((angle: string) => angle)} />
                           )}
                         </div>
                       )}
@@ -2635,23 +2665,23 @@ function CampaignDetailPageInner() {
                 )}
 
                 {hasExecutionSection && (
-                  <StrategyDocSection id="strategy-execution" eyebrow="06" title={cdT?.chapterExecution || 'Execution Plan'}>
+                  <StrategyDocSection id="strategy-execution" eyebrow="06" title={strategyDocText('خطة التنفيذ', 'Execution Plan')}>
                     <div className="space-y-5">
                       {(funnelStages.length > 0 || strategy.funnelStrategy) && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionFunnelStages || cdT?.sectionFunnelStrategy || 'Funnel stages'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('مراحل القمع', 'Funnel stages')}</p>
                           {funnelStages.length > 0 ? (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               {funnelStages.map((stage: any, i: number) => (
                                 <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                  <p className="text-sm font-semibold capitalize text-slate-950">{stage.stage || `${locale === 'ar' ? 'مرحلة' : 'Stage'} ${i + 1}`}</p>
+                                  <p className="text-sm font-semibold capitalize text-slate-950">{stage.stage || `${strategyDocText('مرحلة', 'Stage')} ${i + 1}`}</p>
                                   <div className="mt-3 grid gap-2">
-                                    <StrategyDocCard label={cdT?.funnelMindset || 'Mindset'} value={stage.userMindset} />
-                                    <StrategyDocCard label={strategyFieldLabel('message')} value={stage.message} />
-                                    <StrategyDocCard label={strategyFieldLabel('contentType')} value={stage.contentType} />
-                                    <StrategyDocCard label={strategyFieldLabel('platform')} value={formatStrategyPlatformLabel(stage.platform) || stage.platform} />
-                                    <StrategyDocCard label={strategyFieldLabel('cta')} value={stage.cta} />
-                                    <StrategyDocCard label={strategyFieldLabel('successMetric')} value={stage.successMetric} tone="muted" />
+                                    <StrategyDocCard label={strategyDocFieldLabel('userMindset')} value={stage.userMindset} locale={strategyDocumentLocale} />
+                                    <StrategyDocCard label={strategyDocFieldLabel('message')} value={stage.message} locale={strategyDocumentLocale} />
+                                    <StrategyDocCard label={strategyDocFieldLabel('contentType')} value={stage.contentType} locale={strategyDocumentLocale} />
+                                    <StrategyDocCard label={strategyDocFieldLabel('platform')} value={formatStrategyPlatformLabel(stage.platform) || stage.platform} locale={strategyDocumentLocale} />
+                                    <StrategyDocCard label={strategyDocFieldLabel('cta')} value={stage.cta} locale={strategyDocumentLocale} />
+                                    <StrategyDocCard label={strategyDocFieldLabel('successMetric')} value={stage.successMetric} locale={strategyDocumentLocale} tone="muted" />
                                   </div>
                                 </div>
                               ))}
@@ -2659,7 +2689,7 @@ function CampaignDetailPageInner() {
                           ) : (
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               {Object.entries(strategy.funnelStrategy || {}).map(([key, value]) => (
-                                value ? <StrategyDocCard key={key} label={strategyFieldLabel(key)} value={String(value)} /> : null
+                                value ? <StrategyDocCard key={key} label={strategyDocFieldLabel(key)} value={String(value)} locale={strategyDocumentLocale} /> : null
                               ))}
                             </div>
                           )}
@@ -2667,7 +2697,7 @@ function CampaignDetailPageInner() {
                       )}
                       {(strategy.channelMix?.length > 0 || channelStrategy.length > 0) && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionChannelMix || cdT?.sectionChannelStrategy || 'Channel Strategy'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('استراتيجية القنوات', 'Channel Strategy')}</p>
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {(channelStrategy.length > 0 ? channelStrategy : strategy.channelMix).map((ch: any, i: number) => (
                               <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -2684,37 +2714,37 @@ function CampaignDetailPageInner() {
                       )}
                       {strategy.offerCTAStrategy && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionOfferCTA || 'Offer & CTA'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('العرض والدعوة للإجراء', 'Offer & CTA')}</p>
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             {[
-                              { label: cdT?.ctaPrimary || 'Primary CTA', value: strategy.offerCTAStrategy.primaryCTA },
-                              { label: cdT?.ctaSecondary || 'Secondary CTA', value: strategy.offerCTAStrategy.secondaryCTA },
-                              { label: cdT?.ctaLeadMagnet || 'Lead magnet', value: strategy.offerCTAStrategy.leadMagnet },
-                              { label: cdT?.ctaBetaOffer || 'Beta offer', value: strategy.offerCTAStrategy.betaOffer },
-                              { label: cdT?.ctaContactFlow || 'Contact flow', value: strategy.offerCTAStrategy.contactFlow },
+                              { label: strategyDocText('الدعوة الأساسية', 'Primary CTA'), value: strategy.offerCTAStrategy.primaryCTA },
+                              { label: strategyDocText('الدعوة الثانوية', 'Secondary CTA'), value: strategy.offerCTAStrategy.secondaryCTA },
+                              { label: strategyDocText('مغناطيس العملاء المحتملين', 'Lead magnet'), value: strategy.offerCTAStrategy.leadMagnet },
+                              { label: strategyDocText('عرض تجريبي', 'Beta offer'), value: strategy.offerCTAStrategy.betaOffer },
+                              { label: strategyDocText('مسار التواصل', 'Contact flow'), value: strategy.offerCTAStrategy.contactFlow },
                             ].map((item, i) => (
-                              <StrategyDocCard key={i} label={item.label} value={item.value} />
+                              <StrategyDocCard key={i} label={item.label} value={item.value} locale={strategyDocumentLocale} />
                             ))}
                           </div>
                         </div>
                       )}
                       {strategy.visualDirection && (
-                        <StrategyDocCard label={cdT?.sectionVisualDirection || 'Visual Direction'} value={strategy.visualDirection} />
+                        <StrategyDocCard label={strategyDocText('الاتجاه البصري', 'Visual Direction')} value={strategy.visualDirection} locale={strategyDocumentLocale} />
                       )}
                       {(weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0) && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionWeeklyPlan || '30-Day Execution Plan'}</p>
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('خطة التنفيذ الأسبوعية', 'Weekly Execution Plan')}</p>
                           <div className="space-y-3">
                             {(weeklyExecutionPlan.length > 0 ? weeklyExecutionPlan : weeklyPlan).map((w: any) => (
                               <div key={w.week} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                  <p className="text-sm font-semibold text-slate-950">{locale === 'ar' ? 'الأسبوع' : 'Week'} {w.week}: {w.objective}</p>
+                                  <p className="text-sm font-semibold text-slate-950">{strategyDocText('الأسبوع', 'Week')} {w.week}: {w.objective}</p>
                                   {w.cta && <span className="text-xs font-semibold text-indigo-600">{w.cta}</span>}
                                 </div>
                                 {w.keyMessage && <p className="mt-2 text-sm leading-6 text-slate-600">"{w.keyMessage}"</p>}
                                 {w.deliverables?.length > 0 && (
                                   <div className="mt-3">
-                                    <StrategyDocList locale={locale} items={w.deliverables.map((d: string) => d)} />
+                                    <StrategyDocList locale={strategyDocumentLocale} items={w.deliverables.map((d: string) => d)} />
                                   </div>
                                 )}
                                 {(w.platforms?.length > 0 || w.channels?.length > 0) && (
@@ -2737,8 +2767,8 @@ function CampaignDetailPageInner() {
                   <StrategyDocSection
                     id="strategy-metrics"
                     eyebrow="07"
-                    title={cdT?.sectionKpis || 'KPIs & Metrics'}
-                    description={locale === 'ar'
+                    title={strategyDocText('مؤشرات القياس', 'KPIs & Metrics')}
+                    description={strategyDocIsArabic
                       ? 'المؤشرات هنا فرضيات حتى يتم إنشاء خط أساس من بيانات حقيقية.'
                       : 'These indicators are hypotheses until a real baseline is available.'}
                   >
@@ -2747,11 +2777,11 @@ function CampaignDetailPageInner() {
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                           {strategy.kpis.map((kpi: any, i: number) => (
                             <div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <p className="text-lg font-semibold text-slate-950">{kpi.target || (locale === 'ar' ? 'يُحدد لاحقاً' : 'Target to define')}</p>
+                              <p className="text-lg font-semibold text-slate-950">{kpi.target || strategyDocText('يُحدد لاحقاً', 'Target to define')}</p>
                               <p className="mt-1 text-sm text-slate-600">{kpi.metric}</p>
-                              <p className="mt-2 text-xs text-slate-400">{kpi.timeframe || (locale === 'ar' ? 'بعد أول 30 يوماً' : 'After the first 30 days')}</p>
+                              <p className="mt-2 text-xs text-slate-400">{kpi.timeframe || strategyDocText('بعد أول 30 يوماً', 'After the first 30 days')}</p>
                               <span className="mt-3 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700">
-                                {locale === 'ar' ? 'فرضية' : 'Hypothesis'}
+                                {strategyDocText('فرضية', 'Hypothesis')}
                               </span>
                             </div>
                           ))}
@@ -2762,18 +2792,19 @@ function CampaignDetailPageInner() {
                           {successMetricsDetailed.map((m: any, i: number) => (
                             <StrategyDocCard
                               key={i}
-                              label={m.category || (locale === 'ar' ? 'مؤشر' : 'Metric')}
+                              label={m.category || strategyDocText('مؤشر', 'Metric')}
                               value={`${m.metric}${m.target ? ` — ${m.target}` : ''}${m.timeframe ? ` (${m.timeframe})` : ''}`}
+                              locale={strategyDocumentLocale}
                               tone="muted"
                             />
                           ))}
                         </div>
                       )}
                       {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
-                        <StrategyDocList locale={locale} items={successMetrics.map((metric: string) => metric)} />
+                        <StrategyDocList locale={strategyDocumentLocale} items={successMetrics.map((metric: string) => metric)} />
                       )}
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
-                        {locale === 'ar'
+                        {strategyDocIsArabic
                           ? 'خط أساس مطلوب. تُعرّف الأهداف النهائية بعد أول 30 يوماً من البيانات.'
                           : 'Baseline needed. Final targets should be defined after the first 30 days of real data.'}
                       </div>
@@ -2786,9 +2817,9 @@ function CampaignDetailPageInner() {
                     id="strategy-readiness"
                     eyebrow="08"
                     title={includesPaidPlanningStrategy
-                      ? (locale === 'ar' ? 'الجاهزية والتخطيط المدفوع' : 'Readiness & Paid Planning')
-                      : (locale === 'ar' ? 'الجاهزية وحدود التنفيذ' : 'Readiness & Execution Boundaries')}
-                    description={locale === 'ar'
+                      ? strategyDocText('الجاهزية والتخطيط المدفوع', 'Readiness & Paid Planning')
+                      : strategyDocText('الجاهزية وحدود التنفيذ', 'Readiness & Execution Boundaries')}
+                    description={strategyDocIsArabic
                       ? (includesPaidPlanningStrategy
                         ? 'تخطيط فقط. لا يتم صرف ميزانية أو نشر محتوى من هذه الصفحة.'
                         : 'هذا تشغيل عضوي فقط. لا يتضمن بريف تخطيط مدفوع أو صرف ميزانية أو إطلاق إعلانات.')
@@ -2802,25 +2833,25 @@ function CampaignDetailPageInner() {
                             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                               <div>
                                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                                  {locale === 'ar' ? 'ربط الاستراتيجية بالتنفيذ' : 'Strategy to execution bridge'}
+                                  {strategyDocText('ربط الاستراتيجية بالتنفيذ', 'Strategy to execution bridge')}
                                 </p>
                                 <h3 className="mt-1 text-base font-semibold text-slate-950">
-                                  {locale === 'ar' ? strategyExecutionBridge.summaryAr : strategyExecutionBridge.summaryEn}
+                                  {strategyDocIsArabic ? strategyExecutionBridge.summaryAr : strategyExecutionBridge.summaryEn}
                                 </h3>
                                 <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
-                                  {locale === 'ar' ? strategyExecutionBridge.helperAr : strategyExecutionBridge.helperEn}
+                                  {strategyDocIsArabic ? strategyExecutionBridge.helperAr : strategyExecutionBridge.helperEn}
                                 </p>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
                                   {strategyScope.type === 'organic'
-                                    ? (locale === 'ar' ? 'استراتيجية عضوية فقط' : 'Organic-only strategy')
+                                    ? strategyDocText('استراتيجية عضوية فقط', 'Organic-only strategy')
                                     : strategyScope.type === 'paid'
-                                      ? (locale === 'ar' ? 'استراتيجية مدفوعة فقط' : 'Paid-only strategy')
-                                      : (locale === 'ar' ? 'استراتيجية شاملة' : 'Full strategy')}
+                                      ? strategyDocText('استراتيجية مدفوعة فقط', 'Paid-only strategy')
+                                      : strategyDocText('استراتيجية شاملة', 'Full strategy')}
                                 </span>
                                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
-                                  {locale === 'ar'
+                                  {strategyDocIsArabic
                                     ? `${strategyExecutionBridge.readyCount} جاهز · ${strategyExecutionBridge.blockedCount} تحتاج ربطاً أو دعماً`
                                     : `${strategyExecutionBridge.readyCount} ready · ${strategyExecutionBridge.blockedCount} need connection/support`}
                                 </span>
@@ -2831,14 +2862,14 @@ function CampaignDetailPageInner() {
                               <div className="space-y-3">
                                 <div>
                                   <p className="text-sm font-semibold text-slate-950">
-                                    {locale === 'ar' ? 'مسار النشر العضوي' : 'Organic publishing lane'}
+                                    {strategyDocText('مسار النشر العضوي', 'Organic publishing lane')}
                                   </p>
                                   <p className="mt-1 text-xs leading-5 text-slate-500">
-                                    {strategyExecutionBridge.organicNoteAr && locale === 'ar'
+                                    {strategyExecutionBridge.organicNoteAr && strategyDocIsArabic
                                       ? strategyExecutionBridge.organicNoteAr
-                                      : strategyExecutionBridge.organicNoteEn && locale !== 'ar'
+                                      : strategyExecutionBridge.organicNoteEn && !strategyDocIsArabic
                                         ? strategyExecutionBridge.organicNoteEn
-                                        : (locale === 'ar'
+                                        : (strategyDocIsArabic
                                           ? 'يعرض فقط منصات الحملة المطلوبة في هذه الاستراتيجية.'
                                           : 'Shows only the campaign platforms required by this strategy.')}
                                   </p>
@@ -2851,14 +2882,14 @@ function CampaignDetailPageInner() {
                                 <div className="space-y-3">
                                   <div>
                                     <p className="text-sm font-semibold text-slate-950">
-                                      {locale === 'ar' ? 'مسار التنفيذ المدفوع' : 'Paid execution lane'}
+                                      {strategyDocText('مسار التنفيذ المدفوع', 'Paid execution lane')}
                                     </p>
                                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                                      {strategyExecutionBridge.paidNoteAr && locale === 'ar'
+                                      {strategyExecutionBridge.paidNoteAr && strategyDocIsArabic
                                         ? strategyExecutionBridge.paidNoteAr
-                                        : strategyExecutionBridge.paidNoteEn && locale !== 'ar'
+                                        : strategyExecutionBridge.paidNoteEn && !strategyDocIsArabic
                                           ? strategyExecutionBridge.paidNoteEn
-                                          : (locale === 'ar'
+                                          : (strategyDocIsArabic
                                             ? 'يتحقق من متطلبات Meta Ads/API فقط. التنفيذ المدفوع النهائي مسار منفصل يحتاج تأكيداً صريحاً.'
                                             : 'Checks Meta Ads/API prerequisites only. Final paid execution is separate and requires explicit confirmation.')}
                                     </p>
@@ -2872,13 +2903,13 @@ function CampaignDetailPageInner() {
                           )}
                           {readinessChecklist.length > 0 && (
                             <div>
-                              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</p>
+                              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('قائمة الجاهزية', 'Readiness Checklist')}</p>
                               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                                 {readinessChecklist.map((item: any, i: number) => (
                                   <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                                     <span className={`h-2.5 w-2.5 rounded-full ${item.done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                                     <span className="flex-1">{item.label || item.item}</span>
-                                    <span className="text-xs text-slate-400">{item.done ? (cdT?.readinessComplete || 'Done') : (locale === 'ar' ? 'قيد الانتظار' : 'Pending')}</span>
+                                    <span className="text-xs text-slate-400">{item.done ? strategyDocText('تم', 'Done') : strategyDocText('قيد الانتظار', 'Pending')}</span>
                                   </div>
                                 ))}
                               </div>
@@ -2886,26 +2917,26 @@ function CampaignDetailPageInner() {
                           )}
                       {assetRequirements && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                          <StrategyDocCard label={cdT?.assetMustHave || 'Must have'} value={assetRequirements.mustHave?.length ? <StrategyDocList locale={locale} items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
-                          <StrategyDocCard label={cdT?.assetNiceToHave || 'Nice to have'} value={assetRequirements.niceToHave?.length ? <StrategyDocList locale={locale} items={assetRequirements.niceToHave.map((a: string) => a)} /> : null} />
+                          <StrategyDocCard label={strategyDocText('ضروري', 'Must have')} value={assetRequirements.mustHave?.length ? <StrategyDocList locale={strategyDocumentLocale} items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
+                          <StrategyDocCard label={strategyDocText('مفيد إن وجد', 'Nice to have')} value={assetRequirements.niceToHave?.length ? <StrategyDocList locale={strategyDocumentLocale} items={assetRequirements.niceToHave.map((a: string) => a)} /> : null} />
                           <StrategyDocCard
                             label={includesPaidPlanningStrategy
-                              ? (cdT?.assetForAds || 'For paid planning')
-                              : (locale === 'ar' ? 'المدفوع غير مشمول' : 'Paid not included')}
+                              ? strategyDocText('للتخطيط المدفوع', 'For paid planning')
+                              : strategyDocText('المدفوع غير مشمول', 'Paid not included')}
                             value={includesPaidPlanningStrategy
-                              ? (assetRequirements.forAds?.length ? <StrategyDocList locale={locale} items={assetRequirements.forAds.map((a: string) => a)} /> : null)
-                              : (locale === 'ar'
+                              ? (assetRequirements.forAds?.length ? <StrategyDocList locale={strategyDocumentLocale} items={assetRequirements.forAds.map((a: string) => a)} /> : null)
+                              : (strategyDocIsArabic
                                 ? 'التشغيل العضوي لا يحتاج أصول إعلان مدفوعة. شغّل Paid أو Full لاحقاً عند توفر ميزانية ووجهة تحويل.'
                                 : 'This organic run does not require paid ad assets. Run Paid or Full later when budget and conversion inputs are available.')}
                             tone={includesPaidPlanningStrategy ? 'warning' : 'muted'}
                           />
-                          <StrategyDocCard label={cdT?.assetForProof || 'Social proof'} value={assetRequirements.forProof?.length ? <StrategyDocList locale={locale} items={assetRequirements.forProof.map((a: string) => a)} /> : null} />
+                          <StrategyDocCard label={strategyDocText('إثبات الثقة', 'Social proof')} value={assetRequirements.forProof?.length ? <StrategyDocList locale={strategyDocumentLocale} items={assetRequirements.forProof.map((a: string) => a)} /> : null} />
                         </div>
                       )}
                       {strategy.executionChecklist?.length > 0 && (
                         <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionExecutionChecklist || 'Execution Checklist'}</p>
-                          <StrategyDocList locale={locale} items={strategy.executionChecklist.map((item: string) => item)} />
+                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{strategyDocText('قائمة التنفيذ', 'Execution Checklist')}</p>
+                          <StrategyDocList locale={strategyDocumentLocale} items={strategy.executionChecklist.map((item: string) => item)} />
                         </div>
                       )}
                       {(() => {
@@ -2918,7 +2949,7 @@ function CampaignDetailPageInner() {
                         if (!includesPaidPlanningStrategy) {
                           return (
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
-                              {locale === 'ar'
+                              {strategyDocIsArabic
                                 ? 'التخطيط المدفوع غير مشمول في هذا التشغيل العضوي. يمكن إنشاء بريف Paid أو Full منفصل بعد إضافة الميزانية ووجهة التحويل ومدخلات التتبع.'
                                 : 'Paid planning is not included in this organic run. Create a separate Paid or Full brief after adding budget, conversion, and tracking inputs.'}
                             </div>
@@ -2927,7 +2958,7 @@ function CampaignDetailPageInner() {
                         if (!hasAdContent) {
                           return (
                             <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                              {locale === 'ar'
+                              {strategyDocIsArabic
                                 ? 'التخطيط المدفوع غير جاهز بعد — أضف الميزانية ووجهة التحويل والتحليلات في Brand Brain.'
                                 : 'Paid planning is not ready yet — add budget, conversion destination, and analytics context in Brand Brain.'}
                             </div>
@@ -2940,30 +2971,30 @@ function CampaignDetailPageInner() {
                               onClick={() => setAdSetupOpen(v => !v)}
                               className="flex w-full items-center justify-between gap-3 text-left text-sm font-semibold text-amber-950"
                             >
-                              <span>{locale === 'ar' ? 'خطة مدفوعة للمراجعة' : 'Paid plan for review'}</span>
-                              <span className="text-xs text-amber-700">{adSetupOpen ? (locale === 'ar' ? 'إخفاء' : 'Hide') : (locale === 'ar' ? 'عرض' : 'Show')}</span>
+                              <span>{strategyDocText('خطة مدفوعة للمراجعة', 'Paid plan for review')}</span>
+                              <span className="text-xs text-amber-700">{adSetupOpen ? strategyDocText('إخفاء', 'Hide') : strategyDocText('عرض', 'Show')}</span>
                             </button>
                             {adSetupOpen && (
                               <div className="mt-4 space-y-3">
                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                   {[
-                                    { label: cdT?.adTestBudget || 'Test budget', value: adSetupPlan.testBudget },
-                                    { label: cdT?.adDuration || 'Duration', value: adSetupPlan.duration },
-                                    { label: cdT?.adAbTest || 'A/B test plan', value: adSetupPlan.abTestPlan },
-                                    { label: cdT?.adLandingPath || 'Landing path', value: adSetupPlan.landingPath },
-                                    { label: cdT?.adTracking || 'Tracking', value: adSetupPlan.trackingRequired },
-                                    { label: strategyFieldLabel('objective'), value: adSetupPlan.objective },
-                                  ].map((item, i) => <StrategyDocCard key={i} label={item.label} value={item.value} />)}
+                                    { label: strategyDocText('ميزانية الاختبار', 'Test budget'), value: adSetupPlan.testBudget },
+                                    { label: strategyDocText('المدة', 'Duration'), value: adSetupPlan.duration },
+                                    { label: strategyDocText('خطة اختبار A/B', 'A/B test plan'), value: adSetupPlan.abTestPlan },
+                                    { label: strategyDocText('مسار الهبوط', 'Landing path'), value: adSetupPlan.landingPath },
+                                    { label: strategyDocText('التتبع', 'Tracking'), value: adSetupPlan.trackingRequired },
+                                    { label: strategyDocFieldLabel('objective'), value: adSetupPlan.objective },
+                                  ].map((item, i) => <StrategyDocCard key={i} label={item.label} value={item.value} locale={strategyDocumentLocale} />)}
                                 </div>
-                                <StrategyDocCard label={cdT?.adTargeting || 'Targeting'} value={adSetupPlan.targeting} />
-                                <StrategyDocCard label={strategyFieldLabel('exclusions')} value={adSetupPlan.exclusions} />
+                                <StrategyDocCard label={strategyDocText('الاستهداف', 'Targeting')} value={adSetupPlan.targeting} locale={strategyDocumentLocale} />
+                                <StrategyDocCard label={strategyDocFieldLabel('exclusions')} value={adSetupPlan.exclusions} locale={strategyDocumentLocale} />
                                 {adSetupPlan.adCopyAngles?.length > 0 && (
-                                  <StrategyDocCard label={strategyFieldLabel('adCopyAngles')} value={<StrategyDocList locale={locale} items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
+                                  <StrategyDocCard label={strategyDocFieldLabel('adCopyAngles')} value={<StrategyDocList locale={strategyDocumentLocale} items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
                                 )}
                                 {adSetupPlan.notReadyIf?.length > 0 && (
                                   <StrategyDocCard
-                                    label={locale === 'ar' ? 'لا تشغّل الإعلانات إذا' : 'Do not run ads if'}
-                                    value={<StrategyDocList locale={locale} items={adSetupPlan.notReadyIf.map((item: string) => item)} />}
+                                    label={strategyDocText('لا تشغّل الإعلانات إذا', 'Do not run ads if')}
+                                    value={<StrategyDocList locale={strategyDocumentLocale} items={adSetupPlan.notReadyIf.map((item: string) => item)} />}
                                     tone="warning"
                                   />
                                 )}
@@ -2980,48 +3011,50 @@ function CampaignDetailPageInner() {
                   <StrategyDocSection
                     id="strategy-risks"
                     eyebrow="09"
-                    title={locale === 'ar' ? 'المخاطر والافتراضات والبيانات الناقصة' : 'Risks, Assumptions & Missing Data'}
-                    description={locale === 'ar'
+                    title={strategyDocText('المخاطر والافتراضات والبيانات الناقصة', 'Risks, Assumptions & Missing Data')}
+                    description={strategyDocIsArabic
                       ? 'هذه الحدود تساعد على مراجعة الاستراتيجية بصدق قبل الانتقال إلى المحتوى.'
                       : 'These limits keep the strategy honest before it moves into content planning.'}
                   >
                     <div className="space-y-4">
                       {displayedConfidenceLevel && (
                         <StrategyDocCard
-                          label={locale === 'ar' ? 'الثقة' : 'Confidence'}
-                          value={`${confLevelLabel(displayedConfidenceLevel)}${confidenceReport?.overall === 'high' && displayedConfidenceLevel !== 'high'
-                            ? (locale === 'ar' ? ' — خُفّضت بسبب بيانات ناقصة' : ' — adjusted because inputs are missing')
+                          label={strategyDocText('الثقة', 'Confidence')}
+                          value={`${confLevelLabel(displayedConfidenceLevel, strategyDocumentLocale)}${confidenceReport?.overall === 'high' && displayedConfidenceLevel !== 'high'
+                            ? strategyDocText(' — خُفّضت بسبب بيانات ناقصة', ' — adjusted because inputs are missing')
                             : ''}`}
+                          locale={strategyDocumentLocale}
                           tone="muted"
                         />
                       )}
-                      {missingDataLabels.length > 0 && (
+                      {strategyDocMissingDataLabels.length > 0 && (
                         <StrategyDocCard
-                          label={locale === 'ar' ? 'بيانات ناقصة' : 'Missing data'}
-                          value={<StrategyDocList locale={locale} items={missingDataLabels.map(label => label)} />}
+                          label={strategyDocText('بيانات ناقصة', 'Missing data')}
+                          value={<StrategyDocList locale={strategyDocumentLocale} items={strategyDocMissingDataLabels.map(label => label)} />}
                           tone="warning"
                         />
                       )}
                       {competitorAnalysisComplete === false && (
                         <StrategyDocCard
-                          label={locale === 'ar' ? 'تحليل المنافسين' : 'Competitor analysis'}
-                          value={locale === 'ar'
+                          label={strategyDocText('تحليل المنافسين', 'Competitor analysis')}
+                          value={strategyDocIsArabic
                             ? 'غير مكتمل — لم تُضف منافسين، ولن يتم اختراع منافسين.'
                             : 'Incomplete — no competitors were provided, and competitors will not be invented.'}
+                          locale={strategyDocumentLocale}
                           tone="warning"
                         />
                       )}
                       {doNotDoYet.length > 0 && (
-                        <StrategyDocCard label={cdT?.sectionDoNotDoYet || 'Do not do yet'} value={<StrategyDocList locale={locale} items={doNotDoYet.map((item: string) => item)} />} tone="warning" />
+                        <StrategyDocCard label={strategyDocText('لا تفعل الآن', 'Do not do yet')} value={<StrategyDocList locale={strategyDocumentLocale} items={doNotDoYet.map((item: string) => item)} />} tone="warning" />
                       )}
                       {riskNotes.length > 0 && (
-                        <StrategyDocCard label={cdT?.sectionRiskNotes || 'Risk notes'} value={<StrategyDocList locale={locale} items={riskNotes.map((note: string) => note)} />} tone="warning" />
+                        <StrategyDocCard label={strategyDocText('ملاحظات المخاطر', 'Risk notes')} value={<StrategyDocList locale={strategyDocumentLocale} items={riskNotes.map((note: string) => note)} />} tone="warning" />
                       )}
                       {safeExecutionAssumptions.length > 0 && (
-                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات التنفيذ' : 'Execution assumptions'} value={<StrategyDocList locale={locale} items={safeExecutionAssumptions.map((item: string) => item)} />} />
+                        <StrategyDocCard label={strategyDocText('افتراضات التنفيذ', 'Execution assumptions')} value={<StrategyDocList locale={strategyDocumentLocale} items={safeExecutionAssumptions.map((item: string) => item)} />} />
                       )}
                       {safeAssumptions.length > 0 && (
-                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات' : 'Assumptions'} value={<StrategyDocList locale={locale} items={safeAssumptions.map((item: string) => item)} />} />
+                        <StrategyDocCard label={strategyDocText('افتراضات', 'Assumptions')} value={<StrategyDocList locale={strategyDocumentLocale} items={safeAssumptions.map((item: string) => item)} />} />
                       )}
                     </div>
                   </StrategyDocSection>
