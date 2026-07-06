@@ -10,6 +10,14 @@ const operatingStateSource = readFileSync(
   resolve(process.cwd(), 'src/lib/campaignOperatingState.ts'),
   'utf8',
 )
+const strategyRoomStateCopySource = readFileSync(
+  resolve(process.cwd(), 'src/lib/strategyRoomStateCopy.ts'),
+  'utf8',
+)
+const appShellSource = readFileSync(
+  resolve(process.cwd(), 'src/components/AppShell.tsx'),
+  'utf8',
+)
 const aiPresenceBarSource = readFileSync(
   resolve(process.cwd(), 'src/components/AIPresenceBar.tsx'),
   'utf8',
@@ -18,6 +26,7 @@ const analyticsInsightsRouteSource = readFileSync(
   resolve(process.cwd(), 'src/app/api/analytics/insights/route.ts'),
   'utf8',
 )
+const strategyRuntimeCopySource = `${campaignRoomSource}\n${strategyRoomStateCopySource}`
 
 describe('Campaign Room strategy truth copy', () => {
   it('does not tell progressed campaigns to turn strategy into content again', () => {
@@ -32,25 +41,25 @@ describe('Campaign Room strategy truth copy', () => {
   })
 
   it('frames strategy as reference material once Content Hub content exists', () => {
-    expect(campaignRoomSource).toContain('Strategy is reference material. Content Hub shows the current execution state.')
-    expect(campaignRoomSource).toContain('use Content Hub for the current post and execution state')
-    expect(campaignRoomSource).toContain('الاستراتيجية أصبحت مادة مرجعية')
-    expect(campaignRoomSource).toContain('حالة المنشورات والتنفيذ الحالية موجودة في Content Hub')
+    expect(strategyRuntimeCopySource).toContain('Strategy is reference material. Content Hub shows the current execution state.')
+    expect(strategyRuntimeCopySource).toContain('use Content Hub for the current post and execution state')
+    expect(strategyRuntimeCopySource).toContain('الاستراتيجية أصبحت مادة مرجعية')
+    expect(strategyRuntimeCopySource).toContain('حالة المنشورات والتنفيذ الحالية موجودة في Content Hub')
   })
 
   it('uses Content Hub post truth for the organic plan readiness card', () => {
     expect(campaignRoomSource).toContain('operatingState.truthFlags.hasContentPlan')
-    expect(campaignRoomSource).toContain('Available for review in Content Hub')
-    expect(campaignRoomSource).toContain('Ready to build a content plan after review')
+    expect(strategyRuntimeCopySource).toContain('Available for review in Content Hub')
+    expect(strategyRuntimeCopySource).toContain('Ready to build a content plan after review')
     expect(campaignRoomSource).not.toContain('Ready for content planning')
   })
 
   it('does not describe the pre-content-plan Content Hub action as review', () => {
-    expect(campaignRoomSource).toContain('Open Content Hub to prepare content plan')
-    expect(campaignRoomSource).toContain('افتح Content Hub لتحضير خطة المحتوى')
-    expect(campaignRoomSource).toContain('These are planning inputs, not final post drafts')
-    expect(campaignRoomSource).toContain('Hooks and angles here are strategy material for building the first content plan.')
-    expect(campaignRoomSource).toContain('Final post previews do not exist until Content Hub is prepared.')
+    expect(strategyRuntimeCopySource).toContain('Open Content Hub to prepare content plan')
+    expect(strategyRuntimeCopySource).toContain('افتح Content Hub لتحضير خطة المحتوى')
+    expect(strategyRuntimeCopySource).toContain('These are planning inputs, not final post drafts')
+    expect(strategyRuntimeCopySource).toContain('Hooks and angles here are strategy material for building the first content plan.')
+    expect(strategyRuntimeCopySource).toContain('Final post previews do not exist until Content Hub is prepared.')
     expect(campaignRoomSource).not.toContain('Open Content Hub for review')
     expect(campaignRoomSource).not.toContain('افتح Content Hub للمراجعة')
   })
@@ -64,12 +73,26 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('يحتاج إعداداً قبل الصرف')
   })
 
-  it('frames the strategy tab as a decision cockpit rather than a long report', () => {
-    expect(campaignRoomSource).toContain('Strategy decision brief')
+  it('frames the strategy tab as a command center rather than a long report', () => {
+    expect(campaignRoomSource).toContain('Strategy command center')
+    expect(campaignRoomSource).toContain('Next action')
     expect(campaignRoomSource).toContain('Review before execution')
     expect(campaignRoomSource).toContain('Missing before execution decisions')
     expect(campaignRoomSource).toContain('This page keeps the full strategy value, but organizes it into reviewable decisions.')
     expect(campaignRoomSource).toContain('No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.')
+    expect(campaignRoomSource).toContain('Open Strategy workspace')
+    expect(campaignRoomSource).not.toContain('Back to Strategy')
+  })
+
+  it('keeps campaign tabs and the strategy map visible in one operating navigation surface', () => {
+    expect(campaignRoomSource).toContain('Campaign Room')
+    expect(campaignRoomSource).toContain('Current workspace:')
+    expect(campaignRoomSource).toContain('Operating navigation')
+    expect(campaignRoomSource).toContain('Strategy map')
+    expect(campaignRoomSource).toContain('sticky top-0 z-30')
+    expect(campaignRoomSource).toContain('activeTab === 0 && strategySectionNavItems.length > 0')
+    expect(appShellSource).toContain('overflow-y-visible')
+    expect(appShellSource).not.toContain('min-h-screen overflow-y-auto transition-all')
   })
 
   it('labels campaign room tabs as review material before execution records exist', () => {
@@ -85,24 +108,32 @@ describe('Campaign Room strategy truth copy', () => {
   })
 
   it('adds a review-only execution checklist before Content Hub preparation', () => {
-    expect(campaignRoomSource).toContain('Before Content Hub checklist')
-    expect(campaignRoomSource).toContain('Use this as the go/no-go check before preparing the first content plan.')
-    expect(campaignRoomSource).toContain('This panel does not generate, approve, schedule, publish, or update Brand Brain.')
+    expect(strategyRuntimeCopySource).toContain('Before Content Hub checklist')
+    expect(strategyRuntimeCopySource).toContain('Use this as the go/no-go check before preparing the first content plan.')
+    expect(strategyRuntimeCopySource).toContain('This panel does not generate, approve, schedule, publish, or update Brand Brain.')
     expect(campaignRoomSource).toContain('Message and audience direction')
     expect(campaignRoomSource).toContain('Content plan status')
     expect(campaignRoomSource).toContain('Proof and trust')
     expect(campaignRoomSource).toContain('Creative assets')
     expect(campaignRoomSource).toContain('Analytics baseline')
     expect(campaignRoomSource).toContain('Paid planning scope')
-    expect(campaignRoomSource).toContain('قائمة ما قبل Content Hub')
-    expect(campaignRoomSource).toContain('هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.')
+    expect(strategyRuntimeCopySource).toContain('قائمة ما قبل Content Hub')
+    expect(strategyRuntimeCopySource).toContain('هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.')
   })
 
   it('uses functional section navigation for only visible strategy sections', () => {
     expect(campaignRoomSource).toContain('strategySectionNavItems')
     expect(campaignRoomSource).toContain('scrollToStrategySection')
     expect(campaignRoomSource).toContain("document.getElementById(sectionId)")
+    expect(campaignRoomSource).toContain("document.querySelector('[data-strategy-operating-nav]')")
+    expect(campaignRoomSource).toContain('stickyNav.getBoundingClientRect().height + 24')
+    expect(campaignRoomSource).toContain('window.scrollTo({ top, behavior')
+    expect(campaignRoomSource).toContain('data-strategy-operating-nav')
+    expect(campaignRoomSource).toContain("id: 'strategy-executive'")
+    expect(campaignRoomSource).toContain("id: 'strategy-metrics'")
+    expect(campaignRoomSource).toContain('id="strategy-metrics"')
     expect(campaignRoomSource).toContain("window.location.hash.replace('#', '')")
+    expect(campaignRoomSource).not.toContain("{ num: '01', label: locale === 'ar' ? 'الملخص' : 'Summary'")
     expect(campaignRoomSource).not.toContain("['04', locale === 'ar' ? 'المحتوى' : 'Content', '#strategy-content']")
   })
 
