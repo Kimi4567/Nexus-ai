@@ -50,6 +50,7 @@ describe('CS-1 creative IA copy', () => {
   it('does not present concept visual generation as the normal next step before post and brief readiness', () => {
     expect(CAMPAIGN_SRC).toContain('creativeCanUseConceptGallery')
     expect(CAMPAIGN_SRC).toContain('Concept gallery is not the current step')
+    expect(CAMPAIGN_SRC).toContain('Content Hub posts already exist. Open the creative brief first to define asset and layer needs before any concept visual generation.')
     expect(CAMPAIGN_SRC).toContain('Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation.')
     expect(CAMPAIGN_SRC).toContain('This page does not treat zero media counts as readiness.')
     expect(CAMPAIGN_SRC).toContain('Plan concept directions for review')
