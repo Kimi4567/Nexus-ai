@@ -36,6 +36,8 @@ import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
+import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadiness'
+import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
 
 interface Activity {
   id: string
@@ -244,6 +246,8 @@ function CampaignDetailPageInner() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [campaignPosts, setCampaignPosts] = useState<CampaignOperatingPost[]>([])
   const [operatingSnapshotsLoaded, setOperatingSnapshotsLoaded] = useState(false)
+  const [strategyPlatformStates, setStrategyPlatformStates] = useState<PlatformState[]>([])
+  const [strategyPlatformReadinessLoaded, setStrategyPlatformReadinessLoaded] = useState(false)
   const [pendingLearningCount, setPendingLearningCount] = useState(0)
   const [fetching, setFetching] = useState(true)
   const [activeTab, setActiveTab] = useState(() => campaignRoomTabIndexFromQuery(searchParams?.get('tab')))
@@ -424,11 +428,42 @@ function CampaignDetailPageInner() {
     }
   }, [authHeader, campaignId])
 
+  const fetchStrategyPlatformReadiness = useCallback(async () => {
+    const token = authHeader()
+    if (!token) {
+      setStrategyPlatformReadinessLoaded(false)
+      setStrategyPlatformStates([])
+      return
+    }
+
+    setStrategyPlatformReadinessLoaded(false)
+    try {
+      const [socialRes, adRes] = await Promise.all([
+        fetch('/api/social/accounts', { headers: { Authorization: token } }),
+        fetch('/api/ad-accounts', { headers: { Authorization: token } }),
+      ])
+      const [socialData, adData] = await Promise.all([
+        socialRes.ok ? socialRes.json().catch(() => ({})) : Promise.resolve({}),
+        adRes.ok ? adRes.json().catch(() => ({})) : Promise.resolve({}),
+      ])
+      const socialAccounts = Array.isArray(socialData?.accounts) ? socialData.accounts : []
+      const adAccounts = Array.isArray(adData?.accounts) ? adData.accounts : []
+      setStrategyPlatformStates(derivePlatformReadiness(socialAccounts, adAccounts))
+    } catch {
+      // Read-only bridge: on read failure, keep the UI conservative and avoid
+      // implying execution readiness from campaign state alone.
+      setStrategyPlatformStates([])
+    } finally {
+      setStrategyPlatformReadinessLoaded(true)
+    }
+  }, [authHeader])
+
   useEffect(() => {
     if (!loading && !isAuthenticated) { router.push('/auth/login'); return }
     if (!isAuthenticated) return
     fetchCampaign().finally(() => setFetching(false))
     fetchOperatingSnapshots()
+    fetchStrategyPlatformReadiness()
     // Fetch brand readiness for the quality notice
     const token = authHeader()
     if (token) {
@@ -442,7 +477,7 @@ function CampaignDetailPageInner() {
         })
         .catch(() => {})
     }
-  }, [loading, isAuthenticated, fetchCampaign, fetchOperatingSnapshots, router, authHeader])
+  }, [loading, isAuthenticated, fetchCampaign, fetchOperatingSnapshots, fetchStrategyPlatformReadiness, router, authHeader])
 
   // Load autopilot queue when tab 5 is active
   useEffect(() => {
@@ -928,6 +963,13 @@ function CampaignDetailPageInner() {
   const hasAudienceSection = audienceSegmentsDetailed.length > 0 || audienceSegments.length > 0
   const isPaidOnlyStrategy = strategyScope.paidOnly
   const includesOrganicStrategy = strategyScope.includesOrganic
+  const strategyExecutionBridge = deriveStrategyExecutionBridge({
+    scopeType: strategyScope.type,
+    campaignPlatforms: campaign.platforms,
+    platformStates: strategyPlatformStates,
+    platformReadinessLoaded: strategyPlatformReadinessLoaded,
+    campaignId: campaign.id,
+  })
   const hasOrganicContentSection =
     includesOrganicStrategy && !!(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0 || strategy.estimatedResults || topHooks.length > 0 || ctaVariations.length > 0 || strategy.contentPillars?.length > 0 || contentAngles.length > 0 || contentAnglesDetailed.length > 0)
   const hasPaidPlanningAnglesSection =
@@ -935,8 +977,9 @@ function CampaignDetailPageInner() {
   const hasStrategyContentSection = hasOrganicContentSection || hasPaidPlanningAnglesSection
   const hasExecutionSection =
     !!(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
+  const hasStrategyExecutionBridge = !!aiOutput
   const hasReadinessSection =
-    !!(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan)
+    !!(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan || hasStrategyExecutionBridge)
   const hasRisksSection =
     !!(doNotDoYet.length > 0 || riskNotes.length > 0 || safeExecutionAssumptions.length > 0 || safeAssumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false)
   const strategySectionNavItems = [
@@ -1112,6 +1155,52 @@ function CampaignDetailPageInner() {
       tone: includesPaidPlanningStrategy && hasPaidPlanningGaps ? 'warning' : 'muted',
     },
   ]
+  const strategyExecutionBridgeTone: Record<typeof strategyExecutionBridge.overallStatus, string> = {
+    ready: 'border-emerald-200 bg-emerald-50',
+    blocked: 'border-amber-200 bg-amber-50',
+    checking: 'border-blue-200 bg-blue-50',
+    not_in_scope: 'border-slate-200 bg-slate-50',
+  }
+  const strategyExecutionRequirementTone: Record<StrategyExecutionRequirement['status'], string> = {
+    ready: 'border-emerald-200 bg-white text-emerald-900',
+    blocked: 'border-amber-200 bg-white text-amber-950',
+    checking: 'border-blue-200 bg-white text-blue-900',
+    not_in_scope: 'border-slate-200 bg-white text-slate-600',
+  }
+  const strategyExecutionStatusLabel = (requirement: StrategyExecutionRequirement): string => {
+    if (requirement.status === 'ready') return locale === 'ar' ? 'متاح للمراجعة' : 'Available for review'
+    if (requirement.status === 'checking') return locale === 'ar' ? 'قيد الفحص' : 'Checking'
+    if (requirement.readinessStatus === 'permission_unverified') return locale === 'ar' ? 'الصلاحية غير مثبتة' : 'Permission unverified'
+    if (requirement.readinessStatus === 'not_available') return locale === 'ar' ? 'غير متاح بعد' : 'Not available yet'
+    if (requirement.readinessStatus === 'not_connected') return locale === 'ar' ? 'غير متصل' : 'Not connected'
+    if (requirement.readinessStatus === 'needs_setup') return locale === 'ar' ? 'يحتاج إعداداً' : 'Needs setup'
+    return locale === 'ar' ? 'غير جاهز' : 'Not ready'
+  }
+  const renderStrategyExecutionRequirement = (requirement: StrategyExecutionRequirement) => (
+    <div key={requirement.id} className={`rounded-2xl border p-4 ${strategyExecutionRequirementTone[requirement.status]}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold">
+            {locale === 'ar' ? requirement.titleAr : requirement.titleEn}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            {locale === 'ar' ? requirement.reasonAr : requirement.reasonEn}
+          </p>
+        </div>
+        <span className="w-fit rounded-full border border-current/20 px-2.5 py-1 text-[11px] font-semibold">
+          {strategyExecutionStatusLabel(requirement)}
+        </span>
+      </div>
+      {requirement.actionHref && requirement.status === 'blocked' && (
+        <Link
+          href={requirement.actionHref}
+          className="mt-3 inline-flex rounded-full border border-slate-200 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+        >
+          {locale === 'ar' ? requirement.actionLabelAr : requirement.actionLabelEn}
+        </Link>
+      )}
+    </div>
+  )
   const operatingTone: Record<CampaignOperatingStage, string> = {
     strategy_missing: 'border-amber-200 bg-amber-50 text-amber-800',
     strategy_review_needed: 'border-blue-200 bg-blue-50 text-blue-700',
@@ -1269,13 +1358,13 @@ function CampaignDetailPageInner() {
     },
     {
       key: 'launch-readiness',
-      label: locale === 'ar' ? 'جاهزية الإطلاق' : 'Launch readiness',
+      label: locale === 'ar' ? 'جاهزية التنفيذ' : 'Execution readiness',
       done: false,
       active: true,
     },
     {
       key: 'execution',
-      label: locale === 'ar' ? 'تنفيذ مؤكد' : 'Confirmed execution',
+      label: locale === 'ar' ? 'تنفيذ بتأكيد صريح' : 'Explicit execution',
       done: false,
       active: false,
     },
@@ -2622,22 +2711,95 @@ function CampaignDetailPageInner() {
                       : (includesPaidPlanningStrategy
                         ? 'Planning only. No budget is spent and no content goes out from this page.'
                         : 'This is an organic-only run. It does not include a paid planning brief, budget spend, or ad launch.')}
-                  >
-                    <div className="space-y-5">
-                      {readinessChecklist.length > 0 && (
-                        <div>
-                          <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</p>
-                          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                            {readinessChecklist.map((item: any, i: number) => (
-                              <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                                <span className={`h-2.5 w-2.5 rounded-full ${item.done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                                <span className="flex-1">{item.label || item.item}</span>
-                                <span className="text-xs text-slate-400">{item.done ? (cdT?.readinessComplete || 'Done') : (locale === 'ar' ? 'قيد الانتظار' : 'Pending')}</span>
+                    >
+                      <div className="space-y-5">
+                        {hasStrategyExecutionBridge && (
+                          <div className={`rounded-2xl border p-4 ${strategyExecutionBridgeTone[strategyExecutionBridge.overallStatus]}`}>
+                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                              <div>
+                                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                                  {locale === 'ar' ? 'ربط الاستراتيجية بالتنفيذ' : 'Strategy to execution bridge'}
+                                </p>
+                                <h3 className="mt-1 text-base font-semibold text-slate-950">
+                                  {locale === 'ar' ? strategyExecutionBridge.summaryAr : strategyExecutionBridge.summaryEn}
+                                </h3>
+                                <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
+                                  {locale === 'ar' ? strategyExecutionBridge.helperAr : strategyExecutionBridge.helperEn}
+                                </p>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                              <div className="flex flex-wrap gap-2">
+                                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                                  {strategyScope.type === 'organic'
+                                    ? (locale === 'ar' ? 'استراتيجية عضوية فقط' : 'Organic-only strategy')
+                                    : strategyScope.type === 'paid'
+                                      ? (locale === 'ar' ? 'استراتيجية مدفوعة فقط' : 'Paid-only strategy')
+                                      : (locale === 'ar' ? 'استراتيجية شاملة' : 'Full strategy')}
+                                </span>
+                                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                                  {locale === 'ar'
+                                    ? `${strategyExecutionBridge.readyCount} متاح · ${strategyExecutionBridge.blockedCount} يحتاج مراجعة`
+                                    : `${strategyExecutionBridge.readyCount} available · ${strategyExecutionBridge.blockedCount} need review`}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                              <div className="space-y-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-950">
+                                    {locale === 'ar' ? 'مسار النشر العضوي' : 'Organic publishing lane'}
+                                  </p>
+                                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                                    {strategyExecutionBridge.organicNoteAr && locale === 'ar'
+                                      ? strategyExecutionBridge.organicNoteAr
+                                      : strategyExecutionBridge.organicNoteEn && locale !== 'ar'
+                                        ? strategyExecutionBridge.organicNoteEn
+                                        : (locale === 'ar'
+                                          ? 'يعرض فقط منصات الحملة المطلوبة في هذه الاستراتيجية.'
+                                          : 'Shows only the campaign platforms required by this strategy.')}
+                                  </p>
+                                </div>
+	                                {strategyExecutionBridge.organicRequirements.length > 0
+	                                  ? strategyExecutionBridge.organicRequirements.map(renderStrategyExecutionRequirement)
+	                                  : null}
+                              </div>
+
+                                <div className="space-y-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-950">
+                                      {locale === 'ar' ? 'مسار التنفيذ المدفوع' : 'Paid execution lane'}
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                                      {strategyExecutionBridge.paidNoteAr && locale === 'ar'
+                                        ? strategyExecutionBridge.paidNoteAr
+                                        : strategyExecutionBridge.paidNoteEn && locale !== 'ar'
+                                          ? strategyExecutionBridge.paidNoteEn
+                                          : (locale === 'ar'
+                                            ? 'يتحقق من متطلبات Meta Ads/API فقط. التنفيذ المدفوع النهائي مسار منفصل يحتاج تأكيداً صريحاً.'
+                                            : 'Checks Meta Ads/API prerequisites only. Final paid execution is separate and requires explicit confirmation.')}
+                                    </p>
+                                  </div>
+	                                {strategyExecutionBridge.paidRequirements.length > 0
+	                                  ? strategyExecutionBridge.paidRequirements.map(renderStrategyExecutionRequirement)
+	                                  : null}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          {readinessChecklist.length > 0 && (
+                            <div>
+                              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionReadinessChecklist || 'Readiness Checklist'}</p>
+                              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                {readinessChecklist.map((item: any, i: number) => (
+                                  <div key={i} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className={`h-2.5 w-2.5 rounded-full ${item.done ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                    <span className="flex-1">{item.label || item.item}</span>
+                                    <span className="text-xs text-slate-400">{item.done ? (cdT?.readinessComplete || 'Done') : (locale === 'ar' ? 'قيد الانتظار' : 'Pending')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                       {assetRequirements && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                           <StrategyDocCard label={cdT?.assetMustHave || 'Must have'} value={assetRequirements.mustHave?.length ? <StrategyDocList items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
