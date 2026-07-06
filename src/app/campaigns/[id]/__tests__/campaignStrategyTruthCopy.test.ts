@@ -155,9 +155,9 @@ describe('Campaign Room strategy truth copy', () => {
 
   it('localizes strategy field labels instead of hardcoding English labels into Arabic runtime cards', () => {
     expect(campaignRoomSource).toContain('strategyFieldLabel')
-    expect(campaignRoomSource).toContain("strategyFieldLabel('situation')")
-    expect(campaignRoomSource).toContain("strategyFieldLabel('desiredOutcome')")
-    expect(campaignRoomSource).toContain("strategyFieldLabel('successMetric')")
+    expect(campaignRoomSource).toContain("strategyDocFieldLabel('situation')")
+    expect(campaignRoomSource).toContain("strategyDocFieldLabel('desiredOutcome')")
+    expect(campaignRoomSource).toContain("strategyDocFieldLabel('successMetric')")
     expect(campaignRoomSource).not.toContain('label="Situation"')
     expect(campaignRoomSource).not.toContain('label="Pain"')
     expect(campaignRoomSource).not.toContain('label="Want"')
@@ -177,8 +177,22 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).toContain('formatCampaignToneForLocale')
     expect(campaignRoomSource).toContain("Modern: 'حديثة'")
     expect(campaignRoomSource).toContain('effectiveLocale')
-    expect(campaignRoomSource).toContain('StrategyDocList locale={locale}')
+    expect(campaignRoomSource).toContain('StrategyDocList locale={strategyDocumentLocale}')
     expect(campaignRoomSource).toContain('formatStrategyDisplayText(item, locale)')
+  })
+
+  it('uses the generated strategy language for the strategy document reading surface', () => {
+    expect(campaignRoomSource).toContain('resolveStrategyDocumentLocale(strategyLanguage, locale)')
+    expect(campaignRoomSource).toContain('strategyDocumentLocale')
+    expect(campaignRoomSource).toContain('strategyDocText')
+    expect(campaignRoomSource).toContain('strategyDocStateCopy')
+    expect(campaignRoomSource).toContain("strategyDocFieldLabel('situation')")
+    expect(campaignRoomSource).toContain("strategyDocFieldLabel('successMetric')")
+    expect(campaignRoomSource).toContain('StrategyDocList locale={strategyDocumentLocale}')
+    expect(campaignRoomSource).toContain("strategyDocText('تشخيص التسويق', 'Marketing Diagnosis')")
+    expect(campaignRoomSource).toContain("strategyDocText('خطة التنفيذ', 'Execution Plan')")
+    expect(campaignRoomSource).toContain("strategyDocText('مؤشرات القياس', 'KPIs & Metrics')")
+    expect(campaignRoomSource).not.toContain('StrategyDocList ordered locale={locale} items={audienceSegments')
   })
 
   it('keeps the global AI presence bar localized on Arabic campaign pages', () => {
