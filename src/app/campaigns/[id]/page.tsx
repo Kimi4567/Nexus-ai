@@ -328,7 +328,12 @@ function CampaignDetailPageInner() {
   const scrollToStrategySection = useCallback((sectionId: string) => {
     const section = document.getElementById(sectionId)
     if (!section) return
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const stickyNav = document.querySelector('[data-strategy-operating-nav]')
+    const stickyOffset = stickyNav instanceof HTMLElement
+      ? stickyNav.getBoundingClientRect().height + 24
+      : 160
+    const top = Math.max(0, section.getBoundingClientRect().top + window.scrollY - stickyOffset)
+    window.scrollTo({ top, behavior: 'smooth' })
     window.history.replaceState(null, '', `#${sectionId}`)
   }, [])
 
@@ -978,18 +983,19 @@ function CampaignDetailPageInner() {
   const hasExecutionSection =
     !!(funnelStages.length > 0 || strategy.funnelStrategy || strategy.channelMix?.length > 0 || channelStrategy.length > 0 || strategy.offerCTAStrategy || strategy.visualDirection || weeklyExecutionPlan.length > 0 || weeklyPlan.length > 0)
   const hasStrategyExecutionBridge = !!aiOutput
+  const hasMetricsSection = !!(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0)
   const hasReadinessSection =
     !!(readinessChecklist.length > 0 || assetRequirements || strategy.executionChecklist?.length > 0 || adSetupPlan || hasStrategyExecutionBridge)
   const hasRisksSection =
     !!(doNotDoYet.length > 0 || riskNotes.length > 0 || safeExecutionAssumptions.length > 0 || safeAssumptions.length > 0 || missingDataLabels.length > 0 || confidenceReport || competitorAnalysisComplete === false)
   const strategySectionNavItems = [
-    { num: '01', label: locale === 'ar' ? 'الملخص' : 'Summary', id: 'strategy-summary', show: true },
-    { num: '02', label: locale === 'ar' ? 'القرار' : 'Decision', id: 'strategy-executive', show: hasExecutiveStrategySection },
-    { num: '03', label: locale === 'ar' ? 'التشخيص' : 'Diagnosis', id: 'strategy-diagnosis', show: hasDiagnosisSection },
-    { num: '04', label: locale === 'ar' ? 'الهدف' : 'Objective', id: 'strategy-objective', show: hasBusinessObjectiveSection },
-    { num: '05', label: locale === 'ar' ? 'الجمهور' : 'Audience', id: 'strategy-audience', show: hasAudienceSection },
-    { num: '06', label: isPaidOnlyStrategy ? (locale === 'ar' ? 'زوايا مدفوعة' : 'Paid angles') : (locale === 'ar' ? 'المحتوى' : 'Content'), id: 'strategy-content', show: hasStrategyContentSection },
-    { num: '07', label: locale === 'ar' ? 'التنفيذ' : 'Execution', id: 'strategy-execution', show: hasExecutionSection },
+    { num: '01', label: locale === 'ar' ? 'التنفيذي' : 'Executive', id: 'strategy-executive', show: hasExecutiveStrategySection },
+    { num: '02', label: locale === 'ar' ? 'التشخيص' : 'Diagnosis', id: 'strategy-diagnosis', show: hasDiagnosisSection },
+    { num: '03', label: locale === 'ar' ? 'الهدف' : 'Objective', id: 'strategy-objective', show: hasBusinessObjectiveSection },
+    { num: '04', label: locale === 'ar' ? 'الجمهور' : 'Audience', id: 'strategy-audience', show: hasAudienceSection },
+    { num: '05', label: isPaidOnlyStrategy ? (locale === 'ar' ? 'زوايا مدفوعة' : 'Paid angles') : (locale === 'ar' ? 'المحتوى' : 'Content'), id: 'strategy-content', show: hasStrategyContentSection },
+    { num: '06', label: locale === 'ar' ? 'التنفيذ' : 'Execution', id: 'strategy-execution', show: hasExecutionSection },
+    { num: '07', label: locale === 'ar' ? 'القياس' : 'Metrics', id: 'strategy-metrics', show: hasMetricsSection },
     { num: '08', label: locale === 'ar' ? 'الجاهزية' : 'Readiness', id: 'strategy-readiness', show: hasReadinessSection },
     { num: '09', label: locale === 'ar' ? 'المخاطر' : 'Risks', id: 'strategy-risks', show: hasRisksSection },
   ].filter(item => item.show)
@@ -2108,84 +2114,127 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <>
             {/* NEXUS tab navigation */}
-            <div className="mb-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-slate-200 bg-slate-100/80 p-1 pb-1">
-              {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
-                <button
-                  key={i}
-                  onClick={() => handleCampaignRoomTabClick(i)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
-                  style={activeTab === i ? {
-                    background: '#fff',
-                    border: '1px solid rgb(199,210,254)',
-                    color: '#3730a3',
-                    boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
-                  } : {
-                    background: 'transparent',
-                    border: '1px solid transparent',
-                    color: '#64748b',
-                  }}
-                  onMouseEnter={e => {
-                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#334155'
-                  }}
-                  onMouseLeave={e => {
-                    if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#64748b'
-                  }}
-                >
-                  <span className="text-xs">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
+            <div data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                    {locale === 'ar' ? 'غرفة الحملة' : 'Campaign Room'}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-700">
+                    {locale === 'ar'
+                      ? `المساحة الحالية: ${AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}`
+                      : `Current workspace: ${AGENT_TABS[activeTab]?.label || cdT?.tabStrategy || 'Strategy'}`}
+                  </p>
+                </div>
+                <span className="w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
+                  {locale === 'ar' ? 'تنقّل تشغيلي' : 'Operating navigation'}
+                </span>
+              </div>
+              <div className="mt-2 flex gap-1.5 overflow-x-auto rounded-xl bg-slate-100/80 p-1">
+                {AGENT_TABS.map((tab, i) => tab.hidden ? null : (
+                  <button
+                    key={i}
+                    onClick={() => handleCampaignRoomTabClick(i)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all"
+                    style={activeTab === i ? {
+                      background: '#fff',
+                      border: '1px solid rgb(199,210,254)',
+                      color: '#3730a3',
+                      boxShadow: '0 1px 2px rgba(15,23,42,0.08)',
+                    } : {
+                      background: 'transparent',
+                      border: '1px solid transparent',
+                      color: '#64748b',
+                    }}
+                    onMouseEnter={e => {
+                      if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#334155'
+                    }}
+                    onMouseLeave={e => {
+                      if (activeTab !== i) (e.currentTarget as HTMLButtonElement).style.color = '#64748b'
+                    }}
+                  >
+                    <span className="text-xs">{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === 0 && strategySectionNavItems.length > 0 && (
+                <div className="mt-2 border-t border-slate-200 pt-2">
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                    <div className="flex flex-shrink-0 items-center gap-2 px-1">
+                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        {locale === 'ar' ? 'خريطة الاستراتيجية' : 'Strategy map'}
+                      </span>
+                    </div>
+                    <div className="flex gap-1.5 overflow-x-auto">
+                      {strategySectionNavItems.map(({ num, label, id }) => (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => scrollToStrategySection(id)}
+                          className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          <span className="text-[10px] text-slate-400">{num}</span>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── Tab 0: Strategy (Strategist) ─────────────────────────────── */}
             {activeTab === 0 && (
               <div className="space-y-5">
                 <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
-                  <div className="bg-slate-950 px-5 py-6 text-white sm:px-7">
+                  <div className="border-b border-slate-200 bg-white px-5 py-6 sm:px-7">
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                       <div className="max-w-3xl">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold text-indigo-100">
-                            {locale === 'ar' ? 'مسودة قرار استراتيجية' : 'Strategy decision brief'}
+                          <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                            {locale === 'ar' ? 'مركز قيادة الاستراتيجية' : 'Strategy command center'}
                           </span>
-                          <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-100">
+                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
                             {locale === 'ar' ? 'مراجعة قبل التنفيذ' : 'Review before execution'}
                           </span>
                         </div>
-                        <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-tight sm:text-3xl">
+                        <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
                           {campaign.name}
                         </h1>
-                        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+                        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
                           {strategyGuidanceCopy.brief}
                         </p>
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                              {locale === 'ar' ? 'القرار التالي' : 'Next decision'}
+                          <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500">
+                              {locale === 'ar' ? 'الإجراء التالي' : 'Next action'}
                             </p>
-                            <p className="mt-1 text-sm leading-6 text-white">
+                            <p className="mt-1 text-sm font-semibold leading-6 text-slate-950">
                               {strategyRoomStateCopy.nextDecision}
                             </p>
                           </div>
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
                               {locale === 'ar' ? 'حدود التشغيل' : 'Operating boundary'}
                             </p>
-                            <p className="mt-1 text-sm leading-6 text-white">
+                            <p className="mt-1 text-sm leading-6 text-slate-700">
                               {locale === 'ar'
                                 ? 'لا نشر، لا جدولة، لا صرف إعلاني، ولا تحديث Brand Brain من هذه الصفحة.'
                                 : 'No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.'}
                             </p>
                           </div>
                         </div>
-                        <p className="mt-4 text-xs text-slate-400">
+                        <p className="mt-4 text-xs text-slate-500">
                           {locale === 'ar' ? 'آخر تحديث' : 'Last updated'}: {new Date(campaign.updatedAt).toLocaleDateString(locale === 'ar' ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                         <Link
                           href={isPaidOnlyStrategy ? `/campaigns/${campaignId}/paid-launch` : `/campaigns/${campaignId}/content-hub`}
-                          className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+                          className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                           {isPaidOnlyStrategy
                             ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع' : 'Review paid planning brief')
@@ -2193,9 +2242,9 @@ function CampaignDetailPageInner() {
                         </Link>
                         <Link
                           href="/strategy"
-                          className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
-                          {locale === 'ar' ? 'العودة إلى الاستراتيجية' : 'Back to Strategy'}
+                          {locale === 'ar' ? 'فتح مساحة الاستراتيجية' : 'Open Strategy workspace'}
                         </Link>
                       </div>
                     </div>
@@ -2294,20 +2343,6 @@ function CampaignDetailPageInner() {
                     )}
                   </div>
                 </section>
-
-                <nav className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 text-sm shadow-sm">
-                  {strategySectionNavItems.map(({ num, label, id }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => scrollToStrategySection(id)}
-                      className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                    >
-                      <span className="text-[11px] text-slate-400">{num}</span>
-                      {label}
-                    </button>
-                  ))}
-                </nav>
 
                 <section id="strategy-summary" className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -2652,6 +2687,7 @@ function CampaignDetailPageInner() {
 
                 {(strategy.kpis?.length > 0 || successMetricsDetailed.length > 0 || successMetrics.length > 0) && (
                   <StrategyDocSection
+                    id="strategy-metrics"
                     eyebrow="07"
                     title={cdT?.sectionKpis || 'KPIs & Metrics'}
                     description={locale === 'ar'
