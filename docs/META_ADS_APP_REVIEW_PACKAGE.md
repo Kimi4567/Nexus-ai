@@ -7,6 +7,8 @@
 
 This package is separate from the organic Facebook Page publishing package in `docs/META_APP_REVIEW_PACKAGE.md`.
 
+Use `docs/META_ADS_SUBMISSION_RUNBOOK.md` for the operational submission checklist, reviewer video script, test asset inventory, and go/no-go gate before pressing Submit in Meta App Review.
+
 ## 1. Submission Strategy
 
 Submit the paid Marketing API permissions only when the Meta app is ready for review:
@@ -111,6 +113,7 @@ Use a reviewer/test account with access to a test Business Manager, ad account, 
 - [ ] Submit only `ads_management`, `ads_read`, and `business_management`.
 - [ ] Do not submit `read_insights` for this paid connection.
 - [ ] Do not imply automatic spend, automatic launch, or connected-account launch readiness.
+- [ ] Complete the operator checklist in `docs/META_ADS_SUBMISSION_RUNBOOK.md` before submitting.
 
 ## 10. Out of Scope
 
