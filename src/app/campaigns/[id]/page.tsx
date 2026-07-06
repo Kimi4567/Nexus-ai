@@ -36,6 +36,7 @@ import { summarizeCreativeRequirements } from '@/lib/creativeRequirements'
 import { formatStrategyPlatformLabel, guardStrategyOutputContract } from '@/lib/ai/strategyOutputContractGuard'
 import { guardStrategyKpis } from '@/lib/ai/strategyKpiGuard'
 import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
+import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
 
 interface Activity {
   id: string
@@ -1036,52 +1037,14 @@ function CampaignDetailPageInner() {
       ? 'لا توجد خطة محتوى عضوية من هذا التوليد. أكمل التتبع والحسابات والموافقة قبل أي إطلاق أو صرف.'
       : 'No organic content plan was created by this run. Complete tracking, accounts, and approval before any launch or spend.')
     : operatingHelper
-  const strategyGuidanceCopy = isPaidOnlyStrategy
-    ? {
-        hint: locale === 'ar'
-          ? '📌 هذا بريف تخطيط مدفوع فقط. لا توجد خطة Content Hub من هذا التوليد.'
-          : '📌 This is a paid planning brief only. No Content Hub plan was created by this run.',
-        brief: locale === 'ar'
-          ? 'راجع فرضيات الجمهور والزوايا والقيود قبل أي قرار إطلاق. التنفيذ والصرف والنشر يتطلبون جاهزية وموافقة صريحة منفصلة.'
-          : 'Review audience hypotheses, paid angles, and limits before any launch decision. Execution, spend, and publishing require separate readiness and explicit approval.',
-      }
-    : operatingState.truthFlags.hasContentPlan
-      ? {
-        hint: locale === 'ar'
-          ? '📌 الاستراتيجية أصبحت مادة مرجعية. حالة التنفيذ الحالية موجودة في Content Hub.'
-          : '📌 Strategy is reference material. Content Hub shows the current execution state.',
-        brief: locale === 'ar'
-          ? 'هذه هي الاستراتيجية الغنية الحالية للحملة كمادة مرجعية. راجع الاتجاه والافتراضات والقيود، لكن حالة المنشورات والتنفيذ الحالية موجودة في Content Hub.'
-          : 'This is the current rich strategy output for the campaign as reference material. Review the direction, assumptions, and limits, but use Content Hub for the current post and execution state.',
-      }
-      : {
-        hint: locale === 'ar'
-          ? '🔍 راجع جودة الاستراتيجية قبل إنشاء أول خطة محتوى.'
-          : '🔍 Review strategy quality before building the first content plan.',
-        brief: locale === 'ar'
-          ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل إنشاء أول خطة محتوى.'
-          : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before building the first content plan.',
-      }
-  const strategyReviewChecklistCopy = isPaidOnlyStrategy
-    ? {
-        title: locale === 'ar' ? 'قائمة مراجعة التخطيط المدفوع' : 'Paid planning review checklist',
-        helper: locale === 'ar'
-          ? 'استخدمها لمراجعة حدود التخطيط المدفوع قبل أي قرار إطلاق أو صرف. هذه اللوحة لا تولّد ولا تعتمد ولا تنشر ولا تطلق إعلانات ولا تحدّث Brand Brain.'
-          : 'Use this to review paid planning boundaries before any launch or spend decision. This panel does not generate, approve, publish, launch ads, or update Brand Brain.',
-      }
-    : operatingState.truthFlags.hasContentPlan
-      ? {
-          title: locale === 'ar' ? 'قائمة مراجعة الاستراتيجية' : 'Strategy review checklist',
-          helper: locale === 'ar'
-            ? 'استخدمها لمراجعة القرار والتشخيص قبل تعديل أو اعتماد المحتوى الموجود في Content Hub. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
-            : 'Use this to review the decision and diagnosis before editing or approving the content already in Content Hub. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
-        }
-      : {
-          title: locale === 'ar' ? 'قائمة ما قبل Content Hub' : 'Before Content Hub checklist',
-          helper: locale === 'ar'
-            ? 'استخدمها كفحص قرار قبل تحضير أول خطة محتوى. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
-            : 'Use this as the go/no-go check before preparing the first content plan. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
-        }
+  const strategyRoomStateCopy = deriveStrategyRoomStateCopy({
+    locale,
+    isPaidOnlyStrategy,
+    hasContentPlan: operatingState.truthFlags.hasContentPlan,
+    operatingSnapshotsLoaded,
+  })
+  const strategyGuidanceCopy = strategyRoomStateCopy.guidance
+  const strategyReviewChecklistCopy = strategyRoomStateCopy.checklist
   const mustHaveAssetCount = Array.isArray(assetRequirements?.mustHave) ? assetRequirements.mustHave.length : 0
   const proofAssetCount = Array.isArray(assetRequirements?.forProof) ? assetRequirements.forProof.length : 0
   const verifiedProofCount = proofContext.verifiedProof.length
@@ -1099,15 +1062,11 @@ function CampaignDetailPageInner() {
     },
     {
       label: locale === 'ar' ? 'حالة خطة المحتوى' : 'Content plan status',
-      value: isPaidOnlyStrategy
-        ? (locale === 'ar' ? 'غير منشأة في تشغيل Paid فقط' : 'Not created in a Paid-only run')
-        : operatingState.truthFlags.hasContentPlan
-          ? (locale === 'ar' ? 'موجودة في Content Hub' : 'Exists in Content Hub')
-          : (locale === 'ar' ? 'حضّرها بعد مراجعة الاستراتيجية' : 'Prepare it after strategy review'),
+      value: strategyRoomStateCopy.contentPlanStatusValue,
       helper: locale === 'ar'
         ? 'Content Hub هو مكان خطة المنشورات النهائية وحالة الوسائط، وليس هذه الصفحة.'
         : 'Content Hub owns final post planning and media state, not this page.',
-      tone: operatingState.truthFlags.hasContentPlan ? 'positive' : 'muted',
+      tone: strategyRoomStateCopy.contentPlanTone,
     },
     {
       label: locale === 'ar' ? 'الإثبات والثقة' : 'Proof and trust',
@@ -2117,11 +2076,7 @@ function CampaignDetailPageInner() {
                               {locale === 'ar' ? 'القرار التالي' : 'Next decision'}
                             </p>
                             <p className="mt-1 text-sm leading-6 text-white">
-                              {isPaidOnlyStrategy
-                                ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع وأكمل التتبع والحسابات قبل أي إطلاق.' : 'Review the paid planning brief and complete tracking/accounts before any launch.')
-                                : operatingState.truthFlags.hasContentPlan
-                                ? (locale === 'ar' ? 'راجع التنفيذ الحالي في Content Hub.' : 'Review current execution in Content Hub.')
-                                : (locale === 'ar' ? 'راجع جودة الاستراتيجية قبل بناء أول خطة محتوى.' : 'Review strategy quality before building the first content plan.')}
+                              {strategyRoomStateCopy.nextDecision}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
@@ -2146,9 +2101,7 @@ function CampaignDetailPageInner() {
                         >
                           {isPaidOnlyStrategy
                             ? (locale === 'ar' ? 'راجع بريف التخطيط المدفوع' : 'Review paid planning brief')
-                            : operatingState.truthFlags.hasContentPlan
-                            ? (locale === 'ar' ? 'راجع التنفيذ في Content Hub' : 'Review execution in Content Hub')
-                            : (locale === 'ar' ? 'افتح Content Hub لتحضير خطة المحتوى' : 'Open Content Hub to prepare content plan')}
+                            : strategyRoomStateCopy.contentHubCta}
                         </Link>
                         <Link
                           href="/strategy"
@@ -2170,12 +2123,8 @@ function CampaignDetailPageInner() {
                         label={isPaidOnlyStrategy
                           ? (locale === 'ar' ? 'النطاق العضوي' : 'Organic scope')
                           : (locale === 'ar' ? 'الخطة العضوية' : 'Organic plan')}
-                        value={isPaidOnlyStrategy
-                          ? (locale === 'ar' ? 'غير مشمولة في هذا التوليد' : 'Not included in this run')
-                          : operatingState.truthFlags.hasContentPlan
-                          ? (locale === 'ar' ? 'متاحة للمراجعة في Content Hub' : 'Available for review in Content Hub')
-                          : (locale === 'ar' ? 'جاهزة لبناء خطة محتوى بعد المراجعة' : 'Ready to build a content plan after review')}
-                        tone={isPaidOnlyStrategy ? 'muted' : 'positive'}
+                        value={strategyRoomStateCopy.organicPlanValue}
+                        tone={strategyRoomStateCopy.contentPlanTone}
                       />
                       <StrategyDocCard
                         label={locale === 'ar' ? 'الإعلانات المدفوعة' : 'Paid planning'}
@@ -2842,22 +2791,10 @@ function CampaignDetailPageInner() {
                 <BrandDNABadge brand={brandDNA} locale={locale} />
                 <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
                   <p className="text-sm font-semibold text-indigo-900">
-                    {operatingState.truthFlags.hasContentPlan
-                      ? (locale === 'ar'
-                        ? 'Content Hub هو المسار النهائي لمعاينة المنشورات'
-                        : 'Content Hub is the final post preview path')
-                      : (locale === 'ar'
-                        ? 'هذه مدخلات تخطيط وليست خطة منشورات نهائية'
-                        : 'These are planning inputs, not final post drafts')}
+                    {strategyRoomStateCopy.contentHooks.title}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-indigo-800">
-                    {operatingState.truthFlags.hasContentPlan
-                      ? (locale === 'ar'
-                        ? 'راجع النسخ، جاهزية الوسائط، حالة دورة الحياة، وحالة النشر اليدوي في Content Hub. ملاحظات الحملة المحفوظة هنا للمراجعة فقط.'
-                        : 'Review copy, media readiness, lifecycle state, and manual publish status in Content Hub. Saved campaign notes here are review material only.')
-                      : (locale === 'ar'
-                        ? 'الهوكس والزوايا هنا مواد استراتيجية تساعد على بناء أول خطة محتوى. لا توجد معاينات منشورات نهائية حتى يتم تحضير Content Hub.'
-                        : 'Hooks and angles here are strategy material for building the first content plan. Final post previews do not exist until Content Hub is prepared.')}
+                    {strategyRoomStateCopy.contentHooks.helper}
                   </p>
                   <p className="mt-3 rounded-xl border border-indigo-200 bg-white/70 px-3 py-2 text-xs leading-5 text-indigo-800">
                     {locale === 'ar'
@@ -2869,9 +2806,7 @@ function CampaignDetailPageInner() {
                       href={`/campaigns/${campaignId}/content-hub`}
                       className="inline-flex items-center justify-center rounded-xl bg-indigo-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-800"
                     >
-                      {operatingState.truthFlags.hasContentPlan
-                        ? (locale === 'ar' ? 'راجع معاينات المنشورات النهائية' : 'Review final post previews')
-                        : (locale === 'ar' ? 'افتح Content Hub لتحضير خطة المحتوى' : 'Open Content Hub to prepare content plan')}
+                      {strategyRoomStateCopy.contentHooks.cta}
                     </Link>
                     <Link
                       href="/brand"
