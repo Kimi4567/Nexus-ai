@@ -43,6 +43,7 @@ This PR does not:
 - Connections fetches `/api/social/accounts` and `/api/ad-accounts` read-only to render honest readiness.
 - Connections exposes a Meta Ads connect path, but activation remains in Paid Ads.
 - Brand/Dashboard copy avoids saying paid ads are permanently planning-only.
+- Meta Ads OAuth scopes mirror the current Meta Marketing API use case: `public_profile`, `ads_management`, `ads_read`, and `business_management`. Ads insights are covered by `ads_read`; `read_insights` is intentionally not requested for the paid connection.
 
 ## QA plan
 

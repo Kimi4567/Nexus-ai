@@ -47,9 +47,8 @@ export async function GET(req: NextRequest) {
     const scopes = [
       'public_profile',
       'ads_management',       // Create/edit/delete campaigns, ad sets, ads, creatives
-      'ads_read',             // Read campaign + performance metrics
+      'ads_read',             // Read campaign + Ads Insights metrics
       'business_management',  // Access Business Manager + ad account hierarchy
-      'read_insights',        // Read ad insights + metrics
     ].join(',')
 
     const metaOAuthUrl =
