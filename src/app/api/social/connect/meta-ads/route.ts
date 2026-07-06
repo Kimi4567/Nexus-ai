@@ -3,7 +3,7 @@
  *
  * Initiates Meta OAuth with ads_management + ads_read + business_management
  * scopes. This is SEPARATE from the organic Meta connection (/connect/meta)
- * which only requests pages_manage_posts.
+ * which requests Facebook Page/organic publishing scopes.
  *
  * When approved (requires Meta App Review + Business Verification):
  *   - ads_management        → create/edit/delete campaigns, ad sets, ads
