@@ -78,6 +78,7 @@ interface Campaign {
   brandBrainSnapshot?: Record<string, unknown>
   utmCampaign?: string
   platformCampaignId?: string
+  platformStatus?: string
   adSets: AdSet[]
   performanceSnapshots: Array<{ date: string; spend: number; impressions: number; clicks: number; roas: number }>
   adAccount?: {
@@ -133,6 +134,11 @@ export default function CampaignDetailPage() {
   const [showPlatformDraftConfirm, setShowPlatformDraftConfirm] = useState(false)
   const [platformDraftAcknowledged, setPlatformDraftAcknowledged] = useState(false)
   const [budgetReadinessAcknowledged, setBudgetReadinessAcknowledged] = useState(false)
+  const [showPlatformActivationConfirm, setShowPlatformActivationConfirm] = useState(false)
+  const [platformActivationAcknowledged, setPlatformActivationAcknowledged] = useState(false)
+  const [spendActivationAcknowledged, setSpendActivationAcknowledged] = useState(false)
+  const [activationBudgetAcknowledged, setActivationBudgetAcknowledged] = useState(false)
+  const [activateLoading, setActivateLoading] = useState(false)
 
   const getToken = async () => {
     const { data: session } = await supabase.auth.getSession()
@@ -205,6 +211,41 @@ export default function CampaignDetailPage() {
     }
   }
 
+  const handleActivatePlatform = async () => {
+    if (!campaign) return
+    if (!platformActivationAcknowledged || !spendActivationAcknowledged || !activationBudgetAcknowledged) {
+      alert('Confirm platform activation, budget, and spend approval before activating paid ads.')
+      return
+    }
+    setActivateLoading(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/ad-campaigns/${id}/activate-platform`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          explicitPlatformActivationConfirmed: platformActivationAcknowledged === true,
+          explicitSpendActivationConfirmed: spendActivationAcknowledged === true,
+          explicitBudgetConfirmed: activationBudgetAcknowledged === true,
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error)
+      setShowPlatformActivationConfirm(false)
+      setPlatformActivationAcknowledged(false)
+      setSpendActivationAcknowledged(false)
+      setActivationBudgetAcknowledged(false)
+      await load()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Activation failed')
+    } finally {
+      setActivateLoading(false)
+      setPlatformActivationAcknowledged(false)
+      setSpendActivationAcknowledged(false)
+      setActivationBudgetAcknowledged(false)
+    }
+  }
+
   const handleSyncMetrics = async () => {
     if (!campaign) return
     setSyncLoading(true)
@@ -269,7 +310,7 @@ export default function CampaignDetailPage() {
           <button onClick={() => router.push('/paid-campaigns')}
             className="px-4 py-2 rounded-lg text-[13px] text-white"
             style={{ background: 'rgba(255,255,255,0.08)' }}>
-            ← Back to Paid Ads Planning
+            ← Back to Paid Ads Control Center
           </button>
         </div>
       </div>
@@ -280,6 +321,13 @@ export default function CampaignDetailPage() {
   const platformColor = PLATFORM_COLORS[campaign.platform] || '#8B5CF6'
   const totalAds = campaign.adSets.reduce((acc, s) => acc + s.ads.length, 0)
   const strategy = campaign.aiStrategy
+  const hasPausedPlatformDraft = Boolean(campaign.platformCampaignId && campaign.platformStatus === 'PAUSED')
+  const canRequestPlatformActivation = campaign.status === 'PAUSED' && hasPausedPlatformDraft && campaign.adAccount?.hasApiAccess
+  const executionLabel = campaign.status === 'ACTIVE'
+    ? 'Paid execution · platform active'
+    : hasPausedPlatformDraft
+      ? 'Paid execution · paused platform draft'
+      : 'Paid planning draft'
 
   return (
     <AppShell>
@@ -306,7 +354,7 @@ export default function CampaignDetailPage() {
               </div>
               <h1 className="text-[20px] font-bold text-white">{campaign.name}</h1>
               <p className="text-[12px] text-text-muted">
-                Paid Planning Draft ·{' '}
+                {executionLabel} ·{' '}
                 {campaign.objective.replace(/_/g, ' ')}
                 {campaign.adAccount && ` · ${campaign.adAccount.platformAccountName}`}
                 {campaign.startDate && ` · ${new Date(campaign.startDate).toLocaleDateString()} – ${campaign.endDate ? new Date(campaign.endDate).toLocaleDateString() : 'ongoing'}`}
@@ -341,11 +389,30 @@ export default function CampaignDetailPage() {
               </button>
             )}
             {campaign.status === 'PAUSED' && (
-              <button disabled
-                className="px-3 py-2 rounded-xl text-[12px] font-bold"
-                style={{ background: 'rgba(16,185,129,0.08)', color: '#86efac', border: '1px solid rgba(16,185,129,0.22)', cursor: 'not-allowed', opacity: 0.72 }}>
-                Platform confirmation required to resume
-              </button>
+              canRequestPlatformActivation ? (
+                <button
+                  onClick={() => {
+                    setPlatformActivationAcknowledged(false)
+                    setSpendActivationAcknowledged(false)
+                    setActivationBudgetAcknowledged(false)
+                    setShowPlatformActivationConfirm(true)
+                  }}
+                  disabled={activateLoading}
+                  className="px-3 py-2 rounded-xl text-[12px] font-bold text-white flex items-center gap-1.5"
+                  style={{ background: activateLoading ? 'rgba(255,255,255,0.06)' : `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` }}
+                >
+                  {activateLoading ? (
+                    <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : '▶'}
+                  {activateLoading ? 'Activating...' : 'Activate after final approval'}
+                </button>
+              ) : (
+                <button disabled
+                  className="px-3 py-2 rounded-xl text-[12px] font-bold"
+                  style={{ background: 'rgba(16,185,129,0.08)', color: '#86efac', border: '1px solid rgba(16,185,129,0.22)', cursor: 'not-allowed', opacity: 0.72 }}>
+                  Paused draft awaiting account/API readiness
+                </button>
+              )
             )}
             <button onClick={() => setActiveTab('performance')}
               className="px-3 py-2 rounded-xl text-[12px] font-medium text-text-muted hover:text-white transition-all"
@@ -416,6 +483,7 @@ export default function CampaignDetailPage() {
                   { label: 'Total Ads', value: totalAds },
                   { label: 'AI Generated', value: totalAds > 0 ? 'Yes' : 'No' },
                   { label: 'Platform draft ID', value: campaign.platformCampaignId || 'Not created' },
+                  { label: 'Platform status', value: campaign.platformStatus || 'Not created' },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between">
                     <span className="text-[12px] text-text-muted">{item.label}</span>
@@ -436,6 +504,7 @@ export default function CampaignDetailPage() {
                   { label: '📝 Ad Copy Variants', done: totalAds > 0 },
                   { label: '🧠 Brand Brain Snapshot', done: !!campaign.brandBrainSnapshot },
                   { label: '🔗 Paused platform draft linked', done: !!campaign.platformCampaignId },
+                  { label: '🚦 Ready for final platform activation', done: canRequestPlatformActivation },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between">
                     <span className="text-[12px] text-text-muted">{item.label}</span>
@@ -804,6 +873,32 @@ export default function CampaignDetailPage() {
                     {pushLoading ? 'Creating paused draft...' : `Create paused ${campaign.platform} draft →`}
                   </button>
                 </div>
+
+                <div className="p-4 rounded-[12px] md:col-span-2"
+                  style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.18)' }}>
+                  <p className="text-[13px] font-semibold text-white mb-2">🚦 Activate after final approval</p>
+                  <p className="text-[12px] text-text-muted mb-3">
+                    {canRequestPlatformActivation
+                      ? `A paused ${campaign.platform} platform draft exists. Activate only after the client approves launch, spend, budget, and platform readiness.`
+                      : 'Activation unlocks only after a paused platform draft exists, API access is approved, and the campaign is still paused in NEXUS and on the platform.'}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setPlatformActivationAcknowledged(false)
+                      setSpendActivationAcknowledged(false)
+                      setActivationBudgetAcknowledged(false)
+                      setShowPlatformActivationConfirm(true)
+                    }}
+                    disabled={!canRequestPlatformActivation || activateLoading}
+                    className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                    style={{
+                      background: canRequestPlatformActivation && !activateLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.06)',
+                      cursor: canRequestPlatformActivation && !activateLoading ? 'pointer' : 'not-allowed',
+                      opacity: canRequestPlatformActivation && !activateLoading ? 1 : 0.62,
+                    }}>
+                    {activateLoading ? 'Activating platform campaign...' : `Activate ${campaign.platform} campaign →`}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1067,6 +1162,111 @@ export default function CampaignDetailPage() {
                   }}
                 >
                   {pushLoading ? 'Creating paused platform drafts...' : 'Create paused platform drafts'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showPlatformActivationConfirm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center px-4"
+            style={{ background: 'rgba(2,6,23,0.72)' }}
+          >
+            <div
+              className="w-full max-w-[520px] rounded-[16px] p-5"
+              style={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.22)' }}
+            >
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-[16px] font-bold text-white">Activate paid campaign after final approval</h3>
+                  <p className="text-[12px] text-text-muted mt-1">
+                    NEXUS will activate existing paused {campaign.platform} platform objects. This may start delivery and spend on the connected ad account.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowPlatformActivationConfirm(false)
+                    setPlatformActivationAcknowledged(false)
+                    setSpendActivationAcknowledged(false)
+                    setActivationBudgetAcknowledged(false)
+                  }}
+                  className="text-text-muted hover:text-white"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div
+                className="rounded-[12px] p-4 mb-4"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.24)' }}
+              >
+                <p className="text-[12px] text-slate-200 leading-relaxed">
+                  This is the final paid launch step. Use it only after the client approves the campaign, budget, destination, creative, tracking, and platform account.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
+                <input
+                  type="checkbox"
+                  checked={platformActivationAcknowledged}
+                  onChange={(event) => setPlatformActivationAcknowledged(event.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  I confirm the client approved activating this paid campaign on the connected platform.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
+                <input
+                  type="checkbox"
+                  checked={spendActivationAcknowledged}
+                  onChange={(event) => setSpendActivationAcknowledged(event.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  I understand this may start ad delivery and spend on the connected ad account.
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 text-[12px] text-slate-200 leading-relaxed mb-5">
+                <input
+                  type="checkbox"
+                  checked={activationBudgetAcknowledged}
+                  onChange={(event) => setActivationBudgetAcknowledged(event.target.checked)}
+                  className="mt-0.5 h-4 w-4"
+                />
+                <span>
+                  I confirm the budget, tracking, creative, destination, and platform readiness are approved for launch.
+                </span>
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowPlatformActivationConfirm(false)
+                    setPlatformActivationAcknowledged(false)
+                    setSpendActivationAcknowledged(false)
+                    setActivationBudgetAcknowledged(false)
+                  }}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold text-text-muted"
+                  style={{ background: 'rgba(255,255,255,0.06)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleActivatePlatform}
+                  disabled={!platformActivationAcknowledged || !spendActivationAcknowledged || !activationBudgetAcknowledged || activateLoading}
+                  className="px-4 py-2 rounded-xl text-[12px] font-bold text-white"
+                  style={{
+                    background: platformActivationAcknowledged && spendActivationAcknowledged && activationBudgetAcknowledged && !activateLoading ? `linear-gradient(135deg, ${platformColor}, ${platformColor}bb)` : 'rgba(255,255,255,0.08)',
+                    cursor: platformActivationAcknowledged && spendActivationAcknowledged && activationBudgetAcknowledged && !activateLoading ? 'pointer' : 'not-allowed',
+                    opacity: platformActivationAcknowledged && spendActivationAcknowledged && activationBudgetAcknowledged && !activateLoading ? 1 : 0.62,
+                  }}
+                >
+                  {activateLoading ? 'Activating paid campaign...' : 'Activate paid campaign'}
                 </button>
               </div>
             </div>

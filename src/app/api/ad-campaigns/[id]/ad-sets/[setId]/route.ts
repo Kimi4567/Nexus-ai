@@ -58,8 +58,15 @@ export async function PATCH(
     const {
       name, status, dailyBudget, lifetimeBudget, bidStrategy, bidAmount,
       startDate, endDate, targeting, placements, optimizationGoal, billingEvent,
-      platformAdSetId, platformStatus,
+      platformAdSetId,
     } = body
+
+    if (status === 'ACTIVE') {
+      return NextResponse.json({
+        error: 'Ad sets cannot be marked active through generic updates. Use the explicit platform activation route after final approval.',
+        mode: 'activation_route_required',
+      }, { status: 400 })
+    }
 
     const updated = await db.adSet.update({
       where: { id: params.setId },
@@ -77,7 +84,6 @@ export async function PATCH(
         ...(optimizationGoal !== undefined && { optimizationGoal }),
         ...(billingEvent !== undefined && { billingEvent }),
         ...(platformAdSetId !== undefined && { platformAdSetId }),
-        ...(platformStatus !== undefined && { platformStatus }),
       },
     })
 

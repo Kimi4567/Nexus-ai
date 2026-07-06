@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  canActivatePlatformCampaign,
   canCreatePlatformDraft,
   canRecordExternalPaidLaunch,
   canRecordPaidCompletion,
@@ -124,6 +125,28 @@ describe('paidBoundary', () => {
     })).toBe(false)
   })
 
+  it('requires paused platform draft, API access, and three explicit approvals before paid activation', () => {
+    const ready = {
+      platform: 'META',
+      localStatus: 'PAUSED',
+      platformCampaignId: 'meta_campaign_1',
+      platformStatus: 'PAUSED',
+      adAccountHasApiAccess: true,
+      explicitPlatformActivationConfirmed: true,
+      explicitSpendActivationConfirmed: true,
+      explicitBudgetConfirmed: true,
+    }
+
+    expect(canActivatePlatformCampaign(ready)).toBe(true)
+    expect(canActivatePlatformCampaign({ ...ready, localStatus: 'DRAFT' })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, platformStatus: 'ACTIVE' })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, platformCampaignId: null })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, adAccountHasApiAccess: false })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, explicitPlatformActivationConfirmed: false })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, explicitSpendActivationConfirmed: false })).toBe(false)
+    expect(canActivatePlatformCampaign({ ...ready, explicitBudgetConfirmed: false })).toBe(false)
+  })
+
   it('does not treat a positive daily budget as platform draft approval', () => {
     expect(getBudgetTruth({ amount: 250, fallbackAmount: 50 })).toEqual({
       amount: 250,
@@ -166,6 +189,10 @@ describe('paidBoundary', () => {
     expect(pushRoute).not.toContain("status: 'ACTIVE'")
     expect(pushRoute).not.toContain('live push')
     expect(pushRoute).toContain('Platform draft objects were created in Meta in PAUSED state')
+    expect(pushRoute).toContain("data: { platformAdSetId: metaAdSetId, status: 'PAUSED' }")
+    expect(pushRoute).toContain("data: { platformAdId: metaAdId, status: 'PAUSED' }")
+    expect(pushRoute).not.toContain('platformAdSetId: metaAdSetId, platformStatus')
+    expect(pushRoute).not.toContain('platformAdId: metaAdId, platformStatus')
 
     expect(paidCampaignPage).toContain('platformDraftAcknowledged')
     expect(paidCampaignPage).toContain('budgetReadinessAcknowledged')
@@ -178,5 +205,36 @@ describe('paidBoundary', () => {
     expect(generateRoute).toContain('Budget Confirmed: ${budgetTruth.budgetConfirmed')
     expect(generateRoute).toContain('Budget Value Present: ${budgetTruth.budgetValuePresent')
     expect(generateRoute).toContain('treat this as a planning budget value only')
+  })
+
+  it('keeps paid activation on a separate final-approval route', () => {
+    const activateRoute = readFileSync(join(process.cwd(), 'src/app/api/ad-campaigns/[id]/activate-platform/route.ts'), 'utf8')
+    const updateRoute = readFileSync(join(process.cwd(), 'src/app/api/ad-campaigns/[id]/route.ts'), 'utf8')
+    const adSetUpdateRoute = readFileSync(join(process.cwd(), 'src/app/api/ad-campaigns/[id]/ad-sets/[setId]/route.ts'), 'utf8')
+    const paidCampaignPage = readFileSync(join(process.cwd(), 'src/app/paid-campaigns/[id]/page.tsx'), 'utf8')
+    const metaApi = readFileSync(join(process.cwd(), 'src/lib/adPlatforms/metaAdsApi.ts'), 'utf8')
+
+    expect(activateRoute).toContain('canActivatePlatformCampaign')
+    expect(activateRoute).toContain('explicitPlatformActivationConfirmed')
+    expect(activateRoute).toContain('explicitSpendActivationConfirmed')
+    expect(activateRoute).toContain('explicitBudgetConfirmed')
+    expect(activateRoute).toContain('Activation requires an existing paused platform draft')
+    expect(activateRoute).toContain("await api.updateObjectStatus(adSetId, 'ACTIVE')")
+    expect(activateRoute).toContain("await api.updateObjectStatus(adId, 'ACTIVE')")
+    expect(activateRoute).toContain("await api.updateCampaignStatus(String(campaign.platformCampaignId), 'ACTIVE')")
+
+    expect(updateRoute).toContain('activation_route_required')
+    expect(updateRoute).toContain('Use the explicit platform activation route after final approval')
+    expect(adSetUpdateRoute).toContain('activation_route_required')
+    expect(adSetUpdateRoute).toContain('Ad sets cannot be marked active through generic updates')
+    expect(adSetUpdateRoute).not.toContain('platformStatus')
+
+    expect(paidCampaignPage).toContain('Activate after final approval')
+    expect(paidCampaignPage).toContain('explicitPlatformActivationConfirmed: platformActivationAcknowledged === true')
+    expect(paidCampaignPage).toContain('explicitSpendActivationConfirmed: spendActivationAcknowledged === true')
+    expect(paidCampaignPage).toContain('explicitBudgetConfirmed: activationBudgetAcknowledged === true')
+    expect(paidCampaignPage).toContain('I understand this may start ad delivery and spend')
+
+    expect(metaApi).toContain('updateObjectStatus')
   })
 })

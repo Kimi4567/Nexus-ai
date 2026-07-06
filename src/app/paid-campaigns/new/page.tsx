@@ -69,10 +69,10 @@ interface WizardData {
 
 // ── Platform data ──────────────────────────────────────────────────────────
 const PLATFORMS = [
-  { id: 'META',     label: 'Meta Ads',    sub: 'Facebook + Instagram', color: '#1877F2', available: true },
-  { id: 'GOOGLE',   label: 'Google Ads',  sub: 'Search, Display, P-Max', color: '#4285F4', available: false },
-  { id: 'TIKTOK',   label: 'TikTok Ads',  sub: 'In-Feed, TopView, Spark', color: '#FF0050', available: false },
-  { id: 'LINKEDIN', label: 'LinkedIn Ads', sub: 'Sponsored Content, InMail', color: '#0A66C2', available: false },
+  { id: 'META',     label: 'Meta Ads',    sub: 'Facebook + Instagram', color: '#1877F2', badge: 'Draft + API path' },
+  { id: 'GOOGLE',   label: 'Google Ads',  sub: 'Search, Display, P-Max', color: '#4285F4', badge: 'Planning draft' },
+  { id: 'TIKTOK',   label: 'TikTok Ads',  sub: 'In-Feed, TopView, Spark', color: '#FF0050', badge: 'Planning draft' },
+  { id: 'LINKEDIN', label: 'LinkedIn Ads', sub: 'Sponsored Content, InMail', color: '#0A66C2', badge: 'Planning draft' },
 ]
 
 const OBJECTIVES = [
@@ -371,8 +371,7 @@ export default function NewPaidCampaignPage() {
               {PLATFORMS.map(p => (
                 <button
                   key={p.id}
-                  disabled={!p.available}
-                  onClick={() => { if (p.available) set('platform', p.id) }}
+                  onClick={() => set('platform', p.id)}
                   className="relative flex flex-col items-start gap-1.5 p-4 rounded-[14px] text-left transition-all"
                   style={{
                     background: data.platform === p.id
@@ -381,17 +380,16 @@ export default function NewPaidCampaignPage() {
                     border: data.platform === p.id
                       ? `1px solid ${p.color}`
                       : '1px solid rgba(15,23,42,0.08)',
-                    opacity: p.available ? 1 : 0.5,
-                    cursor: p.available ? 'pointer' : 'not-allowed',
+                    cursor: 'pointer',
                   }}
                 >
-                  {!p.available && (
+                  {data.platform !== p.id && (
                     <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded"
-                      style={{ background: '#f1f5f9', color: '#94a3b8' }}>
-                      Coming Soon
+                      style={{ background: p.id === 'META' ? 'rgba(24,119,242,0.08)' : '#f1f5f9', color: p.id === 'META' ? '#1877F2' : '#64748b' }}>
+                      {p.badge}
                     </span>
                   )}
-                  <span className="text-[13px] font-bold" style={{ color: p.available ? '#0f172a' : '#94a3b8' }}>
+                  <span className="text-[13px] font-bold" style={{ color: '#0f172a' }}>
                     {p.label}
                   </span>
                   <span className="text-[11px] text-slate-500">{p.sub}</span>
@@ -1026,7 +1024,11 @@ export default function NewPaidCampaignPage() {
               <ul className="space-y-1.5 text-[12px] text-slate-500">
                 <li>• Open the paid planning draft detail to review targeting</li>
                 <li>• Upload your creative assets (image / video)</li>
-                <li>• Export to {data.platform} Ads Manager or create paused platform drafts only after readiness is confirmed</li>
+                <li>
+                  • {data.platform === 'META'
+                    ? 'Create paused Meta platform drafts only after readiness is confirmed'
+                    : `Export to ${data.platform} Ads Manager until its API connector is enabled`}
+                </li>
                 <li>• Track performance only after real platform metrics exist or are manually reported</li>
               </ul>
             </div>
@@ -1072,8 +1074,8 @@ export default function NewPaidCampaignPage() {
               </h1>
               <p className="text-[11px] text-slate-500">
                 {locale === 'ar'
-                  ? 'تخطيط فقط عبر Meta وGoogle وTikTok وLinkedIn'
-                  : 'Planning only across Meta, Google, TikTok, and LinkedIn'}
+                  ? 'ابدأ بالمسودة، ثم أنشئ مسودة منصة متوقفة، ثم فعّل فقط بعد موافقة نهائية.'
+                  : 'Start with a draft, create paused platform objects, then activate only after final approval.'}
               </p>
             </div>
           </div>

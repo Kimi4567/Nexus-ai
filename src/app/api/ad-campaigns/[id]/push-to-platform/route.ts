@@ -211,7 +211,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
         // Update DB
         await db.adSet.update({
           where: { id: String(adSet.id) },
-          data: { platformAdSetId: metaAdSetId, platformStatus: 'PAUSED' },
+          data: { platformAdSetId: metaAdSetId, status: 'PAUSED' },
         })
 
         await sleep(200)
@@ -253,7 +253,7 @@ async function handleMetaPush(campaign: Record<string, unknown>, body: Record<st
 
             await db.ad.update({
               where: { id: String(ad.id) },
-              data: { platformAdId: metaAdId, platformStatus: 'PAUSED' },
+              data: { platformAdId: metaAdId, status: 'PAUSED' },
             })
 
             await sleep(200)

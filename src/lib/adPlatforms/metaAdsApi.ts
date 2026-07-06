@@ -320,7 +320,17 @@ export class MetaAdsApi {
    * Update campaign status (pause / activate)
    */
   async updateCampaignStatus(campaignId: string, status: 'ACTIVE' | 'PAUSED'): Promise<boolean> {
-    await this.metaPost<{ success: boolean }>(campaignId, { status })
+    return this.updateObjectStatus(campaignId, status)
+  }
+
+  /**
+   * Update an existing Meta campaign, ad set, or ad status.
+   *
+   * Used only after the object already exists on Meta. Callers are
+   * responsible for approval gates before setting anything ACTIVE.
+   */
+  async updateObjectStatus(objectId: string, status: 'ACTIVE' | 'PAUSED'): Promise<boolean> {
+    await this.metaPost<{ success: boolean }>(objectId, { status })
     return true
   }
 
