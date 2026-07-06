@@ -98,6 +98,123 @@ export interface RetryResult {
   attempts: number
 }
 
+export interface ContentPlanQuotaLike {
+  postsPerCampaign?: number | null
+  videoSlotsPerMonth?: number | null
+}
+
+export interface ContentPlanSlotScope {
+  canGenerate: boolean
+  imagePosts: number
+  videoSlots: number
+  totalSlots: number
+  source: 'strategy-deliverables' | 'plan-quota'
+  blockedReason?: 'paid-planning-only' | 'no-organic-post-count'
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function positiveInteger(value: unknown): number | null {
+  const n = Math.floor(Number(value))
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function readStrategyType(aiOutput: unknown): string | null {
+  if (!isRecord(aiOutput)) return null
+  const direct = typeof aiOutput.strategyType === 'string' ? aiOutput.strategyType : null
+  if (direct) return direct
+
+  const order = isRecord(aiOutput.strategyOrder) ? aiOutput.strategyOrder : null
+  if (typeof order?.strategyType === 'string') return order.strategyType
+
+  const strategy = isRecord(aiOutput.strategy) ? aiOutput.strategy : null
+  return typeof strategy?.strategyType === 'string' ? strategy.strategyType : null
+}
+
+function readBindingOrganicPostCount(aiOutput: unknown): number | null {
+  if (!isRecord(aiOutput)) return null
+
+  const deliverables = isRecord(aiOutput.strategyDeliverables) ? aiOutput.strategyDeliverables : null
+  const deliverablesCount = positiveInteger(deliverables?.organicPostCount)
+  if (deliverablesCount) return deliverablesCount
+
+  const outputCount = positiveInteger(aiOutput.organicPostCount)
+  if (outputCount) return outputCount
+
+  return null
+}
+
+function hasStrategyOrderBinding(aiOutput: unknown): boolean {
+  return isRecord(aiOutput) && (
+    isRecord(aiOutput.strategyOrder) ||
+    isRecord(aiOutput.strategyDeliverables) ||
+    positiveInteger(aiOutput.organicPostCount) !== null
+  )
+}
+
+/**
+ * Resolve the exact number of Content Hub draft rows a generation run may save.
+ *
+ * New strategy-order runs are binding: if the reviewed order says 7 first-window
+ * organic post directions, Content Hub must create exactly 7 SocialPost drafts
+ * total. Plan quota counts remain the fallback for legacy campaigns that do not
+ * have a saved strategyOrder/strategyDeliverables contract.
+ */
+export function resolveContentPlanSlotScope(
+  aiOutput: unknown,
+  quota: ContentPlanQuotaLike = {},
+): ContentPlanSlotScope {
+  const fallbackImagePosts = positiveInteger(quota.postsPerCampaign) ?? 12
+  const fallbackVideoSlots = Math.max(0, Math.floor(Number(quota.videoSlotsPerMonth) || 0))
+  const strategyType = readStrategyType(aiOutput)
+  const bindingCount = readBindingOrganicPostCount(aiOutput)
+  const hasBinding = hasStrategyOrderBinding(aiOutput)
+
+  if (hasBinding && strategyType === 'paid') {
+    return {
+      canGenerate: false,
+      imagePosts: 0,
+      videoSlots: 0,
+      totalSlots: 0,
+      source: 'strategy-deliverables',
+      blockedReason: 'paid-planning-only',
+    }
+  }
+
+  if (hasBinding && !bindingCount) {
+    return {
+      canGenerate: false,
+      imagePosts: 0,
+      videoSlots: 0,
+      totalSlots: 0,
+      source: 'strategy-deliverables',
+      blockedReason: 'no-organic-post-count',
+    }
+  }
+
+  if (bindingCount) {
+    const videoSlots = Math.min(fallbackVideoSlots, bindingCount)
+    const imagePosts = bindingCount - videoSlots
+    return {
+      canGenerate: true,
+      imagePosts,
+      videoSlots,
+      totalSlots: bindingCount,
+      source: 'strategy-deliverables',
+    }
+  }
+
+  return {
+    canGenerate: true,
+    imagePosts: fallbackImagePosts,
+    videoSlots: fallbackVideoSlots,
+    totalSlots: fallbackImagePosts + fallbackVideoSlots,
+    source: 'plan-quota',
+  }
+}
+
 /**
  * Call the content-plan model with a safe in-process retry.
  *

@@ -21,6 +21,7 @@ import {
   contentPlanFailureResponse,
   isRetryableFailure,
   extractPostsArray,
+  resolveContentPlanSlotScope,
   type FetchLikeResponse,
 } from '@/lib/contentPlanGeneration'
 import { resolvePostCaption } from '@/lib/contentPlanCaption'
@@ -194,5 +195,74 @@ describe('PR#4 caption integrity remains intact', () => {
     expect(out).not.toMatch(PLACEHOLDER)
     expect(out).toContain('عيادة ابتسامة')
     expect(/[؀-ۿ]/.test(out)).toBe(true)
+  })
+})
+
+describe('resolveContentPlanSlotScope', () => {
+  it('uses the saved strategy deliverables count instead of the plan default', () => {
+    const scope = resolveContentPlanSlotScope(
+      {
+        strategyType: 'organic',
+        strategyOrder: { strategyType: 'organic' },
+        strategyDeliverables: { organicPostCount: 7 },
+      },
+      { postsPerCampaign: 16, videoSlotsPerMonth: 2 },
+    )
+
+    expect(scope).toMatchObject({
+      canGenerate: true,
+      source: 'strategy-deliverables',
+      imagePosts: 5,
+      videoSlots: 2,
+      totalSlots: 7,
+    })
+  })
+
+  it('falls back to plan quota only for legacy campaigns without a saved order', () => {
+    const scope = resolveContentPlanSlotScope({}, { postsPerCampaign: 8, videoSlotsPerMonth: 0 })
+
+    expect(scope).toMatchObject({
+      canGenerate: true,
+      source: 'plan-quota',
+      imagePosts: 8,
+      videoSlots: 0,
+      totalSlots: 8,
+    })
+  })
+
+  it('blocks paid planning-only strategies before content-plan generation', () => {
+    const scope = resolveContentPlanSlotScope(
+      {
+        strategyType: 'paid',
+        strategyOrder: { strategyType: 'paid' },
+        strategyDeliverables: { organicPostCount: 0 },
+      },
+      { postsPerCampaign: 8, videoSlotsPerMonth: 0 },
+    )
+
+    expect(scope).toMatchObject({
+      canGenerate: false,
+      source: 'strategy-deliverables',
+      blockedReason: 'paid-planning-only',
+      totalSlots: 0,
+    })
+  })
+
+  it('blocks order-bound strategies with no organic post-count scope', () => {
+    const scope = resolveContentPlanSlotScope(
+      {
+        strategyType: 'organic',
+        strategyOrder: { strategyType: 'organic' },
+        strategyDeliverables: { organicPostCount: 0 },
+      },
+      { postsPerCampaign: 8, videoSlotsPerMonth: 0 },
+    )
+
+    expect(scope).toMatchObject({
+      canGenerate: false,
+      source: 'strategy-deliverables',
+      blockedReason: 'no-organic-post-count',
+      totalSlots: 0,
+    })
   })
 })

@@ -23,6 +23,7 @@ import { resolvePostCaption } from '@/lib/contentPlanCaption'
 import {
   generateContentPlanWithRetry,
   contentPlanFailureResponse,
+  resolveContentPlanSlotScope,
 } from '@/lib/contentPlanGeneration'
 import { sendContentPlanReadyEmail } from '@/lib/email/resend'
 import { getLanguageInstruction } from '@/lib/ai/langHelper'
@@ -317,9 +318,26 @@ export async function POST(req: NextRequest, { params }: Params) {
     }
 
     // ── 6. Build slot distribution ─────────────────────────────────────────
-    // Use postsPerCampaign (per-run count) instead of the monthly billing quota
-    const campaignPostCount = quota.postsPerCampaign ?? 12
-    const slots = distributePosts(campaignPostCount, quota.videoSlotsPerMonth, platforms)
+    // For strategy-order runs, the reviewed StrategyOrder/deliverables contract
+    // is binding. If the user reviewed 7 first-window organic post directions,
+    // this route must create exactly 7 SocialPost drafts total. Plan quota counts
+    // remain only the fallback for legacy campaigns without a saved order.
+    const slotScope = resolveContentPlanSlotScope(aiOutput, quota)
+    if (!slotScope.canGenerate) {
+      return NextResponse.json(
+        {
+          error: 'CONTENT_PLAN_NOT_INCLUDED',
+          code: slotScope.blockedReason === 'paid-planning-only'
+            ? 'PAID_PLANNING_ONLY'
+            : 'NO_ORGANIC_CONTENT_PLAN_SCOPE',
+          message: slotScope.blockedReason === 'paid-planning-only'
+            ? 'This campaign was generated as a paid planning brief only. It does not include an organic Content Hub plan.'
+            : 'This strategy does not include a saved organic post-count scope for Content Hub generation.',
+        },
+        { status: 422 },
+      )
+    }
+    const slots = distributePosts(slotScope.imagePosts, slotScope.videoSlots, platforms)
 
     // ── 7. Generate all post content via GPT-4o-mini ─────────────────────
     const pillarText = contentPillars.length
@@ -396,7 +414,8 @@ Rules:
 - imagePrompt: only needed when assignedMediaIndex is -1. Vivid, specific, brand-consistent visual description. No text overlays.
 - If media assets are provided, assign each asset to EXACTLY ONE post (no reuse). Leave all other posts with assignedMediaIndex: -1 so they get AI-generated images.
 - isVideoPost=true slots: write a videoCaption and videoScript field instead of imagePrompt
-- scheduledDayOffset: spread posts across 30 days (1–30). With ${slots.length} posts that's roughly ${Math.ceil(slots.length / 4)} per week — aim for consistent spacing (every 2-3 days). Avoid bunching too many on the same day.`
+- scheduledDayOffset: spread posts across 30 days (1–30). With ${slots.length} posts that's roughly ${Math.ceil(slots.length / 4)} per week — aim for consistent spacing (every 2-3 days). Avoid bunching too many on the same day.
+- This saved Content Hub run is bound to the reviewed strategy/order scope. Do not add extra posts beyond the provided slot list.`
 
     const userMsg = `Generate content plan for ${slots.length} posts. Slots: ${JSON.stringify(
       slots.map(s => ({ index: s.index, platform: s.platform, isVideoPost: s.isVideoPost })),

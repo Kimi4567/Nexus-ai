@@ -7,10 +7,17 @@ export interface CampaignStrategyContractReport {
   missingFields: string[]
   weakFields: string[]
   languageViolations: string[]
+  countViolations: string[]
 }
 
 export interface CampaignStrategyContractOptions {
   language?: string | null
+  /**
+   * Binding count from the reviewed StrategyOrder/deliverables contract.
+   * When present, strategy output must contain exactly this many organic post
+   * directions and weekly deliverables must add up to the same count.
+   */
+  expectedOrganicPostCount?: number | null
 }
 
 const LEGACY_ENGINE_KEYS = new Set([
@@ -175,6 +182,106 @@ function hasCountableDeliverable(value: unknown): boolean {
   return COUNTABLE_DELIVERABLE_PATTERN.test(valueText)
 }
 
+const WORD_COUNTS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  واحد: 1,
+  واحدة: 1,
+  اثنين: 2,
+  إثنين: 2,
+  اثنان: 2,
+  اثنتين: 2,
+  ثلاثة: 3,
+  ثلاث: 3,
+  أربعة: 4,
+  اربع: 4,
+  أربع: 4,
+  خمسة: 5,
+  خمس: 5,
+  ستة: 6,
+  ست: 6,
+  سبعة: 7,
+  سبع: 7,
+  ثمانية: 8,
+  ثمان: 8,
+  تسعة: 9,
+  تسع: 9,
+  عشرة: 10,
+  عشر: 10,
+}
+
+function normalizeDigits(value: string): string {
+  return value
+    .replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)))
+    .replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
+}
+
+function deliverableUnitCount(value: unknown): number {
+  const valueText = normalizeDigits(text(value))
+  if (!hasUsefulText(valueText)) return 0
+
+  const numberMatch = valueText.match(/\b(\d{1,2})\b/)
+  if (numberMatch) {
+    const n = Number(numberMatch[1])
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+
+  for (const [word, count] of Object.entries(WORD_COUNTS)) {
+    const re = new RegExp(`(^|\\s)${word}(\\s|$)`, 'i')
+    if (re.test(valueText)) return count
+  }
+
+  return 0
+}
+
+function weeklyDeliverableUnitCount(value: unknown): number {
+  if (!Array.isArray(value)) return 0
+
+  return value.reduce((total, item) => {
+    if (!isRecord(item) || !Array.isArray(item.deliverables)) return total
+    return total + item.deliverables.reduce((weekTotal, deliverable) => (
+      weekTotal + deliverableUnitCount(deliverable)
+    ), 0)
+  }, 0)
+}
+
+function validateBindingOrganicPostCount(
+  strategy: StrategyRecord,
+  expectedOrganicPostCount: number | null | undefined,
+): string[] {
+  if (
+    typeof expectedOrganicPostCount !== 'number' ||
+    !Number.isFinite(expectedOrganicPostCount) ||
+    expectedOrganicPostCount <= 0
+  ) {
+    return []
+  }
+
+  const expected = Math.floor(expectedOrganicPostCount)
+  const contentAnglesCount = Array.isArray(strategy.contentAnglesDetailed)
+    ? strategy.contentAnglesDetailed.length
+    : 0
+  const weeklyCount = weeklyDeliverableUnitCount(strategy.weeklyExecutionPlan)
+  const violations: string[] = []
+
+  if (contentAnglesCount !== expected) {
+    violations.push(`contentAnglesDetailed.count:${contentAnglesCount}/${expected}`)
+  }
+  if (weeklyCount !== expected) {
+    violations.push(`weeklyExecutionPlan.deliverableCount:${weeklyCount}/${expected}`)
+  }
+
+  return violations
+}
+
 function objectHasUsefulFields(value: unknown, fields: string[]): boolean {
   if (!isRecord(value)) return false
   return fields.every(field => hasUsefulText(value[field]))
@@ -263,6 +370,7 @@ export function validateCampaignStrategyContract(
   const missingFields: string[] = []
   const weakFields: string[] = []
   const languageViolations: string[] = []
+  const countViolations: string[] = []
 
   if (!isRecord(strategy)) {
     return {
@@ -272,6 +380,7 @@ export function validateCampaignStrategyContract(
       missingFields: ['strategy'],
       weakFields: [],
       languageViolations: [],
+      countViolations: [],
     }
   }
 
@@ -309,19 +418,21 @@ export function validateCampaignStrategyContract(
   if (isArabicLanguage(options.language)) {
     languageViolations.push(...collectArabicLanguageViolations(strategy))
   }
+  countViolations.push(...validateBindingOrganicPostCount(strategy, options.expectedOrganicPostCount))
 
   const legacySchemaDetected = detectLegacyCampaignEngineStrategy(strategy)
   const totalChecks = REQUIRED_STRING_FIELDS.length + REQUIRED_OBJECT_FIELDS.length + REQUIRED_ARRAY_FIELDS.length
-  const failedChecks = missingFields.length + weakFields.length + languageViolations.length + (legacySchemaDetected ? 4 : 0)
+  const failedChecks = missingFields.length + weakFields.length + languageViolations.length + countViolations.length + (legacySchemaDetected ? 4 : 0)
   const score = Math.max(0, Math.round(((totalChecks - failedChecks) / totalChecks) * 100))
 
   return {
-    valid: !legacySchemaDetected && missingFields.length === 0 && weakFields.length === 0 && languageViolations.length === 0,
+    valid: !legacySchemaDetected && missingFields.length === 0 && weakFields.length === 0 && languageViolations.length === 0 && countViolations.length === 0,
     score,
     legacySchemaDetected,
     missingFields,
     weakFields,
     languageViolations,
+    countViolations,
   }
 }
 
@@ -336,6 +447,7 @@ export function assertCampaignStrategyContract(
       report.missingFields.length ? `missing: ${report.missingFields.join(', ')}` : '',
       report.weakFields.length ? `weak: ${report.weakFields.join(', ')}` : '',
       report.languageViolations.length ? `language: ${report.languageViolations.slice(0, 8).join(', ')}` : '',
+      report.countViolations.length ? `count: ${report.countViolations.join(', ')}` : '',
     ].filter(Boolean).join('; ')
     throw new Error(`Campaign engine strategy failed Strategy OS contract (${details || 'unknown reason'})`)
   }
