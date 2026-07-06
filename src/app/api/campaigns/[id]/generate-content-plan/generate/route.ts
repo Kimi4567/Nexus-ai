@@ -17,6 +17,7 @@ import { getServerUserId } from '@/lib/apiAuth'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 import { wrapPromptWithTextFreeBackgroundContract } from '@/lib/ai/imageGen'
+import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 import {
   getBulkImageGenerationCost,
   validateBulkImageGenerationConfirmation,
@@ -39,7 +40,8 @@ const CLOUDINARY_SECRET = process.env.CLOUDINARY_API_SECRET
 // ── Image generation (mirrors cron/generate-images logic) ─────────────────────
 
 async function generateImage(prompt: string, platform: string): Promise<string> {
-  const safePrompt = wrapPromptWithTextFreeBackgroundContract(prompt)
+  const platformPrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
+  const safePrompt = wrapPromptWithTextFreeBackgroundContract(platformPrompt)
 
   if (process.env.FAL_KEY) {
     const fluxSize = platformToFluxSize(platform)
@@ -50,6 +52,8 @@ async function generateImage(prompt: string, platform: string): Promise<string> 
   // Fallback: gpt-image-1 high quality
   const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
     TIKTOK:    '1024x1536',
+    YOUTUBE:   '1024x1536',
+    YOUTUBE_SHORTS: '1024x1536',
     INSTAGRAM: '1024x1024',
     META:      '1536x1024',
     LINKEDIN:  '1536x1024',

@@ -4,6 +4,7 @@ import { applyBrandOverlayFromProfile, platformToOverlay } from '@/lib/cloudinar
 import { generateWithFlux, platformToFluxSize } from '@/lib/ai/falGen'
 import { checkAndDeductCredits, refundCredits, refundCreditsForTransaction } from '@/lib/credits'
 import { wrapPromptWithTextFreeBackgroundContract } from '@/lib/ai/imageGen'
+import { normalizeContentHubImagePromptForPlatform } from '@/lib/contentHubImageFormat'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +46,8 @@ async function generateImage(
   prompt: string,
   platform: string
 ): Promise<string> {
-  const safePrompt = wrapPromptWithTextFreeBackgroundContract(prompt)
+  const platformPrompt = normalizeContentHubImagePromptForPlatform(prompt, platform)
+  const safePrompt = wrapPromptWithTextFreeBackgroundContract(platformPrompt)
 
   // Auto-detect provider — FAL_KEY presence is the only signal
   if (process.env.FAL_KEY) {
@@ -59,6 +61,8 @@ async function generateImage(
   // Platform-aware sizing — gpt-image-1 supported sizes only
   const sizeMap: Record<string, '1024x1024' | '1024x1536' | '1536x1024'> = {
     TIKTOK:    '1024x1536',   // portrait — TikTok vertical format
+    YOUTUBE:   '1024x1536',   // portrait — YouTube Shorts vertical format
+    YOUTUBE_SHORTS: '1024x1536',
     LINKEDIN:  '1536x1024',   // landscape — LinkedIn feed
     META:      '1024x1024',   // square — Instagram + Facebook feed
     FACEBOOK:  '1024x1024',
