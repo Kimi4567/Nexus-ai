@@ -101,7 +101,7 @@ export default function AppShell({ children }: AppShellProps) {
       <div className={`hidden md:block flex-shrink-0 transition-all duration-200 ${sidebarW}`} />
 
       {/* Main content — dir driven by locale from useI18n() */}
-      <main dir={dir} className="flex-1 min-h-screen overflow-y-visible transition-all duration-200 pt-12 md:pt-0">
+      <main dir={dir} className="min-w-0 flex-1 min-h-screen overflow-y-visible transition-all duration-200 pt-12 md:pt-0">
         {children}
       </main>
     </div>
