@@ -198,7 +198,10 @@ export async function runFullAgency(
       strategyType: brief.strategyType,
       organicPostCount: brief.organicPostCount,
     })
-    const contractReport = assertCampaignStrategyContract(strategy, { language: brief.language })
+    const contractReport = assertCampaignStrategyContract(strategy, {
+      language: brief.language,
+      expectedOrganicPostCount: brief.organicPostCount,
+    })
     console.log(
       `[Orchestrator] Strategy OS contract passed score=${contractReport.score} workspace=${workspaceId}`,
     )

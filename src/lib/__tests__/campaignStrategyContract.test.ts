@@ -144,6 +144,35 @@ describe('campaign strategy contract', () => {
     expect(report.weakFields).toEqual(expect.arrayContaining(['weeklyExecutionPlan', 'contentAnglesDetailed']))
   })
 
+  it('rejects strategy output that does not match the reviewed organic post-count promise', () => {
+    const report = validateCampaignStrategyContract(richStrategy, { expectedOrganicPostCount: 7 })
+
+    expect(report.valid).toBe(false)
+    expect(report.countViolations).toEqual(['contentAnglesDetailed.count:4/7'])
+    expect(() => assertCampaignStrategyContract(richStrategy, { expectedOrganicPostCount: 7 }))
+      .toThrow(/count: .*contentAnglesDetailed\.count:4\/7/)
+  })
+
+  it('accepts exact organic post-count matches from content angles and weekly deliverables', () => {
+    const report = validateCampaignStrategyContract(richStrategy, { expectedOrganicPostCount: 7 })
+
+    expect(report.countViolations).toContain('contentAnglesDetailed.count:4/7')
+
+    const expanded = {
+      ...richStrategy,
+      contentAnglesDetailed: [
+        ...richStrategy.contentAnglesDetailed,
+        { ...richStrategy.contentAnglesDetailed[0], title: 'Office objection reply' },
+        { ...richStrategy.contentAnglesDetailed[1], title: 'Brew method FAQ' },
+        { ...richStrategy.contentAnglesDetailed[2], title: 'Bundle choice guide' },
+      ],
+    }
+
+    const exact = validateCampaignStrategyContract(expanded, { expectedOrganicPostCount: 7 })
+    expect(exact.valid).toBe(true)
+    expect(exact.countViolations).toEqual([])
+  })
+
   it('rejects strategies that look complete but use generic weekly execution filler', () => {
     const generic = {
       ...richStrategy,
