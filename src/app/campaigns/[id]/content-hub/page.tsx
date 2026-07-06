@@ -31,6 +31,7 @@ import {
   deriveContentHubMediaState,
   summarizeContentHubMediaReadiness,
 } from '@/lib/contentHubMediaState'
+import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -383,6 +384,12 @@ export default function ContentHubPage() {
   const approvedOnlyCount = draftCount === 0 && approvedCount > 0 && scheduledCount === 0 && publishedCount === 0
   const scheduledOnlyCount = draftCount === 0 && approvedCount === 0 && scheduledCount > 0 && publishedCount === 0
   const mixedScheduledManualPublishedCount = draftCount === 0 && approvedCount === 0 && scheduledCount > 0 && manuallyPublishedCount > 0
+  const contentPlanOrderReview = deriveContentPlanOrderReview(campaign?.aiOutput, posts)
+  const contentPlanOrderMismatch =
+    posts.length > 0 && contentPlanOrderReview.bound && !contentPlanOrderReview.ok
+      ? contentPlanOrderReview
+      : null
+  const approvalBlockedByOrderMismatch = Boolean(contentPlanOrderMismatch)
   const operatingState = deriveCampaignOperatingState({ campaign, posts })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
@@ -522,6 +529,26 @@ export default function ContentHubPage() {
   const finalPreviewHelper = isAr
     ? 'هذه معاينة مراجعة داخل NEXUS؛ قد يختلف عرض المنصة قليلًا. قرارات الوسائط لا تنشر المحتوى بدون مسار نشر صريح.'
     : 'This is a NEXUS review preview; platform rendering may differ slightly. Media decisions do not publish content without an explicit publish flow.'
+  const orderMismatchExpectedLabel = contentPlanOrderMismatch?.expectedDirections ?? (isAr ? 'غير محدد' : 'not set')
+  const orderMismatchTitle = isAr
+    ? 'خطة المحتوى لا تطابق أمر الاستراتيجية'
+    : 'Content plan does not match the strategy order'
+  const orderMismatchBody = contentPlanOrderMismatch
+    ? contentPlanOrderMismatch.reason === 'paid-plan-has-posts'
+      ? (isAr
+        ? `تم طلب هذه الحملة كتخطيط مدفوع فقط، لكن مركز المحتوى يحتوي ${contentPlanOrderMismatch.actualDirections} اتجاهات منشورات. يجب إعادة توليد أو إصلاح المسودة قبل الاعتماد.`
+        : `This campaign was ordered as paid planning only, but Content Hub currently has ${contentPlanOrderMismatch.actualDirections} post directions. Regenerate or repair the draft plan before approval.`)
+      : contentPlanOrderMismatch.reason === 'missing-organic-count'
+      ? (isAr
+        ? 'هذه الحملة لديها أمر استراتيجية محفوظ، لكن لا يوجد عدد عضوي موثوق لمركز المحتوى. يجب إعادة توليد أو إصلاح المسودة قبل الاعتماد.'
+        : 'This campaign has a saved strategy order, but no reliable organic post-count scope. Regenerate or repair the draft plan before approval.')
+      : (isAr
+        ? `أمر الاستراتيجية يطلب ${orderMismatchExpectedLabel} اتجاهات منشورات، لكن مركز المحتوى يعرض ${contentPlanOrderMismatch.actualDirections}. الاعتماد متوقف حتى تتطابق المسودة مع الوعد.`
+        : `The strategy order expects ${orderMismatchExpectedLabel} post directions, but Content Hub shows ${contentPlanOrderMismatch.actualDirections}. Approval is locked until the draft matches the promise.`)
+    : ''
+  const orderMismatchAction = isAr
+    ? 'استخدم إعادة توليد خطة محتوى مسودة أو اطلب إصلاح بيانات صريح؛ لن يتم اعتماد أو جدولة أو نشر أي شيء من هذا التنبيه.'
+    : 'Use draft content-plan regeneration or an explicit data repair; this warning does not approve, schedule, or publish anything.'
   const pendingAttachmentPost = pendingMediaAttachment
     ? posts.find(p => p.id === pendingMediaAttachment.postId)
     : null
@@ -766,6 +793,11 @@ export default function ContentHubPage() {
 
   async function approveAll() {
     if (!isAuthenticated) return
+    if (contentPlanOrderMismatch) {
+      setError(orderMismatchBody)
+      setShowApproveConfirm(false)
+      return
+    }
     setApproving(true)
     setShowApproveConfirm(false)
     setError(null)
@@ -1170,13 +1202,15 @@ export default function ContentHubPage() {
                     DRAFT → Approve → APPROVED → Schedule → SCHEDULED */}
                 {draftCount > 0 ? (
                   <button
-                    onClick={() => setShowApproveConfirm(true)}
-                    disabled={approving}
+                    onClick={() => {
+                      if (!approvalBlockedByOrderMismatch) setShowApproveConfirm(true)
+                    }}
+                    disabled={approving || approvalBlockedByOrderMismatch}
                     className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
                     style={{
                       background: '#059669',
                       color: 'white',
-                      opacity: approving ? 0.6 : 1,
+                      opacity: approving || approvalBlockedByOrderMismatch ? 0.6 : 1,
                     }}
                   >
                     {approving ? (
@@ -1331,6 +1365,23 @@ export default function ContentHubPage() {
               </div>
               <div className="shrink-0 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-900">
                 {mediaReadinessInlineLabel}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {contentPlanOrderMismatch && (
+          <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-sm font-semibold">{orderMismatchTitle}</p>
+                <p className="mt-1 text-sm leading-relaxed">{orderMismatchBody}</p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-800">{orderMismatchAction}</p>
+              </div>
+              <div className="shrink-0 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-semibold text-amber-900">
+                {isAr
+                  ? `المطلوب: ${orderMismatchExpectedLabel} · الحالي: ${contentPlanOrderMismatch.actualDirections}`
+                  : `Expected: ${orderMismatchExpectedLabel} · Current: ${contentPlanOrderMismatch.actualDirections}`}
               </div>
             </div>
           </div>
@@ -1655,6 +1706,11 @@ export default function ContentHubPage() {
               <p className="text-sm text-slate-500 mb-6">
                 {t('contentHub.approveConfirmBody2')}
               </p>
+              {contentPlanOrderMismatch && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                  {orderMismatchBody}
+                </div>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowApproveConfirm(false)}
@@ -1665,8 +1721,14 @@ export default function ContentHubPage() {
                 </button>
                 <button
                   onClick={approveAll}
+                  disabled={approvalBlockedByOrderMismatch}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                  style={{
+                    background: approvalBlockedByOrderMismatch
+                      ? '#94A3B8'
+                      : 'linear-gradient(135deg, #059669, #047857)',
+                    opacity: approvalBlockedByOrderMismatch ? 0.7 : 1,
+                  }}
                 >
                   ✓ {t('contentHub.approveConfirmYes')}
                 </button>

@@ -194,6 +194,24 @@ export async function POST(req: NextRequest, { params }: Params) {
     const planName = isActive ? planRaw : 'free'
     const quota = PLAN_QUOTAS[planName] ?? PLAN_QUOTAS['free']
 
+    // Strategy-order runs are binding. Resolve this before credit deduction so
+    // paid-planning-only or missing-scope campaigns fail without spending.
+    const slotScope = resolveContentPlanSlotScope(aiOutput, quota)
+    if (!slotScope.canGenerate) {
+      return NextResponse.json(
+        {
+          error: 'CONTENT_PLAN_NOT_INCLUDED',
+          code: slotScope.blockedReason === 'paid-planning-only'
+            ? 'PAID_PLANNING_ONLY'
+            : 'NO_ORGANIC_CONTENT_PLAN_SCOPE',
+          message: slotScope.blockedReason === 'paid-planning-only'
+            ? 'This campaign was generated as a paid planning brief only. It does not include an organic Content Hub plan.'
+            : 'This strategy does not include a saved organic post-count scope for Content Hub generation.',
+        },
+        { status: 422 },
+      )
+    }
+
     // ── 4. Deduct credits (flat 2 credits per content plan generation) ────
     const creditCheck = await checkAndDeductCredits(userId, 'CONTENT_PLAN_GENERATION')
     if (!creditCheck.ok) {
@@ -322,21 +340,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     // is binding. If the user reviewed 7 first-window organic post directions,
     // this route must create exactly 7 SocialPost drafts total. Plan quota counts
     // remain only the fallback for legacy campaigns without a saved order.
-    const slotScope = resolveContentPlanSlotScope(aiOutput, quota)
-    if (!slotScope.canGenerate) {
-      return NextResponse.json(
-        {
-          error: 'CONTENT_PLAN_NOT_INCLUDED',
-          code: slotScope.blockedReason === 'paid-planning-only'
-            ? 'PAID_PLANNING_ONLY'
-            : 'NO_ORGANIC_CONTENT_PLAN_SCOPE',
-          message: slotScope.blockedReason === 'paid-planning-only'
-            ? 'This campaign was generated as a paid planning brief only. It does not include an organic Content Hub plan.'
-            : 'This strategy does not include a saved organic post-count scope for Content Hub generation.',
-        },
-        { status: 422 },
-      )
-    }
     const slots = distributePosts(slotScope.imagePosts, slotScope.videoSlots, platforms)
 
     // ── 7. Generate all post content via GPT-4o-mini ─────────────────────

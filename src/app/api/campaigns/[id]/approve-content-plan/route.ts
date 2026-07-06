@@ -25,6 +25,10 @@ import { runBrainLearning } from '@/lib/brain-learning'
 import { planApproval, planRevert, type ApprovalMode } from '@/lib/approvalPlan'
 import { buildLearningEvents } from '@/lib/brandBrainEvents'
 import { getBrandBrainLearningCopy } from '@/lib/brandBrainLearningContract'
+import {
+  buildContentPlanOrderMismatchMessage,
+  deriveContentPlanOrderReview,
+} from '@/lib/contentPlanOrderContract'
 
 type Params = { params: { id: string } }
 
@@ -40,7 +44,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     // Verify campaign ownership
     const campaign = await prisma.campaign.findFirst({
       where: { id: params.id, workspace: { ownerId: userId } },
-      select: { id: true, workspaceId: true, name: true },
+      select: { id: true, workspaceId: true, name: true, aiOutput: true },
     })
     if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
 
@@ -76,6 +80,29 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     if (draftPosts.length === 0) {
       return NextResponse.json({ success: true, approved: 0, message: 'No draft posts to approve' })
+    }
+
+    const contentPlanPosts = await (prisma.socialPost as any).findMany({
+      where: {
+        campaignId: params.id,
+        workspaceId: campaign.workspaceId,
+      },
+      select: { contentPlanIndex: true, variantGroup: true },
+    })
+
+    const orderReview = deriveContentPlanOrderReview(campaign.aiOutput, contentPlanPosts)
+    const orderMismatchMessage = buildContentPlanOrderMismatchMessage(orderReview)
+    if (orderMismatchMessage) {
+      return NextResponse.json(
+        {
+          error: orderMismatchMessage,
+          code: 'CONTENT_PLAN_ORDER_MISMATCH',
+          expectedDirections: orderReview.expectedDirections,
+          actualDirections: orderReview.actualDirections,
+          reason: orderReview.reason,
+        },
+        { status: 409 },
+      )
     }
 
     // Decide the honest transitions (pure, fully tested in approvalPlan.test.ts):
