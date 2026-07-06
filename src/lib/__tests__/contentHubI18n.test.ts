@@ -19,6 +19,8 @@ const REQUIRED_KEYS = [
   'emptyTitle', 'emptyDesc', 'buildingTitle', 'buildingDesc',
   'statusPending', 'statusReady', 'statusUploadVideo', 'statusFailed',
   'edit', 'rewrite', 'img', 'vid', 'cancel', 'save',
+  'postActions', 'postActionsSafety', 'editCaption', 'rewriteCopyShort',
+  'generateImageShort', 'chooseMediaShort', 'attachVideoShort', 'selectVariantShort',
   'previewOnly', 'imgWillGenerate', 'imgUploadVideo', 'captionPlaceholder',
   'approveConfirmTitle', 'approveConfirmYes',
 ]
@@ -81,5 +83,19 @@ describe('Content Hub i18n dictionary', () => {
     )
     expect(pageSource).not.toMatch(/Winner selected|Hook added to Brand Brain|Pick Winner/)
     expect(pageSource).not.toMatch(/🏆\s*\{t\('contentHub\.(winner|win)'\)\}/)
+  })
+
+  it('9. per-post action hierarchy uses review-only safety copy and compact action labels', () => {
+    expect(translations.en.contentHub.postActions).toBe('Post actions')
+    expect(translations.en.contentHub.postActionsSafety).toMatch(/Review-only/)
+    expect(translations.en.contentHub.postActionsSafety).toMatch(/No publish or schedule/)
+    expect(translations.en.contentHub.rewriteCopyShort).toBe('Rewrite — 1 credit')
+    expect(translations.en.contentHub.generateImageShort).toBe('Image — 3 credits')
+    expect(translations.en.contentHub.chooseMediaShort).toBe('Choose media')
+
+    expect(hasArabic(translations.ar.contentHub.postActions)).toBe(true)
+    expect(translations.ar.contentHub.postActionsSafety).toMatch(/للمراجعة فقط/)
+    expect(translations.ar.contentHub.postActionsSafety).toMatch(/النشر|الجدولة/)
+    expect(translations.ar.contentHub.generateImageShort).toMatch(/3|٣/)
   })
 })

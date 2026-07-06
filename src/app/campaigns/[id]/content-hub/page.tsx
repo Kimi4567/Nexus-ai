@@ -2836,43 +2836,53 @@ function PostCard({
         </div>
       )}
 
-      {/* ── Action row ───────────────────── */}
-      <div className="flex border-t" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
+      {/* ── Review-safe post actions ─────── */}
+      <div className="border-t px-3 py-3 space-y-2" style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            {t('contentHub.postActions')}
+          </p>
+          <p className="text-[10px] leading-snug text-slate-500">
+            {t('contentHub.postActionsSafety')}
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
         <button onClick={onEditCaption}
-          className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-[#5E5CE6] hover:bg-violet-50 transition-all flex items-center justify-center gap-1.5">
+          className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug text-slate-600 transition-all flex items-center justify-center gap-1.5 hover:text-[#5E5CE6] hover:bg-violet-50"
+          style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
           <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M11.5 2.5a2.121 2.121 0 013 3L5 15l-4 1 1-4L11.5 2.5z"/></svg>
-          {t('contentHub.edit')}
+          {t('contentHub.editCaption')}
         </button>
         <button
           onClick={() => { setShowRewriteInput(v => !v); setRewriteInstruction('') }}
           disabled={isRewriting}
-          className="flex-1 py-2.5 text-xs font-medium hover:bg-purple-500/5 transition-all border-l flex items-center justify-center gap-1"
-          style={{ borderColor: 'rgba(15,23,42,0.08)', color: isRewriting ? '#5E5CE6' : '#5E5CE6' }}
+          className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug hover:bg-purple-500/5 transition-all flex items-center justify-center gap-1"
+          style={{ borderColor: 'rgba(94,92,230,0.18)', color: '#5E5CE6' }}
         >
           {isRewriting
             ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.rewriting')}</>
-            : <>✨ {isAr ? 'إعادة صياغة — 1 كريديت' : 'Rewrite copy — 1 credit'}</>
+            : <>✨ {t('contentHub.rewriteCopyShort')}</>
           }
         </button>
         {/* Generate AI image (disabled for TikTok — needs real video) */}
         {platform === 'TIKTOK' ? (
           <button onClick={onOpenMediaPicker}
-            className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: '#DB2777' }}
             title="TikTok requires real video — upload yours">
-            📹 {t('contentHub.vid')}
+            📹 {t('contentHub.attachVideoShort')}
           </button>
         ) : (
           <button
             onClick={imageGenerationLocked ? onAddCredits : onGenerateImage}
             disabled={isGeneratingImage}
             title={imageGenerationLocked ? addCreditsForImagesLabel : 'Generate image · 3 credits · failed generations are refunded'}
-            className="flex-1 py-2.5 text-xs font-medium transition-all border-l flex items-center justify-center gap-1"
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{ borderColor: 'rgba(15,23,42,0.08)', color: imageGenerationLocked ? '#B91C1C' : isGeneratingImage ? '#8B5CF6' : '#5E5CE6', background: imageGenerationLocked ? '#FEF2F2' : undefined }}
           >
             {isGeneratingImage
               ? <><span className="w-2.5 h-2.5 border border-purple-400/40 border-t-purple-400 rounded-full animate-spin" />{t('contentHub.gen')}</>
-              : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : (isAr ? 'توليد صورة — 3 أرصدة' : 'Generate image — 3 credits')}</>
+              : <>🎨 {imageGenerationLocked ? addCreditsForImagesLabel : t('contentHub.generateImageShort')}</>
             }
           </button>
         )}
@@ -2881,7 +2891,7 @@ function PostCard({
           <button
             onClick={onPickWinner}
             disabled={isPickingWinner}
-            className="flex-1 py-2.5 text-xs font-semibold transition-all border-l flex items-center justify-center gap-1"
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug transition-all flex items-center justify-center gap-1"
             style={{
               borderColor: 'rgba(234,179,8,0.25)',
               color: isPickingWinner ? '#fbbf24' : '#fcd34d',
@@ -2890,17 +2900,18 @@ function PostCard({
           >
             {isPickingWinner
               ? <><span className="w-2.5 h-2.5 border border-yellow-400/40 border-t-yellow-400 rounded-full animate-spin" />{t('contentHub.picking')}</>
-              : <>✓ {t('contentHub.win')}</>
+              : <>✓ {t('contentHub.selectVariantShort')}</>
             }
           </button>
         ) : (
           <button onClick={onOpenMediaPicker}
-            className="flex-1 py-2.5 text-xs font-medium text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-all border-l flex items-center justify-center gap-1.5"
+            className="min-h-[44px] rounded-xl border px-3 py-2 text-center text-xs font-semibold leading-snug text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-1.5"
             style={{ borderColor: 'rgba(15,23,42,0.08)' }}>
             <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="2" width="12" height="12" rx="2"/><circle cx="5.5" cy="5.5" r="1"/><path d="M14 10l-4-4-3 3-1.5-1.5L2 11"/></svg>
-            {isVideo ? (isAr ? 'إرفاق فيديو' : 'Attach video') : (isAr ? 'اختيار وسائط موجودة' : 'Choose existing media')}
+            {isVideo ? t('contentHub.attachVideoShort') : t('contentHub.chooseMediaShort')}
           </button>
         )}
+        </div>
       </div>
     </div>
   )
