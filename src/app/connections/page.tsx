@@ -39,8 +39,10 @@ interface ConnectedAdAccount {
   status: string
   platformAccountId: string
   platformAccountName: string | null
+  businessName: string | null
   hasApiAccess: boolean
   pageId: string | null
+  pageName: string | null
 }
 
 interface PlatformDef {
@@ -349,6 +351,9 @@ export default function ConnectionsPage() {
   ).length
   const totalPlatforms = connectablePlatforms.length
   const readinessStates = derivePlatformReadiness(accounts as any, adAccounts)
+  const metaAdAccounts = adAccounts.filter((account) =>
+    account.platform?.toUpperCase() === 'META' && account.status?.toUpperCase() !== 'DISCONNECTED',
+  )
 
   return (
     <AppShell>
@@ -635,6 +640,79 @@ export default function ConnectionsPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="rounded-[14px] border border-[var(--nx-info-border)] bg-[var(--nx-info-bg)] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.metaAdsApiReadinessTitle')}</p>
+                <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-2)]">{t('connections.metaAdsApiReadinessDesc')}</p>
+              </div>
+              <ReadinessBadge status={metaAdAccounts.some((account) => account.hasApiAccess) ? 'ready' : 'permissionNeeded'}>
+                {metaAdAccounts.some((account) => account.hasApiAccess)
+                  ? t('connections.metaAdsApiVerified')
+                  : t('connections.metaAdsApiReviewRequired')}
+              </ReadinessBadge>
+            </div>
+
+            {loadingAccounts ? (
+              <p className="mt-3 text-xs text-[var(--nx-text-3)]">{t('connections.loadingPlatforms')}</p>
+            ) : metaAdAccounts.length === 0 ? (
+              <div className="mt-3 rounded-[10px] border border-[var(--nx-info-border)] bg-white/70 p-3 text-xs leading-relaxed text-[var(--nx-text-2)]">
+                {t('connections.metaAdsNoAdAccounts')}
+              </div>
+            ) : (
+              <div className="mt-3 space-y-3">
+                {metaAdAccounts.map((account) => {
+                  const apiReady = account.hasApiAccess === true
+                  const pageReady = Boolean(account.pageId)
+                  return (
+                    <div key={account.id} className="rounded-[12px] border border-[var(--nx-border)] bg-white/80 p-3">
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-[var(--nx-text-1)]">
+                            {account.platformAccountName || account.platformAccountId}
+                          </p>
+                          {account.businessName && (
+                            <p className="mt-0.5 text-[11px] text-[var(--nx-text-4)]">{account.businessName}</p>
+                          )}
+                        </div>
+                        <ReadinessBadge status={apiReady ? 'ready' : 'permissionNeeded'}>
+                          {apiReady ? t('connections.metaAdsApiVerified') : t('connections.metaAdsApiReviewRequired')}
+                        </ReadinessBadge>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="flex gap-2 rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
+                          {apiReady
+                            ? <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-success)]" />
+                            : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-warning)]" />}
+                          <span>
+                            <strong className="text-[var(--nx-text-1)]">{t('connections.metaAdsApiAccessLabel')}:</strong>{' '}
+                            {apiReady ? t('connections.metaAdsApiVerifiedDesc') : t('connections.metaAdsApiLockedDesc')}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
+                          {pageReady
+                            ? <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-success)]" />
+                            : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-warning)]" />}
+                          <span>
+                            <strong className="text-[var(--nx-text-1)]">{t('connections.metaAdsPageIdentityLabel')}:</strong>{' '}
+                            {pageReady
+                              ? `${t('connections.metaAdsPageReady')}${account.pageName ? ` · ${account.pageName}` : ''}`
+                              : t('connections.metaAdsPageMissing')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <p className="mt-3 text-[11px] leading-relaxed text-[var(--nx-text-3)]">
+              {t('connections.metaAdsOperatorOnlyNote')}
+            </p>
           </div>
 
           <div className="rounded-[14px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-4">
