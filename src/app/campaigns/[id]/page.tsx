@@ -8,7 +8,6 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import AppShell from '@/components/AppShell'
 import VisualGenerator from '@/components/VisualGenerator'
-import SocialPublisher from '@/components/SocialPublisher'
 import SocialAnalytics from '@/components/SocialAnalytics'
 import AIPresenceBar from '@/components/AIPresenceBar'
 import BrandDNABadge, { type BrandDNAData } from '@/components/BrandDNABadge'
@@ -3579,15 +3578,39 @@ function CampaignDetailPageInner() {
                       </p>
                     </div>
                   )}
-                  <SocialPublisher
-                    campaignId={campaign.id}
-                    campaignName={campaign.name}
-                    contentApproved={campaign.status === 'ACTIVE' || approvalState === 'done'}
-                    topHooks={topHooks}
-                    captionFormulas={captionFormulas}
-                    ctaVariations={ctaVariations}
-                    keyMessage={strategy.keyMessage}
-                  />
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-950">
+                          {locale === 'ar' ? 'النشر القادم يبدأ من Content Hub' : 'Future publishing starts from Content Hub'}
+                        </p>
+                        <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">
+                          {locale === 'ar'
+                            ? 'لا ينشر NEXUS من محرر نص حر داخل تبويب الحملة. أي نشر عبر منصة/API يجب أن يبدأ من منشور محدد في Content Hub بعد جاهزية الوسائط والحساب والصلاحيات وتأكيد صريح.'
+                            : 'NEXUS no longer publishes from a free-form composer inside the campaign tab. Any future platform/API publish must start from a specific Content Hub post after media, account, permission, and explicit confirmation checks are ready.'}
+                        </p>
+                        <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                          {locale === 'ar'
+                            ? 'هذا التبويب يعرض الجاهزية والحدود فقط. الربط لا يعني النشر، والجدولة داخل NEXUS لا تعني أن المنشور أصبح منشورًا على المنصة.'
+                            : 'This tab shows readiness and boundaries only. Connecting does not publish, and scheduling in NEXUS does not mean a post is live on a platform.'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          href={`/campaigns/${campaign.id}/content-hub`}
+                          className="rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                        >
+                          {locale === 'ar' ? 'فتح Content Hub' : 'Open Content Hub'}
+                        </Link>
+                        <Link
+                          href="/connections"
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
+                        >
+                          {locale === 'ar' ? 'مراجعة الاتصالات' : 'Review Connections'}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

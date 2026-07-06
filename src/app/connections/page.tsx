@@ -40,7 +40,7 @@ interface PlatformDef {
   icon: React.ReactNode
   color: string
   available: boolean
-  eta?: string            // e.g. "Q3 2026" — shown instead of generic "Coming Soon"
+  eta?: string            // Use only for externally committed launch windows; otherwise show generic planned copy.
 }
 
 const PLATFORMS: PlatformDef[] = [
@@ -86,6 +86,19 @@ const PLATFORMS: PlatformDef[] = [
     available: true,
   },
   {
+    id: 'YOUTUBE',
+    nameKey: 'connections.platformYouTubeName',
+    descKey: 'connections.platformYouTubeDesc',
+    icon: (
+      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
+        <rect width="36" height="36" rx="10" fill="#FF0000" />
+        <path d="M14 11.5l10 6.5-10 6.5v-13z" fill="white" />
+      </svg>
+    ),
+    color: '#FF0000',
+    available: false,
+  },
+  {
     id: 'SNAPCHAT',
     nameKey: 'connections.platformSnapchatName',
     descKey: 'connections.platformSnapchatDesc',
@@ -113,7 +126,6 @@ const PLATFORMS: PlatformDef[] = [
     ),
     color: '#4285F4',
     available: false,
-    eta: 'Q3 2026',
   },
   {
     id: 'TWITTER',
@@ -137,6 +149,13 @@ const badgeStatusFor: Record<ReadinessStatus, ReadinessBadgeStatus> = {
   permission_unverified: 'permissionNeeded',
   planning_only: 'planningOnly',
   not_available: 'notAvailable',
+}
+
+const connectCtaKeyFor = (platformId: string) => {
+  if (platformId === 'META') return 'connections.connectMetaAccount'
+  if (platformId === 'LINKEDIN') return 'connections.connectLinkedInAccount'
+  if (platformId === 'TIKTOK') return 'connections.connectTikTokAccount'
+  return 'connections.connectAccount'
 }
 
 export default function ConnectionsPage() {
@@ -307,8 +326,12 @@ export default function ConnectionsPage() {
     )
   }
 
-  const connectedCount = accounts.length
-  const totalPlatforms = PLATFORMS.length
+  const connectablePlatforms = PLATFORMS.filter((platform) => platform.available)
+  const futurePlatforms = PLATFORMS.filter((platform) => !platform.available)
+  const connectedConnectableCount = accounts.filter((account) =>
+    connectablePlatforms.some((platform) => platform.id === account.platform),
+  ).length
+  const totalPlatforms = connectablePlatforms.length
   const readinessStates = derivePlatformReadiness(accounts as any)
 
   return (
@@ -374,25 +397,25 @@ export default function ConnectionsPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border border-[var(--nx-border)] bg-white text-xl font-black text-[var(--nx-text-1)]">
-                    {loadingAccounts ? '…' : `${connectedCount}/${totalPlatforms}`}
+                    {loadingAccounts ? '…' : `${connectedConnectableCount}/${totalPlatforms}`}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-[var(--nx-text-1)]">
                       {loadingAccounts
                         ? t('connections.loadingPlatforms')
-                        : connectedCount === 0
+                        : connectedConnectableCount === 0
                         ? t('connections.noneConnected')
-                        : connectedCount === 1
+                        : connectedConnectableCount === 1
                         ? t('connections.platform1Connected')
-                        : `${connectedCount} ${t('connections.platformNConnected')}`}
+                        : `${connectedConnectableCount} ${t('connections.platformNConnected')}`}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-3)]">
-                      {connectedCount === 0 ? t('connections.noneConnectedDesc') : t('connections.expandDesc')}
+                      {connectedConnectableCount === 0 ? t('connections.noneConnectedDesc') : t('connections.expandDesc')}
                     </p>
                   </div>
                 </div>
 
-                {!loadingAccounts && connectedCount === 0 && (
+                {!loadingAccounts && connectedConnectableCount === 0 && (
                   <ActionButton
                     onClick={() => handleConnect('META')}
                     disabled={connecting === 'META'}
@@ -419,7 +442,12 @@ export default function ConnectionsPage() {
             description={t('connections.platformCardsDesc')}
             contentClassName="space-y-4"
           >
-          {PLATFORMS.map((platform) => {
+          <div className="rounded-[14px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-4">
+            <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.connectNowTitle')}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.connectNowDesc')}</p>
+          </div>
+
+          {connectablePlatforms.map((platform) => {
             const connectedAccount = accounts.find(a => a.platform === platform.id)
             const isConnected = !!connectedAccount
             const isConnecting = connecting === platform.id
@@ -430,6 +458,8 @@ export default function ConnectionsPage() {
               ? readinessStates.filter((s) => s.key === 'linkedin')
               : platform.id === 'TIKTOK'
               ? readinessStates.filter((s) => s.key === 'tiktok')
+              : platform.id === 'YOUTUBE'
+              ? readinessStates.filter((s) => s.key === 'youtube')
               : platform.id === 'GOOGLE'
               ? readinessStates.filter((s) => s.key === 'google' || s.key === 'paid')
               : platform.id === 'SNAPCHAT'
@@ -553,7 +583,181 @@ export default function ConnectionsPage() {
                           loading={isConnecting}
                           icon={<Plug className="h-4 w-4" />}
                         >
-                          {t('connections.connectAccount')}
+                          {t(connectCtaKeyFor(platform.id))}
+                        </ActionButton>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-[var(--nx-text-3)]">
+                          <Info className="h-4 w-4" />
+                          <span>{t('connections.comingSoonLong')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
+          <div className="rounded-[14px] border border-[var(--nx-warning-border)] bg-[var(--nx-warning-bg)] p-4">
+            <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.paidBoundaryTitle')}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-2)]">{t('connections.paidBoundaryDesc')}</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {[
+                t('connections.paidBoundaryAccount'),
+                t('connections.paidBoundaryPermissions'),
+                t('connections.paidBoundaryBudget'),
+                t('connections.paidBoundaryLaunch'),
+              ].map((item, index) => (
+                <div key={index} className="flex gap-2 rounded-[10px] border border-[var(--nx-warning-border)] bg-white/70 p-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
+                  <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-warning)]" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[14px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-4">
+            <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.futureChannelsTitle')}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.futureChannelsDesc')}</p>
+          </div>
+
+          {futurePlatforms.map((platform) => {
+            const connectedAccount = accounts.find(a => a.platform === platform.id)
+            const isConnected = !!connectedAccount
+            const isConnecting = connecting === platform.id
+            const isDisconnecting = disconnecting === connectedAccount?.id
+            const platformStates = platform.id === 'META'
+              ? readinessStates.filter((s) => s.key === 'facebook' || s.key === 'instagram')
+              : platform.id === 'LINKEDIN'
+              ? readinessStates.filter((s) => s.key === 'linkedin')
+              : platform.id === 'TIKTOK'
+              ? readinessStates.filter((s) => s.key === 'tiktok')
+              : platform.id === 'YOUTUBE'
+              ? readinessStates.filter((s) => s.key === 'youtube')
+              : platform.id === 'GOOGLE'
+              ? readinessStates.filter((s) => s.key === 'google' || s.key === 'paid')
+              : platform.id === 'SNAPCHAT'
+              ? readinessStates.filter((s) => s.key === 'snapchat')
+              : []
+
+            return (
+              <div
+                key={platform.id}
+                className="overflow-hidden rounded-[14px] border bg-white transition-all"
+                style={{
+                  borderColor: isConnected ? 'var(--nx-success-border)' : 'var(--nx-border)',
+                }}
+              >
+                <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start">
+                  {/* Platform Logo */}
+                  <div
+                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px]"
+                    style={{
+                      background: `${platform.color}0F`,
+                      border: `1px solid ${platform.color}18`,
+                    }}
+                  >
+                    {platform.icon}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-bold text-[var(--nx-text-1)]">{t(platform.nameKey)}</h3>
+                      {isConnected ? (
+                        <ReadinessBadge status="ready">
+                          {t('connections.connected')}
+                        </ReadinessBadge>
+                      ) : !platform.available ? (
+                        <ReadinessBadge status="notAvailable">
+                          {platform.eta ? `Coming ${platform.eta}` : t('connections.comingSoon')}
+                        </ReadinessBadge>
+                      ) : null}
+                    </div>
+
+                    <p className="mb-4 text-sm leading-6 text-[var(--nx-text-3)]">{t(platform.descKey)}</p>
+
+                    <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                      {platformStates.length > 0 ? platformStates.map((state) => (
+                        <div key={state.key} className="rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-3">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-xs font-bold text-[var(--nx-text-1)]">{t(state.nameKey)}</p>
+                            <ReadinessBadge status={badgeStatusFor[state.status]}>{t(state.chipKey)}</ReadinessBadge>
+                          </div>
+                          <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t(state.lineKey)}</p>
+                        </div>
+                      )) : (
+                        <div className="rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-3 sm:col-span-2">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-xs font-bold text-[var(--nx-text-1)]">{t('connections.capabilityStatus')}</p>
+                            <ReadinessBadge status="notAvailable">{t('connections.readiness.chip.notAvailable')}</ReadinessBadge>
+                          </div>
+                          <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.notAvailableDesc')}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Connected Account Details */}
+                    {isConnected && connectedAccount && (
+                      <div
+                        className="mb-4 rounded-[12px] border border-[var(--nx-success-border)] bg-[var(--nx-success-bg)] p-3"
+                      >
+                        <p className="mb-1 text-xs text-[var(--nx-text-3)]">{t('connections.connectedAccount')}</p>
+                        <p className="text-sm font-semibold text-[var(--nx-success)]">{connectedAccount.accountName}</p>
+                        {connectedAccount.pages?.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-[var(--nx-text-3)]">{t('connections.pagesAndAccounts')}</p>
+                            {connectedAccount.pages.map(page => (
+                              <div key={page.id} className="flex items-center gap-2 text-xs text-[var(--nx-text-3)]">
+                                <CheckCircle className="h-3 w-3 text-[var(--nx-success)]" />
+                                <span>{page.name}</span>
+                                {page.igAccountId && (
+                                  <span className="text-[10px] text-pink-600">{t('connections.instagram')}</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="mt-2 text-[10px] text-[var(--nx-text-4)]">
+                          {t('connections.connectedDate')} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {isConnected ? (
+                        <>
+                          <ActionButton
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleConnect(platform.id)}
+                            disabled={isConnecting}
+                            loading={isConnecting}
+                            icon={<RefreshCw className="h-3.5 w-3.5" />}
+                          >
+                            {t('connections.refreshConnection')}
+                          </ActionButton>
+                          <ActionButton
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDisconnect(connectedAccount!.id)}
+                            disabled={isDisconnecting}
+                            loading={isDisconnecting}
+                            icon={<Unplug className="h-3.5 w-3.5" />}
+                          >
+                            {t('connections.disconnectAccount')}
+                          </ActionButton>
+                        </>
+                      ) : platform.available ? (
+                        <ActionButton
+                          size="sm"
+                          onClick={() => handleConnect(platform.id)}
+                          disabled={isConnecting}
+                          loading={isConnecting}
+                          icon={<Plug className="h-4 w-4" />}
+                        >
+                          {t(connectCtaKeyFor(platform.id))}
                         </ActionButton>
                       ) : (
                         <div className="flex items-center gap-2 text-sm text-[var(--nx-text-3)]">
