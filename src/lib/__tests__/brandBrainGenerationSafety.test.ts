@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatBrandBrainGenerationSafetyNote,
+  getBrandBrainGenerationFieldLabel,
   getBrandBrainGenerationSafety,
 } from '@/lib/brandBrainGenerationSafety'
 
@@ -81,5 +82,11 @@ describe('getBrandBrainGenerationSafety', () => {
     expect(note).toContain('leadHandling')
     expect(note).not.toContain('apartment/villa')
     expect(note).toContain('needing user review')
+  })
+
+  it('returns safe user-facing field labels without exposing stale values', () => {
+    expect(getBrandBrainGenerationFieldLabel('leadHandling', 'en')).toBe('Lead handling')
+    expect(getBrandBrainGenerationFieldLabel('leadHandling', 'ar')).toBe('إدارة العملاء المحتملين')
+    expect(getBrandBrainGenerationFieldLabel('seasonality', 'ar')).toBe('الموسمية')
   })
 })

@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain, getBrandCompleteness, normalizeBrandProfile, type BrandProfile } from '@/hooks/useBrandBrain'
 import { getStrategyCapabilities } from '@/lib/brandReadiness'
+import { getBrandBrainGenerationFieldLabel, getBrandBrainGenerationSafety } from '@/lib/brandBrainGenerationSafety'
 import { getBrandIndicators, type BrandIndicators } from '@/lib/brandIndicators'
 import ReviewSuggestions, { type AssistSuggestion, type SuggestionSource } from '@/components/brand/ReviewSuggestions'
 import { ErrorState } from '@/components/ui/ErrorState'
@@ -1018,6 +1019,10 @@ function BrandBrainInner() {
   const brandIndicators = getBrandIndicators(form, {
     acceptedLearningCount: typeof form?.acceptedLearningCount === 'number' ? form.acceptedLearningCount : 0,
   })
+  const generationSafety = getBrandBrainGenerationSafety(form)
+  const generationSafetyLabels = generationSafety.excludedFields.map(field =>
+    getBrandBrainGenerationFieldLabel(field, locale === 'ar' ? 'ar' : 'en')
+  )
   const currentStepIdx = STEPS.findIndex(s => s.id === step)
   const currentStep    = STEPS[currentStepIdx] ?? STEPS[0]
   const scoreColor     = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#64748B'
@@ -1207,6 +1212,43 @@ function BrandBrainInner() {
                     : 'Maturity measures long-term depth — your saved setup plus Brand Brain signals over time. So your brand setup can be 100% complete while maturity stays “Early,” because memory grows from campaign, publishing, and real-results signals. Performance learning starts only after real analytics are available. Likewise your organic strategy can be ready for an initial brief while long-term memory is still building. Maturity is not setup completeness and not organic readiness.'}
                 </p>
               </details>
+
+              {generationSafetyLabels.length > 0 && (
+                <div
+                  className="rounded-2xl p-4 sm:p-5"
+                  style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: '#FFFFFF', border: '1px solid rgba(245,158,11,0.24)' }}
+                    >
+                      <AlertTriangle size={17} style={{ color: '#d97706' }} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-950">
+                        {locale === 'ar' ? 'راجع حقول Brand Brain غير المتسقة' : 'Review inconsistent Brand Brain fields'}
+                      </p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-700">
+                        {locale === 'ar'
+                          ? 'وجد NEXUS حقولاً محفوظة تبدو مرتبطة بسياق نشاط مختلف. سيتم تجاهلها أثناء توليد الاستراتيجية إلى أن تراجعها.'
+                          : 'NEXUS found saved fields that appear to belong to a different business context. They will be ignored during strategy generation until you review them.'}
+                      </p>
+                      <p className="mt-2 text-[12.5px] leading-relaxed text-slate-600">
+                        <span className="font-semibold text-slate-800">
+                          {locale === 'ar' ? 'حقول تحتاج مراجعة: ' : 'Fields needing review: '}
+                        </span>
+                        {generationSafetyLabels.join(locale === 'ar' ? '، ' : ', ')}
+                      </p>
+                      <p className="mt-2 text-[12px] leading-relaxed text-amber-700">
+                        {locale === 'ar'
+                          ? 'لم يتم تغيير أي بيانات. هذا تنبيه قراءة فقط حتى لا تدخل معلومات قديمة أو من مجال آخر في الاستراتيجية.'
+                          : 'No data was changed. This is a read-only warning so old or cross-industry information does not enter strategy generation.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* PR-L — single, indicator-driven next-action card (replaces the old
                   generic "Next step" banner + the alarmist low-completeness warning).
