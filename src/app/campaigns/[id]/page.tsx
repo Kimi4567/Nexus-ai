@@ -1062,6 +1062,26 @@ function CampaignDetailPageInner() {
           ? 'هذه هي الاستراتيجية الغنية الحالية للحملة. راجع الاتجاه والافتراضات والقيود قبل إنشاء أول خطة محتوى.'
           : 'This is the current rich strategy output for the campaign. Review the direction, assumptions, and limits before building the first content plan.',
       }
+  const strategyReviewChecklistCopy = isPaidOnlyStrategy
+    ? {
+        title: locale === 'ar' ? 'قائمة مراجعة التخطيط المدفوع' : 'Paid planning review checklist',
+        helper: locale === 'ar'
+          ? 'استخدمها لمراجعة حدود التخطيط المدفوع قبل أي قرار إطلاق أو صرف. هذه اللوحة لا تولّد ولا تعتمد ولا تنشر ولا تطلق إعلانات ولا تحدّث Brand Brain.'
+          : 'Use this to review paid planning boundaries before any launch or spend decision. This panel does not generate, approve, publish, launch ads, or update Brand Brain.',
+      }
+    : operatingState.truthFlags.hasContentPlan
+      ? {
+          title: locale === 'ar' ? 'قائمة مراجعة الاستراتيجية' : 'Strategy review checklist',
+          helper: locale === 'ar'
+            ? 'استخدمها لمراجعة القرار والتشخيص قبل تعديل أو اعتماد المحتوى الموجود في Content Hub. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
+            : 'Use this to review the decision and diagnosis before editing or approving the content already in Content Hub. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
+        }
+      : {
+          title: locale === 'ar' ? 'قائمة ما قبل Content Hub' : 'Before Content Hub checklist',
+          helper: locale === 'ar'
+            ? 'استخدمها كفحص قرار قبل تحضير أول خطة محتوى. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
+            : 'Use this as the go/no-go check before preparing the first content plan. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
+        }
   const mustHaveAssetCount = Array.isArray(assetRequirements?.mustHave) ? assetRequirements.mustHave.length : 0
   const proofAssetCount = Array.isArray(assetRequirements?.forProof) ? assetRequirements.forProof.length : 0
   const verifiedProofCount = proofContext.verifiedProof.length
@@ -2184,12 +2204,10 @@ function CampaignDetailPageInner() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-sm font-semibold text-slate-950">
-                            {locale === 'ar' ? 'قائمة ما قبل Content Hub' : 'Before Content Hub checklist'}
+                            {strategyReviewChecklistCopy.title}
                           </p>
                           <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-                            {locale === 'ar'
-                              ? 'استخدمها كفحص قرار قبل تحضير أول خطة محتوى. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
-                              : 'Use this as the go/no-go check before preparing the first content plan. This panel does not generate, approve, schedule, publish, or update Brand Brain.'}
+                            {strategyReviewChecklistCopy.helper}
                           </p>
                         </div>
                         <span className="inline-flex w-fit rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
