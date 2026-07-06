@@ -279,7 +279,12 @@ function VisualCard({
 export default function VisualGenerator({ context, onVisualSaved }: VisualGeneratorProps) {
   const router = useRouter()
   const { authHeader } = useAuth()
-  const { creditsRemaining, isUnlimited, loading: billingLoading } = useBillingStatus()
+  const {
+    creditsRemaining,
+    isUnlimited,
+    loading: billingLoading,
+    invalidate: refreshBillingStatus,
+  } = useBillingStatus()
   const [visuals, setVisuals] = useState<Visual[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -353,6 +358,7 @@ export default function VisualGenerator({ context, onVisualSaved }: VisualGenera
       const newVisual = data.visual
       setVisuals(prev => [newVisual, ...prev])
       onVisualSaved?.(newVisual)
+      await refreshBillingStatus()
       setConfirmGenerateVisual(false)
       setVisualGenerationAcknowledged(false)
     } catch (err: any) {

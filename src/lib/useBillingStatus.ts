@@ -111,7 +111,7 @@ export function useBillingStatus() {
   const invalidate = useCallback(() => {
     _cache = null
     _lastRevalidate = 0
-    fetchStatus(true)
+    return fetchStatus(true)
   }, [fetchStatus])
 
   const creditsRemaining = status?.credits?.remaining ?? 0

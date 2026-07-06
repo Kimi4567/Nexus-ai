@@ -215,7 +215,12 @@ export default function ContentHubPage() {
   const campaignId = params.id as string
   const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
-  const { creditsRemaining, isUnlimited, loading: billingLoading } = useBillingStatus()
+  const {
+    creditsRemaining,
+    isUnlimited,
+    loading: billingLoading,
+    invalidate: refreshBillingStatus,
+  } = useBillingStatus()
   const isAr = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
@@ -602,6 +607,7 @@ export default function ContentHubPage() {
           : `Content plan created: ${data.summary.total} drafts to review`,
       )
       await loadData()
+      await refreshBillingStatus()
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -764,6 +770,7 @@ export default function ContentHubPage() {
       }
       setSuccessMsg('Image generation started — this may take a few minutes')
       await loadData()
+      await refreshBillingStatus()
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -984,6 +991,7 @@ export default function ContentHubPage() {
         delete next[postId]
         return next
       })
+      await refreshBillingStatus()
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -1090,6 +1098,7 @@ export default function ContentHubPage() {
       if (!imageUrl) throw new Error('No image URL returned')
 
       await savePostEdit(postId, { imageUrl, mediaSource: 'GENERATE', generationStatus: 'DONE' })
+      await refreshBillingStatus()
       setImageGenerationConfirmPostId(null)
       setImageGenerationAcknowledged(false)
     } catch (err: any) {
