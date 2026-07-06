@@ -103,6 +103,47 @@ function formatCampaignToneLabel(tone: string | null | undefined): string {
     .join(' ')
 }
 
+function formatCampaignToneForLocale(tone: string | null | undefined, locale: string): string {
+  const normalized = formatCampaignToneLabel(tone)
+  if (!normalized) return ''
+  if (locale !== 'ar') return normalized
+  const arToneLabels: Record<string, string> = {
+    Modern: 'حديثة',
+    Professional: 'احترافية',
+    Friendly: 'ودودة',
+    Bold: 'جريئة',
+    Luxury: 'فاخرة',
+    Trustworthy: 'موثوقة',
+    Educational: 'تعليمية',
+    Conversational: 'حوارية',
+  }
+  return arToneLabels[normalized] || normalized
+}
+
+function formatStrategyDisplayText(value: string, locale: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return trimmed
+  const normalized = trimmed.replace(/\s+/g, ' ')
+  const lower = normalized.toLowerCase()
+
+  if (lower === 'planning/review' || lower === 'planning/review stage') {
+    return locale === 'ar' ? 'مرحلة التخطيط والمراجعة' : 'Planning and review stage'
+  }
+  if (lower === 'business already operating') {
+    return locale === 'ar' ? 'النشاط التجاري يعمل حالياً' : 'Business already operating'
+  }
+  if (lower === 'not enough data') {
+    return locale === 'ar' ? 'بيانات غير كافية بعد' : 'Not enough data yet'
+  }
+  if (lower.startsWith('not enough data:')) {
+    return locale === 'ar'
+      ? `بيانات غير كافية بعد: ${normalized.slice(normalized.indexOf(':') + 1).trim()}`
+      : `Not enough data yet: ${normalized.slice(normalized.indexOf(':') + 1).trim()}`
+  }
+
+  return value
+}
+
 function CopyBtn({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
   return (
@@ -150,13 +191,17 @@ function StrategyDocSection({
 function StrategyDocCard({
   label,
   value,
+  locale = 'en',
   tone = 'default',
 }: {
   label: string
   value?: ReactNode
+  locale?: string
   tone?: 'default' | 'muted' | 'warning' | 'positive'
 }) {
   if (!value) return null
+  const effectiveLocale = locale !== 'en' || /[\u0600-\u06FF]/.test(label) ? 'ar' : locale
+  const displayValue = typeof value === 'string' ? formatStrategyDisplayText(value, effectiveLocale) : value
   const toneClass = tone === 'warning'
     ? 'border-amber-200 bg-amber-50 text-amber-950'
     : tone === 'positive'
@@ -167,16 +212,18 @@ function StrategyDocCard({
   return (
     <div className={`rounded-2xl border p-4 ${toneClass}`}>
       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{label}</p>
-      <div className="mt-1 text-sm leading-6">{value}</div>
+      <div className="mt-1 text-sm leading-6">{displayValue}</div>
     </div>
   )
 }
 
 function StrategyDocList({
   items,
+  locale = 'en',
   ordered = false,
 }: {
   items: ReactNode[]
+  locale?: string
   ordered?: boolean
 }) {
   const clean = items.filter(Boolean)
@@ -189,7 +236,7 @@ function StrategyDocList({
           <span className="mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-500">
             {ordered ? i + 1 : '•'}
           </span>
-          <span>{item}</span>
+          <span>{typeof item === 'string' ? formatStrategyDisplayText(item, locale) : item}</span>
         </li>
       ))}
     </Tag>
@@ -956,7 +1003,7 @@ function CampaignDetailPageInner() {
   const missingDataLabels: string[] = missingDataKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
   const paidPlanningMissingKeys = missingDataKeys.filter(k => ['marketingBudget', 'conversionDestination', 'leadHandling', 'pixel'].includes(k))
   const paidPlanningMissingLabels = paidPlanningMissingKeys.map(k => MISSING_KEY_LABELS[k] ? (locale === 'ar' ? MISSING_KEY_LABELS[k].ar : MISSING_KEY_LABELS[k].en) : k)
-  const campaignToneLabel = formatCampaignToneLabel(campaign.tone)
+  const campaignToneLabel = formatCampaignToneForLocale(campaign.tone, locale)
   const safeExecutionAssumptions = uniqueCleanList(executionAssumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const safeAssumptions = uniqueCleanList(assumptions.map((item: string) => sanitizeStrategyLimitText(item)))
   const includesPaidPlanningStrategy = strategyScope.includesPaid
@@ -2479,7 +2526,7 @@ function CampaignDetailPageInner() {
                         ))}
                       </div>
                     ) : (
-                      <StrategyDocList ordered items={audienceSegments.map((seg: string) => seg)} />
+                      <StrategyDocList ordered locale={locale} items={audienceSegments.map((seg: string) => seg)} />
                     )}
                   </StrategyDocSection>
                 )}
@@ -2522,7 +2569,7 @@ function CampaignDetailPageInner() {
                               : (cdT?.sectionValueProps || 'Value Propositions')}
                           </p>
                           {(strategy.valueProps?.length > 0 || strategy.valuePropositions?.length > 0) ? (
-                            <StrategyDocList items={(strategy.valueProps || strategy.valuePropositions).map((vp: string) => vp)} />
+                            <StrategyDocList locale={locale} items={(strategy.valueProps || strategy.valuePropositions).map((vp: string) => vp)} />
                           ) : (
                             <p className="text-sm leading-6 text-slate-700">{strategy.estimatedResults}</p>
                           )}
@@ -2579,7 +2626,7 @@ function CampaignDetailPageInner() {
                               ))}
                             </div>
                           ) : (
-                            <StrategyDocList items={contentAngles.map((angle: string) => angle)} />
+                            <StrategyDocList locale={locale} items={contentAngles.map((angle: string) => angle)} />
                           )}
                         </div>
                       )}
@@ -2667,7 +2714,7 @@ function CampaignDetailPageInner() {
                                 {w.keyMessage && <p className="mt-2 text-sm leading-6 text-slate-600">"{w.keyMessage}"</p>}
                                 {w.deliverables?.length > 0 && (
                                   <div className="mt-3">
-                                    <StrategyDocList items={w.deliverables.map((d: string) => d)} />
+                                    <StrategyDocList locale={locale} items={w.deliverables.map((d: string) => d)} />
                                   </div>
                                 )}
                                 {(w.platforms?.length > 0 || w.channels?.length > 0) && (
@@ -2723,7 +2770,7 @@ function CampaignDetailPageInner() {
                         </div>
                       )}
                       {successMetrics.length > 0 && successMetricsDetailed.length === 0 && (
-                        <StrategyDocList items={successMetrics.map((metric: string) => metric)} />
+                        <StrategyDocList locale={locale} items={successMetrics.map((metric: string) => metric)} />
                       )}
                       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-600">
                         {locale === 'ar'
@@ -2839,26 +2886,26 @@ function CampaignDetailPageInner() {
                           )}
                       {assetRequirements && (
                         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                          <StrategyDocCard label={cdT?.assetMustHave || 'Must have'} value={assetRequirements.mustHave?.length ? <StrategyDocList items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
-                          <StrategyDocCard label={cdT?.assetNiceToHave || 'Nice to have'} value={assetRequirements.niceToHave?.length ? <StrategyDocList items={assetRequirements.niceToHave.map((a: string) => a)} /> : null} />
+                          <StrategyDocCard label={cdT?.assetMustHave || 'Must have'} value={assetRequirements.mustHave?.length ? <StrategyDocList locale={locale} items={assetRequirements.mustHave.map((a: string) => a)} /> : null} tone="warning" />
+                          <StrategyDocCard label={cdT?.assetNiceToHave || 'Nice to have'} value={assetRequirements.niceToHave?.length ? <StrategyDocList locale={locale} items={assetRequirements.niceToHave.map((a: string) => a)} /> : null} />
                           <StrategyDocCard
                             label={includesPaidPlanningStrategy
                               ? (cdT?.assetForAds || 'For paid planning')
                               : (locale === 'ar' ? 'المدفوع غير مشمول' : 'Paid not included')}
                             value={includesPaidPlanningStrategy
-                              ? (assetRequirements.forAds?.length ? <StrategyDocList items={assetRequirements.forAds.map((a: string) => a)} /> : null)
+                              ? (assetRequirements.forAds?.length ? <StrategyDocList locale={locale} items={assetRequirements.forAds.map((a: string) => a)} /> : null)
                               : (locale === 'ar'
                                 ? 'التشغيل العضوي لا يحتاج أصول إعلان مدفوعة. شغّل Paid أو Full لاحقاً عند توفر ميزانية ووجهة تحويل.'
                                 : 'This organic run does not require paid ad assets. Run Paid or Full later when budget and conversion inputs are available.')}
                             tone={includesPaidPlanningStrategy ? 'warning' : 'muted'}
                           />
-                          <StrategyDocCard label={cdT?.assetForProof || 'Social proof'} value={assetRequirements.forProof?.length ? <StrategyDocList items={assetRequirements.forProof.map((a: string) => a)} /> : null} />
+                          <StrategyDocCard label={cdT?.assetForProof || 'Social proof'} value={assetRequirements.forProof?.length ? <StrategyDocList locale={locale} items={assetRequirements.forProof.map((a: string) => a)} /> : null} />
                         </div>
                       )}
                       {strategy.executionChecklist?.length > 0 && (
                         <div>
                           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{cdT?.sectionExecutionChecklist || 'Execution Checklist'}</p>
-                          <StrategyDocList items={strategy.executionChecklist.map((item: string) => item)} />
+                          <StrategyDocList locale={locale} items={strategy.executionChecklist.map((item: string) => item)} />
                         </div>
                       )}
                       {(() => {
@@ -2911,12 +2958,12 @@ function CampaignDetailPageInner() {
                                 <StrategyDocCard label={cdT?.adTargeting || 'Targeting'} value={adSetupPlan.targeting} />
                                 <StrategyDocCard label={strategyFieldLabel('exclusions')} value={adSetupPlan.exclusions} />
                                 {adSetupPlan.adCopyAngles?.length > 0 && (
-                                  <StrategyDocCard label={strategyFieldLabel('adCopyAngles')} value={<StrategyDocList items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
+                                  <StrategyDocCard label={strategyFieldLabel('adCopyAngles')} value={<StrategyDocList locale={locale} items={adSetupPlan.adCopyAngles.map((angle: string) => angle)} />} />
                                 )}
                                 {adSetupPlan.notReadyIf?.length > 0 && (
                                   <StrategyDocCard
                                     label={locale === 'ar' ? 'لا تشغّل الإعلانات إذا' : 'Do not run ads if'}
-                                    value={<StrategyDocList items={adSetupPlan.notReadyIf.map((item: string) => item)} />}
+                                    value={<StrategyDocList locale={locale} items={adSetupPlan.notReadyIf.map((item: string) => item)} />}
                                     tone="warning"
                                   />
                                 )}
@@ -2951,7 +2998,7 @@ function CampaignDetailPageInner() {
                       {missingDataLabels.length > 0 && (
                         <StrategyDocCard
                           label={locale === 'ar' ? 'بيانات ناقصة' : 'Missing data'}
-                          value={<StrategyDocList items={missingDataLabels.map(label => label)} />}
+                          value={<StrategyDocList locale={locale} items={missingDataLabels.map(label => label)} />}
                           tone="warning"
                         />
                       )}
@@ -2965,16 +3012,16 @@ function CampaignDetailPageInner() {
                         />
                       )}
                       {doNotDoYet.length > 0 && (
-                        <StrategyDocCard label={cdT?.sectionDoNotDoYet || 'Do not do yet'} value={<StrategyDocList items={doNotDoYet.map((item: string) => item)} />} tone="warning" />
+                        <StrategyDocCard label={cdT?.sectionDoNotDoYet || 'Do not do yet'} value={<StrategyDocList locale={locale} items={doNotDoYet.map((item: string) => item)} />} tone="warning" />
                       )}
                       {riskNotes.length > 0 && (
-                        <StrategyDocCard label={cdT?.sectionRiskNotes || 'Risk notes'} value={<StrategyDocList items={riskNotes.map((note: string) => note)} />} tone="warning" />
+                        <StrategyDocCard label={cdT?.sectionRiskNotes || 'Risk notes'} value={<StrategyDocList locale={locale} items={riskNotes.map((note: string) => note)} />} tone="warning" />
                       )}
                       {safeExecutionAssumptions.length > 0 && (
-                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات التنفيذ' : 'Execution assumptions'} value={<StrategyDocList items={safeExecutionAssumptions.map((item: string) => item)} />} />
+                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات التنفيذ' : 'Execution assumptions'} value={<StrategyDocList locale={locale} items={safeExecutionAssumptions.map((item: string) => item)} />} />
                       )}
                       {safeAssumptions.length > 0 && (
-                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات' : 'Assumptions'} value={<StrategyDocList items={safeAssumptions.map((item: string) => item)} />} />
+                        <StrategyDocCard label={locale === 'ar' ? 'افتراضات' : 'Assumptions'} value={<StrategyDocList locale={locale} items={safeAssumptions.map((item: string) => item)} />} />
                       )}
                     </div>
                   </StrategyDocSection>
