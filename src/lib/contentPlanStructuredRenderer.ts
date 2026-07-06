@@ -114,7 +114,7 @@ function platformLabel(platform?: string): string {
   const normalized = (platform ?? '').toUpperCase()
   if (normalized === 'LINKEDIN') return 'LinkedIn'
   if (normalized === 'TIKTOK') return 'TikTok'
-  if (normalized === 'YOUTUBE') return 'YouTube'
+  if (normalized === 'YOUTUBE' || normalized === 'YOUTUBE_SHORTS') return 'YouTube Shorts'
   return 'Meta'
 }
 
@@ -125,27 +125,27 @@ function renderClinicCaption(ctx: ContentPlanRenderContext, gen: GeneratedConten
 
   if (ctx.isArabic) {
     const templates = [
-      `عندما تتكرر ملاحظات ${topic.ar}، ابدأ من طريقة تسجيلها لا من حملة أكبر. ${brand} يساعد الفريق على تحويل العمل الإداري إلى خطوات يمكن مراجعتها بهدوء. راجع خطوة واحدة هذا الأسبوع. #إدارة_العيادات #تشغيل_العيادات`,
-      `اسأل فريق الاستقبال: أين تضيع المعلومة بين الموعد والمتابعة؟ استخدم ${brand} كمساعد تشغيلي لترتيب ${topic.ar} دون وعود طبية أو نتائج غير مثبتة. اكتب نقطة التعطّل الأولى. #عيادات #تنظيم_العمل`,
-      `${topic.ar} لا يحتاج إلى وعود كبيرة؛ يحتاج إلى قائمة واضحة: ما الذي تم تسجيله، من يراجعه، ومتى يعود الفريق له. ${brand} يحوّل هذه الأسئلة إلى مسار عمل قابل للفحص. جرّب مراجعة يوم واحد. #إدارة_العيادات`,
-      `في العيادات الصغيرة، التفاصيل الإدارية الصغيرة تصنع فرقًا في وضوح اليوم. ${brand} يساعدك على ترتيب ${topic.ar} كمهام داخلية لا كوعود أداء. ابدأ بمراجعة آخر خمسة مواعيد. #تشغيل_العيادات`,
-      `بدل الاعتماد على الذاكرة، اجعل ${topic.ar} جزءًا من روتين الفريق اليومي. ${brand} يقدّم طريقة منظمة لعرض المهام والمراجعات دون ادعاء نتائج علاجية. احفظ قائمة الفحص وراجعها مع الفريق. #إدارة_العمل`,
-      `إذا كان الفريق يعمل بالعربية والإنجليزية، فوضوح ${topic.ar} يحتاج صياغة يفهمها الجميع. ${brand} يساعد على ترتيب نقاط المتابعة الإدارية بلغة أوضح. اختر نموذج رسالة واحد وراجعه. #عيادات #تواصل_إداري`,
-      `اجعل اجتماع الفريق أكثر تحديدًا: ما المواعيد التي تحتاج مراجعة؟ ما المتابعة المفتوحة؟ وما الخطوة التالية؟ ${brand} يساعد في تحويل ${topic.ar} إلى مسار إداري واضح. #إدارة_العيادات`,
-      `قبل أي نشاط تسويقي جديد، تأكد أن ${topic.ar} داخل العيادة واضح للفريق. ${brand} يساعد على ترتيب الأساس التشغيلي حتى لا تتحول المتابعة إلى ملاحظات متفرقة. ابدأ بتوثيق خطوة واحدة. #تشغيل_العيادات`,
+      `إذا ظهرت فوضى ${topic.ar} في نهاية اليوم، لا تبدأ بحل كبير. ابدأ بسؤالين: من سجّل المعلومة؟ ومن راجعها؟ مع ${brand} يمكن تحويل العمل الإداري إلى قائمة تشغيل داخلية قابلة للمراجعة. جرّب تدقيق يوم واحد هذا الأسبوع. #إدارة_العيادات #تشغيل_العيادات`,
+      `أكثر نقطة تُرهق فريق الاستقبال ليست الموعد نفسه؛ بل ما يحدث بين الحجز والمتابعة. ارسم مسار متابعة المرضى إداريًا من أول اتصال إلى آخر ملاحظة، ثم حدّد أين تنقطع. ${brand} مناسب لترتيب هذا المسار دون وعود طبية أو نتائج غير مثبتة. اكتب نقطة التعطّل الأولى. #عيادات #تنظيم_العمل`,
+      `التواصل الإداري ثنائي اللغة لا ينجح بمجرد ترجمة الرسالة. يحتاج الفريق إلى نسخة واضحة: ما المطلوب، من المسؤول، ومتى تتم المراجعة. استخدم ${brand} كإطار لتنظيم الرسائل الداخلية بالعربية والإنجليزية. اختر نموذج رسالة واحد وراجعه مع الفريق. #تواصل_إداري #عيادات`,
+      `قبل أن تضيف حملة جديدة، راجع آخر خمسة مواعيد: هل يوجد سبب واضح للتأخير؟ هل المتابعة مسجلة؟ هل الخطوة التالية مفهومة؟ ${brand} يحوّل هذه الأسئلة إلى مراجعة تشغيلية بسيطة بدل ملاحظات متفرقة. احفظ القائمة وناقشها في اجتماع الفريق. #تشغيل_العيادات`,
+      `الاعتماد على الذاكرة يجعل ${topic.ar} هشًا مع ضغط اليوم. اجعل لكل مهمة حالة واضحة: مفتوحة، قيد المراجعة، أو مكتملة إداريًا. مع ${brand} يمكن للفريق رؤية العمل كخطوات لا كرسائل متفرقة. ابدأ بثلاث مهام فقط. #إدارة_العمل #عيادات`,
+      `إذا كان الفريق يتنقل بين العربية والإنجليزية، فالغموض يتضاعف عند التسليم بين الزملاء. جرّب قالبًا موحدًا: الحالة، المسؤول، آخر تحديث، والخطوة التالية. ${brand} يساعد على جعل ${topic.ar} أوضح للفريق. راجع قالب التسليم قبل نهاية الأسبوع. #تواصل_إداري`,
+      `اجتماع الفريق لا يحتاج كلامًا أكثر؛ يحتاج جدول مراجعة أدق. ما المواعيد التي تحتاج متابعة؟ ما الرسائل المفتوحة؟ وما القرار الإداري التالي؟ استخدم ${brand} لتحويل الاجتماع إلى قائمة مراجعة تشغيلية. اختر بندًا واحدًا وابدأ به. #إدارة_العيادات`,
+      `إذا كانت نفس مشكلة ${topic.ar} تتكرر كل أسبوع، فهذا مؤشر أن العملية تحتاج مراجعة لا توبيخًا. في ديمو ${brand} يمكنك رؤية كيف يتحول العمل الإداري إلى خطوات أوضح للفريق. اطلب مراجعة قصيرة لمسار العمل قبل توسيع النشاط التسويقي. #ClinicOps #عيادات`,
     ]
     return templates[slot]
   }
 
   const templates = [
-    `When ${topic.en} gets messy, start with how the team records the work. ${brand} helps turn admin tasks into reviewable steps. Pick one workflow to review this week.`,
-    `Ask the front desk where information gets lost between booking and follow-up. Use ${brand} to organize ${topic.en} without implying medical outcomes or performance promises.`,
-    `${topic.en} does not need a bigger promise. It needs a clear checklist: what was recorded, who reviews it, and when the team returns to it. ${brand} helps frame that workflow.`,
-    `For small clinics, daily admin details matter. ${brand} helps structure ${topic.en} as internal operating work, not as a claim about patient results.`,
-    `Move ${topic.en} out of memory and into a daily team routine. ${brand} gives the team a clearer way to review tasks and next steps.`,
-    `If the team works in two languages, ${topic.en} needs wording everyone can follow. ${brand} helps organize the administrative handoff more clearly.`,
-    `Make the team meeting more specific: which appointments need review, which follow-ups are open, and what is the next admin step? ${brand} helps structure that conversation.`,
-    `Before adding more marketing activity, make ${topic.en} clear inside the clinic. ${brand} helps organize the operating foundation without overclaiming results.`,
+    `When ${topic.en} gets messy, do not start with a bigger system. Start with two questions: who recorded the information, and who reviewed it? ${brand} can frame that work as a reviewable operating checklist. Pick one clinic day to audit this week.`,
+    `The front desk usually feels the handoff problem before leadership sees it. Map the path from booking to follow-up, then mark where the information gets unclear. Use ${brand} to organize the admin workflow without making patient-outcome promises.`,
+    `Bilingual admin communication is not only translation. The team needs a shared format: request, owner, last update, and next step. Use ${brand} as a framework for a clearer Arabic/English handoff. Review one message template before the week ends.`,
+    `Before adding another campaign, review the last five appointments. Was the next admin step clear? Was follow-up recorded? Was ownership visible? ${brand} turns those questions into a practical workflow review. Bring the checklist to your next team meeting.`,
+    `Memory is a fragile operating system for busy clinics. Give each task a simple state: open, under review, or administratively complete. ${brand} helps the team see the work as steps instead of scattered messages. Start with three open tasks.`,
+    `If the team moves between Arabic and English, handoff ambiguity compounds quickly. Try one shared format: status, owner, latest note, next admin step. ${brand} can make ${topic.en} easier to review. Test the format on one workflow.`,
+    `A better team meeting needs fewer opinions and a sharper agenda. Which appointments need admin review? Which follow-ups are open? What is the next decision? Use ${brand} to turn the conversation into a review checklist.`,
+    `If the same ${topic.en} issue appears every week, the process needs review, not blame. In a ${brand} demo, teams can see how admin work becomes clearer steps. Request a short workflow review before scaling the next campaign.`,
   ]
   return `${templates[slot]} #${platformLabel(ctx.platform)}`
 }
@@ -156,8 +156,8 @@ function renderClinicImagePrompt(ctx: ContentPlanRenderContext, gen: GeneratedCo
   const slot = ctx.postIndex % 6
   const format = platform === 'LinkedIn'
     ? 'wide horizontal 1.91:1 composition'
-    : platform === 'YouTube'
-      ? 'square 1:1 composition'
+    : platform === 'YouTube Shorts'
+      ? 'vertical 9:16 composition'
       : 'vertical 4:5 composition'
   const scenes = [
     `tidy clinic reception desk with a blank appointment checklist, neutral laptop closed, soft daylight, organized workspace`,

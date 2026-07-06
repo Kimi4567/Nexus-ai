@@ -175,6 +175,22 @@ const PLATFORM_CONFIG: Record<string, {
     icon: '🎵',
     cardStyle: 'tiktok',
   },
+  YOUTUBE: {
+    label: 'YouTube Shorts',
+    color: '#FF0033',
+    bg: '#fff1f2',
+    border: '#FF0033',
+    icon: '▶',
+    cardStyle: 'youtube',
+  },
+  YOUTUBE_SHORTS: {
+    label: 'YouTube Shorts',
+    color: '#FF0033',
+    bg: '#fff1f2',
+    border: '#FF0033',
+    icon: '▶',
+    cardStyle: 'youtube',
+  },
 }
 
 const getPlatformConfig = (p: string) =>
@@ -566,6 +582,23 @@ export default function ContentHubPage() {
   const bulkImageButtonLabel = isAr
     ? `توليد ${pendingImageCount} صور منشورات — ${bulkImageCreditCost} كريديت`
     : `Generate ${pendingImageCount} post images — ${bulkImageCreditCost} credits total`
+  const approveDraftsLabel = isAr
+    ? `اعتماد ${draftCount} مسودات`
+    : `Approve ${draftCount} draft${draftCount === 1 ? '' : 's'}`
+  const scheduleApprovedLabel = isAr
+    ? `جدولة ${approvedCount} منشورات معتمدة`
+    : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`
+  const formatStatusSummaryChip = (count: number, label: string) => {
+    if (isAr || count === 1) return `${count} ${label}`
+    const pluralLabels: Record<string, string> = {
+      [t('contentHub.sumDraft')]: 'drafts',
+      [t('contentHub.sumApproved')]: 'approved',
+      [t('contentHub.sumScheduled')]: 'scheduled',
+      [t('contentHub.sumPublished')]: 'published',
+      [t('contentHub.sumFailed')]: 'failed',
+    }
+    return `${count} ${pluralLabels[label] ?? label}`
+  }
   const rewriteCostLabel = isAr ? `${CONTENT_HUB_REWRITE_COST} كريديت` : `${CONTENT_HUB_REWRITE_COST} credit`
 
   const getPendingEdit = (postId: string) => pendingEdits[postId] ?? {}
@@ -1229,10 +1262,7 @@ export default function ContentHubPage() {
                       </>
                     ) : (
                       <>
-                        ✓ {t('contentHub.approveAll')}
-                        <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
-                          {draftCount}
-                        </span>
+                        ✓ {approveDraftsLabel}
                       </>
                     )}
                   </button>
@@ -1254,10 +1284,7 @@ export default function ContentHubPage() {
                       </>
                     ) : (
                       <>
-                        🗓 {t('contentHub.scheduleAll')}
-                        <span className="bg-white/20 rounded-full px-1.5 py-0.5 text-xs">
-                          {approvedCount}
-                        </span>
+                        🗓 {scheduleApprovedLabel}
                       </>
                     )}
                   </button>
@@ -1292,11 +1319,6 @@ export default function ContentHubPage() {
                   ) : (
                     <>
                       ✨ {imageGenerationLocked ? addCreditsForImagesLabel : bulkImageButtonLabel}
-                      {pendingImageCount > 0 && (
-                        <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ background: imageGenerationLocked ? '#EEF2FF' : 'rgba(255,255,255,0.20)' }}>
-                          {pendingImageCount}
-                        </span>
-                      )}
                     </>
                   )}
                 </button>
@@ -1452,11 +1474,7 @@ export default function ContentHubPage() {
                     }}
                   >
                     {cfg && <span>{cfg.icon}</span>}
-                    {p === 'ALL' ? t('contentHub.allPlatforms') : (cfg?.label ?? p)}
-                    <span className="text-xs px-1.5 py-0.5 rounded-full"
-                      style={{ background: isActive ? 'rgba(255,255,255,0.2)' : '#F3F4F6', color: isActive ? '#fff' : '#6b7280' }}>
-                      {count}
-                    </span>
+                    <span>{p === 'ALL' ? `${t('contentHub.allPlatforms')} (${count})` : `${cfg?.label ?? p} (${count})`}</span>
                   </button>
                 )
               })}
@@ -1477,7 +1495,7 @@ export default function ContentHubPage() {
                   {chips.map((c, i) => (
                     <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg"
                       style={{ background: `${c.color}12`, color: c.color, border: `1px solid ${c.color}33` }}>
-                      {c.n} {c.label}
+                      {formatStatusSummaryChip(c.n, c.label)}
                     </span>
                   ))}
                 </div>

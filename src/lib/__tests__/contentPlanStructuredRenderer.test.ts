@@ -76,11 +76,24 @@ describe('contentPlanStructuredRenderer', () => {
     expect(new Set(captions).size).toBe(8)
     expect(captions.join('\n')).toContain('فريق الاستقبال')
     expect(captions.join('\n')).toContain('العربية والإنجليزية')
+    expect(captions.join('\n')).toContain('ديمو')
     expect(captions.join('\n')).not.toContain('تنظيم تنظيم')
     expect(captions.join('\n')).not.toContain('اجتماع الفريق أقصر')
+    expect(captions.join('\n')).not.toContain('الأفضل')
     expect(captions.join('\n')).not.toContain('تحسين كفاءة')
     expect(captions.join('\n')).not.toContain('رضا')
     expect(captions.every(caption => validateContentPlanDraftForSave({ caption }).ok)).toBe(true)
+  })
+
+  it('uses YouTube Shorts wording and vertical background format for YouTube clinic slots', () => {
+    const prompt = renderContentPlanDraftImagePrompt({
+      imagePrompt: 'YouTube Shorts concept for appointment follow-up',
+    }, { ...clinicCtx, platform: 'YOUTUBE', postIndex: 1 })
+
+    expect(prompt).toContain('vertical 9:16 composition')
+    expect(prompt).toContain('review-only background visual')
+    expect(prompt).not.toContain('square 1:1 composition')
+    expect(validateContentPlanDraftForSave({ imagePrompt: prompt }).ok).toBe(true)
   })
 
   it('renders clinic image prompts as review-only background visuals without fake product UI', () => {
