@@ -76,6 +76,31 @@ describe('buildCreativeStudioPreviewModel', () => {
     })
   })
 
+  it('summarizes the creative decision before any execution step', () => {
+    const model = buildCreativeStudioPreviewModel(baseInput)
+
+    expect(model.decisionBrief.title).toBe('Creative decision for this post')
+    expect(model.decisionBrief.creativeObjective).toContain('leads')
+    expect(model.decisionBrief.audienceMoment).toContain('Make clinic follow-up easier')
+    expect(model.decisionBrief.platformFit).toContain('LinkedIn')
+    expect(model.decisionBrief.readiness.status).toBe('review_ready')
+    expect(model.decisionBrief.readiness.score).toBeGreaterThanOrEqual(85)
+    expect(model.decisionBrief.nextBestAction).toContain('Content Hub')
+    expect(model.decisionBrief.messageHierarchy.map(item => item.role)).toEqual([
+      'headline',
+      'cta',
+      'brand',
+      'background',
+    ])
+    expect(model.decisionBrief.qualitySignals.map(signal => signal.id)).toEqual(expect.arrayContaining([
+      'message_clarity',
+      'brand_anchor',
+      'background_source',
+      'safe_zones',
+      'execution_boundary',
+    ]))
+  })
+
   it('locks future render when the post has no background yet', () => {
     const model = buildCreativeStudioPreviewModel({
       ...baseInput,
@@ -90,6 +115,9 @@ describe('buildCreativeStudioPreviewModel', () => {
     expect(model.backgroundStatus).toBe('background_needed_before_render')
     expect(model.controlledPath.find(step => step.id === 'render')?.state).toBe('locked_until_background')
     expect(model.qualitySummary.requiredFailed).toBeGreaterThan(0)
+    expect(model.decisionBrief.readiness.status).toBe('needs_background')
+    expect(model.decisionBrief.readiness.blockers).toContain('Background decision is not complete yet.')
+    expect(model.decisionBrief.nextBestAction).toContain('background decision')
   })
 
   it('keeps Arabic text as editable composited metadata', () => {
@@ -116,6 +144,13 @@ describe('buildCreativeStudioPreviewModel', () => {
     expect(cta?.content.text).toBe('راجع المسار')
     expect(model.compositionPreview.artifact.svg).toContain('direction="rtl"')
     expect(model.compositionPreview.artifact.svg).toContain('unicode-bidi="plaintext"')
+    expect(model.controlledPath.map(step => step.label)).toEqual([
+      'معاينة مسودة الطبقات',
+      'تركيب أصل مراجعة لاحقًا',
+      'الربط النهائي من Content Hub',
+    ])
+    expect(JSON.stringify(model.controlledPath)).not.toContain('Draft layered preview')
+    expect(JSON.stringify(model.controlledPath)).not.toContain('Attach from Content Hub')
   })
 
   it('does not expose execution fields or final creative claims', () => {
@@ -159,6 +194,15 @@ describe('buildCreativeStudioPreviewModel', () => {
     expect(edited.editableLayers.find(layer => layer.role === 'headline')?.text).toBe('Make follow-up work feel calm')
     expect(edited.editableLayers.find(layer => layer.role === 'cta')?.text).toBe('Audit the workflow')
     expect(edited.editableLayers.find(layer => layer.role === 'logo_or_brand_name')?.text).toBe('ClinicFlow Ops')
+    expect(edited.decisionBrief.messageHierarchy.find(item => item.role === 'headline')?.value).toBe(
+      'Make follow-up work feel calm',
+    )
+    expect(edited.decisionBrief.messageHierarchy.find(item => item.role === 'cta')?.value).toBe(
+      'Audit the workflow',
+    )
+    expect(edited.decisionBrief.messageHierarchy.find(item => item.role === 'brand')?.value).toBe(
+      'ClinicFlow Ops',
+    )
     expect(edited.compositionPreview.artifact.svg).toContain('Make follow-up work feel calm')
     expect(edited.compositionPreview.artifact.svg).toContain('Audit the workflow')
     expect(edited.compositionPreview.artifact.svg).toContain('ClinicFlow')
@@ -192,5 +236,7 @@ describe('buildCreativeStudioPreviewModel', () => {
     expect(serialized).not.toContain('uploadAction')
     expect(serialized).not.toContain('attachAction')
     expect(serialized).not.toContain('publishAction')
+    expect(serialized).not.toContain('ready to launch')
+    expect(serialized).not.toContain('platform-ready')
   })
 })

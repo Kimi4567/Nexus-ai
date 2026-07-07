@@ -260,6 +260,16 @@ export default function CreativeBriefPage() {
     currentStepBody: isArabic
       ? 'تحديد متطلبات الأصول والاتجاه الإبداعي من الاستراتيجية.'
       : 'Define asset requirements and creative direction from the strategy.',
+    commandSummaryTitle: isArabic ? 'ملخص غرفة القرار الإبداعي' : 'Creative command summary',
+    commandSummaryBody: isArabic
+      ? 'لقطة تشغيلية لما تحتاجه الحملة الآن قبل أي توليد أو ربط وسائط.'
+      : 'An operating snapshot of what this campaign needs before any generation or media attachment.',
+    commandPosts: isArabic ? 'منشورات في الخطة' : 'posts in plan',
+    commandReadyMedia: isArabic ? 'جاهزة بصريًا للمراجعة' : 'visually ready for review',
+    commandNeedDecision: isArabic ? 'تحتاج قرار وسائط' : 'need media decision',
+    commandStudioCandidate: isArabic ? 'منشور المعاينة الحالي' : 'current studio candidate',
+    commandNoCandidate: isArabic ? 'بانتظار منشورات Content Hub' : 'waiting for Content Hub posts',
+    commandRecommendedMove: isArabic ? 'أفضل خطوة الآن' : 'best move now',
     costTitle: isArabic ? 'تكلفة الإجراء' : 'Action cost',
     costBody: isArabic
       ? `إنشاء أو تحليل الموجز يستهلك ${creditLabel}.`
@@ -353,6 +363,19 @@ export default function CreativeBriefPage() {
     studioLayerInventory: isArabic ? 'الطبقات القابلة للمراجعة' : 'Reviewable layers',
     studioQuality: isArabic ? 'فحص الجودة' : 'Quality checks',
     studioPath: isArabic ? 'مسار التنفيذ المقفول' : 'Controlled execution path',
+    studioDecisionTitle: isArabic ? 'قرار التصميم' : 'Creative decision',
+    studioDecisionSubtitle: isArabic
+      ? 'اقرأ الحكم التسويقي قبل تعديل الطبقات: ما الهدف، ما الرسالة، هل الخلفية والبراند جاهزان، وما الخطوة الصحيحة التالية؟'
+      : 'Read the marketing/design decision before editing layers: objective, message hierarchy, readiness, and the correct next step.',
+    studioDecisionObjective: isArabic ? 'هدف التصميم' : 'Design objective',
+    studioDecisionAudience: isArabic ? 'لحظة الجمهور' : 'Audience moment',
+    studioDecisionPlatform: isArabic ? 'ملاءمة المنصة' : 'Platform fit',
+    studioDecisionHierarchy: isArabic ? 'ترتيب الرسالة' : 'Message hierarchy',
+    studioDecisionReadiness: isArabic ? 'جاهزية المراجعة' : 'Review readiness',
+    studioDecisionNextAction: isArabic ? 'الخطوة الصحيحة التالية' : 'Correct next action',
+    studioDecisionQualitySignals: isArabic ? 'إشارات الجودة' : 'Quality signals',
+    studioDecisionScore: isArabic ? 'درجة' : 'score',
+    studioDecisionNoBlockers: isArabic ? 'لا توجد عوائق حرجة داخل هذه المعاينة.' : 'No critical blockers inside this preview.',
     studioBackgroundReady: isArabic ? 'الخلفية متاحة للمعاينة' : 'Background available for preview',
     studioBackgroundNeeded: isArabic ? 'الخلفية مطلوبة قبل أي render مستقبلي' : 'Background needed before future render',
     studioPreviewOnly: isArabic ? 'معاينة مؤقتة فقط' : 'Transient preview only',
@@ -824,6 +847,57 @@ export default function CreativeBriefPage() {
                 {copy.subtitle}
               </p>
             </div>
+            <div style={{
+              border: '1px solid #D7E3F0',
+              borderRadius: 18,
+              padding: '14px',
+              background: 'linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 100%)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ minWidth: 0, flex: '1 1 260px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 900, color: '#3730A3', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                    {copy.commandSummaryTitle}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: '#475569' }}>
+                    {copy.commandSummaryBody}
+                  </p>
+                </div>
+                <span style={{
+                  border: '1px solid #C7D2FE',
+                  background: '#FFFFFF',
+                  color: '#3730A3',
+                  borderRadius: 999,
+                  padding: '6px 10px',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {selectedStudioPreview
+                    ? `${copy.productionDeskPost} #${selectedStudioPreview.postNumber}`
+                    : copy.commandNoCandidate}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 9 }}>
+                {[
+                  { value: productionRows.length, label: copy.commandPosts, color: '#3730A3' },
+                  { value: Math.max(productionRows.length - productionRowsNeedingMedia, 0), label: copy.commandReadyMedia, color: '#047857' },
+                  { value: productionRowsNeedingMedia, label: copy.commandNeedDecision, color: '#B45309' },
+                ].map(item => (
+                  <div key={item.label} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: '9px 10px', background: '#FFFFFF' }}>
+                    <p style={{ margin: 0, fontSize: 20, fontWeight: 950, color: item.color, lineHeight: 1 }}>{item.value}</p>
+                    <p style={{ margin: '4px 0 0', fontSize: 10, lineHeight: 1.35, color: '#64748B', fontWeight: 850 }}>{item.label}</p>
+                  </div>
+                ))}
+                <div style={{ border: '1px solid #D1FAE5', borderRadius: 12, padding: '9px 10px', background: '#F0FDF4' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 900, color: '#047857', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                    {copy.commandRecommendedMove}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: '#065F46', fontWeight: 800 }}>
+                    {selectedStudioPreview?.decisionBrief.nextBestAction || copy.commandNoCandidate}
+                  </p>
+                </div>
+              </div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
               <SafetyNote title={copy.currentStep} body={copy.currentStepBody} accent="#4F46E5" />
               <SafetyNote title={copy.costTitle} body={copy.costBody} accent="#B45309" />
@@ -1239,6 +1313,158 @@ export default function CreativeBriefPage() {
                   </div>
 
                   <div style={{ display: 'grid', gap: 12, alignContent: 'start', minWidth: 0 }}>
+                    <div style={{
+                      border: '1px solid #BFD7EA',
+                      borderRadius: 16,
+                      padding: '14px',
+                      background: 'linear-gradient(180deg, #F8FBFF 0%, #FFFFFF 100%)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12, flexWrap: 'wrap' }}>
+                        <div style={{ minWidth: 0, flex: '1 1 240px' }}>
+                          <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 900, color: '#0F766E', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioDecisionTitle}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: '#475569' }}>
+                            {copy.studioDecisionSubtitle}
+                          </p>
+                        </div>
+                        <div style={{
+                          border: selectedStudioPreview.decisionBrief.readiness.status === 'review_ready' ? '1px solid #BBF7D0' : '1px solid #FED7AA',
+                          background: selectedStudioPreview.decisionBrief.readiness.status === 'review_ready' ? '#F0FDF4' : '#FFF7ED',
+                          color: selectedStudioPreview.decisionBrief.readiness.status === 'review_ready' ? '#15803D' : '#C2410C',
+                          borderRadius: 12,
+                          padding: '8px 10px',
+                          minWidth: 118,
+                          textAlign: 'center',
+                        }}>
+                          <p style={{ margin: 0, fontSize: 18, fontWeight: 950, lineHeight: 1 }}>
+                            {selectedStudioPreview.decisionBrief.readiness.score}
+                          </p>
+                          <p style={{ margin: '3px 0 0', fontSize: 9, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                            {copy.studioDecisionScore}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {[
+                          { label: copy.studioDecisionObjective, value: selectedStudioPreview.decisionBrief.creativeObjective },
+                          { label: copy.studioDecisionAudience, value: selectedStudioPreview.decisionBrief.audienceMoment },
+                          { label: copy.studioDecisionPlatform, value: selectedStudioPreview.decisionBrief.platformFit },
+                        ].map(item => (
+                          <div key={item.label} style={{
+                            border: '1px solid #E2E8F0',
+                            borderRadius: 12,
+                            padding: '9px 10px',
+                            background: '#FFFFFF',
+                          }}>
+                            <p style={{ margin: '0 0 3px', fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                              {item.label}
+                            </p>
+                            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: '#0F172A', fontWeight: 650 }}>
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
+
+                        <div style={{
+                          border: '1px solid #D1FAE5',
+                          borderRadius: 12,
+                          padding: '10px',
+                          background: '#F0FDF4',
+                        }}>
+                          <p style={{ margin: '0 0 5px', fontSize: 10, fontWeight: 900, color: '#047857', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioDecisionNextAction}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: '#065F46', fontWeight: 750 }}>
+                            {selectedStudioPreview.decisionBrief.nextBestAction}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p style={{ margin: '0 0 7px', fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioDecisionHierarchy}
+                          </p>
+                          <div style={{ display: 'grid', gap: 7 }}>
+                            {selectedStudioPreview.decisionBrief.messageHierarchy.map(item => (
+                              <div key={item.role} style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'minmax(92px, 128px) minmax(0, 1fr)',
+                                gap: 8,
+                                alignItems: 'start',
+                                border: '1px solid #E2E8F0',
+                                borderRadius: 12,
+                                padding: '8px 9px',
+                                background: '#FFFFFF',
+                              }}>
+                                <p style={{ margin: 0, fontSize: 10, lineHeight: 1.4, color: '#64748B', fontWeight: 900 }}>
+                                  {item.label}
+                                </p>
+                                <p style={{ margin: 0, fontSize: 11, lineHeight: 1.55, color: '#334155', fontWeight: 700 }}>
+                                  {item.value}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p style={{ margin: '0 0 7px', fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioDecisionReadiness}
+                          </p>
+                          <div style={{
+                            border: '1px solid #E2E8F0',
+                            borderRadius: 12,
+                            padding: '9px 10px',
+                            background: '#FFFFFF',
+                          }}>
+                            <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 900, color: '#0F172A' }}>
+                              {selectedStudioPreview.decisionBrief.readiness.label}
+                            </p>
+                            <div style={{ display: 'grid', gap: 5 }}>
+                              {(selectedStudioPreview.decisionBrief.readiness.blockers.length > 0
+                                ? selectedStudioPreview.decisionBrief.readiness.blockers
+                                : [copy.studioDecisionNoBlockers]
+                              ).map(blocker => (
+                                <p key={blocker} style={{ margin: 0, fontSize: 11, lineHeight: 1.5, color: '#64748B' }}>
+                                  {blocker}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p style={{ margin: '0 0 7px', fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioDecisionQualitySignals}
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 7 }}>
+                            {selectedStudioPreview.decisionBrief.qualitySignals.map(signal => (
+                              <div key={signal.id} style={{
+                                border: `1px solid ${signal.status === 'pass' ? '#BBF7D0' : '#FED7AA'}`,
+                                borderRadius: 12,
+                                padding: '8px 9px',
+                                background: signal.status === 'pass' ? '#F0FDF4' : '#FFF7ED',
+                              }}>
+                                <p style={{
+                                  margin: '0 0 4px',
+                                  fontSize: 11,
+                                  lineHeight: 1.35,
+                                  fontWeight: 900,
+                                  color: signal.status === 'pass' ? '#15803D' : '#C2410C',
+                                }}>
+                                  {signal.label}
+                                </p>
+                                <p style={{ margin: 0, fontSize: 10, lineHeight: 1.45, color: '#475569' }}>
+                                  {signal.detail}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div style={{
                       border: '1px solid #D8B4FE',
                       borderRadius: 16,
