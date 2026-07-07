@@ -1431,11 +1431,11 @@ function CampaignDetailPageInner() {
 
     if (!creativeBrief) {
       return {
-        title: locale === 'ar' ? 'افتح مخطط الموجز الإبداعي' : 'Open the creative brief planner',
+        title: locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open the creative brief planner',
         helper: locale === 'ar'
-          ? 'الموجز الإبداعي هو خطوة التنظيم قبل قرارات الصور والطبقات. يحدد احتياجات الأصول ولا يعتمد أو يجدول أو ينشر شيئاً.'
-          : 'The creative brief is the organizing step before image and layer decisions. It defines asset needs; it does not approve, schedule, or publish anything.',
-        cta: locale === 'ar' ? 'افتح مخطط الموجز' : 'Open brief planner',
+          ? 'مخطط الإبداع هو خطوة التنظيم قبل قرارات الصور والطبقات. يحدد احتياجات الأصول ولا يعتمد أو يجدول أو ينشر شيئاً.'
+          : 'The creative brief planner is the organizing step before image and layer decisions. It defines asset needs; it does not approve, schedule, or publish anything.',
+        cta: locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner',
         href: `/campaigns/${campaign.id}/creative-brief`,
       }
     }
@@ -1577,7 +1577,7 @@ function CampaignDetailPageInner() {
   const creativeOperatingSequence = [
     {
       step: '01',
-      title: uiText('الموجز الإبداعي', 'Creative brief'),
+      title: uiText('مخطط الإبداع', 'Creative brief planner'),
       helper: uiText('حدد اتجاه الصورة، احتياجات الأصول، والطبقات قبل أي توليد أو ربط.', 'Define visual direction, asset needs, and layers before any generation or attachment.'),
       status: creativeBrief ? 'complete' : 'current',
     },
@@ -3978,8 +3978,10 @@ function CampaignDetailPageInner() {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">🎨</span>
                       <div>
-                        <h3 className="text-base font-semibold text-purple-700">{cdT?.creativeBriefTitle || 'Creative Brief'}</h3>
-                        <p className="mt-0.5 text-xs text-slate-500">{cdT?.creativeBriefSubtitle || 'Plan art direction, asset needs, prompts, and production notes before creating assets.'}</p>
+                        <h3 className="text-base font-semibold text-purple-700">{cdT?.creativeBriefTitle || 'Creative brief planner'}</h3>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {cdT?.creativeBriefSubtitle || 'Turn the strategy into asset requirements and visual direction before image generation, media attachment, or publishing.'}
+                        </p>
                       </div>
                     </div>
                     {creativeBrief && (
@@ -3991,8 +3993,8 @@ function CampaignDetailPageInner() {
 
                   <p className="mb-4 rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 text-[11px] leading-5 text-purple-800">
                     {locale === 'ar'
-                      ? 'موجز الإبداع أداة تخطيط فقط. لا يعتمد المحتوى أو يجدوله أو ينشره، ولا يطلق حملات مدفوعة.'
-                      : 'The creative brief is a planning artifact only. It does not approve, schedule, publish, or launch paid campaigns.'}
+                      ? 'مخطط الإبداع أداة تخطيط فقط. لا يعتمد المحتوى أو يجدوله أو ينشره، ولا يطلق حملات مدفوعة.'
+                      : 'The creative brief planner is a planning artifact only. It does not approve, schedule, publish, or launch paid campaigns.'}
                   </p>
 
                   {/* Mode badges */}
@@ -4000,15 +4002,15 @@ function CampaignDetailPageInner() {
                     <div className="flex flex-1 items-center gap-2 rounded-xl border border-purple-100 bg-purple-50 px-3 py-2">
                       <span>🖼️</span>
                       <div>
-                        <p className="text-xs font-bold text-purple-700">{cdT?.creativeModeAssetLabel || 'User Asset Mode'}</p>
-                        <p className="text-xs text-slate-500">{cdT?.creativeModeAssetDesc || 'Use uploaded photos and logos when available'}</p>
+                        <p className="text-xs font-bold text-purple-700">{cdT?.creativeModeAssetLabel || 'Review uploaded assets'}</p>
+                        <p className="text-xs text-slate-500">{cdT?.creativeModeAssetDesc || 'Turn real photos or logos into review-ready creative direction'}</p>
                       </div>
                     </div>
                     <div className="flex flex-1 items-center gap-2 rounded-xl border border-pink-100 bg-pink-50 px-3 py-2">
                       <span>🤖</span>
                       <div>
-                        <p className="text-xs font-bold text-pink-700">{cdT?.creativeModeConceptLabel || 'AI Concept Mode'}</p>
-                        <p className="text-xs text-slate-500">{cdT?.creativeModeConceptDesc || 'Plan concept directions for review'}</p>
+                        <p className="text-xs font-bold text-pink-700">{cdT?.creativeModeConceptLabel || 'Review-only visual direction'}</p>
+                        <p className="text-xs text-slate-500">{cdT?.creativeModeConceptDesc || 'Plan concepts and production notes without creating a final asset'}</p>
                       </div>
                     </div>
                   </div>
@@ -4024,8 +4026,8 @@ function CampaignDetailPageInner() {
                   >
                     <span>🎨</span>
                     {creativeBrief
-                      ? (cdT?.openCreativeBriefBtn || 'View / Update Creative Brief')
-                      : (locale === 'ar' ? 'افتح مخطط الموجز الإبداعي' : 'Open Creative Brief Planner')
+                      ? (cdT?.openCreativeBriefBtn || 'Open creative brief planner')
+                      : (locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner')
                     }
                     <span className={creativeCanUsePostMediaFlow ? 'text-purple-300 text-xs' : 'text-purple-400 text-xs'}>↗</span>
                   </button>
@@ -4152,11 +4154,11 @@ function CampaignDetailPageInner() {
                       <p className="mx-auto mt-2 max-w-xl text-xs leading-5 text-slate-500">
                         {creativeHasPostRecords
                           ? (locale === 'ar'
-                            ? 'منشورات Content Hub موجودة بالفعل. افتح الموجز الإبداعي أولاً لتحديد احتياجات الأصول والطبقات قبل أي توليد مرئيات مفهومية. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
-                            : 'Content Hub posts already exist. Open the creative brief first to define asset and layer needs before any concept visual generation. This prevents credit spend or assets outside the campaign path.')
+                            ? 'منشورات Content Hub موجودة بالفعل. افتح مخطط الإبداع أولاً لتحديد احتياجات الأصول والطبقات قبل أي توليد مرئيات مفهومية. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
+                            : 'Content Hub posts already exist. Open the creative brief planner first to define asset and layer needs before any concept visual generation. This prevents credit spend or assets outside the campaign path.')
                           : (locale === 'ar'
-                            ? 'راجع الاستراتيجية وأنشئ منشورات Content Hub أولاً، ثم افتح الموجز الإبداعي قبل أي توليد مرئيات. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
-                            : 'Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation. This prevents credit spend or assets outside the campaign path.')}
+                            ? 'راجع الاستراتيجية وأنشئ منشورات Content Hub أولاً، ثم افتح مخطط الإبداع قبل أي توليد مرئيات. هذا يمنع صرف كريديت أو إنشاء أصول خارج مسار الحملة.'
+                            : 'Review the strategy and create Content Hub posts first, then open the creative brief planner before any visual generation. This prevents credit spend or assets outside the campaign path.')}
                       </p>
                     </div>
                   )}
