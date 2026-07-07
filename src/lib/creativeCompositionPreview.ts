@@ -156,10 +156,51 @@ function toPreviewLayer(
 }
 
 function textFontSize(layer: CreativeCompositionPreviewLayer): number {
-  if (layer.role === 'headline') return Math.max(28, Math.min(72, Math.round(layer.render.height * 0.36)))
-  if (layer.role === 'subheading') return Math.max(18, Math.min(36, Math.round(layer.render.height * 0.28)))
-  if (layer.role === 'cta') return Math.max(18, Math.min(34, Math.round(layer.render.height * 0.34)))
-  return Math.max(18, Math.min(32, Math.round(layer.render.height * 0.32)))
+  if (layer.role === 'headline') return Math.max(24, Math.min(48, Math.round(layer.render.height * 0.25)))
+  if (layer.role === 'subheading') return Math.max(16, Math.min(30, Math.round(layer.render.height * 0.22)))
+  if (layer.role === 'cta') return Math.max(16, Math.min(30, Math.round(layer.render.height * 0.28)))
+  if (layer.role === 'logo_or_brand_name') return Math.max(9, Math.min(11, Math.round(layer.render.height * 0.08)))
+  return Math.max(16, Math.min(28, Math.round(layer.render.height * 0.26)))
+}
+
+function wrapTextForLayer(text: string, layer: CreativeCompositionPreviewLayer, fontSize: number): string[] {
+  const availableWidth = Math.max(48, layer.render.width - Math.max(16, Math.round(layer.render.height * 0.18)) * 2)
+  const availableHeight = Math.max(fontSize, layer.render.height - Math.max(12, Math.round(layer.render.height * 0.12)) * 2)
+  const averageGlyphWidth = /[\u0600-\u06FF]/.test(text) ? fontSize * 0.58 : fontSize * 0.54
+  const maxCharsPerLine = Math.max(8, Math.floor(availableWidth / averageGlyphWidth))
+  const lineHeight = Math.max(fontSize + 4, Math.round(fontSize * 1.18))
+  const maxLines = Math.max(1, Math.floor(availableHeight / lineHeight))
+  const words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
+  const lines: string[] = []
+  let current = ''
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate
+      continue
+    }
+    if (current) lines.push(current)
+    current = word.length > maxCharsPerLine ? `${word.slice(0, Math.max(5, maxCharsPerLine - 3))}...` : word
+    if (lines.length >= maxLines) break
+  }
+
+  if (current && lines.length < maxLines) lines.push(current)
+
+  if (lines.length > maxLines) {
+    return lines.slice(0, maxLines)
+  }
+
+  const sourceLength = words.join(' ').length
+  const outputLength = lines.join(' ').replace(/\.\.\.$/, '').length
+  if (sourceLength > outputLength && lines.length) {
+    const last = lines[lines.length - 1]
+    lines[lines.length - 1] = last.length > maxCharsPerLine - 3
+      ? `${last.slice(0, Math.max(5, maxCharsPerLine - 3)).trim()}...`
+      : `${last.trim()}...`
+  }
+
+  return lines.length ? lines : [text.slice(0, maxCharsPerLine)]
 }
 
 function renderTextLayer(layer: CreativeCompositionPreviewLayer): string {
@@ -168,25 +209,38 @@ function renderTextLayer(layer: CreativeCompositionPreviewLayer): string {
 
   const padding = Math.max(12, Math.round(layer.render.height * 0.12))
   const fontSize = textFontSize(layer)
-  const isArabic = layer.content.language === 'ar' || /[\u0600-\u06FF]/.test(text)
-  const textX = isArabic ? layer.render.x + layer.render.width - padding : layer.render.x + padding
+  const lineHeight = Math.max(fontSize + 4, Math.round(fontSize * 1.18))
+  const isArabic = /[\u0600-\u06FF]/.test(text)
+  const textX = layer.render.x + Math.round(layer.render.width / 2)
   const textY = layer.render.y + padding + fontSize
-  const textAnchor = isArabic ? 'end' : 'start'
   const direction = isArabic ? 'rtl' : 'ltr'
   const fill = layer.role === 'cta' ? '#0f172a' : '#f8fafc'
   const backgroundFill = layer.role === 'cta' ? '#f8fafc' : 'rgba(15,23,42,0.72)'
+  const lines = wrapTextForLayer(text, layer, fontSize)
 
   return [
     `<rect x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" rx="18" fill="${backgroundFill}" />`,
-    `<text x="${textX}" y="${textY}" direction="${direction}" text-anchor="${textAnchor}" font-family="Inter, Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${fill}">`,
-    `<tspan>${escapeText(text)}</tspan>`,
+    `<text x="${textX}" y="${textY}" direction="${direction}" unicode-bidi="plaintext" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="${fill}">`,
+    ...lines.map((line, index) => (
+      `<tspan x="${textX}" dy="${index === 0 ? 0 : lineHeight}">${escapeText(line)}</tspan>`
+    )),
     '</text>',
+  ].join('')
+}
+
+function renderPlaceholderBackground(layer: CreativeCompositionPreviewLayer): string {
+  return [
+    `<rect x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" fill="#e2e8f0" />`,
+    `<rect x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" fill="#f8fafc" opacity="0.72" />`,
+    `<path d="M ${layer.render.x} ${layer.render.y + layer.render.height * 0.18} C ${layer.render.x + layer.render.width * 0.28} ${layer.render.y + layer.render.height * 0.08}, ${layer.render.x + layer.render.width * 0.68} ${layer.render.y + layer.render.height * 0.28}, ${layer.render.x + layer.render.width} ${layer.render.y + layer.render.height * 0.14} L ${layer.render.x + layer.render.width} ${layer.render.y} L ${layer.render.x} ${layer.render.y} Z" fill="#dbeafe" opacity="0.88" />`,
+    `<path d="M ${layer.render.x} ${layer.render.y + layer.render.height} L ${layer.render.x + layer.render.width} ${layer.render.y + layer.render.height} L ${layer.render.x + layer.render.width} ${layer.render.y + layer.render.height * 0.72} C ${layer.render.x + layer.render.width * 0.72} ${layer.render.y + layer.render.height * 0.82}, ${layer.render.x + layer.render.width * 0.32} ${layer.render.y + layer.render.height * 0.64}, ${layer.render.x} ${layer.render.y + layer.render.height * 0.78} Z" fill="#c7d2fe" opacity="0.52" />`,
+    `<circle cx="${layer.render.x + layer.render.width * 0.82}" cy="${layer.render.y + layer.render.height * 0.22}" r="${Math.min(layer.render.width, layer.render.height) * 0.08}" fill="#ffffff" opacity="0.7" />`,
   ].join('')
 }
 
 function renderImageLayer(layer: CreativeCompositionPreviewLayer): string {
   const url = layer.content.imageUrl
-  if (!url) return ''
+  if (!url) return layer.role === 'background' ? renderPlaceholderBackground(layer) : ''
   const preserveAspectRatio = layer.role === 'background' ? 'xMidYMid slice' : 'xMidYMid meet'
 
   return `<image href="${escapeAttribute(url)}" x="${layer.render.x}" y="${layer.render.y}" width="${layer.render.width}" height="${layer.render.height}" preserveAspectRatio="${preserveAspectRatio}" />`

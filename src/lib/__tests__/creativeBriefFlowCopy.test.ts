@@ -127,4 +127,23 @@ describe('creative brief flow copy', () => {
     expect(pageSource).not.toContain('Upload composed creative')
     expect(pageSource).not.toContain('Publish from Creative Studio')
   })
+
+  it('adds local-only Creative Studio draft controls without save or execution actions', () => {
+    expect(pageSource).toContain('Local draft controls')
+    expect(pageSource).toContain('Adjust headline, CTA, brand label, accent color, and layout balance inside this preview only')
+    expect(pageSource).toContain('Edits are not saved, uploaded, or applied to the post')
+    expect(pageSource).toContain('Reset local draft')
+    expect(pageSource).toContain('These are temporary in-browser edit controls only')
+    expect(pageSource).toContain("['#334155', '#0F766E', '#4F46E5', '#7C3AED', '#B45309']")
+    expect(pageSource).toContain('Use ${color} accent')
+    expect(pageSource).toContain('applyCreativeStudioDraftControls')
+    expect(pageSource).toContain('defaultCreativeStudioDraftControls')
+    expect(pageSource).toContain('studioDraftControlsByPostId')
+
+    expect(pageSource).not.toContain('Save draft creative')
+    expect(pageSource).not.toContain('Save Creative Studio draft')
+    expect(pageSource).not.toContain('Render from draft controls')
+    expect(pageSource).not.toContain('Attach edited draft')
+    expect(pageSource).not.toContain('Publish edited draft')
+  })
 })

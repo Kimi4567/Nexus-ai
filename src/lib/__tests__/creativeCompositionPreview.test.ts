@@ -149,7 +149,9 @@ describe('deriveCreativeCompositionPreview', () => {
     expect(brandLayer?.type).toBe('logo_or_brand_name')
     expect(brandLayer?.editable).toBe(true)
     expect(brandLayer?.content.text).toBe('Cairo Bloom Coffee')
-    expect(preview.artifact.svg).toContain('Cairo Bloom Coffee')
+    expect(preview.artifact.svg).toContain('Cairo')
+    expect(preview.artifact.svg).toContain('Bloom')
+    expect(preview.artifact.svg).toContain('Coffee')
     expectValidationPass(preview, 'logo_or_brand_name_fallback')
   })
 
@@ -171,8 +173,11 @@ describe('deriveCreativeCompositionPreview', () => {
     expect(headline?.content.text).toBe('قهوة صباحية أكثر اتساقًا <للفريق>')
     expect(headline?.content.renderMode).toBe('composited_text')
     expect(headline?.content.aiRenderedText).toBe(false)
-    expect(preview.artifact.svg).toContain('قهوة صباحية أكثر اتساقًا &lt;للفريق&gt;')
+    expect(preview.artifact.svg).toContain('قهوة صباحية أكثر اتساقًا')
+    expect(preview.artifact.svg).toContain('&lt;للفريق&gt;')
     expect(preview.artifact.svg).toContain('direction="rtl"')
+    expect(preview.artifact.svg).toContain('unicode-bidi="plaintext"')
+    expect(preview.artifact.svg).toContain('text-anchor="middle"')
     expectValidationPass(preview, 'arabic_text_remains_editable_metadata')
   })
 
@@ -186,7 +191,8 @@ describe('deriveCreativeCompositionPreview', () => {
       }),
     })
 
-    expect(preview.artifact.svg).toContain('Coffee &lt;script&gt;alert("x")&lt;/script&gt; &amp; safer breaks')
+    expect(preview.artifact.svg).toContain('Coffee')
+    expect(preview.artifact.svg).toContain('&lt;script&gt;alert("x")&lt;/script&gt;')
     expect(preview.artifact.svg).toContain('Review "options" &amp; plans')
     expect(preview.artifact.svg).not.toContain('<script>')
   })
@@ -262,5 +268,39 @@ describe('deriveCreativeCompositionPreview', () => {
       'logo_or_brand_name',
     ]))
     expect(preview.validations.every(validation => validation.passed)).toBe(true)
+  })
+
+  it('renders a professional placeholder background when no background image exists', () => {
+    const preview = deriveCreativeCompositionPreview({
+      plan: validPost3Plan({
+        backgroundImageUrl: null,
+        generatedVisualId: null,
+        uploadedMediaId: null,
+      }),
+    })
+
+    expect(preview.artifact.svg).toContain('fill="#e2e8f0"')
+    expect(preview.artifact.svg).toContain('fill="#dbeafe"')
+    expect(preview.artifact.svg).not.toContain('<rect width="1200" height="628" fill="#0f172a" /><rect x="0" y="0" width="1200" height="628" fill="none"')
+    expect(preview.artifact.persisted).toBe(false)
+    expect(preview.artifact.uploaded).toBe(false)
+  })
+
+  it('wraps long Arabic draft text inside SVG text layers', () => {
+    const preview = deriveCreativeCompositionPreview({
+      plan: validPost3Plan({
+        language: 'ar',
+        postCaption: 'هذا نص طويل جدًا لاختبار التفاف النص داخل المعاينة المؤقتة قبل أي رندر أو رفع أو إرفاق.',
+        creativeRequirement: {
+          headlineLayer: 'هذا عنوان عربي طويل جدًا يجب أن يلتف داخل مساحة النص الآمنة بدل أن يخرج من الكارت أو يظهر مكسورًا للمستخدم',
+          ctaLayer: 'راجع المسار الآن',
+        },
+      }),
+      options: { locale: 'ar' },
+    })
+
+    expect(preview.artifact.svg).toContain('direction="rtl"')
+    expect(preview.artifact.svg.match(/<tspan x=/g)?.length).toBeGreaterThan(2)
+    expect(preview.artifact.svg).not.toContain('هذا عنوان عربي طويل جدًا يجب أن يلتف داخل مساحة النص الآمنة بدل أن يخرج من الكارت أو يظهر مكسورًا للمستخدم</tspan>')
   })
 })
