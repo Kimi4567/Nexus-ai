@@ -63,6 +63,7 @@ export interface DeriveCampaignCommandFlowInput {
   includesPaidPlanning?: boolean
   hasCreativeBrief?: boolean
   currentStepId?: CampaignCommandFlowStepId
+  operatingSnapshotsLoaded?: boolean
 }
 
 function statusForBrand(score: number | null | undefined): CampaignCommandFlowStepStatus {
@@ -293,6 +294,112 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
   })
 }
 
+function deriveLoadingContentStateFlow(
+  input: DeriveCampaignCommandFlowInput,
+  scopeLabelEn: string,
+  scopeLabelAr: string,
+  brand: { en: string; ar: string },
+): CampaignCommandFlow {
+  return {
+    scopeLabelEn,
+    scopeLabelAr,
+    headlineEn: 'Campaign operating flow',
+    headlineAr: 'مسار تشغيل الحملة',
+    helperEn: 'One journey from Brand Brain to strategy, content, creative, approval, publishing readiness, and analytics-backed learning.',
+    helperAr: 'رحلة واحدة من Brand Brain إلى الاستراتيجية، المحتوى، الإبداع، الاعتماد، جاهزية النشر، ثم التعلم المدعوم بالتحليلات.',
+    boundaryEn: 'NEXUS is checking Content Hub records before deciding the next execution step. No generation, approval, scheduling, publishing, or learning action is implied.',
+    boundaryAr: 'يفحص NEXUS سجلات Content Hub قبل تحديد خطوة التنفيذ التالية. لا يعني ذلك توليداً أو اعتماداً أو جدولة أو نشراً أو تعلماً.',
+    nextAction: {
+      titleEn: 'Checking Content Hub state',
+      titleAr: 'جاري فحص حالة Content Hub',
+      helperEn: 'Post records are still loading, so NEXUS will not claim a content plan is missing or ready yet.',
+      helperAr: 'ما زالت سجلات المنشورات قيد التحميل، لذلك لن يعتبر NEXUS أن خطة المحتوى مفقودة أو جاهزة بعد.',
+      labelEn: 'Stay on this flow',
+      labelAr: 'ابقَ على هذا المسار',
+      href: '#campaign-operating-flow',
+    },
+    steps: [
+      {
+        id: 'brand',
+        status: statusForBrand(input.brandScore),
+        titleEn: 'Brand Brain',
+        titleAr: 'Brand Brain',
+        helperEn: 'Positioning, audience, tone, proof, assets, and constraints.',
+        helperAr: 'التموضع، الجمهور، النبرة، الإثباتات، الأصول، والقيود.',
+        metricEn: brand.en,
+        metricAr: brand.ar,
+        href: '/brand',
+      },
+      {
+        id: 'strategy',
+        status: strategyStatus(input.operatingState),
+        titleEn: 'Strategy',
+        titleAr: 'الاستراتيجية',
+        helperEn: 'The decision layer before production work.',
+        helperAr: 'طبقة القرار قبل أي عمل إنتاجي.',
+        metricEn: 'Strategy exists',
+        metricAr: 'الاستراتيجية موجودة',
+        href: `/campaigns/${input.campaignId}?tab=strategy`,
+      },
+      {
+        id: 'content',
+        status: 'pending',
+        titleEn: 'Content Hub',
+        titleAr: 'Content Hub',
+        helperEn: 'Post-level records are being checked before NEXUS shows the next step.',
+        helperAr: 'يتم فحص سجلات المنشورات قبل أن يعرض NEXUS الخطوة التالية.',
+        metricEn: 'Checking post records',
+        metricAr: 'جاري فحص سجلات المنشورات',
+        href: `/campaigns/${input.campaignId}/content-hub`,
+      },
+      {
+        id: 'creative',
+        status: 'pending',
+        titleEn: 'Creative',
+        titleAr: 'الإبداع',
+        helperEn: 'Creative readiness depends on real Content Hub post records.',
+        helperAr: 'جاهزية الإبداع تعتمد على سجلات منشورات حقيقية في Content Hub.',
+        metricEn: 'Waiting for post state',
+        metricAr: 'ينتظر حالة المنشورات',
+        href: `/campaigns/${input.campaignId}?tab=creative`,
+      },
+      {
+        id: 'approval',
+        status: 'pending',
+        titleEn: 'Approval',
+        titleAr: 'الاعتماد',
+        helperEn: 'Copy and media review starts after post records are known.',
+        helperAr: 'تبدأ مراجعة النص والوسائط بعد معرفة سجلات المنشورات.',
+        metricEn: 'Waiting for post state',
+        metricAr: 'ينتظر حالة المنشورات',
+        href: `/campaigns/${input.campaignId}/content-hub`,
+      },
+      {
+        id: 'publishing',
+        status: 'pending',
+        titleEn: 'Publishing readiness',
+        titleAr: 'جاهزية النشر',
+        helperEn: 'Publishing gates stay locked until post records and account state are known.',
+        helperAr: 'تبقى بوابات النشر مقفلة حتى تُعرف سجلات المنشورات وحالة الحسابات.',
+        metricEn: 'Checking readiness',
+        metricAr: 'جاري فحص الجاهزية',
+        href: `/campaigns/${input.campaignId}?tab=publish`,
+      },
+      {
+        id: 'performance',
+        status: 'pending',
+        titleEn: 'Performance learning',
+        titleAr: 'تعلم الأداء',
+        helperEn: 'Only real analytics can update performance learning.',
+        helperAr: 'التحليلات الحقيقية فقط يمكنها دعم تعلم الأداء.',
+        metricEn: 'Analytics pending',
+        metricAr: 'التحليلات قيد الانتظار',
+        href: `/campaigns/${input.campaignId}?tab=performance`,
+      },
+    ],
+  }
+}
+
 export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput): CampaignCommandFlow {
   const { operatingState, creativeSummary, publishSummary, brandScore } = input
   const brand = brandMetric(brandScore)
@@ -309,6 +416,10 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
     : includesPaid
       ? 'مسار استراتيجية شاملة'
       : 'مسار عضوي'
+
+  if (input.operatingSnapshotsLoaded === false && operatingState.truthFlags.hasStrategy) {
+    return deriveLoadingContentStateFlow(input, scopeLabelEn, scopeLabelAr, brand)
+  }
 
   return {
     scopeLabelEn,

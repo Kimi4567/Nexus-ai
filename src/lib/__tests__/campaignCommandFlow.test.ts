@@ -174,6 +174,40 @@ describe('deriveCampaignCommandFlow', () => {
     expect(flow.nextAction.labelEn).not.toBe('Open Creative')
   })
 
+  it('does not claim Content Hub is empty while post records are still loading', () => {
+    const flow = deriveCampaignCommandFlow({
+      campaignId: 'campaign-loading',
+      operatingState: makeOperatingState({
+        stage: 'strategy_review_needed',
+        counts: {
+          totalPosts: 0,
+          draftPosts: 0,
+          pendingGenerationPosts: 0,
+        },
+        truthFlags: {
+          hasContentPlan: false,
+          hasDraftContent: false,
+        },
+      }),
+      brandScore: 88,
+      operatingSnapshotsLoaded: false,
+      currentStepId: 'strategy',
+    })
+
+    const allCopy = [
+      flow.boundaryEn,
+      flow.nextAction.titleEn,
+      flow.nextAction.helperEn,
+      ...flow.steps.flatMap(step => [step.metricEn, step.helperEn]),
+    ].join(' ')
+
+    expect(flow.nextAction.titleEn).toBe('Checking Content Hub state')
+    expect(flow.nextAction.href).toBe('#campaign-operating-flow')
+    expect(flow.steps.find(step => step.id === 'content')?.metricEn).toBe('Checking post records')
+    expect(allCopy).not.toContain('No post plan yet')
+    expect(allCopy).not.toContain('Build content plan')
+  })
+
   it('does not convert manual publish records into analytics-backed learning', () => {
     const flow = deriveCampaignCommandFlow({
       campaignId: 'mixed-campaign',
