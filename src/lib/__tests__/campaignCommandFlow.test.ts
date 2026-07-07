@@ -152,6 +152,28 @@ describe('deriveCampaignCommandFlow', () => {
     expect(flow.boundaryEn).toContain('explicit gate')
   })
 
+  it('turns the next action into an in-place instruction when the user is already on Creative', () => {
+    const flow = deriveCampaignCommandFlow({
+      campaignId: 'campaign-creative',
+      operatingState: makeOperatingState(),
+      creativeSummary: {
+        total: 8,
+        mediaNeeded: 7,
+        readinessPending: 0,
+        attachedToPost: 0,
+      },
+      brandScore: 86,
+      hasCreativeBrief: false,
+      currentStepId: 'creative',
+    })
+
+    expect(flow.nextAction.titleEn).toBe('Continue here: resolve creative readiness')
+    expect(flow.nextAction.labelEn).toBe('Review creative actions below')
+    expect(flow.nextAction.href).toBe('#campaign-creative-work')
+    expect(flow.nextAction.titleEn).not.toBe('Resolve creative and media readiness')
+    expect(flow.nextAction.labelEn).not.toBe('Open Creative')
+  })
+
   it('does not convert manual publish records into analytics-backed learning', () => {
     const flow = deriveCampaignCommandFlow({
       campaignId: 'mixed-campaign',
