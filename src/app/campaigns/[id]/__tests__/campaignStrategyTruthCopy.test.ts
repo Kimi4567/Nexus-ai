@@ -219,6 +219,21 @@ describe('Campaign Room strategy truth copy', () => {
     expect(campaignRoomSource).not.toContain('StrategyDocList ordered locale={locale} items={audienceSegments')
   })
 
+  it('keeps the strategy command center in the user interface language', () => {
+    expect(campaignRoomSource).toContain('const uiText = (ar: string, en: string): string => uiIsArabic ? ar : en')
+    expect(campaignRoomSource).toContain("uiText('مركز قيادة الاستراتيجية', 'Strategy command center')")
+    expect(campaignRoomSource).toContain('strategyGuidanceCopy.brief')
+    expect(campaignRoomSource).toContain('strategyRoomStateCopy.nextDecision')
+    expect(campaignRoomSource).toContain("uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')")
+    expect(campaignRoomSource).toContain("uiText('مسار التشغيل التالي', 'Next operating path')")
+    expect(campaignRoomSource).toContain("uiText('اتبع هذا الترتيب: محتوى، إبداع، ثم جاهزية المنصات.', 'Follow this order: content, creative, then platform readiness.')")
+    expect(campaignRoomSource).toContain('strategyRoomStateCopy.contentHubCta')
+    expect(campaignRoomSource).toContain('strategyRoomStateCopy.organicPlanValue')
+    expect(campaignRoomSource).toContain('locale={locale}')
+    expect(campaignRoomSource).not.toContain("strategyDocText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')")
+    expect(campaignRoomSource).not.toContain("strategyDocText('مسار التشغيل التالي', 'Next operating path')")
+  })
+
   it('keeps the global AI presence bar localized on Arabic campaign pages', () => {
     expect(aiPresenceBarSource).toContain('current.messageAr')
     expect(aiPresenceBarSource).toContain("locale === 'ar'")
