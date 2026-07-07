@@ -333,7 +333,7 @@ export default function NewPaidCampaignPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[14px]">⚡</span>
-                    <span className="text-[13px] font-bold text-slate-950">Let AI Plan This</span>
+                    <span className="text-[13px] font-bold text-slate-950">Suggest draft settings</span>
                     <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{ background: '#ede9fe', color: '#6d28d9' }}>FREE</span>
                   </div>
@@ -356,7 +356,7 @@ export default function NewPaidCampaignPage() {
                       <span className="w-3.5 h-3.5 border-2 border-slate-300 border-t-slate-500 rounded-full animate-spin inline-block" />
                       Planning...
                     </span>
-                  ) : 'AI Suggest →'}
+                  ) : 'Suggest draft settings →'}
                 </button>
               </div>
             </div>
@@ -494,7 +494,7 @@ export default function NewPaidCampaignPage() {
             {data.aiSuggested && data.aiSuggestionRationale && (
               <div className="mb-4 p-3 rounded-xl text-[11px]"
                 style={{ background: '#faf5ff', border: '1px solid rgba(109,40,217,0.2)' }}>
-                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ AI Suggestion: </span>
+                <span className="font-bold" style={{ color: '#6d28d9' }}>⚡ Draft suggestion: </span>
                 <span className="text-slate-500">{data.aiSuggestionRationale}</span>
               </div>
             )}

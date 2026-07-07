@@ -218,7 +218,7 @@ Respond ONLY with a valid JSON array. No preamble, no markdown fences, no explan
       retargeting: 'Re-engage warm / past visitors',
     }
 
-    const userPrompt = `Write 3 high-converting ${platform.toUpperCase()} ${FORMAT_LABELS[format]} ad copy variants for:
+    const userPrompt = `Write 3 conversion-focused ${platform.toUpperCase()} ${FORMAT_LABELS[format]} ad copy variants for review:
 
 OFFER: ${offer}
 OBJECTIVE: ${objectiveLabel[objective]}
@@ -309,8 +309,8 @@ Return ONLY this JSON array, nothing else:
                 </h1>
                 <p className="text-sm text-text-muted">
                   {locale === 'ar'
-                    ? 'اكتب إعلانات مدفوعة عالية التحويل في ثوانٍ'
-                    : 'High-converting paid ad copy — launch-ready in seconds'}
+                    ? 'مسودات إعلانات مدفوعة للمراجعة — بدون إطلاق من هذه الصفحة'
+                    : 'Paid ad copy drafts for review — no launch from this lab'}
                 </p>
               </div>
             </div>
@@ -449,8 +449,8 @@ Return ONLY this JSON array, nothing else:
                   </h3>
                   <p className="text-sm text-text-muted max-w-xs">
                     {locale === 'ar'
-                      ? 'اختر المنصة والهدف، اكتب عرضك، واحصل على 3 نسخ جاهزة للنشر'
-                      : 'Choose platform & objective, describe your offer, get 3 launch-ready variants'}
+                      ? 'اختر المنصة والهدف، اكتب عرضك، واحصل على 3 نسخ جاهزة للمراجعة'
+                      : 'Choose platform & objective, describe your offer, get 3 review-ready variants'}
                   </p>
                 </div>
               )}
@@ -467,10 +467,10 @@ Return ONLY this JSON array, nothing else:
                     </div>
                   </div>
                   <p className="text-sm font-medium text-text-primary">
-                    {locale === 'ar' ? 'VEX يكتب نسخاً عالية التحويل...' : 'VEX crafting high-converting copy...'}
+                    {locale === 'ar' ? 'VEX يكتب مسودات إعلانية للمراجعة...' : 'VEX drafting paid copy for review...'}
                   </p>
                   <p className="text-xs text-text-muted mt-1">
-                    {locale === 'ar' ? '3 نسخ · زوايا مختلفة · جاهزة للإطلاق' : '3 variants · 3 different angles · ready to launch'}
+                    {locale === 'ar' ? '3 نسخ · زوايا مختلفة · جاهزة للمراجعة' : '3 variants · 3 different angles · ready for review'}
                   </p>
                 </div>
               )}

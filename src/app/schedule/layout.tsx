@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Schedule — Nexus AI',
-  description: 'Schedule and automate your content publishing across Instagram, TikTok, Facebook, LinkedIn, and YouTube.',
+  description: 'Review scheduled content and publishing readiness across connected channels. Publishing requires an explicit ready path and confirmation.',
   robots: { index: false, follow: false },
 }
 

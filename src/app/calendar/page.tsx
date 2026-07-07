@@ -1074,9 +1074,9 @@ function CalendarPageInner() {
               ))}
             </div>
 
-            {/* Honest scope note (PR7): this queue is the auto-publish surface only. */}
+            {/* Honest scope note: scheduling is separate from publishing execution. */}
             <div className="rounded-xl px-4 py-3 mb-6 text-xs text-slate-500" style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
-              {scT?.queueManualNote as string || 'This queue shows posts NEXUS publishes automatically through a connected account. Posts you publish by hand are tracked in the Content Hub, marked “Published manually”.'}
+              {scT?.queueManualNote as string || 'This queue tracks scheduled content. Manual publishing and connected-API publishing are reviewed separately before any platform action.'}
             </div>
 
             {/* No integrations warning */}

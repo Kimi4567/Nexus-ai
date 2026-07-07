@@ -137,7 +137,7 @@ Price Point: ${brandProfile.pricePoint}
 Target Audience: ${brandProfile.targetAudience}
 Brand Tone: ${(brandProfile.toneKeywords || []).join(', ')}
 Unique Advantages: ${(brandProfile.uniqueAdvantages || []).join(', ')}
-Winning Hooks (REUSE these angles): ${(brandProfile.winningHooks || []).slice(0, 5).join(' | ')}
+Reviewed Hook Signals (use only as brand-aligned inspiration): ${(brandProfile.winningHooks || []).slice(0, 5).join(' | ')}
 FAILED Angles (NEVER use): ${(brandProfile.failedAngles || []).slice(0, 3).join(', ')}
 AI Strategy Context: ${JSON.stringify(campaign.aiStrategy || {}).slice(0, 1000)}` : 'No brand profile.'
 
@@ -146,13 +146,13 @@ AI Strategy Context: ${JSON.stringify(campaign.aiStrategy || {}).slice(0, 1000)}
       ? `\nCampaign Positioning: ${JSON.stringify((campaign.aiStrategy as Record<string, unknown>).positioning || {})}`
       : ''
 
-    const systemPrompt = `You are an elite direct-response copywriter who has written winning ads for $50M+ in ad spend.
-Your copy converts. Every word earns its place. You understand platform-native formats deeply.
+    const systemPrompt = `You are an experienced direct-response copywriter preparing paid ad drafts for review.
+Your copy is specific, platform-aware, and operationally clear. Do not imply proven performance, winning status, live launch, or approved spend.
 
 ${langInstruction}
 
 Output ONLY valid JSON. The copy must be SPECIFIC to this brand — never generic.
-Use the winning hooks as inspiration. Never use the failed angles.`
+Use reviewed hook signals as inspiration. Never use the failed angles.`
 
     const userPrompt = `Campaign: "${campaign.name}"
 Platform: ${platform}
@@ -163,7 +163,7 @@ Daily Budget: ${campaign.currency} ${campaign.dailyBudget || 50}
 ${brandCtx}
 ${strategyCtx}
 
-Generate 5 high-converting ad copy variants in JSON:
+Generate 5 conversion-focused ad copy drafts for review in JSON:
 {
   "variants": [
     {

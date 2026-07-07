@@ -68,7 +68,7 @@ Nexus is an AI-powered marketing operating system. Here's what it can do:
 
 **Campaign Detail**: After creating a campaign, users can see: Strategy tab (AI-generated plan), Visuals tab (AI images + video concepts), Calendar tab (scheduled posts), Publish tab (social media connections), Content Pack (ready-to-use content), Execution Package (full briefing doc), Sentinel Review (competitor analysis).
 
-**Connections** (/connections): Connect Meta (Facebook/Instagram), TikTok, LinkedIn social accounts to publish directly.
+**Connections** (/connections): Connect Meta (Facebook/Instagram), TikTok, and LinkedIn account context for readiness review. Connections do not publish or spend by themselves; publishing or paid execution requires a ready reviewed path and explicit confirmation.
 
 **Calendar** (/calendar): See all scheduled posts across campaigns in a monthly view.
 
