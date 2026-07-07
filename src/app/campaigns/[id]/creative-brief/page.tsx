@@ -115,6 +115,10 @@ interface ContentPlanPost {
   status?: string | null
 }
 
+type CreativeBriefStepId = 'overview' | 'assets' | 'production' | 'studio' | 'brief'
+
+const CREATIVE_BRIEF_STEP_IDS: CreativeBriefStepId[] = ['overview', 'assets', 'production', 'studio', 'brief']
+
 // ─── Utility Components ───────────────────────────────────────────────────────
 
 function CopyButton({ text }: { text: string }) {
@@ -228,6 +232,7 @@ export default function CreativeBriefPage() {
   const [selectedStudioPostId, setSelectedStudioPostId] = useState<string | null>(null)
   const [studioDraftControlsByPostId, setStudioDraftControlsByPostId] = useState<Record<string, CreativeStudioDraftControls>>({})
   const [confirmedReviewOnly, setConfirmedReviewOnly] = useState(false)
+  const [activeStep, setActiveStep] = useState<CreativeBriefStepId>('overview')
   const [fetching, setFetching] = useState(true)
   const [refreshingAssets, setRefreshingAssets] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -260,6 +265,36 @@ export default function CreativeBriefPage() {
     currentStepBody: isArabic
       ? 'تحديد متطلبات الأصول والاتجاه الإبداعي من الاستراتيجية.'
       : 'Define asset requirements and creative direction from the strategy.',
+    workflowTitle: isArabic ? 'مسار مخطط الإبداع' : 'Creative brief workflow',
+    workflowBody: isArabic
+      ? 'كل خطوة تعرض قرارًا واحدًا واضحًا ثم تنقلك للخطوة التالية. لا يوجد حفظ أو توليد أو ربط وسائط إلا من خطوة التأكيد وبموافقة صريحة.'
+      : 'Each step focuses on one decision and then moves you forward. Nothing is saved, generated, or attached unless the confirmation step is explicitly approved.',
+    workflowMapTitle: isArabic ? 'خريطة العمل' : 'Workflow map',
+    workflowCurrent: isArabic ? 'أنت هنا' : 'You are here',
+    stepOverviewTitle: isArabic ? 'نظرة تشغيلية' : 'Operating overview',
+    stepOverviewBody: isArabic
+      ? 'ابدأ من ملخص الحالة: ماذا نحتاج، ما الجاهز، وما الخطوة الصحيحة الآن.'
+      : 'Start with the operating snapshot: what is needed, what is ready, and the correct next move.',
+    stepAssetsTitle: isArabic ? 'الأصول والمدخلات' : 'Assets and inputs',
+    stepAssetsBody: isArabic
+      ? 'راجع طريقة التخطيط، متطلبات الاستراتيجية، والأصول المتاحة قبل أي استهلاك رصيد.'
+      : 'Review the planning mode, strategy requirements, and available assets before any credit-spending action.',
+    stepProductionTitle: isArabic ? 'إنتاج المنشورات' : 'Post production',
+    stepProductionBody: isArabic
+      ? 'حوّل كل منشور إلى احتياج إنتاج واضح: منصة، أصل مطلوب، طبقات، وخطوة تالية.'
+      : 'Translate every post into a clear production need: platform, asset requirement, layers, and next step.',
+    stepStudioTitle: isArabic ? 'مسودة الاستوديو' : 'Studio draft',
+    stepStudioBody: isArabic
+      ? 'راجع مسودة تركيب قابلة للتعديل داخل المتصفح فقط. لا حفظ، لا رفع، لا ربط تلقائي.'
+      : 'Review an editable in-browser composition draft only. No saving, upload, or automatic attachment.',
+    stepBriefTitle: isArabic ? 'الموجز والتأكيد' : 'Brief and confirmation',
+    stepBriefBody: isArabic
+      ? 'أنشئ أو راجع الموجز الإبداعي فقط بعد فهم التكلفة والحدود. هذه خطوة اختيارية ومؤكدة.'
+      : 'Create or review the creative brief only after the cost and boundaries are understood. This is optional and explicit.',
+    previousStep: isArabic ? 'الخطوة السابقة' : 'Previous step',
+    nextStepButton: isArabic ? 'الخطوة التالية' : 'Next step',
+    openStep: isArabic ? 'افتح الخطوة' : 'Open step',
+    finishWorkflow: isArabic ? 'إنهاء المراجعة' : 'Finish review',
     commandSummaryTitle: isArabic ? 'ملخص غرفة القرار الإبداعي' : 'Creative command summary',
     commandSummaryBody: isArabic
       ? 'لقطة تشغيلية لما تحتاجه الحملة الآن قبل أي توليد أو ربط وسائط.'
@@ -291,6 +326,10 @@ export default function CreativeBriefPage() {
     conceptModeDesc: isArabic
       ? 'أنشئ اتجاهًا بصريًا وملاحظات إنتاج بدون توليد صورة نهائية.'
       : 'Create visual direction and production notes without generating final imagery.',
+    conceptPathTitle: isArabic ? 'مسار الاتجاه المفاهيمي' : 'Concept direction path',
+    conceptPathBody: isArabic
+      ? 'استخدم هذا المسار عندما لا توجد أصول حقيقية جاهزة. NEXUS يحوّل الاستراتيجية إلى اتجاه بصري وملاحظات إنتاج للمراجعة فقط، ثم تؤكد الإجراء في خطوة الموجز.'
+      : 'Use this path when real assets are not ready yet. NEXUS turns the strategy into review-only visual direction and production notes, then you confirm the action in the brief step.',
     requirementsTitle: isArabic ? 'متطلبات الأصول من الاستراتيجية' : 'Strategy asset requirements',
     requirementsIntro: isArabic
       ? 'هذه الأصول مطلوبة قبل التنفيذ. ارفعها في مكتبة الوسائط، ثم ارجع هنا لتحليلها كموجز مراجعة.'
@@ -535,6 +574,31 @@ export default function CreativeBriefPage() {
     loadData().finally(() => setFetching(false))
   }, [loading, isAuthenticated, loadData, router])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const syncStepFromUrl = () => {
+      const stepParam = new URLSearchParams(window.location.search).get('step')
+      if (CREATIVE_BRIEF_STEP_IDS.includes(stepParam as CreativeBriefStepId)) {
+        setActiveStep(stepParam as CreativeBriefStepId)
+      }
+    }
+
+    syncStepFromUrl()
+    window.addEventListener('popstate', syncStepFromUrl)
+    return () => window.removeEventListener('popstate', syncStepFromUrl)
+  }, [])
+
+  const goToCreativeStep = (step: CreativeBriefStepId) => {
+    setActiveStep(step)
+    if (typeof window === 'undefined') return
+
+    const url = new URL(window.location.href)
+    url.searchParams.set('step', step)
+    window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   // ── Generate ──
   const handleGenerate = async () => {
     const token = authHeader()
@@ -775,6 +839,59 @@ export default function CreativeBriefPage() {
         ? copy.waitingForSelectionBody
         : copy.emptyAssetBody
     : copy.emptyConceptBody
+  const workflowSteps: Array<{
+    id: CreativeBriefStepId
+    title: string
+    body: string
+    signal: string
+    accent: string
+  }> = [
+    {
+      id: 'overview',
+      title: copy.stepOverviewTitle,
+      body: copy.stepOverviewBody,
+      signal: selectedStudioPreview?.decisionBrief.nextBestAction || copy.commandNoCandidate,
+      accent: '#4F46E5',
+    },
+    {
+      id: 'assets',
+      title: copy.stepAssetsTitle,
+      body: copy.stepAssetsBody,
+      signal: mediaItems.length > 0
+        ? `${mediaItems.length} ${copy.inWorkspace}`
+        : copy.waitingForAssetsTitle,
+      accent: '#0F766E',
+    },
+    {
+      id: 'production',
+      title: copy.stepProductionTitle,
+      body: copy.stepProductionBody,
+      signal: `${productionRows.length} ${copy.productionDeskStatsPosts} · ${productionRowsNeedingMedia} ${copy.productionDeskStatsNeedMedia}`,
+      accent: '#B45309',
+    },
+    {
+      id: 'studio',
+      title: copy.stepStudioTitle,
+      body: copy.stepStudioBody,
+      signal: selectedStudioPreview
+        ? `${copy.productionDeskPost} #${selectedStudioPreview.postNumber}`
+        : copy.studioEmptyTitle,
+      accent: '#7C3AED',
+    },
+    {
+      id: 'brief',
+      title: copy.stepBriefTitle,
+      body: copy.stepBriefBody,
+      signal: creativeBrief
+        ? `${copy.lastGenerated}: ${new Date(creativeBrief.generatedAt).toLocaleDateString()}`
+        : creditLabel,
+      accent: '#DB2777',
+    },
+  ]
+  const activeStepIndex = Math.max(CREATIVE_BRIEF_STEP_IDS.indexOf(activeStep), 0)
+  const previousWorkflowStep = activeStepIndex > 0 ? CREATIVE_BRIEF_STEP_IDS[activeStepIndex - 1] : null
+  const nextWorkflowStep = activeStepIndex < CREATIVE_BRIEF_STEP_IDS.length - 1 ? CREATIVE_BRIEF_STEP_IDS[activeStepIndex + 1] : null
+  const activeWorkflowStep = workflowSteps.find(step => step.id === activeStep) || workflowSteps[0]
   return (
     <>
     <div dir={dir} style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -825,7 +942,12 @@ export default function CreativeBriefPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1040, margin: '0 auto', padding: '28px 20px 36px' }}>
+      <div style={{
+        width: '100%',
+        maxWidth: 1560,
+        margin: '0 auto',
+        padding: '28px clamp(16px, 3vw, 40px) 36px',
+      }}>
 
         <div style={{
           background: '#fff',
@@ -899,11 +1021,97 @@ export default function CreativeBriefPage() {
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
-              <SafetyNote title={copy.currentStep} body={copy.currentStepBody} accent="#4F46E5" />
+              <SafetyNote title={`${copy.currentStep}: ${activeWorkflowStep.title}`} body={activeWorkflowStep.body} accent="#4F46E5" />
               <SafetyNote title={copy.costTitle} body={copy.costBody} accent="#B45309" />
               <SafetyNote title={copy.boundaryTitle} body={copy.boundaryBody} accent="#0F766E" />
               <SafetyNote title={copy.contentHubTitle} body={copy.contentHubBody} accent="#7C3AED" />
             </div>
+          </div>
+        </div>
+
+        <div className="no-print" style={{
+          border: '1px solid #D7E3F0',
+          borderRadius: 22,
+          background: '#FFFFFF',
+          padding: '18px',
+          marginBottom: 22,
+          boxShadow: '0 14px 34px rgba(15,23,42,0.05)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ minWidth: 0, flex: '1 1 340px' }}>
+              <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 900, color: '#4F46E5', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                {copy.workflowTitle}
+              </p>
+              <h3 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: '#0F172A', lineHeight: 1.2 }}>
+                {activeWorkflowStep.title}
+              </h3>
+              <p style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.75, color: '#475569', maxWidth: 860 }}>
+                {copy.workflowBody}
+              </p>
+            </div>
+            <div style={{
+              border: `1px solid ${activeWorkflowStep.accent}40`,
+              background: `${activeWorkflowStep.accent}0D`,
+              color: activeWorkflowStep.accent,
+              borderRadius: 16,
+              padding: '10px 12px',
+              minWidth: 210,
+            }}>
+              <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 950, textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                {copy.workflowCurrent}
+              </p>
+              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, fontWeight: 850 }}>
+                {activeWorkflowStep.signal}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+            {workflowSteps.map((step, index) => {
+              const selected = step.id === activeStep
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => goToCreativeStep(step.id)}
+                  style={{
+                    minHeight: 118,
+                    textAlign: 'start',
+                    border: selected ? `2px solid ${step.accent}` : '1px solid #E2E8F0',
+                    background: selected ? `${step.accent}0D` : '#F8FAFC',
+                    borderRadius: 16,
+                    padding: '13px 14px',
+                    cursor: 'pointer',
+                    display: 'grid',
+                    alignContent: 'start',
+                    gap: 7,
+                    boxShadow: selected ? `0 12px 24px ${step.accent}14` : 'none',
+                  }}
+                >
+                  <span style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: selected ? step.accent : '#FFFFFF',
+                    color: selected ? '#FFFFFF' : step.accent,
+                    border: `1px solid ${step.accent}30`,
+                    fontSize: 11,
+                    fontWeight: 950,
+                  }}>
+                    {index + 1}
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color: selected ? step.accent : '#0F172A', lineHeight: 1.25 }}>
+                    {step.title}
+                  </span>
+                  <span style={{ fontSize: 11, color: '#64748B', lineHeight: 1.5 }}>
+                    {step.body}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -920,7 +1128,137 @@ export default function CreativeBriefPage() {
           </div>
         )}
 
+        {activeStep === 'overview' && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
+            gap: 18,
+            alignItems: 'stretch',
+            marginBottom: 24,
+          }}>
+            <div style={{
+              border: '1px solid #D7E3F0',
+              borderRadius: 22,
+              background: '#FFFFFF',
+              padding: '20px',
+              boxShadow: '0 16px 38px rgba(15,23,42,0.05)',
+            }}>
+              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 950, color: '#4F46E5', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                {copy.workflowMapTitle}
+              </p>
+              <h3 style={{ margin: 0, fontSize: 24, lineHeight: 1.2, fontWeight: 950, color: '#0F172A' }}>
+                {copy.stepOverviewTitle}
+              </h3>
+              <p style={{ margin: '10px 0 18px', fontSize: 14, lineHeight: 1.85, color: '#475569', maxWidth: 980 }}>
+                {copy.stepOverviewBody}
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+                {workflowSteps.slice(1).map(step => (
+                  <div key={step.id} style={{
+                    border: `1px solid ${step.accent}24`,
+                    borderRadius: 16,
+                    background: `${step.accent}08`,
+                    padding: '14px',
+                    minHeight: 142,
+                    display: 'grid',
+                    alignContent: 'space-between',
+                    gap: 12,
+                  }}>
+                    <div>
+                      <p style={{ margin: '0 0 5px', fontSize: 14, fontWeight: 900, color: step.accent }}>
+                        {step.title}
+                      </p>
+                      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: '#475569' }}>
+                        {step.body}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => goToCreativeStep(step.id)}
+                      style={{
+                        justifySelf: 'start',
+                        border: `1px solid ${step.accent}40`,
+                        background: '#FFFFFF',
+                        color: step.accent,
+                        borderRadius: 10,
+                        padding: '8px 10px',
+                        fontSize: 11,
+                        fontWeight: 900,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {copy.openStep}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{
+              border: '1px solid #D1FAE5',
+              borderRadius: 22,
+              background: 'linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%)',
+              padding: '20px',
+              boxShadow: '0 16px 38px rgba(15,23,42,0.04)',
+              display: 'grid',
+              alignContent: 'start',
+              gap: 14,
+            }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 950, color: '#047857', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                {copy.commandRecommendedMove}
+              </p>
+              <p style={{ margin: 0, fontSize: 20, lineHeight: 1.35, color: '#064E3B', fontWeight: 950 }}>
+                {selectedStudioPreview?.decisionBrief.nextBestAction || copy.commandNoCandidate}
+              </p>
+              <div style={{ display: 'grid', gap: 9 }}>
+                {[
+                  { value: productionRows.length, label: copy.commandPosts, color: '#3730A3' },
+                  { value: Math.max(productionRows.length - productionRowsNeedingMedia, 0), label: copy.commandReadyMedia, color: '#047857' },
+                  { value: productionRowsNeedingMedia, label: copy.commandNeedDecision, color: '#B45309' },
+                  { value: mediaItems.length, label: copy.productionDeskStatsAssets, color: '#4F46E5' },
+                ].map(item => (
+                  <div key={item.label} style={{
+                    display: 'grid',
+                    gridTemplateColumns: '54px minmax(0, 1fr)',
+                    gap: 10,
+                    alignItems: 'center',
+                    border: '1px solid #E2E8F0',
+                    background: '#FFFFFF',
+                    borderRadius: 14,
+                    padding: '10px',
+                  }}>
+                    <p style={{ margin: 0, fontSize: 24, fontWeight: 950, lineHeight: 1, color: item.color }}>
+                      {item.value}
+                    </p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#475569', fontWeight: 850, lineHeight: 1.35 }}>
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => goToCreativeStep('assets')}
+                style={{
+                  border: 'none',
+                  background: '#047857',
+                  color: '#FFFFFF',
+                  borderRadius: 12,
+                  padding: '12px 14px',
+                  fontSize: 13,
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  marginTop: 4,
+                }}
+              >
+                {copy.nextStepButton}: {copy.stepAssetsTitle}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Mode Selector ── */}
+        {activeStep === 'assets' && (
         <div className="no-print" style={{ marginBottom: 28 }}>
           <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#374151' }}>{copy.modeLabel}</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
@@ -959,10 +1297,12 @@ export default function CreativeBriefPage() {
             ))}
           </div>
         </div>
+        )}
 
         {/* ── Asset Mode Controls ── */}
-        {mode === 'asset' && !generating && (
+        {!generating && (activeStep === 'assets' || activeStep === 'production' || activeStep === 'studio') && (
           <div className="no-print">
+            {activeStep === 'assets' && mode === 'asset' && (
             <div style={{
               background: '#FFFFFF',
               border: '1px solid #E0E7FF',
@@ -1058,8 +1398,63 @@ export default function CreativeBriefPage() {
                 {copy.mediaLibraryBoundary}
               </p>
             </div>
+            )}
+
+            {activeStep === 'assets' && mode === 'concept' && (
+              <div style={{
+                background: '#FFFFFF',
+                border: '1px solid #F0ABFC',
+                borderRadius: 18,
+                padding: '18px',
+                marginBottom: 22,
+                boxShadow: '0 14px 35px rgba(217,70,239,0.06)',
+              }}>
+                <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 900, color: '#A21CAF' }}>
+                  {copy.conceptPathTitle}
+                </p>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.75, color: '#475569', maxWidth: 980 }}>
+                  {copy.conceptPathBody}
+                </p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+                  gap: 10,
+                  marginTop: 14,
+                }}>
+                  {[copy.stepAssetsTitle, copy.stepProductionTitle, copy.stepBriefTitle].map((step, index) => (
+                    <div key={step} style={{
+                      border: '1px solid #F5D0FE',
+                      background: '#FDF4FF',
+                      borderRadius: 12,
+                      padding: '10px 12px',
+                      display: 'flex',
+                      gap: 9,
+                      alignItems: 'center',
+                    }}>
+                      <span style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: '#FAE8FF',
+                        color: '#A21CAF',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 11,
+                        fontWeight: 900,
+                        flexShrink: 0,
+                      }}>
+                        {index + 1}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#581C87', fontWeight: 800, lineHeight: 1.45 }}>{step}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{
+              display: activeStep === 'production' ? 'block' : 'none',
               background: '#FFFFFF',
               border: '1px solid #CBD5E1',
               borderRadius: 18,
@@ -1192,6 +1587,7 @@ export default function CreativeBriefPage() {
             </div>
 
             <div style={{
+              display: activeStep === 'studio' ? 'block' : 'none',
               background: '#FFFFFF',
               border: '1px solid #D7E3F0',
               borderRadius: 20,
@@ -1759,7 +2155,7 @@ export default function CreativeBriefPage() {
               )}
             </div>
 
-            {mediaItems.length === 0 ? (
+            {activeStep === 'assets' && mode === 'asset' && (mediaItems.length === 0 ? (
               <div>
                 {/* Strategy Asset Requirements — show when no media */}
                 {assetRequirements ? (
@@ -2085,12 +2481,12 @@ export default function CreativeBriefPage() {
                 )}
               </div>
               </>
-            )}
+            ))}
           </div>
         )}
 
         {/* ── Generate Button ── */}
-        {!generating && (
+        {!generating && activeStep === 'brief' && (
           <div className="no-print" style={{ marginBottom: 28 }}>
             {error && (
               <div style={{
@@ -2184,7 +2580,7 @@ export default function CreativeBriefPage() {
             RESULTS — Asset Mode
         ───────────────────────────────────────────────────────────────────── */}
 
-        {creativeBrief && creativeBrief.mode === 'asset' && (
+        {activeStep === 'brief' && creativeBrief && creativeBrief.mode === 'asset' && (
 
           <div>
             {/* Overall Creative Direction */}
@@ -2382,7 +2778,7 @@ export default function CreativeBriefPage() {
             RESULTS — Concept Mode
         ───────────────────────────────────────────────────────────────────── */}
 
-        {creativeBrief && creativeBrief.mode === 'concept' && (
+        {activeStep === 'brief' && creativeBrief && creativeBrief.mode === 'concept' && (
           <div>
 
             {/* Mood + Color Direction */}
@@ -2552,7 +2948,7 @@ export default function CreativeBriefPage() {
         )}
 
         {/* ── Empty state ── */}
-        {!creativeBrief && !generating && (
+        {activeStep === 'brief' && !creativeBrief && !generating && (
           <div style={{
             background: '#fff', border: '1px dashed #D1D5DB', borderRadius: 16,
             padding: '48px 24px', textAlign: 'center',
@@ -2568,6 +2964,61 @@ export default function CreativeBriefPage() {
             </p>
           </div>
         )}
+
+        <div className="no-print" style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginTop: 26,
+          padding: '14px',
+          border: '1px solid #E2E8F0',
+          borderRadius: 18,
+          background: '#FFFFFF',
+        }}>
+          <button
+            type="button"
+            onClick={() => previousWorkflowStep && goToCreativeStep(previousWorkflowStep)}
+            disabled={!previousWorkflowStep}
+            style={{
+              border: '1px solid #CBD5E1',
+              background: previousWorkflowStep ? '#FFFFFF' : '#F1F5F9',
+              color: previousWorkflowStep ? '#334155' : '#94A3B8',
+              borderRadius: 12,
+              padding: '10px 13px',
+              fontSize: 12,
+              fontWeight: 850,
+              cursor: previousWorkflowStep ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {copy.previousStep}
+          </button>
+          <div style={{ minWidth: 0, flex: '1 1 220px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: 12, color: '#64748B', fontWeight: 850 }}>
+              {activeStepIndex + 1} / {CREATIVE_BRIEF_STEP_IDS.length} · {activeWorkflowStep.title}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => nextWorkflowStep && goToCreativeStep(nextWorkflowStep)}
+            disabled={!nextWorkflowStep}
+            style={{
+              border: 'none',
+              background: nextWorkflowStep ? activeWorkflowStep.accent : '#F1F5F9',
+              color: nextWorkflowStep ? '#FFFFFF' : '#94A3B8',
+              borderRadius: 12,
+              padding: '10px 14px',
+              fontSize: 12,
+              fontWeight: 900,
+              cursor: nextWorkflowStep ? 'pointer' : 'not-allowed',
+            }}
+          >
+            {nextWorkflowStep
+              ? `${copy.nextStepButton}: ${workflowSteps.find(step => step.id === nextWorkflowStep)?.title || ''}`
+              : copy.finishWorkflow}
+          </button>
+        </div>
 
         {/* Footer */}
         <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid #E5E7EB', textAlign: 'center' }}>
