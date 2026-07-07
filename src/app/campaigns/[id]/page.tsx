@@ -1429,6 +1429,17 @@ function CampaignDetailPageInner() {
       }
     }
 
+    if (!creativeBrief) {
+      return {
+        title: locale === 'ar' ? 'افتح مخطط الموجز الإبداعي' : 'Open the creative brief planner',
+        helper: locale === 'ar'
+          ? 'الموجز الإبداعي هو خطوة التنظيم قبل قرارات الصور والطبقات. يحدد احتياجات الأصول ولا يعتمد أو يجدول أو ينشر شيئاً.'
+          : 'The creative brief is the organizing step before image and layer decisions. It defines asset needs; it does not approve, schedule, or publish anything.',
+        cta: locale === 'ar' ? 'افتح مخطط الموجز' : 'Open brief planner',
+        href: `/campaigns/${campaign.id}/creative-brief`,
+      }
+    }
+
     if (operatingState.truthFlags.hasContentPlan && operatingState.counts.pendingGenerationPosts > 0) {
       return {
         title: locale === 'ar' ? 'راجع وسائط المنشورات في مركز المحتوى' : 'Review post media in Content Hub',
@@ -1448,17 +1459,6 @@ function CampaignDetailPageInner() {
           : 'Draft posts and platform previews need Content Hub review before scheduling or publishing decisions.',
         cta: locale === 'ar' ? 'افتح Content Hub' : 'Open Content Hub',
         href: `/campaigns/${campaign.id}/content-hub`,
-      }
-    }
-
-    if (!creativeBrief) {
-      return {
-        title: locale === 'ar' ? 'افتح مخطط الموجز الإبداعي' : 'Open the creative brief planner',
-        helper: locale === 'ar'
-          ? 'الموجز الإبداعي خطوة تخطيط بعد وضوح منشورات Content Hub. يحدد احتياجات الأصول والطبقات ولا يعتمد أو يجدول أو ينشر شيئاً.'
-          : 'The creative brief is a planning step after Content Hub posts are clear. It defines asset and layer needs; it does not approve, schedule, or publish anything.',
-        cta: locale === 'ar' ? 'افتح مخطط الموجز' : 'Open brief planner',
-        href: `/campaigns/${campaign.id}/creative-brief`,
       }
     }
 
@@ -1551,6 +1551,57 @@ function CampaignDetailPageInner() {
     ? campaignCommandFlow.nextAction.labelAr
     : campaignCommandFlow.nextAction.labelEn
   const strategyHeaderNextActionHref = campaignCommandFlow.nextAction.href
+  const firstViewportAction = activeTab === 3
+    ? {
+      eyebrow: uiText('مسار الإبداع الآن', 'Creative path now'),
+      workspace: AGENT_TABS[activeTab]?.label || uiText('الإبداع', 'Creative'),
+      title: nextCreativeAction.title,
+      helper: nextCreativeAction.helper,
+      label: nextCreativeAction.cta,
+      href: nextCreativeAction.href,
+    }
+    : {
+      eyebrow: uiText('الخطوة العملية الآن', 'Practical next step'),
+      workspace: AGENT_TABS[activeTab]?.label || uiText('غرفة الحملة', 'Campaign Room'),
+      title: strategyHeaderNextActionTitle,
+      helper: strategyHeaderNextActionHelper,
+      label: strategyHeaderNextActionLabel,
+      href: strategyHeaderNextActionHref,
+    }
+  const creativeOperatingSequence = [
+    {
+      step: '01',
+      title: uiText('الموجز الإبداعي', 'Creative brief'),
+      helper: uiText('حدد اتجاه الصورة، احتياجات الأصول، والطبقات قبل أي توليد أو ربط.', 'Define visual direction, asset needs, and layers before any generation or attachment.'),
+      status: creativeBrief ? 'complete' : 'current',
+    },
+    {
+      step: '02',
+      title: uiText('قرارات وسائط المنشورات', 'Post media decisions'),
+      helper: uiText('راجع كل منشور في Content Hub واربط الوسائط بشكل صريح فقط.', 'Review each post in Content Hub and attach media only through an explicit action.'),
+      status: !creativeBrief ? 'pending' : pendingPostMediaSlots > 0 ? 'current' : 'complete',
+    },
+    {
+      step: '03',
+      title: uiText('مرئيات مفهومية اختيارية', 'Optional concept visuals'),
+      helper: uiText('أصول معرض للمراجعة فقط؛ ليست وسائط منشورات ولا إعلاناً نهائياً.', 'Gallery assets for review only; not post media and not final ad creative.'),
+      status: creativeCanUseConceptGallery ? 'optional' : 'locked',
+    },
+  ] as const
+  const creativeOperatingStepTone: Record<(typeof creativeOperatingSequence)[number]['status'], string> = {
+    complete: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    current: 'border-indigo-200 bg-indigo-50 text-indigo-800',
+    pending: 'border-slate-200 bg-slate-50 text-slate-600',
+    locked: 'border-slate-200 bg-slate-50 text-slate-500',
+    optional: 'border-purple-200 bg-purple-50 text-purple-800',
+  }
+  const creativeOperatingStepLabel: Record<(typeof creativeOperatingSequence)[number]['status'], string> = {
+    complete: uiText('تم', 'Done'),
+    current: uiText('الآن', 'Now'),
+    pending: uiText('بعد ذلك', 'Next'),
+    locked: uiText('مقفل', 'Locked'),
+    optional: uiText('اختياري', 'Optional'),
+  }
   const renderCommandFlowIcon = (status: CampaignCommandFlowStepStatus) => {
     const iconClass = 'h-4 w-4 flex-shrink-0'
     if (status === 'complete') return <CheckCircle2 className={iconClass} />
@@ -1849,8 +1900,53 @@ function CampaignDetailPageInner() {
           )
         })()}
 
+        {/* Above-the-fold operating decision — keep the real next step visible before summary/proof detail. */}
+        {aiOutput && (
+          <section
+            data-campaign-first-viewport-action
+            className="mb-4 overflow-hidden rounded-[24px] border border-indigo-100 bg-white shadow-sm"
+          >
+            <div className="h-px bg-gradient-to-r from-indigo-300 via-sky-200 to-emerald-200" />
+            <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700">
+                    {firstViewportAction.eyebrow}
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                    {firstViewportAction.workspace}
+                  </span>
+                </div>
+                <h2 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+                  {firstViewportAction.title}
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                  {firstViewportAction.helper}
+                </p>
+              </div>
+              {firstViewportAction.href.startsWith('#') ? (
+                <a
+                  href={firstViewportAction.href}
+                  className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  {firstViewportAction.label}
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              ) : (
+                <Link
+                  href={firstViewportAction.href}
+                  className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  {firstViewportAction.label}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* What NEXUS did here — Proof of Work (Operator Foundation PR-1C1, read-only) */}
-        <CampaignProofOfWork campaignId={campaign.id} campaign={campaign as any} />
+        <CampaignProofOfWork campaignId={campaign.id} campaign={campaign as any} compact />
 
         {/* Brief banner — shown when arriving from Marketing Operating Brief */}
         {fromBrief && !briefBannerDismissed && (
@@ -3777,6 +3873,23 @@ function CampaignDetailPageInner() {
                             : 'This is an organic-only strategy. Paid ad creative, budget, and platform launch decisions are outside this run.'}
                         </p>
                       )}
+                      <div className="mt-4 grid gap-2 lg:grid-cols-3">
+                        {creativeOperatingSequence.map((step) => (
+                          <div
+                            key={step.step}
+                            className={`rounded-xl border px-3 py-3 ${creativeOperatingStepTone[step.status]}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-[11px] font-bold opacity-55">{step.step}</span>
+                              <span className="rounded-full border border-current/20 bg-white/70 px-2 py-0.5 text-[10px] font-semibold">
+                                {creativeOperatingStepLabel[step.status]}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm font-semibold leading-5">{step.title}</p>
+                            <p className="mt-1 text-[11px] leading-5 opacity-75">{step.helper}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <a
                       href={nextCreativeAction.href}

@@ -17,6 +17,11 @@ const VISUAL_GENERATOR_SRC = readFileSync(
   'utf8',
 )
 
+const CAMPAIGN_PROOF_SRC = readFileSync(
+  resolve(process.cwd(), 'src/components/campaign/CampaignProofOfWork.tsx'),
+  'utf8',
+)
+
 const TOUCHED_APP_SRC = `${CAMPAIGN_SRC}\n${STUDIO_SRC}\n${VISUAL_GENERATOR_SRC}`
 
 describe('CS-1 creative IA copy', () => {
@@ -47,14 +52,36 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).toContain('Paid creative is outside this strategy run')
   })
 
+  it('keeps the campaign room first viewport focused on the practical next step', () => {
+    expect(CAMPAIGN_SRC).toContain('data-campaign-first-viewport-action')
+    expect(CAMPAIGN_SRC).toContain('Practical next step')
+    expect(CAMPAIGN_SRC).toContain('Creative path now')
+    expect(CAMPAIGN_SRC).toContain('compact />')
+    expect(CAMPAIGN_PROOF_SRC).toContain('data-campaign-proof-compact')
+    expect(CAMPAIGN_PROOF_SRC).toContain('compact?: boolean')
+  })
+
   it('does not present concept visual generation as the normal next step before post and brief readiness', () => {
     expect(CAMPAIGN_SRC).toContain('creativeCanUseConceptGallery')
+    expect(CAMPAIGN_SRC).toContain('creativeOperatingSequence')
+    expect(CAMPAIGN_SRC).toContain('Creative brief')
+    expect(CAMPAIGN_SRC).toContain('Post media decisions')
+    expect(CAMPAIGN_SRC).toContain('Optional concept visuals')
     expect(CAMPAIGN_SRC).toContain('Concept gallery is not the current step')
     expect(CAMPAIGN_SRC).toContain('Content Hub posts already exist. Open the creative brief first to define asset and layer needs before any concept visual generation.')
     expect(CAMPAIGN_SRC).toContain('Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation.')
     expect(CAMPAIGN_SRC).toContain('This page does not treat zero media counts as readiness.')
     expect(CAMPAIGN_SRC).toContain('Plan concept directions for review')
     expect(CAMPAIGN_SRC).not.toContain('Generate concept directions for review')
+  })
+
+  it('asks for the creative brief before post media review when a campaign has posts but no brief', () => {
+    const briefGateIndex = CAMPAIGN_SRC.indexOf('if (!creativeBrief)')
+    const mediaReviewIndex = CAMPAIGN_SRC.indexOf('operatingState.truthFlags.hasContentPlan && operatingState.counts.pendingGenerationPosts > 0')
+    expect(briefGateIndex).toBeGreaterThan(-1)
+    expect(mediaReviewIndex).toBeGreaterThan(-1)
+    expect(briefGateIndex).toBeLessThan(mediaReviewIndex)
+    expect(CAMPAIGN_SRC).toContain('The creative brief is the organizing step before image and layer decisions.')
   })
 
   it('frames the campaign visual generator as concept-gallery output only', () => {
