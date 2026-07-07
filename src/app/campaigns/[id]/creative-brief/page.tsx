@@ -6,8 +6,8 @@
  * Sprint F — Creative Direction
  *
  * Two modes:
- * 1. User Asset Mode — upload real assets, AI analyzes them, produces creative briefs
- * 2. AI Concept Mode — AI generates image prompts, storyboards, production brief
+ * 1. Uploaded asset review — real assets can be analyzed into a review-only brief
+ * 2. Concept direction — AI drafts visual direction notes and production planning
  *
  * Opened in a new tab from the Campaign Visuals tab.
  */
@@ -16,6 +16,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
+import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import UpgradeModal from '@/components/UpgradeModal'
 
@@ -95,24 +96,28 @@ interface Campaign {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const { locale } = useI18n()
+  const isArabic = locale === 'ar'
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
       style={btnStyle(copied)}
     >
-      {copied ? '✓ Copied' : 'Copy'}
+      {copied ? (isArabic ? '✓ تم النسخ' : '✓ Copied') : (isArabic ? 'نسخ' : 'Copy')}
     </button>
   )
 }
 
 function CopyAllButton({ texts, label = 'Copy All' }: { texts: string[]; label?: string }) {
   const [copied, setCopied] = useState(false)
+  const { locale } = useI18n()
+  const isArabic = locale === 'ar'
   return (
     <button
       onClick={() => { navigator.clipboard.writeText(texts.join('\n\n')); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
       style={{ ...btnStyle(copied), background: copied ? '#22C55E' : '#6366F1', color: '#fff' }}
     >
-      {copied ? '✓ Copied All' : label}
+      {copied ? (isArabic ? '✓ تم نسخ الكل' : '✓ Copied All') : (label === 'Copy All' && isArabic ? 'نسخ الكل' : label)}
     </button>
   )
 }
@@ -151,6 +156,20 @@ function SectionCard({ title, icon, children, accent = '#6366F1' }: {
   )
 }
 
+function SafetyNote({ title, body, accent = '#6366F1' }: { title: string; body: string; accent?: string }) {
+  return (
+    <div style={{
+      border: `1px solid ${accent}24`,
+      background: `${accent}0D`,
+      borderRadius: 14,
+      padding: '12px 14px',
+    }}>
+      <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 800, color: accent }}>{title}</p>
+      <p style={{ margin: 0, fontSize: 12, color: '#475569', lineHeight: 1.55 }}>{body}</p>
+    </div>
+  )
+}
+
 function Spinner() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -173,13 +192,16 @@ export default function CreativeBriefPage() {
   const router = useRouter()
   const campaignId = params?.id as string
   const { isAuthenticated, loading, authHeader } = useAuth()
+  const { locale, dir } = useI18n()
   const { creditsRemaining, isUnlimited, loading: billingLoading } = useBillingStatus()
+  const isArabic = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set())
   const [creativeBrief, setCreativeBrief] = useState<CreativeBrief | null>(null)
   const [mode, setMode] = useState<'asset' | 'concept'>('asset')
+  const [confirmedReviewOnly, setConfirmedReviewOnly] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
@@ -190,7 +212,130 @@ export default function CreativeBriefPage() {
     isUnlimited,
   })
   const creativeBriefLocked = !billingLoading && !creativeBriefTruth.canAfford
-  const addCreditsLabel = 'Add credits to create a creative brief.'
+  const creditLabel = isArabic
+    ? `${creativeBriefTruth.cost} كريديت`
+    : `${creativeBriefTruth.cost} credit${creativeBriefTruth.cost === 1 ? '' : 's'}`
+  const addCreditsLabel = isArabic
+    ? 'أضف رصيدًا لإنشاء موجز إبداعي.'
+    : 'Add credits to create a creative brief.'
+  const copy = {
+    title: isArabic ? 'مخطط الإبداع' : 'Creative brief planner',
+    badge: isArabic ? 'تخطيط ومراجعة فقط' : 'Planning and review only',
+    subtitle: isArabic
+      ? 'حوّل الاستراتيجية إلى متطلبات أصول واتجاه بصري واضح قبل أي توليد صورة أو إرفاق ميديا أو نشر.'
+      : 'Turn the strategy into asset requirements and visual direction before any image generation, media attachment, or publishing.',
+    print: isArabic ? 'طباعة الموجز' : 'Print brief',
+    back: isArabic ? 'العودة إلى الإبداع' : 'Back to Creative',
+    noStrategy: isArabic
+      ? 'لم نجد استراتيجية للحملة. راجع أو أنشئ الاستراتيجية أولًا حتى يعتمد الموجز الإبداعي على رسالة واضحة وجمهور ومنصات محددة.'
+      : 'No campaign strategy found. Review or create the strategy first so the creative brief uses clear messaging, audience, and platform context.',
+    currentStep: isArabic ? 'الخطوة الحالية' : 'Current step',
+    currentStepBody: isArabic
+      ? 'تحديد متطلبات الأصول والاتجاه الإبداعي من الاستراتيجية.'
+      : 'Define asset requirements and creative direction from the strategy.',
+    costTitle: isArabic ? 'تكلفة الإجراء' : 'Action cost',
+    costBody: isArabic
+      ? `إنشاء أو تحليل الموجز يستهلك ${creditLabel}.`
+      : `Creating or analyzing the brief costs ${creditLabel}.`,
+    boundaryTitle: isArabic ? 'حدود الصفحة' : 'Page boundary',
+    boundaryBody: isArabic
+      ? 'هذه الصفحة لا تنشر، لا تجدول، لا ترفق ميديا في المنشورات، ولا تنشئ إعلانًا نهائيًا.'
+      : 'This page does not publish, schedule, attach post media, or create finished ad assets.',
+    contentHubTitle: isArabic ? 'مصدر الحقيقة النهائي' : 'Final media source of truth',
+    contentHubBody: isArabic
+      ? 'مركز المحتوى هو مكان معاينة المنشورات النهائية وإرفاق الميديا لاحقًا بتأكيد صريح.'
+      : 'Content Hub remains the place to preview final posts and attach media later with explicit confirmation.',
+    modeLabel: isArabic ? 'اختر طريقة التخطيط الإبداعي:' : 'Choose creative planning mode:',
+    assetModeTitle: isArabic ? 'مراجعة أصول العميل' : 'Review uploaded assets',
+    assetModeDesc: isArabic
+      ? 'حلّل صور/فيديو/شعار حقيقي لإخراج اتجاهات ونسخ للمراجعة.'
+      : 'Analyze real photos, videos, or logos into review-ready direction and copy ideas.',
+    conceptModeTitle: isArabic ? 'اتجاه مفاهيمي' : 'Concept direction',
+    conceptModeDesc: isArabic
+      ? 'أنشئ اتجاهًا بصريًا وملاحظات إنتاج بدون توليد صورة نهائية.'
+      : 'Create visual direction and production notes without generating final imagery.',
+    requirementsTitle: isArabic ? 'متطلبات الأصول من الاستراتيجية' : 'Strategy asset requirements',
+    requirementsIntro: isArabic
+      ? 'هذه الأصول مطلوبة قبل التنفيذ. ارفعها في مكتبة الوسائط، ثم ارجع هنا لتحليلها كموجز مراجعة.'
+      : 'These are the assets the strategy requires before execution. Upload them in Media Library, then return here for review-only analysis.',
+    mustHave: isArabic ? 'ضروري' : 'Must have',
+    niceToHave: isArabic ? 'مفيد' : 'Nice to have',
+    forPaid: isArabic ? 'للإعلانات المدفوعة' : 'For paid ads',
+    forOrganic: isArabic ? 'للمحتوى العضوي' : 'For organic',
+    proof: isArabic ? 'إثبات ومصداقية' : 'Proof',
+    shootNext: isArabic ? 'يتم تصويره لاحقًا' : 'Shoot next',
+    uploadAssets: isArabic ? 'افتح مكتبة الوسائط' : 'Open Media Library',
+    imageSingular: isArabic ? 'صورة' : 'image',
+    imagePlural: isArabic ? 'صور' : 'images',
+    videoSingular: isArabic ? 'فيديو' : 'video',
+    videoPlural: isArabic ? 'فيديوهات' : 'videos',
+    noMediaTitle: isArabic ? 'لا توجد أصول في مساحة العمل بعد' : 'No assets in this workspace yet',
+    noMediaBody: isArabic
+      ? 'ارفع صورًا أو فيديوهات أو شعارًا في مكتبة الوسائط، ثم عد هنا لتحويلها إلى موجز إبداعي للمراجعة.'
+      : 'Upload photos, videos, or a logo in Media Library, then return here to turn them into a review-only creative brief.',
+    guidance: isArabic ? 'إرشاد الأصول من الاستراتيجية' : 'Strategy asset guidance',
+    selectAssets: isArabic ? 'اختر الأصول للتحليل' : 'Select assets to analyze',
+    inWorkspace: isArabic ? 'في مساحة العمل' : 'in workspace',
+    selected: isArabic ? 'محدد' : 'selected',
+    selectAll: isArabic ? 'تحديد الكل' : 'Select all',
+    deselectAll: isArabic ? 'إلغاء التحديد' : 'Deselect all',
+    selectHint: isArabic ? 'اختر أصلًا واحدًا على الأقل للتحليل.' : 'Select at least one asset to analyze.',
+    videoNote: isArabic
+      ? 'تحليل الفيديو التفصيلي قادم لاحقًا. حاليًا يتم تضمين الفيديو كملاحظة مراجعة يدوية.'
+      : 'Detailed frame-level video analysis is coming later. Videos are included with a manual review note for now.',
+    confirmTitle: isArabic ? 'تأكيد قبل استهلاك الرصيد' : 'Confirm before spending credits',
+    confirmBody: isArabic
+      ? `أفهم أن هذا ينشئ موجزًا إبداعيًا للمراجعة فقط ويستهلك ${creditLabel}. لن يولد صورة نهائية، ولن يرفق ميديا، ولن ينشر أو يجدول أو يحدّث Brand Brain كتعلّم أداء.`
+      : `I understand this creates a review-only creative brief and costs ${creditLabel}. It will not generate a final image, attach media, publish, schedule, or update Brand Brain as performance learning.`,
+    confirmRequired: isArabic ? 'أكد أن هذا موجز مراجعة فقط للمتابعة.' : 'Confirm this is a review-only brief to continue.',
+    analyzeButton: isArabic ? 'تحليل الأصول المختارة' : 'Analyze selected assets',
+    conceptButton: isArabic ? 'إنشاء موجز اتجاه إبداعي' : 'Create creative direction brief',
+    lastGenerated: isArabic ? 'آخر إنشاء' : 'Last generated',
+    regenerate: isArabic ? 'إعادة إنشاء' : 'Regenerate',
+    addCredits: isArabic ? 'أضف رصيدًا للإعادة' : 'Add credits to regenerate',
+    analyzingTitle: isArabic ? 'يتم تحليل الأصول...' : 'Analyzing assets...',
+    conceptTitle: isArabic ? 'يتم إنشاء موجز الاتجاه...' : 'Creating creative direction brief...',
+    analyzingBody: isArabic
+      ? 'يحلل NEXUS الأصول المختارة لإنتاج ملاحظات واتجاهات مراجعة. قد يستغرق ذلك 30-60 ثانية.'
+      : 'NEXUS analyzes the selected assets into review notes and direction. This may take 30-60 seconds.',
+    conceptBody: isArabic
+      ? 'ينشئ NEXUS موجز اتجاه بصري وملاحظات إنتاج للمراجعة فقط. لا يتم إنشاء صورة نهائية.'
+      : 'NEXUS creates a review-only visual direction brief and production notes. No final image is created.',
+    emptyAssetTitle: isArabic ? 'جاهز لتحليل الأصول' : 'Ready to analyze assets',
+    emptyConceptTitle: isArabic ? 'جاهز لإنشاء اتجاه إبداعي' : 'Ready to create creative direction',
+    emptyAssetBody: isArabic
+      ? 'اختر الأصول أعلاه ثم أكد الإجراء. سيُخرج NEXUS اتجاهات ونسخًا ومسودات نصية للمراجعة قبل التنفيذ.'
+      : 'Select assets above, then confirm the action. NEXUS will produce direction, copy ideas, and draft scripts for review before execution.',
+    emptyConceptBody: isArabic
+      ? 'أكد الإجراء لإنشاء موجز اتجاه بصري: أفكار صور، ستوريبورد، وملاحظات إنتاج. النتيجة ليست إعلانًا نهائيًا.'
+      : 'Confirm the action to create visual direction: image ideas, storyboard, and production notes. The output is not a finished ad asset.',
+    overallDirection: isArabic ? 'الاتجاه الإبداعي العام' : 'Overall Creative Direction',
+    topAssets: isArabic ? 'أفضل الأصول لهذه الحملة' : 'Top Assets for This Campaign',
+    assetAnalyses: isArabic ? 'تحليل الأصول' : 'Asset Analyses',
+    brandAlignment: isArabic ? 'توافق البراند' : 'Brand Alignment',
+    campaignFit: isArabic ? 'ملاءمة الحملة' : 'Campaign Fit',
+    qualityNotes: isArabic ? 'ملاحظات الجودة' : 'Quality Notes',
+    suggestedUse: isArabic ? 'استخدام مقترح' : 'Suggested Use',
+    adCopyHook: isArabic ? 'هوك نسخة إعلانية' : 'Ad Copy Hook',
+    captionSuggestion: isArabic ? 'اقتراح كابشن' : 'Caption Suggestion',
+    copyAllVariants: isArabic ? 'نسخ كل المسودات' : 'Copy All Drafts',
+    captionFormulas: isArabic ? 'قوالب كابشن للمراجعة' : 'Caption Draft Formulas',
+    captionFormulasBody: isArabic ? 'قوالب قابلة للتعديل، لا تنشر قبل مراجعة الإنسان.' : 'Editable formulas; do not publish before human review.',
+    contentScripts: isArabic ? 'مسودات سكريبتات المحتوى' : 'Draft Content Scripts',
+    contentScriptsBody: isArabic ? 'سكريبتات Reel / TikTok للمراجعة والإنتاج لاحقًا.' : 'Reel / TikTok scripts for review and later production.',
+    copyAllScripts: isArabic ? 'نسخ كل السكريبتات' : 'Copy All Scripts',
+    script: isArabic ? 'سكريبت' : 'Script',
+    moodColor: isArabic ? 'المزاج البصري واتجاه الألوان' : 'Visual Mood & Color Direction',
+    colorDirections: isArabic ? 'اتجاهات الألوان' : 'Color Directions',
+    copyAllPrompts: isArabic ? 'نسخ كل الموجهات' : 'Copy All Prompts',
+    storyboard: isArabic ? 'ستوريبورد للمراجعة' : 'Review Storyboard',
+    storyboardBody: isArabic ? 'خطة مشاهد للمراجعة، وليست فيديو نهائيًا.' : 'Scene plan for review, not a final video.',
+    visual: isArabic ? 'الصورة' : 'Visual',
+    textOverlay: isArabic ? 'النص فوق المشهد' : 'Text overlay',
+    platformLayouts: isArabic ? 'تخطيطات المنصات' : 'Platform Layouts',
+    creativeNotes: isArabic ? 'ملاحظات المخرج الإبداعي' : 'Creative Director Notes',
+    productionNote: isArabic ? 'ملاحظة إنتاج' : 'Production note',
+  }
 
   // ── Data loading ──
   const loadData = useCallback(async () => {
@@ -229,7 +374,11 @@ export default function CreativeBriefPage() {
     }
     // Guard: in asset mode, require at least one asset selected
     if (mode === 'asset' && mediaItems.length > 0 && selectedMedia.size === 0) {
-      setError('Select at least one asset to analyze. / اختر أصلًا واحدًا على الأقل للتحليل')
+      setError(copy.selectHint)
+      return
+    }
+    if (!confirmedReviewOnly) {
+      setError(copy.confirmRequired)
       return
     }
     setGenerating(true)
@@ -247,6 +396,7 @@ export default function CreativeBriefPage() {
       const d = await res.json()
       if (d.creativeBrief) {
         setCreativeBrief(d.creativeBrief)
+        setConfirmedReviewOnly(false)
       } else if (d.error === 'INSUFFICIENT_CREDITS') {
         setShowUpgrade(true)
       } else {
@@ -262,6 +412,7 @@ export default function CreativeBriefPage() {
   // ── Asset selection ──
   const toggleMedia = (id: string) => {
     setError('')
+    setConfirmedReviewOnly(false)
     setSelectedMedia(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -272,6 +423,7 @@ export default function CreativeBriefPage() {
 
   const toggleAll = () => {
     setError('')
+    setConfirmedReviewOnly(false)
     if (selectedMedia.size === mediaItems.length) {
       setSelectedMedia(new Set())
     } else {
@@ -296,10 +448,12 @@ export default function CreativeBriefPage() {
   const assetRequirements: any = campaign.aiOutput?.strategy?.assetRequirements || null
   const imageMedia = mediaItems.filter(m => m.type === 'IMAGE' || m.type === 'LOGO')
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
+  const assetActionUnavailable = mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)
+  const generationDisabled = assetActionUnavailable || !confirmedReviewOnly
 
   return (
     <>
-    <div style={{ minHeight: '100vh', background: '#F9FAFB', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div dir={dir} style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* ── Global print styles ── */}
       <style>{`
         @media print {
@@ -312,16 +466,16 @@ export default function CreativeBriefPage() {
       {/* ── Header ── */}
       <div className="no-print" style={{
         background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '16px 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10,
       }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 2 }}>
             <span style={{ fontSize: 20 }}>🎨</span>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111' }}>Creative Brief</h1>
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111' }}>{copy.title}</h1>
             <span style={{
               fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#6366F115',
               color: '#6366F1', fontWeight: 700, border: '1px solid #6366F130',
-            }}>NEXUS Visual Director</span>
+            }}>{copy.badge}</span>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>{campaign.name}</p>
         </div>
@@ -333,21 +487,50 @@ export default function CreativeBriefPage() {
               background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}
           >
-            🖨️ Export / Print
+            {copy.print}
           </button>
           <button
-            onClick={() => window.close()}
+            onClick={() => router.push(`/campaigns/${campaign.id}?tab=creative#campaign-room-workspace`)}
             style={{
               padding: '8px 16px', borderRadius: 8, border: '1px solid #E5E7EB',
               background: '#F9FAFB', color: '#6B7280', fontSize: 13, cursor: 'pointer',
             }}
           >
-            Close
+            {copy.back}
           </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1040, margin: '0 auto', padding: '28px 20px 36px' }}>
+
+        <div style={{
+          background: '#fff',
+          border: '1px solid #E2E8F0',
+          borderRadius: 24,
+          padding: '22px',
+          marginBottom: 22,
+          boxShadow: '0 18px 45px rgba(15,23,42,0.06)',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div>
+              <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 800, color: '#6366F1', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                {copy.badge}
+              </p>
+              <h2 style={{ margin: 0, fontSize: 26, lineHeight: 1.2, fontWeight: 850, color: '#0F172A' }}>
+                {copy.title}
+              </h2>
+              <p style={{ margin: '10px 0 0', maxWidth: 720, fontSize: 14, lineHeight: 1.8, color: '#475569' }}>
+                {copy.subtitle}
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+              <SafetyNote title={copy.currentStep} body={copy.currentStepBody} accent="#4F46E5" />
+              <SafetyNote title={copy.costTitle} body={copy.costBody} accent="#B45309" />
+              <SafetyNote title={copy.boundaryTitle} body={copy.boundaryBody} accent="#0F766E" />
+              <SafetyNote title={copy.contentHubTitle} body={copy.contentHubBody} accent="#7C3AED" />
+            </div>
+          </div>
+        </div>
 
         {/* ── Strategy Warning ── */}
         {!hasStrategy && (
@@ -357,34 +540,34 @@ export default function CreativeBriefPage() {
           }}>
             <span>⚠️</span>
             <p style={{ margin: 0, fontSize: 13, color: '#92400E' }}>
-              <strong>No strategy found.</strong> For best results, run Full Strategy first — the Visual Director uses your brand positioning, key message, and content pillars to create more relevant creative direction.
+              {copy.noStrategy}
             </p>
           </div>
         )}
 
         {/* ── Mode Selector ── */}
         <div className="no-print" style={{ marginBottom: 28 }}>
-          <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, color: '#374151' }}>Choose creative mode:</p>
-          <div style={{ display: 'flex', gap: 12 }}>
+          <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#374151' }}>{copy.modeLabel}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
             {([
               {
                 key: 'asset',
                 icon: '🖼️',
-                title: 'User Asset Mode',
-                desc: 'I have real client photos, videos, or logos',
+                title: copy.assetModeTitle,
+                desc: copy.assetModeDesc,
                 color: '#6366F1',
               },
               {
                 key: 'concept',
                 icon: '🤖',
-                title: 'AI Concept Mode',
-                desc: 'Generate visual direction from scratch',
+                title: copy.conceptModeTitle,
+                desc: copy.conceptModeDesc,
                 color: '#EC4899',
               },
             ] as const).map(m => (
               <button
                 key={m.key}
-                onClick={() => setMode(m.key)}
+                onClick={() => { setMode(m.key); setConfirmedReviewOnly(false); setError('') }}
                 style={{
                   flex: 1, padding: '16px 20px', borderRadius: 12, cursor: 'pointer', textAlign: 'left',
                   border: `2px solid ${mode === m.key ? m.color : '#E5E7EB'}`,
@@ -410,14 +593,14 @@ export default function CreativeBriefPage() {
                 {/* Strategy Asset Requirements — show when no media */}
                 {assetRequirements ? (
                   <div style={{ marginBottom: 24 }}>
-                    <SectionCard title="What to Upload First — Strategy Asset Requirements" icon="📋" accent="#6366F1">
+                    <SectionCard title={copy.requirementsTitle} icon="📋" accent="#6366F1">
                       <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6B7280' }}>
-                        Your strategy identified these assets before you can execute. Upload them in the Media Library, then return here to analyze them.
+                        {copy.requirementsIntro}
                       </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
                         {assetRequirements.mustHave?.length > 0 && (
                           <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: 0.5 }}>🔴 Must Have</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: 0.5 }}>🔴 {copy.mustHave}</p>
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.mustHave.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
@@ -429,7 +612,7 @@ export default function CreativeBriefPage() {
                         )}
                         {assetRequirements.niceToHave?.length > 0 && (
                           <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 8, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: 0.5 }}>🟡 Nice to Have</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#D97706', textTransform: 'uppercase', letterSpacing: 0.5 }}>🟡 {copy.niceToHave}</p>
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.niceToHave.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
@@ -441,7 +624,7 @@ export default function CreativeBriefPage() {
                         )}
                         {assetRequirements.forAds?.length > 0 && (
                           <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 8, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: 0.5 }}>🎯 For Paid Ads</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#4338CA', textTransform: 'uppercase', letterSpacing: 0.5 }}>🎯 {copy.forPaid}</p>
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.forAds.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
@@ -453,7 +636,7 @@ export default function CreativeBriefPage() {
                         )}
                         {assetRequirements.forOrganic?.length > 0 && (
                           <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 8, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: 0.5 }}>📱 For Organic</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: 0.5 }}>📱 {copy.forOrganic}</p>
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.forOrganic.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
@@ -465,7 +648,7 @@ export default function CreativeBriefPage() {
                         )}
                         {assetRequirements.forProof?.length > 0 && (
                           <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: 0.5 }}>⭐ Social Proof</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: 0.5 }}>⭐ {copy.proof}</p>
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.forProof.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
@@ -477,7 +660,7 @@ export default function CreativeBriefPage() {
                         )}
                         {assetRequirements.nextToCreate?.length > 0 && (
                           <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 8, padding: '12px 14px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', letterSpacing: 0.5 }}>📸 Shoot Next</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', letterSpacing: 0.5 }}>📸 {copy.shootNext}</p>
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.nextToCreate.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
@@ -498,7 +681,7 @@ export default function CreativeBriefPage() {
                             textDecoration: 'none',
                           }}
                         >
-                          Upload Assets to Media Library ↗
+                          {copy.uploadAssets} ↗
                         </a>
                       </div>
                     </SectionCard>
@@ -508,8 +691,8 @@ export default function CreativeBriefPage() {
                     background: '#fff', border: '1px dashed #D1D5DB', borderRadius: 12,
                     padding: '32px 24px', textAlign: 'center', marginBottom: 24,
                   }}>
-                    <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>No media in your workspace yet</p>
-                    <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>Upload photos, videos, or logos via the Media Library, then return here to analyze them.</p>
+                    <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>{copy.noMediaTitle}</p>
+                    <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>{copy.noMediaBody}</p>
                     <a
                       href="/media"
                       target="_blank"
@@ -519,7 +702,7 @@ export default function CreativeBriefPage() {
                         textDecoration: 'none',
                       }}
                     >
-                      Open Media Library ↗
+                      {copy.uploadAssets} ↗
                     </a>
                   </div>
                 )}
@@ -533,12 +716,12 @@ export default function CreativeBriefPage() {
                   padding: '12px 16px', marginBottom: 16,
                 }}>
                   <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#15803D' }}>
-                    📋 Strategy Asset Guidance
+                    📋 {copy.guidance}
                   </p>
                   <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' as const }}>
                     {assetRequirements.mustHave?.length > 0 && (
                       <div>
-                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Must Have</p>
+                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{copy.mustHave}</p>
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                           {assetRequirements.mustHave.slice(0, 3).map((item: string, i: number) => (
                             <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {item}</li>
@@ -548,7 +731,7 @@ export default function CreativeBriefPage() {
                     )}
                     {assetRequirements.nextToCreate?.length > 0 && (
                       <div>
-                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Shoot Next</p>
+                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{copy.shootNext}</p>
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                           {assetRequirements.nextToCreate.slice(0, 3).map((item: string, i: number) => (
                             <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {item}</li>
@@ -567,17 +750,17 @@ export default function CreativeBriefPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111' }}>
-                      Select Assets to Analyze
+                      {copy.selectAssets}
                     </p>
                     <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9CA3AF' }}>
-                      {imageMedia.length} image{imageMedia.length !== 1 ? 's' : ''}
-                      {videoMedia.length > 0 && ` · ${videoMedia.length} video${videoMedia.length !== 1 ? 's' : ''}`}
-                      {' '}in workspace
+                      {imageMedia.length} {imageMedia.length === 1 ? copy.imageSingular : copy.imagePlural}
+                      {videoMedia.length > 0 && ` · ${videoMedia.length} ${videoMedia.length === 1 ? copy.videoSingular : copy.videoPlural}`}
+                      {' '}{copy.inWorkspace}
                     </p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 12, color: '#6B7280' }}>
-                      {selectedMedia.size} selected
+                      {selectedMedia.size} {copy.selected}
                     </span>
                     <button
                       onClick={toggleAll}
@@ -586,7 +769,7 @@ export default function CreativeBriefPage() {
                         border: '1px solid #D1D5DB', background: '#F9FAFB', color: '#374151', fontWeight: 600,
                       }}
                     >
-                      {selectedMedia.size === mediaItems.length ? 'Deselect All' : 'Select All'}
+                      {selectedMedia.size === mediaItems.length ? copy.deselectAll : copy.selectAll}
                     </button>
                   </div>
                 </div>
@@ -649,12 +832,12 @@ export default function CreativeBriefPage() {
                 {/* Selection-required hint */}
                 {selectedMedia.size === 0 && (
                   <p style={{ margin: '12px 0 0', fontSize: 12, fontWeight: 600, color: '#F59E0B', textAlign: 'center' }}>
-                    ☝️ Select at least one asset to analyze &nbsp;/&nbsp; اختر أصلًا واحدًا على الأقل للتحليل
+                    ☝️ {copy.selectHint}
                   </p>
                 )}
                 {videoMedia.length > 0 && (
                   <p style={{ margin: '10px 0 0', fontSize: 11, color: '#9CA3AF' }}>
-                    ℹ️ Video analysis (frame-level) is coming in V2. Videos will be included with a manual review note.
+                    ℹ️ {copy.videoNote}
                   </p>
                 )}
               </div>
@@ -674,32 +857,61 @@ export default function CreativeBriefPage() {
                 <p style={{ margin: 0, fontSize: 13, color: '#DC2626' }}>⚠️ {error}</p>
               </div>
             )}
+            <label style={{
+              display: 'flex',
+              gap: 12,
+              alignItems: 'flex-start',
+              background: '#fff',
+              border: confirmedReviewOnly ? '1px solid #A7F3D0' : '1px solid #E2E8F0',
+              borderRadius: 12,
+              padding: '12px 14px',
+              marginBottom: 12,
+              cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={confirmedReviewOnly}
+                onChange={(event) => { setConfirmedReviewOnly(event.target.checked); setError('') }}
+                disabled={assetActionUnavailable}
+                style={{ marginTop: 3, width: 16, height: 16, accentColor: '#4F46E5', flexShrink: 0 }}
+              />
+              <span>
+                <strong style={{ display: 'block', fontSize: 13, color: '#0F172A', marginBottom: 2 }}>{copy.confirmTitle}</strong>
+                <span style={{ display: 'block', fontSize: 12, color: '#475569', lineHeight: 1.6 }}>{copy.confirmBody}</span>
+              </span>
+            </label>
             <button
               onClick={creativeBriefLocked ? () => router.push('/billing') : handleGenerate}
-              disabled={mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)}
+              disabled={!creativeBriefLocked && generationDisabled}
               style={{
                 width: '100%', padding: '14px 24px', borderRadius: 10,
-                background: creativeBriefLocked ? '#FEF2F2' : (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#E5E7EB' : '#6366F1',
-                color: creativeBriefLocked ? '#B91C1C' : (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? '#9CA3AF' : '#fff',
+                background: creativeBriefLocked ? '#FEF2F2' : generationDisabled ? '#E5E7EB' : '#6366F1',
+                color: creativeBriefLocked ? '#B91C1C' : generationDisabled ? '#9CA3AF' : '#fff',
                 border: creativeBriefLocked ? '1px solid rgba(239,68,68,0.18)' : 'none',
-                fontSize: 14, fontWeight: 700, cursor: (mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)) ? 'not-allowed' : 'pointer',
+                fontSize: 14, fontWeight: 700, cursor: generationDisabled && !creativeBriefLocked ? 'not-allowed' : 'pointer',
                 transition: 'all 0.15s',
               }}
             >
               {creativeBriefLocked ? addCreditsLabel : mode === 'asset'
-                ? `🔍 Analyze ${selectedMedia.size > 0 ? `${selectedMedia.size} Selected Asset${selectedMedia.size !== 1 ? 's' : ''}` : 'Assets'} with AI`
-                : '✨ Generate Visual Concepts'
+                ? `🔍 ${copy.analyzeButton}${selectedMedia.size > 0 ? ` (${selectedMedia.size})` : ''} — ${creditLabel}`
+                : `✨ ${copy.conceptButton} — ${creditLabel}`
               }
             </button>
             {creativeBrief && (
               <p style={{ textAlign: 'center', margin: '8px 0 0', fontSize: 12, color: '#9CA3AF' }}>
-                Last generated: {new Date(creativeBrief.generatedAt).toLocaleString()}
+                {copy.lastGenerated}: {new Date(creativeBrief.generatedAt).toLocaleString()}
                 {' · '}
                 <span
-                  onClick={creativeBriefLocked ? () => router.push('/billing') : handleGenerate}
+                  onClick={creativeBriefLocked ? () => router.push('/billing') : () => {
+                    if (!confirmedReviewOnly) {
+                      setError(copy.confirmRequired)
+                      return
+                    }
+                    handleGenerate()
+                  }}
                   style={{ color: creativeBriefLocked ? '#B91C1C' : '#6366F1', cursor: 'pointer', textDecoration: 'underline' }}
                 >
-                  {creativeBriefLocked ? 'Add credits to regenerate' : 'Regenerate'}
+                  {creativeBriefLocked ? copy.addCredits : copy.regenerate}
                 </span>
               </p>
             )}
@@ -717,12 +929,10 @@ export default function CreativeBriefPage() {
               borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px',
             }} />
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#111' }}>
-              {mode === 'asset' ? 'Analyzing your assets…' : 'Generating visual concepts…'}
+              {mode === 'asset' ? copy.analyzingTitle : copy.conceptTitle}
             </h3>
             <p style={{ margin: 0, fontSize: 13, color: '#9CA3AF' }}>
-              {mode === 'asset'
-                ? 'NEXUS Visual Director is analyzing each asset with GPT-4o vision. This may take 30–60 seconds.'
-                : 'NEXUS Visual Director is building your complete visual concept package. This takes about 20 seconds.'}
+              {mode === 'asset' ? copy.analyzingBody : copy.conceptBody}
             </p>
           </div>
         )}
@@ -736,7 +946,7 @@ export default function CreativeBriefPage() {
           <div>
             {/* Overall Creative Direction */}
             {creativeBrief.overallCreativeDirection && (
-              <SectionCard title="Overall Creative Direction" icon="🎯" accent="#6366F1">
+              <SectionCard title={copy.overallDirection} icon="🎯" accent="#6366F1">
                 <p style={{ margin: 0, fontSize: 14, color: '#374151', lineHeight: 1.7 }}>
                   {creativeBrief.overallCreativeDirection}
                 </p>
@@ -745,7 +955,7 @@ export default function CreativeBriefPage() {
 
             {/* Top Assets Recommendation */}
             {(creativeBrief.topAssetsForCampaign?.length ?? 0) > 0 && (
-              <SectionCard title="Top Assets for This Campaign" icon="⭐" accent="#F59E0B">
+              <SectionCard title={copy.topAssets} icon="⭐" accent="#F59E0B">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   {creativeBrief.topAssetsForCampaign!.map((name, i) => (
                     <div key={i} style={{
@@ -763,7 +973,7 @@ export default function CreativeBriefPage() {
 
             {/* Per-Asset Analyses */}
             {(creativeBrief.assetAnalyses?.length ?? 0) > 0 && (
-              <SectionCard title={`Asset Analyses (${creativeBrief.assetAnalyses!.length})`} icon="🖼️" accent="#6366F1">
+              <SectionCard title={`${copy.assetAnalyses} (${creativeBrief.assetAnalyses!.length})`} icon="🖼️" accent="#6366F1">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                   {creativeBrief.assetAnalyses!.map((a, i) => (
                     <div key={i} style={{
@@ -803,25 +1013,25 @@ export default function CreativeBriefPage() {
                       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {a.brandAlignment && (
                           <div>
-                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>Brand Alignment</p>
+                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.brandAlignment}</p>
                             <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{a.brandAlignment}</p>
                           </div>
                         )}
                         {a.campaignFit && (
                           <div>
-                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>Campaign Fit</p>
+                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.campaignFit}</p>
                             <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{a.campaignFit}</p>
                           </div>
                         )}
                         {a.qualityNotes && (
                           <div>
-                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>Quality Notes</p>
+                            <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.qualityNotes}</p>
                             <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{a.qualityNotes}</p>
                           </div>
                         )}
                         {a.suggestedUse.length > 0 && (
                           <div>
-                            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>Suggested Use</p>
+                            <p style={{ margin: '0 0 6px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.suggestedUse}</p>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                               {a.suggestedUse.map((u, j) => <Tag key={j} label={u} color="#22C55E" />)}
                             </div>
@@ -831,7 +1041,7 @@ export default function CreativeBriefPage() {
                           <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 8, padding: '10px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                               <div>
-                                <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#EA580C', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad Copy Hook</p>
+                                <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#EA580C', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.adCopyHook}</p>
                                 <p style={{ margin: 0, fontSize: 13, color: '#374151', fontStyle: 'italic', lineHeight: 1.6 }}>"{a.adCopyHook}"</p>
                               </div>
                               <CopyButton text={a.adCopyHook} />
@@ -842,7 +1052,7 @@ export default function CreativeBriefPage() {
                           <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 8, padding: '10px 14px' }}>
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                               <div style={{ flex: 1 }}>
-                                <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#16A34A', textTransform: 'uppercase', letterSpacing: 0.5 }}>Caption Suggestion</p>
+                                <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 700, color: '#16A34A', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.captionSuggestion}</p>
                                 <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.6 }}>{a.captionSuggestion}</p>
                               </div>
                               <CopyButton text={a.captionSuggestion} />
@@ -858,10 +1068,12 @@ export default function CreativeBriefPage() {
 
             {/* Ad Copy Variants */}
             {(creativeBrief.adCopyVariants?.length ?? 0) > 0 && (
-              <SectionCard title="Ad Copy Variants" icon="✍️" accent="#F59E0B">
+              <SectionCard title={isArabic ? 'مسودات نسخ إعلانية للمراجعة' : 'Draft Ad Copy Ideas'} icon="✍️" accent="#F59E0B">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Ready-to-use ad copy based on your assets</p>
-                  <CopyAllButton texts={creativeBrief.adCopyVariants!} label="Copy All Variants" />
+                  <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>
+                    {isArabic ? 'أفكار نسخ للمراجعة قبل التنفيذ، وليست نشرًا أو إعلانًا جاهزًا للنشر.' : 'Copy ideas for review before execution, not publishing or a finished ad asset.'}
+                  </p>
+                  <CopyAllButton texts={creativeBrief.adCopyVariants!} label={copy.copyAllVariants} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {creativeBrief.adCopyVariants!.map((variant, i) => (
@@ -879,9 +1091,9 @@ export default function CreativeBriefPage() {
 
             {/* Caption Formulas */}
             {(creativeBrief.captionFormulas?.length ?? 0) > 0 && (
-              <SectionCard title="Caption Formulas" icon="📝" accent="#6366F1">
+              <SectionCard title={copy.captionFormulas} icon="📝" accent="#6366F1">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Reusable templates — replace [brackets] with your specifics</p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>{copy.captionFormulasBody}</p>
                   <CopyAllButton texts={creativeBrief.captionFormulas!} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -900,10 +1112,10 @@ export default function CreativeBriefPage() {
 
             {/* Asset-Based Scripts */}
             {(creativeBrief.assetBasedScripts?.length ?? 0) > 0 && (
-              <SectionCard title="Content Scripts" icon="🎬" accent="#EC4899">
+              <SectionCard title={copy.contentScripts} icon="🎬" accent="#EC4899">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>Reel / TikTok scripts built around your assets</p>
-                  <CopyAllButton texts={creativeBrief.assetBasedScripts!} label="Copy All Scripts" />
+                  <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>{copy.contentScriptsBody}</p>
+                  <CopyAllButton texts={creativeBrief.assetBasedScripts!} label={copy.copyAllScripts} />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {creativeBrief.assetBasedScripts!.map((script, i) => (
@@ -911,7 +1123,7 @@ export default function CreativeBriefPage() {
                       background: '#FDF4FF', border: '1px solid #F0ABFC', borderRadius: 8, padding: '14px 16px',
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-                        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#A21CAF' }}>Script {i + 1}</p>
+                        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#A21CAF' }}>{copy.script} {i + 1}</p>
                         <CopyButton text={script} />
                       </div>
                       <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{script}</p>
@@ -932,7 +1144,7 @@ export default function CreativeBriefPage() {
 
             {/* Mood + Color Direction */}
             {(creativeBrief.moodDescription || (creativeBrief.colorDirections?.length ?? 0) > 0) && (
-              <SectionCard title="Visual Mood & Color Direction" icon="🎨" accent="#EC4899">
+              <SectionCard title={copy.moodColor} icon="🎨" accent="#EC4899">
                 {creativeBrief.moodDescription && (
                   <p style={{ margin: '0 0 16px', fontSize: 14, color: '#374151', lineHeight: 1.7, fontStyle: 'italic' }}>
                     "{creativeBrief.moodDescription}"
@@ -940,7 +1152,7 @@ export default function CreativeBriefPage() {
                 )}
                 {(creativeBrief.colorDirections?.length ?? 0) > 0 && (
                   <div>
-                    <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>Color Directions</p>
+                    <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5 }}>{copy.colorDirections}</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {creativeBrief.colorDirections!.map((dir, i) => (
                         <div key={i} style={{
@@ -959,14 +1171,14 @@ export default function CreativeBriefPage() {
 
             {/* Image Prompts */}
             {(creativeBrief.imagePrompts?.length ?? 0) > 0 && (
-              <SectionCard title="Image Generation Prompts" icon="✨" accent="#6366F1">
+              <SectionCard title={isArabic ? 'اتجاهات صور مسودة' : 'Draft Image Direction Prompts'} icon="✨" accent="#6366F1">
                 <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <p style={{ margin: 0, fontSize: 12, color: '#6B7280' }}>
-                    Ready to use in Midjourney, DALL-E, or brief your photographer
+                    {isArabic ? 'موجهات تخطيطية للمراجعة أو لإرشاد المصمم لاحقًا. لا يتم توليد صورة هنا.' : 'Planning prompts for review or later designer guidance. No image is generated here.'}
                   </p>
                   <CopyAllButton
                     texts={creativeBrief.imagePrompts!.map(p => `[${p.platform} — ${p.aspectRatio}]\n${p.prompt}\n\nNotes: ${p.notes}`)}
-                    label="Copy All Prompts"
+                    label={copy.copyAllPrompts}
                   />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -993,7 +1205,7 @@ export default function CreativeBriefPage() {
                         </div>
                         {prompt.notes && (
                           <p style={{ margin: 0, fontSize: 12, color: '#6B7280', lineHeight: 1.5 }}>
-                            <strong>Production note:</strong> {prompt.notes}
+                            <strong>{copy.productionNote}:</strong> {prompt.notes}
                           </p>
                         )}
                       </div>
@@ -1005,9 +1217,9 @@ export default function CreativeBriefPage() {
 
             {/* Storyboard */}
             {(creativeBrief.storyboardScenes?.length ?? 0) > 0 && (
-              <SectionCard title="Storyboard" icon="🎬" accent="#F59E0B">
+              <SectionCard title={copy.storyboard} icon="🎬" accent="#F59E0B">
                 <p style={{ margin: '0 0 16px', fontSize: 12, color: '#6B7280' }}>
-                  Scene-by-scene visual plan for Reels / TikTok
+                  {copy.storyboardBody}
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {creativeBrief.storyboardScenes!.map((scene, i) => (
@@ -1030,12 +1242,12 @@ export default function CreativeBriefPage() {
                         <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 600, color: '#111' }}>{scene.description}</p>
                         {scene.visualNotes && (
                           <p style={{ margin: '0 0 4px', fontSize: 12, color: '#6B7280' }}>
-                            <strong>Visual:</strong> {scene.visualNotes}
+                            <strong>{copy.visual}:</strong> {scene.visualNotes}
                           </p>
                         )}
                         {scene.textOverlay && scene.textOverlay !== 'none' && (
                           <p style={{ margin: 0, fontSize: 12, color: '#D97706' }}>
-                            <strong>Text overlay:</strong> "{scene.textOverlay}"
+                            <strong>{copy.textOverlay}:</strong> "{scene.textOverlay}"
                           </p>
                         )}
                       </div>
@@ -1047,7 +1259,7 @@ export default function CreativeBriefPage() {
 
             {/* Production Brief */}
             {creativeBrief.productionBrief && (
-              <SectionCard title="Production Brief" icon="📋" accent="#22C55E">
+              <SectionCard title={isArabic ? 'ملاحظات إنتاج للمراجعة' : 'Review-Only Production Notes'} icon="📋" accent="#22C55E">
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                   <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.8, flex: 1 }}>
                     {creativeBrief.productionBrief}
@@ -1059,7 +1271,7 @@ export default function CreativeBriefPage() {
 
             {/* Platform Layouts */}
             {creativeBrief.platformLayouts && Object.keys(creativeBrief.platformLayouts).length > 0 && (
-              <SectionCard title="Platform Layouts" icon="📱" accent="#6366F1">
+              <SectionCard title={copy.platformLayouts} icon="📱" accent="#6366F1">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {Object.entries(creativeBrief.platformLayouts).map(([platform, direction]) => (
                     <div key={platform} style={{
@@ -1087,7 +1299,7 @@ export default function CreativeBriefPage() {
 
             {/* Creative Notes */}
             {creativeBrief.creativeNotes && (
-              <SectionCard title="Creative Director Notes" icon="💡" accent="#F59E0B">
+              <SectionCard title={copy.creativeNotes} icon="💡" accent="#F59E0B">
                 <p style={{ margin: 0, fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
                   {creativeBrief.creativeNotes}
                 </p>
@@ -1106,12 +1318,10 @@ export default function CreativeBriefPage() {
               {mode === 'asset' ? '🖼️' : '✨'}
             </p>
             <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#111' }}>
-              {mode === 'asset' ? 'Ready to analyze your assets' : 'Ready to generate visual concepts'}
+              {mode === 'asset' ? copy.emptyAssetTitle : copy.emptyConceptTitle}
             </h3>
             <p style={{ margin: '0 auto', fontSize: 14, color: '#9CA3AF', maxWidth: 440 }}>
-              {mode === 'asset'
-                ? 'Select the assets above and click Analyze. NEXUS will produce per-asset creative direction, ad copy, captions, and campaign-ready scripts.'
-                : 'Click Generate to produce a complete visual concept package: image prompts, storyboard, production brief, and platform-specific layout directions.'}
+              {mode === 'asset' ? copy.emptyAssetBody : copy.emptyConceptBody}
             </p>
           </div>
         )}
@@ -1119,7 +1329,7 @@ export default function CreativeBriefPage() {
         {/* Footer */}
         <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid #E5E7EB', textAlign: 'center' }}>
           <p style={{ margin: 0, fontSize: 12, color: '#D1D5DB' }}>
-            NEXUS AI — Visual Director · {campaign.name}
+            NEXUS AI — {copy.title} · {campaign.name}
           </p>
         </div>
 
