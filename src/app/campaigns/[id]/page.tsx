@@ -1551,6 +1551,12 @@ function CampaignDetailPageInner() {
     ? campaignCommandFlow.nextAction.labelAr
     : campaignCommandFlow.nextAction.labelEn
   const strategyHeaderNextActionHref = campaignCommandFlow.nextAction.href
+  const showFullCampaignOperatingFlow = activeTab === 0
+  const firstViewportHref = (href: string) => (
+    !showFullCampaignOperatingFlow && href === '#campaign-operating-flow'
+      ? '#campaign-room-workspace'
+      : href
+  )
   const firstViewportAction = activeTab === 3
     ? {
       eyebrow: uiText('مسار الإبداع الآن', 'Creative path now'),
@@ -1558,7 +1564,7 @@ function CampaignDetailPageInner() {
       title: nextCreativeAction.title,
       helper: nextCreativeAction.helper,
       label: nextCreativeAction.cta,
-      href: nextCreativeAction.href,
+      href: firstViewportHref(nextCreativeAction.href),
     }
     : {
       eyebrow: uiText('الخطوة العملية الآن', 'Practical next step'),
@@ -1566,7 +1572,7 @@ function CampaignDetailPageInner() {
       title: strategyHeaderNextActionTitle,
       helper: strategyHeaderNextActionHelper,
       label: strategyHeaderNextActionLabel,
-      href: strategyHeaderNextActionHref,
+      href: firstViewportHref(strategyHeaderNextActionHref),
     }
   const creativeOperatingSequence = [
     {
@@ -2127,8 +2133,11 @@ function CampaignDetailPageInner() {
           </div>
         </div>
 
-        {/* ── Campaign Progress Panel ───────────────────────────────────── */}
-        {aiOutput && (
+        {/* ── Campaign Progress Panel ─────────────────────────────────────
+            The full map belongs on Strategy. Other tabs prioritize the active
+            workspace after the top decision strip so the user is not forced
+            through a large overview before doing the current job. */}
+        {aiOutput && showFullCampaignOperatingFlow && (
           <div id="campaign-operating-flow" className="mb-6 scroll-mt-24 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-5">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -2477,7 +2486,7 @@ function CampaignDetailPageInner() {
         {aiOutput && (
           <>
             {/* NEXUS tab navigation */}
-            <div data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+            <div id="campaign-room-workspace" data-strategy-operating-nav className="sticky top-0 z-30 mb-6 rounded-2xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
