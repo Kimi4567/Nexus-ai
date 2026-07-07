@@ -1541,6 +1541,16 @@ function CampaignDetailPageInner() {
     }
     return uiIsArabic ? labels[status].ar : labels[status].en
   }
+  const strategyHeaderNextActionTitle = uiIsArabic
+    ? campaignCommandFlow.nextAction.titleAr
+    : campaignCommandFlow.nextAction.titleEn
+  const strategyHeaderNextActionHelper = uiIsArabic
+    ? campaignCommandFlow.nextAction.helperAr
+    : campaignCommandFlow.nextAction.helperEn
+  const strategyHeaderNextActionLabel = uiIsArabic
+    ? campaignCommandFlow.nextAction.labelAr
+    : campaignCommandFlow.nextAction.labelEn
+  const strategyHeaderNextActionHref = campaignCommandFlow.nextAction.href
   const renderCommandFlowIcon = (status: CampaignCommandFlowStepStatus) => {
     const iconClass = 'h-4 w-4 flex-shrink-0'
     if (status === 'complete') return <CheckCircle2 className={iconClass} />
@@ -2470,7 +2480,10 @@ function CampaignDetailPageInner() {
                               {uiText('الإجراء التالي', 'Next action')}
                             </p>
                             <p className="mt-1 text-sm font-semibold leading-6 text-slate-950">
-                              {strategyRoomStateCopy.nextDecision}
+                              {strategyHeaderNextActionTitle}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-600">
+                              {strategyHeaderNextActionHelper}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -2490,12 +2503,10 @@ function CampaignDetailPageInner() {
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
                         <Link
-                          href={isPaidOnlyStrategy ? `/campaigns/${campaignId}/paid-launch` : `/campaigns/${campaignId}/content-hub`}
+                          href={strategyHeaderNextActionHref}
                           className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
-                          {isPaidOnlyStrategy
-                            ? uiText('راجع بريف التخطيط المدفوع', 'Review paid planning brief')
-                            : strategyRoomStateCopy.contentHubCta}
+                          {strategyHeaderNextActionLabel}
                         </Link>
                         <button
                           type="button"

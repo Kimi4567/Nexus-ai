@@ -16,7 +16,6 @@ export interface StrategyRoomStateCopy {
     title: string
     helper: string
   }
-  nextDecision: string
   organicPlanValue: string
   contentPlanStatusValue: string
   contentPlanTone: 'positive' | 'muted'
@@ -48,9 +47,6 @@ export function deriveStrategyRoomStateCopy(input: StrategyRoomStateCopyInput): 
           ? 'استخدمها لمراجعة حدود التخطيط المدفوع قبل أي قرار إطلاق أو صرف. هذه اللوحة لا تولّد ولا تعتمد ولا تنشر ولا تطلق إعلانات ولا تحدّث Brand Brain.'
           : 'Use this to review paid planning boundaries before any launch or spend decision. This panel does not generate, approve, publish, launch ads, or update Brand Brain.',
       },
-      nextDecision: isArabic
-        ? 'راجع بريف التخطيط المدفوع وأكمل التتبع والحسابات قبل أي إطلاق.'
-        : 'Review the paid planning brief and complete tracking/accounts before any launch.',
       organicPlanValue: isArabic ? 'غير مشمولة في هذا التوليد' : 'Not included in this run',
       contentPlanStatusValue: isArabic ? 'غير منشأة في تشغيل Paid فقط' : 'Not created in a Paid-only run',
       contentPlanTone: 'muted',
@@ -81,9 +77,6 @@ export function deriveStrategyRoomStateCopy(input: StrategyRoomStateCopyInput): 
           ? 'يتحقق NEXUS مما إذا كانت منشورات Content Hub موجودة قبل عرض قائمة المراجعة المناسبة. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
           : 'NEXUS is checking whether Content Hub posts already exist before showing the right review checklist. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
       },
-      nextDecision: isArabic
-        ? 'انتظر اكتمال التحقق من Content Hub قبل اتخاذ خطوة التنفيذ التالية.'
-        : 'Wait for Content Hub state to finish loading before choosing the next execution step.',
       organicPlanValue: isArabic ? 'جارٍ التحقق من Content Hub' : 'Checking Content Hub state',
       contentPlanStatusValue: isArabic ? 'جارٍ التحقق من Content Hub' : 'Checking Content Hub state',
       contentPlanTone: 'muted',
@@ -114,7 +107,6 @@ export function deriveStrategyRoomStateCopy(input: StrategyRoomStateCopyInput): 
           ? 'استخدمها لمراجعة القرار والتشخيص قبل تعديل أو اعتماد المحتوى الموجود في Content Hub. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
           : 'Use this to review the decision and diagnosis before editing or approving the content already in Content Hub. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
       },
-      nextDecision: isArabic ? 'راجع التنفيذ الحالي في Content Hub.' : 'Review current execution in Content Hub.',
       organicPlanValue: isArabic ? 'متاحة للمراجعة في Content Hub' : 'Available for review in Content Hub',
       contentPlanStatusValue: isArabic ? 'موجودة في Content Hub' : 'Exists in Content Hub',
       contentPlanTone: 'positive',
@@ -146,9 +138,6 @@ export function deriveStrategyRoomStateCopy(input: StrategyRoomStateCopyInput): 
         ? 'استخدمها كفحص قرار قبل تحضير أول خطة محتوى. هذه اللوحة لا تولّد ولا تعتمد ولا تجدول ولا تنشر ولا تحدّث Brand Brain.'
         : 'Use this as the go/no-go check before preparing the first content plan. This panel does not generate, approve, schedule, publish, or update Brand Brain.',
     },
-    nextDecision: isArabic
-      ? 'راجع جودة الاستراتيجية قبل بناء أول خطة محتوى.'
-      : 'Review strategy quality before building the first content plan.',
     organicPlanValue: isArabic ? 'جاهزة لبناء خطة محتوى بعد المراجعة' : 'Ready to build a content plan after review',
     contentPlanStatusValue: isArabic ? 'حضّرها بعد مراجعة الاستراتيجية' : 'Prepare it after strategy review',
     contentPlanTone: 'muted',
