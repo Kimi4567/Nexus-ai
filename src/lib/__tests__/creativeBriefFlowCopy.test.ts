@@ -75,4 +75,21 @@ describe('creative brief flow copy', () => {
     expect(runtimeSources).not.toContain('موجز الإبداع')
     expect(runtimeSources).not.toContain('Open brief planner')
   })
+
+  it('shows the creative asset intake path without implying automatic attachment or credit spend', () => {
+    const runtimeSources = `${pageSource}\n${campaignRoomSource}`
+
+    expect(runtimeSources).toContain('Asset intake path')
+    expect(runtimeSources).toContain('Creative asset path')
+    expect(runtimeSources).toContain('Upload assets in Media Library')
+    expect(runtimeSources).toContain('Return here and refresh the list')
+    expect(runtimeSources).toContain('Select the asset, then confirm the brief')
+    expect(runtimeSources).toContain('Uploading an asset does not attach it to posts or spend credits')
+    expect(runtimeSources).toContain('رفع الأصل لا يرفقه بالمنشورات ولا يستهلك كريديت')
+    expect(runtimeSources).toContain('Refresh asset list')
+
+    expect(runtimeSources).not.toContain('Upload assets to publish')
+    expect(runtimeSources).not.toContain('Automatically attach uploaded assets')
+    expect(runtimeSources).not.toContain('Credits spent on upload')
+  })
 })

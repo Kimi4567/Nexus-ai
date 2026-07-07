@@ -3997,6 +3997,31 @@ function CampaignDetailPageInner() {
                       : 'The creative brief planner is a planning artifact only. It does not approve, schedule, publish, or launch paid campaigns.'}
                   </p>
 
+                  <div className="mb-5 border-y border-slate-100 py-3">
+                    <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                      {locale === 'ar' ? 'مسار الأصول الإبداعية' : 'Creative asset path'}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {[
+                        locale === 'ar' ? 'ارفع الأصول في مكتبة الوسائط' : 'Upload assets in Media Library',
+                        locale === 'ar' ? 'افتح مخطط الإبداع واختر الأصل' : 'Open the planner and select the asset',
+                        locale === 'ar' ? 'اربط الميديا النهائية لاحقًا من Content Hub' : 'Attach final media later from Content Hub',
+                      ].map((step, index) => (
+                        <div key={step} className="flex items-start gap-2 text-[11px] font-semibold leading-4 text-slate-700">
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-50 text-[10px] font-black text-purple-700">
+                            {index + 1}
+                          </span>
+                          {step}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-slate-500">
+                      {locale === 'ar'
+                        ? 'رفع أصل لا يرفقه بالمنشورات ولا يستهلك كريديت. تحليل الموجز فقط هو إجراء مؤكد ومنفصل.'
+                        : 'Uploading an asset does not attach it to posts or spend credits. Brief analysis is a separate confirmed action.'}
+                    </p>
+                  </div>
+
                   {/* Mode badges */}
                   <div className="flex gap-3 mb-5">
                     <div className="flex flex-1 items-center gap-2 rounded-xl border border-purple-100 bg-purple-50 px-3 py-2">
@@ -4015,22 +4040,30 @@ function CampaignDetailPageInner() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
-                    className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
-                      creativeCanUsePostMediaFlow
-                        ? 'bg-purple-600 hover:bg-purple-500'
-                        : 'border border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                    }`}
-                    style={creativeCanUsePostMediaFlow ? { color: '#fff' } : undefined}
-                  >
-                    <span>🎨</span>
-                    {creativeBrief
-                      ? (cdT?.openCreativeBriefBtn || 'Open creative brief planner')
-                      : (locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner')
-                    }
-                    <span className={creativeCanUsePostMediaFlow ? 'text-purple-300 text-xs' : 'text-purple-400 text-xs'}>↗</span>
-                  </button>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <button
+                      onClick={() => window.open(`/campaigns/${campaign.id}/creative-brief`, '_blank')}
+                      className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-all ${
+                        creativeCanUsePostMediaFlow
+                          ? 'bg-purple-600 hover:bg-purple-500'
+                          : 'border border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                      }`}
+                      style={creativeCanUsePostMediaFlow ? { color: '#fff' } : undefined}
+                    >
+                      <span>🎨</span>
+                      {creativeBrief
+                        ? (cdT?.openCreativeBriefBtn || 'Open creative brief planner')
+                        : (locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner')
+                      }
+                      <span className={creativeCanUsePostMediaFlow ? 'text-purple-300 text-xs' : 'text-purple-400 text-xs'}>↗</span>
+                    </button>
+                    <Link
+                      href="/media"
+                      className="flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+                    >
+                      {locale === 'ar' ? 'مكتبة الوسائط' : 'Media Library'}
+                    </Link>
+                  </div>
                 </div>
 
                 {/* ── Post Media Readiness / Content Hub Entry Card ── */}
