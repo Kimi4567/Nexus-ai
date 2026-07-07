@@ -203,6 +203,7 @@ export default function CreativeBriefPage() {
   const [mode, setMode] = useState<'asset' | 'concept'>('asset')
   const [confirmedReviewOnly, setConfirmedReviewOnly] = useState(false)
   const [fetching, setFetching] = useState(true)
+  const [refreshingAssets, setRefreshingAssets] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [showUpgrade, setShowUpgrade] = useState(false)
@@ -265,6 +266,18 @@ export default function CreativeBriefPage() {
     proof: isArabic ? 'إثبات ومصداقية' : 'Proof',
     shootNext: isArabic ? 'يتم تصويره لاحقًا' : 'Shoot next',
     uploadAssets: isArabic ? 'افتح مكتبة الوسائط' : 'Open Media Library',
+    refreshAssets: isArabic ? 'تحديث قائمة الأصول' : 'Refresh asset list',
+    refreshingAssets: isArabic ? 'جاري التحديث...' : 'Refreshing...',
+    assetIntakeTitle: isArabic ? 'مسار إدخال الأصول' : 'Asset intake path',
+    assetIntakeBody: isArabic
+      ? 'استخدم هذا المسار عندما تحتاج صورًا أو فيديوهات أو شعارًا حقيقيًا قبل إنشاء موجز إبداعي. رفع الأصل لا يرفقه بالمنشورات ولا يستهلك كريديت.'
+      : 'Use this path when the brief needs real photos, videos, or logos before creative planning. Uploading an asset does not attach it to posts or spend credits.',
+    assetIntakeUploadStep: isArabic ? 'ارفع الأصل في مكتبة الوسائط' : 'Upload the asset in Media Library',
+    assetIntakeReturnStep: isArabic ? 'ارجع هنا وحدّث القائمة' : 'Return here and refresh the list',
+    assetIntakeSelectStep: isArabic ? 'اختر الأصل ثم أكّد الموجز' : 'Select the asset, then confirm the brief',
+    mediaLibraryBoundary: isArabic
+      ? 'مكتبة الوسائط تخزن أصول العمل فقط. الربط النهائي بمنشور يتم لاحقًا من Content Hub بتأكيد منفصل.'
+      : 'Media Library stores workspace assets only. Final attachment to a post happens later from Content Hub with separate confirmation.',
     imageSingular: isArabic ? 'صورة' : 'image',
     imagePlural: isArabic ? 'صور' : 'images',
     videoSingular: isArabic ? 'فيديو' : 'video',
@@ -439,6 +452,13 @@ export default function CreativeBriefPage() {
     } else {
       setSelectedMedia(new Set(mediaItems.map(m => m.id)))
     }
+  }
+
+  const handleRefreshAssets = async () => {
+    setError('')
+    setRefreshingAssets(true)
+    await loadData()
+    setRefreshingAssets(false)
   }
 
   // ── Loading / empty states ──
@@ -618,6 +638,101 @@ export default function CreativeBriefPage() {
         {/* ── Asset Mode Controls ── */}
         {mode === 'asset' && !generating && (
           <div className="no-print">
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #E0E7FF',
+              borderRadius: 16,
+              padding: '16px 18px',
+              marginBottom: 18,
+              boxShadow: '0 10px 30px rgba(79,70,229,0.06)',
+            }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <div style={{ maxWidth: 680 }}>
+                  <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 800, color: '#4338CA' }}>
+                    {copy.assetIntakeTitle}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: '#475569' }}>
+                    {copy.assetIntakeBody}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <a
+                    href="/media"
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '8px 13px',
+                      borderRadius: 10,
+                      background: '#4F46E5',
+                      color: '#fff',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {copy.uploadAssets} ↗
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleRefreshAssets}
+                    disabled={refreshingAssets}
+                    style={{
+                      padding: '8px 13px',
+                      borderRadius: 10,
+                      border: '1px solid #CBD5E1',
+                      background: refreshingAssets ? '#F1F5F9' : '#FFFFFF',
+                      color: '#334155',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      cursor: refreshingAssets ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {refreshingAssets ? copy.refreshingAssets : copy.refreshAssets}
+                  </button>
+                </div>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 10,
+                marginTop: 14,
+              }}>
+                {[copy.assetIntakeUploadStep, copy.assetIntakeReturnStep, copy.assetIntakeSelectStep].map((step, index) => (
+                  <div key={step} style={{
+                    border: '1px solid #E2E8F0',
+                    background: '#F8FAFC',
+                    borderRadius: 12,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    gap: 9,
+                    alignItems: 'center',
+                  }}>
+                    <span style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      background: '#EEF2FF',
+                      color: '#4338CA',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 11,
+                      fontWeight: 900,
+                      flexShrink: 0,
+                    }}>
+                      {index + 1}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#334155', fontWeight: 700, lineHeight: 1.45 }}>{step}</span>
+                  </div>
+                ))}
+              </div>
+              <p style={{ margin: '12px 0 0', fontSize: 11, lineHeight: 1.55, color: '#64748B' }}>
+                {copy.mediaLibraryBoundary}
+              </p>
+            </div>
             {mediaItems.length === 0 ? (
               <div>
                 {/* Strategy Asset Requirements — show when no media */}
@@ -701,18 +816,36 @@ export default function CreativeBriefPage() {
                           </div>
                         )}
                       </div>
-                      <div style={{ marginTop: 16, textAlign: 'center' }}>
+                      <div style={{ marginTop: 16, textAlign: 'center', display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
                         <a
                           href="/media"
                           target="_blank"
+                          rel="noreferrer"
                           style={{
-                            display: 'inline-block', padding: '9px 20px', borderRadius: 8,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '9px 20px', borderRadius: 8,
                             background: '#6366F1', color: '#fff', fontSize: 13, fontWeight: 700,
                             textDecoration: 'none',
                           }}
                         >
                           {copy.uploadAssets} ↗
                         </a>
+                        <button
+                          type="button"
+                          onClick={handleRefreshAssets}
+                          disabled={refreshingAssets}
+                          style={{
+                            padding: '9px 18px',
+                            borderRadius: 8,
+                            border: '1px solid #D1D5DB',
+                            background: refreshingAssets ? '#F3F4F6' : '#FFFFFF',
+                            color: '#374151',
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: refreshingAssets ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {refreshingAssets ? copy.refreshingAssets : copy.refreshAssets}
+                        </button>
                       </div>
                     </SectionCard>
                   </div>
@@ -723,17 +856,37 @@ export default function CreativeBriefPage() {
                   }}>
                     <p style={{ fontSize: 15, fontWeight: 600, color: '#374151', margin: '0 0 8px' }}>{copy.noMediaTitle}</p>
                     <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 16px' }}>{copy.noMediaBody}</p>
-                    <a
-                      href="/media"
-                      target="_blank"
-                      style={{
-                        display: 'inline-block', padding: '8px 18px', borderRadius: 8,
-                        background: '#6366F1', color: '#fff', fontSize: 13, fontWeight: 600,
-                        textDecoration: 'none',
-                      }}
-                    >
-                      {copy.uploadAssets} ↗
-                    </a>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <a
+                        href="/media"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '8px 18px', borderRadius: 8,
+                          background: '#6366F1', color: '#fff', fontSize: 13, fontWeight: 600,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        {copy.uploadAssets} ↗
+                      </a>
+                      <button
+                        type="button"
+                        onClick={handleRefreshAssets}
+                        disabled={refreshingAssets}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: 8,
+                          border: '1px solid #D1D5DB',
+                          background: refreshingAssets ? '#F3F4F6' : '#FFFFFF',
+                          color: '#374151',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: refreshingAssets ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {refreshingAssets ? copy.refreshingAssets : copy.refreshAssets}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -777,7 +930,7 @@ export default function CreativeBriefPage() {
                 background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12,
                 padding: 20, marginBottom: 20,
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
                   <div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111' }}>
                       {copy.selectAssets}
@@ -788,10 +941,44 @@ export default function CreativeBriefPage() {
                       {' '}{copy.inWorkspace}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 12, color: '#6B7280' }}>
                       {selectedMedia.size} {copy.selected}
                     </span>
+                    <a
+                      href="/media"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 12px',
+                        borderRadius: 6,
+                        border: '1px solid #C7D2FE',
+                        background: '#EEF2FF',
+                        color: '#4338CA',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {copy.uploadAssets} ↗
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleRefreshAssets}
+                      disabled={refreshingAssets}
+                      style={{
+                        fontSize: 12,
+                        padding: '4px 12px',
+                        borderRadius: 6,
+                        cursor: refreshingAssets ? 'not-allowed' : 'pointer',
+                        border: '1px solid #D1D5DB',
+                        background: refreshingAssets ? '#F3F4F6' : '#F9FAFB',
+                        color: '#374151',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {refreshingAssets ? copy.refreshingAssets : copy.refreshAssets}
+                    </button>
                     <button
                       onClick={toggleAll}
                       style={{
