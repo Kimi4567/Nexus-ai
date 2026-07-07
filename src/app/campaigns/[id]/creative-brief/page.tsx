@@ -19,7 +19,11 @@ import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
 import {
+  applyCreativeStudioDraftControls,
   buildCreativeStudioPreviewModel,
+  defaultCreativeStudioDraftControls,
+  type CreativeStudioDraftControls,
+  type CreativeStudioDraftLayout,
   type CreativeStudioPreviewModel,
 } from '@/lib/creativeStudioPreview'
 import UpgradeModal from '@/components/UpgradeModal'
@@ -222,6 +226,7 @@ export default function CreativeBriefPage() {
   const [creativeBrief, setCreativeBrief] = useState<CreativeBrief | null>(null)
   const [mode, setMode] = useState<'asset' | 'concept'>('asset')
   const [selectedStudioPostId, setSelectedStudioPostId] = useState<string | null>(null)
+  const [studioDraftControlsByPostId, setStudioDraftControlsByPostId] = useState<Record<string, CreativeStudioDraftControls>>({})
   const [confirmedReviewOnly, setConfirmedReviewOnly] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [refreshingAssets, setRefreshingAssets] = useState(false)
@@ -375,6 +380,23 @@ export default function CreativeBriefPage() {
     studioStepAvailable: isArabic ? 'متاح الآن' : 'available now',
     studioStepLocked: isArabic ? 'مقفول حتى اكتمال الخلفية' : 'locked until background exists',
     studioStepFuture: isArabic ? 'مستقبلي بتأكيد صريح' : 'future explicit confirmation',
+    studioDraftControlsTitle: isArabic ? 'تحكم محلي في المسودة' : 'Local draft controls',
+    studioDraftControlsBody: isArabic
+      ? 'عدّل النص، CTA، اسم البراند، اللون، وتوازن التخطيط داخل هذه المعاينة فقط. لا يتم حفظ التعديلات، لا يتم رفعها، ولا تغيّر المنشور.'
+      : 'Adjust headline, CTA, brand label, accent color, and layout balance inside this preview only. Edits are not saved, uploaded, or applied to the post.',
+    studioDraftUnsaved: isArabic ? 'غير محفوظ' : 'Not saved',
+    studioHeadlineControl: isArabic ? 'Headline' : 'Headline',
+    studioCtaControl: isArabic ? 'CTA' : 'CTA',
+    studioBrandControl: isArabic ? 'اسم البراند / الشعار النصي' : 'Brand label',
+    studioAccentControl: isArabic ? 'لون التمييز' : 'Accent color',
+    studioLayoutControl: isArabic ? 'توازن التخطيط' : 'Layout balance',
+    studioLayoutBalanced: isArabic ? 'متوازن' : 'Balanced',
+    studioLayoutEditorial: isArabic ? 'تحريري' : 'Editorial',
+    studioLayoutCtaFocus: isArabic ? 'تركيز CTA' : 'CTA focus',
+    studioResetDraft: isArabic ? 'إعادة المسودة الأصلية' : 'Reset local draft',
+    studioDraftBoundary: isArabic
+      ? 'هذه أدوات تحرير مؤقتة داخل المتصفح فقط. لا توجد أزرار حفظ، render، upload، attach، نشر، أو جدولة.'
+      : 'These are temporary in-browser edit controls only. There are no save, render, upload, attach, publish, or schedule actions here.',
     imageSingular: isArabic ? 'صورة' : 'image',
     imagePlural: isArabic ? 'صور' : 'images',
     videoSingular: isArabic ? 'فيديو' : 'video',
@@ -674,12 +696,41 @@ export default function CreativeBriefPage() {
         colorPalette: studioColorPalette,
       },
     }))
-  const selectedStudioPreview = studioPreviewModels.find(model => model.postId === selectedStudioPostId)
+  const baseSelectedStudioPreview = studioPreviewModels.find(model => model.postId === selectedStudioPostId)
     || studioPreviewModels[0]
     || null
+  const selectedStudioDraftControls = baseSelectedStudioPreview
+    ? {
+        ...defaultCreativeStudioDraftControls(baseSelectedStudioPreview),
+        ...(studioDraftControlsByPostId[baseSelectedStudioPreview.postId] || {}),
+      }
+    : null
+  const selectedStudioPreview = baseSelectedStudioPreview && selectedStudioDraftControls
+    ? applyCreativeStudioDraftControls(baseSelectedStudioPreview, selectedStudioDraftControls)
+    : null
   const studioPreviewImageSrc = selectedStudioPreview
     ? `data:image/svg+xml;utf8,${encodeURIComponent(selectedStudioPreview.compositionPreview.artifact.svg)}`
     : ''
+  const updateStudioDraftControls = (patch: Partial<CreativeStudioDraftControls>) => {
+    if (!baseSelectedStudioPreview) return
+    const defaults = defaultCreativeStudioDraftControls(baseSelectedStudioPreview)
+    setStudioDraftControlsByPostId(prev => ({
+      ...prev,
+      [baseSelectedStudioPreview.postId]: {
+        ...defaults,
+        ...(prev[baseSelectedStudioPreview.postId] || {}),
+        ...patch,
+      },
+    }))
+  }
+  const resetStudioDraftControls = () => {
+    if (!baseSelectedStudioPreview) return
+    setStudioDraftControlsByPostId(prev => {
+      const next = { ...prev }
+      delete next[baseSelectedStudioPreview.postId]
+      return next
+    })
+  }
   const studioPathStateLabel = (state: CreativeStudioPreviewModel['controlledPath'][number]['state']) => {
     if (state === 'available_now') return copy.studioStepAvailable
     if (state === 'locked_until_background') return copy.studioStepLocked
@@ -1188,6 +1239,184 @@ export default function CreativeBriefPage() {
                   </div>
 
                   <div style={{ display: 'grid', gap: 12, alignContent: 'start', minWidth: 0 }}>
+                    <div style={{
+                      border: '1px solid #D8B4FE',
+                      borderRadius: 16,
+                      padding: '14px',
+                      background: 'linear-gradient(180deg, #FAF5FF 0%, #FFFFFF 100%)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', marginBottom: 12 }}>
+                        <div>
+                          <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 900, color: '#6D28D9', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioDraftControlsTitle}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: '#475569' }}>
+                            {copy.studioDraftControlsBody}
+                          </p>
+                        </div>
+                        <span style={{
+                          border: '1px solid #DDD6FE',
+                          background: '#FFFFFF',
+                          color: '#6D28D9',
+                          borderRadius: 999,
+                          padding: '4px 8px',
+                          fontSize: 10,
+                          fontWeight: 850,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {copy.studioDraftUnsaved}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gap: 10 }}>
+                        {[
+                          {
+                            id: 'headline',
+                            label: copy.studioHeadlineControl,
+                            value: selectedStudioDraftControls?.headlineText || '',
+                            onChange: (value: string) => updateStudioDraftControls({ headlineText: value }),
+                          },
+                          {
+                            id: 'cta',
+                            label: copy.studioCtaControl,
+                            value: selectedStudioDraftControls?.ctaText || '',
+                            onChange: (value: string) => updateStudioDraftControls({ ctaText: value }),
+                          },
+                          {
+                            id: 'brand',
+                            label: copy.studioBrandControl,
+                            value: selectedStudioDraftControls?.brandText || '',
+                            onChange: (value: string) => updateStudioDraftControls({ brandText: value }),
+                          },
+                        ].map(control => (
+                          <label key={control.id} style={{ display: 'grid', gap: 5 }}>
+                            <span style={{ fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                              {control.label}
+                            </span>
+                            <input
+                              type="text"
+                              value={control.value}
+                              onChange={event => control.onChange(event.target.value)}
+                              style={{
+                                width: '100%',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: 10,
+                                padding: '8px 10px',
+                                background: '#FFFFFF',
+                                color: '#0F172A',
+                                fontSize: 12,
+                                lineHeight: 1.4,
+                                outlineColor: '#8B5CF6',
+                              }}
+                            />
+                          </label>
+                        ))}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.5fr)', gap: 10 }}>
+                          <div style={{ display: 'grid', gap: 5 }}>
+                            <span style={{ fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                              {copy.studioAccentControl}
+                            </span>
+                            <input
+                              type="color"
+                              value={selectedStudioDraftControls?.accentColor || '#334155'}
+                              onChange={event => updateStudioDraftControls({ accentColor: event.target.value })}
+                              style={{
+                                width: '100%',
+                                height: 38,
+                                border: '1px solid #CBD5E1',
+                                borderRadius: 10,
+                                padding: 4,
+                                background: '#FFFFFF',
+                                cursor: 'pointer',
+                              }}
+                            />
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {['#334155', '#0F766E', '#4F46E5', '#7C3AED', '#B45309'].map(color => {
+                                const active = (selectedStudioDraftControls?.accentColor || '#334155').toUpperCase() === color
+                                return (
+                                  <button
+                                    key={color}
+                                    type="button"
+                                    aria-label={`Use ${color} accent`}
+                                    title={color}
+                                    onClick={() => updateStudioDraftControls({ accentColor: color })}
+                                    style={{
+                                      width: 22,
+                                      height: 22,
+                                      borderRadius: '50%',
+                                      border: active ? '2px solid #0F172A' : '1px solid #CBD5E1',
+                                      background: color,
+                                      boxShadow: active ? '0 0 0 3px rgba(15,23,42,0.08)' : 'none',
+                                      cursor: 'pointer',
+                                    }}
+                                  />
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gap: 5 }}>
+                            <span style={{ fontSize: 10, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                              {copy.studioLayoutControl}
+                            </span>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+                              {[
+                                { key: 'balanced', label: copy.studioLayoutBalanced },
+                                { key: 'editorial', label: copy.studioLayoutEditorial },
+                                { key: 'cta_focus', label: copy.studioLayoutCtaFocus },
+                              ].map(layout => {
+                                const active = selectedStudioDraftControls?.layout === layout.key
+                                return (
+                                  <button
+                                    key={layout.key}
+                                    type="button"
+                                    onClick={() => updateStudioDraftControls({ layout: layout.key as CreativeStudioDraftLayout })}
+                                    style={{
+                                      border: active ? '1px solid #7C3AED' : '1px solid #CBD5E1',
+                                      background: active ? '#F3E8FF' : '#FFFFFF',
+                                      color: active ? '#6D28D9' : '#475569',
+                                      borderRadius: 10,
+                                      minHeight: 38,
+                                      padding: '7px 6px',
+                                      fontSize: 10,
+                                      fontWeight: 850,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {layout.label}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <p style={{ margin: 0, fontSize: 11, lineHeight: 1.55, color: '#64748B', flex: '1 1 220px' }}>
+                            {copy.studioDraftBoundary}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={resetStudioDraftControls}
+                            style={{
+                              border: '1px solid #CBD5E1',
+                              background: '#FFFFFF',
+                              color: '#334155',
+                              borderRadius: 10,
+                              padding: '8px 10px',
+                              fontSize: 11,
+                              fontWeight: 850,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {copy.studioResetDraft}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
                       <SafetyNote title={copy.studioPreviewOnly} body={copy.studioPreviewOnlyBody} accent="#4F46E5" />
                       <SafetyNote title={copy.studioNotFinal} body={copy.studioNotFinalBody} accent="#0F766E" />

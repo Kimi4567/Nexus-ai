@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildCreativeStudioPreviewModel } from '../creativeStudioPreview'
+import {
+  applyCreativeStudioDraftControls,
+  buildCreativeStudioPreviewModel,
+  defaultCreativeStudioDraftControls,
+} from '../creativeStudioPreview'
 
 const baseInput = {
   post: {
@@ -111,6 +115,7 @@ describe('buildCreativeStudioPreviewModel', () => {
     expect(headline?.content.aiRenderedText).toBe(false)
     expect(cta?.content.text).toBe('راجع المسار')
     expect(model.compositionPreview.artifact.svg).toContain('direction="rtl"')
+    expect(model.compositionPreview.artifact.svg).toContain('unicode-bidi="plaintext"')
   })
 
   it('does not expose execution fields or final creative claims', () => {
@@ -123,5 +128,69 @@ describe('buildCreativeStudioPreviewModel', () => {
     expect(serialized).not.toContain('final_ad_creative')
     expect(serialized).not.toContain('"autoAttach":true')
     expect(model.compositionPreview.attachPolicy.autoAttach).toBe(false)
+    expect(model.compositionPreview.artifact.svg).not.toContain('stroke-dasharray')
+  })
+
+  it('derives safe local draft defaults from editable layers', () => {
+    const model = buildCreativeStudioPreviewModel(baseInput)
+    const controls = defaultCreativeStudioDraftControls(model)
+
+    expect(controls.headlineText).toBe('Clinic follow-up gets messy when ownership is unclear')
+    expect(controls.ctaText).toBe('Review workflow')
+    expect(controls.brandText).toBe('ClinicFlow AI')
+    expect(controls.accentColor).toBe('#334155')
+    expect(controls.layout).toBe('balanced')
+  })
+
+  it('applies local editable draft controls without mutating the original model', () => {
+    const model = buildCreativeStudioPreviewModel(baseInput)
+    const edited = applyCreativeStudioDraftControls(model, {
+      headlineText: 'Make follow-up work feel calm',
+      ctaText: 'Audit the workflow',
+      brandText: 'ClinicFlow Ops',
+      accentColor: '#7C3AED',
+      layout: 'cta_focus',
+    })
+
+    expect(edited.postId).toBe(model.postId)
+    expect(edited.outputClassification).toBe('draft_layered_studio_preview')
+    expect(edited.compositionPreview.artifact.persisted).toBe(false)
+    expect(edited.compositionPreview.artifact.uploaded).toBe(false)
+    expect(edited.editableLayers.find(layer => layer.role === 'headline')?.text).toBe('Make follow-up work feel calm')
+    expect(edited.editableLayers.find(layer => layer.role === 'cta')?.text).toBe('Audit the workflow')
+    expect(edited.editableLayers.find(layer => layer.role === 'logo_or_brand_name')?.text).toBe('ClinicFlow Ops')
+    expect(edited.compositionPreview.artifact.svg).toContain('Make follow-up work feel calm')
+    expect(edited.compositionPreview.artifact.svg).toContain('Audit the workflow')
+    expect(edited.compositionPreview.artifact.svg).toContain('ClinicFlow')
+    expect(edited.compositionPreview.artifact.svg).toContain('Ops')
+    expect(edited.compositionPreview.artifact.svg).toContain('#7C3AED')
+    expect(model.editableLayers.find(layer => layer.role === 'headline')?.text).toBe(
+      'Clinic follow-up gets messy when ownership is unclear',
+    )
+  })
+
+  it('keeps local draft controls away from save, render, attach, and publish behavior', () => {
+    const edited = applyCreativeStudioDraftControls(buildCreativeStudioPreviewModel(baseInput), {
+      headlineText: 'A review-only local edit',
+      layout: 'editorial',
+    })
+    const serialized = JSON.stringify(edited)
+
+    expect(edited.safety).toMatchObject({
+      reviewOnly: true,
+      doesNotGenerateImage: true,
+      doesNotRenderOrUpload: true,
+      doesNotAttachMedia: true,
+      doesNotMutateSocialPost: true,
+      doesNotPublish: true,
+      doesNotSchedule: true,
+      attachSurface: 'content_hub',
+    })
+    expect(edited.compositionPreview.attachPolicy.autoAttach).toBe(false)
+    expect(serialized).not.toContain('saveAction')
+    expect(serialized).not.toContain('renderAction')
+    expect(serialized).not.toContain('uploadAction')
+    expect(serialized).not.toContain('attachAction')
+    expect(serialized).not.toContain('publishAction')
   })
 })
