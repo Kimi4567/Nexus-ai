@@ -1515,6 +1515,7 @@ function CampaignDetailPageInner() {
     includesPaidPlanning: includesPaidPlanningStrategy,
     hasCreativeBrief: Boolean(creativeBrief),
     currentStepId: commandFlowCurrentStepId,
+    operatingSnapshotsLoaded,
   })
   const commandFlowStepTone: Record<CampaignCommandFlowStepStatus, string> = {
     complete: 'border-emerald-200 bg-emerald-50 text-emerald-950',
@@ -2022,7 +2023,7 @@ function CampaignDetailPageInner() {
 
         {/* ── Campaign Progress Panel ───────────────────────────────────── */}
         {aiOutput && (
-          <div className="mb-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+          <div id="campaign-operating-flow" className="mb-6 scroll-mt-24 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-5">
               <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                 <div className="max-w-3xl">
