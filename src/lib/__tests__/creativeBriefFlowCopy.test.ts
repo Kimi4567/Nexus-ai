@@ -92,4 +92,21 @@ describe('creative brief flow copy', () => {
     expect(runtimeSources).not.toContain('Automatically attach uploaded assets')
     expect(runtimeSources).not.toContain('Credits spent on upload')
   })
+
+  it('adds a read-only post production desk before execution actions', () => {
+    expect(pageSource).toContain('Post production desk')
+    expect(pageSource).toContain('لوحة إنتاج المنشورات')
+    expect(pageSource).toContain('A practical translation of the strategy into production needs for each post')
+    expect(pageSource).toContain('هذه اللوحة لا تولد، لا ترفع، لا ترفق، ولا تنشر أي شيء')
+    expect(pageSource).toContain('Editable headline layer from post copy')
+    expect(pageSource).toContain('Editable CTA layer from post goal')
+    expect(pageSource).toContain('Logo or brand-name layer inside safe zone')
+    expect(pageSource).toContain('Final media attachment happens later from Content Hub with a separate confirmation per post')
+    expect(pageSource).toContain('fetch(`/api/campaigns/${campaignId}/content-plan`')
+
+    expect(pageSource).not.toContain('Attach from production desk')
+    expect(pageSource).not.toContain('Generate from production desk')
+    expect(pageSource).not.toContain('Publish from production desk')
+    expect(pageSource).not.toContain('Upload from production desk')
+  })
 })

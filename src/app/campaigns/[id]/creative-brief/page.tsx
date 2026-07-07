@@ -92,6 +92,21 @@ interface Campaign {
   aiOutput?: any
 }
 
+interface ContentPlanPost {
+  id: string
+  platform?: string | null
+  caption?: string | null
+  hook?: string | null
+  cta?: string | null
+  contentType?: string | null
+  imageUrl?: string | null
+  uploadedMediaId?: string | null
+  mediaSource?: string | null
+  generationStatus?: string | null
+  contentPlanIndex?: number | null
+  status?: string | null
+}
+
 // ─── Utility Components ───────────────────────────────────────────────────────
 
 function CopyButton({ text }: { text: string }) {
@@ -198,6 +213,7 @@ export default function CreativeBriefPage() {
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [contentPosts, setContentPosts] = useState<ContentPlanPost[]>([])
   const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set())
   const [creativeBrief, setCreativeBrief] = useState<CreativeBrief | null>(null)
   const [mode, setMode] = useState<'asset' | 'concept'>('asset')
@@ -278,6 +294,41 @@ export default function CreativeBriefPage() {
     mediaLibraryBoundary: isArabic
       ? 'مكتبة الوسائط تخزن أصول العمل فقط. الربط النهائي بمنشور يتم لاحقًا من Content Hub بتأكيد منفصل.'
       : 'Media Library stores workspace assets only. Final attachment to a post happens later from Content Hub with separate confirmation.',
+    productionDeskTitle: isArabic ? 'لوحة إنتاج المنشورات' : 'Post production desk',
+    productionDeskSubtitle: isArabic
+      ? 'ترجمة عملية للاستراتيجية إلى احتياجات إنتاج لكل منشور. هذه اللوحة لا تولد، لا ترفع، لا ترفق، ولا تنشر أي شيء.'
+      : 'A practical translation of the strategy into production needs for each post. This desk does not generate, upload, attach, or publish anything.',
+    productionDeskEmptyTitle: isArabic ? 'بانتظار منشورات Content Hub' : 'Waiting for Content Hub posts',
+    productionDeskEmptyBody: isArabic
+      ? 'تظهر لوحة الإنتاج بعد وجود منشورات فعلية في Content Hub، حتى تكون قرارات الأصول مرتبطة بمنشورات حقيقية وليست افتراضات عامة.'
+      : 'The production desk appears after real Content Hub posts exist, so asset decisions stay tied to actual posts instead of generic assumptions.',
+    productionDeskBoundary: isArabic
+      ? 'الربط النهائي للوسائط يحدث لاحقًا من Content Hub بتأكيد منفصل لكل منشور. هذه اللوحة للقراءة والتخطيط فقط.'
+      : 'Final media attachment happens later from Content Hub with a separate confirmation per post. This desk is read-only planning only.',
+    productionDeskStatsPosts: isArabic ? 'منشورات في الخطة' : 'posts in plan',
+    productionDeskStatsNeedMedia: isArabic ? 'تحتاج قرار وسائط' : 'need media decision',
+    productionDeskStatsAssets: isArabic ? 'أصول مرفوعة متاحة' : 'uploaded assets available',
+    productionDeskPost: isArabic ? 'منشور' : 'Post',
+    productionDeskPlatform: isArabic ? 'المنصة' : 'Platform',
+    productionDeskFormat: isArabic ? 'الشكل' : 'Format',
+    productionDeskMediaStatus: isArabic ? 'حالة الوسائط' : 'Media status',
+    productionDeskAssetNeed: isArabic ? 'احتياج الأصل' : 'Asset need',
+    productionDeskLayerPlan: isArabic ? 'خطة الطبقات' : 'Layer plan',
+    productionDeskNextStep: isArabic ? 'الخطوة التالية' : 'Next step',
+    productionDeskLinkedMedia: isArabic ? 'وسائط مرتبطة بالفعل في Content Hub' : 'Media already linked in Content Hub',
+    productionDeskNeedsUpload: isArabic ? 'يحتاج رفع أصل قبل المراجعة' : 'Needs asset upload before review',
+    productionDeskNeedsSelection: isArabic ? 'اختر أصلًا مرفوعًا لتحليل الموجز' : 'Select an uploaded asset for brief analysis',
+    productionDeskReadyForReview: isArabic ? 'جاهز لمراجعة الأصل في الموجز' : 'Ready for asset review in the brief',
+    productionDeskReviewLinked: isArabic ? 'راجع الوسائط المرتبطة في Content Hub' : 'Review linked media in Content Hub',
+    productionDeskUploadNext: isArabic ? 'ارفع الأصل المطلوب في مكتبة الوسائط' : 'Upload the required asset in Media Library',
+    productionDeskSelectNext: isArabic ? 'اختر الأصل هنا ثم أكد موجز المراجعة' : 'Select the asset here, then confirm the review brief',
+    productionDeskAttachLater: isArabic ? 'بعد المراجعة، اربط الوسائط النهائية من Content Hub فقط' : 'After review, attach final media from Content Hub only',
+    productionDeskHeadlineLayer: isArabic ? 'Headline قابل للتعديل من نص المنشور' : 'Editable headline layer from post copy',
+    productionDeskCtaLayer: isArabic ? 'CTA قابل للتعديل من هدف المنشور' : 'Editable CTA layer from post goal',
+    productionDeskLogoLayer: isArabic ? 'Logo أو اسم البراند داخل safe zone' : 'Logo or brand-name layer inside safe zone',
+    productionDeskSafeZone: isArabic ? 'تترك مساحة آمنة للنص والشعار' : 'Keep safe zones for text and logo',
+    productionDeskDefaultAsset: isArabic ? 'صورة/فيديو داعم من متطلبات الاستراتيجية' : 'Supporting image/video from strategy requirements',
+    productionDeskNoCaption: isArabic ? 'نص المنشور غير متوفر بعد' : 'Post copy not available yet',
     imageSingular: isArabic ? 'صورة' : 'image',
     imagePlural: isArabic ? 'صور' : 'images',
     videoSingular: isArabic ? 'فيديو' : 'video',
@@ -365,14 +416,21 @@ export default function CreativeBriefPage() {
     const token = authHeader()
     if (!token) return
     try {
-      const [campaignRes, mediaRes, briefRes] = await Promise.all([
+      const [campaignRes, mediaRes, briefRes, contentPlanRes] = await Promise.all([
         fetch(`/api/campaigns/${campaignId}`, { headers: { Authorization: token } }),
         fetch(`/api/media?limit=50`, { headers: { Authorization: token } }),
         fetch(`/api/campaigns/${campaignId}/creative-brief`, { headers: { Authorization: token } }),
+        fetch(`/api/campaigns/${campaignId}/content-plan`, { headers: { Authorization: token } }),
       ])
-      const [cd, md, bd] = await Promise.all([campaignRes.json(), mediaRes.json(), briefRes.json()])
+      const [cd, md, bd, pd] = await Promise.all([
+        campaignRes.json(),
+        mediaRes.json(),
+        briefRes.json(),
+        contentPlanRes.ok ? contentPlanRes.json() : Promise.resolve({ posts: [] }),
+      ])
       if (cd.campaign) setCampaign(cd.campaign)
       if (Array.isArray(md.media)) setMediaItems(md.media)
+      if (Array.isArray(pd.posts)) setContentPosts(pd.posts)
       if (bd.creativeBrief) {
         setCreativeBrief(bd.creativeBrief)
         setMode(bd.creativeMode || 'asset')
@@ -478,6 +536,58 @@ export default function CreativeBriefPage() {
   const assetRequirements: any = campaign.aiOutput?.strategy?.assetRequirements || null
   const imageMedia = mediaItems.filter(m => m.type === 'IMAGE' || m.type === 'LOGO')
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
+  const assetRequirementText = (item: string) => {
+    const normalized = item.trim().toLowerCase()
+    if (normalized === 'not included') return copy.notIncluded
+    if (normalized === 'not enough data') return copy.notEnoughData
+    return item
+  }
+  const assetNeedPool = [
+    ...(assetRequirements?.mustHave ?? []),
+    ...(assetRequirements?.forOrganic ?? []),
+    ...(assetRequirements?.nextToCreate ?? []),
+    ...(assetRequirements?.niceToHave ?? []),
+  ].map((item: string) => assetRequirementText(String(item))).filter(Boolean)
+  const productionRows = contentPosts
+    .slice()
+    .sort((a, b) => (a.contentPlanIndex ?? 999) - (b.contentPlanIndex ?? 999))
+    .map((post, index) => {
+      const hasLinkedMedia = Boolean(post.imageUrl || post.uploadedMediaId)
+      const hasUploadedAssets = mediaItems.length > 0
+      const assetNeed = hasLinkedMedia
+        ? copy.productionDeskLinkedMedia
+        : assetNeedPool[index % Math.max(assetNeedPool.length, 1)] || copy.productionDeskDefaultAsset
+      const mediaStatus = hasLinkedMedia
+        ? copy.productionDeskLinkedMedia
+        : hasUploadedAssets
+          ? copy.productionDeskNeedsSelection
+          : copy.productionDeskNeedsUpload
+      const nextStep = hasLinkedMedia
+        ? copy.productionDeskReviewLinked
+        : hasUploadedAssets
+          ? copy.productionDeskSelectNext
+          : copy.productionDeskUploadNext
+      const copySource = post.hook || post.caption || copy.productionDeskNoCaption
+      const shortCopy = String(copySource).replace(/\s+/g, ' ').slice(0, 130)
+      return {
+        id: post.id || `post-${index + 1}`,
+        number: index + 1,
+        platform: post.platform || campaign.platforms?.[index % Math.max(campaign.platforms.length, 1)] || 'General',
+        format: post.contentType || (post.caption?.toLowerCase().includes('video') ? 'Video post' : 'Social post'),
+        status: post.status,
+        mediaStatus,
+        assetNeed,
+        nextStep,
+        shortCopy,
+        layerPlan: [
+          copy.productionDeskHeadlineLayer,
+          copy.productionDeskCtaLayer,
+          copy.productionDeskLogoLayer,
+          copy.productionDeskSafeZone,
+        ],
+      }
+    })
+  const productionRowsNeedingMedia = productionRows.filter(row => row.mediaStatus !== copy.productionDeskLinkedMedia).length
   const assetActionUnavailable = mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)
   const generationDisabled = assetActionUnavailable || !confirmedReviewOnly
   const emptyStateTitle = mode === 'asset'
@@ -494,13 +604,6 @@ export default function CreativeBriefPage() {
         ? copy.waitingForSelectionBody
         : copy.emptyAssetBody
     : copy.emptyConceptBody
-  const assetRequirementText = (item: string) => {
-    const normalized = item.trim().toLowerCase()
-    if (normalized === 'not included') return copy.notIncluded
-    if (normalized === 'not enough data') return copy.notEnoughData
-    return item
-  }
-
   return (
     <>
     <div dir={dir} style={{ minHeight: '100vh', background: '#F8FAFC', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
@@ -733,6 +836,139 @@ export default function CreativeBriefPage() {
                 {copy.mediaLibraryBoundary}
               </p>
             </div>
+
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              borderRadius: 18,
+              padding: '18px',
+              marginBottom: 22,
+              boxShadow: '0 14px 35px rgba(15,23,42,0.05)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+                <div style={{ maxWidth: 700 }}>
+                  <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 900, color: '#0F766E', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                    {copy.productionDeskTitle}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.75, color: '#475569' }}>
+                    {copy.productionDeskSubtitle}
+                  </p>
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(88px, 1fr))',
+                  gap: 8,
+                  minWidth: 260,
+                }}>
+                  {[
+                    { value: productionRows.length, label: copy.productionDeskStatsPosts, color: '#0F766E' },
+                    { value: productionRowsNeedingMedia, label: copy.productionDeskStatsNeedMedia, color: '#B45309' },
+                    { value: mediaItems.length, label: copy.productionDeskStatsAssets, color: '#4F46E5' },
+                  ].map(item => (
+                    <div key={item.label} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: '9px 10px', background: '#F8FAFC' }}>
+                      <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: item.color }}>{item.value}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 10, lineHeight: 1.35, color: '#64748B', fontWeight: 700 }}>{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {productionRows.length === 0 ? (
+                <div style={{ border: '1px dashed #CBD5E1', borderRadius: 14, padding: '18px', background: '#F8FAFC' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 800, color: '#334155' }}>
+                    {copy.productionDeskEmptyTitle}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: '#64748B' }}>
+                    {copy.productionDeskEmptyBody}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12 }}>
+                  {productionRows.map(row => (
+                    <div key={row.id} style={{
+                      border: '1px solid #E2E8F0',
+                      borderRadius: 16,
+                      background: '#FFFFFF',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        padding: '12px 14px',
+                        borderBottom: '1px solid #E2E8F0',
+                        background: '#F8FAFC',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                        alignItems: 'flex-start',
+                      }}>
+                        <div>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: '#0F172A' }}>
+                            {copy.productionDeskPost} #{row.number}
+                          </p>
+                          <p style={{ margin: '3px 0 0', fontSize: 11, color: '#64748B', lineHeight: 1.45 }}>
+                            {row.shortCopy}
+                          </p>
+                        </div>
+                        <span style={{
+                          border: '1px solid #C7D2FE',
+                          background: '#EEF2FF',
+                          color: '#4338CA',
+                          borderRadius: 999,
+                          padding: '4px 8px',
+                          fontSize: 10,
+                          fontWeight: 800,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {row.platform}
+                        </span>
+                      </div>
+                      <div style={{ padding: '12px 14px', display: 'grid', gap: 10 }}>
+                        {[
+                          { label: copy.productionDeskFormat, value: row.format },
+                          { label: copy.productionDeskMediaStatus, value: row.mediaStatus },
+                          { label: copy.productionDeskAssetNeed, value: row.assetNeed },
+                          { label: copy.productionDeskNextStep, value: row.nextStep },
+                        ].map(item => (
+                          <div key={item.label}>
+                            <p style={{ margin: '0 0 3px', fontSize: 10, fontWeight: 900, color: '#94A3B8', letterSpacing: 0.35, textTransform: 'uppercase' }}>
+                              {item.label}
+                            </p>
+                            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.55, color: '#334155', fontWeight: 650 }}>
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
+                        <div>
+                          <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 900, color: '#94A3B8', letterSpacing: 0.35, textTransform: 'uppercase' }}>
+                            {copy.productionDeskLayerPlan}
+                          </p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {row.layerPlan.map(layer => (
+                              <span key={layer} style={{
+                                border: '1px solid #D1FAE5',
+                                background: '#ECFDF5',
+                                color: '#047857',
+                                borderRadius: 999,
+                                padding: '4px 7px',
+                                fontSize: 10,
+                                fontWeight: 750,
+                                lineHeight: 1.25,
+                              }}>
+                                {layer}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p style={{ margin: '14px 0 0', fontSize: 11, lineHeight: 1.6, color: '#64748B' }}>
+                {copy.productionDeskBoundary}
+              </p>
+            </div>
+
             {mediaItems.length === 0 ? (
               <div>
                 {/* Strategy Asset Requirements — show when no media */}
