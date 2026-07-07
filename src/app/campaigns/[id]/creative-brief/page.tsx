@@ -239,7 +239,7 @@ export default function CreativeBriefPage() {
       : `Creating or analyzing the brief costs ${creditLabel}.`,
     boundaryTitle: isArabic ? 'حدود الصفحة' : 'Page boundary',
     boundaryBody: isArabic
-      ? 'هذه الصفحة لا تنشر، لا تجدول، لا ترفق ميديا في المنشورات، ولا تنشئ إعلانًا نهائيًا.'
+      ? 'هذه الصفحة لا تنشر، لا تجدول، لا ترفق ميديا في المنشورات، ولا تنتج أصلًا جاهزًا للنشر.'
       : 'This page does not publish, schedule, attach post media, or create finished ad assets.',
     contentHubTitle: isArabic ? 'مصدر الحقيقة النهائي' : 'Final media source of truth',
     contentHubBody: isArabic
@@ -335,6 +335,8 @@ export default function CreativeBriefPage() {
     platformLayouts: isArabic ? 'تخطيطات المنصات' : 'Platform Layouts',
     creativeNotes: isArabic ? 'ملاحظات المخرج الإبداعي' : 'Creative Director Notes',
     productionNote: isArabic ? 'ملاحظة إنتاج' : 'Production note',
+    notIncluded: isArabic ? 'غير مشمول في هذه الخطة' : 'Not included in this plan',
+    notEnoughData: isArabic ? 'لا توجد بيانات كافية بعد' : 'Not enough data yet',
   }
 
   // ── Data loading ──
@@ -450,6 +452,12 @@ export default function CreativeBriefPage() {
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
   const assetActionUnavailable = mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)
   const generationDisabled = assetActionUnavailable || !confirmedReviewOnly
+  const assetRequirementText = (item: string) => {
+    const normalized = item.trim().toLowerCase()
+    if (normalized === 'not included') return copy.notIncluded
+    if (normalized === 'not enough data') return copy.notEnoughData
+    return item
+  }
 
   return (
     <>
@@ -604,7 +612,7 @@ export default function CreativeBriefPage() {
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.mustHave.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
-                                  <span style={{ color: '#DC2626', flexShrink: 0 }}>·</span>{item}
+                                  <span style={{ color: '#DC2626', flexShrink: 0 }}>·</span>{assetRequirementText(item)}
                                 </li>
                               ))}
                             </ul>
@@ -616,7 +624,7 @@ export default function CreativeBriefPage() {
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.niceToHave.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
-                                  <span style={{ color: '#D97706', flexShrink: 0 }}>·</span>{item}
+                                  <span style={{ color: '#D97706', flexShrink: 0 }}>·</span>{assetRequirementText(item)}
                                 </li>
                               ))}
                             </ul>
@@ -628,7 +636,7 @@ export default function CreativeBriefPage() {
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.forAds.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
-                                  <span style={{ color: '#4338CA', flexShrink: 0 }}>·</span>{item}
+                                  <span style={{ color: '#4338CA', flexShrink: 0 }}>·</span>{assetRequirementText(item)}
                                 </li>
                               ))}
                             </ul>
@@ -640,7 +648,7 @@ export default function CreativeBriefPage() {
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.forOrganic.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
-                                  <span style={{ color: '#15803D', flexShrink: 0 }}>·</span>{item}
+                                  <span style={{ color: '#15803D', flexShrink: 0 }}>·</span>{assetRequirementText(item)}
                                 </li>
                               ))}
                             </ul>
@@ -652,7 +660,7 @@ export default function CreativeBriefPage() {
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.forProof.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
-                                  <span style={{ color: '#7C3AED', flexShrink: 0 }}>·</span>{item}
+                                  <span style={{ color: '#7C3AED', flexShrink: 0 }}>·</span>{assetRequirementText(item)}
                                 </li>
                               ))}
                             </ul>
@@ -664,7 +672,7 @@ export default function CreativeBriefPage() {
                             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                               {assetRequirements.nextToCreate.map((item: string, i: number) => (
                                 <li key={i} style={{ fontSize: 13, color: '#374151', padding: '3px 0', display: 'flex', gap: 6 }}>
-                                  <span style={{ color: '#C2410C', flexShrink: 0 }}>·</span>{item}
+                                  <span style={{ color: '#C2410C', flexShrink: 0 }}>·</span>{assetRequirementText(item)}
                                 </li>
                               ))}
                             </ul>
@@ -724,7 +732,7 @@ export default function CreativeBriefPage() {
                         <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{copy.mustHave}</p>
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                           {assetRequirements.mustHave.slice(0, 3).map((item: string, i: number) => (
-                            <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {item}</li>
+                            <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {assetRequirementText(item)}</li>
                           ))}
                         </ul>
                       </div>
@@ -734,7 +742,7 @@ export default function CreativeBriefPage() {
                         <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{copy.shootNext}</p>
                         <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
                           {assetRequirements.nextToCreate.slice(0, 3).map((item: string, i: number) => (
-                            <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {item}</li>
+                            <li key={i} style={{ fontSize: 12, color: '#374151', padding: '1px 0' }}>· {assetRequirementText(item)}</li>
                           ))}
                         </ul>
                       </div>

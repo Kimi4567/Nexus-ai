@@ -23,6 +23,14 @@ describe('creative brief flow copy', () => {
     expect(pageSource).toContain('لن يولد صورة نهائية')
   })
 
+  it('localizes generated strategy placeholder values on the Arabic page', () => {
+    expect(pageSource).toContain('notIncluded')
+    expect(pageSource).toContain('غير مشمول في هذه الخطة')
+    expect(pageSource).toContain('notEnoughData')
+    expect(pageSource).toContain('لا توجد بيانات كافية بعد')
+    expect(pageSource).toContain('assetRequirementText(item)')
+  })
+
   it('removes the old standalone visual-director mode labels from runtime copy', () => {
     expect(pageSource).not.toContain('NEXUS Visual Director')
     expect(pageSource).not.toContain('User Asset Mode')
