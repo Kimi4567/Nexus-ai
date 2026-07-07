@@ -994,6 +994,8 @@ function CampaignDetailPageInner() {
   const strategyDocumentLocale = resolveStrategyDocumentLocale(strategyLanguage, locale)
   const strategyDocIsArabic = strategyDocumentLocale === 'ar'
   const strategyDocText = (ar: string, en: string): string => strategyDocIsArabic ? ar : en
+  const uiIsArabic = locale === 'ar'
+  const uiText = (ar: string, en: string): string => uiIsArabic ? ar : en
   const proofContext = {
     verifiedProof: Array.isArray((brandDNA as any)?.verifiedProof) ? (brandDNA as any).verifiedProof : [],
   }
@@ -1181,17 +1183,19 @@ function CampaignDetailPageInner() {
   })
   const strategyDocOperatingLabel = strategyDocIsArabic ? operatingState.stageLabelAr : operatingState.stageLabel
   const strategyDocOperatingHelper = strategyDocIsArabic ? operatingState.stageHelperAr : operatingState.stageHelper
+  const uiOperatingLabel = uiIsArabic ? operatingState.stageLabelAr : operatingState.stageLabel
+  const uiOperatingHelper = uiIsArabic ? operatingState.stageHelperAr : operatingState.stageHelper
   const operatingActionLabel = locale === 'ar'
     ? operatingState.primaryAction.labelAr
     : operatingState.primaryAction.label
   const displayOperatingLabel = isPaidOnlyStrategy
-    ? strategyDocText('بريف تخطيط مدفوع للمراجعة', 'Paid planning brief for review')
-    : strategyDocOperatingLabel
+    ? uiText('بريف تخطيط مدفوع للمراجعة', 'Paid planning brief for review')
+    : uiOperatingLabel
   const displayOperatingHelper = isPaidOnlyStrategy
-    ? (strategyDocIsArabic
+    ? (uiIsArabic
       ? 'لا توجد خطة محتوى عضوية من هذا التوليد. أكمل التتبع والحسابات والموافقة قبل أي إطلاق أو صرف.'
       : 'No organic content plan was created by this run. Complete tracking, accounts, and approval before any launch or spend.')
-    : strategyDocOperatingHelper
+    : uiOperatingHelper
   const strategyRoomStateCopy = deriveStrategyRoomStateCopy({
     locale,
     isPaidOnlyStrategy,
@@ -1547,15 +1551,15 @@ function CampaignDetailPageInner() {
   )
   const strategyExecutionPathStatus = (() => {
     if (strategyExecutionBridge.overallStatus === 'ready') {
-      return strategyDocText('متطلبات التنفيذ متاحة للمراجعة', 'Execution prerequisites available for review')
+      return uiText('متطلبات التنفيذ متاحة للمراجعة', 'Execution prerequisites available for review')
     }
     if (strategyExecutionBridge.overallStatus === 'checking') {
-      return strategyDocText('قيد فحص الاتصالات', 'Checking connections')
+      return uiText('قيد فحص الاتصالات', 'Checking connections')
     }
     if (strategyExecutionBridge.overallStatus === 'not_in_scope') {
-      return strategyDocText('خارج نطاق هذا التشغيل', 'Outside this run')
+      return uiText('خارج نطاق هذا التشغيل', 'Outside this run')
     }
-    return strategyDocText('تحتاج اتصالات أو صلاحيات', 'Needs connections or permissions')
+    return uiText('تحتاج اتصالات أو صلاحيات', 'Needs connections or permissions')
   })()
   const strategyExecutionPathItems: Array<{
     step: string
@@ -1569,62 +1573,62 @@ function CampaignDetailPageInner() {
     {
       step: '01',
       title: isPaidOnlyStrategy
-        ? strategyDocText('بريف التخطيط المدفوع', 'Paid planning brief')
-        : strategyDocText('مراجعة منشورات Content Hub', 'Review Content Hub posts'),
+        ? uiText('بريف التخطيط المدفوع', 'Paid planning brief')
+        : uiText('مراجعة منشورات Content Hub', 'Review Content Hub posts'),
       status: isPaidOnlyStrategy
-        ? strategyDocText('مراجعة فقط — لا إطلاق', 'Review only — no launch')
-        : strategyDocStateCopy.contentPlanStatusValue,
+        ? uiText('مراجعة فقط — لا إطلاق', 'Review only — no launch')
+        : strategyRoomStateCopy.contentPlanStatusValue,
       helper: isPaidOnlyStrategy
-        ? (strategyDocIsArabic
+        ? (uiIsArabic
           ? 'راجع الزوايا والقيود ومدخلات الإطلاق قبل أي صرف أو إنشاء مسودات منصة.'
           : 'Review paid angles, constraints, and launch inputs before any spend or platform draft creation.')
         : operatingState.truthFlags.hasContentPlan
-          ? (strategyDocIsArabic
+          ? (uiIsArabic
             ? 'راجع النسخ، حالة الوسائط، وحالة كل منشور قبل أي جدولة أو نشر.'
             : 'Review copy, media state, and each post lifecycle before scheduling or publishing.')
-          : (strategyDocIsArabic
+          : (uiIsArabic
             ? 'حضّر أول خطة محتوى بعد مراجعة القرار والافتراضات.'
             : 'Prepare the first content plan after reviewing the decision and assumptions.'),
       href: isPaidOnlyStrategy ? `/campaigns/${campaign.id}/paid-launch` : `/campaigns/${campaign.id}/content-hub`,
       cta: isPaidOnlyStrategy
-        ? strategyDocText('افتح بريف التخطيط', 'Open planning brief')
-        : strategyDocStateCopy.contentHubCta,
+        ? uiText('افتح بريف التخطيط', 'Open planning brief')
+        : strategyRoomStateCopy.contentHubCta,
       tone: operatingState.truthFlags.hasContentPlan || isPaidOnlyStrategy ? 'positive' : 'muted',
     },
     {
       step: '02',
-      title: strategyDocText('جاهزية الإبداع والوسائط', 'Creative and media readiness'),
+      title: uiText('جاهزية الإبداع والوسائط', 'Creative and media readiness'),
       status: creativeHasPostRecords
-        ? (strategyDocIsArabic
+        ? (uiIsArabic
           ? `${creativeRequirementsSummary.mediaNeeded} تحتاج وسائط · ${creativeRequirementsSummary.attachedToPost} مرتبطة`
           : `${creativeRequirementsSummary.mediaNeeded} need media · ${creativeRequirementsSummary.attachedToPost} attached`)
-        : strategyDocText('ينتظر منشورات Content Hub', 'Waiting for Content Hub posts'),
+        : uiText('ينتظر منشورات Content Hub', 'Waiting for Content Hub posts'),
       helper: creativeHasPostRecords
-        ? (strategyDocIsArabic
+        ? (uiIsArabic
           ? 'راجع متطلبات الوسائط والطبقات في تبويب الإبداع. لا توليد أو ربط تلقائي من هنا.'
           : 'Review media and layer requirements in Creative. Nothing generates or attaches automatically here.')
-        : (strategyDocIsArabic
+        : (uiIsArabic
           ? 'تظهر متطلبات الإبداع العملية بعد وجود منشورات مرتبطة في Content Hub.'
           : 'Practical creative requirements appear after post-linked Content Hub records exist.'),
       href: `/campaigns/${campaign.id}?tab=creative`,
-      cta: strategyDocText('راجع الإبداع', 'Review Creative'),
+      cta: uiText('راجع الإبداع', 'Review Creative'),
       tone: creativeRequirementsSummary.mediaNeeded > 0 ? 'warning' : creativeHasPostRecords ? 'positive' : 'muted',
     },
     {
       step: '03',
       title: includesPaidPlanningStrategy
-        ? strategyDocText('جاهزية المنصات والمدفوع', 'Platform and paid readiness')
-        : strategyDocText('جاهزية منصات النشر', 'Publishing platform readiness'),
+        ? uiText('جاهزية المنصات والمدفوع', 'Platform and paid readiness')
+        : uiText('جاهزية منصات النشر', 'Publishing platform readiness'),
       status: strategyExecutionPathStatus,
       helper: strategyExecutionBridge.overallStatus === 'ready'
-        ? (strategyDocIsArabic
+        ? (uiIsArabic
           ? 'المتطلبات متاحة للمراجعة فقط. أي نشر أو إطلاق يحتاج تأكيداً صريحاً في مكانه الصحيح.'
           : 'Prerequisites are available for review only. Any publishing or launch still needs explicit confirmation in the right surface.')
-        : (strategyDocIsArabic
+        : (uiIsArabic
           ? 'راجع الاتصالات والصلاحيات قبل اعتبار النشر أو الإعلانات قابلة للتنفيذ.'
           : 'Review connections and permissions before treating publishing or ads as executable.'),
       href: '/connections',
-      cta: strategyDocText('راجع الاتصالات', 'Review Connections'),
+      cta: uiText('راجع الاتصالات', 'Review Connections'),
       tone: strategyExecutionBridge.overallStatus === 'ready'
         ? 'positive'
         : strategyExecutionBridge.overallStatus === 'not_in_scope'
@@ -2401,40 +2405,40 @@ function CampaignDetailPageInner() {
                       <div className="max-w-3xl">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
-                            {strategyDocText('مركز قيادة الاستراتيجية', 'Strategy command center')}
+                            {uiText('مركز قيادة الاستراتيجية', 'Strategy command center')}
                           </span>
                           <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                            {strategyDocText('مراجعة قبل التنفيذ', 'Review before execution')}
+                            {uiText('مراجعة قبل التنفيذ', 'Review before execution')}
                           </span>
                         </div>
                         <h1 className="mt-4 max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
                           {campaign.name}
                         </h1>
                         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                          {strategyDocGuidanceCopy.brief}
+                          {strategyGuidanceCopy.brief}
                         </p>
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500">
-                              {strategyDocText('الإجراء التالي', 'Next action')}
+                              {uiText('الإجراء التالي', 'Next action')}
                             </p>
                             <p className="mt-1 text-sm font-semibold leading-6 text-slate-950">
-                              {strategyDocStateCopy.nextDecision}
+                              {strategyRoomStateCopy.nextDecision}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                              {strategyDocText('حدود التشغيل', 'Operating boundary')}
+                              {uiText('حدود التشغيل', 'Operating boundary')}
                             </p>
                             <p className="mt-1 text-sm leading-6 text-slate-700">
-                              {strategyDocIsArabic
+                              {uiIsArabic
                                 ? 'لا نشر، لا جدولة، لا صرف إعلاني، ولا تحديث Brand Brain من هذه الصفحة.'
                                 : 'No publishing, scheduling, ad spend, or Brand Brain updates happen from this page.'}
                             </p>
                           </div>
                         </div>
                         <p className="mt-4 text-xs text-slate-500">
-                          {strategyDocText('آخر تحديث', 'Last updated')}: {new Date(campaign.updatedAt).toLocaleDateString(strategyDocIsArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {uiText('آخر تحديث', 'Last updated')}: {new Date(campaign.updatedAt).toLocaleDateString(uiIsArabic ? 'ar' : 'en', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -2443,15 +2447,15 @@ function CampaignDetailPageInner() {
                           className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                           {isPaidOnlyStrategy
-                            ? strategyDocText('راجع بريف التخطيط المدفوع', 'Review paid planning brief')
-                            : strategyDocStateCopy.contentHubCta}
+                            ? uiText('راجع بريف التخطيط المدفوع', 'Review paid planning brief')
+                            : strategyRoomStateCopy.contentHubCta}
                         </Link>
                         <button
                           type="button"
                           onClick={() => scrollToStrategySection('strategy-executive')}
                           className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
                         >
-                          {strategyDocText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
+                          {uiText('اقرأ وثيقة الاستراتيجية', 'Read strategy document')}
                         </button>
                       </div>
                     </div>
@@ -2459,41 +2463,41 @@ function CampaignDetailPageInner() {
                   <div className="px-5 py-5 sm:px-7">
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
                       <StrategyDocCard
-                        label={strategyDocText('حالة الاستراتيجية', 'Strategy state')}
-                        locale={strategyDocumentLocale}
+                        label={uiText('حالة الاستراتيجية', 'Strategy state')}
+                        locale={locale}
                         value={displayOperatingLabel}
                         tone="positive"
                       />
                       <StrategyDocCard
                         label={isPaidOnlyStrategy
-                          ? strategyDocText('النطاق العضوي', 'Organic scope')
-                          : strategyDocText('الخطة العضوية', 'Organic plan')}
-                        locale={strategyDocumentLocale}
-                        value={strategyDocStateCopy.organicPlanValue}
-                        tone={strategyDocStateCopy.contentPlanTone}
+                          ? uiText('النطاق العضوي', 'Organic scope')
+                          : uiText('الخطة العضوية', 'Organic plan')}
+                        locale={locale}
+                        value={strategyRoomStateCopy.organicPlanValue}
+                        tone={strategyRoomStateCopy.contentPlanTone}
                       />
                       <StrategyDocCard
-                        label={strategyDocText('الإعلانات المدفوعة', 'Paid planning')}
-                        locale={strategyDocumentLocale}
+                        label={uiText('الإعلانات المدفوعة', 'Paid planning')}
+                        locale={locale}
                         value={!includesPaidPlanningStrategy
-                          ? strategyDocText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
+                          ? uiText('غير مشمول في هذا التشغيل العضوي', 'Not included in this organic run')
                           : hasPaidPlanningGaps
-                            ? (strategyDocIsArabic
-                                ? `غير جاهز: ${strategyDocPaidPlanningMissingLabels.slice(0, 3).join('، ')}`
-                                : `Not ready: ${strategyDocPaidPlanningMissingLabels.slice(0, 3).join(', ')}`)
+                            ? (uiIsArabic
+                                ? `غير جاهز: ${paidPlanningMissingLabels.slice(0, 3).join('، ')}`
+                                : `Not ready: ${paidPlanningMissingLabels.slice(0, 3).join(', ')}`)
                             : isPaidOnlyStrategy
-                              ? strategyDocText('بريف تخطيط للمراجعة فقط', 'Planning brief for review only')
-                              : strategyDocText('تخطيط فقط — لا صرف بدون موافقة', 'Planning only — no spend without approval')}
+                              ? uiText('بريف تخطيط للمراجعة فقط', 'Planning brief for review only')
+                              : uiText('تخطيط فقط — لا صرف بدون موافقة', 'Planning only — no spend without approval')}
                         tone={includesPaidPlanningStrategy ? 'warning' : 'muted'}
                       />
                       <StrategyDocCard
-                        label={strategyDocText('الثقة', 'Confidence')}
-                        locale={strategyDocumentLocale}
+                        label={uiText('الثقة', 'Confidence')}
+                        locale={locale}
                         value={displayedConfidenceLevel
-                          ? `${confLevelLabel(displayedConfidenceLevel, strategyDocumentLocale)}${confidenceReport?.overall === 'high' && displayedConfidenceLevel !== 'high'
-                            ? strategyDocText(' بسبب بيانات ناقصة', ' due to missing inputs')
+                          ? `${confLevelLabel(displayedConfidenceLevel, locale)}${confidenceReport?.overall === 'high' && displayedConfidenceLevel !== 'high'
+                            ? uiText(' بسبب بيانات ناقصة', ' due to missing inputs')
                             : ''}`
-                          : strategyDocText('تحتاج مراجعة', 'Needs review')}
+                          : uiText('تحتاج مراجعة', 'Needs review')}
                         tone={displayedConfidenceLevel === 'low' ? 'warning' : 'muted'}
                       />
                     </div>
@@ -2501,14 +2505,14 @@ function CampaignDetailPageInner() {
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                            {strategyDocText('مسار التشغيل التالي', 'Next operating path')}
+                            {uiText('مسار التشغيل التالي', 'Next operating path')}
                           </p>
                           <p className="mt-1 text-sm font-semibold text-white">
-                            {strategyDocText('اتبع هذا الترتيب: محتوى، إبداع، ثم جاهزية المنصات.', 'Follow this order: content, creative, then platform readiness.')}
+                            {uiText('اتبع هذا الترتيب: محتوى، إبداع، ثم جاهزية المنصات.', 'Follow this order: content, creative, then platform readiness.')}
                           </p>
                         </div>
                         <span className="w-fit rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold text-slate-200">
-                          {strategyDocText('قراءة وتوجيه فقط', 'Read and route only')}
+                          {uiText('قراءة وتوجيه فقط', 'Read and route only')}
                         </span>
                       </div>
                       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
