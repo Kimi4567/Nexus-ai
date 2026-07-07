@@ -18,6 +18,10 @@ import { useAuth } from '@/lib/auth-context'
 import { getCreditActionTruth } from '@/lib/creditActionTruth'
 import { useI18n } from '@/lib/i18n-context'
 import { useBillingStatus } from '@/lib/useBillingStatus'
+import {
+  buildCreativeStudioPreviewModel,
+  type CreativeStudioPreviewModel,
+} from '@/lib/creativeStudioPreview'
 import UpgradeModal from '@/components/UpgradeModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -217,6 +221,7 @@ export default function CreativeBriefPage() {
   const [selectedMedia, setSelectedMedia] = useState<Set<string>>(new Set())
   const [creativeBrief, setCreativeBrief] = useState<CreativeBrief | null>(null)
   const [mode, setMode] = useState<'asset' | 'concept'>('asset')
+  const [selectedStudioPostId, setSelectedStudioPostId] = useState<string | null>(null)
   const [confirmedReviewOnly, setConfirmedReviewOnly] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [refreshingAssets, setRefreshingAssets] = useState(false)
@@ -329,6 +334,47 @@ export default function CreativeBriefPage() {
     productionDeskSafeZone: isArabic ? 'تترك مساحة آمنة للنص والشعار' : 'Keep safe zones for text and logo',
     productionDeskDefaultAsset: isArabic ? 'صورة/فيديو داعم من متطلبات الاستراتيجية' : 'Supporting image/video from strategy requirements',
     productionDeskNoCaption: isArabic ? 'نص المنشور غير متوفر بعد' : 'Post copy not available yet',
+    studioTitle: isArabic ? 'معاينة Creative Studio للمنشور' : 'Creative Studio post preview',
+    studioBadge: isArabic ? 'مسودة طبقات للمراجعة' : 'Draft layered preview',
+    studioSubtitle: isArabic
+      ? 'اختر منشورًا لترى كيف تتحول الخلفية، النص، CTA، والهوية إلى مسودة تركيب قابلة للمراجعة. هذه ليست مادة نهائية ولا يتم حفظها أو رفعها أو ربطها تلقائيًا.'
+      : 'Select a post to see how the background, headline, CTA, and brand layer become a reviewable composition draft. This is not final creative and is not saved, uploaded, or attached automatically.',
+    studioEmptyTitle: isArabic ? 'بانتظار منشور قابل للمعاينة' : 'Waiting for a post to preview',
+    studioEmptyBody: isArabic
+      ? 'تظهر معاينة Creative Studio بعد وجود منشورات Content Hub حتى تكون الطبقات مرتبطة بمنشور حقيقي.'
+      : 'The Creative Studio preview appears after Content Hub posts exist so layers stay tied to a real post.',
+    studioSelectPost: isArabic ? 'اختر منشورًا' : 'Select post',
+    studioCanvas: isArabic ? 'معاينة التركيب' : 'Composition preview',
+    studioLayerInventory: isArabic ? 'الطبقات القابلة للمراجعة' : 'Reviewable layers',
+    studioQuality: isArabic ? 'فحص الجودة' : 'Quality checks',
+    studioPath: isArabic ? 'مسار التنفيذ المقفول' : 'Controlled execution path',
+    studioBackgroundReady: isArabic ? 'الخلفية متاحة للمعاينة' : 'Background available for preview',
+    studioBackgroundNeeded: isArabic ? 'الخلفية مطلوبة قبل أي render مستقبلي' : 'Background needed before future render',
+    studioPreviewOnly: isArabic ? 'معاينة مؤقتة فقط' : 'Transient preview only',
+    studioPreviewOnlyBody: isArabic
+      ? 'SVG مؤقت داخل الصفحة: لا يتم رفعه، لا يتم حفظه كأصل، ولا يغير SocialPost.'
+      : 'Transient SVG in the page: not uploaded, not saved as an asset, and does not change the SocialPost.',
+    studioNotFinal: isArabic ? 'ليست مادة إعلانية نهائية' : 'Not final ad creative',
+    studioNotFinalBody: isArabic
+      ? 'النتيجة هنا تساعد على مراجعة الطبقات قبل أي توليد/تركيب/ربط لاحق بتأكيد صريح.'
+      : 'This view helps review layers before any later generation, composition, or attachment with explicit confirmation.',
+    studioNoActions: isArabic ? 'لا توجد أزرار تنفيذ هنا' : 'No execution actions here',
+    studioNoActionsBody: isArabic
+      ? 'لا توليد، لا render، لا upload، لا attach، لا publish، ولا schedule من هذه المعاينة.'
+      : 'No generation, render, upload, attach, publish, or schedule happens from this preview.',
+    studioFinalAttach: isArabic ? 'الربط النهائي من Content Hub فقط' : 'Final attachment from Content Hub only',
+    studioFinalAttachBody: isArabic
+      ? 'بعد اكتمال المسار لاحقًا، يظل ربط الوسائط بمنشور SocialPost قرارًا منفصلًا من Content Hub.'
+      : 'When this path is completed later, attaching media to a SocialPost remains a separate Content Hub decision.',
+    studioRequiredPassed: isArabic ? 'فحوص مطلوبة ناجحة' : 'required checks passed',
+    studioRequiredFailed: isArabic ? 'فحوص مطلوبة تحتاج مراجعة' : 'required checks need review',
+    studioRecommendedFailed: isArabic ? 'تحسينات مقترحة' : 'recommended improvements',
+    studioNoTextLayer: isArabic ? 'طبقة بدون نص قابل للعرض' : 'Layer has no display text',
+    studioSafe: isArabic ? 'داخل safe zone' : 'inside safe zone',
+    studioNeedsReview: isArabic ? 'تحتاج مراجعة safe zone' : 'needs safe-zone review',
+    studioStepAvailable: isArabic ? 'متاح الآن' : 'available now',
+    studioStepLocked: isArabic ? 'مقفول حتى اكتمال الخلفية' : 'locked until background exists',
+    studioStepFuture: isArabic ? 'مستقبلي بتأكيد صريح' : 'future explicit confirmation',
     imageSingular: isArabic ? 'صورة' : 'image',
     imagePlural: isArabic ? 'صور' : 'images',
     videoSingular: isArabic ? 'فيديو' : 'video',
@@ -588,6 +634,57 @@ export default function CreativeBriefPage() {
       }
     })
   const productionRowsNeedingMedia = productionRows.filter(row => row.mediaStatus !== copy.productionDeskLinkedMedia).length
+  const brandSnapshot = (campaign.aiOutput?.brandBrainSnapshot
+    || campaign.aiOutput?.brandProfile
+    || campaign.aiOutput?.brand
+    || {}) as any
+  const strategySnapshot = (campaign.aiOutput?.strategy || {}) as any
+  const studioBrandName = brandSnapshot.brandName
+    || brandSnapshot.name
+    || strategySnapshot.brandName
+    || strategySnapshot.brand
+    || campaign.name
+  const studioLogoUrl = brandSnapshot.logoUrl || strategySnapshot.logoUrl || null
+  const studioColorPalette = brandSnapshot.colorPalette || strategySnapshot.colorPalette || strategySnapshot.brandColors || []
+  const studioPreviewModels: CreativeStudioPreviewModel[] = contentPosts
+    .slice()
+    .sort((a, b) => (a.contentPlanIndex ?? 999) - (b.contentPlanIndex ?? 999))
+    .map((post, index) => buildCreativeStudioPreviewModel({
+      post: {
+        id: post.id || `post-${index + 1}`,
+        postNumber: index + 1,
+        platform: post.platform || campaign.platforms?.[index % Math.max(campaign.platforms.length, 1)] || 'General',
+        caption: post.caption,
+        hook: post.hook,
+        cta: post.cta,
+        contentType: post.contentType,
+        imageUrl: post.imageUrl,
+        uploadedMediaId: post.uploadedMediaId,
+        mediaSource: post.mediaSource,
+        generationStatus: post.generationStatus,
+        status: post.status,
+      },
+      campaign: {
+        campaignName: campaign.name,
+        campaignGoal: campaign.goal,
+        campaignType: strategySnapshot.strategyMode || strategySnapshot.mode || strategySnapshot.type,
+        language: campaign.aiOutput?.language || locale,
+        brandName: studioBrandName,
+        logoUrl: studioLogoUrl,
+        colorPalette: studioColorPalette,
+      },
+    }))
+  const selectedStudioPreview = studioPreviewModels.find(model => model.postId === selectedStudioPostId)
+    || studioPreviewModels[0]
+    || null
+  const studioPreviewImageSrc = selectedStudioPreview
+    ? `data:image/svg+xml;utf8,${encodeURIComponent(selectedStudioPreview.compositionPreview.artifact.svg)}`
+    : ''
+  const studioPathStateLabel = (state: CreativeStudioPreviewModel['controlledPath'][number]['state']) => {
+    if (state === 'available_now') return copy.studioStepAvailable
+    if (state === 'locked_until_background') return copy.studioStepLocked
+    return copy.studioStepFuture
+  }
   const assetActionUnavailable = mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)
   const generationDisabled = assetActionUnavailable || !confirmedReviewOnly
   const emptyStateTitle = mode === 'asset'
@@ -967,6 +1064,244 @@ export default function CreativeBriefPage() {
               <p style={{ margin: '14px 0 0', fontSize: 11, lineHeight: 1.6, color: '#64748B' }}>
                 {copy.productionDeskBoundary}
               </p>
+            </div>
+
+            <div style={{
+              background: '#FFFFFF',
+              border: '1px solid #D7E3F0',
+              borderRadius: 20,
+              padding: '18px',
+              marginBottom: 22,
+              boxShadow: '0 18px 44px rgba(15,23,42,0.06)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+                <div style={{ maxWidth: 720 }}>
+                  <p style={{ margin: '0 0 6px', fontSize: 12, fontWeight: 900, color: '#312E81', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                    {copy.studioBadge}
+                  </p>
+                  <h3 style={{ margin: 0, fontSize: 20, lineHeight: 1.25, fontWeight: 900, color: '#0F172A' }}>
+                    {copy.studioTitle}
+                  </h3>
+                  <p style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.7, color: '#475569' }}>
+                    {copy.studioSubtitle}
+                  </p>
+                </div>
+                <div style={{
+                  border: '1px solid #C7D2FE',
+                  background: '#EEF2FF',
+                  color: '#3730A3',
+                  borderRadius: 999,
+                  padding: '7px 11px',
+                  fontSize: 11,
+                  fontWeight: 900,
+                  whiteSpace: 'nowrap',
+                }}>
+                  {copy.studioPreviewOnly}
+                </div>
+              </div>
+
+              {studioPreviewModels.length === 0 || !selectedStudioPreview ? (
+                <div style={{ border: '1px dashed #CBD5E1', borderRadius: 16, padding: '18px', background: '#F8FAFC' }}>
+                  <p style={{ margin: '0 0 6px', fontSize: 14, fontWeight: 850, color: '#334155' }}>
+                    {copy.studioEmptyTitle}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, lineHeight: 1.65, color: '#64748B' }}>
+                    {copy.studioEmptyBody}
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 16 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 900, color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                        {copy.studioSelectPost}
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {studioPreviewModels.map(model => {
+                          const active = model.postId === selectedStudioPreview.postId
+                          return (
+                            <button
+                              key={model.postId}
+                              type="button"
+                              onClick={() => setSelectedStudioPostId(model.postId)}
+                              style={{
+                                border: active ? '1px solid #4F46E5' : '1px solid #CBD5E1',
+                                background: active ? '#EEF2FF' : '#FFFFFF',
+                                color: active ? '#3730A3' : '#334155',
+                                borderRadius: 999,
+                                padding: '7px 10px',
+                                fontSize: 11,
+                                fontWeight: 850,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {copy.productionDeskPost} #{model.postNumber}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{
+                      border: '1px solid #E2E8F0',
+                      background: '#0F172A',
+                      borderRadius: 18,
+                      padding: 12,
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+                        <div>
+                          <p style={{ margin: 0, fontSize: 11, fontWeight: 900, color: '#CBD5E1', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                            {copy.studioCanvas}
+                          </p>
+                          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#94A3B8' }}>
+                            {selectedStudioPreview.platform} · {selectedStudioPreview.format} · {selectedStudioPreview.compositionPreview.canvas.aspectRatio}
+                          </p>
+                        </div>
+                        <span style={{
+                          border: '1px solid rgba(255,255,255,0.18)',
+                          color: '#E0F2FE',
+                          background: 'rgba(14,165,233,0.14)',
+                          borderRadius: 999,
+                          padding: '5px 9px',
+                          fontSize: 10,
+                          fontWeight: 850,
+                        }}>
+                          {selectedStudioPreview.backgroundStatus === 'background_available_for_preview'
+                            ? copy.studioBackgroundReady
+                            : copy.studioBackgroundNeeded}
+                        </span>
+                      </div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={studioPreviewImageSrc}
+                        alt={copy.studioCanvas}
+                        style={{
+                          width: '100%',
+                          display: 'block',
+                          borderRadius: 12,
+                          background: '#020617',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 12, alignContent: 'start', minWidth: 0 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+                      <SafetyNote title={copy.studioPreviewOnly} body={copy.studioPreviewOnlyBody} accent="#4F46E5" />
+                      <SafetyNote title={copy.studioNotFinal} body={copy.studioNotFinalBody} accent="#0F766E" />
+                      <SafetyNote title={copy.studioNoActions} body={copy.studioNoActionsBody} accent="#B45309" />
+                      <SafetyNote title={copy.studioFinalAttach} body={copy.studioFinalAttachBody} accent="#7C3AED" />
+                    </div>
+
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: '13px 14px', background: '#F8FAFC' }}>
+                      <p style={{ margin: '0 0 9px', fontSize: 11, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                        {copy.studioLayerInventory}
+                      </p>
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        {selectedStudioPreview.editableLayers.map(layer => (
+                          <div key={layer.id} style={{
+                            border: '1px solid #E2E8F0',
+                            background: '#FFFFFF',
+                            borderRadius: 12,
+                            padding: '9px 10px',
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                              <p style={{ margin: 0, fontSize: 12, fontWeight: 850, color: '#0F172A' }}>
+                                {layer.role.replace(/_/g, ' ')}
+                              </p>
+                              <span style={{
+                                border: `1px solid ${layer.safeZoneCompliant ? '#BBF7D0' : '#FED7AA'}`,
+                                background: layer.safeZoneCompliant ? '#F0FDF4' : '#FFF7ED',
+                                color: layer.safeZoneCompliant ? '#15803D' : '#C2410C',
+                                borderRadius: 999,
+                                padding: '3px 7px',
+                                fontSize: 10,
+                                fontWeight: 800,
+                                whiteSpace: 'nowrap',
+                              }}>
+                                {layer.safeZoneCompliant ? copy.studioSafe : copy.studioNeedsReview}
+                              </span>
+                            </div>
+                            <p style={{ margin: '4px 0 0', fontSize: 11, lineHeight: 1.55, color: '#64748B' }}>
+                              {layer.text || copy.studioNoTextLayer}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: '13px 14px', background: '#FFFFFF' }}>
+                      <p style={{ margin: '0 0 9px', fontSize: 11, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                        {copy.studioQuality}
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                        {[
+                          { value: selectedStudioPreview.qualitySummary.requiredPassed, label: copy.studioRequiredPassed, color: '#15803D' },
+                          { value: selectedStudioPreview.qualitySummary.requiredFailed, label: copy.studioRequiredFailed, color: '#B45309' },
+                          { value: selectedStudioPreview.qualitySummary.recommendedFailed, label: copy.studioRecommendedFailed, color: '#4F46E5' },
+                        ].map(item => (
+                          <div key={item.label} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: '8px 9px', background: '#F8FAFC' }}>
+                            <p style={{ margin: 0, fontSize: 17, fontWeight: 900, color: item.color }}>{item.value}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: 9, lineHeight: 1.25, color: '#64748B', fontWeight: 750 }}>{item.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: '13px 14px', background: '#F8FAFC' }}>
+                      <p style={{ margin: '0 0 9px', fontSize: 11, fontWeight: 900, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.35 }}>
+                        {copy.studioPath}
+                      </p>
+                      <div style={{ display: 'grid', gap: 8 }}>
+                        {selectedStudioPreview.controlledPath.map((step, index) => (
+                          <div key={step.id} style={{
+                            display: 'grid',
+                            gridTemplateColumns: '24px minmax(0, 1fr)',
+                            gap: 9,
+                            alignItems: 'start',
+                          }}>
+                            <span style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              background: step.state === 'available_now' ? '#DCFCE7' : '#E2E8F0',
+                              color: step.state === 'available_now' ? '#15803D' : '#475569',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: 11,
+                              fontWeight: 900,
+                            }}>
+                              {index + 1}
+                            </span>
+                            <div>
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                                <p style={{ margin: 0, fontSize: 12, fontWeight: 850, color: '#0F172A' }}>{step.label}</p>
+                                <span style={{
+                                  border: '1px solid #CBD5E1',
+                                  background: '#FFFFFF',
+                                  color: '#475569',
+                                  borderRadius: 999,
+                                  padding: '2px 6px',
+                                  fontSize: 9,
+                                  fontWeight: 800,
+                                }}>
+                                  {studioPathStateLabel(step.state)}
+                                </span>
+                              </div>
+                              <p style={{ margin: '3px 0 0', fontSize: 11, lineHeight: 1.55, color: '#64748B' }}>
+                                {step.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {mediaItems.length === 0 ? (

@@ -109,4 +109,22 @@ describe('creative brief flow copy', () => {
     expect(pageSource).not.toContain('Publish from production desk')
     expect(pageSource).not.toContain('Upload from production desk')
   })
+
+  it('adds a per-post Creative Studio preview without exposing execution actions', () => {
+    expect(pageSource).toContain('Creative Studio post preview')
+    expect(pageSource).toContain('Draft layered preview')
+    expect(pageSource).toContain('Select a post to see how the background, headline, CTA, and brand layer become a reviewable composition draft')
+    expect(pageSource).toContain('This is not final creative and is not saved, uploaded, or attached automatically')
+    expect(pageSource).toContain('Transient SVG in the page: not uploaded, not saved as an asset, and does not change the SocialPost')
+    expect(pageSource).toContain('No generation, render, upload, attach, publish, or schedule happens from this preview')
+    expect(pageSource).toContain('Final attachment from Content Hub only')
+    expect(pageSource).toContain('attaching media to a SocialPost remains a separate Content Hub decision')
+    expect(pageSource).toContain('buildCreativeStudioPreviewModel')
+
+    expect(pageSource).not.toContain('Attach from Creative Studio')
+    expect(pageSource).not.toContain('Save studio preview')
+    expect(pageSource).not.toContain('Export studio preview')
+    expect(pageSource).not.toContain('Upload composed creative')
+    expect(pageSource).not.toContain('Publish from Creative Studio')
+  })
 })
