@@ -100,9 +100,19 @@ function creativeStatus(
   return 'review'
 }
 
-function approvalStatus(state: CampaignOperatingState): CampaignCommandFlowStepStatus {
+function approvalStatus(
+  state: CampaignOperatingState,
+  creativeSummary?: CreativeRequirementsSummary | null,
+): CampaignCommandFlowStepStatus {
   if (state.truthFlags.hasPublishedContent || state.truthFlags.hasScheduledContent || state.truthFlags.hasApprovedContent) {
     return 'complete'
+  }
+  if (
+    state.truthFlags.hasDraftContent &&
+    creativeSummary &&
+    (creativeSummary.mediaNeeded > 0 || creativeSummary.readinessPending > 0)
+  ) {
+    return 'review'
   }
   if (state.truthFlags.hasDraftContent) return 'current'
   if (state.truthFlags.hasContentPlan) return 'review'
@@ -306,7 +316,7 @@ export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput)
       },
       {
         id: 'approval',
-        status: approvalStatus(operatingState),
+        status: approvalStatus(operatingState, creativeSummary),
         titleEn: 'Approval',
         titleAr: 'الاعتماد',
         helperEn: 'Copy and media reviewed before schedule or publish decisions.',

@@ -111,6 +111,7 @@ describe('deriveCampaignCommandFlow', () => {
       'performance',
     ])
     expect(flow.steps.find(step => step.id === 'creative')?.status).toBe('current')
+    expect(flow.steps.find(step => step.id === 'approval')?.status).toBe('review')
     expect(flow.steps.find(step => step.id === 'publishing')?.helperEn).toContain('explicit gates')
   })
 
