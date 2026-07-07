@@ -302,6 +302,14 @@ export default function CreativeBriefPage() {
       ? 'ينشئ NEXUS موجز اتجاه بصري وملاحظات إنتاج للمراجعة فقط. لا يتم إنشاء صورة نهائية.'
       : 'NEXUS creates a review-only visual direction brief and production notes. No final image is created.',
     emptyAssetTitle: isArabic ? 'جاهز لتحليل الأصول' : 'Ready to analyze assets',
+    waitingForAssetsTitle: isArabic ? 'بانتظار رفع الأصول' : 'Waiting for uploaded assets',
+    waitingForAssetsBody: isArabic
+      ? 'ارفع أصلًا واحدًا على الأقل في مكتبة الوسائط قبل تحليل الأصول. لن يستهلك NEXUS رصيدًا حتى تختار أصلًا وتؤكد الإجراء.'
+      : 'Upload at least one asset in Media Library before asset analysis. NEXUS will not spend credits until an asset is selected and the action is confirmed.',
+    waitingForSelectionTitle: isArabic ? 'بانتظار اختيار أصل' : 'Waiting for asset selection',
+    waitingForSelectionBody: isArabic
+      ? 'اختر أصلًا واحدًا على الأقل من القائمة أعلاه قبل التحليل. الزر سيبقى مقفولًا حتى يتم الاختيار والتأكيد.'
+      : 'Select at least one asset from the list above before analysis. The action stays locked until selection and confirmation are complete.',
     emptyConceptTitle: isArabic ? 'جاهز لإنشاء اتجاه إبداعي' : 'Ready to create creative direction',
     emptyAssetBody: isArabic
       ? 'اختر الأصول أعلاه ثم أكد الإجراء. سيُخرج NEXUS اتجاهات ونسخًا ومسودات نصية للمراجعة قبل التنفيذ.'
@@ -452,6 +460,20 @@ export default function CreativeBriefPage() {
   const videoMedia = mediaItems.filter(m => m.type === 'VIDEO')
   const assetActionUnavailable = mode === 'asset' && (mediaItems.length === 0 || selectedMedia.size === 0)
   const generationDisabled = assetActionUnavailable || !confirmedReviewOnly
+  const emptyStateTitle = mode === 'asset'
+    ? mediaItems.length === 0
+      ? copy.waitingForAssetsTitle
+      : selectedMedia.size === 0
+        ? copy.waitingForSelectionTitle
+        : copy.emptyAssetTitle
+    : copy.emptyConceptTitle
+  const emptyStateBody = mode === 'asset'
+    ? mediaItems.length === 0
+      ? copy.waitingForAssetsBody
+      : selectedMedia.size === 0
+        ? copy.waitingForSelectionBody
+        : copy.emptyAssetBody
+    : copy.emptyConceptBody
   const assetRequirementText = (item: string) => {
     const normalized = item.trim().toLowerCase()
     if (normalized === 'not included') return copy.notIncluded
@@ -1326,10 +1348,10 @@ export default function CreativeBriefPage() {
               {mode === 'asset' ? '🖼️' : '✨'}
             </p>
             <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#111' }}>
-              {mode === 'asset' ? copy.emptyAssetTitle : copy.emptyConceptTitle}
+              {emptyStateTitle}
             </h3>
             <p style={{ margin: '0 auto', fontSize: 14, color: '#9CA3AF', maxWidth: 440 }}>
-              {mode === 'asset' ? copy.emptyAssetBody : copy.emptyConceptBody}
+              {emptyStateBody}
             </p>
           </div>
         )}

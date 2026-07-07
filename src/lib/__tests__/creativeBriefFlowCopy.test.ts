@@ -31,6 +31,15 @@ describe('creative brief flow copy', () => {
     expect(pageSource).toContain('لن يولد صورة نهائية')
   })
 
+  it('does not call the asset-analysis empty state ready until assets can be selected', () => {
+    expect(pageSource).toContain('Waiting for uploaded assets')
+    expect(pageSource).toContain('Waiting for asset selection')
+    expect(pageSource).toContain('بانتظار رفع الأصول')
+    expect(pageSource).toContain('بانتظار اختيار أصل')
+    expect(pageSource).toContain('emptyStateTitle')
+    expect(pageSource).toContain('emptyStateBody')
+  })
+
   it('localizes generated strategy placeholder values on the Arabic page', () => {
     expect(pageSource).toContain('notIncluded')
     expect(pageSource).toContain('غير مشمول في هذه الخطة')
