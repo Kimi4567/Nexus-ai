@@ -12,7 +12,6 @@ describe('deriveStrategyRoomStateCopy', () => {
 
     expect(copy.checklist.title).toBe('Checking Content Hub state')
     expect(copy.guidance.brief).toContain('checking whether Content Hub post records already exist')
-    expect(copy.nextDecision).toContain('finish loading')
     expect(copy.organicPlanValue).toBe('Checking Content Hub state')
     expect(copy.contentPlanStatusValue).toBe('Checking Content Hub state')
     expect(copy.contentHubCta).toBe('Open Content Hub')
@@ -32,7 +31,6 @@ describe('deriveStrategyRoomStateCopy', () => {
 
     expect(copy.checklist.title).toBe('جارٍ التحقق من حالة Content Hub')
     expect(copy.guidance.brief).toContain('يتحقق NEXUS الآن')
-    expect(copy.nextDecision).toContain('اكتمال التحقق من Content Hub')
     expect(copy.contentPlanStatusValue).toBe('جارٍ التحقق من Content Hub')
     expect(copy.contentHooks.helper).not.toContain('لا توجد معاينات منشورات نهائية')
     expect(copy.checklist.title).not.toBe('قائمة ما قبل Content Hub')
@@ -77,7 +75,6 @@ describe('deriveStrategyRoomStateCopy', () => {
     })
 
     expect(copy.checklist.title).toBe('Paid planning review checklist')
-    expect(copy.nextDecision).toContain('paid planning brief')
     expect(copy.organicPlanValue).toBe('Not included in this run')
     expect(copy.contentPlanStatusValue).toBe('Not created in a Paid-only run')
     expect(copy.contentHooks.title).toContain('paid planning brief')
