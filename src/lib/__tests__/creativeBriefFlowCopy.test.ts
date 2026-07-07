@@ -6,6 +6,14 @@ const pageSource = readFileSync(
   join(process.cwd(), 'src/app/campaigns/[id]/creative-brief/page.tsx'),
   'utf8',
 )
+const campaignRoomSource = readFileSync(
+  join(process.cwd(), 'src/app/campaigns/[id]/page.tsx'),
+  'utf8',
+)
+const i18nSource = readFileSync(
+  join(process.cwd(), 'src/lib/i18n-context.tsx'),
+  'utf8',
+)
 
 describe('creative brief flow copy', () => {
   it('frames the creative brief as planning and review, not execution', () => {
@@ -37,5 +45,25 @@ describe('creative brief flow copy', () => {
     expect(pageSource).not.toContain('AI Concept Mode')
     expect(pageSource).not.toContain('Generate Visual Concepts')
     expect(pageSource).not.toContain('Ready-to-use ad copy')
+  })
+
+  it('keeps the Campaign Creative entry aligned with the planner boundary', () => {
+    const runtimeSources = `${campaignRoomSource}\n${i18nSource}`
+
+    expect(runtimeSources).toContain('Creative brief planner')
+    expect(runtimeSources).toContain('Open creative brief planner')
+    expect(runtimeSources).toContain('مخطط الإبداع')
+    expect(runtimeSources).toContain('افتح مخطط الإبداع')
+    expect(runtimeSources).toContain('Review uploaded assets')
+    expect(runtimeSources).toContain('Review-only visual direction')
+
+    expect(runtimeSources).not.toContain('User Asset Mode')
+    expect(runtimeSources).not.toContain('AI Concept Mode')
+    expect(runtimeSources).not.toContain('View / Update Creative Brief')
+    expect(runtimeSources).not.toContain('Create Creative Brief')
+    expect(runtimeSources).not.toContain('مخطط الموجز')
+    expect(runtimeSources).not.toContain('الموجز الإبداعي')
+    expect(runtimeSources).not.toContain('موجز الإبداع')
+    expect(runtimeSources).not.toContain('Open brief planner')
   })
 })
