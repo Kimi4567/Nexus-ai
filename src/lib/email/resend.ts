@@ -107,8 +107,8 @@ export async function sendWelcomeEmail(to: string, name: string) {
         <div style="display:flex;align-items:flex-start;gap:12px;">
           <div style="width:22px;height:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;flex-shrink:0;">3</div>
           <div>
-            <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Publish to Instagram or Facebook</div>
-            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Connect your accounts and go live directly from Nexus.</div>
+            <div style="font-size:13px;font-weight:600;color:#e8e8f5;">Review publishing readiness</div>
+            <div style="font-size:12px;color:#6a6a8a;margin-top:2px;">Connect accounts for review. Nothing publishes or spends without an explicit final action.</div>
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@ export async function sendCreditsLowEmail(to: string, name: string, creditsRemai
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What you get with Growth:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['200 AI credits every month', 'Unlimited campaigns', 'Weekly strategy brief in your inbox', 'Social publishing to Instagram & Facebook', 'PDF campaign reports'].map(f =>
+        ${['200 AI credits every month', 'Unlimited campaigns', 'Weekly strategy brief in your inbox', 'Publishing readiness and review workflows', 'PDF campaign reports'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
           </div>`
@@ -413,7 +413,7 @@ export async function sendNurtureDay5(to: string, name: string) {
 
     <div style="margin-top:24px;padding:16px 20px;background:#101010;border:1px solid #1a1a18;border-radius:10px;">
       <div style="font-size:12px;color:#5C5448;margin-bottom:6px;">After your free campaigns are used:</div>
-      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — unlimited campaigns, your weekly strategy brief, and social publishing. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
+      <div style="font-size:13px;color:#9A9080;">Upgrade to Growth for $49/month — unlimited campaigns, your weekly strategy brief, and publishing readiness workflows. <a href="${APP_URL}/billing" style="color:#FF9500;">See plans →</a></div>
     </div>
 
     <div style="margin-top:20px;">${p('— Raouf', true)}</div>
@@ -457,7 +457,7 @@ export async function sendNurtureDay7(to: string, name: string) {
       </div>
     `)}
 
-    ${p('Nexus Growth gives you unlimited campaigns, your weekly strategy brief every Monday, social publishing, and a brand memory that gets smarter every time you use it.')}
+    ${p('Nexus Growth gives you unlimited campaigns, your weekly strategy brief every Monday, publishing readiness workflows, and a brand memory that gets richer as you review real signals.')}
     ${p('If you run even one campaign a week that converts — the tool pays for itself in the first sale.')}
 
     ${btn('Upgrade to Growth — $49/month →', `${APP_URL}/billing`)}
@@ -491,7 +491,7 @@ export async function sendUpgradeConfirmationEmail(to: string, name: string, pla
     ${card(`
       <div style="font-size:13px;font-weight:700;color:#e8e8f5;margin-bottom:12px;">What's now available to you:</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
-        ${['Unlimited AI credits', 'Unlimited campaign generation', 'Social publishing to all platforms', 'Weekly intelligence brief every Monday', 'PDF campaign reports', 'Priority support'].map(f =>
+        ${['Unlimited AI credits', 'Unlimited campaign generation', 'Publishing readiness and execution review workflows', 'Weekly intelligence brief every Monday', 'PDF campaign reports', 'Priority support'].map(f =>
           `<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#b8b8d8;">
             <span style="color:#FF9500;font-weight:700;">✓</span> ${f}
           </div>`
@@ -542,9 +542,9 @@ export async function sendContentPlanReadyEmail(
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${[
           ['Review captions', 'Read each post — edit or AI-rewrite any you want to improve'],
-          ['Approve & Schedule', 'Hit "Approve All" to auto-schedule every post at optimal times'],
+          ['Approve & Schedule', 'Approve posts first, then review the schedule before anything is published'],
           ['Generate images', 'Click "Generate Images" to create AI visuals for each post'],
-          ['Watch it publish', 'Posts go live automatically — no manual posting needed'],
+          ['Review publishing path', 'Publish manually or through a connected API only when that path is ready and explicitly confirmed'],
         ].map(([step, desc], i) =>
           `<div style="display:flex;gap:12px;align-items:flex-start;">
             <div style="width:22px;height:22px;min-width:22px;background:#FF9500;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#080807;margin-top:1px;">${i + 1}</div>
@@ -586,7 +586,7 @@ export async function sendIntegrationExpiryEmail(
   const content = `
     ${h1(isExpired ? `⚠️ Your ${platformList} connection expired` : `⏰ Action needed: reconnect ${platformList}`)}
     ${p(`Hi ${firstName} — your ${platformList} ${platforms.length > 1 ? 'connections' : 'connection'} ${isExpired ? 'has expired' : `will expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`}.`)}
-    ${p('Without a valid connection, scheduled posts cannot be published and your content plan will go silent.')}
+    ${p('Without a valid connection, NEXUS cannot show a complete reviewed API publishing path. Scheduled content remains saved in NEXUS until a publishing path is ready and explicitly confirmed.')}
     ${card(`
       <div style="font-size:13px;color:#9A9080;margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Affected platforms</div>
       ${platforms.map(p => `
@@ -607,7 +607,7 @@ export async function sendIntegrationExpiryEmail(
     replyTo: REPLY_TO,
     to,
     subject: isExpired
-      ? `⚠️ ${platformList} connection expired — posts won't publish`
+      ? `⚠️ ${platformList} connection expired — publishing path needs review`
       : `⏰ ${platformList} connection expires in ${daysLeft} days — reconnect now`,
     html: emailShell(content),
   })
@@ -668,9 +668,9 @@ export async function sendContentAwaitingApprovalEmail(
       <div style="font-size:13px;color:#9A9080;margin-bottom:8px;">Approving takes 60 seconds:</div>
       ${[
         'Review the AI-generated captions',
-        'Approve all → posts get scheduled automatically',
+        'Approve all → review the proposed schedule',
         'Generate images → visuals are created overnight',
-        'Sit back → Nexus publishes on the optimal schedule',
+        'Confirm the publishing path → manual or connected API publishing stays separate',
       ].map((step, i) => `
         <div style="display:flex;align-items:center;gap:12px;padding:8px 0;">
           <div style="width:22px;height:22px;border-radius:50%;background:rgba(255,149,0,0.15);border:1px solid rgba(255,149,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#FF9500;flex-shrink:0;">${i + 1}</div>
