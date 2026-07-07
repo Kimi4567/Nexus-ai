@@ -45,9 +45,10 @@ function fillTitle(tt: TFn, item: ProofItem): string {
 export interface CampaignProofOfWorkProps {
   campaignId: string
   campaign: ProofCampaignInput
+  compact?: boolean
 }
 
-export default function CampaignProofOfWork({ campaignId, campaign }: CampaignProofOfWorkProps) {
+export default function CampaignProofOfWork({ campaignId, campaign, compact = false }: CampaignProofOfWorkProps) {
   const { authHeader } = useAuth()
   const { t, dir } = useI18n()
   const tt = t as TFn
@@ -72,7 +73,46 @@ export default function CampaignProofOfWork({ campaignId, campaign }: CampaignPr
 
   if (loading) return null
 
-  const { groups, isEmpty } = deriveCampaignProofOfWork(campaign, posts)
+  const { groups, isEmpty, items } = deriveCampaignProofOfWork(campaign, posts)
+
+  if (compact) {
+    if (isEmpty) return null
+    const visibleItems = items.slice(0, 3)
+    const hiddenCount = Math.max(0, items.length - visibleItems.length)
+
+    return (
+      <section
+        data-campaign-proof-compact
+        className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+        dir={dir}
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-[var(--nx-text-1)]">{tt('campaign.proof.title')}</h3>
+            <p className="mt-0.5 text-xs leading-5 text-[var(--nx-text-3)]">{tt('campaign.proof.subtitle')}</p>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            {visibleItems.map((item) => (
+              <span
+                key={item.key}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700"
+              >
+                <span className="truncate">{fillTitle(tt, item)}</span>
+                <span className={`rounded-full px-1.5 py-0.5 ${STATUS_CHIP[item.status]}`}>
+                  {tt(item.statusKey)}
+                </span>
+              </span>
+            ))}
+            {hiddenCount > 0 && (
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
+                +{hiddenCount}
+              </span>
+            )}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="nx-card overflow-hidden mb-4" dir={dir}>
