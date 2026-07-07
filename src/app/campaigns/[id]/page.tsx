@@ -23,6 +23,7 @@ import {
 } from '@/lib/campaignOperatingState'
 import {
   deriveCampaignCommandFlow,
+  type CampaignCommandFlowStepId,
   type CampaignCommandFlowStepStatus,
 } from '@/lib/campaignCommandFlow'
 import { derivePublishTabReadinessSummary } from '@/lib/publishReadiness'
@@ -1497,6 +1498,13 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const commandFlowCurrentStepId: CampaignCommandFlowStepId | undefined = (() => {
+    if (activeTab === 0) return 'strategy'
+    if (activeTab === 3) return 'creative'
+    if (activeTab === 4) return 'publishing'
+    if (activeTab === 6) return 'performance'
+    return undefined
+  })()
   const campaignCommandFlow = deriveCampaignCommandFlow({
     campaignId: campaign.id,
     operatingState,
@@ -1506,6 +1514,7 @@ function CampaignDetailPageInner() {
     isPaidOnlyStrategy,
     includesPaidPlanning: includesPaidPlanningStrategy,
     hasCreativeBrief: Boolean(creativeBrief),
+    currentStepId: commandFlowCurrentStepId,
   })
   const commandFlowStepTone: Record<CampaignCommandFlowStepStatus, string> = {
     complete: 'border-emerald-200 bg-emerald-50 text-emerald-950',
@@ -3730,7 +3739,7 @@ function CampaignDetailPageInner() {
 
             {/* ── Tab 3: Creative ───────────────────────────────────────────── */}
             {activeTab === 3 && (
-              <div className="space-y-4">
+              <div id="campaign-creative-work" className="space-y-4 scroll-mt-24">
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                     {locale === 'ar' ? 'الإبداع' : 'Creative'}
@@ -4024,7 +4033,7 @@ function CampaignDetailPageInner() {
 
             {/* ── Tab 4: Publish to Social ─────────────────────────────────── */}
             {activeTab === 4 && (
-              <div className="space-y-4">
+              <div id="campaign-publish-work" className="space-y-4 scroll-mt-24">
                 <div className="rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm">
                   <div className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -4450,7 +4459,7 @@ function CampaignDetailPageInner() {
 
             {/* ── Tab 6: Performance / ROI Dashboard ───────────────────── */}
             {activeTab === 6 && (
-              <div className="space-y-4">
+              <div id="campaign-performance-work" className="space-y-4 scroll-mt-24">
                 {perfLoading && (
                   <div className="flex items-center justify-center py-20">
                     <div className="w-8 h-8 border-2 border-cyan-500/40 border-t-cyan-400 rounded-full animate-spin" />

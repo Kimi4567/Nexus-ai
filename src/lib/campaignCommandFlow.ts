@@ -9,8 +9,17 @@ export type CampaignCommandFlowStepStatus =
   | 'blocked'
   | 'pending'
 
+export type CampaignCommandFlowStepId =
+  | 'brand'
+  | 'strategy'
+  | 'content'
+  | 'creative'
+  | 'approval'
+  | 'publishing'
+  | 'performance'
+
 export interface CampaignCommandFlowStep {
-  id: 'brand' | 'strategy' | 'content' | 'creative' | 'approval' | 'publishing' | 'performance'
+  id: CampaignCommandFlowStepId
   status: CampaignCommandFlowStepStatus
   titleEn: string
   titleAr: string
@@ -53,6 +62,7 @@ export interface DeriveCampaignCommandFlowInput {
   isPaidOnlyStrategy?: boolean
   includesPaidPlanning?: boolean
   hasCreativeBrief?: boolean
+  currentStepId?: CampaignCommandFlowStepId
 }
 
 function statusForBrand(score: number | null | undefined): CampaignCommandFlowStepStatus {
@@ -136,11 +146,20 @@ function performanceStatus(state: CampaignOperatingState): CampaignCommandFlowSt
   return 'pending'
 }
 
+function currentStepAction(
+  input: DeriveCampaignCommandFlowInput,
+  stepId: CampaignCommandFlowStepId,
+  action: CampaignCommandFlowAction,
+  currentAction: CampaignCommandFlowAction,
+): CampaignCommandFlowAction {
+  return input.currentStepId === stepId ? currentAction : action
+}
+
 function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignCommandFlowAction {
   const { campaignId, operatingState, creativeSummary, hasCreativeBrief } = input
 
   if (!operatingState.truthFlags.hasStrategy) {
-    return {
+    return currentStepAction(input, 'strategy', {
       titleEn: 'Start with a reviewed strategy',
       titleAr: 'ابدأ باستراتيجية قابلة للمراجعة',
       helperEn: 'The marketing workflow needs positioning, audience, offer, and platform direction before content or creative work.',
@@ -148,11 +167,19 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
       labelEn: 'Open strategy',
       labelAr: 'افتح الاستراتيجية',
       href: `/campaigns/${campaignId}?tab=strategy`,
-    }
+    }, {
+      titleEn: 'Continue here: complete the strategy foundation',
+      titleAr: 'تابع هنا: أكمل أساس الاستراتيجية',
+      helperEn: 'You are already in Strategy. Review positioning, audience, offer, and platform direction before production work.',
+      helperAr: 'أنت بالفعل داخل الاستراتيجية. راجع التموضع والجمهور والعرض واتجاه المنصات قبل الإنتاج.',
+      labelEn: 'Review strategy below',
+      labelAr: 'راجع الاستراتيجية بالأسفل',
+      href: '#strategy-summary',
+    })
   }
 
   if (operatingState.stage === 'strategy_review_needed') {
-    return {
+    return currentStepAction(input, 'strategy', {
       titleEn: 'Review strategy quality before production',
       titleAr: 'راجع جودة الاستراتيجية قبل الإنتاج',
       helperEn: 'Lock the message, audience, proof, and execution assumptions before turning the plan into content.',
@@ -160,7 +187,15 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
       labelEn: 'Review strategy',
       labelAr: 'راجع الاستراتيجية',
       href: `/campaigns/${campaignId}?tab=strategy`,
-    }
+    }, {
+      titleEn: 'Continue here: review strategy quality',
+      titleAr: 'تابع هنا: راجع جودة الاستراتيجية',
+      helperEn: 'You are already in Strategy. Use the sections below to review the message, audience, proof, and execution assumptions.',
+      helperAr: 'أنت بالفعل داخل الاستراتيجية. استخدم الأقسام بالأسفل لمراجعة الرسالة والجمهور والإثباتات وافتراضات التنفيذ.',
+      labelEn: 'Review strategy below',
+      labelAr: 'راجع الاستراتيجية بالأسفل',
+      href: '#strategy-summary',
+    })
   }
 
   if (!operatingState.truthFlags.hasContentPlan) {
@@ -176,7 +211,7 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
   }
 
   if (creativeSummary && (creativeSummary.mediaNeeded > 0 || creativeSummary.readinessPending > 0)) {
-    return {
+    return currentStepAction(input, 'creative', {
       titleEn: 'Resolve creative and media readiness',
       titleAr: 'حسم جاهزية الإبداع والوسائط',
       helperEn: 'Review post media requirements, image/background needs, and layer boundaries before approval or publishing.',
@@ -184,7 +219,15 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
       labelEn: 'Open Creative',
       labelAr: 'افتح الإبداع',
       href: `/campaigns/${campaignId}?tab=creative`,
-    }
+    }, {
+      titleEn: 'Continue here: resolve creative readiness',
+      titleAr: 'تابع هنا: احسم جاهزية الإبداع',
+      helperEn: 'You are already in Creative. Use the brief, post media readiness, and concept boundaries below before approval or publishing.',
+      helperAr: 'أنت بالفعل داخل الإبداع. استخدم الموجز وجاهزية وسائط المنشورات وحدود المفاهيم بالأسفل قبل الاعتماد أو النشر.',
+      labelEn: 'Review creative actions below',
+      labelAr: 'راجع إجراءات الإبداع بالأسفل',
+      href: '#campaign-creative-work',
+    })
   }
 
   if (!hasCreativeBrief && operatingState.truthFlags.hasContentPlan) {
@@ -212,7 +255,7 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
   }
 
   if (operatingState.truthFlags.hasPublishedContent) {
-    return {
+    return currentStepAction(input, 'performance', {
       titleEn: 'Wait for real analytics before learning',
       titleAr: 'انتظر التحليلات الحقيقية قبل التعلم',
       helperEn: 'Manual records and approvals are workflow signals. Performance learning starts only after real analytics are available.',
@@ -220,10 +263,18 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
       labelEn: 'Open Performance',
       labelAr: 'افتح الأداء',
       href: `/campaigns/${campaignId}?tab=performance`,
-    }
+    }, {
+      titleEn: 'Continue here: wait for real analytics',
+      titleAr: 'تابع هنا: انتظر التحليلات الحقيقية',
+      helperEn: 'You are already in Performance. Treat manual records as workflow signals until real analytics arrive.',
+      helperAr: 'أنت بالفعل داخل الأداء. اعتبر السجلات اليدوية إشارات تشغيلية فقط حتى تصل تحليلات حقيقية.',
+      labelEn: 'Review performance below',
+      labelAr: 'راجع الأداء بالأسفل',
+      href: '#campaign-performance-work',
+    })
   }
 
-  return {
+  return currentStepAction(input, 'publishing', {
     titleEn: 'Review publishing readiness',
     titleAr: 'راجع جاهزية النشر',
     helperEn: 'Publishing, manual records, API publishing, and paid launch remain separate explicit decisions.',
@@ -231,7 +282,15 @@ function deriveNextAction(input: DeriveCampaignCommandFlowInput): CampaignComman
     labelEn: 'Open Publish',
     labelAr: 'افتح النشر',
     href: `/campaigns/${campaignId}?tab=publish`,
-  }
+  }, {
+    titleEn: 'Continue here: review publishing readiness',
+    titleAr: 'تابع هنا: راجع جاهزية النشر',
+    helperEn: 'You are already in Publish. Review locks, account state, manual records, and explicit API publishing boundaries below.',
+    helperAr: 'أنت بالفعل داخل النشر. راجع أسباب القفل وحالة الحساب والسجلات اليدوية وحدود النشر عبر API بالأسفل.',
+    labelEn: 'Review publish readiness below',
+    labelAr: 'راجع جاهزية النشر بالأسفل',
+    href: '#campaign-publish-work',
+  })
 }
 
 export function deriveCampaignCommandFlow(input: DeriveCampaignCommandFlowInput): CampaignCommandFlow {
