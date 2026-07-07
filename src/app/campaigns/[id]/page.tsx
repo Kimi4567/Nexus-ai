@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense, type ReactNode } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { Sparkles, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, CircleDot, Clock3, Sparkles, X } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
@@ -21,6 +21,10 @@ import {
   type CampaignOperatingInput,
   type CampaignOperatingStage,
 } from '@/lib/campaignOperatingState'
+import {
+  deriveCampaignCommandFlow,
+  type CampaignCommandFlowStepStatus,
+} from '@/lib/campaignCommandFlow'
 import { derivePublishTabReadinessSummary } from '@/lib/publishReadiness'
 import {
   deriveEngineRebuildAvailability,
@@ -1467,62 +1471,6 @@ function CampaignDetailPageInner() {
     }
   })()
 
-  const progressSteps = (isPaidOnlyStrategy ? [
-    {
-      key: 'strategy',
-      label: locale === 'ar' ? 'الاستراتيجية' : 'Strategy',
-      done: operatingState.truthFlags.hasStrategy,
-      active: false,
-    },
-    {
-      key: 'paid-brief',
-      label: locale === 'ar' ? 'بريف مدفوع' : 'Paid brief',
-      done: true,
-      active: false,
-    },
-    {
-      key: 'launch-readiness',
-      label: locale === 'ar' ? 'جاهزية التنفيذ' : 'Execution readiness',
-      done: false,
-      active: true,
-    },
-    {
-      key: 'execution',
-      label: locale === 'ar' ? 'تنفيذ بتأكيد صريح' : 'Explicit execution',
-      done: false,
-      active: false,
-    },
-  ] : [
-    {
-      key: 'strategy',
-      label: locale === 'ar' ? 'الاستراتيجية' : 'Strategy',
-      done: operatingState.truthFlags.hasStrategy,
-      active: operatingState.stage === 'strategy_missing' || operatingState.stage === 'strategy_review_needed',
-    },
-    {
-      key: 'content',
-      label: locale === 'ar' ? 'خطة المحتوى' : 'Content plan',
-      done: operatingState.truthFlags.hasContentPlan,
-      active: operatingState.stage === 'content_plan_missing',
-    },
-    {
-      key: 'review',
-      label: locale === 'ar' ? 'مراجعة المحتوى' : 'Content review',
-      done: !operatingState.truthFlags.hasDraftContent && (
-        operatingState.truthFlags.hasApprovedContent ||
-        operatingState.truthFlags.hasScheduledContent ||
-        operatingState.truthFlags.hasPublishedContent
-      ),
-      active: operatingState.stage === 'content_review_needed',
-    },
-    {
-      key: 'execution',
-      label: locale === 'ar' ? 'التنفيذ' : 'Execution',
-      done: operatingState.truthFlags.hasPublishedContent,
-      active: operatingState.truthFlags.hasScheduledContent || operatingState.stage === 'content_approved_not_scheduled',
-    },
-  ] as Array<{ key: string; label: string; done: boolean; active?: boolean }>)
-
   const visualContext = {
     campaignId: campaign.id,
     campaignName: campaign.name,
@@ -1549,6 +1497,47 @@ function CampaignDetailPageInner() {
       brandName: brandDNA?.brandName,
     })),
   )
+  const campaignCommandFlow = deriveCampaignCommandFlow({
+    campaignId: campaign.id,
+    operatingState,
+    creativeSummary: creativeRequirementsSummary,
+    publishSummary: publishTabSummary,
+    brandScore,
+    isPaidOnlyStrategy,
+    includesPaidPlanning: includesPaidPlanningStrategy,
+    hasCreativeBrief: Boolean(creativeBrief),
+  })
+  const commandFlowStepTone: Record<CampaignCommandFlowStepStatus, string> = {
+    complete: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    current: 'border-indigo-200 bg-indigo-50 text-indigo-950',
+    review: 'border-amber-200 bg-amber-50 text-amber-950',
+    blocked: 'border-rose-200 bg-rose-50 text-rose-950',
+    pending: 'border-slate-200 bg-slate-50 text-slate-600',
+  }
+  const commandFlowPillTone: Record<CampaignCommandFlowStepStatus, string> = {
+    complete: 'border-emerald-200 bg-white text-emerald-700',
+    current: 'border-indigo-200 bg-white text-indigo-700',
+    review: 'border-amber-200 bg-white text-amber-700',
+    blocked: 'border-rose-200 bg-white text-rose-700',
+    pending: 'border-slate-200 bg-white text-slate-500',
+  }
+  const commandFlowStatusLabel = (status: CampaignCommandFlowStepStatus): string => {
+    const labels: Record<CampaignCommandFlowStepStatus, { en: string; ar: string }> = {
+      complete: { en: 'Complete', ar: 'مكتمل' },
+      current: { en: 'Next', ar: 'التالي' },
+      review: { en: 'Review', ar: 'مراجعة' },
+      blocked: { en: 'Blocked', ar: 'متوقف' },
+      pending: { en: 'Pending', ar: 'لاحقاً' },
+    }
+    return uiIsArabic ? labels[status].ar : labels[status].en
+  }
+  const renderCommandFlowIcon = (status: CampaignCommandFlowStepStatus) => {
+    const iconClass = 'h-4 w-4 flex-shrink-0'
+    if (status === 'complete') return <CheckCircle2 className={iconClass} />
+    if (status === 'current') return <CircleDot className={iconClass} />
+    if (status === 'review' || status === 'blocked') return <AlertTriangle className={iconClass} />
+    return <Clock3 className={iconClass} />
+  }
   const strategyExecutionPathStatus = (() => {
     if (strategyExecutionBridge.overallStatus === 'ready') {
       return uiText('متطلبات التنفيذ متاحة للمراجعة', 'Execution prerequisites available for review')
@@ -2024,51 +2013,98 @@ function CampaignDetailPageInner() {
 
         {/* ── Campaign Progress Panel ───────────────────────────────────── */}
         {aiOutput && (
-          <div className="mb-6 rounded-[24px] border border-slate-200 bg-white px-5 py-5 shadow-sm">
-
-            {/* ── 4-step progress stepper ── */}
-            <div className="flex items-center gap-0 mb-5 overflow-x-auto pb-1 flex-nowrap">
-              {progressSteps.map((step, i, arr) => (
-                <div key={step.key} className="flex items-center flex-shrink-0">
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold ${
-                    step.done ? 'text-emerald-700' : step.active ? 'text-indigo-700' : 'text-slate-500'
-                  }`}>
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 border ${
-                      step.done
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : step.active
-                          ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                          : 'bg-slate-50 border-slate-200 text-slate-400'
-                    }`}>
-                      {step.done ? '✓' : i + 1}
+          <div className="mb-6 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-5">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                <div className="max-w-3xl">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-500">
+                      {uiIsArabic ? campaignCommandFlow.scopeLabelAr : campaignCommandFlow.scopeLabelEn}
                     </span>
-                    {step.label}
+                    <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
+                      {uiText('تشغيل منظم', 'Operating flow')}
+                    </span>
                   </div>
-                  {i < arr.length - 1 && (
-                    <span className="mx-1 flex-shrink-0 text-xs text-slate-300">—</span>
-                  )}
+                  <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">
+                    {uiIsArabic ? campaignCommandFlow.headlineAr : campaignCommandFlow.headlineEn}
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    {uiIsArabic ? campaignCommandFlow.helperAr : campaignCommandFlow.helperEn}
+                  </p>
+                  <p className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs leading-5 text-slate-600">
+                    {uiIsArabic ? campaignCommandFlow.boundaryAr : campaignCommandFlow.boundaryEn}
+                  </p>
                 </div>
-              ))}
+
+                <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:max-w-sm">
+                  <p className="text-[11px] font-bold text-slate-400">
+                    {uiText('الإجراء التالي', 'Next action')}
+                  </p>
+                  <p className="mt-1 text-base font-semibold leading-6 text-slate-950">
+                    {uiIsArabic ? campaignCommandFlow.nextAction.titleAr : campaignCommandFlow.nextAction.titleEn}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {uiIsArabic ? campaignCommandFlow.nextAction.helperAr : campaignCommandFlow.nextAction.helperEn}
+                  </p>
+                  <Link
+                    href={campaignCommandFlow.nextAction.href}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    {uiIsArabic ? campaignCommandFlow.nextAction.labelAr : campaignCommandFlow.nextAction.labelEn}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
             </div>
 
-            {/* ── Status message + context-aware primary CTA ── */}
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
-                  {engineRunning
-                    ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
-                    : displayOperatingLabel}
-                </p>
-                {!engineRunning && (
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{displayOperatingHelper}</p>
-                )}
-                {(engineError || generateError) && (
-                  <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
-                )}
+            <div className="px-5 py-5">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-7">
+                {campaignCommandFlow.steps.map((step, index) => (
+                  <Link
+                    key={step.id}
+                    href={step.href}
+                    className={`group flex min-h-[168px] flex-col rounded-2xl border p-3 transition hover:-translate-y-0.5 hover:shadow-sm ${commandFlowStepTone[step.status]}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[11px] font-bold text-current/45">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${commandFlowPillTone[step.status]}`}>
+                        {renderCommandFlowIcon(step.status)}
+                        {commandFlowStatusLabel(step.status)}
+                      </span>
+                    </div>
+                    <p className="mt-4 text-sm font-semibold leading-5">
+                      {uiIsArabic ? step.titleAr : step.titleEn}
+                    </p>
+                    <p className="mt-1 text-[11px] font-semibold text-current/55">
+                      {uiIsArabic ? step.metricAr : step.metricEn}
+                    </p>
+                    <p className="mt-2 flex-1 text-xs leading-5 text-current/75">
+                      {uiIsArabic ? step.helperAr : step.helperEn}
+                    </p>
+                  </Link>
+                ))}
               </div>
 
-              {/* Buttons */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              {/* ── Status message + context-aware primary CTA ── */}
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold ${engineRunning ? 'text-amber-700' : 'text-slate-950'}`}>
+                    {engineRunning
+                      ? (locale === 'ar' ? '⏳ يجري إعداد المخرجات...' : '⏳ Preparing campaign outputs...')
+                      : displayOperatingLabel}
+                  </p>
+                  {!engineRunning && (
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{displayOperatingHelper}</p>
+                  )}
+                  {(engineError || generateError) && (
+                    <p className="text-xs text-red-400 mt-1">{engineError || generateError}</p>
+                  )}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Primary CTA — context aware, one at a time */}
                 {activeTab !== 0 && !engineRunning && operatingState.stage === 'strategy_review_needed' && (
                   <button
@@ -2116,6 +2152,7 @@ function CampaignDetailPageInner() {
                     {locale === 'ar' ? 'جاري التشغيل...' : 'Running...'}
                   </div>
                 )}
+                </div>
               </div>
             </div>
 
