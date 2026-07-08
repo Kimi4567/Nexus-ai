@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -253,13 +254,25 @@ export default function CampaignsPage() {
     <AppShell>
       <main dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
-          <header className="mb-7 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-end xl:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={copy('الحملات', 'Campaigns')}
+            pageSubtitle={copy('إدارة وتتبع أداء حملاتك التسويقية الذكية من مكان واحد.', 'Manage and track your intelligent marketing campaigns from one place.')}
+            primaryHref="/campaigns/new"
+            primaryLabel={cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
+            secondaryHref="/connections"
+            secondaryLabel={copy('الربط والتكاملات', 'Connections')}
+          />
+
+          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <p className="text-[12px] font-semibold text-[#7b87a3]">{copy('إدارة وتتبع أداء حملاتك التسويقية الذكية من مكان واحد', 'Manage and track your intelligent marketing campaigns from one place')}</p>
+              <p className="text-[12px] font-semibold text-[#7b87a3]">{copy('لوحة تشغيل الحملات', 'Campaign command board')}</p>
               <h1 className="mt-2 flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
                 {copy('الحملات', 'Campaigns')}
                 <Sparkles className="text-[#4f46e5]" size={26} />
               </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#60708f]">
+                {copy('الصفحة تعرض حالة الحملات والتخطيط والجاهزية فقط. لا نعرض إنفاقاً أو عائداً إلا عند وجود بيانات أداء فعلية.', 'This page shows campaign state, planning, and readiness only. Spend and return are shown only when real performance data exists.')}
+              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

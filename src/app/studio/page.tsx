@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
@@ -51,10 +52,12 @@ function StudioButton({
   children,
   tone = 'secondary',
   className = '',
+  disabled = false,
 }: {
   children: React.ReactNode
   tone?: 'primary' | 'secondary' | 'ghost'
   className?: string
+  disabled?: boolean
 }) {
   const toneClass = {
     primary: 'bg-[#071236] text-white shadow-[0_16px_34px_rgba(31,41,130,0.22)] hover:bg-[#101b4d]',
@@ -65,7 +68,8 @@ function StudioButton({
   return (
     <button
       type="button"
-      className={`inline-flex h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-semibold transition ${toneClass} ${className}`}
+      disabled={disabled}
+      className={`inline-flex h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${toneClass} ${className}`}
     >
       {children}
     </button>
@@ -198,7 +202,16 @@ export default function StudioPage() {
     <AppShell>
       <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
-          <header className="mb-7 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={copy('استوديو الإبداع', 'Creative Studio')}
+            pageSubtitle={copy('تحويل الاستراتيجية والأصول إلى اتجاهات إبداعية قابلة للمراجعة.', 'Turn strategy and assets into reviewable creative directions.')}
+            primaryHref="/content-hub"
+            primaryLabel={copy('افتح مركز المحتوى', 'Open Content Hub')}
+            secondaryHref="/brand"
+            secondaryLabel="Brand Brain"
+          />
+
+          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#071236] text-white shadow-[0_14px_28px_rgba(13,24,63,0.2)]">
                 <Sparkles size={22} />
@@ -210,7 +223,7 @@ export default function StudioPage() {
                   <Sparkles className="text-[#4f46e5]" size={24} />
                 </h1>
                 <p className="mt-1 text-sm text-[#60708f]">
-                  {copy('حوّل أفكارك إلى محتوى استثنائي مدعوم بالذكاء الاصطناعي.', 'Turn your ideas into premium AI-assisted marketing creatives.')}
+                  {copy('مساحة تخطيط ومعاينة إبداعية فقط. التوليد أو الإرفاق النهائي يتم لاحقاً عبر مسار واضح ومؤكد.', 'A planning and preview surface only. Final generation or attachment happens later through an explicit confirmed flow.')}
                 </p>
               </div>
             </div>
@@ -226,7 +239,7 @@ export default function StudioPage() {
               </StudioButton>
               <StudioButton tone="primary">
                 <Download size={17} />
-                {copy('تصدير', 'Export')}
+                {copy('تصدير لاحقاً', 'Export later')}
                 <ChevronDown size={16} />
               </StudioButton>
             </div>
@@ -386,12 +399,12 @@ export default function StudioPage() {
               </div>
 
               <div className="mt-5 space-y-2">
-                <StudioButton tone="primary" className="w-full">
-                  {copy('توليد الآن', 'Generate now')}
+                <StudioButton tone="primary" className="w-full" disabled>
+                  {copy('مسار توليد مؤكد لاحقاً', 'Confirmed generation flow later')}
                   <Sparkles size={16} />
                 </StudioButton>
-                <StudioButton className="w-full">
-                  {copy('تحسين الفكرة', 'Improve prompt')}
+                <StudioButton className="w-full" disabled>
+                  {copy('تحسين الفكرة لاحقاً', 'Improve prompt later')}
                   <Wand2 size={16} />
                 </StudioButton>
               </div>

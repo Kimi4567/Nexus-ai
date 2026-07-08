@@ -28,6 +28,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { mapBrandIndustryToAnalytics } from '@/lib/analyticsIndustry'
@@ -293,7 +294,16 @@ export default function AnalyticsPage() {
     <AppShell>
       <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#071236]">
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
-          <header className="mb-6 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={ar ? 'التحليلات والأداء' : 'Analytics and performance'}
+            pageSubtitle={ar ? 'قياس يعتمد على بيانات NEXUS وما يصل من المنصات فقط.' : 'Measurement based only on NEXUS records and connected platform data.'}
+            primaryHref="/connections"
+            primaryLabel={ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
+            secondaryHref="/campaigns"
+            secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
+          />
+
+          <header className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="text-[12px] font-bold text-[#64708f]">{ar ? 'قياس حقيقي قبل التعلم' : 'Real measurement before learning'}</p>
               <h1 className="mt-1 flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">

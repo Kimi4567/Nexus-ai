@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
@@ -153,7 +154,16 @@ export default function PublishPage() {
     <AppShell>
       <main dir={dir} className="min-h-screen bg-[#f6f8fc] px-4 py-6 text-[#071236] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1540px] space-y-6">
-          <header className="flex flex-col gap-5 border-b border-[#dfe6f2] pb-6 lg:flex-row lg:items-center lg:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={copy('النشر', 'Publishing')}
+            pageSubtitle={copy('جاهزية الحسابات والجدولة والتأكيد قبل أي نشر فعلي.', 'Account readiness, scheduling, and confirmation before real publishing.')}
+            primaryHref="/connections"
+            primaryLabel={copy('راجع الحسابات', 'Review accounts')}
+            secondaryHref="/content-hub"
+            secondaryLabel={copy('مركز المحتوى', 'Content Hub')}
+          />
+
+          <header className="flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-100 bg-violet-50 px-3 py-1.5 text-[12px] font-black text-violet-700">
                 <Send size={14} />

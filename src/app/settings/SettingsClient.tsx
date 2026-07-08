@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
@@ -420,7 +421,16 @@ export default function SettingsPage() {
     <AppShell>
       <main dir={dir} className="min-h-screen overflow-x-hidden bg-[#f6f8fc] text-[#111b3f]">
         <div className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8">
-          <header className="mb-7 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={copyText('الإعدادات', 'Settings')}
+            pageSubtitle={copyText('إدارة حسابك، فريقك، صلاحياتك، وتفضيلات النظام من مكان واحد.', 'Manage account, team, permissions, and system preferences from one place.')}
+            primaryHref="/connections"
+            primaryLabel={copyText('راجع التكاملات', 'Review integrations')}
+            secondaryHref="/billing"
+            secondaryLabel={copyText('الفوترة والخطة', 'Billing and plan')}
+          />
+
+          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
                 <Settings size={25} />
@@ -438,7 +448,7 @@ export default function SettingsPage() {
             </div>
             <SettingsButton tone="primary" disabled className="self-start xl:self-auto">
               <Plus className="h-4 w-4" />
-              {copyText('دعوة عضو قريباً', 'Invite member soon')}
+              {copyText('دعوة عضو', 'Invite member')}
             </SettingsButton>
           </header>
 

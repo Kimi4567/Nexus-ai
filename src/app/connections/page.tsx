@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { derivePlatformReadiness } from '@/lib/platformReadiness'
@@ -409,7 +410,16 @@ export default function ConnectionsPage() {
     <AppShell>
       <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
-          <header className="mb-7 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={copy('التكاملات', 'Integrations')}
+            pageSubtitle={copy('حسابات المنصات والصلاحيات قبل أي نشر أو إنفاق.', 'Platform accounts and permissions before publishing or spend.')}
+            primaryHref="/connections"
+            primaryLabel={copy('استكشف مجلد التكاملات', 'Explore integrations')}
+            secondaryHref="/settings"
+            secondaryLabel={copy('الإعدادات', 'Settings')}
+          />
+
+          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
                 <Link2 size={27} />

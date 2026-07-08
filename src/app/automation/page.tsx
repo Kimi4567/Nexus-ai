@@ -19,6 +19,7 @@ import {
   Zap,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -181,6 +182,15 @@ export default function AutomationPage() {
     <AppShell>
       <main dir={dir} className="min-h-screen bg-[#f6f8fc] px-4 py-6 text-[#071236] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1540px] space-y-6">
+          <LuxuryWorkspaceHeader
+            pageTitle={copy('الأتمتة', 'Automation')}
+            pageSubtitle={copy('جاهزية Autopilot ومسارات التشغيل بدون تفعيل تلقائي.', 'Autopilot readiness and automation paths without automatic activation.')}
+            primaryHref="/connections"
+            primaryLabel={copy('راجع التكاملات', 'Review integrations')}
+            secondaryHref="/campaigns"
+            secondaryLabel={copy('الحملات', 'Campaigns')}
+          />
+
           <section className="relative overflow-hidden rounded-[30px] border border-[#e3e8f3] bg-white p-6 shadow-[0_24px_70px_rgba(13,24,63,0.07)] lg:p-8">
             <div
               className="absolute inset-y-0 start-0 w-1/2 opacity-70"

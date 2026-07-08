@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { BrainTimeline } from '@/components/brain/BrainTimeline'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -1091,6 +1092,14 @@ function BrandBrainInner() {
             workspace uses the viewport without large empty side-bands. */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_4%,rgba(94,92,230,0.09),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(16,185,129,0.07),transparent_28%)]" />
         <div className="relative z-10 max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
+          <LuxuryWorkspaceHeader
+            pageTitle="Brand Brain"
+            pageSubtitle={locale === 'ar' ? 'المصدر المركزي لذاكرة العلامة وإشارات المراجعة قبل الاستراتيجية والمحتوى.' : 'The central memory source for brand context and review signals before strategy and content.'}
+            primaryHref="/strategy"
+            primaryLabel={locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy'}
+            secondaryHref="/campaigns"
+            secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
+          />
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
           {fromBrief && !briefBannerDismissed && (
