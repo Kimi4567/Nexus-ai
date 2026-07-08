@@ -88,7 +88,8 @@ const OBJECTIVES = [
 function StepBar({ step, total }: { step: number; total: number }) {
   const labels = ['Platform', 'Budget', 'Planning', 'Ad Copy', 'Review']
   return (
-    <div className="flex items-center gap-0 mb-8">
+    <div className="mb-8 rounded-2xl border border-slate-200 bg-white/85 p-3 shadow-sm">
+      <div className="flex items-center gap-0">
       {labels.map((label, i) => {
         const idx = i + 1
         const done = idx < step
@@ -97,11 +98,11 @@ function StepBar({ step, total }: { step: number; total: number }) {
           <div key={i} className="flex items-center flex-1">
             <div className="flex flex-col items-center gap-1">
               <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold transition-all"
+                className="w-9 h-9 rounded-2xl flex items-center justify-center text-[12px] font-black transition-all"
                 style={{
-                  background: done ? '#059669' : active ? '#fff7ed' : '#f1f5f9',
-                  border: done ? '1px solid #059669' : active ? '1px solid #F97316' : '1px solid rgba(15,23,42,0.1)',
-                  color: done ? 'white' : active ? '#F97316' : '#94a3b8',
+                  background: done ? '#ECFDF5' : active ? '#EEF2FF' : '#F8FAFC',
+                  border: done ? '1px solid rgba(16,185,129,0.24)' : active ? '1px solid rgba(94,92,230,0.35)' : '1px solid rgba(15,23,42,0.08)',
+                  color: done ? '#059669' : active ? '#5E5CE6' : '#94a3b8',
                 }}
               >
                 {done ? '✓' : idx}
@@ -113,18 +114,19 @@ function StepBar({ step, total }: { step: number; total: number }) {
             </div>
             {i < total - 1 && (
               <div className="flex-1 h-px mx-1 mb-4"
-                style={{ background: done ? '#059669' : '#e2e8f0' }} />
+                style={{ background: done ? '#10B981' : '#e2e8f0' }} />
             )}
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function NewPaidCampaignPage() {
-  const { user } = useAuth()
+  const { user, isAuthenticated, loading: authLoading } = useAuth()
   const { locale } = useI18n()
   const router = useRouter()
 
@@ -160,6 +162,10 @@ export default function NewPaidCampaignPage() {
 
   const set = (k: keyof WizardData, v: unknown) =>
     setData(prev => ({ ...prev, [k]: v }))
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/auth/login')
+  }, [authLoading, isAuthenticated, router])
 
   // Fetch ad accounts
   useEffect(() => {
@@ -1055,36 +1061,65 @@ export default function NewPaidCampaignPage() {
     }
   }
 
+  if (authLoading) {
+    return (
+      <AppShell>
+        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+        </div>
+      </AppShell>
+    )
+  }
+
+  if (!isAuthenticated) return null
+
   return (
     <AppShell>
-      <div className="min-h-screen flex items-start justify-center pt-8 bg-[#f5f5f7]">
-        <div className="w-full max-w-[600px] px-4 pb-12">
+      <main className="min-h-screen bg-[#f6f8fc] text-[#071236]">
+        <div className="mx-auto grid w-full max-w-[1540px] gap-6 px-4 py-6 pb-12 sm:px-6 lg:grid-cols-[minmax(0,780px)_360px] lg:px-8">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
+          <div className="lg:col-span-2 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-6">
+            <div className="flex items-center gap-4">
             <button onClick={() => router.push('/paid-campaigns')}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-950 transition-all"
-              style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.1)' }}>
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-500 hover:text-slate-950 transition-all"
+              style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.1)' }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M9 2L4 7l5 5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
             <div>
-              <h1 className="text-[15px] font-bold text-slate-950">
+              <div className="mb-2 inline-flex rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-xs font-bold text-orange-600">
+                {locale === 'ar' ? 'مسار موافقة مدفوع' : 'Approval-gated paid path'}
+              </div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-950">
                 {locale === 'ar' ? 'مسودة تخطيط مدفوع جديدة' : 'New Paid Planning Draft'}
               </h1>
-              <p className="text-[11px] text-slate-500">
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
                 {locale === 'ar'
                   ? 'ابدأ بالمسودة، ثم أنشئ مسودة منصة متوقفة، ثم فعّل فقط بعد موافقة نهائية.'
                   : 'Start with a draft, create paused platform objects, then activate only after final approval.'}
               </p>
             </div>
+            </div>
+            <div className="grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+              {[
+                locale === 'ar' ? 'لا إنفاق بدون موافقة' : 'No spend without approval',
+                locale === 'ar' ? 'الميزانية افتراض تخطيطي' : 'Budget is a planning assumption',
+                locale === 'ar' ? 'التحليلات بعد بيانات حقيقية' : 'Analytics after real data',
+              ].map((item) => (
+                <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 font-semibold">
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
 
+          <div className="min-w-0">
           {/* Step bar */}
           <StepBar step={step} total={5} />
 
           {/* Card */}
-          <div className="rounded-[18px] p-6 bg-white"
+          <div className="rounded-[26px] bg-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)]"
             style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
             {error && (
               <div className="mb-4 p-3 rounded-xl text-[12px]"
@@ -1094,8 +1129,34 @@ export default function NewPaidCampaignPage() {
             )}
             {renderStep()}
           </div>
+          </div>
+
+          <aside className="space-y-4 lg:pt-[92px]">
+            <div className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+              <p className="text-sm font-black text-slate-950">{locale === 'ar' ? 'حقيقة التنفيذ' : 'Execution truth'}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {locale === 'ar'
+                  ? 'هذه الصفحة تنشئ تخطيطاً أو مسودة مراجعة. لا يتم إطلاق إعلان، ولا صرف ميزانية، ولا تفعيل منصة إلا من شاشة تأكيد منفصلة.'
+                  : 'This page creates planning or review drafts. No ad launches, budget spend, or platform activation happens without a separate confirmation screen.'}
+              </p>
+            </div>
+            <div className="rounded-[24px] border border-indigo-100 bg-indigo-50/70 p-5">
+              <p className="text-sm font-black text-slate-950">{locale === 'ar' ? 'مسار صحيح' : 'Correct path'}</p>
+              <ol className="mt-3 space-y-3 text-sm text-slate-600">
+                {(locale === 'ar'
+                  ? ['اختيار المنصة والحساب', 'إدخال ميزانية كافتراض', 'إنشاء استراتيجية ونصوص للمراجعة', 'إنشاء مسودة منصة متوقفة لاحقاً', 'تفعيل فقط بعد موافقة صريحة']
+                  : ['Choose platform and account', 'Enter budget as an assumption', 'Generate strategy and copy for review', 'Create paused platform draft later', 'Activate only after explicit approval']
+                ).map((item, index) => (
+                  <li key={item} className="flex items-start gap-3">
+                    <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-indigo-600">{index + 1}</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </aside>
         </div>
-      </div>
+      </main>
     </AppShell>
   )
 }

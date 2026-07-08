@@ -884,18 +884,28 @@ export default function MediaLibraryPage() {
         />
       )}
 
-      <div className="relative min-h-screen">
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <main className="relative min-h-screen bg-[#f6f8fc] text-[#071236]">
+          <div className="relative mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
             <div>
 
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div className="mb-6 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold tracking-wider text-slate-500">NEXUS MEDIA</span>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-[12px] font-bold tracking-wider text-[#64708f]">NEXUS MEDIA</span>
               </div>
-              <h1 className="text-3xl font-bold text-slate-950">{mT?.pageTitle}</h1>
-              <p className="text-slate-500 mt-1 text-sm">{mT?.pageSubtitle}</p>
+              <h1 className="flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white shadow-sm ring-1 ring-[#e3e8f3]">🖼️</span>
+                {mT?.pageTitle}
+              </h1>
+              <p className="mt-2 max-w-3xl text-[14px] leading-7 text-[#64708f]">
+                {mT?.pageSubtitle}
+                <span className="block text-[12px] font-bold text-[#8a96ad]">
+                  {locale === 'ar'
+                    ? 'مكتبة الوسائط تخزن الأصول فقط. ربط أي أصل بمنشور يتم لاحقاً بتأكيد صريح من Content Hub.'
+                    : 'Media Library stores assets only. Attaching an asset to a post happens later through explicit Content Hub confirmation.'}
+                </span>
+              </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -903,12 +913,12 @@ export default function MediaLibraryPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={mT?.searchPlaceholder}
-                className="rounded-xl px-3 py-2 text-sm text-slate-950 outline-none transition-all placeholder:text-slate-400" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
+                className="h-11 rounded-[15px] px-4 text-[13px] font-bold text-[#111b3f] outline-none transition-all placeholder:text-[#8a96ad]" style={{ background: '#FFFFFF', border: '1px solid #dfe6f2' }}
               />
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="rounded-xl px-3 py-2 text-sm text-slate-950 outline-none transition-all" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.10)' }}
+                className="h-11 rounded-[15px] px-4 text-[13px] font-bold text-[#111b3f] outline-none transition-all" style={{ background: '#FFFFFF', border: '1px solid #dfe6f2' }}
               >
                 <option value="ALL">{mT?.filterAll}</option>
                 <option value="IMAGE">{mT?.filterImages}</option>
@@ -918,14 +928,19 @@ export default function MediaLibraryPage() {
           </div>
 
           {/* Upload zone */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-slate-700 mb-2">{mT?.uploadLabel}</label>
+          <div className="mb-6 rounded-[24px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)]">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label className="block text-[16px] font-black text-[#071236]">{mT?.uploadLabel}</label>
+              <span className="rounded-full bg-[#f4f6ff] px-3 py-1 text-[11px] font-black text-[#5366f6]">
+                {canUseCloudinary ? 'Cloudinary' : 'Local'}
+              </span>
+            </div>
             <div
               ref={dropRef}
-              className="rounded-xl p-8 text-center transition-all"
+              className="rounded-[22px] p-10 text-center transition-all"
               style={{
-                background: '#FFFFFF',
-                border: uploadInProgress ? '2px dashed rgba(148,163,184,0.30)' : '2px dashed rgba(94,92,230,0.24)',
+                background: '#fbfcff',
+                border: uploadInProgress ? '2px dashed rgba(148,163,184,0.30)' : '2px dashed rgba(83,102,246,0.28)',
                 opacity: uploadInProgress ? 0.6 : 1,
                 cursor: uploadInProgress ? 'not-allowed' : 'pointer',
               }}
@@ -953,14 +968,14 @@ export default function MediaLibraryPage() {
               />
               <label
                 htmlFor="file-input"
-                className={`text-base font-semibold ${uploadInProgress ? 'text-slate-400 cursor-not-allowed' : 'cursor-pointer'}`} style={{ color: uploadInProgress ? undefined : '#5E5CE6' }}
+                className={`text-[17px] font-black ${uploadInProgress ? 'text-slate-400 cursor-not-allowed' : 'cursor-pointer'}`} style={{ color: uploadInProgress ? undefined : '#5366f6' }}
               >
                 {uploadInProgress ? (mT?.uploadingInProgress || 'Upload in progress…') : mT?.uploadClick}
               </label>
-              <div className="text-sm text-slate-500 mt-2">{mT?.uploadDrop}</div>
+              <div className="mt-2 text-[13px] font-bold text-[#64708f]">{mT?.uploadDrop}</div>
 
               {/* Limits note */}
-              <div className="text-xs text-slate-400 mt-2">
+              <div className="mt-2 text-[12px] font-bold text-[#8a96ad]">
                 {canUseCloudinary
                   ? (mT?.uploadLimitsCloud || 'Images up to 10 MB · Videos up to 100 MB (MP4, MOV, WEBM)')
                   : (mT?.uploadLimitsLocal || 'Images up to 3 MB (local) · Video uploads require Cloudinary')}
@@ -1020,15 +1035,15 @@ export default function MediaLibraryPage() {
 
           {/* Media grid */}
           {isLoadingMedia ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="rounded-xl animate-pulse h-52" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)' }} />
+                <div key={i} className="h-52 animate-pulse rounded-[22px]" style={{ background: '#FFFFFF', border: '1px solid #e3e8f3' }} />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-4">
               {media.length === 0 ? (
-                <div className="col-span-full rounded-2xl p-12 text-center text-slate-500" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)' }}>
+                <div className="col-span-full rounded-[24px] p-12 text-center text-[14px] font-bold text-[#64708f]" style={{ background: '#FFFFFF', border: '1px solid #e3e8f3' }}>
                   {mT?.noMedia}
                 </div>
               ) : (
@@ -1073,7 +1088,7 @@ export default function MediaLibraryPage() {
 
             </div>
           </div>
-        </div>
+        </main>
     </AppShell>
   )
 }

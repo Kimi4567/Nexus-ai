@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
+import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
 
 type Stage = 'verifying' | 'form' | 'success' | 'expired'
 
@@ -82,36 +83,20 @@ function ResetPasswordForm() {
   }
 
   const inputStyle = {
-    background: 'rgba(12,13,36,0.65)',
-    border: '1px solid rgba(139,92,246,0.15)',
+    background: '#FFFFFF',
+    border: '1px solid rgba(15,23,42,0.12)',
   }
+  const inputClass = `w-full rounded-2xl px-4 py-3 text-slate-950 placeholder-slate-400 outline-none transition ${isRTL ? 'text-right' : 'text-left'}`
 
-  const wrap = (children: React.ReactNode) => (
-    <div
-      className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
+  const wrap = (children: React.ReactNode, title?: React.ReactNode, subtitle?: React.ReactNode) => (
+    <LuxuryAuthShell
       dir={dir}
-      style={{
-        backgroundImage:
-          'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)',
-      }}
+      title={title ?? rpT?.title}
+      subtitle={subtitle ?? rpT?.subtitle}
+      eyebrow={isRTL ? 'تعيين كلمة مرور آمن' : 'Secure password reset'}
     >
-      <div className="w-full max-w-md">
-        <div className="glass-panel p-8 rounded-2xl shadow-2xl">
-          <Link href="/" className="flex items-center gap-2.5 mb-8">
-            <div
-              className="w-9 h-9 rounded-lg grid place-items-center font-black text-lg text-white"
-              style={{ background: 'linear-gradient(135deg,#8B5CF6,#10B981)' }}
-            >
-              N
-            </div>
-            <span className="text-2xl font-extrabold tracking-wider font-heading text-gradient">
-              NEXUS AI
-            </span>
-          </Link>
-          {children}
-        </div>
-      </div>
-    </div>
+      {children}
+    </LuxuryAuthShell>
   )
 
   // ── Verifying ────────────────────────────────────────────────────────────
@@ -119,8 +104,10 @@ function ResetPasswordForm() {
     return wrap(
       <div className="text-center py-8">
         <div className="w-10 h-10 border-2 border-accent-purple border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-text-secondary text-sm">{rpT?.verifyingTitle || 'Verifying…'}</p>
-      </div>
+        <p className="text-slate-600 text-sm">{rpT?.verifyingTitle || 'Verifying...'}</p>
+      </div>,
+      rpT?.verifyingTitle || (isRTL ? 'جاري التحقق' : 'Verifying reset link'),
+      isRTL ? 'نتحقق من رابط إعادة التعيين قبل عرض النموذج.' : 'We are checking the reset link before showing the password form.'
     )
   }
 
@@ -128,16 +115,15 @@ function ResetPasswordForm() {
   if (stage === 'expired') {
     return wrap(
       <div className="text-center">
-        <div className="text-5xl mb-4">⏰</div>
-        <h2 className="text-2xl font-bold font-heading mb-3">{rpT?.expiredTitle}</h2>
-        <p className="text-text-secondary text-sm mb-6">{rpT?.expiredDesc}</p>
         <Link
           href="/auth/forgot-password"
-          className="btn-gradient block w-full py-3 text-white font-bold rounded-xl text-center hover:-translate-y-0.5 transition"
+          className="block w-full rounded-2xl bg-[#071332] py-3 text-center font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5"
         >
           {rpT?.requestNew}
         </Link>
-      </div>
+      </div>,
+      rpT?.expiredTitle,
+      rpT?.expiredDesc
     )
   }
 
@@ -145,27 +131,23 @@ function ResetPasswordForm() {
   if (stage === 'success') {
     return wrap(
       <div className="text-center">
-        <div className="text-5xl mb-4">✅</div>
-        <h2 className="text-2xl font-bold font-heading mb-3">{rpT?.successTitle}</h2>
-        <p className="text-text-secondary text-sm mb-6">{rpT?.successDesc}</p>
         <button
           onClick={() => router.push('/auth/login')}
-          className="btn-gradient block w-full py-3 text-white font-bold rounded-xl text-center hover:-translate-y-0.5 transition"
+          className="block w-full rounded-2xl bg-[#071332] py-3 text-center font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5"
         >
           {rpT?.backToLogin}
         </button>
-      </div>
+      </div>,
+      rpT?.successTitle,
+      rpT?.successDesc
     )
   }
 
   // ── Form ─────────────────────────────────────────────────────────────────
   return wrap(
     <>
-      <h2 className="text-2xl font-bold font-heading mb-1">{rpT?.title}</h2>
-      <p className="text-text-secondary text-sm mb-8">{rpT?.subtitle}</p>
-
       {error && (
-        <div className="bg-rose-500/10 border border-rose-500/40 rounded-xl px-4 py-3 mb-6 text-sm text-rose-300">
+        <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
           {error}
         </div>
       )}
@@ -183,15 +165,15 @@ function ResetPasswordForm() {
               onChange={e => setPassword(e.target.value)}
               placeholder={rpT?.passwordPlaceholder || '••••••••'}
               autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition pr-11"
+              className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`}
               style={inputStyle}
               onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
+              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')}
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
-              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition"
+              className={`absolute inset-y-0 ${isRTL ? 'left-3' : 'right-3'} flex items-center text-slate-400 hover:text-slate-950 transition`}
               tabIndex={-1}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -211,15 +193,15 @@ function ResetPasswordForm() {
               onChange={e => setConfirm(e.target.value)}
               placeholder={rpT?.confirmPlaceholder || '••••••••'}
               autoComplete="new-password"
-              className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition pr-11"
+              className={`${inputClass} ${isRTL ? 'pl-11' : 'pr-11'}`}
               style={inputStyle}
               onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
+              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')}
             />
             <button
               type="button"
               onClick={() => setShowConfirm(v => !v)}
-              className="absolute inset-y-0 right-3 flex items-center text-text-muted hover:text-white transition"
+              className={`absolute inset-y-0 ${isRTL ? 'left-3' : 'right-3'} flex items-center text-slate-400 hover:text-slate-950 transition`}
               tabIndex={-1}
             >
               {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -230,7 +212,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={loading}
-          className="btn-gradient w-full py-3 text-white font-bold rounded-xl hover:-translate-y-0.5 transition disabled:opacity-50"
+          className="w-full rounded-2xl bg-[#071332] py-3 font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5 disabled:opacity-50"
         >
           {loading ? rpT?.loading : rpT?.submit}
         </button>

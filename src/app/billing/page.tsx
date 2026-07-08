@@ -15,7 +15,7 @@ import Link from 'next/link'
 import {
   Sparkles, CheckCircle2, Settings2,
   Rocket, Brain, BarChart3, Shield, Globe, Image,
-  MessageSquare, FileText, Gift, TrendingUp, Zap, History,
+  MessageSquare, FileText, Gift, TrendingUp, Zap, History, CreditCard,
 } from 'lucide-react'
 
 // ─── Plan definitions ───────────────────────────────────────────────────────────
@@ -395,11 +395,57 @@ export default function BillingPage() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+      <div className="min-h-screen bg-[#F6F8FC] px-4 py-6 text-[#101A3F] sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1540px] space-y-8">
+
+        <section className="overflow-hidden rounded-[28px] border border-[#E4EAF5] bg-white shadow-[0_22px_70px_rgba(13,24,63,0.07)]">
+          <div className="grid gap-0 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="p-6 sm:p-8">
+              <div className="mb-5 flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#DDE5F4] bg-[#F8FAFF] px-3 py-1.5 text-xs font-black text-[#4F5D7E]">
+                  <CreditCard className="h-3.5 w-3.5 text-[#5E63FF]" />
+                  {ar ? 'الفوترة والرصيد' : 'Billing and credits'}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {billingEnabled ? (ar ? 'جاهز عند تفعيل Stripe' : 'Ready when Stripe is enabled') : (ar ? 'وضع بيتا آمن' : 'Safe beta mode')}
+                </span>
+              </div>
+              <h1 className="text-[30px] font-black tracking-[-0.02em] text-[#071236] sm:text-[40px]">
+                {ar ? 'إدارة الخطة والاستهلاك بوضوح' : 'Plan and usage control with clear truth'}
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm font-medium leading-7 text-[#65708C]">
+                {ar
+                  ? 'هذه الصفحة توضّح الرصيد، تكلفة كل إجراء، وحدود كل خطة. لا يتم خصم رصيد إلا عند تنفيذ إجراء AI صريح، ولا تبدأ المدفوعات الحقيقية إلا عندما تكون الفوترة مفعلة.'
+                  : 'This page explains credits, action costs, and plan boundaries. Credits are deducted only for explicit AI actions, and live payments start only when billing is enabled.'}
+              </p>
+            </div>
+            <div className="border-t border-[#E9EEF7] bg-[radial-gradient(circle_at_70%_20%,rgba(94,99,255,0.16),transparent_34%),linear-gradient(135deg,#FBFCFF,#F4F7FF)] p-6 sm:p-8 xl:border-l xl:border-t-0">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  [ar ? 'الرصيد المتاح' : 'Available credits', creditDisp.primary, Sparkles],
+                  [ar ? 'الخطة الحالية' : 'Current plan', billingDisplay.planLabel, Shield],
+                  [ar ? 'حالة الفوترة' : 'Billing state', billingDisplay.statusLabel, Settings2],
+                ].map(([label, value, Icon]) => {
+                  const CardIcon = Icon as typeof Sparkles
+                  return (
+                    <div key={String(label)} className="rounded-[20px] border border-white/80 bg-white/82 p-4 shadow-[0_14px_38px_rgba(13,24,63,0.06)]">
+                      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#5E63FF]">
+                        <CardIcon className="h-5 w-5" />
+                      </div>
+                      <p className="text-[11px] font-black text-[#78839C]">{String(label)}</p>
+                      <p className="mt-1 min-h-[28px] text-[20px] font-black text-[#071236]">{String(value)}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ── Current plan status ─────────────────────────────────────────── */}
         {!loading && !billingEnabled && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
             <div className="flex items-start gap-3">
               <Shield className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div>
@@ -418,13 +464,13 @@ export default function BillingPage() {
         )}
 
         {billingMessage && (
-          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
+          <div className="rounded-[22px] border border-violet-200 bg-violet-50 p-4 text-sm text-violet-800">
             {billingMessage}
           </div>
         )}
 
         {!loading && billingStatus && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="rounded-[24px] border border-[#E4EAF5] bg-white p-6 shadow-[0_18px_52px_rgba(13,24,63,0.055)]">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
@@ -557,7 +603,7 @@ export default function BillingPage() {
                   {/* Upgrade hint — only for Starter */}
                   {(ar ? plan.upgradeHintAr : plan.upgradeHintEn) && (
                     <div className="mb-4 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-                      <p className="text-xs text-amber-300/80 leading-relaxed flex items-start gap-1.5">
+                      <p className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-800">
                         <TrendingUp className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
                         {ar ? plan.upgradeHintAr : plan.upgradeHintEn}
                       </p>
@@ -803,13 +849,14 @@ export default function BillingPage() {
         </div>
 
         {/* ── Footer note ─────────────────────────────────────────────────── */}
-        <p className="text-center text-xs text-slate-400 pb-4">
+        <p className="pb-4 text-center text-xs text-slate-400">
           {ar
             ? 'المدفوعات معالجة بأمان عبر Stripe · يمكن الإلغاء في أي وقت · لا رسوم خفية'
             : 'Payments processed securely via Stripe · Cancel anytime · No hidden fees'
           }
         </p>
 
+        </div>
       </div>
 
       <CreditHistoryModal

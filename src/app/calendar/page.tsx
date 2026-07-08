@@ -580,37 +580,39 @@ function CalendarPageInner() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter" dir={dir}>
+      <main className="min-h-screen bg-[#f6f8fc] text-[#071236]" dir={dir}>
+      <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8 page-enter">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
-              <span>Nexus</span><span>/</span>
-              <span className="text-slate-600">Calendar</span>
+            <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-[#64708f]">
+              <span>NEXUS</span><span>/</span>
+              <span>{locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-950 mb-1">
+            <h1 className="flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white shadow-sm ring-1 ring-[#e3e8f3]">📅</span>
               {activeTab === 'timeline'
                 ? (locale === 'ar' ? getCalendarTruthText('plannedTab', locale) : 'Content Calendar')
                 : getCalendarTruthText('scheduledTab', locale)}
             </h1>
-            <p className="text-slate-500">
+            <p className="mt-2 max-w-3xl text-[14px] leading-7 text-[#64708f]">
               {activeTab === 'timeline'
                 ? getCalendarTruthText('subtitle', locale)
-                : (scT?.queueSubtitle as string || 'Scheduled posts and automatic publishing through your connected accounts.')}
+                : (scT?.queueSubtitle as string || 'Scheduled posts and API publishing status. Platform publishing requires connected accounts, readiness checks, and explicit confirmation.')}
             </p>
           </div>
 
           {/* Action button */}
           {activeTab === 'timeline' ? (
             <Link href="/campaigns/new"
-              className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all">
-              + New Campaign
+              className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]">
+              + {locale === 'ar' ? 'حملة جديدة' : 'New campaign'}
             </Link>
           ) : (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all"
+              className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"
   >
               {scT?.btnSchedule as string || '+ Schedule Post'}
             </button>
@@ -618,22 +620,22 @@ function CalendarPageInner() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-xl w-fit mb-8" style={{ background: '#f5f5f7', border: '1px solid rgba(15,23,42,0.08)' }}>
+        <div className="mb-6 inline-flex items-center gap-1 rounded-[17px] border border-[#e3e8f3] bg-white p-1 shadow-sm">
           <button
             onClick={() => setActiveTab('timeline')}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`rounded-[13px] px-5 py-2.5 text-[13px] font-black transition-all ${
               activeTab === 'timeline'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-950'
+                ? 'bg-[#5366f6] text-white shadow-sm'
+                : 'text-[#64708f] hover:text-[#071236]'
             }`}>
             📅 {getCalendarTruthText('plannedTab', locale)}
           </button>
           <button
             onClick={() => setActiveTab('queue')}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            className={`rounded-[13px] px-5 py-2.5 text-[13px] font-black transition-all ${
               activeTab === 'queue'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-950'
+                ? 'bg-[#5366f6] text-white shadow-sm'
+                : 'text-[#64708f] hover:text-[#071236]'
             }`}>
             📤 {getCalendarTruthText('scheduledTab', locale)}
             {scheduled.length > 0 && (
@@ -670,22 +672,21 @@ function CalendarPageInner() {
               </div>
             )}
 
-            <div className="rounded-xl px-4 py-3 mb-3 text-xs leading-relaxed text-slate-600"
-              style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
+            <div className="mb-4 rounded-[20px] border border-[#e3e8f3] bg-white/90 px-5 py-4 text-[13px] font-bold leading-7 text-[#64708f] shadow-[0_14px_38px_rgba(15,23,42,0.04)]">
               {getCalendarTruthText('plannedHelper', locale)}
             </div>
 
             {/* Stats count real SocialPost/content rows only. Strategy ideas never
                 inflate scheduled, published, platform, or monthly post counts. */}
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="mb-4 grid gap-3 md:grid-cols-3">
               {[
                 { label: locale === 'ar' ? 'منشورات هذا الشهر' : 'Posts this month', value: calStats.total, color: 'text-slate-950' },
                 { label: locale === 'ar' ? 'مجدولة' : 'Scheduled', value: calStats.scheduled, color: 'text-orange-600' },
                 { label: locale === 'ar' ? 'منشورة' : 'Published', value: calStats.published, color: 'text-green-700' },
               ].map(s => (
-                <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
-                  <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+                <div key={s.label} className="rounded-[22px] border border-[#e3e8f3] bg-white/90 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                  <div className={`text-[28px] font-black tracking-[-0.03em] ${s.color}`}>{s.value}</div>
+                  <div className="mt-1 text-[12px] font-bold text-[#64708f]">{s.label}</div>
                 </div>
               ))}
             </div>
@@ -1064,7 +1065,7 @@ function CalendarPageInner() {
               {[
                 { label: locale === 'ar' ? 'غير مجدولة' : 'Not scheduled', value: queueSummary.notScheduled, color: 'text-slate-600' },
                 { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
-                { label: scT?.statAutoPublished as string || 'Published automatically', value: autoPublished.length, color: 'text-green-700'   },
+                { label: scT?.statAutoPublished as string || 'API-published', value: autoPublished.length, color: 'text-green-700'   },
                 { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
@@ -1076,7 +1077,7 @@ function CalendarPageInner() {
 
             {/* Honest scope note (PR7): this queue is the auto-publish surface only. */}
             <div className="rounded-xl px-4 py-3 mb-6 text-xs text-slate-500" style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
-              {scT?.queueManualNote as string || 'This queue shows posts NEXUS publishes automatically through a connected account. Posts you publish by hand are tracked in the Content Hub, marked “Published manually”.'}
+              {scT?.queueManualNote as string || 'This queue separates scheduled records from posts published through an explicit connected-account API path. Posts you publish by hand are tracked in the Content Hub, marked “Published manually”.'}
             </div>
 
             {/* No integrations warning */}
@@ -1155,7 +1156,7 @@ function CalendarPageInner() {
             {autoPublished.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
-                  {scT?.sectionAutoPublished as string || 'Published automatically'}
+                  {scT?.sectionAutoPublished as string || 'Published through API'}
                 </h2>
                 <div className="space-y-3">
                   {autoPublished.slice(0, 5).map(post => (
@@ -1165,7 +1166,7 @@ function CalendarPageInner() {
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-xs font-bold text-slate-500">{post.pageName || post.platform}</span>
                           <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-50 text-green-700 border border-green-200">
-                            {scT?.statusAutoPublished as string || 'Published automatically'}
+                            {scT?.statusAutoPublished as string || 'Published through API'}
                           </span>
                         </div>
                         <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>
@@ -1252,6 +1253,7 @@ function CalendarPageInner() {
           </div>
         )}
       </div>
+      </main>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* SCHEDULE MODAL                                                        */}

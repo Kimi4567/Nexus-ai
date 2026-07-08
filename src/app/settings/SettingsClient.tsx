@@ -1,25 +1,45 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import AppShell from '@/components/AppShell'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
-import AppShell from '@/components/AppShell'
-import ReferralWidget from '@/components/ReferralWidget'
-import { getPlanDisplayName, formatCreditDisplay } from '@/lib/creditDisplay'
+import { formatCreditDisplay, getPlanDisplayName } from '@/lib/creditDisplay'
 import {
-  Settings, Shield, Bell, Globe, Palette, KeyRound,
-  LogOut, ChevronLeft, Check, AlertTriangle, User,
-  CreditCard, Lock, ExternalLink, Eye, EyeOff, Save,
-  Sparkles, Monitor, Moon, Sun, Trash2, ChevronRight, Gift
+  AlertTriangle,
+  Bell,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Copy,
+  CreditCard,
+  Database,
+  Eye,
+  EyeOff,
+  Globe2,
+  KeyRound,
+  Link2,
+  Loader2,
+  Lock,
+  LogOut,
+  Mail,
+  Moon,
+  MoreVertical,
+  Palette,
+  Plus,
+  Save,
+  Settings,
+  Shield,
+  Sparkles,
+  Sun,
+  Trash2,
+  User,
+  Users,
+  Zap,
 } from 'lucide-react'
-
-/* ═══════════════════════════════════════════════════════════════
-   SETTINGS — Command Center Configuration
-   Redesigned to match the cosmic space theme
-   ═══════════════════════════════════════════════════════════════ */
 
 interface SocialAccount {
   id: string
@@ -32,90 +52,150 @@ interface SocialAccount {
   connectedAt: string
 }
 
-// ── Stable sub-components (must live at MODULE level, not inside SettingsPage)  ──
-// If defined inside SettingsPage, React treats them as new component types on
-// every render and unmounts/remounts the DOM — causing inputs to lose focus
-// after every keystroke.
-
-function GlassCard({
+function SettingsCard({
+  title,
+  icon,
   children,
   className = '',
-  accent = false,
-  style = {},
+  action,
 }: {
-  children: React.ReactNode
+  title: string
+  icon?: ReactNode
+  children: ReactNode
   className?: string
-  accent?: boolean
-  style?: React.CSSProperties
+  action?: ReactNode
 }) {
   return (
-    <div
-      className={`page-enter ${className}`}
-      style={{
-        background: accent ? 'rgba(239,68,68,0.03)' : '#fff',
-        border: accent ? '1px solid rgba(239,68,68,0.12)' : '1px solid rgba(15,23,42,0.08)',
-        borderRadius: '16px',
-        boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
-        ...style,
-      }}
-    >
+    <section className={`min-w-0 overflow-hidden rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
+          {icon ? <span className="text-[#4f46e5]">{icon}</span> : null}
+          {title}
+        </h2>
+        {action}
+      </div>
       {children}
-    </div>
+    </section>
   )
 }
 
-function SectionBadge({ color, label }: { color: string; label: string }) {
+function SettingsButton({
+  children,
+  onClick,
+  disabled,
+  loading,
+  tone = 'secondary',
+  className = '',
+}: {
+  children: ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  loading?: boolean
+  tone?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  className?: string
+}) {
+  const toneClass = {
+    primary: 'bg-[#071236] text-white shadow-[0_18px_38px_rgba(18,26,66,0.24)] hover:bg-[#111d4d]',
+    secondary: 'border border-[#e3e8f3] bg-white text-[#111b3f] hover:border-[#c9d4ea] hover:bg-[#f8faff]',
+    danger: 'border border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100',
+    ghost: 'border border-transparent bg-transparent text-[#53617f] hover:bg-white',
+  }[tone]
+
   return (
-    <div className="flex items-center gap-2 mb-3">
-      <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      className={`inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-[13px] px-4 text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${toneClass} ${className}`}
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      {children}
+    </button>
+  )
+}
+
+function ToggleRow({
+  title,
+  helper,
+  enabled = true,
+}: {
+  title: string
+  helper: string
+  enabled?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-[#eef2f8] py-3 last:border-b-0">
+      <div>
+        <p className="text-[13px] font-black text-[#111b3f]">{title}</p>
+        <p className="mt-1 text-[11px] leading-5 text-[#7b87a3]">{helper}</p>
+      </div>
+      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${enabled ? 'bg-[#5366f6]' : 'bg-[#d8e0ee]'}`}>
+        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition ${enabled ? 'left-6' : 'left-1'}`} />
+      </span>
     </div>
   )
 }
 
-// Static section config — uses translation keys
-const SECTION_DEFS: { id: string; labelKey: string; icon: React.ElementType; color: string }[] = [
-  { id: 'profile',   labelKey: 'settings.profile',          icon: User,          color: '#06b6d4' },
-  { id: 'security',  labelKey: 'settings.security',         icon: Shield,        color: '#f59e0b' },
-  { id: 'accounts',  labelKey: 'settings.sectionAccounts',  icon: Globe,         color: '#10b981' },
-  { id: 'billing',   labelKey: 'settings.sectionBillingNav',icon: CreditCard,    color: '#8b5cf6' },
-  // BETA: 'referral' section hidden from nav (referrals are a post-PMF growth feature).
-  // The render block + ReferralWidget remain in code; re-add this entry to re-enable.
-  { id: 'danger',    labelKey: 'settings.sectionDanger',    icon: AlertTriangle, color: '#ef4444' },
-]
+function SelectShell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-[15px] border border-[#e8edf7] bg-[#fbfcff] px-4 py-3">
+      <span>
+        <span className="block text-[11px] font-bold text-[#7b87a3]">{label}</span>
+        <span className="mt-1 block text-[13px] font-black text-[#111b3f]">{value}</span>
+      </span>
+      <ChevronDown className="h-4 w-4 text-[#8a96ad]" />
+    </div>
+  )
+}
+
+function RoleRow({
+  name,
+  email,
+  role,
+}: {
+  name: string
+  email: string
+  role: string
+}) {
+  return (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-[#eef2f8] py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(120px,180px)_auto]">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f1f0ff] text-sm font-black text-[#4f46e5]">
+          {name.charAt(0)}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-black text-[#111b3f]">{name}</span>
+          <span className="block truncate text-[11px] text-[#7b87a3]">{email}</span>
+        </span>
+      </div>
+      <span className="hidden truncate text-[12px] font-bold text-[#64708f] sm:block">{role}</span>
+      <MoreVertical className="h-4 w-4 text-[#9aa6bb]" />
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const router = useRouter()
   const { user, isAuthenticated, loading, authHeader } = useAuth()
-  const { locale, dir, t } = useI18n()
+  const { locale, dir } = useI18n()
+  const ar = locale === 'ar'
+  const copyText = useCallback((arabic: string, english: string) => (ar ? arabic : english), [ar])
 
-  const [activeSection, setActiveSection] = useState('profile')
+  const [displayName, setDisplayName] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [nameMessage, setNameMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const [displayName,   setDisplayName]   = useState('')
-  const [savingName,    setSavingName]     = useState(false)
-  const [nameSuccess,   setNameSuccess]    = useState('')
-  const [nameError,     setNameError]      = useState('')
-
-  const [newPassword,     setNewPassword]     = useState('')
+  const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword,    setShowPassword]    = useState(false)
-  const [savingPassword,  setSavingPassword]  = useState(false)
-  const [passwordSuccess, setPasswordSuccess] = useState('')
-  const [passwordError,   setPasswordError]   = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const [socialAccounts,  setSocialAccounts]  = useState<SocialAccount[]>([])
-  const [socialLoading,   setSocialLoading]   = useState(false)
-  const [socialConnecting,setSocialConnecting]= useState(false)
-  const [socialMessage,   setSocialMessage]   = useState('')
-  const [disconnecting,   setDisconnecting]   = useState<string | null>(null)
-
-  const [signingOut, setSigningOut] = useState(false)
-
-  // Reset workspace
-  const [resetConfirmOpen,  setResetConfirmOpen]  = useState(false)
-  const [resetConfirmInput, setResetConfirmInput] = useState('')
-  const [resetting,         setResetting]         = useState(false)
-  const [resetMessage,      setResetMessage]      = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([])
+  const [socialLoading, setSocialLoading] = useState(false)
+  const [socialConnecting, setSocialConnecting] = useState(false)
+  const [socialMessage, setSocialMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [disconnecting, setDisconnecting] = useState<string | null>(null)
 
   const [billingStatus, setBillingStatus] = useState<{
     plan: string
@@ -123,42 +203,18 @@ export default function SettingsPage() {
     credits: { remaining: number; used: number; max: number }
   } | null>(null)
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) router.push('/auth/login')
-  }, [loading, isAuthenticated, router])
-
-  // Handle OAuth callback messages
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    const social   = params.get('social')
-    const platform = params.get('platform')
-    if (social === 'connected') {
-      const platformName = platform === 'meta' ? 'Meta (Facebook/Instagram)' : (platform || '')
-      setSocialMessage(
-        (t('settings.connectionSuccess') as string).replace('{platform}', platformName)
-      )
-      fetchSocialAccounts()
-      setTimeout(() => setSocialMessage(''), 5000)
-    } else if (social === 'denied') {
-      setSocialMessage(t('settings.connectionCancelled') as string)
-      setTimeout(() => setSocialMessage(''), 3000)
-    } else if (social === 'error') {
-      const msg = params.get('msg') || ''
-      setSocialMessage(
-        (t('settings.connectionFailed') as string).replace('{msg}', msg)
-      )
-      setTimeout(() => setSocialMessage(''), 10000)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const [signingOut, setSigningOut] = useState(false)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+  const [resetConfirmInput, setResetConfirmInput] = useState('')
+  const [resetting, setResetting] = useState(false)
+  const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const fetchSocialAccounts = useCallback(async () => {
     const token = authHeader()
     if (!token) return
     setSocialLoading(true)
     try {
-      const res  = await fetch('/api/social/accounts', { headers: { Authorization: token } })
+      const res = await fetch('/api/social/accounts', { headers: { Authorization: token } })
       const data = await res.json()
       setSocialAccounts(data.accounts || [])
     } catch {
@@ -169,35 +225,106 @@ export default function SettingsPage() {
   }, [authHeader])
 
   useEffect(() => {
-    if (isAuthenticated) fetchSocialAccounts()
-  }, [isAuthenticated, fetchSocialAccounts])
+    if (!loading && !isAuthenticated) router.push('/auth/login')
+  }, [isAuthenticated, loading, router])
 
   useEffect(() => {
     if (user) setDisplayName(user?.user_metadata?.name || user?.email?.split('@')[0] || '')
   }, [user])
 
-  // Fetch real billing status when billing section is opened
   useEffect(() => {
-    if (activeSection !== 'billing') return
+    if (isAuthenticated) fetchSocialAccounts()
+  }, [fetchSocialAccounts, isAuthenticated])
+
+  useEffect(() => {
     const token = authHeader()
     if (!token) return
     fetch('/api/billing/status', { headers: { Authorization: token } })
-      .then(r => r.json())
-      .then(d => { if (d.plan) setBillingStatus(d) })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.plan) setBillingStatus(data)
+      })
       .catch(() => {})
-  }, [activeSection, authHeader])
+  }, [authHeader])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const social = params.get('social')
+    const platform = params.get('platform')
+    if (social === 'connected') {
+      setSocialMessage({
+        type: 'success',
+        text: copyText(`${platform || 'Meta'} متصل. راجع الصلاحيات قبل التشغيل.`, `${platform || 'Meta'} connected. Review permissions before execution.`),
+      })
+      fetchSocialAccounts()
+      window.history.replaceState({}, '', '/settings')
+      setTimeout(() => setSocialMessage(null), 5000)
+    } else if (social === 'denied' || social === 'error') {
+      const msg = params.get('msg')
+      setSocialMessage({
+        type: 'error',
+        text: msg
+          ? copyText(`تعذر الربط: ${decodeURIComponent(msg)}`, `Connection failed: ${decodeURIComponent(msg)}`)
+          : copyText('تم إلغاء الربط أو تعذر إكماله.', 'Connection was cancelled or could not be completed.'),
+      })
+      window.history.replaceState({}, '', '/settings')
+      setTimeout(() => setSocialMessage(null), 9000)
+    }
+  }, [copyText, fetchSocialAccounts])
+
+  const handleSaveName = async () => {
+    if (!displayName.trim()) return
+    setSavingName(true)
+    setNameMessage(null)
+    try {
+      const { error } = await supabase.auth.updateUser({ data: { name: displayName } })
+      if (error) throw error
+      setNameMessage({ type: 'success', text: copyText('تم تحديث الاسم.', 'Name updated.') })
+      setTimeout(() => setNameMessage(null), 3000)
+    } catch (error: any) {
+      setNameMessage({ type: 'error', text: error.message || copyText('تعذر تحديث الاسم.', 'Could not update name.') })
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    setPasswordMessage(null)
+    if (newPassword.length < 8) {
+      setPasswordMessage({ type: 'error', text: copyText('كلمة المرور يجب أن تكون 8 أحرف على الأقل.', 'Password must be at least 8 characters.') })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({ type: 'error', text: copyText('كلمتا المرور غير متطابقتين.', 'Passwords do not match.') })
+      return
+    }
+    setSavingPassword(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      setPasswordMessage({ type: 'success', text: copyText('تم تحديث كلمة المرور.', 'Password updated.') })
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordMessage(null), 3000)
+    } catch (error: any) {
+      setPasswordMessage({ type: 'error', text: error.message || copyText('تعذر تحديث كلمة المرور.', 'Could not update password.') })
+    } finally {
+      setSavingPassword(false)
+    }
+  }
 
   const handleConnectMeta = async () => {
     const token = authHeader()
     if (!token) return
     setSocialConnecting(true)
     try {
-      const res  = await fetch('/api/social/connect/meta', { headers: { Authorization: token } })
+      const res = await fetch('/api/social/connect/meta', { headers: { Authorization: token } })
       const data = await res.json()
       if (data.url) window.location.href = data.url
-      else setSocialMessage(data.error || t('settings.connectFailed') as string)
+      else setSocialMessage({ type: 'error', text: data.error || copyText('تعذر بدء ربط Meta.', 'Could not start Meta connection.') })
     } catch {
-      setSocialMessage(t('settings.connectError') as string)
+      setSocialMessage({ type: 'error', text: copyText('حدث خطأ أثناء الربط.', 'Connection error.') })
     } finally {
       setSocialConnecting(false)
     }
@@ -213,54 +340,11 @@ export default function SettingsPage() {
         headers: { 'Content-Type': 'application/json', Authorization: token },
         body: JSON.stringify({ integrationId }),
       })
-      setSocialAccounts(prev => prev.filter(a => a.id !== integrationId))
+      setSocialAccounts((prev) => prev.filter((account) => account.id !== integrationId))
     } catch {
-      setSocialMessage(t('settings.disconnectFailed') as string)
+      setSocialMessage({ type: 'error', text: copyText('تعذر فصل الحساب.', 'Could not disconnect account.') })
     } finally {
       setDisconnecting(null)
-    }
-  }
-
-  const handleSaveName = async () => {
-    if (!displayName.trim()) return
-    setSavingName(true)
-    setNameError('')
-    setNameSuccess('')
-    try {
-      const { error } = await supabase.auth.updateUser({ data: { name: displayName } })
-      if (error) throw error
-      setNameSuccess(t('settings.nameUpdated') as string)
-      setTimeout(() => setNameSuccess(''), 3000)
-    } catch (err: any) {
-      setNameError(err.message || t('settings.nameUpdateFailed') as string)
-    } finally {
-      setSavingName(false)
-    }
-  }
-
-  const handleChangePassword = async () => {
-    setPasswordError('')
-    setPasswordSuccess('')
-    if (newPassword.length < 8) {
-      setPasswordError(t('settings.passwordTooShort') as string)
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError(t('settings.passwordMismatch') as string)
-      return
-    }
-    setSavingPassword(true)
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
-      setPasswordSuccess(t('settings.passwordUpdated') as string)
-      setNewPassword('')
-      setConfirmPassword('')
-      setTimeout(() => setPasswordSuccess(''), 3000)
-    } catch (err: any) {
-      setPasswordError(err.message || t('settings.passwordUpdateFailed') as string)
-    } finally {
-      setSavingPassword(false)
     }
   }
 
@@ -282,699 +366,368 @@ export default function SettingsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Reset failed')
-      setResetMessage({ type: 'success', text: t('settings.resetWorkspaceSuccess') as string })
+      setResetMessage({ type: 'success', text: copyText('تمت إعادة ضبط مساحة العمل.', 'Workspace reset completed.') })
       setResetConfirmOpen(false)
       setResetConfirmInput('')
-      // Give user a moment to see the success toast, then redirect
       setTimeout(() => router.push('/dashboard'), 1500)
-    } catch (err: any) {
-      setResetMessage({ type: 'error', text: t('settings.resetWorkspaceError') as string })
+    } catch {
+      setResetMessage({ type: 'error', text: copyText('تعذر تنفيذ إعادة الضبط.', 'Could not reset workspace.') })
     } finally {
       setResetting(false)
     }
   }
 
+  const metaAccount = socialAccounts.find((account) => account.platform === 'META')
+  const email = user?.email || ''
+  const provider = user?.app_metadata?.provider || 'email'
+  const planLabel = billingStatus
+    ? getPlanDisplayName(billingStatus.hasActiveSubscription ? billingStatus.plan : 'free', locale)
+    : copyText('جار التحميل', 'Loading')
+  const creditDisplay = formatCreditDisplay({
+    availableCredits: billingStatus?.credits?.remaining ?? 0,
+    monthlyCredits: billingStatus?.hasActiveSubscription ? billingStatus?.credits?.max ?? 0 : 0,
+    locale,
+  })
+
+  const roleRows = useMemo(() => [
+    {
+      name: displayName || copyText('أحمد محمد', 'Ahmed Mohamed'),
+      email: email || 'owner@nexus-grow.com',
+      role: copyText('مالك', 'Owner'),
+    },
+  ], [copyText, displayName, email])
+
+  const roleTemplates = useMemo(() => [
+    [copyText('مالك', 'Owner'), copyText('الوصول الكامل لجميع الإعدادات.', 'Full access to all settings.'), 'bg-violet-50 text-violet-700'],
+    [copyText('مدير', 'Manager'), copyText('إدارة الحملات والفريق والمحتوى.', 'Manage campaigns, team, and content.'), 'bg-blue-50 text-blue-700'],
+    [copyText('محرر', 'Editor'), copyText('إنشاء وتحرير المحتوى والحملات بدون صلاحيات حساسة.', 'Create and edit content and campaigns without sensitive permissions.'), 'bg-amber-50 text-amber-700'],
+    [copyText('مشاهد', 'Viewer'), copyText('عرض التقارير والمحتوى فقط.', 'Reports and content view only.'), 'bg-slate-50 text-slate-600'],
+  ], [copyText])
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center">
-        <div className="relative">
-          <div className="w-16 h-16 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin" />
-          <Sparkles className="w-6 h-6 text-slate-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+      <AppShell>
+        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
+          <Loader2 className="h-9 w-9 animate-spin text-[#4f46e5]" />
         </div>
-      </div>
+      </AppShell>
     )
   }
+
   if (!isAuthenticated) return null
-
-  const email    = user?.email || ''
-  const provider = user?.app_metadata?.provider || 'email'
-  const createdAt = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : '—'
-
-  const metaAccount = socialAccounts.find(a => a.platform === 'META')
-
-  // Resolve section labels
-  const SECTIONS = SECTION_DEFS.map(s => ({ ...s, label: t(s.labelKey) as string }))
 
   return (
     <AppShell>
-      <div className="min-h-screen bg-[#f5f5f7]" dir={dir}>
-
-        <div className="max-w-5xl mx-auto px-6 py-10 page-enter">
-          {/* ── Header ───────────────────────────────────────── */}
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(15,23,42,0.05)', border: '1px solid rgba(15,23,42,0.08)' }}>
-                <Settings className="w-4 h-4 text-slate-500" />
+      <main dir={dir} className="min-h-screen overflow-x-hidden bg-[#f6f8fc] text-[#111b3f]">
+        <div className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8">
+          <header className="mb-7 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
+                <Settings size={25} />
               </div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{t('sidebar.settings')}</span>
+              <div className="min-w-0">
+                <p className="text-[12px] font-bold text-[#64708f]">{copyText('نظرة عامة', 'Overview')}</p>
+                <h1 className="mt-1 flex flex-wrap items-center gap-2 text-[30px] font-black tracking-[-0.02em] text-[#071236]">
+                  {copyText('الإعدادات', 'Settings')}
+                  <Sparkles className="text-[#4f46e5]" size={23} />
+                </h1>
+                <p className="mt-1 text-sm text-[#60708f]">
+                  {copyText('إدارة حسابك، فريقك، صلاحياتك، وتفضيلات نظام NEXUS.', 'Manage your account, team, permissions, and NEXUS preferences.')}
+                </p>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-slate-950 mb-1">{t('settings.pageTitle')}</h1>
-            <p className="text-[13px] text-slate-500">{t('settings.subheading')}</p>
-          </div>
+            <SettingsButton tone="primary" disabled className="self-start xl:self-auto">
+              <Plus className="h-4 w-4" />
+              {copyText('دعوة عضو قريباً', 'Invite member soon')}
+            </SettingsButton>
+          </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* ── Sidebar Navigation ─────────────────────────── */}
-            <div className="lg:col-span-3 space-y-2">
-              {SECTIONS.map((section) => {
-                const Icon = section.icon
-                const isActive = activeSection === section.id
-                return (
-                  <button
-                    key={section.id}
-                    onClick={() => setActiveSection(section.id)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      isActive
-                        ? 'text-slate-950'
-                        : 'text-slate-500 hover:text-slate-950 hover:bg-slate-50'
-                    }`}
-                    style={{
-                      background: isActive ? '#f1f5f9' : 'transparent',
-                      border: isActive ? '1px solid rgba(15,23,42,0.12)' : '1px solid transparent',
-                    }}
-                  >
-                    <Icon className="w-4 h-4" style={{ color: isActive ? section.color : undefined }} />
-                    <span className={`flex-1 ${locale === 'ar' ? 'text-right' : 'text-left'}`}>{section.label}</span>
-                    {isActive && <ChevronLeft className="w-4 h-4 text-slate-400" />}
+          <section className="mb-6 grid min-w-0 gap-4 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)_minmax(0,340px)]">
+            <SettingsCard title={copyText('الحساب', 'Account')} icon={<User size={18} />}>
+              <div className="flex items-center gap-5">
+                <div className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#eff2ff] to-white p-2">
+                  <div className="flex h-full w-full items-center justify-center rounded-full bg-[#071236] text-4xl font-black text-white">
+                    {(displayName || email || 'N').charAt(0).toUpperCase()}
+                  </div>
+                  <button type="button" className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border border-[#e3e8f3] bg-white text-[#5366f6] shadow-sm">
+                    <Palette className="h-4 w-4" />
                   </button>
-                )
-              })}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xl font-black text-[#071236]">{displayName || copyText('مستخدم NEXUS', 'NEXUS user')}</p>
+                  <p className="mt-1 truncate text-[13px] text-[#64708f]">{email}</p>
+                  <p className="mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700">
+                    {billingStatus?.hasActiveSubscription ? copyText('نشط', 'Active') : copyText('حساب تجربة', 'Trial account')}
+                  </p>
+                </div>
+              </div>
 
-              <div className="pt-4 mt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
-                <Link
-                  href="/dashboard"
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-500 hover:text-slate-950 hover:bg-slate-50 transition-all"
-                >
-                  <Monitor className="w-4 h-4" />
-                  <span className={`flex-1 ${locale === 'ar' ? 'text-right' : 'text-left'}`}>{t('settings.backToDashboard')}</span>
-                  <ChevronRight className="w-4 h-4" />
+              <div className="mt-5 space-y-3">
+                <input
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                  className="h-11 w-full rounded-[14px] border border-[#e3e8f3] bg-[#fbfcff] px-4 text-sm font-semibold outline-none transition focus:border-[#5366f6]"
+                  placeholder={copyText('اسم العرض', 'Display name')}
+                />
+                {nameMessage ? (
+                  <p className={`text-[12px] font-bold ${nameMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {nameMessage.text}
+                  </p>
+                ) : null}
+                <SettingsButton onClick={handleSaveName} loading={savingName} disabled={!displayName.trim()} className="w-full">
+                  <Save className="h-4 w-4" />
+                  {copyText('تعديل الملف الشخصي', 'Update profile')}
+                </SettingsButton>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard
+              title={copyText('الأدوار والصلاحيات', 'Roles and permissions')}
+              icon={<Users size={18} />}
+              action={<SettingsButton disabled><Plus className="h-4 w-4" />{copyText('قريباً', 'Soon')}</SettingsButton>}
+            >
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,240px)]">
+                <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] px-4">
+                  <p className="border-b border-[#eef2f8] py-3 text-[12px] font-bold text-[#64708f]">
+                    {copyText('الفريق الحالي الفعلي في مساحة العمل.', 'Actual current workspace team.')}
+                  </p>
+                  {roleRows.map((row) => (
+                    <RoleRow key={row.email} {...row} />
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <p className="text-[12px] font-bold text-[#64708f]">
+                    {copyText('قوالب صلاحيات جاهزة عند تفعيل دعوة الفريق.', 'Permission templates for the future team-invite flow.')}
+                  </p>
+                  {roleTemplates.map(([role, helper, tone]) => (
+                    <div key={role} className="rounded-[15px] border border-[#e8edf7] bg-white p-3">
+                      <p className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ${tone}`}>{role}</p>
+                      <p className="mt-2 text-[11px] leading-5 text-[#64708f]">{helper}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard title={copyText('الفوترة والخطة', 'Billing and plan')} icon={<CreditCard size={18} />}>
+              <div className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-center">
+                <p className="inline-flex rounded-full bg-[#fff7db] px-3 py-1 text-[11px] font-black text-[#a66b00]">NEXUS PRO</p>
+                <h3 className="mt-3 text-lg font-black text-[#071236]">{planLabel}</h3>
+                <p className="mt-1 text-[12px] text-[#64708f]">
+                  {billingStatus?.hasActiveSubscription
+                    ? copyText('اشتراك نشط', 'Active subscription')
+                    : copyText('أرصدة وتجربة محدودة', 'Credits and limited trial')}
+                </p>
+                <div className="mt-5 space-y-4 text-start">
+                  {[
+                    [copyText('الأرصدة', 'Credits'), billingStatus ? creditDisplay.primary : '…', creditDisplay.percent],
+                    [copyText('المستخدمون', 'Users'), copyText('1 مستخدم فعلي', '1 actual user'), 100],
+                    [copyText('التخزين', 'Storage'), copyText('حسب مكتبة الوسائط', 'Tracked in Media Library'), 0],
+                  ].map(([label, value, percent]) => (
+                    <div key={label as string}>
+                      <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-[#64708f]">
+                        <span>{label}</span>
+                        <span>{value}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-[#e8edf7]">
+                        <div className="h-full rounded-full bg-[#5366f6]" style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Link href="/billing" className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-[13px] border border-[#d7def0] bg-white text-[13px] font-black text-[#4f46e5]">
+                  {copyText('إدارة الخطة', 'Manage plan')}
                 </Link>
               </div>
-            </div>
+            </SettingsCard>
+          </section>
 
-            {/* ── Main Content ───────────────────────────────── */}
-            <div className="lg:col-span-9 space-y-6">
+          <section className="grid min-w-0 gap-6 xl:grid-cols-3">
+            <SettingsCard title={copyText('الإشعارات', 'Notifications')} icon={<Bell size={18} />}>
+              <p className="mb-2 rounded-[14px] bg-[#fbfcff] px-3 py-2 text-[11px] font-bold leading-5 text-[#64708f]">
+                {copyText('عرض لسياسة الإشعارات الحالية. تعديل التفضيلات التفصيلية سيضاف لاحقاً.', 'Read-only view of the current notification policy. Detailed preference editing is coming later.')}
+              </p>
+              <ToggleRow title={copyText('إشعارات النظام', 'System alerts')} helper={copyText('تحديثات النظام والتنبيهات العامة.', 'System updates and general alerts.')} />
+              <ToggleRow title={copyText('أداء الحملات والتقارير', 'Campaign performance')} helper={copyText('تقارير الأداء اليومية والأسبوعية.', 'Daily and weekly performance reports.')} />
+              <ToggleRow title={copyText('موافقات المحتوى', 'Content approvals')} helper={copyText('طلبات الموافقة والتنبيهات.', 'Approval requests and alerts.')} />
+              <ToggleRow title={copyText('التنبيهات الذكية', 'Smart alerts')} helper={copyText('تنبيهات مقدمة بالذكاء الاصطناعي.', 'AI-assisted alerts.')} enabled={false} />
+            </SettingsCard>
 
-              {/* ═══ PROFILE ═══════════════════════════════════ */}
-              {activeSection === 'profile' && (
-                <>
-                  {/* Overview Card */}
-                  <GlassCard className="p-6">
-                    <div className="flex items-center gap-5">
-                      <div
-                        className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-bold text-slate-700"
-                        style={{
-                          background: '#f1f5f9',
-                          border: '1px solid rgba(15,23,42,0.08)',
-                        }}
-                      >
-                        {(displayName || email).charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <h2 className="text-xl font-bold text-slate-950 mb-1">{displayName || t('settings.user')}</h2>
-                        <p className="text-slate-500 text-sm">{email}</p>
-                        <div className="flex gap-2 mt-3">
-                          <span
-                            className="text-[11px] px-3 py-1 rounded-full font-semibold"
-                            style={{
-                              background: '#fff7ed',
-                              color: '#c2410c',
-                              border: '1px solid rgba(194,65,12,0.15)',
-                            }}
-                          >
-                            {provider === 'google' ? '🔵 Google' : t('settings.emailProvider')}
-                          </span>
-                          {/* PR-1D: plan badge reads the same source as Billing
-                              (/api/billing/status). Hidden until loaded — never a
-                              hardcoded "Free Plan" that contradicts Billing. */}
-                          {billingStatus && (
-                            <span
-                              className="text-[11px] px-3 py-1 rounded-full font-semibold"
-                              style={{
-                                background: 'rgba(5,150,105,0.08)',
-                                color: '#059669',
-                                border: '1px solid rgba(5,150,105,0.15)',
-                              }}
-                            >
-                              {getPlanDisplayName(
-                                billingStatus.hasActiveSubscription ? billingStatus.plan : 'free',
-                                locale,
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-6 pt-6" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
-                      <div>
-                        <p className="text-xs text-slate-400 mb-1">{t('settings.memberSince')}</p>
-                        <p className="text-sm font-semibold text-slate-950">{createdAt}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-400 mb-1">{t('settings.userId')}</p>
-                        <p className="text-xs font-mono text-slate-400 truncate">{user?.id}</p>
-                      </div>
-                    </div>
-                  </GlassCard>
+            <SettingsCard title={copyText('اللغة والمنطقة', 'Language and region')} icon={<Globe2 size={18} />}>
+              <div className="space-y-3">
+                <SelectShell label={copyText('اللغة', 'Language')} value={ar ? 'العربية (Arabic)' : 'English'} />
+                <SelectShell label={copyText('المنطقة الزمنية', 'Time zone')} value={copyText('الرياض (GMT +3)', 'Riyadh (GMT +3)')} />
+                <SelectShell label={copyText('تنسيق التاريخ', 'Date format')} value="YYYY / MM / DD" />
+                <SelectShell label={copyText('تنسيق الأرقام', 'Number format')} value="01,234.56" />
+              </div>
+              <p className="mt-4 flex items-center gap-2 text-[12px] font-bold text-emerald-600">
+                <CheckCircle2 className="h-4 w-4" />
+                {copyText('هذه القيم تعرض حالة الواجهة الحالية ولا تغيّر إعدادات الحساب بعد.', 'These values show the current interface state and do not change account settings yet.')}
+              </p>
+            </SettingsCard>
 
-                  {/* Edit Name */}
-                  <GlassCard className="p-6">
-                    <SectionBadge color="#06b6d4" label={t('settings.profile') as string} />
-                    <h3 className="text-lg font-bold mb-1">{t('settings.displayNameTitle')}</h3>
-                    <p className="text-slate-500 text-sm mb-6">{t('settings.displayNameDesc')}</p>
+            <SettingsCard title={copyText('تفضيلات النظام', 'System preferences')} icon={<Settings size={18} />}>
+              <p className="mb-2 rounded-[14px] bg-[#fbfcff] px-3 py-2 text-[11px] font-bold leading-5 text-[#64708f]">
+                {copyText('تفضيلات عرض فقط حالياً؛ لا يتم حفظ تغيير جديد من هذه البطاقة.', 'Display-only preferences for now; this card does not save new changes.')}
+              </p>
+              <ToggleRow title={copyText('الوضع الداكن', 'Dark mode')} helper={copyText('تخصيص مظهر النظام.', 'Customize system appearance.')} enabled={false} />
+              <ToggleRow title={copyText('عرض الكثافة', 'Compact density')} helper={copyText('تحكم في كثافة البطاقات.', 'Control card density.')} />
+              <ToggleRow title={copyText('الرسوم المتحركة', 'Motion')} helper={copyText('تأثيرات واجهة المستخدم.', 'Interface motion effects.')} />
+              <ToggleRow title={copyText('نصائح داخل التطبيق', 'In-app tips')} helper={copyText('عرض الإرشادات والنصائح.', 'Show guidance and tips.')} />
+              <div className="mt-3 flex gap-2 text-[#5366f6]">
+                <Sun className="h-4 w-4" />
+                <Moon className="h-4 w-4" />
+              </div>
+            </SettingsCard>
 
-                    <div className="space-y-4 max-w-md">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.name')}</label>
-                        <input
-                          type="text"
-                          value={displayName}
-                          onChange={e => setDisplayName(e.target.value)}
-                          className="input-nexus"
-                          placeholder={t('settings.namePlaceholder') as string}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.email')}</label>
-                        <input
-                          type="email"
-                          value={email}
-                          disabled
-                          className="input-nexus opacity-50 cursor-not-allowed"
-                        />
-                        <p className="text-xs text-slate-400 mt-1">{t('settings.emailCannotChange')}</p>
-                      </div>
+            <SettingsCard title={copyText('الأمان', 'Security')} icon={<Shield size={18} />}>
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-[15px] border border-[#e8edf7] bg-[#fbfcff] px-4 py-3">
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-black text-[#111b3f]">{copyText('المصادقة الثنائية (2FA)', 'Two-factor authentication')}</span>
+                    <span className="mt-1 block text-[11px] text-[#7b87a3]">{copyText('أضف طبقة أمان إضافية.', 'Add another security layer.')}</span>
+                  </span>
+                  <span className="rounded-full bg-slate-50 px-2.5 py-1 text-[11px] font-black text-slate-600">{copyText('يدار عبر مزود الدخول', 'Managed by auth provider')}</span>
+                </div>
 
-                      {nameSuccess && (
-                        <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-                          style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)', color: '#059669' }}>
-                          <Check className="w-4 h-4" /> {nameSuccess}
-                        </div>
-                      )}
-                      {nameError && (
-                        <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-                          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                          <AlertTriangle className="w-4 h-4" /> {nameError}
-                        </div>
-                      )}
-
-                      <button
-                        onClick={handleSaveName}
-                        disabled={savingName || !displayName.trim()}
-                        className="btn-primary text-sm py-2.5 px-6 flex items-center gap-2 disabled:opacity-50"
-                      >
-                        {savingName ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                            {t('settings.savingVerb')}
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" /> {t('settings.saveName')}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </GlassCard>
-                </>
-              )}
-
-              {/* ═══ SECURITY ══════════════════════════════════ */}
-              {activeSection === 'security' && provider !== 'google' && (
-                <GlassCard className="p-6">
-                  <SectionBadge color="#f59e0b" label={t('settings.security') as string} />
-                  <h3 className="text-lg font-bold mb-1">{t('settings.passwordTitle')}</h3>
-                  <p className="text-slate-500 text-sm mb-6">{t('settings.passwordDesc')}</p>
-
-                  <div className="space-y-4 max-w-md">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.newPassword')}</label>
+                {provider !== 'google' ? (
+                  <div className="rounded-[15px] border border-[#e8edf7] bg-white p-4">
+                    <p className="mb-3 text-[13px] font-black text-[#111b3f]">{copyText('تغيير كلمة المرور', 'Change password')}</p>
+                    <div className="space-y-3">
                       <div className="relative">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)}
-                          className="input-nexus pr-10"
-                          placeholder={t('settings.passwordNewPlaceholder') as string}
+                          onChange={(event) => setNewPassword(event.target.value)}
+                          className="h-10 w-full rounded-[13px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-sm outline-none focus:border-[#5366f6]"
+                          placeholder={copyText('كلمة مرور جديدة', 'New password')}
                         />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-950 transition"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8a96ad]">
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-600 mb-2">{t('settings.confirmPassword')}</label>
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={confirmPassword}
-                        onChange={e => setConfirmPassword(e.target.value)}
-                        className="input-nexus"
-                        placeholder={t('settings.passwordConfirmPlaceholder') as string}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        className="h-10 w-full rounded-[13px] border border-[#e3e8f3] bg-[#fbfcff] px-3 text-sm outline-none focus:border-[#5366f6]"
+                        placeholder={copyText('تأكيد كلمة المرور', 'Confirm password')}
                       />
+                      {passwordMessage ? (
+                        <p className={`text-[12px] font-bold ${passwordMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {passwordMessage.text}
+                        </p>
+                      ) : null}
+                      <SettingsButton onClick={handleChangePassword} loading={savingPassword} disabled={!newPassword || !confirmPassword}>
+                        <KeyRound className="h-4 w-4" />
+                        {copyText('تحديث', 'Update')}
+                      </SettingsButton>
                     </div>
+                  </div>
+                ) : (
+                  <div className="rounded-[15px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-[12px] leading-6 text-[#64708f]">
+                    {copyText('كلمة المرور تدار من مزود تسجيل الدخول.', 'Password is managed by your sign-in provider.')}
+                  </div>
+                )}
 
-                    {passwordSuccess && (
-                      <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-                        style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)', color: '#059669' }}>
-                        <Check className="w-4 h-4" /> {passwordSuccess}
-                      </div>
+                <SettingsButton tone="danger" onClick={handleSignOut} loading={signingOut} className="w-full">
+                  <LogOut className="h-4 w-4" />
+                  {copyText('تسجيل الخروج', 'Sign out')}
+                </SettingsButton>
+              </div>
+            </SettingsCard>
+
+            <SettingsCard title={copyText('التكاملات وواجهات برمجة التطبيقات', 'Integrations and API')} icon={<Link2 size={18} />}>
+              {socialMessage ? (
+                <p className={`mb-3 rounded-[13px] px-3 py-2 text-[12px] font-bold ${socialMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                  {socialMessage.text}
+                </p>
+              ) : null}
+              <div className="space-y-3">
+                <div className="rounded-[16px] border border-[#e8edf7] bg-[#fbfcff] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-black text-[#111b3f]">Meta Ads</p>
+                      <p className="mt-1 text-[11px] text-[#7b87a3]">
+                        {metaAccount
+                          ? copyText(`متصل كـ ${metaAccount.accountName}`, `Connected as ${metaAccount.accountName}`)
+                          : copyText('غير متصل', 'Not connected')}
+                      </p>
+                    </div>
+                    {metaAccount ? (
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">{copyText('متصل', 'Connected')}</span>
+                    ) : (
+                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">{copyText('يحتاج ربط', 'Needs setup')}</span>
                     )}
-                    {passwordError && (
-                      <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-                        style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: '#ef4444' }}>
-                        <AlertTriangle className="w-4 h-4" /> {passwordError}
-                      </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {metaAccount ? (
+                      <SettingsButton tone="danger" onClick={() => handleDisconnect(metaAccount.id)} loading={disconnecting === metaAccount.id}>
+                        <Lock className="h-4 w-4" />
+                        {copyText('فصل الحساب', 'Disconnect')}
+                      </SettingsButton>
+                    ) : (
+                      <SettingsButton onClick={handleConnectMeta} loading={socialConnecting} disabled={!process.env.NEXT_PUBLIC_META_APP_ID}>
+                        <Zap className="h-4 w-4" />
+                        {copyText('توصيل الآن', 'Connect now')}
+                      </SettingsButton>
                     )}
-
-                    <button
-                      onClick={handleChangePassword}
-                      disabled={savingPassword || !newPassword || !confirmPassword}
-                      className="btn-primary text-sm py-2.5 px-6 flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {savingPassword ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                          {t('settings.updatingVerb')}
-                        </>
-                      ) : (
-                        <>
-                          <KeyRound className="w-4 h-4" /> {t('settings.updatePassword')}
-                        </>
-                      )}
-                    </button>
+                    <Link href="/connections" className="inline-flex h-10 items-center justify-center rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-[13px] font-bold text-[#111b3f]">
+                      {copyText('إدارة كل التكاملات', 'Manage all')}
+                    </Link>
                   </div>
-                </GlassCard>
-              )}
+                </div>
 
-              {/* ═══ ACCOUNTS ══════════════════════════════════ */}
-              {activeSection === 'accounts' && (
-                <>
-                  <GlassCard className="p-6">
-                    <div className="flex items-center justify-between mb-1">
-                      <div>
-                        <SectionBadge color="#10b981" label={t('settings.sectionAccounts') as string} />
-                        <h3 className="text-lg font-bold">{t('settings.socialPlatformsTitle')}</h3>
-                      </div>
-                      <span
-                        className="text-[10px] px-2 py-1 rounded-full font-semibold uppercase tracking-wider"
-                        style={{
-                          background: '#fef3c7',
-                          color: '#d97706',
-                          border: '1px solid rgba(217,119,6,0.15)',
-                        }}
-                      >
-                        {t('common.beta')}
-                      </span>
-                    </div>
-                    <p className="text-slate-500 text-sm mb-6">{t('settings.socialPlatformsDesc')}</p>
-
-                    {socialMessage && (
-                      <div className={`rounded-xl p-3 text-sm mb-4 ${
-                        socialMessage.startsWith('✓')
-                          ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-                          : 'bg-red-50 border border-red-200 text-red-700'
-                      }`}>
-                        {socialMessage}
-                      </div>
-                    )}
-
-                    {/* Meta */}
-                    <div
-                      className="flex items-center justify-between p-4 mb-3"
-                      style={{
-                        background: '#fff',
-                        border: '1px solid rgba(15,23,42,0.08)',
-                        borderRadius: '12px',
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                          style={{ background: 'rgba(24,119,242,0.12)', border: '1px solid rgba(24,119,242,0.2)' }}
-                        >
-                          📘
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm text-slate-950">Meta (Facebook + Instagram)</div>
-                          {metaAccount ? (
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              {t('settings.connectedAs')} <span className="text-slate-700 font-medium">{metaAccount.accountName}</span>
-                              {' · '}{metaAccount.pages.length} {t('settings.pagesLabel')}
-                            </div>
-                          ) : (
-                            <div className="text-xs text-slate-500 mt-0.5">{t('settings.notConnected')}</div>
-                          )}
-                        </div>
-                      </div>
-                      {metaAccount ? (
-                        <button
-                          onClick={() => handleDisconnect(metaAccount.id)}
-                          disabled={disconnecting === metaAccount.id}
-                          className="px-4 py-2 text-sm font-semibold rounded-xl transition text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20"
-                        >
-                          {disconnecting === metaAccount.id ? (
-                            <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                          ) : t('settings.disconnect')}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={handleConnectMeta}
-                          disabled={socialConnecting || !process.env.NEXT_PUBLIC_META_APP_ID}
-                          className="px-4 py-2 text-sm font-bold rounded-xl btn-primary disabled:opacity-50"
-                        >
-                          {socialConnecting ? (
-                            <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                          ) : (
-                            <span className="flex items-center gap-1">
-                              <ExternalLink className="w-3.5 h-3.5" /> {t('settings.connect')}
-                            </span>
-                          )}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Pages list */}
-                    {metaAccount?.pages.length ? (
-                      <div className="mb-4">
-                        <div className="text-[11px] text-slate-400 mb-2 px-1 font-semibold uppercase tracking-wider">{t('settings.connectedPages')}</div>
-                        <div className="space-y-2">
-                          {metaAccount.pages.map(page => (
-                            <div
-                              key={page.id}
-                              className="flex items-center gap-2 px-4 py-3 rounded-xl"
-                              style={{
-                                background: '#f8fafc',
-                                border: '1px solid rgba(15,23,42,0.06)',
-                              }}
-                            >
-                              <span className="text-sm">📄</span>
-                              <span className="text-sm text-slate-700">{page.name}</span>
-                              {page.igAccountId && (
-                                <span
-                                  className="text-[10px] px-2 py-0.5 rounded-md mr-auto"
-                                  style={{
-                                    background: 'rgba(236,72,153,0.08)',
-                                    color: '#ec4899',
-                                    border: '1px solid rgba(236,72,153,0.15)',
-                                  }}
-                                >
-                                  {t('settings.igLinked')}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* TikTok — Coming Soon */}
-                    <div
-                      className="flex items-center justify-between p-4 opacity-40"
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid rgba(15,23,42,0.06)',
-                        borderRadius: '12px',
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                          style={{ background: '#f1f5f9', border: '1px solid rgba(15,23,42,0.08)' }}
-                        >
-                          🎵
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm text-slate-950">TikTok for Business</div>
-                          <div className="text-xs text-slate-400 mt-0.5">{t('common.comingSoon')}</div>
-                        </div>
-                      </div>
-                      <span className="text-xs text-slate-400 border border-slate-200 px-3 py-1.5 rounded-lg">{t('common.comingSoon')}</span>
-                    </div>
-                  </GlassCard>
-                </>
-              )}
-
-              {/* ═══ BILLING ═══════════════════════════════════ */}
-              {activeSection === 'billing' && (
-                <GlassCard className="p-6">
-                  <SectionBadge color="#6d28d9" label={t('settings.sectionBillingNav') as string} />
-                  <h3 className="text-lg font-bold text-slate-950 mb-1">{t('settings.billingCurrentPlan')}</h3>
-                  <p className="text-slate-500 text-sm mb-6">{t('settings.billingCurrentPlanDesc')}</p>
-
-                  {/* Plan badge */}
-                  <div
-                    className="flex items-center justify-between p-5 mb-4"
-                    style={{
-                      background: '#faf5ff',
-                      border: '1px solid rgba(109,40,217,0.15)',
-                      borderRadius: '16px',
-                    }}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center"
-                        style={{ background: '#ede9fe', border: '1px solid rgba(109,40,217,0.2)' }}
-                      >
-                        <Sparkles className="w-5 h-5 text-violet-700" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-slate-950">
-                          {/* PR-1H: same source as /billing (/api/billing/status).
-                              Never a hardcoded "Free"/"Pro" — 'pro' = Growth, and
-                              while loading we show a neutral placeholder, not Free. */}
-                          {billingStatus
-                            ? getPlanDisplayName(
-                                billingStatus.hasActiveSubscription ? billingStatus.plan : 'free',
-                                locale,
-                              )
-                            : '—'}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {!billingStatus
-                            ? (locale === 'ar' ? 'جارٍ تحميل حالة الاشتراك…' : 'Loading subscription…')
-                            : billingStatus.hasActiveSubscription
-                              ? (locale === 'ar' ? 'اشتراك نشط — أرصدة تتجدد شهرياً' : 'Active subscription — credits renew monthly')
-                              : (locale === 'ar' ? 'مجاني — أرصدة لمرة واحدة' : 'Free — one-time credits')}
-                        </div>
-                      </div>
-                    </div>
-                    <span
-                      className="text-xs px-3 py-1 rounded-full font-semibold"
-                      style={{
-                        background: billingStatus?.hasActiveSubscription ? 'rgba(5,150,105,0.08)' : '#ede9fe',
-                        color: billingStatus?.hasActiveSubscription ? '#059669' : '#6d28d9',
-                        border: billingStatus?.hasActiveSubscription ? '1px solid rgba(5,150,105,0.15)' : '1px solid rgba(109,40,217,0.15)',
-                      }}
-                    >
-                      {!billingStatus
-                        ? '…'
-                        : billingStatus.hasActiveSubscription
-                          ? t('settings.activeStatus')
-                          : (locale === 'ar' ? 'مجاني' : 'Free')}
-                    </span>
+                <div className="rounded-[16px] border border-[#e8edf7] bg-white p-4">
+                  <p className="mb-2 text-[13px] font-black text-[#111b3f]">API Keys</p>
+                  <div className="flex min-w-0 items-center gap-2 rounded-[13px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-2 text-[12px] font-mono text-[#64708f]">
+                    <span className="min-w-0 truncate">nx_••••••••••••••••••••</span>
+                    <button type="button" className="ms-auto text-[#5366f6]"><Copy className="h-4 w-4" /></button>
                   </div>
+                </div>
+              </div>
+            </SettingsCard>
 
-                  {/* Credits bar — honest, overflow-safe display (PR-1H).
-                      Same formatter as /billing: when balance exceeds the monthly
-                      grant we show "N credits" + a rollover/bonus note instead of a
-                      misleading "172 / 150". Monthly grant only applies to active
-                      paid plans (free credits are one-time, no denominator). */}
-                  {(() => {
-                    const creditDisp = formatCreditDisplay({
-                      availableCredits: billingStatus?.credits?.remaining ?? 0,
-                      monthlyCredits: billingStatus?.hasActiveSubscription
-                        ? (billingStatus?.credits?.max ?? 0)
-                        : 0,
-                      locale,
-                    })
-                    return (
-                      <div className="space-y-2 mb-6">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm text-slate-500 w-28 text-right">
-                            {locale === 'ar' ? 'الأرصدة المتبقية' : 'Credits left'}
-                          </span>
-                          <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${creditDisp.percent}%`,
-                                background: creditDisp.percent <= 20 ? '#ef4444' : '#5E5CE6',
-                              }}
-                            />
-                          </div>
-                          <span className="text-xs text-slate-600 min-w-16 text-left whitespace-nowrap">
-                            {billingStatus ? creditDisp.primary : '—'}
-                          </span>
-                        </div>
-                        {billingStatus && creditDisp.secondary && (
-                          <p className="text-[11px] text-slate-400 leading-snug ms-28 ps-3">{creditDisp.secondary}</p>
-                        )}
-                      </div>
-                    )
-                  })()}
-
-                  <Link
-                    href="/billing"
-                    className="btn-primary text-sm py-2.5 px-6 inline-flex items-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" /> {t('settings.upgradePlan')}
-                  </Link>
-                </GlassCard>
-              )}
-
-              {/* ═══ DANGER ZONE ═══════════════════════════════ */}
-              {activeSection === 'referral' && (
-                <GlassCard className="p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#ede9fe', border: '1px solid rgba(109,40,217,0.15)' }}>
-                      <Gift className="w-5 h-5 text-violet-700" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-950">Refer & Earn</h3>
-                      <p className="text-slate-500 text-sm">Invite friends — you both get 20 free credits</p>
+            <SettingsCard title={copyText('منطقة الحذر', 'Danger zone')} icon={<AlertTriangle size={18} />} className="border-rose-100">
+              {resetMessage ? (
+                <p className={`mb-3 rounded-[13px] px-3 py-2 text-[12px] font-bold ${resetMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                  {resetMessage.text}
+                </p>
+              ) : null}
+              <div className="rounded-[16px] border border-rose-100 bg-rose-50/60 p-4">
+                <p className="text-[13px] font-black text-rose-700">{copyText('إعادة ضبط مساحة العمل', 'Reset workspace')}</p>
+                <p className="mt-1 text-[12px] leading-6 text-rose-600">
+                  {copyText('إجراء حساس يمس بيانات التجربة. يحتاج كتابة RESET قبل التنفيذ.', 'Sensitive action that affects trial data. Requires typing RESET before execution.')}
+                </p>
+                {!resetConfirmOpen ? (
+                  <SettingsButton tone="danger" onClick={() => setResetConfirmOpen(true)} className="mt-4">
+                    <Trash2 className="h-4 w-4" />
+                    {copyText('بدء التأكيد', 'Start confirmation')}
+                  </SettingsButton>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    <input
+                      value={resetConfirmInput}
+                      onChange={(event) => setResetConfirmInput(event.target.value)}
+                      className="h-10 w-full rounded-[13px] border border-rose-200 bg-white px-3 text-sm outline-none focus:border-rose-400"
+                      placeholder="RESET"
+                      disabled={resetting}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <SettingsButton onClick={() => { setResetConfirmOpen(false); setResetConfirmInput('') }}>
+                        {copyText('إلغاء', 'Cancel')}
+                      </SettingsButton>
+                      <SettingsButton tone="danger" onClick={handleResetWorkspace} loading={resetting} disabled={resetConfirmInput.trim() !== 'RESET'}>
+                        {copyText('تأكيد إعادة الضبط', 'Confirm reset')}
+                      </SettingsButton>
                     </div>
                   </div>
-                  <ReferralWidget />
-                </GlassCard>
-              )}
-
-              {activeSection === 'danger' && (
-                <GlassCard className="p-6" accent>
-                  <div className="flex items-center gap-3 mb-1">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
-                    >
-                      <AlertTriangle className="w-5 h-5 text-red-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-red-600">{t('settings.dangerTitle')}</h3>
-                      <p className="text-slate-500 text-sm">{t('settings.dangerDesc')}</p>
-                    </div>
-                  </div>
-
-                  {/* Reset success/error toast */}
-                  {resetMessage && (
-                    <div
-                      className={`mt-4 p-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
-                        resetMessage.type === 'success'
-                          ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
-                          : 'text-red-400 bg-red-500/10 border border-red-500/20'
-                      }`}
-                    >
-                      {resetMessage.type === 'success' ? <Check className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-                      {resetMessage.text}
-                    </div>
-                  )}
-
-                  <div className="mt-6 space-y-4">
-                    {/* Sign out all devices */}
-                    <div
-                      className="flex items-center justify-between p-4"
-                      style={{
-                        background: '#fff',
-                        border: '1px solid rgba(15,23,42,0.08)',
-                        borderRadius: '12px',
-                      }}
-                    >
-                      <div>
-                        <div className="font-semibold text-sm text-slate-950">{t('settings.signOutAll')}</div>
-                        <div className="text-xs text-slate-500 mt-1">{t('settings.signOutAllDesc')}</div>
-                      </div>
-                      <button
-                        onClick={handleSignOut}
-                        disabled={signingOut}
-                        className="px-4 py-2 text-sm font-semibold rounded-xl transition text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 flex items-center gap-2"
-                      >
-                        {signingOut ? (
-                          <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                        ) : (
-                          <LogOut className="w-4 h-4" />
-                        )}
-                        {signingOut ? t('settings.signingOutVerb') : t('settings.signOut')}
-                      </button>
-                    </div>
-
-                    {/* Reset workspace */}
-                    <div
-                      className="p-4"
-                      style={{
-                        background: '#fff',
-                        border: '1px solid rgba(239,68,68,0.15)',
-                        borderRadius: '12px',
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold text-sm text-red-600">{t('settings.resetWorkspace')}</div>
-                          <div className="text-xs text-slate-500 mt-1 max-w-xs">{t('settings.resetWorkspaceDesc')}</div>
-                        </div>
-                        <button
-                          onClick={() => { setResetConfirmOpen(true); setResetMessage(null) }}
-                          className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl transition text-red-400 hover:bg-red-500/10 border border-red-500/20 hover:border-red-500/40 flex items-center gap-2 ms-4"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          {t('settings.resetWorkspaceBtn')}
-                        </button>
-                      </div>
-
-                      {/* Inline confirmation form */}
-                      {resetConfirmOpen && (
-                        <div
-                          className="mt-4 p-4 rounded-xl space-y-3"
-                          style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}
-                        >
-                          <p className="text-sm text-red-600 font-medium">{t('settings.resetWorkspaceConfirmMsg')}</p>
-                          <p className="text-xs text-slate-500">{t('settings.resetWorkspaceTypeHint')}</p>
-                          <input
-                            type="text"
-                            value={resetConfirmInput}
-                            onChange={e => setResetConfirmInput(e.target.value)}
-                            placeholder={t('settings.resetWorkspacePlaceholder') as string}
-                            className="w-full px-3 py-2 text-sm rounded-lg bg-transparent text-red-600 placeholder-red-400/40 outline-none"
-                            style={{ border: '1px solid rgba(239,68,68,0.3)' }}
-                            disabled={resetting}
-                          />
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={() => { setResetConfirmOpen(false); setResetConfirmInput('') }}
-                              disabled={resetting}
-                              className="px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-950 transition"
-                            >
-                              {t('common.cancel')}
-                            </button>
-                            <button
-                              onClick={handleResetWorkspace}
-                              disabled={resetting || resetConfirmInput.trim() !== 'RESET'}
-                              className="px-4 py-2 text-xs font-semibold rounded-lg transition flex items-center gap-2 text-white"
-                              style={{
-                                background: resetConfirmInput.trim() === 'RESET'
-                                  ? 'rgba(239,68,68,0.8)'
-                                  : 'rgba(239,68,68,0.2)',
-                                cursor: resetConfirmInput.trim() === 'RESET' ? 'pointer' : 'not-allowed',
-                              }}
-                            >
-                              {resetting && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                              {resetting ? t('settings.resetWorkspaceResetting') : t('settings.resetWorkspaceConfirmBtn')}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </GlassCard>
-              )}
-
-            </div>
-          </div>
+                )}
+              </div>
+            </SettingsCard>
+          </section>
         </div>
-
-      </div>
+      </main>
     </AppShell>
   )
 }

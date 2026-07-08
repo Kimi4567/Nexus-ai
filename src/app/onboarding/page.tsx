@@ -22,7 +22,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import { Loader2 } from 'lucide-react'
+import { Brain, CheckCircle2, Loader2, ShieldCheck, Sparkles, Workflow } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { FIRST_INTENTS, buildOnboardingStrategicNotes } from '@/lib/onboardingContinuity'
 import { getFirstRunJourney } from '@/lib/firstUserJourney'
@@ -81,18 +81,85 @@ const TOTAL_STEPS = 5
 // ── Calm building-block components (defined OUTSIDE the page component so they
 //    are not remounted on every keystroke) ─────────────────────────────────
 function Shell({ children, dir }: { children: ReactNode; dir: 'rtl' | 'ltr' }) {
+  const isRTL = dir === 'rtl'
   return (
-    <div dir={dir} className="min-h-screen w-full flex items-center justify-center px-4 py-10"
-      style={{ background: '#F8FAFC', color: '#0F172A' }}>
-      <div className="w-full max-w-xl">{children}</div>
-    </div>
+    <main
+      dir={dir}
+      className="min-h-screen w-full bg-[#f6f8fc] px-4 py-6 text-[#071332] sm:px-6 lg:px-8"
+      style={{
+        backgroundImage:
+          'radial-gradient(circle at 12% 6%, rgba(99,102,241,0.13), transparent 28%), radial-gradient(circle at 88% 12%, rgba(16,185,129,0.10), transparent 24%)',
+      }}
+    >
+      <div className="mx-auto grid min-h-[calc(100vh-48px)] w-full max-w-[1180px] overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_26px_90px_rgba(15,23,42,0.12)] lg:grid-cols-[340px_1fr]">
+        <aside className="relative hidden overflow-hidden bg-[#020817] p-8 text-white lg:block">
+          <div
+            className="absolute inset-0 opacity-80"
+            style={{
+              background:
+                'radial-gradient(circle at 32% 18%, rgba(99,102,241,0.42), transparent 26%), radial-gradient(circle at 78% 72%, rgba(34,211,238,0.16), transparent 30%)',
+            }}
+          />
+          <div className="relative z-10 flex h-full flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/10 shadow-[0_0_30px_rgba(99,102,241,0.45)] ring-1 ring-white/15">
+                  <Sparkles className="h-5 w-5 text-[#a5b4fc]" />
+                </span>
+                <span>
+                  <span className="block text-2xl font-semibold tracking-[0.28em]">NEXUS</span>
+                  <span className="block text-[10px] font-medium tracking-[0.34em] text-slate-400">AI MARKETING OS</span>
+                </span>
+              </div>
+
+              <div className="mt-14">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[#a5b4fc]">
+                  {isRTL ? 'إعداد أول تشغيل' : 'First-run setup'}
+                </p>
+                <h1 className="text-3xl font-semibold leading-tight tracking-[-0.02em]">
+                  {isRTL ? 'نبدأ بذاكرة علامة صحيحة قبل أي استراتيجية أو تنفيذ.' : 'Start with trusted brand memory before any strategy or execution.'}
+                </h1>
+                <p className="mt-5 text-sm leading-7 text-slate-300">
+                  {isRTL
+                    ? 'هذه الصفحة تجمع أساسيات النشاط فقط. لا توليد، لا نشر، لا إنفاق، ولا تشغيل تلقائي.'
+                    : 'This page only captures business fundamentals. No generation, publishing, spend, or automation starts here.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              {[
+                { icon: Brain, label: isRTL ? 'Brand Brain أولي' : 'Starter Brand Brain' },
+                { icon: Workflow, label: isRTL ? 'رحلة تسويق واضحة' : 'Clear marketing journey' },
+                { icon: ShieldCheck, label: isRTL ? 'حدود تنفيذ آمنة' : 'Safe execution boundary' },
+              ].map(item => {
+                const Icon = item.icon
+                return (
+                  <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-[#a5b4fc]">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm font-medium text-slate-100">{item.label}</span>
+                    <CheckCircle2 className={`${isRTL ? 'mr-auto' : 'ml-auto'} h-4 w-4 text-emerald-300`} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex items-center justify-center p-5 sm:p-8 lg:p-10">
+          <div className="w-full max-w-[760px]">{children}</div>
+        </section>
+      </div>
+    </main>
   )
 }
 
 function Panel({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl bg-white p-7 sm:p-9"
-      style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(15,23,42,0.05)' }}>
+    <div className="rounded-[28px] bg-white p-6 sm:p-8"
+      style={{ border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 18px 55px rgba(15,23,42,0.08)' }}>
       {children}
     </div>
   )

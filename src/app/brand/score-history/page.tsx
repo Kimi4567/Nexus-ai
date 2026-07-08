@@ -11,7 +11,7 @@ import { Brain, ArrowLeft, TrendingUp, TrendingDown, Minus, Trophy, Target, Spar
    BRAND BRAIN MATURITY HISTORY — long-term depth over time
    ───────────────────────────────────────────────────────────────
    PR-N2: This page shows the *maturity* score trajectory. Maturity is a
-   long-term DEPTH signal (saved setup + what NEXUS learns over time). It is
+   long-term DEPTH signal (saved setup + reviewed signals over time). It is
    explicitly NOT "memory completeness" and NOT organic readiness — so it can
    read 45 while Brand completeness is 100%. Light + calm theme to match the
    Brand Brain workspace. No score/snapshot math changed — display only.
@@ -313,8 +313,8 @@ export default function ScoreHistoryPage() {
                 {ar ? 'ما معنى النضج؟ ' : 'What maturity means: '}
               </span>
               {ar
-                ? 'النضج مؤشر عمق طويل المدى يعتمد على إعدادك المحفوظ وما تتعلّمه NEXUS بمرور الوقت. إنه ليس اكتمال الإعداد وليس الجاهزية العضوية — لذلك قد يكون 45 بينما اكتمال العلامة 100%. تنمو الذاكرة من الموافقات والتعديلات والحملات والنشر والنتائج الحقيقية.'
-                : 'Maturity is a long-term depth signal based on your saved setup plus what NEXUS learns over time. It is not setup completeness and not organic readiness — so it can read 45 while Brand completeness is 100%. It deepens from real approvals, edits, campaigns, publishing, and results.'}
+                ? 'النضج مؤشر عمق طويل المدى يعتمد على إعدادك المحفوظ وإشارات Brand Brain المراجَعة بمرور الوقت. إنه ليس اكتمال الإعداد وليس الجاهزية العضوية — لذلك قد يكون 45 بينما اكتمال العلامة 100%. تعلّم الأداء لا يبدأ إلا بعد توفر analyticsData أو مقاييس منصة موثوقة.'
+                : 'Maturity is a long-term depth signal based on your saved setup plus reviewed Brand Brain signals over time. It is not setup completeness and not organic readiness — so it can read 45 while Brand completeness is 100%. Performance learning starts only after analyticsData or trusted platform metrics exist.'}
             </p>
           </div>
 
@@ -408,7 +408,7 @@ export default function ScoreHistoryPage() {
                       { target: 25, label: ar ? 'مبكرة' : 'Early', desc: ar ? 'حفظ أساس العلامة' : 'Core brand saved', color: SLATE },
                       { target: 50, label: ar ? 'تتطوّر' : 'Developing', desc: ar ? 'حفظ العرض والجمهور والصوت' : 'Offer, audience & voice saved', color: AMBER },
                       { target: 75, label: ar ? 'تنضج' : 'Maturing', desc: ar ? 'حفظ القنوات والمزايا ونقاط الألم' : 'Channels, advantages & pain points saved', color: '#06b6d4' },
-                      { target: 100, label: ar ? 'ناضجة' : 'Mature', desc: ar ? 'إعداد عميق محفوظ + تعلّم مستمر من العمل الحقيقي' : 'Deep saved setup + sustained learning from real work', color: GREEN },
+                      { target: 100, label: ar ? 'ناضجة' : 'Mature', desc: ar ? 'إعداد عميق محفوظ + إشارات مراجَعة وتحليلات حقيقية عند توفرها' : 'Deep saved setup + reviewed signals and real analytics when available', color: GREEN },
                     ].filter(t => t.target > current).map(t => (
                       <div key={t.target} className="flex items-center gap-3 py-2 px-3 rounded-xl"
                         style={{ background: `${t.color}0a`, border: `1px solid ${t.color}22` }}>

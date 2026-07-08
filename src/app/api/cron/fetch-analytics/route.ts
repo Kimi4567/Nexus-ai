@@ -229,9 +229,9 @@ export async function GET(req: NextRequest) {
           if (rates.length === 0) continue
 
           const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length
-          const threshold = avgRate * 1.2  // 20% above average = "winning"
+          const threshold = avgRate * 1.2  // 20% above average = analytics-backed hook signal
 
-          // Extract hooks from winning posts
+          // Extract hooks from above-average posts with real analytics data
           const winningHooks: string[] = wsPosts
             .filter(p => ((p.analyticsData as any)?.engagementRate ?? 0) >= threshold)
             .map(p => extractHook(p.caption))
@@ -239,8 +239,8 @@ export async function GET(req: NextRequest) {
 
           if (winningHooks.length === 0) continue
 
-          // ── Direct fast-path update: merge winning hooks into Brand Brain ──────
-          // This is the silent fast path — always runs, no user review needed.
+          // ── Direct fast-path update: merge analytics-backed hook signals ──────
+          // This path only runs after real analyticsData exists for published posts.
           const brand = await prisma.brandProfile.findUnique({
             where: { workspaceId: wsId },
             select: { winningHooks: true },

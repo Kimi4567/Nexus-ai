@@ -1,29 +1,28 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import AppShell from '@/components/AppShell'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
-import AppShell from '@/components/AppShell'
+import { derivePlatformReadiness } from '@/lib/platformReadiness'
 import {
-  CheckCircle2, AlertCircle, Unplug, Plug,
-  Shield, RefreshCw, Info, CheckCircle
+  AlertCircle,
+  ArrowRight,
+  BadgeCheck,
+  CheckCircle2,
+  Clock3,
+  Database,
+  KeyRound,
+  Link2,
+  Loader2,
+  MoreVertical,
+  Plug,
+  RefreshCw,
+  Shield,
+  Sparkles,
+  Unplug,
+  Zap,
 } from 'lucide-react'
-import PlatformReadinessPanel from '@/components/PlatformReadinessPanel'
-import {
-  derivePlatformReadiness,
-  type ReadinessAction,
-  type ReadinessStatus,
-} from '@/lib/platformReadiness'
-import { PageHeader } from '@/components/ui/PageHeader'
-import { SectionCard } from '@/components/ui/SectionCard'
-import { ActionButton } from '@/components/ui/ActionButton'
-import { ReadinessBadge, type ReadinessBadgeStatus } from '@/components/ui/ReadinessBadge'
-import { LoadingState } from '@/components/ui/LoadingState'
-
-/* ═══════════════════════════════════════════════════════════════
-   CONNECTIONS HUB — ربط منصات التسويق
-   المستخدم يربط حساباته هنا قبل أي شيء.
-   ═══════════════════════════════════════════════════════════════ */
 
 interface ConnectedAccount {
   id: string
@@ -47,132 +46,211 @@ interface ConnectedAdAccount {
 
 interface PlatformDef {
   id: string
-  nameKey: string    // t() key for platform name
-  descKey: string    // t() key for description
-  icon: React.ReactNode
-  color: string
+  name: { ar: string; en: string }
+  helper: { ar: string; en: string }
+  scope: { ar: string; en: string }
   available: boolean
-  eta?: string            // Use only for externally committed launch windows; otherwise show generic planned copy.
+  accent: string
+  icon: string
 }
 
 const PLATFORMS: PlatformDef[] = [
   {
     id: 'META',
-    nameKey: 'connections.platformMetaName',
-    descKey: 'connections.platformMetaDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <path d="M18 3C9.716 3 3 9.716 3 18s6.716 15 15 15 15-6.716 15-15S26.284 3 18 3z" fill="#1877F2" />
-        <path d="M22.5 18h-2.25v7.5h-3V18H15v-2.625h2.25v-1.688c0-2.25 1.313-3.562 3.375-3.562.9 0 1.875.112 2.813.225v2.813h-1.688c-.787 0-.937.337-.937.9v1.312H22.5L22.5 18z" fill="white" />
-      </svg>
-    ),
-    color: '#1877F2',
+    name: { ar: 'Meta Ads', en: 'Meta Ads' },
+    helper: {
+      ar: 'فيسبوك وإنستغرام للنشر العضوي وتجهيز الإعلانات بعد التصاريح.',
+      en: 'Facebook and Instagram for organic publishing and ads after permissions.',
+    },
+    scope: { ar: 'نشر عضوي + إعلانات بعد الموافقة', en: 'Organic + ads after approval' },
     available: true,
+    accent: '#2563eb',
+    icon: '∞',
   },
   {
     id: 'LINKEDIN',
-    nameKey: 'connections.platformLinkedInName',
-    descKey: 'connections.platformLinkedInDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <rect width="36" height="36" rx="8" fill="#0A66C2" />
-        <path d="M10 14h3.5v12H10V14zm1.75-5.5a2 2 0 110 4 2 2 0 010-4zM16 14h3.35v1.65h.05c.47-.88 1.6-1.8 3.3-1.8 3.53 0 4.18 2.32 4.18 5.34V26H23.4v-5.96c0-1.42-.03-3.25-1.98-3.25-1.98 0-2.28 1.55-2.28 3.15V26H16V14z" fill="white" />
-      </svg>
-    ),
-    color: '#0A66C2',
+    name: { ar: 'LinkedIn', en: 'LinkedIn' },
+    helper: {
+      ar: 'منشورات مهنية وصفحات شركات، مع مراجعة الصلاحيات قبل أي نشر.',
+      en: 'Professional posts and company pages with permission checks before publishing.',
+    },
+    scope: { ar: 'نشر عضوي مهني', en: 'Professional organic publishing' },
     available: true,
+    accent: '#0a66c2',
+    icon: 'in',
   },
   {
     id: 'TIKTOK',
-    nameKey: 'connections.platformTikTokName',
-    descKey: 'connections.platformTikTokDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <rect width="36" height="36" rx="10" fill="#000" />
-        <path d="M22.5 9h-2.7c.3 2.4 2.1 4.2 4.2 4.5v2.7c-1.5 0-2.7-.45-3.75-1.2v5.55c0 2.85-2.25 5.1-5.1 5.1s-5.1-2.25-5.1-5.1 2.25-5.1 5.1-5.1c.15 0 .3 0 .45.015v2.73c-.15-.015-.3-.03-.45-.03-1.35 0-2.4 1.05-2.4 2.4s1.05 2.4 2.4 2.4 2.4-1.05 2.4-2.4V9h2.85C20.55 9 22.35 10.8 22.5 9z" fill="#FE2C55" />
-        <path d="M22.5 9h-2.7c.15 1.2.75 2.25 1.65 3h1.05V9z" fill="white" />
-        <path d="M24 14.25c-1.5 0-2.7-.45-3.75-1.2v5.55c0 2.85-2.25 5.1-5.1 5.1s-5.1-2.25-5.1-5.1 2.25-5.1 5.1-5.1c.15 0 .3 0 .45.015v2.73c-.15-.015-.3-.03-.45-.03-1.35 0-2.4 1.05-2.4 2.4s1.05 2.4 2.4 2.4 2.4-1.05 2.4-2.4V9h2.85c.15 1.8 1.95 3.6 4.05 3.9v1.35z" fill="white" />
-      </svg>
-    ),
-    color: '#FE2C55',
+    name: { ar: 'TikTok', en: 'TikTok' },
+    helper: {
+      ar: 'فيديوهات قصيرة ومحتوى اجتماعي، لا يتم النشر إلا بعد موافقة صريحة.',
+      en: 'Short-form social content, published only after explicit approval.',
+    },
+    scope: { ar: 'محتوى قصير', en: 'Short-form content' },
     available: true,
-  },
-  {
-    id: 'YOUTUBE',
-    nameKey: 'connections.platformYouTubeName',
-    descKey: 'connections.platformYouTubeDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <rect width="36" height="36" rx="10" fill="#FF0000" />
-        <path d="M14 11.5l10 6.5-10 6.5v-13z" fill="white" />
-      </svg>
-    ),
-    color: '#FF0000',
-    available: false,
+    accent: '#111827',
+    icon: '♪',
   },
   {
     id: 'SNAPCHAT',
-    nameKey: 'connections.platformSnapchatName',
-    descKey: 'connections.platformSnapchatDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <rect width="36" height="36" rx="10" fill="#FFFC00" />
-        <path d="M18 7c-2.88 0-5.2 2.13-5.2 4.76 0 .27.02.53.06.79l-.06.01c-.4 0-1.1-.19-1.5-.19-.35 0-.66.2-.66.5 0 .44.5.73 1.3.87.1.02.2.05.3.09-.04.2-.07.4-.07.6 0 .27.07.5.18.7-.08.04-.17.06-.27.06-.25 0-.57-.07-.94-.07-.54 0-1.1.31-1.1.82 0 .85 1.44 1.23 2.7 1.7.44.17.6.46.6.77 0 .15-.04.3-.11.44-.46.03-.87.16-1.16.39-.22.18-.33.4-.33.63 0 .46.38.8.87.8.18 0 .38-.05.59-.14a3.4 3.4 0 001.04-.68c.65.93 1.77 1.54 3.06 1.54s2.41-.6 3.06-1.54c.3.26.63.5.98.65.22.1.43.16.63.16.5 0 .87-.34.87-.8 0-.23-.11-.45-.33-.63a2.3 2.3 0 00-1.18-.4c-.07-.14-.11-.29-.11-.44 0-.31.16-.6.6-.77 1.27-.47 2.7-.85 2.7-1.7 0-.51-.56-.82-1.1-.82-.36 0-.68.07-.93.07-.1 0-.2-.02-.29-.07.11-.2.18-.43.18-.7 0-.2-.03-.4-.07-.6.1-.04.2-.07.3-.09.8-.14 1.3-.43 1.3-.87 0-.3-.31-.5-.66-.5-.4 0-1.1.19-1.5.19l-.06-.01c.04-.26.06-.52.06-.79C23.2 9.13 20.88 7 18 7z" fill="#333" />
-      </svg>
-    ),
-    color: '#FFFC00',
+    name: { ar: 'Snapchat Ads', en: 'Snapchat Ads' },
+    helper: {
+      ar: 'مخطط ضمن خريطة التنفيذ. لن يظهر كجاهز قبل تكامل رسمي.',
+      en: 'Planned in the execution map. It will not appear ready before official integration.',
+    },
+    scope: { ar: 'مخطط', en: 'Planned' },
     available: false,
+    accent: '#facc15',
+    icon: 'S',
   },
   {
     id: 'GOOGLE',
-    nameKey: 'connections.platformGoogleName',
-    descKey: 'connections.platformGoogleDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <rect width="36" height="36" rx="10" fill="#fff" />
-        <path d="M18 8a10 10 0 100 20A10 10 0 0018 8z" fill="#4285F4" />
-        <path d="M18 8c-1.86 0-3.6.5-5.1 1.38l9.25 15.97A10 10 0 0018 8z" fill="#FBBC04" />
-        <path d="M12.9 9.38A10 10 0 008 18c0 4.14 2.52 7.7 6.15 9.2L23.4 11.25A10.04 10.04 0 0012.9 9.38z" fill="#EA4335" />
-        <path d="M14.15 27.2A10 10 0 0028 18h-9.5l-4.35 9.2z" fill="#34A853" />
-      </svg>
-    ),
-    color: '#4285F4',
+    name: { ar: 'Google Ads', en: 'Google Ads' },
+    helper: {
+      ar: 'مخطط للإعلانات والقياس. يحتاج إعدادات وتصاريح منفصلة.',
+      en: 'Planned for ads and measurement. Requires separate setup and permissions.',
+    },
+    scope: { ar: 'مخطط', en: 'Planned' },
     available: false,
+    accent: '#4285f4',
+    icon: 'G',
   },
   {
-    id: 'TWITTER',
-    nameKey: 'connections.platformTwitterName',
-    descKey: 'connections.platformTwitterDesc',
-    icon: (
-      <svg viewBox="0 0 36 36" fill="none" className="w-7 h-7">
-        <rect width="36" height="36" rx="10" fill="#000" />
-        <path d="M19.8 16.6L26.2 9h-1.5L19.1 15.7 14.4 9H9.3l6.7 9.7-6.7 7.6H10.8L16.3 20l5 6.3H26.4L19.8 16.6zm-2 2.3l-.7-.9-5.2-7.5h2.2l4.2 6 .7.9 5.4 7.8H22.3l-4.5-6.3z" fill="white" />
-      </svg>
-    ),
-    color: '#000',
+    id: 'YOUTUBE',
+    name: { ar: 'YouTube', en: 'YouTube' },
+    helper: {
+      ar: 'مخطط للفيديو والشورتس. التنفيذ الحقيقي سيأتي بعد الربط الرسمي.',
+      en: 'Planned for video and Shorts. Real execution comes after official connection.',
+    },
+    scope: { ar: 'مخطط', en: 'Planned' },
     available: false,
+    accent: '#ef4444',
+    icon: '▶',
   },
 ]
 
-const badgeStatusFor: Record<ReadinessStatus, ReadinessBadgeStatus> = {
-  ready: 'ready',
-  needs_setup: 'needsSetup',
-  not_connected: 'needsSetup',
-  permission_unverified: 'permissionNeeded',
-  planning_only: 'planningOnly',
-  not_available: 'notAvailable',
+const CONNECT_ROUTES: Record<string, string> = {
+  META: '/api/social/connect/meta',
+  META_ADS: '/api/social/connect/meta-ads',
+  LINKEDIN: '/api/social/connect/linkedin',
+  TIKTOK: '/api/social/connect/tiktok',
 }
 
-const connectCtaKeyFor = (platformId: string) => {
-  if (platformId === 'META') return 'connections.connectMetaAccount'
-  if (platformId === 'LINKEDIN') return 'connections.connectLinkedInAccount'
-  if (platformId === 'TIKTOK') return 'connections.connectTikTokAccount'
-  return 'connections.connectAccount'
+function ShellButton({
+  children,
+  onClick,
+  disabled,
+  loading,
+  tone = 'secondary',
+  className = '',
+}: {
+  children: ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  loading?: boolean
+  tone?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  className?: string
+}) {
+  const toneClass = {
+    primary: 'bg-[#071236] text-white shadow-[0_18px_38px_rgba(18,26,66,0.24)] hover:bg-[#111d4d]',
+    secondary: 'border border-[#e3e8f3] bg-white text-[#111b3f] hover:border-[#c9d4ea] hover:bg-[#f8faff]',
+    danger: 'border border-rose-100 bg-rose-50 text-rose-700 hover:bg-rose-100',
+    ghost: 'border border-transparent bg-transparent text-[#53617f] hover:bg-white',
+  }[tone]
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || loading}
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-[13px] px-4 text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-60 ${toneClass} ${className}`}
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+      {children}
+    </button>
+  )
+}
+
+function Panel({
+  title,
+  icon,
+  children,
+  className = '',
+  action,
+}: {
+  title: string
+  icon?: ReactNode
+  children: ReactNode
+  className?: string
+  action?: ReactNode
+}) {
+  return (
+    <section className={`rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-[15px] font-black text-[#111b3f]">
+          {icon ? <span className="text-[#4f46e5]">{icon}</span> : null}
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function StatCard({
+  label,
+  value,
+  helper,
+  icon,
+  tone = 'indigo',
+}: {
+  label: string
+  value: string
+  helper: string
+  icon: ReactNode
+  tone?: 'indigo' | 'emerald' | 'amber' | 'blue'
+}) {
+  const toneClass = {
+    indigo: 'bg-[#f0efff] text-[#4f46e5]',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
+    blue: 'bg-blue-50 text-blue-600',
+  }[tone]
+
+  return (
+    <div className="rounded-[20px] border border-[#e6ebf5] bg-white p-4 shadow-[0_16px_42px_rgba(13,24,63,0.035)]">
+      <div className="mb-4 flex items-center justify-between">
+        <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${toneClass}`}>{icon}</span>
+        <span className="h-2 w-2 rounded-full bg-emerald-400" />
+      </div>
+      <p className="text-[12px] font-bold text-[#65718e]">{label}</p>
+      <p className="mt-1 text-[28px] font-black tracking-[-0.03em] text-[#071236]">{value}</p>
+      <p className="mt-1 text-[11px] leading-5 text-[#7d89a3]">{helper}</p>
+    </div>
+  )
+}
+
+function StatusPill({ children, tone }: { children: ReactNode; tone: 'ready' | 'needs' | 'planned' }) {
+  const toneClass = {
+    ready: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    needs: 'bg-amber-50 text-amber-700 border-amber-100',
+    planned: 'bg-slate-50 text-slate-600 border-slate-200',
+  }[tone]
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-black ${toneClass}`}>
+      {children}
+    </span>
+  )
 }
 
 export default function ConnectionsPage() {
   const { isAuthenticated, loading, authHeader, session } = useAuth()
-  const { locale, dir, t } = useI18n()
+  const { locale, dir } = useI18n()
+  const ar = locale === 'ar'
+  const copy = (arabic: string, english: string) => (ar ? arabic : english)
+
   const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
   const [adAccounts, setAdAccounts] = useState<ConnectedAdAccount[]>([])
   const [loadingAccounts, setLoadingAccounts] = useState(true)
@@ -201,105 +279,57 @@ export default function ConnectionsPage() {
     }
   }, [authHeader])
 
-  // Handle OAuth callback params
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const social = params.get('social')
     const platform = params.get('platform')
+
     if (social === 'connected') {
-      const PLATFORM_NAMES: Record<string, string> = {
-        meta:     'Meta (Facebook/Instagram)',
-        linkedin: 'LinkedIn',
-        tiktok:   'TikTok',
-      }
-      const platformName = PLATFORM_NAMES[platform || ''] || (platform || '')
+      const platformName = platform ? platform.toUpperCase() : copy('المنصة', 'platform')
       setMessage({
         type: 'success',
-        text: (t('connections.successConnect') as string).replace('{platform}', platformName),
+        text: copy(`تم ربط ${platformName}. راجع الصلاحيات قبل أي تشغيل.`, `${platformName} connected. Review permissions before execution.`),
       })
       window.history.replaceState({}, '', '/connections')
       setTimeout(() => setMessage(null), 5000)
-    } else if (social === 'error') {
-      const rawMsg = params.get('msg') || ''
-      // Translate known OAuth error codes into human-readable messages
-      const ERROR_MAP_AR: Record<string, string> = {
-        'token_exchange':     'فشل في الحصول على رمز الوصول. تأكد من إعدادات التطبيق في Meta Developer.',
-        'profile_fetch':      'فشل جلب بيانات الملف الشخصي. حاول مرة أخرى.',
-        'profile_fetch_failed':'فشل جلب بيانات الملف الشخصي. حاول مرة أخرى.',
-        'network_error':      'خطأ في الشبكة. تحقق من الاتصال وحاول مجدداً.',
-        'invalid_state':      'انتهت صلاحية الطلب. حاول الربط من جديد.',
-        'missing_params':     'معلمات OAuth ناقصة. حاول الربط من جديد.',
-        'db_error':           'خطأ في حفظ بيانات الربط. حاول مرة أخرى.',
-        'stale':              'انتهت صلاحية الجلسة. حاول الربط من جديد.',
-      }
-      const ERROR_MAP_EN: Record<string, string> = {
-        'token_exchange':     'Failed to get access token. Check your Meta App configuration.',
-        'profile_fetch':      'Failed to fetch profile data. Please try again.',
-        'profile_fetch_failed':'Failed to fetch profile data. Please try again.',
-        'network_error':      'Network error. Check your connection and try again.',
-        'invalid_state':      'Request expired. Please try connecting again.',
-        'missing_params':     'Missing OAuth parameters. Please try connecting again.',
-        'db_error':           'Error saving connection data. Please try again.',
-        'stale':              'Session expired. Please try connecting again.',
-      }
-      const errorMap = locale === 'ar' ? ERROR_MAP_AR : ERROR_MAP_EN
-      const msg = errorMap[rawMsg] || (rawMsg ? decodeURIComponent(rawMsg) : t('connections.errorUnknown') as string)
+    } else if (social === 'error' || social === 'denied') {
+      const rawMsg = params.get('msg')
       setMessage({
         type: 'error',
-        text: msg,
+        text: rawMsg
+          ? copy(`تعذر إكمال الربط: ${decodeURIComponent(rawMsg)}`, `Connection failed: ${decodeURIComponent(rawMsg)}`)
+          : copy('تعذر إكمال الربط. حاول مرة أخرى بعد مراجعة إعدادات المنصة.', 'Connection failed. Review platform settings and try again.'),
       })
       window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 10000)
-    } else if (social === 'denied') {
-      setMessage({ type: 'error', text: t('connections.errorDenied') as string })
-      window.history.replaceState({}, '', '/connections')
-      setTimeout(() => setMessage(null), 4000)
+      setTimeout(() => setMessage(null), 9000)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [copy])
 
   useEffect(() => {
-    // Wait for both auth check to complete AND session to be available
     if (!loading && isAuthenticated && session?.access_token) fetchAccounts()
-  }, [loading, isAuthenticated, session, fetchAccounts])
-
-  const CONNECT_ROUTES: Record<string, string> = {
-    META:     '/api/social/connect/meta',
-    META_ADS: '/api/social/connect/meta-ads',
-    LINKEDIN: '/api/social/connect/linkedin',
-    TIKTOK:   '/api/social/connect/tiktok',
-  }
+  }, [fetchAccounts, isAuthenticated, loading, session])
 
   const handleConnect = async (platformId: string) => {
     const route = CONNECT_ROUTES[platformId]
-    if (!route) return // platform not yet supported
+    if (!route) return
 
-    // Guard: session must be present before calling OAuth routes
     const token = authHeader()
     if (!token) {
       setMessage({
         type: 'error',
-        text: locale === 'ar'
-          ? 'انتهت صلاحية الجلسة. يرجى تسجيل الخروج وإعادة الدخول ثم المحاولة مجدداً.'
-          : 'Session expired. Please sign out and sign in again, then try connecting.',
+        text: copy('انتهت صلاحية الجلسة. سجل الدخول مرة أخرى ثم حاول الربط.', 'Session expired. Sign in again, then try connecting.'),
       })
       return
     }
 
     setConnecting(platformId)
     try {
-      const res = await fetch(route, {
-        headers: { Authorization: token },
-      })
-
-      // 401 means token is invalid on the server side
+      const res = await fetch(route, { headers: { Authorization: token } })
       if (res.status === 401) {
         setMessage({
           type: 'error',
-          text: locale === 'ar'
-            ? 'انتهت صلاحية الجلسة. يرجى تسجيل الخروج وإعادة الدخول ثم المحاولة مجدداً.'
-            : 'Session expired. Please sign out and sign in again, then try connecting.',
+          text: copy('انتهت صلاحية الجلسة. سجل الدخول مرة أخرى ثم حاول الربط.', 'Session expired. Sign in again, then try connecting.'),
         })
         setConnecting(null)
         return
@@ -309,11 +339,17 @@ export default function ConnectionsPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        setMessage({ type: 'error', text: data.error || t('connections.errorStart') as string })
+        setMessage({
+          type: 'error',
+          text: data.error || copy('تعذر بدء الربط من NEXUS.', 'NEXUS could not start the connection.'),
+        })
         setConnecting(null)
       }
     } catch {
-      setMessage({ type: 'error', text: t('connections.errorConnection') as string })
+      setMessage({
+        type: 'error',
+        text: copy('حدث خطأ في الاتصال. لم يتم تغيير أي بيانات.', 'Connection error. No data was changed.'),
+      })
       setConnecting(null)
     }
   }
@@ -326,574 +362,318 @@ export default function ConnectionsPage() {
         headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
         body: JSON.stringify({ integrationId }),
       })
-      setAccounts(prev => prev.filter(a => a.id !== integrationId))
-      setMessage({ type: 'success', text: t('connections.successDisconnect') as string })
+      setAccounts((prev) => prev.filter((account) => account.id !== integrationId))
+      setMessage({
+        type: 'success',
+        text: copy('تم فصل الحساب. لن يستخدمه NEXUS في النشر أو التنفيذ.', 'Account disconnected. NEXUS will not use it for publishing or execution.'),
+      })
       setTimeout(() => setMessage(null), 3000)
     } catch {
-      setMessage({ type: 'error', text: t('connections.errorDisconnect') as string })
+      setMessage({
+        type: 'error',
+        text: copy('تعذر فصل الحساب. لم يتم تغيير حالة الربط محلياً.', 'Could not disconnect the account. Local connection state was not changed.'),
+      })
     } finally {
       setDisconnecting(null)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-bg-base flex items-center justify-center p-6">
-        <LoadingState label={t('common.loading') as string} />
-      </div>
-    )
-  }
-
-  const connectablePlatforms = PLATFORMS.filter((platform) => platform.available)
-  const futurePlatforms = PLATFORMS.filter((platform) => !platform.available)
-  const connectedConnectableCount = accounts.filter((account) =>
-    connectablePlatforms.some((platform) => platform.id === account.platform),
-  ).length
-  const totalPlatforms = connectablePlatforms.length
-  const readinessStates = derivePlatformReadiness(accounts as any, adAccounts)
   const metaAdAccounts = adAccounts.filter((account) =>
     account.platform?.toUpperCase() === 'META' && account.status?.toUpperCase() !== 'DISCONNECTED',
   )
 
+  const readinessStates = useMemo(() => derivePlatformReadiness(accounts as any, adAccounts), [accounts, adAccounts])
+  const connectedCount = accounts.length + metaAdAccounts.length
+  const connectedOrganicCount = accounts.length
+  const apiReadyCount = [
+    accounts.some((account) => account.platform === 'META'),
+    accounts.some((account) => account.platform === 'LINKEDIN'),
+    accounts.some((account) => account.platform === 'TIKTOK'),
+    metaAdAccounts.some((account) => account.hasApiAccess),
+  ].filter(Boolean).length
+  const needsActionCount = readinessStates.filter((state) =>
+    state.status === 'needs_setup' || state.status === 'not_connected' || state.status === 'permission_unverified',
+  ).length
+
+  if (loading) {
+    return (
+      <AppShell>
+        <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
+          <Loader2 className="h-9 w-9 animate-spin text-[#4f46e5]" />
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell>
-      <div className="min-h-screen bg-bg-base">
-        <div className="mx-auto max-w-6xl px-4 py-8 page-enter sm:px-6 sm:py-10" dir={dir}>
-          <PageHeader
-            eyebrow={t('connections.eyebrow')}
-            title={t('connections.title') as string}
-            description={t('connections.subtitle')}
-            primaryAction={
-              <ActionButton
-                variant="ghost"
-                size="sm"
-                onClick={fetchAccounts}
-                loading={loadingAccounts}
-                icon={<RefreshCw className="h-3.5 w-3.5" />}
-              >
-                {t('connections.refreshConnections')}
-              </ActionButton>
-            }
-            className="mb-8"
-          />
-
-        {/* ── Status Banner ──────────────────────────────────── */}
-        {message && (
-          <div
-            className={`mb-6 flex items-center gap-3 rounded-[12px] px-5 py-3 text-sm ${
-              message.type === 'success'
-                ? 'border border-[var(--nx-success-border)] bg-[var(--nx-success-bg)] text-[var(--nx-success)]'
-                : 'border border-[var(--nx-danger-border)] bg-[var(--nx-danger-bg)] text-[var(--nx-danger)]'
-            }`}
-          >
-            {message.type === 'success'
-              ? <CheckCircle2 className="w-4 h-4 shrink-0" />
-              : <AlertCircle className="w-4 h-4 shrink-0" />}
-            <span>{message.text}</span>
-            <button type="button" onClick={() => setMessage(null)} className="ms-auto text-lg leading-none opacity-60 hover:opacity-100">×</button>
-          </div>
-        )}
-
-          <div className="grid gap-6 lg:grid-cols-[1.35fr_0.9fr]">
-            <div>
-              <PlatformReadinessPanel
-                states={readinessStates}
-                t={t as (k: string) => string}
-                onAction={(action: ReadinessAction) => {
-                  if (action === 'connect-meta') return handleConnect('META')
-                  if (action === 'connect-meta-ads') return handleConnect('META_ADS')
-                  if (action === 'connect-tiktok') return handleConnect('TIKTOK')
-                  if (action === 'connect-linkedin') return handleConnect('LINKEDIN')
-                  if (action === 'open-paid-ads') {
-                    window.location.href = '/paid-campaigns'
-                    return
-                  }
-                  // select-page / link-instagram / review-setup / open-connections:
-                  // controls live in the platform cards below — scroll the user to them.
-                  document.getElementById('platform-cards')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-              />
+      <main dir={dir} className="min-h-screen bg-[#f6f8fc] text-[#111b3f]">
+        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
+          <header className="mb-7 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-[22px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
+                <Link2 size={27} />
+              </div>
+              <div>
+                <p className="text-[12px] font-bold text-[#64708f]">{copy('نظام التشغيل التسويقي', 'Marketing operating system')}</p>
+                <h1 className="mt-1 flex items-center gap-2 text-[30px] font-black tracking-[-0.02em] text-[#071236]">
+                  {copy('التكاملات', 'Integrations')}
+                  <Sparkles className="text-[#4f46e5]" size={24} />
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-[#60708f]">
+                  {copy(
+                    'اربط المنصات التي ستستخدمها NEXUS لاحقاً في النشر، القياس، والإعلانات. الربط لا يعني نشر أو إنفاق تلقائي.',
+                    'Connect the platforms NEXUS can later use for publishing, measurement, and ads. Connecting never means automatic publishing or spend.',
+                  )}
+                </p>
+              </div>
             </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <ShellButton onClick={fetchAccounts} loading={loadingAccounts}>
+                <RefreshCw className="h-4 w-4" />
+                {copy('تحديث الحالة', 'Refresh status')}
+              </ShellButton>
+              <ShellButton tone="primary" onClick={() => handleConnect('META')} loading={connecting === 'META'}>
+                <Plug className="h-4 w-4" />
+                {copy('ابدأ بربط Meta', 'Start with Meta')}
+              </ShellButton>
+            </div>
+          </header>
 
-            <SectionCard
-              title={t('connections.connectionMeaningTitle')}
-              description={t('connections.connectionMeaningDesc')}
-              variant="subtle"
+          {message ? (
+            <div
+              className={`mb-6 flex items-center gap-3 rounded-[18px] border px-5 py-4 text-sm font-semibold ${
+                message.type === 'success'
+                  ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                  : 'border-rose-100 bg-rose-50 text-rose-700'
+              }`}
             >
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border border-[var(--nx-border)] bg-white text-xl font-black text-[var(--nx-text-1)]">
-                    {loadingAccounts ? '…' : `${connectedConnectableCount}/${totalPlatforms}`}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-[var(--nx-text-1)]">
-                      {loadingAccounts
-                        ? t('connections.loadingPlatforms')
-                        : connectedConnectableCount === 0
-                        ? t('connections.noneConnected')
-                        : connectedConnectableCount === 1
-                        ? t('connections.platform1Connected')
-                        : `${connectedConnectableCount} ${t('connections.platformNConnected')}`}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-3)]">
-                      {connectedConnectableCount === 0 ? t('connections.noneConnectedDesc') : t('connections.expandDesc')}
-                    </p>
-                  </div>
-                </div>
+              {message.type === 'success' ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+              <span>{message.text}</span>
+              <button type="button" onClick={() => setMessage(null)} className="ms-auto text-lg opacity-70 hover:opacity-100">
+                ×
+              </button>
+            </div>
+          ) : null}
 
-                {!loadingAccounts && connectedConnectableCount === 0 && (
-                  <ActionButton
-                    onClick={() => handleConnect('META')}
-                    disabled={connecting === 'META'}
-                    loading={connecting === 'META'}
-                    icon={<Plug className="h-4 w-4" />}
-                  >
-                    {t('connections.startWithMeta')}
-                  </ActionButton>
-                )}
+          <section className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label={copy('التكاملات المتصلة', 'Connected integrations')}
+              value={loadingAccounts ? '…' : String(connectedCount)}
+              helper={copy('حسابات عضوية ومدفوعة محفوظة.', 'Saved organic and paid connections.')}
+              icon={<BadgeCheck size={21} />}
+              tone="emerald"
+            />
+            <StatCard
+              label={copy('جاهزية الصلاحيات', 'Permission readiness')}
+              value={loadingAccounts ? '…' : `${apiReadyCount}/4`}
+              helper={copy('صلاحيات يمكن استخدامها بعد المراجعة.', 'Permissions available after review.')}
+              icon={<KeyRound size={21} />}
+            />
+            <StatCard
+              label={copy('تحتاج إجراء', 'Needs action')}
+              value={loadingAccounts ? '…' : String(needsActionCount)}
+              helper={copy('حالات غير جاهزة أو قيد التصاريح.', 'Not-ready or permission-pending states.')}
+              icon={<AlertCircle size={21} />}
+              tone="amber"
+            />
+            <StatCard
+              label={copy('مصادر البيانات', 'Data sources')}
+              value={loadingAccounts ? '…' : `${connectedOrganicCount}`}
+              helper={copy('مداخل يمكن أن تدعم النشر والتحليل لاحقاً.', 'Inputs that can later support publishing and analytics.')}
+              icon={<Database size={21} />}
+              tone="blue"
+            />
+          </section>
 
-                <div className="rounded-[12px] border border-[var(--nx-info-border)] bg-[var(--nx-info-bg)] p-3">
-                  <div className="flex gap-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-[var(--nx-info)]" />
-                    <span>{t('connections.approvalNote')}</span>
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-
-        <div id="platform-cards" className="mt-6 scroll-mt-6">
-          <SectionCard
-            title={t('connections.platformCardsTitle')}
-            description={t('connections.platformCardsDesc')}
-            contentClassName="space-y-4"
-          >
-          <div className="rounded-[14px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-4">
-            <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.connectNowTitle')}</p>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.connectNowDesc')}</p>
-          </div>
-
-          {connectablePlatforms.map((platform) => {
-            const connectedAccount = accounts.find(a => a.platform === platform.id)
-            const isConnected = !!connectedAccount
-            const isConnecting = connecting === platform.id
-            const isDisconnecting = disconnecting === connectedAccount?.id
-            const platformStates = platform.id === 'META'
-              ? readinessStates.filter((s) => s.key === 'facebook' || s.key === 'instagram')
-              : platform.id === 'LINKEDIN'
-              ? readinessStates.filter((s) => s.key === 'linkedin')
-              : platform.id === 'TIKTOK'
-              ? readinessStates.filter((s) => s.key === 'tiktok')
-              : platform.id === 'YOUTUBE'
-              ? readinessStates.filter((s) => s.key === 'youtube')
-              : platform.id === 'GOOGLE'
-              ? readinessStates.filter((s) => s.key === 'google')
-              : platform.id === 'SNAPCHAT'
-              ? readinessStates.filter((s) => s.key === 'snapchat')
-              : []
-
-            return (
-              <div
-                key={platform.id}
-                className="overflow-hidden rounded-[14px] border bg-white transition-all"
-                style={{
-                  borderColor: isConnected ? 'var(--nx-success-border)' : 'var(--nx-border)',
-                }}
+          <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+            <div className="space-y-6">
+              <Panel
+                title={copy('التكاملات المتصلة والقابلة للربط', 'Connected and available integrations')}
+                icon={<Plug size={18} />}
+                action={<span className="text-[12px] font-bold text-[#64708f]">{copy('كل إجراء يحتاج موافقة منفصلة', 'Every execution still needs approval')}</span>}
               >
-                <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start">
-                  {/* Platform Logo */}
-                  <div
-                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px]"
-                    style={{
-                      background: `${platform.color}0F`,
-                      border: `1px solid ${platform.color}18`,
-                    }}
-                  >
-                    {platform.icon}
-                  </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {PLATFORMS.map((platform) => {
+                    const connectedAccount = accounts.find((account) => account.platform === platform.id)
+                    const isConnected = Boolean(connectedAccount)
+                    const isConnecting = connecting === platform.id
+                    const isDisconnecting = disconnecting === connectedAccount?.id
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-bold text-[var(--nx-text-1)]">{t(platform.nameKey)}</h3>
-                      {isConnected ? (
-                        <ReadinessBadge status="ready">
-                          {t('connections.connected')}
-                        </ReadinessBadge>
-                      ) : !platform.available ? (
-                        <ReadinessBadge status="notAvailable">
-                          {platform.eta ? `Coming ${platform.eta}` : t('connections.comingSoon')}
-                        </ReadinessBadge>
-                      ) : null}
-                    </div>
-
-                    <p className="mb-4 text-sm leading-6 text-[var(--nx-text-3)]">{t(platform.descKey)}</p>
-
-                    <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                      {platformStates.length > 0 ? platformStates.map((state) => (
-                        <div key={state.key} className="rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-3">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-xs font-bold text-[var(--nx-text-1)]">{t(state.nameKey)}</p>
-                            <ReadinessBadge status={badgeStatusFor[state.status]}>{t(state.chipKey)}</ReadinessBadge>
+                    return (
+                      <article key={platform.id} className="rounded-[20px] border border-[#e8edf7] bg-[#fbfcff] p-4">
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-white text-lg font-black shadow-sm"
+                              style={{ color: platform.accent }}
+                            >
+                              {platform.icon}
+                            </span>
+                            <div>
+                              <h3 className="text-[15px] font-black text-[#111b3f]">{copy(platform.name.ar, platform.name.en)}</h3>
+                              <p className="mt-1 text-[11px] font-bold text-[#7b87a3]">{copy(platform.scope.ar, platform.scope.en)}</p>
+                            </div>
                           </div>
-                          <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t(state.lineKey)}</p>
-                        </div>
-                      )) : (
-                        <div className="rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-3 sm:col-span-2">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-xs font-bold text-[var(--nx-text-1)]">{t('connections.capabilityStatus')}</p>
-                            <ReadinessBadge status="notAvailable">{t('connections.readiness.chip.notAvailable')}</ReadinessBadge>
-                          </div>
-                          <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.notAvailableDesc')}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Connected Account Details */}
-                    {isConnected && connectedAccount && (
-                      <div
-                        className="mb-4 rounded-[12px] border border-[var(--nx-success-border)] bg-[var(--nx-success-bg)] p-3"
-                      >
-                        <p className="mb-1 text-xs text-[var(--nx-text-3)]">{t('connections.connectedAccount')}</p>
-                        <p className="text-sm font-semibold text-[var(--nx-success)]">{connectedAccount.accountName}</p>
-                        {connectedAccount.pages?.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            <p className="text-xs text-[var(--nx-text-3)]">{t('connections.pagesAndAccounts')}</p>
-                            {connectedAccount.pages.map(page => (
-                              <div key={page.id} className="flex items-center gap-2 text-xs text-[var(--nx-text-3)]">
-                                <CheckCircle className="h-3 w-3 text-[var(--nx-success)]" />
-                                <span>{page.name}</span>
-                                {page.igAccountId && (
-                                  <span className="text-[10px] text-pink-600">{t('connections.instagram')}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <p className="mt-2 text-[10px] text-[var(--nx-text-4)]">
-                          {t('connections.connectedDate')} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      {isConnected ? (
-                        <>
-                          <ActionButton
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleConnect(platform.id)}
-                            disabled={isConnecting}
-                            loading={isConnecting}
-                            icon={<RefreshCw className="h-3.5 w-3.5" />}
-                          >
-                            {t('connections.refreshConnection')}
-                          </ActionButton>
-                          <ActionButton
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleDisconnect(connectedAccount!.id)}
-                            disabled={isDisconnecting}
-                            loading={isDisconnecting}
-                            icon={<Unplug className="h-3.5 w-3.5" />}
-                          >
-                            {t('connections.disconnectAccount')}
-                          </ActionButton>
-                        </>
-                      ) : platform.available ? (
-                        <ActionButton
-                          size="sm"
-                          onClick={() => handleConnect(platform.id)}
-                          disabled={isConnecting}
-                          loading={isConnecting}
-                          icon={<Plug className="h-4 w-4" />}
-                        >
-                          {t(connectCtaKeyFor(platform.id))}
-                        </ActionButton>
-                      ) : (
-                        <div className="flex items-center gap-2 text-sm text-[var(--nx-text-3)]">
-                          <Info className="h-4 w-4" />
-                          <span>{t('connections.comingSoonLong')}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-
-          <div className="rounded-[14px] border border-[var(--nx-warning-border)] bg-[var(--nx-warning-bg)] p-4">
-            <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.paidBoundaryTitle')}</p>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-2)]">{t('connections.paidBoundaryDesc')}</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              {[
-                t('connections.paidBoundaryAccount'),
-                t('connections.paidBoundaryPermissions'),
-                t('connections.paidBoundaryBudget'),
-                t('connections.paidBoundaryLaunch'),
-              ].map((item, index) => (
-                <div key={index} className="flex gap-2 rounded-[10px] border border-[var(--nx-warning-border)] bg-white/70 p-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
-                  <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-warning)]" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-[14px] border border-[var(--nx-info-border)] bg-[var(--nx-info-bg)] p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.metaAdsApiReadinessTitle')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-2)]">{t('connections.metaAdsApiReadinessDesc')}</p>
-              </div>
-              <ReadinessBadge status={metaAdAccounts.some((account) => account.hasApiAccess) ? 'ready' : 'permissionNeeded'}>
-                {metaAdAccounts.some((account) => account.hasApiAccess)
-                  ? t('connections.metaAdsApiVerified')
-                  : t('connections.metaAdsApiReviewRequired')}
-              </ReadinessBadge>
-            </div>
-
-            {loadingAccounts ? (
-              <p className="mt-3 text-xs text-[var(--nx-text-3)]">{t('connections.loadingPlatforms')}</p>
-            ) : metaAdAccounts.length === 0 ? (
-              <div className="mt-3 rounded-[10px] border border-[var(--nx-info-border)] bg-white/70 p-3 text-xs leading-relaxed text-[var(--nx-text-2)]">
-                {t('connections.metaAdsNoAdAccounts')}
-              </div>
-            ) : (
-              <div className="mt-3 space-y-3">
-                {metaAdAccounts.map((account) => {
-                  const apiReady = account.hasApiAccess === true
-                  const pageReady = Boolean(account.pageId)
-                  return (
-                    <div key={account.id} className="rounded-[12px] border border-[var(--nx-border)] bg-white/80 p-3">
-                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-[var(--nx-text-1)]">
-                            {account.platformAccountName || account.platformAccountId}
-                          </p>
-                          {account.businessName && (
-                            <p className="mt-0.5 text-[11px] text-[var(--nx-text-4)]">{account.businessName}</p>
+                          {isConnected ? (
+                            <StatusPill tone="ready">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {copy('متصل', 'Connected')}
+                            </StatusPill>
+                          ) : platform.available ? (
+                            <StatusPill tone="needs">
+                              <Clock3 className="h-3.5 w-3.5" />
+                              {copy('غير متصل', 'Not connected')}
+                            </StatusPill>
+                          ) : (
+                            <StatusPill tone="planned">
+                              {copy('مخطط', 'Planned')}
+                            </StatusPill>
                           )}
                         </div>
-                        <ReadinessBadge status={apiReady ? 'ready' : 'permissionNeeded'}>
-                          {apiReady ? t('connections.metaAdsApiVerified') : t('connections.metaAdsApiReviewRequired')}
-                        </ReadinessBadge>
-                      </div>
 
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div className="flex gap-2 rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
-                          {apiReady
-                            ? <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-success)]" />
-                            : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-warning)]" />}
-                          <span>
-                            <strong className="text-[var(--nx-text-1)]">{t('connections.metaAdsApiAccessLabel')}:</strong>{' '}
-                            {apiReady ? t('connections.metaAdsApiVerifiedDesc') : t('connections.metaAdsApiLockedDesc')}
-                          </span>
-                        </div>
-                        <div className="flex gap-2 rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-2 text-xs leading-relaxed text-[var(--nx-text-2)]">
-                          {pageReady
-                            ? <CheckCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-success)]" />
-                            : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--nx-warning)]" />}
-                          <span>
-                            <strong className="text-[var(--nx-text-1)]">{t('connections.metaAdsPageIdentityLabel')}:</strong>{' '}
-                            {pageReady
-                              ? `${t('connections.metaAdsPageReady')}${account.pageName ? ` · ${account.pageName}` : ''}`
-                              : t('connections.metaAdsPageMissing')}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                        <p className="min-h-[48px] text-[13px] leading-6 text-[#64708f]">{copy(platform.helper.ar, platform.helper.en)}</p>
 
-            <p className="mt-3 text-[11px] leading-relaxed text-[var(--nx-text-3)]">
-              {t('connections.metaAdsOperatorOnlyNote')}
-            </p>
-          </div>
-
-          <div className="rounded-[14px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-4">
-            <p className="text-sm font-bold text-[var(--nx-text-1)]">{t('connections.futureChannelsTitle')}</p>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.futureChannelsDesc')}</p>
-          </div>
-
-          {futurePlatforms.map((platform) => {
-            const connectedAccount = accounts.find(a => a.platform === platform.id)
-            const isConnected = !!connectedAccount
-            const isConnecting = connecting === platform.id
-            const isDisconnecting = disconnecting === connectedAccount?.id
-            const platformStates = platform.id === 'META'
-              ? readinessStates.filter((s) => s.key === 'facebook' || s.key === 'instagram')
-              : platform.id === 'LINKEDIN'
-              ? readinessStates.filter((s) => s.key === 'linkedin')
-              : platform.id === 'TIKTOK'
-              ? readinessStates.filter((s) => s.key === 'tiktok')
-              : platform.id === 'YOUTUBE'
-              ? readinessStates.filter((s) => s.key === 'youtube')
-              : platform.id === 'GOOGLE'
-              ? readinessStates.filter((s) => s.key === 'google')
-              : platform.id === 'SNAPCHAT'
-              ? readinessStates.filter((s) => s.key === 'snapchat')
-              : []
-
-            return (
-              <div
-                key={platform.id}
-                className="overflow-hidden rounded-[14px] border bg-white transition-all"
-                style={{
-                  borderColor: isConnected ? 'var(--nx-success-border)' : 'var(--nx-border)',
-                }}
-              >
-                <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start">
-                  {/* Platform Logo */}
-                  <div
-                    className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px]"
-                    style={{
-                      background: `${platform.color}0F`,
-                      border: `1px solid ${platform.color}18`,
-                    }}
-                  >
-                    {platform.icon}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-bold text-[var(--nx-text-1)]">{t(platform.nameKey)}</h3>
-                      {isConnected ? (
-                        <ReadinessBadge status="ready">
-                          {t('connections.connected')}
-                        </ReadinessBadge>
-                      ) : !platform.available ? (
-                        <ReadinessBadge status="notAvailable">
-                          {platform.eta ? `Coming ${platform.eta}` : t('connections.comingSoon')}
-                        </ReadinessBadge>
-                      ) : null}
-                    </div>
-
-                    <p className="mb-4 text-sm leading-6 text-[var(--nx-text-3)]">{t(platform.descKey)}</p>
-
-                    <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                      {platformStates.length > 0 ? platformStates.map((state) => (
-                        <div key={state.key} className="rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-3">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-xs font-bold text-[var(--nx-text-1)]">{t(state.nameKey)}</p>
-                            <ReadinessBadge status={badgeStatusFor[state.status]}>{t(state.chipKey)}</ReadinessBadge>
-                          </div>
-                          <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t(state.lineKey)}</p>
-                        </div>
-                      )) : (
-                        <div className="rounded-[10px] border border-[var(--nx-border)] bg-[var(--nx-surface-2)] p-3 sm:col-span-2">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <p className="text-xs font-bold text-[var(--nx-text-1)]">{t('connections.capabilityStatus')}</p>
-                            <ReadinessBadge status="notAvailable">{t('connections.readiness.chip.notAvailable')}</ReadinessBadge>
-                          </div>
-                          <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.notAvailableDesc')}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Connected Account Details */}
-                    {isConnected && connectedAccount && (
-                      <div
-                        className="mb-4 rounded-[12px] border border-[var(--nx-success-border)] bg-[var(--nx-success-bg)] p-3"
-                      >
-                        <p className="mb-1 text-xs text-[var(--nx-text-3)]">{t('connections.connectedAccount')}</p>
-                        <p className="text-sm font-semibold text-[var(--nx-success)]">{connectedAccount.accountName}</p>
-                        {connectedAccount.pages?.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            <p className="text-xs text-[var(--nx-text-3)]">{t('connections.pagesAndAccounts')}</p>
-                            {connectedAccount.pages.map(page => (
-                              <div key={page.id} className="flex items-center gap-2 text-xs text-[var(--nx-text-3)]">
-                                <CheckCircle className="h-3 w-3 text-[var(--nx-success)]" />
-                                <span>{page.name}</span>
-                                {page.igAccountId && (
-                                  <span className="text-[10px] text-pink-600">{t('connections.instagram')}</span>
-                                )}
+                        {connectedAccount ? (
+                          <div className="mt-4 rounded-[16px] border border-emerald-100 bg-emerald-50/70 p-3">
+                            <p className="text-[11px] font-bold text-emerald-700">{copy('الحساب المتصل', 'Connected account')}</p>
+                            <p className="mt-1 text-sm font-black text-[#10203f]">{connectedAccount.accountName}</p>
+                            {connectedAccount.pages?.length ? (
+                              <div className="mt-2 space-y-1">
+                                {connectedAccount.pages.slice(0, 3).map((page) => (
+                                  <p key={page.id} className="flex items-center gap-2 text-[11px] text-[#586684]">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                    {page.name}
+                                    {page.igAccountId ? <span className="rounded-full bg-pink-50 px-1.5 py-0.5 text-[10px] text-pink-600">IG</span> : null}
+                                  </p>
+                                ))}
                               </div>
-                            ))}
+                            ) : null}
                           </div>
-                        )}
-                        <p className="mt-2 text-[10px] text-[var(--nx-text-4)]">
-                          {t('connections.connectedDate')} {new Date(connectedAccount.connectedAt).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US')}
-                        </p>
-                      </div>
-                    )}
+                        ) : null}
 
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      {isConnected ? (
-                        <>
-                          <ActionButton
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleConnect(platform.id)}
-                            disabled={isConnecting}
-                            loading={isConnecting}
-                            icon={<RefreshCw className="h-3.5 w-3.5" />}
-                          >
-                            {t('connections.refreshConnection')}
-                          </ActionButton>
-                          <ActionButton
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleDisconnect(connectedAccount!.id)}
-                            disabled={isDisconnecting}
-                            loading={isDisconnecting}
-                            icon={<Unplug className="h-3.5 w-3.5" />}
-                          >
-                            {t('connections.disconnectAccount')}
-                          </ActionButton>
-                        </>
-                      ) : platform.available ? (
-                        <ActionButton
-                          size="sm"
-                          onClick={() => handleConnect(platform.id)}
-                          disabled={isConnecting}
-                          loading={isConnecting}
-                          icon={<Plug className="h-4 w-4" />}
-                        >
-                          {t(connectCtaKeyFor(platform.id))}
-                        </ActionButton>
-                      ) : (
-                        <div className="flex items-center gap-2 text-sm text-[var(--nx-text-3)]">
-                          <Info className="h-4 w-4" />
-                          <span>{t('connections.comingSoonLong')}</span>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {isConnected && connectedAccount ? (
+                            <>
+                              <ShellButton onClick={() => handleConnect(platform.id)} loading={isConnecting}>
+                                <RefreshCw className="h-4 w-4" />
+                                {copy('تحديث الربط', 'Refresh')}
+                              </ShellButton>
+                              <ShellButton tone="danger" onClick={() => handleDisconnect(connectedAccount.id)} loading={isDisconnecting}>
+                                <Unplug className="h-4 w-4" />
+                                {copy('فصل', 'Disconnect')}
+                              </ShellButton>
+                            </>
+                          ) : platform.available ? (
+                            <ShellButton onClick={() => handleConnect(platform.id)} loading={isConnecting} tone="primary">
+                              <Plug className="h-4 w-4" />
+                              {copy('ربط الآن', 'Connect now')}
+                            </ShellButton>
+                          ) : (
+                            <ShellButton disabled>
+                              <Clock3 className="h-4 w-4" />
+                              {copy('ليس جاهزاً بعد', 'Not ready yet')}
+                            </ShellButton>
+                          )}
                         </div>
-                      )}
+                      </article>
+                    )
+                  })}
+                </div>
+              </Panel>
+
+              <Panel title={copy('اتصالات موصى بها', 'Recommended connections')} icon={<Sparkles size={18} />}>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    ['WhatsApp Business', copy('رسائل العملاء', 'Customer messaging'), 'W'],
+                    ['Email Marketing', copy('نشرات وتسلسلات', 'Newsletters and flows'), '✉'],
+                    ['Klaviyo', copy('تجارة إلكترونية', 'Commerce CRM'), 'K'],
+                    ['CRM Integration', copy('إدارة العملاء', 'Customer records'), 'CRM'],
+                    ['HubSpot', copy('مبيعات وتسويق', 'Sales and marketing'), 'H'],
+                  ].map(([name, helper, icon]) => (
+                    <div key={name} className="rounded-[18px] border border-[#e8edf7] bg-white p-4">
+                      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f1f0ff] text-sm font-black text-[#4f46e5]">{icon}</div>
+                      <p className="text-[13px] font-black text-[#111b3f]">{name}</p>
+                      <p className="mt-1 min-h-[34px] text-[11px] leading-5 text-[#7b87a3]">{helper}</p>
+                      <ShellButton disabled className="mt-3 w-full">
+                        {copy('قريباً', 'Soon')}
+                      </ShellButton>
                     </div>
+                  ))}
+                </div>
+              </Panel>
+            </div>
+
+            <aside className="space-y-6">
+              <Panel title={copy('الأذونات والصلاحيات', 'Access and permissions')} icon={<Shield size={18} />}>
+                <div className="mb-5 flex items-center gap-4">
+                  <div
+                    className="flex h-28 w-28 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: `conic-gradient(#4f46e5 ${Math.min(100, apiReadyCount * 25) * 3.6}deg, #e8edf7 0deg)` }}
+                  >
+                    <div className="flex h-22 w-22 flex-col items-center justify-center rounded-full bg-white text-center">
+                      <span className="text-[25px] font-black text-[#071236]">{apiReadyCount * 25}%</span>
+                      <span className="text-[10px] font-bold text-[#64708f]">{copy('جاهزية', 'Ready')}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3 text-[12px] text-[#64708f]">
+                    <p>{copy('صلاحيات كاملة', 'Full permissions')} <strong className="text-[#071236]">{apiReadyCount}</strong></p>
+                    <p>{copy('تحتاج مراجعة', 'Needs review')} <strong className="text-[#071236]">{Math.max(0, 4 - apiReadyCount)}</strong></p>
+                    <p>{copy('حاجة لتحديث', 'Needs update')} <strong className="text-[#071236]">0</strong></p>
                   </div>
                 </div>
-              </div>
-            )
-          })}
-          </SectionCard>
-        </div>
+                <ShellButton className="w-full" onClick={() => handleConnect('META_ADS')} loading={connecting === 'META_ADS'}>
+                  <KeyRound className="h-4 w-4" />
+                  {copy('مراجعة Meta Ads', 'Review Meta Ads')}
+                </ShellButton>
+              </Panel>
 
-        {/* ── Security Note ──────────────────────────────────── */}
-        <div className="mt-6 flex items-start gap-3 rounded-[14px] border border-[var(--nx-border)] bg-white p-5">
-          <Shield className="mt-0.5 h-5 w-5 shrink-0 text-[var(--nx-info)]" />
-          <div>
-            <p className="mb-1 text-sm font-semibold text-[var(--nx-text-1)]">{t('connections.securityTitle')}</p>
-            <p className="text-xs leading-relaxed text-[var(--nx-text-3)]">{t('connections.securityDesc')}</p>
+              <Panel title={copy('نظرة عامة على مزامنة البيانات', 'Data sync overview')} icon={<RefreshCw size={18} />}>
+                <div className="space-y-3">
+                  {[
+                    [copy('آخر مزامنة ناجحة', 'Last successful sync'), loadingAccounts ? '…' : copy('بعد التحديث', 'After refresh')],
+                    [copy('حالة البيانات', 'Data state'), copy('قراءة فقط حتى التنفيذ', 'Read-only until execution')],
+                    [copy('سجلات اليوم', 'Records today'), copy('لا تغيير تلقائي', 'No automatic change')],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between rounded-[14px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-3">
+                      <span className="text-[12px] font-bold text-[#64708f]">{label}</span>
+                      <span className="text-[12px] font-black text-[#111b3f]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+
+              <Panel title={copy('حدود التنفيذ', 'Execution boundary')} icon={<Zap size={18} />}>
+                <div className="space-y-3">
+                  {[
+                    copy('الربط لا ينشر أي منشور تلقائياً.', 'Connecting does not publish anything automatically.'),
+                    copy('الإعلانات المدفوعة تحتاج تصريح منصة، ميزانية معتمدة، وموافقة إطلاق صريحة.', 'Paid ads require platform permission, approved budget, and explicit launch approval.'),
+                    copy('التحليلات تصبح مصدر تعلم فقط بعد وصول بيانات أداء حقيقية.', 'Analytics become learning input only after real performance data arrives.'),
+                  ].map((item) => (
+                    <div key={item} className="flex gap-3 rounded-[14px] border border-[#eef2f8] bg-white px-3 py-3 text-[12px] leading-6 text-[#64708f]">
+                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-500" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            </aside>
           </div>
-        </div>
 
-        {/* ── Help CTA ───────────────────────────────────────── */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-[var(--nx-text-3)]">
-            {t('connections.helpText')}{' '}
-            <a href="mailto:support@nexus-grow.com" className="text-[var(--nx-info)] transition hover:opacity-80">
-              {t('connections.contactUs')}
+          <footer className="mt-6 flex flex-col gap-3 rounded-[22px] border border-[#e5eaf5] bg-white p-4 text-[12px] text-[#65718e] shadow-[0_18px_50px_rgba(13,24,63,0.035)] sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              {copy(
+                'تحتاج تكاملاً مخصصاً؟ جهزه كطلب تقني منفصل قبل أن يظهر كجاهز في NEXUS.',
+                'Need a custom integration? Treat it as a separate technical request before NEXUS shows it as ready.',
+              )}
+            </span>
+            <a href="mailto:support@nexus-grow.com" className="inline-flex items-center gap-2 font-black text-[#4f46e5]">
+              {copy('تواصل مع الدعم', 'Contact support')}
+              <ArrowRight className="h-4 w-4" />
             </a>
-          </p>
+          </footer>
         </div>
-
-        </div>
-      </div>
+      </main>
     </AppShell>
   )
 }

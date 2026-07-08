@@ -21,7 +21,7 @@ import {
   Loader2, Brain, Check, ChevronDown, Save,
   Target, Mic, Package, Users, Globe, BarChart2, AlertTriangle,
   CheckCircle2, ArrowLeft, ArrowRight, Zap, Sparkles, Wand2, X,
-  Upload, ImageIcon, Link2, FileText, ScanSearch, ChevronRight
+  Upload, ImageIcon, Link2, FileText, ScanSearch, ChevronRight, ShieldCheck, Heart
 } from 'lucide-react'
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1082,14 +1082,15 @@ function BrandBrainInner() {
           onClose={() => setShowSummary(false)}
         />
       )}
-      <div className="relative min-h-screen" dir={dir}>
+      <div className="relative min-h-screen bg-[#f6f8fc] text-[#071236]" dir={dir}>
 
         {/* PR-L — flex column so enrichment tools (Scanner/Analyzer/Learned) can be
             ordered BELOW the core brand profile via CSS order, without moving large
             JSX blocks. Core sections keep source order (order:0); enrichment = 49-52;
             footer = 60. PR-M1.1 widened the shell to max-w-6xl so the desktop
             workspace uses the viewport without large empty side-bands. */}
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-5">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_4%,rgba(94,92,230,0.09),transparent_30%),radial-gradient(circle_at_92%_10%,rgba(16,185,129,0.07),transparent_28%)]" />
+        <div className="relative z-10 max-w-[1540px] mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}
           {fromBrief && !briefBannerDismissed && (
@@ -1125,26 +1126,23 @@ function BrandBrainInner() {
           {/* ══════════════════════════════════════════════════════
               HERO HEADER CARD
               ══════════════════════════════════════════════════════ */}
-          <div className="rounded-2xl overflow-hidden"
-            style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 2px rgba(15,23,42,0.04)' }}>
+          <div className="rounded-[26px] overflow-hidden"
+            style={{ background: 'rgba(255,255,255,0.92)', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 22px 70px rgba(15,23,42,0.08)' }}>
 
-            {/* Gradient top bar */}
-            <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #f59e0b 0%, #8b5cf6 50%, #06b6d4 100%)' }} />
-
-            <div className="p-5 space-y-4">
+            <div className="p-5 sm:p-6 space-y-5">
               {/* PR-M1 — compact workspace header. Replaces the tall hero (big ring,
                   sparkline, full maturity bar, 4-indicator panel). The maturity number
                   is kept as a calm chip (math unchanged); the readiness indicators now
                   live in the sticky rail below. */}
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: '#FFFBEB', border: '1px solid rgba(245,158,11,0.22)' }}>
-                    <Brain size={22} className="text-amber-400" />
+                  <div className="w-14 h-14 rounded-[22px] flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#eef2ff,#f5f3ff)', border: '1px solid rgba(94,92,230,0.18)', boxShadow: 'inset 0 0 28px rgba(94,92,230,0.18)' }}>
+                    <Brain size={25} className="text-indigo-500" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h1 className="text-xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
+                      <h1 className="text-2xl font-black text-slate-950 tracking-tight">Brand Brain</h1>
                       <span className="text-sm font-semibold text-slate-500">
                         {locale === 'ar' ? 'ملف ذاكرة علامتك التسويقية' : 'Your marketing memory file'}
                       </span>
@@ -1164,7 +1162,7 @@ function BrandBrainInner() {
                         <span className="font-semibold tabular-nums opacity-60">{score}/100</span>
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-sm text-slate-500 mt-1 max-w-3xl">
                       {locale === 'ar'
                         ? 'يستخدم NEXUS هذا الملف لتوجيه الاستراتيجية والمحتوى والاتجاه الإبداعي وإشارات Brand Brain مع الوقت.'
                         : 'NEXUS uses this file to guide strategy, content, creative direction, and signals over time.'}
@@ -1184,18 +1182,67 @@ function BrandBrainInner() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={handleSave} disabled={saving}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-60"
-                    style={{ background: saved ? 'rgba(16,185,129,0.15)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: saved ? '#10b981' : '#0a0a0a', border: saved ? '1px solid rgba(16,185,129,0.35)' : 'none' }}>
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-200 disabled:opacity-60"
+                    style={{ background: saved ? 'rgba(16,185,129,0.15)' : '#071236', color: saved ? '#10b981' : '#FFFFFF', border: saved ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(7,18,54,0.9)', boxShadow: saved ? 'none' : '0 14px 30px rgba(7,18,54,0.18)' }}>
                     {saving ? <Loader2 size={15} className="animate-spin"/> : saved ? <CheckCircle2 size={15}/> : <Save size={15}/>}
                     {saving ? t('brand.savingBtn') : saved ? t('brand.savedBtn') : t('brand.saveAllBtn')}
                   </button>
                   <button onClick={() => router.push('/brand/score-history')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-80"
-                    style={{ background: '#F5F3FF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-semibold transition-all hover:opacity-80"
+                    style={{ background: '#FFFFFF', border: '1px solid rgba(94,92,230,0.18)', color: '#5E5CE6' }}>
                     <BarChart2 size={13} />
                     {locale === 'ar' ? 'سجل النمو' : 'Score History'}
                   </button>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                {[
+                  {
+                    label: locale === 'ar' ? 'درجة قوة العلامة' : 'Brand strength',
+                    value: `${score}`,
+                    helper: score >= 80 ? (locale === 'ar' ? 'ممتاز' : 'Excellent') : score >= 50 ? (locale === 'ar' ? 'جيد ويتطور' : 'Good, still building') : (locale === 'ar' ? 'قيد البناء' : 'Building'),
+                    color: '#5E5CE6',
+                    icon: Heart,
+                  },
+                  {
+                    label: locale === 'ar' ? 'اكتمال الملف' : 'Profile completeness',
+                    value: `${brandIndicators.brandCompleteness.score}%`,
+                    helper: brandIndicators.brandCompleteness.score >= 80 ? (locale === 'ar' ? 'الأساس محفوظ بوضوح' : 'Core profile is clear') : (locale === 'ar' ? 'يحتاج حقولاً أساسية' : 'Needs core fields'),
+                    color: '#10B981',
+                    icon: BarChart2,
+                  },
+                  {
+                    label: locale === 'ar' ? 'جاهزية العضوي' : 'Organic readiness',
+                    value: brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'جاهز' : 'Ready') : (locale === 'ar' ? 'ناقص' : 'Needs data'),
+                    helper: brandIndicators.organicReadiness.ready ? (locale === 'ar' ? 'مناسب لموجز أولي' : 'Ready for an initial brief') : (locale === 'ar' ? 'أكمل الحقول الأساسية' : 'Complete core fields'),
+                    color: brandIndicators.organicReadiness.ready ? '#10B981' : '#F59E0B',
+                    icon: Sparkles,
+                  },
+                  {
+                    label: locale === 'ar' ? 'جاهزية المدفوع' : 'Paid readiness',
+                    value: brandIndicators.paidReadiness.ready ? (locale === 'ar' ? 'للمراجعة' : 'Review ready') : (locale === 'ar' ? 'يحتاج متطلبات' : 'Needs inputs'),
+                    helper: locale === 'ar' ? 'لا إطلاق ولا إنفاق تلقائي' : 'No automatic launch or spend',
+                    color: '#F59E0B',
+                    icon: ShieldCheck,
+                  },
+                ].map((metric) => {
+                  const Icon = metric.icon
+                  return (
+                    <div key={metric.label} className="rounded-2xl px-4 py-3" style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 10px 32px rgba(15,23,42,0.04)' }}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-slate-500">{metric.label}</p>
+                          <p className="mt-1 text-2xl font-black text-slate-950 tabular-nums">{metric.value}</p>
+                          <p className="mt-1 text-[12px] text-slate-500 truncate">{metric.helper}</p>
+                        </div>
+                        <div className="h-11 w-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: `${metric.color}12`, color: metric.color, border: `1px solid ${metric.color}22` }}>
+                          <Icon size={18} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
               {/* PR-N1 — compact "Why this?" disclosure for the maturity stage. Collapsed

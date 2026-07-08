@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import supabase from '@/lib/supabaseClient'
+import LuxuryAuthShell from '@/components/auth/LuxuryAuthShell'
 
 export default function ForgotPasswordPage() {
   const { t, isRTL, dir } = useI18n()
@@ -32,56 +33,49 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  const inputStyle = { background: 'rgba(12,13,36,0.65)', border: '1px solid rgba(139,92,246,0.15)' }
+  const inputStyle = { background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.12)' }
+  const inputClass = `w-full rounded-2xl px-4 py-3 text-slate-950 placeholder-slate-400 outline-none transition ${isRTL ? 'text-right' : 'text-left'}`
 
   if (done) {
     return (
-      <div
-        className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
+      <LuxuryAuthShell
         dir={dir}
-        style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
+        title={fpT?.successTitle}
+        subtitle={<>{fpT?.successDesc} <span className="font-semibold text-slate-950">{email}</span></>}
+        eyebrow={isRTL ? 'استرجاع آمن للحساب' : 'Secure account recovery'}
       >
-        <div className="w-full max-w-md text-center glass-panel p-10 rounded-2xl shadow-2xl">
-          <div className="text-5xl mb-4">📬</div>
-          <h1 className="text-2xl font-bold font-heading mb-2">{fpT?.successTitle}</h1>
-          <p className="text-text-secondary mb-6">
-            {fpT?.successDesc}{' '}
-            <span className="text-white font-semibold">{email}</span>
-          </p>
+        <div className="text-center">
           <Link
             href="/auth/login"
-            className="btn-gradient block w-full py-3 text-white font-bold rounded-xl text-center hover:-translate-y-0.5 transition"
+            className="block w-full rounded-2xl bg-[#071332] py-3 text-center font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5"
           >
             {fpT?.backToLogin}
           </Link>
         </div>
-      </div>
+      </LuxuryAuthShell>
     )
   }
 
   return (
-    <div
-      className="min-h-screen bg-bg-base text-white flex items-center justify-center px-4"
+    <LuxuryAuthShell
       dir={dir}
-      style={{ backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,92,246,0.12), transparent)' }}
-    >
-      <div className="w-full max-w-md">
-        <div className="glass-panel p-8 rounded-2xl shadow-2xl">
-          <Link href="/" className="flex items-center gap-2.5 mb-8">
-            <div
-              className="w-9 h-9 rounded-lg grid place-items-center font-black text-lg text-white"
-              style={{ background: 'linear-gradient(135deg,#8B5CF6,#10B981)' }}
-            >
-              N
-            </div>
-            <span className="text-2xl font-extrabold tracking-wider font-heading text-gradient">NEXUS AI</span>
+      title={fpT?.title}
+      subtitle={fpT?.subtitle}
+      eyebrow={isRTL ? 'استرجاع آمن للحساب' : 'Secure account recovery'}
+      footer={
+        <p className="text-center text-sm text-slate-600">
+          {fpT?.rememberPassword}{' '}
+          <Link
+            href="/auth/login"
+            className="font-semibold text-indigo-600 transition hover:text-indigo-500"
+          >
+            {fpT?.loginLink}
           </Link>
-
-          <h2 className="text-2xl font-bold font-heading mb-1">{fpT?.title}</h2>
-          <p className="text-text-secondary text-sm mb-8">{fpT?.subtitle}</p>
-
+        </p>
+      }
+    >
           {error && (
-            <div className="bg-rose-500/10 border border-rose-500/40 rounded-xl px-4 py-3 mb-6 text-sm text-rose-300">
+            <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
               {error}
             </div>
           )}
@@ -97,32 +91,20 @@ export default function ForgotPasswordPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full px-4 py-3 rounded-xl text-white placeholder-text-muted focus:outline-none transition"
+                className={inputClass}
                 style={inputStyle}
                 onFocus={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.5)')}
-                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(139,92,246,0.15)')}
+                onBlur={e => (e.currentTarget.style.border = '1px solid rgba(15,23,42,0.12)')}
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="btn-gradient w-full py-3 text-white font-bold rounded-xl hover:-translate-y-0.5 transition disabled:opacity-50"
+              className="w-full rounded-2xl bg-[#071332] py-3 font-bold text-white shadow-[0_16px_32px_rgba(7,19,50,0.20)] transition hover:-translate-y-0.5 disabled:opacity-50"
             >
               {loading ? fpT?.loading : fpT?.submit}
             </button>
           </form>
-
-          <p className="text-center text-sm text-text-secondary mt-4">
-            {fpT?.rememberPassword}{' '}
-            <Link
-              href="/auth/login"
-              className="text-accent-purple hover:text-accent-purple/80 transition font-semibold"
-            >
-              {fpT?.loginLink}
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+    </LuxuryAuthShell>
   )
 }

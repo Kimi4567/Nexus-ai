@@ -92,7 +92,7 @@ function Donut({
 }
 
 export default function CampaignsPage() {
-  const { authHeader } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
   const router = useRouter()
   const cT = t('campaigns') as Record<string, string>
@@ -148,7 +148,14 @@ export default function CampaignsPage() {
     TRAFFIC: cT?.goalTraffic || copy('زيارات', 'Traffic'),
   }
 
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/auth/login')
+  }, [authLoading, isAuthenticated, router])
+
   const load = useCallback(async () => {
+    if (authLoading || !isAuthenticated) return
+    const token = authHeader()
+    if (!token) return
     setLoading(true)
     setLoadError(false)
     try {
@@ -160,7 +167,7 @@ export default function CampaignsPage() {
       params.set('limit', '50')
 
       const res = await fetch(`/api/campaigns?${params}`, {
-        headers: { Authorization: authHeader() },
+        headers: { Authorization: token },
       })
       if (res.ok) {
         const data = await res.json()
@@ -174,7 +181,7 @@ export default function CampaignsPage() {
     } finally {
       setLoading(false)
     }
-  }, [authHeader, favoriteOnly, search, sortBy, statusFilter])
+  }, [authHeader, authLoading, favoriteOnly, isAuthenticated, search, sortBy, statusFilter])
 
   useEffect(() => { load() }, [load])
 
