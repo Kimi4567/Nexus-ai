@@ -32,6 +32,8 @@ import {
   summarizeContentHubMediaReadiness,
 } from '@/lib/contentHubMediaState'
 import { deriveContentPlanOrderReview } from '@/lib/contentPlanOrderContract'
+import { deriveContentHubFirstScreenTruth } from '@/lib/contentHubFirstScreenTruth'
+import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
@@ -411,13 +413,48 @@ export default function ContentHubPage() {
       ? contentPlanOrderReview
       : null
   const approvalBlockedByOrderMismatch = Boolean(contentPlanOrderMismatch)
+  const contentHubFulfillmentSummary = deriveStrategyFulfillmentSummary({
+    aiOutput: campaign?.aiOutput,
+    posts: posts.map(post => ({
+      contentPlanIndex: post.contentPlanIndex,
+      variantGroup: post.variantGroup,
+    })),
+    operatingSnapshotsLoaded: !loading && Boolean(campaign),
+    locale: isAr ? 'ar' : 'en',
+  })
+  const contentHubTruthCards = deriveContentHubFirstScreenTruth({
+    locale: isAr ? 'ar' : 'en',
+    fulfillmentSummary: contentHubFulfillmentSummary,
+    totalPosts: posts.length,
+    draftCount,
+    approvedCount,
+    scheduledCount,
+    publishedCount,
+    manuallyPublishedCount,
+    totalImagePosts,
+    readyMediaCount: doneCount,
+    ambiguousPreviewCount,
+    videoPostCount,
+    hasOrderMismatch: Boolean(contentPlanOrderMismatch),
+  })
+  const contentHubTruthToneClass: Record<StrategyFulfillmentTone, string> = {
+    positive: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    warning: 'border-amber-200 bg-amber-50 text-amber-950',
+    danger: 'border-rose-200 bg-rose-50 text-rose-950',
+    muted: 'border-slate-200 bg-slate-50 text-slate-700',
+    checking: 'border-blue-200 bg-blue-50 text-blue-950',
+  }
+  const contentHubTruthTitle = isAr ? 'حقيقة مركز المحتوى الآن' : 'Content Hub truth right now'
+  const contentHubTruthSubtitle = isAr
+    ? 'اقرأ هذا أولاً: هل يطابق مركز المحتوى وعد الاستراتيجية، ما حالة المنشورات والوسائط، وما القرار التالي؟'
+    : 'Read this first: does Content Hub match the strategy promise, what is the post/media state, and what is the next decision?'
   const operatingState = deriveCampaignOperatingState({ campaign, posts })
   const operatingLabel = isAr ? operatingState.stageLabelAr : operatingState.stageLabel
   const operatingHelper = isAr ? operatingState.stageHelperAr : operatingState.stageHelper
   const visualReadyLabel = isAr ? 'الوسائط جاهزة' : 'Media ready'
   const mediaPendingLabel = isAr ? 'الوسائط بانتظار التوليد' : 'Media pending'
   const mediaReadinessInlineLabel = isAr
-    ? `${doneCount} / ${totalImagePosts} وسائط جاهزة${ambiguousPreviewCount > 0 ? ` · ${ambiguousPreviewCount} معاينات تحتاج تأكيد الجاهزية` : ''}`
+    ? `${doneCount} من ${totalImagePosts} وسائط جاهزة${ambiguousPreviewCount > 0 ? ` · ${ambiguousPreviewCount} معاينات تحتاج تأكيد الجاهزية` : ''}`
     : `${doneCount} / ${totalImagePosts} media ready${ambiguousPreviewCount > 0 ? ` · ${ambiguousPreviewCount} media preview${ambiguousPreviewCount === 1 ? '' : 's'} need confirmation` : ''}`
   const ambiguousPreviewExplainer = isAr
     ? 'قد تظهر بعض معاينات الوسائط، لكنها لا تُحتسب جاهزة حتى يتم تأكيد حالة التوليد أو الربط.'
@@ -1385,6 +1422,32 @@ export default function ContentHubPage() {
             )}
           </div>
         </div>
+
+        <section className="mb-5">
+          <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                {isAr ? 'قراءة تشغيلية' : 'Operating read'}
+              </p>
+              <h2 className="text-lg font-bold text-slate-950">{contentHubTruthTitle}</h2>
+            </div>
+            <p className="max-w-2xl text-sm leading-relaxed text-slate-500 sm:text-right">
+              {contentHubTruthSubtitle}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {contentHubTruthCards.map((card, index) => (
+              <article
+                key={`${card.label}-${index}`}
+                className={`min-h-[142px] rounded-2xl border p-4 shadow-sm ${contentHubTruthToneClass[card.tone]}`}
+              >
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] opacity-70">{card.label}</p>
+                <p className="mt-2 text-lg font-bold leading-7">{card.value}</p>
+                <p className="mt-2 text-xs leading-5 opacity-75">{card.helper}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
         {posts.length > 0 && (
           <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50/70 p-4">

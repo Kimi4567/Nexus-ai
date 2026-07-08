@@ -22,7 +22,7 @@ describe('deriveStrategyFulfillmentSummary', () => {
 
     expect(summary.status).toBe('matched')
     expect(summary.tone).toBe('positive')
-    expect(summary.value).toContain('7 / 7')
+    expect(summary.value).toContain('7 من 7')
     expect(summary.helper).toContain('45 يوم')
   })
 
