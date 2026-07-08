@@ -1433,8 +1433,8 @@ function CampaignDetailPageInner() {
       return {
         title: locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open the creative brief planner',
         helper: locale === 'ar'
-          ? 'مخطط الإبداع هو خطوة التنظيم قبل قرارات الصور والطبقات. يحدد احتياجات الأصول ولا يعتمد أو يجدول أو ينشر شيئاً.'
-          : 'The creative brief planner is the organizing step before image and layer decisions. It defines asset needs; it does not approve, schedule, or publish anything.',
+          ? 'مخطط الإبداع هو خطوة التنظيم قبل قرارات الصور والطبقات. يحدد احتياجات الأصول؛ المعاينات والأصول لا تُرفق بالمنشورات تلقائياً، ولا يعتمد أو يجدول أو ينشر شيئاً.'
+          : 'The creative brief planner is the organizing step before image and layer decisions. It defines asset needs; previews and assets are not automatically attached to posts, and it does not approve, schedule, or publish anything.',
         cta: locale === 'ar' ? 'افتح مخطط الإبداع' : 'Open creative brief planner',
         href: `/campaigns/${campaign.id}/creative-brief`,
       }
@@ -1559,7 +1559,7 @@ function CampaignDetailPageInner() {
   )
   const firstViewportAction = activeTab === 3
     ? {
-      eyebrow: uiText('مسار الإبداع الآن', 'Creative path now'),
+      eyebrow: uiText('الخطوة الإبداعية التالية', 'Next creative step'),
       workspace: AGENT_TABS[activeTab]?.label || uiText('الإبداع', 'Creative'),
       title: nextCreativeAction.title,
       helper: nextCreativeAction.helper,
@@ -3958,8 +3958,8 @@ function CampaignDetailPageInner() {
                       </p>
                       <p className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
                         {locale === 'ar'
-                          ? 'يتبع العمل الإبداعي حالة الحملة. لا ينشر NEXUS أو يجدول المحتوى أو يطلق إعلانات من هذا التبويب. وسائط المنشورات النهائية تُراجع في Content Hub.'
-                          : 'Creative work follows the campaign state. NEXUS does not publish, schedule, or start paid campaigns from this tab. Final post media is reviewed in Content Hub.'}
+                          ? 'يتبع العمل الإبداعي حالة الحملة. لا ينشر NEXUS أو يجدول المحتوى أو يطلق إعلانات من هذا التبويب. وسائط المنشورات النهائية تُراجع في Content Hub؛ المعاينات والأصول المفهومية لا تُرفق بالمنشورات تلقائياً.'
+                          : 'Creative work follows the campaign state. NEXUS does not publish, schedule, or start paid campaigns from this tab. Final post media is reviewed in Content Hub; previews and concept assets are not automatically attached to posts.'}
                       </p>
                       {!includesPaidPlanningStrategy && (
                         <p className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] leading-5 text-slate-600">
@@ -4346,12 +4346,12 @@ function CampaignDetailPageInner() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-950">
-                          {locale === 'ar' ? 'النشر القادم يبدأ من Content Hub' : 'Future publishing starts from Content Hub'}
+                          {locale === 'ar' ? 'جاهزية النشر تُراجع من Content Hub' : 'Publishing readiness belongs in Content Hub'}
                         </p>
                         <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">
                           {locale === 'ar'
-                            ? 'لا ينشر NEXUS من محرر نص حر داخل تبويب الحملة. أي نشر عبر منصة/API يجب أن يبدأ من منشور محدد في Content Hub بعد جاهزية الوسائط والحساب والصلاحيات وتأكيد صريح.'
-                            : 'NEXUS no longer publishes from a free-form composer inside the campaign tab. Any future platform/API publish must start from a specific Content Hub post after media, account, permission, and explicit confirmation checks are ready.'}
+                            ? 'لا ينشر NEXUS من محرر نص حر داخل تبويب الحملة. أي جاهزية للنشر عبر منصة/API يجب أن تُراجع على منشور محدد في Content Hub بعد جاهزية الوسائط والحساب والصلاحيات وتأكيد صريح.'
+                            : 'NEXUS no longer publishes from a free-form composer inside the campaign tab. Platform/API publish readiness must be reviewed on a specific Content Hub post after media, account, permission, and explicit confirmation checks are ready.'}
                         </p>
                         <p className="mt-2 text-[11px] leading-5 text-slate-500">
                           {locale === 'ar'

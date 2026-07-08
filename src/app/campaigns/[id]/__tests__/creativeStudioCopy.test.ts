@@ -37,6 +37,7 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).not.toMatch(/ad-ready/)
     expect(CAMPAIGN_SRC).not.toMatch(/publish-ready/)
     expect(CAMPAIGN_SRC).toMatch(/Final post media is reviewed in Content Hub/)
+    expect(CAMPAIGN_SRC).toMatch(/not automatically attached to posts/)
     expect(CAMPAIGN_SRC).toMatch(/Campaign concept visuals are gallery assets for review/)
     expect(CAMPAIGN_SRC).toMatch(/NEXUS does not publish, schedule, or start paid campaigns from this tab/)
   })
@@ -55,7 +56,8 @@ describe('CS-1 creative IA copy', () => {
   it('keeps the campaign room first viewport focused on the practical next step', () => {
     expect(CAMPAIGN_SRC).toContain('data-campaign-first-viewport-action')
     expect(CAMPAIGN_SRC).toContain('Practical next step')
-    expect(CAMPAIGN_SRC).toContain('Creative path now')
+    expect(CAMPAIGN_SRC).toContain('Next creative step')
+    expect(CAMPAIGN_SRC).not.toContain('Creative path now')
     expect(CAMPAIGN_SRC).toContain('showFullCampaignOperatingFlow')
     expect(CAMPAIGN_SRC).toContain('activeTab === 0')
     expect(CAMPAIGN_SRC).toContain('id="campaign-room-workspace"')
@@ -71,10 +73,11 @@ describe('CS-1 creative IA copy', () => {
     expect(CAMPAIGN_SRC).toContain('Post media decisions')
     expect(CAMPAIGN_SRC).toContain('Optional concept visuals')
     expect(CAMPAIGN_SRC).toContain('Concept gallery is not the current step')
-    expect(CAMPAIGN_SRC).toContain('Content Hub posts already exist. Open the creative brief first to define asset and layer needs before any concept visual generation.')
-    expect(CAMPAIGN_SRC).toContain('Review the strategy and create Content Hub posts first, then open the creative brief before any visual generation.')
+    expect(CAMPAIGN_SRC).toContain('Content Hub posts already exist. Open the creative brief planner first to define asset and layer needs before any concept visual generation.')
+    expect(CAMPAIGN_SRC).toContain('Review the strategy and create Content Hub posts first, then open the creative brief planner before any visual generation.')
     expect(CAMPAIGN_SRC).toContain('This page does not treat zero media counts as readiness.')
-    expect(CAMPAIGN_SRC).toContain('Plan concept directions for review')
+    expect(CAMPAIGN_SRC).toContain('Review-only visual direction')
+    expect(CAMPAIGN_SRC).toContain('Plan concepts and production notes without creating a final asset')
     expect(CAMPAIGN_SRC).not.toContain('Generate concept directions for review')
   })
 
@@ -84,7 +87,8 @@ describe('CS-1 creative IA copy', () => {
     expect(briefGateIndex).toBeGreaterThan(-1)
     expect(mediaReviewIndex).toBeGreaterThan(-1)
     expect(briefGateIndex).toBeLessThan(mediaReviewIndex)
-    expect(CAMPAIGN_SRC).toContain('The creative brief is the organizing step before image and layer decisions.')
+    expect(CAMPAIGN_SRC).toContain('The creative brief planner is the organizing step before image and layer decisions.')
+    expect(CAMPAIGN_SRC).toContain('previews and assets are not automatically attached to posts')
   })
 
   it('frames the campaign visual generator as concept-gallery output only', () => {
