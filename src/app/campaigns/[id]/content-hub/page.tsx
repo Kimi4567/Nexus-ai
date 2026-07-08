@@ -1206,8 +1206,8 @@ export default function ContentHubPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
         {/* ── Header ─────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-          <div>
+        <div className="flex min-w-0 items-start justify-between mb-6 gap-4 flex-wrap">
+          <div className="min-w-0">
             <button
               onClick={() => router.push(`/campaigns/${campaignId}`)}
               className="text-sm text-slate-500 hover:text-[#5E5CE6] flex items-center gap-1 mb-2 transition-colors"
@@ -1237,7 +1237,7 @@ export default function ContentHubPage() {
             )}
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex w-full min-w-0 flex-wrap items-stretch justify-start gap-3 sm:w-auto sm:items-center sm:justify-end">
             {posts.length > 0 && (
               <>
                 {/* Primary CTA — honest two-step lifecycle:
@@ -1248,7 +1248,7 @@ export default function ContentHubPage() {
                       if (!approvalBlockedByOrderMismatch) setShowApproveConfirm(true)
                     }}
                     disabled={approving || approvalBlockedByOrderMismatch}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
                       background: '#059669',
                       color: 'white',
@@ -1270,7 +1270,7 @@ export default function ContentHubPage() {
                   <button
                     onClick={scheduleAll}
                     disabled={scheduling}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
                       background: '#4F46E5',
                       color: 'white',
@@ -1289,7 +1289,7 @@ export default function ContentHubPage() {
                     )}
                   </button>
                 ) : (
-                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium"
+                  <div className="flex max-w-full min-w-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium leading-tight"
                     style={{ background: '#ECFDF5', color: '#047857', border: '1px solid rgba(5,150,105,0.18)' }}>
                     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13.5 4.5l-7 7-3-3"/></svg>
                     {mixedScheduledManualPublishedCount
@@ -1303,7 +1303,7 @@ export default function ContentHubPage() {
                 <button
                   onClick={imageGenerationLocked ? () => router.push('/billing') : openBulkImageConfirm}
                   disabled={generating || pendingImageCount === 0}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                  className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                   style={{
                     background: imageGenerationLocked ? '#F8FAFC' : '#111827',
                     color: imageGenerationLocked ? '#475569' : 'white',
@@ -1326,7 +1326,7 @@ export default function ContentHubPage() {
                   <button
                     onClick={contentPlanLocked ? () => router.push('/billing') : openRegenerateConfirm}
                     disabled={generatingPlan}
-                    className="px-4 py-2 rounded-xl text-sm border transition-all"
+                    className="max-w-full min-w-0 rounded-xl border px-4 py-2 text-center text-sm leading-tight transition-all whitespace-normal break-words"
                     style={{ borderColor: contentPlanLocked ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.14)', color: contentPlanLocked ? '#B91C1C' : '#374151', background: contentPlanLocked ? '#FEF2F2' : '#FFFFFF' }}
                   >
                     {generatingPlan ? t('contentHub.regenerating') : contentPlanLocked ? addCreditsForRegenerateDraftPlanLabel : `↻ ${regenerateDraftPlanLabel}`}
@@ -1340,11 +1340,11 @@ export default function ContentHubPage() {
             )}
 
             {posts.length === 0 && (
-              <div className="flex items-center gap-3">
+              <div className="flex w-full min-w-0 flex-wrap items-stretch justify-start gap-3 sm:w-auto sm:items-center sm:justify-end">
                 {/* A/B Testing toggle */}
                 <button
                   onClick={() => setEnableABTesting(prev => !prev)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition-all"
                   style={{
                     background: enableABTesting ? '#FFFBEB' : '#FFFFFF',
                     border: enableABTesting ? '1px solid rgba(234,179,8,0.35)' : '1px solid rgba(15,23,42,0.10)',
@@ -1361,7 +1361,7 @@ export default function ContentHubPage() {
                   <button
                     onClick={contentPlanLocked ? () => router.push('/billing') : openGeneratePlanConfirm}
                     disabled={generatingPlan}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                    className="flex max-w-full min-w-0 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-center text-sm font-semibold leading-tight transition-all whitespace-normal break-words"
                     style={{
                       background: contentPlanLocked ? '#FEF2F2' : '#111827',
                       color: contentPlanLocked ? '#B91C1C' : 'white',
@@ -1454,7 +1454,7 @@ export default function ContentHubPage() {
 
         {/* ── Filter bar (sticky) ──────────────────────────────────── */}
         {posts.length > 0 && (
-          <div className="sticky top-0 z-10 mb-5 -mx-6 px-6 py-3"
+          <div className="sticky top-0 z-10 mb-5 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6"
             style={{ background: 'rgba(245,245,247,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
             {/* Platform tabs */}
             <div className="flex gap-2 flex-wrap mb-2.5">
@@ -1502,7 +1502,7 @@ export default function ContentHubPage() {
               ) : null
             })()}
             {/* Status filter */}
-            <div className="flex gap-1.5 items-center">
+            <div className="flex flex-wrap gap-1.5 items-center">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('contentHub.statusLabel')}</span>
               {(['ALL', 'PENDING', 'DONE', 'SCHEDULED', 'PUBLISHED'] as const).map(s => {
                 const isActive = statusFilter === s
