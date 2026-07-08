@@ -1454,7 +1454,7 @@ export default function ContentHubPage() {
 
         {/* ── Filter bar (sticky) ──────────────────────────────────── */}
         {posts.length > 0 && (
-          <div className="sticky top-0 z-10 mb-5 -mx-6 px-6 py-3"
+          <div className="sticky top-0 z-10 mb-5 -mx-4 px-4 py-3 sm:-mx-6 sm:px-6"
             style={{ background: 'rgba(245,245,247,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(15,23,42,0.08)' }}>
             {/* Platform tabs */}
             <div className="flex gap-2 flex-wrap mb-2.5">
@@ -1502,7 +1502,7 @@ export default function ContentHubPage() {
               ) : null
             })()}
             {/* Status filter */}
-            <div className="flex gap-1.5 items-center">
+            <div className="flex flex-wrap gap-1.5 items-center">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">{t('contentHub.statusLabel')}</span>
               {(['ALL', 'PENDING', 'DONE', 'SCHEDULED', 'PUBLISHED'] as const).map(s => {
                 const isActive = statusFilter === s
