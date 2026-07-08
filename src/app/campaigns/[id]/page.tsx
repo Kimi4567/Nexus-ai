@@ -2253,7 +2253,7 @@ function CampaignDetailPageInner() {
                 <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('مزيج القنوات', 'Channel mix')}</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex h-28 w-28 flex-shrink-0 items-center justify-center rounded-full border-[12px] border-indigo-200 bg-white text-center">
-                    <span className="text-xs font-bold text-slate-700">{uiText('توزيع\\nتخطيطي', 'Planning\\nmix')}</span>
+                    <span className="text-xs font-bold text-slate-700">{uiText('توزيع تخطيطي', 'Planning mix')}</span>
                   </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     {luxuryChannels.map((channel, index) => (
