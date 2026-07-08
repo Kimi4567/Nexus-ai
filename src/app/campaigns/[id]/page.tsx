@@ -43,6 +43,7 @@ import { guardStrategyProof } from '@/lib/ai/strategyProofGuard'
 import { deriveStrategyRoomStateCopy } from '@/lib/strategyRoomStateCopy'
 import { derivePlatformReadiness, type PlatformState } from '@/lib/platformReadiness'
 import { deriveStrategyExecutionBridge, type StrategyExecutionRequirement } from '@/lib/strategyExecutionBridge'
+import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '@/lib/strategyFulfillment'
 
 interface Activity {
   id: string
@@ -1385,7 +1386,7 @@ function CampaignDetailPageInner() {
   const autopilotQueueHasMixedManualAndScheduled = autopilotQueueManualPublishedCount > 0 && autopilotQueueScheduledCount > 0
   const hasManualOrScheduledWorkflowRecords = operatingState.truthFlags.hasScheduledContent || operatingState.truthFlags.hasManualPublishedContent
 
-  const creativeNeedsStrategyReview = operatingState.stage === 'strategy_review_needed'
+  const creativeNeedsStrategyReview = operatingSnapshotsLoaded && operatingState.stage === 'strategy_review_needed'
   const creativeHasPostRecords = operatingState.counts.totalPosts > 0 || operatingState.truthFlags.hasContentPlan
   const creativeCanUsePostMediaFlow = creativeHasPostRecords && !creativeNeedsStrategyReview
   const creativeCanUseConceptGallery = creativeCanUsePostMediaFlow && !!creativeBrief
@@ -1404,6 +1405,17 @@ function CampaignDetailPageInner() {
           : 'Start from the campaign direction so creative work follows the message and audience.',
         cta: locale === 'ar' ? 'راجع الاستراتيجية' : 'Review strategy',
         href: `/campaigns/${campaign.id}?tab=strategy`,
+      }
+    }
+
+    if (!operatingSnapshotsLoaded) {
+      return {
+        title: locale === 'ar' ? 'نفحص حالة Content Hub أولاً' : 'Checking Content Hub state first',
+        helper: locale === 'ar'
+          ? 'لا يبدأ المسار الإبداعي بحكم نهائي قبل تحميل سجلات المنشورات الفعلية. انتظر لحظة حتى تظهر حالة المحتوى والوسائط.'
+          : 'The creative path does not make a final call before real post records load. Wait a moment for content and media state to appear.',
+        cta: locale === 'ar' ? 'راجع الحالة هنا' : 'Review status here',
+        href: '#campaign-creative-work',
       }
     }
 
@@ -1717,21 +1729,65 @@ function CampaignDetailPageInner() {
       ? uiText(` · ${missingDataLabels.length} مدخلات ناقصة`, ` · ${missingDataLabels.length} missing input${missingDataLabels.length === 1 ? '' : 's'}`)
       : ''}`
     : uiText('تحتاج مراجعة بشرية قبل التنفيذ', 'Needs human review before execution')
+  const strategyFulfillmentSummary = deriveStrategyFulfillmentSummary({
+    aiOutput: campaign.aiOutput,
+    posts: campaignPosts.map((post: any) => ({
+      contentPlanIndex: post.contentPlanIndex,
+      variantGroup: post.variantGroup,
+    })),
+    operatingSnapshotsLoaded,
+    locale: uiIsArabic ? 'ar' : 'en',
+  })
+  const strategyFulfillmentToneClass: Record<StrategyFulfillmentTone, string> = {
+    positive: 'border-emerald-200 bg-emerald-50 text-emerald-950',
+    warning: 'border-amber-200 bg-amber-50 text-amber-950',
+    danger: 'border-rose-200 bg-rose-50 text-rose-950',
+    muted: 'border-slate-200 bg-slate-50 text-slate-700',
+    checking: 'border-blue-200 bg-blue-50 text-blue-950',
+  }
+  const strategyOperatingTone: StrategyFulfillmentTone = !operatingSnapshotsLoaded
+    ? 'checking'
+    : [
+      'strategy_missing',
+      'strategy_review_needed',
+      'content_plan_missing',
+      'content_review_needed',
+    ].includes(operatingState.stage)
+      ? 'warning'
+      : [
+        'content_approved_not_scheduled',
+        'scheduled_manual',
+        'scheduled_auto',
+        'auto_publish_enabled',
+        'published_waiting_for_analytics',
+        'performance_ready',
+      ].includes(operatingState.stage)
+        ? 'positive'
+        : 'muted'
   const strategyFirstViewportTruthCards = [
     {
       label: uiText('نطاق هذه الحملة', 'This campaign scope'),
       value: strategyScopeTruth,
       helper: uiText('يعكس أمر التوليد المحفوظ لهذه الحملة فقط.', 'Reflects the saved generation order for this campaign only.'),
+      tone: 'muted' as StrategyFulfillmentTone,
+    },
+    {
+      label: strategyFulfillmentSummary.label,
+      value: strategyFulfillmentSummary.value,
+      helper: strategyFulfillmentSummary.helper,
+      tone: strategyFulfillmentSummary.tone,
     },
     {
       label: uiText('الحالة التشغيلية', 'Operating state'),
       value: displayOperatingLabel,
       helper: uiText('Content Hub هو مصدر حقيقة المنشورات والوسائط.', 'Content Hub is the source of truth for posts and media.'),
+      tone: strategyOperatingTone,
     },
     {
       label: uiText('الثقة والبيانات', 'Confidence and inputs'),
       value: strategyConfidenceTruth,
       helper: uiText('أي افتراضات تظل للمراجعة حتى تظهر أدلة أو تحليلات.', 'Assumptions stay review-only until proof or analytics exist.'),
+      tone: 'muted' as StrategyFulfillmentTone,
     },
   ]
   const strategyReviewDeskCards = [
@@ -1979,16 +2035,16 @@ function CampaignDetailPageInner() {
                   {firstViewportAction.helper}
                 </p>
                 {activeTab === 0 && (
-                  <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
+                  <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
                     {strategyFirstViewportTruthCards.map((item) => (
-                      <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      <div key={item.label} className={`rounded-2xl border px-3 py-3 ${strategyFulfillmentToneClass[item.tone]}`}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-current/45">
                           {item.label}
                         </p>
-                        <p className="mt-1 text-sm font-semibold leading-5 text-slate-950">
+                        <p className="mt-1 text-sm font-semibold leading-5 text-current">
                           {item.value}
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                        <p className="mt-1 text-xs leading-5 text-current/70">
                           {item.helper}
                         </p>
                       </div>
