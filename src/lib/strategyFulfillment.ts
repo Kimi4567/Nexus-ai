@@ -191,7 +191,7 @@ export function deriveStrategyFulfillmentSummary(input: StrategyFulfillmentInput
       label,
       value: text(
         ar,
-        `مطابق: ${review.actualDirections} / ${review.expectedDirections} منشورات`,
+        `مطابق: ${review.actualDirections} من ${review.expectedDirections} منشورات`,
         `Matched: ${review.actualDirections} / ${review.expectedDirections} posts`,
       ),
       helper: `${helperSuffix(ar)} ${text(
