@@ -26,10 +26,10 @@ export default function AppShell({ children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { dir, t } = useI18n()
 
-  const sidebarW = collapsed ? 'w-16' : 'w-56'
+  const sidebarW = collapsed ? 'w-16' : 'w-60'
 
   return (
-    <div dir="ltr" className="min-h-screen flex bg-bg-base">
+    <div dir="ltr" className="min-h-screen flex bg-[#F4F7FB]">
 
       {/* Mobile overlay */}
       {mobileOpen && (
