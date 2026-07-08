@@ -192,7 +192,7 @@ export default function ApprovalsPage() {
             <Card>
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('قائمة الموافقات', 'Approval list')}</h2>
+                  <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('المحتوى قيد المراجعة', 'Content in review')}</h2>
                   <p className="mt-1 text-[12px] font-semibold text-[#7b87a3]">
                     {copy('مصدرها الحالي إشارات Brand Brain القابلة للمراجعة.', 'Currently sourced from reviewable Brand Brain signals.')}
                   </p>

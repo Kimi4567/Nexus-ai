@@ -196,7 +196,7 @@ export default function AutomationPage() {
                   {copy('جاهزية الأتمتة فقط', 'Automation readiness only')}
                 </div>
                 <h1 className="text-3xl font-black tracking-[-0.03em] text-[#071236] lg:text-4xl">
-                  {copy('مركز الأتمتة الآمنة', 'Safe Automation Center')}
+                  {copy('Nexus Autopilot™ جاهزية الأتمتة', 'Nexus Autopilot™ Automation readiness')}
                 </h1>
                 <p className="mt-3 max-w-3xl text-[14px] font-semibold leading-7 text-[#64708f]">
                   {copy(
@@ -264,7 +264,7 @@ export default function AutomationPage() {
             <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)]">
               <div className="mb-5 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-[18px] font-black text-[#071236]">{copy('مسارات الأتمتة المقترحة', 'Suggested automation paths')}</h2>
+                  <h2 className="text-[18px] font-black text-[#071236]">{copy('منشئ مسار الأتمتة', 'Automation path builder')}</h2>
                   <p className="mt-1 text-[13px] font-semibold text-[#7b87a3]">
                     {copy('كل مسار يبدأ كمراجعة أو تنبيه. لا يوجد تنفيذ نهائي من هذه الصفحة.', 'Each path starts as review or alerting. No final execution happens from this page.')}
                   </p>

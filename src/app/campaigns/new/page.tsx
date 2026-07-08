@@ -69,7 +69,7 @@ export default function NewCampaignPage() {
 function NewCampaignPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { authHeader } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
   const cnT = t('campaignNew')
   const billingStatus = useBillingStatus()
@@ -194,9 +194,12 @@ function NewCampaignPageInner() {
 
   // Fetch media when entering step 4
   useEffect(() => {
-    if (step !== 4 || mediaItems.length > 0) return
+    if (authLoading || !isAuthenticated || step !== 4 || mediaItems.length > 0) return
+    const token = authHeader()
+    if (!token) return
+
     setLoadingMedia(true)
-    fetch('/api/media', { headers: { Authorization: authHeader() } })
+    fetch('/api/media', { headers: { Authorization: token } })
       .then(r => r.ok ? r.json() : { media: [] })
       .then(data => {
         const items = data.media ?? data ?? []
@@ -204,7 +207,7 @@ function NewCampaignPageInner() {
       })
       .catch(() => {})
       .finally(() => setLoadingMedia(false))
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authHeader, authLoading, isAuthenticated, mediaItems.length, step])
 
   // Inline upload handler — uploads directly from campaign wizard without leaving the page
   const handleInlineUpload = async (files: FileList | null) => {
@@ -324,13 +327,19 @@ function NewCampaignPageInner() {
 
   // Fetch Brand Brain readiness
   useEffect(() => {
-    fetch('/api/brand', { headers: { Authorization: authHeader() } })
+    if (authLoading || !isAuthenticated) return
+    const token = authHeader()
+    if (!token) return
+    let cancelled = false
+
+    fetch('/api/brand', { headers: { Authorization: token } })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+        if (!cancelled && data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
       })
       .catch(() => {})
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
+  }, [authHeader, authLoading, isAuthenticated])
 
   const togglePlatform = (p: string) =>
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])

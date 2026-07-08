@@ -222,7 +222,7 @@ export default function PublishPage() {
             <Panel>
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('الصفوف الجاهزة للنشر', 'Publishing queue')}</h2>
+                  <h2 className="text-xl font-black tracking-[-0.03em] text-[#071236]">{copy('الصفوف المجدولة', 'Scheduled rows')}</h2>
                   <p className="mt-1 text-[12px] font-semibold text-[#7b87a3]">
                     {copy('تظهر هنا العناصر بعد مراجعة Content Hub والوسائط والحسابات. لا يوجد نشر تلقائي من هذه القائمة.', 'Items appear here after Content Hub, media, and account review. This list never auto-publishes.')}
                   </p>
