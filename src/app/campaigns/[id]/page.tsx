@@ -2118,7 +2118,7 @@ function CampaignDetailPageInner() {
                   <div className="min-w-0">
                     <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
-                        {operatingState.truthFlags.hasStrategy ? uiText('نشطة للمراجعة', 'Active for review') : uiText('قيد الإعداد', 'Preparing')}
+                        {operatingState.truthFlags.hasStrategy ? uiText('جاهزة للمراجعة', 'Ready for review') : uiText('قيد الإعداد', 'Preparing')}
                       </span>
                       <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-500">
                         {strategyScopeTruth}
@@ -2235,7 +2235,7 @@ function CampaignDetailPageInner() {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-3">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('الأركان المحتوية', 'Content pillars')}</h3>
+                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('أركان المحتوى', 'Content pillars')}</h3>
                 <div className="space-y-2">
                   {(luxuryAngles.length > 0 ? luxuryAngles : [{ label: strategyDocStateCopy.contentPlanStatusValue, helper: strategyDocGuidanceCopy.hint, share: 100 }]).map((pillar: { label: string; helper: string; share: number }, index: number) => (
                     <div key={`${pillar.label}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
@@ -2253,7 +2253,7 @@ function CampaignDetailPageInner() {
                 <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('مزيج القنوات', 'Channel mix')}</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex h-28 w-28 flex-shrink-0 items-center justify-center rounded-full border-[12px] border-indigo-200 bg-white text-center">
-                    <span className="text-xs font-bold text-slate-700">{uiText('توزيع\\nالمراجعة', 'Review\\nmix')}</span>
+                    <span className="text-xs font-bold text-slate-700">{uiText('توزيع\\nتخطيطي', 'Planning\\nmix')}</span>
                   </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     {luxuryChannels.map((channel, index) => (
@@ -2295,7 +2295,7 @@ function CampaignDetailPageInner() {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-4">
-                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('الخطوات التالية', 'Next strategic steps')}</h3>
+                <h3 className="mb-3 text-sm font-bold text-slate-950">{uiText('الخطوات الاستراتيجية التالية', 'Next strategic steps')}</h3>
                 <div className="space-y-2">
                   {(luxuryNextSteps.length > 0 ? luxuryNextSteps : campaignCommandFlow.steps.slice(0, 3)).map((step, index) => (
                     <Link key={`${step.id}-${index}`} href={step.href} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 transition hover:border-indigo-200 hover:bg-indigo-50">
