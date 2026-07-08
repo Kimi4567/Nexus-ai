@@ -533,7 +533,7 @@ export default function ContentHubPage() {
     : approvedOnlyCount
       ? (isAr
         ? 'المنشورات المعتمدة محفوظة. إعادة التوليد تنشئ خطة مسودة جديدة للمراجعة فقط ولا تجدول أو تنشر المحتوى الحالي.'
-        : 'Approved posts are saved. Regenerating creates a new draft plan for review only and does not schedule or publish current content.')
+        : 'Approved posts are saved; approved posts are not linked to publishing accounts by approval alone. Regenerating creates a new draft plan for review only and does not schedule or publish current content.')
       : (isAr
         ? 'ينشئ مسودات للمراجعة فقط. لا يتم الاعتماد أو الجدولة أو النشر.'
         : 'Creates draft posts for review only. Nothing is approved, scheduled, or published.')
@@ -1926,9 +1926,9 @@ export default function ContentHubPage() {
                     <span className="text-lg">📅</span>
                     <div>
                       <p className="text-xs text-slate-500 mb-0.5">
-                        {approveResult.kind === 'scheduled'
-                          ? (isAr ? 'نافذة المحتوى المجدول' : 'Scheduled content window')
-                          : (isAr ? 'نافذة المحتوى المخطط' : 'Planned content window')}
+                        {isAr
+                          ? (approveResult.kind === 'scheduled' ? 'نافذة المحتوى المجدول' : 'نافذة المحتوى المخطط')
+                          : approveResult.kind === 'scheduled' ? 'Publishing window' : 'Planned content window'}
                       </p>
                       <p className="text-sm text-[#5E5CE6] font-medium">
                         {approveResult.firstDate
