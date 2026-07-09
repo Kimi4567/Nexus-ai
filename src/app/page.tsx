@@ -270,7 +270,7 @@ export default function LandingPage() {
     {
       icon: Brain,
       title: ar ? 'Brand Brain' : 'Brand Brain',
-      body: ar ? 'ذاكرة البراند التي تحفظ الصناعة، الجمهور، النبرة، الزوايا الناجحة، والمنافسين.' : 'A brand memory that stores industry, audience, voice, winning angles, and competitors.',
+      body: ar ? 'ذاكرة البراند التي تحفظ الصناعة، الجمهور، النبرة، إشارات الزوايا المراجَعة، والمنافسين.' : 'A brand memory that stores industry, audience, voice, reviewed angle signals, and competitors.',
       href: '/brand',
       cta: ar ? 'افتح Brand Brain' : 'Open Brand Brain',
     },
@@ -291,7 +291,7 @@ export default function LandingPage() {
     {
       icon: MonitorCheck,
       title: ar ? 'التعلم والتحسين' : 'Learning and improvement',
-      body: ar ? 'النظام يتابع أداء منشوراتك ويغذّي النتائج في ذاكرة العلامة لتتحسن كل حملة تالية.' : 'The system tracks how your posts perform and feeds results back into your brand memory, so each campaign improves.',
+      body: ar ? 'النظام يعرض التحليلات الحقيقية عند توفرها، ثم يحوّلها إلى إشارات مراجعة قبل تحديث ذاكرة العلامة.' : 'The system shows real analytics when they exist, then turns them into reviewable signals before Brand Brain updates.',
       href: '/analytics',
       cta: ar ? 'عرض التحليلات' : 'View analytics',
     },
@@ -339,7 +339,7 @@ export default function LandingPage() {
           <SectionTitle
             eyebrow={ar ? 'طريقة العمل' : 'Workflow'}
             title={ar ? 'من الذاكرة إلى التنفيذ.' : 'From memory to execution.'}
-            body={ar ? 'بدل مولد نصوص منفصل، Nexus يتحرك كمشغّل تسويق: يفهم، يخطط، ينتج، يعتمد، ويتعلم.' : 'Instead of a standalone generator, Nexus works like a marketing operator: understand, plan, produce, approve, and learn.'}
+            body={ar ? 'بدل مولد نصوص منفصل، Nexus يتحرك كمشغّل تسويق: يفهم، يخطط، ينتج، يراجع، وينتظر بيانات حقيقية قبل التعلم.' : 'Instead of a standalone generator, Nexus works like a marketing operator: understand, plan, produce, review, and wait for real data before learning.'}
           />
           <WorkflowStep
             index="01"
@@ -362,8 +362,8 @@ export default function LandingPage() {
           <WorkflowStep
             index="04"
             icon={BarChart3}
-            title={ar ? 'تعلم من النتائج' : 'Learn from results'}
-            body={ar ? 'بعد الاعتماد والأداء، Brand Brain يتغذى على hooks وزوايا ناجحة ليحسن الحملات القادمة.' : 'After approval and performance, Brand Brain learns winning hooks and angles to improve future campaigns.'}
+            title={ar ? 'راجع إشارات الأداء' : 'Review performance signals'}
+            body={ar ? 'بعد النشر وظهور analyticsData، تتحول النتائج إلى إشارات قابلة للمراجعة قبل أي تحديث لـ Brand Brain.' : 'After publishing and analyticsData exists, results become reviewable signals before any Brand Brain update.'}
           />
         </div>
       </section>
@@ -405,7 +405,7 @@ export default function LandingPage() {
           <h2 className="mb-6 text-3xl font-semibold tracking-tight text-slate-950">{ar ? 'أسئلة مهمة' : 'Important questions'}</h2>
           <FAQItem
             q={ar ? 'هل Nexus بديل وكالة تسويق كاملة؟' : 'Is Nexus a full agency replacement?'}
-            a={ar ? 'هو يتحرك في هذا الاتجاه: استراتيجية، محتوى، تنفيذ، تعلم، وتقارير. لكنه يحتاج ربط منصات وبيانات أداء حقيقية ليصبح بديلا كاملا في الإنتاج.' : 'It is moving in that direction: strategy, content, execution, learning, and reporting. It becomes a true replacement once platform connections and performance data loops are fully active.'}
+            a={ar ? 'هو يتحرك في هذا الاتجاه: استراتيجية، محتوى، مراجعة، تنفيذ، وتقارير. لكنه يصبح بديلاً تشغيلياً كاملاً فقط بعد اكتمال ربط المنصات وتصاريح النشر/الإعلانات وبيانات الأداء الحقيقية.' : 'It is moving in that direction: strategy, content, review, execution, and reporting. It becomes a true operating replacement only after platform connections, publishing/ad permissions, and real performance data loops are active.'}
           />
           <FAQItem
             q={ar ? 'هل الكريدت واضح؟' : 'Are credits clear?'}

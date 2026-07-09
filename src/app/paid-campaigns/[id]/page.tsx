@@ -15,7 +15,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -107,11 +109,11 @@ const fmt = (n: number, dec = 0) => n?.toLocaleString(undefined, { minimumFracti
 
 function KpiCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div className="flex flex-col gap-1 p-4 rounded-[12px]"
-      style={{ background: 'var(--nx-surface-2)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <span className="text-[11px] text-text-muted font-medium">{label}</span>
-      <span className="text-[22px] font-bold leading-tight" style={{ color: accent || 'white' }}>{value}</span>
-      {sub && <span className="text-[11px] text-text-muted">{sub}</span>}
+    <div className="flex flex-col gap-1 rounded-2xl p-4 shadow-sm"
+      style={{ background: '#FFFFFF', border: '1px solid rgba(15,23,42,0.08)' }}>
+      <span className="text-[11px] font-semibold text-slate-500">{label}</span>
+      <span className="text-[22px] font-black leading-tight" style={{ color: accent || '#071236' }}>{value}</span>
+      {sub && <span className="text-[11px] text-slate-500">{sub}</span>}
     </div>
   )
 }
@@ -119,8 +121,10 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string; 
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
   const { user } = useAuth()
+  const { locale } = useI18n()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const ar = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [loading, setLoading] = useState(true)
@@ -293,10 +297,10 @@ export default function CampaignDetailPage() {
 
   if (loading) return (
     <AppShell>
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-text-muted text-[13px]">Loading campaign...</p>
+          <div className="w-10 h-10 border-2 border-indigo-100 border-t-indigo-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 text-[13px]">Loading paid planning draft...</p>
         </div>
       </div>
     </AppShell>
@@ -304,12 +308,12 @@ export default function CampaignDetailPage() {
 
   if (error || !campaign) return (
     <AppShell>
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center bg-[#f6f8fc]">
         <div className="text-center">
           <p className="text-red-400 mb-4">{error || 'Campaign not found'}</p>
           <button onClick={() => router.push('/paid-campaigns')}
-            className="px-4 py-2 rounded-lg text-[13px] text-white"
-            style={{ background: 'rgba(255,255,255,0.08)' }}>
+            className="px-4 py-2 rounded-lg text-[13px] font-bold text-white"
+            style={{ background: '#071236' }}>
             ← Back to Paid Ads Control Center
           </button>
         </div>
@@ -331,13 +335,50 @@ export default function CampaignDetailPage() {
 
   return (
     <AppShell>
-      <div className="max-w-[1100px] mx-auto px-4 py-6">
+      <div className="paid-detail-luxury min-h-screen bg-[#f6f8fc] px-4 py-6 text-[#071236] sm:px-6 lg:px-8">
+        <style jsx global>{`
+          .paid-detail-luxury {
+            --nx-surface: #ffffff;
+            --nx-surface-2: #f8fafc;
+            --text-muted: #64748b;
+          }
+          .paid-detail-luxury .text-white {
+            color: #071236 !important;
+          }
+          .paid-detail-luxury .text-text-muted {
+            color: #64748b !important;
+          }
+          .paid-detail-luxury .hover\\:text-white:hover {
+            color: #071236 !important;
+          }
+          .paid-detail-luxury .paid-detail-modal .text-white,
+          .paid-detail-luxury .paid-detail-modal .hover\\:text-white:hover {
+            color: #ffffff !important;
+          }
+          .paid-detail-luxury .paid-detail-modal .text-text-muted {
+            color: #94a3b8 !important;
+          }
+          .paid-detail-luxury .hover\\:bg-white\\/\\[0\\.02\\]:hover,
+          .paid-detail-luxury .hover\\:bg-white\\/\\[0\\.04\\]:hover {
+            background: rgba(94, 92, 230, 0.05) !important;
+          }
+        `}</style>
+        <div className="mx-auto max-w-[1540px]">
+        <LuxuryWorkspaceHeader
+          pageTitle={ar ? 'تفاصيل التخطيط المدفوع' : 'Paid planning details'}
+          pageSubtitle={ar ? 'راجع الاستراتيجية، النسخ، الميزانية، وحالة المنصة. أي إنشاء منصة أو تفعيل إنفاق يحتاج موافقة صريحة.' : 'Review strategy, copy, budget, and platform state. Platform creation or spend activation requires explicit approval.'}
+          primaryHref="/paid-campaigns"
+          primaryLabel={ar ? 'مركز الإعلانات المدفوعة' : 'Paid campaigns'}
+          secondaryHref="/connections"
+          secondaryLabel={ar ? 'التكاملات' : 'Integrations'}
+        />
+
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-6">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/paid-campaigns')}
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-text-muted hover:text-white transition-all"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-slate-500 hover:text-slate-950 transition-all"
+              style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.10)' }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M9 2L4 7l5 5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -352,8 +393,8 @@ export default function CampaignDetailPage() {
                   {statusStyle.label}
                 </span>
               </div>
-              <h1 className="text-[20px] font-bold text-white">{campaign.name}</h1>
-              <p className="text-[12px] text-text-muted">
+              <h1 className="text-2xl font-black tracking-tight text-slate-950">{campaign.name}</h1>
+              <p className="mt-1 text-[13px] text-slate-500">
                 {executionLabel} ·{' '}
                 {campaign.objective.replace(/_/g, ' ')}
                 {campaign.adAccount && ` · ${campaign.adAccount.platformAccountName}`}
@@ -415,15 +456,15 @@ export default function CampaignDetailPage() {
               )
             )}
             <button onClick={() => setActiveTab('performance')}
-              className="px-3 py-2 rounded-xl text-[12px] font-medium text-text-muted hover:text-white transition-all"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              className="px-3 py-2 rounded-xl text-[12px] font-bold text-slate-600 hover:text-slate-950 transition-all"
+              style={{ background: '#F8FAFC', border: '1px solid rgba(15,23,42,0.08)' }}>
               + Reported metrics
             </button>
           </div>
         </div>
 
         {/* ── KPI Bar ────────────────────────────────────────────────── */}
-        <div className="grid grid-cols-4 sm:grid-cols-7 gap-3 mb-6">
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
           <div className="col-span-2">
             <KpiCard
               label="Reported Spend"
@@ -445,8 +486,7 @@ export default function CampaignDetailPage() {
         </div>
 
         {/* ── Tabs ───────────────────────────────────────────────────── */}
-        <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="mb-6 flex w-fit flex-wrap gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
           {[
             { key: 'overview', label: 'Overview' },
             { key: 'adsets', label: `Ad Sets (${campaign.adSets.length})` },
@@ -460,7 +500,7 @@ export default function CampaignDetailPage() {
               className="px-4 py-1.5 rounded-[10px] text-[12px] font-medium transition-all"
               style={{
                 background: activeTab === tab.key ? 'rgba(249,115,22,0.15)' : 'transparent',
-                color: activeTab === tab.key ? '#F97316' : 'var(--text-muted)',
+                color: activeTab === tab.key ? '#F97316' : '#64748B',
               }}
             >
               {tab.label}
@@ -1083,7 +1123,7 @@ export default function CampaignDetailPage() {
             style={{ background: 'rgba(2,6,23,0.72)' }}
           >
             <div
-              className="w-full max-w-[500px] rounded-[16px] p-5"
+              className="paid-detail-modal w-full max-w-[500px] rounded-[16px] p-5"
               style={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.22)' }}
             >
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -1174,7 +1214,7 @@ export default function CampaignDetailPage() {
             style={{ background: 'rgba(2,6,23,0.72)' }}
           >
             <div
-              className="w-full max-w-[520px] rounded-[16px] p-5"
+              className="paid-detail-modal w-full max-w-[520px] rounded-[16px] p-5"
               style={{ background: '#0f172a', border: '1px solid rgba(148,163,184,0.22)' }}
             >
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -1272,6 +1312,7 @@ export default function CampaignDetailPage() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </AppShell>
   )

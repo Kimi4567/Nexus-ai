@@ -11,12 +11,12 @@ export default function StartPageRedirect() {
   }, [router])
 
   return (
-    <div className="min-h-screen bg-deep flex items-center justify-center">
+    <div className="min-h-screen bg-[#f6f8fc] flex items-center justify-center text-[#071332]">
       <div className="text-center">
         <div className="w-12 h-12 mx-auto mb-4 relative">
-          <div className="absolute inset-0 rounded-full border-2 border-amber/20 border-t-amber animate-spin" />
+          <div className="absolute inset-0 rounded-full border-2 border-indigo-100 border-t-indigo-600 animate-spin" />
         </div>
-        <p className="text-text-muted text-sm">جاري التوجيه...</p>
+        <p className="text-sm font-semibold text-slate-500">جاري فتح إعداد Brand Brain...</p>
       </div>
     </div>
   )

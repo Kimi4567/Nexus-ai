@@ -51,18 +51,18 @@ export default function AppShell({ children }: AppShellProps) {
         }}
       >
         <div className="flex items-center gap-2">
-          <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+          <svg width="22" height="22" viewBox="0 0 30 30" fill="none">
             <defs>
-              <linearGradient id="mobileLogoGrad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#8B5CF6" />
-                <stop offset="1" stopColor="#F97316" />
-              </linearGradient>
+              <radialGradient id="mobileLogoGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(15 15) rotate(90) scale(15)">
+                <stop stopColor="#C7D2FE" />
+                <stop offset="0.45" stopColor="#7C83FF" />
+                <stop offset="1" stopColor="#111A4D" />
+              </radialGradient>
             </defs>
-            <rect width="28" height="28" rx="7" fill="url(#mobileLogoGrad)" />
-            <path d="M7 7L14 21L21 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M7 7H21" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="15" cy="15" r="15" fill="url(#mobileLogoGlow)" />
+            <path d="M15 4.5C16.45 10.95 19.05 13.55 25.5 15C19.05 16.45 16.45 19.05 15 25.5C13.55 19.05 10.95 16.45 4.5 15C10.95 13.55 13.55 10.95 15 4.5Z" fill="#fff" />
           </svg>
-          <span className="font-bold text-slate-950 text-[14px]">Nexus</span>
+          <span className="font-bold tracking-[0.16em] text-slate-950 text-[14px]">NEXUS</span>
         </div>
         <button
           type="button"

@@ -69,7 +69,7 @@ export default function NewCampaignPage() {
 function NewCampaignPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { authHeader } = useAuth()
+  const { authHeader, isAuthenticated, loading: authLoading } = useAuth()
   const { t, locale } = useI18n()
   const cnT = t('campaignNew')
   const billingStatus = useBillingStatus()
@@ -194,9 +194,12 @@ function NewCampaignPageInner() {
 
   // Fetch media when entering step 4
   useEffect(() => {
-    if (step !== 4 || mediaItems.length > 0) return
+    if (authLoading || !isAuthenticated || step !== 4 || mediaItems.length > 0) return
+    const token = authHeader()
+    if (!token) return
+
     setLoadingMedia(true)
-    fetch('/api/media', { headers: { Authorization: authHeader() } })
+    fetch('/api/media', { headers: { Authorization: token } })
       .then(r => r.ok ? r.json() : { media: [] })
       .then(data => {
         const items = data.media ?? data ?? []
@@ -204,7 +207,7 @@ function NewCampaignPageInner() {
       })
       .catch(() => {})
       .finally(() => setLoadingMedia(false))
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authHeader, authLoading, isAuthenticated, mediaItems.length, step])
 
   // Inline upload handler — uploads directly from campaign wizard without leaving the page
   const handleInlineUpload = async (files: FileList | null) => {
@@ -324,13 +327,19 @@ function NewCampaignPageInner() {
 
   // Fetch Brand Brain readiness
   useEffect(() => {
-    fetch('/api/brand', { headers: { Authorization: authHeader() } })
+    if (authLoading || !isAuthenticated) return
+    const token = authHeader()
+    if (!token) return
+    let cancelled = false
+
+    fetch('/api/brand', { headers: { Authorization: token } })
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
+        if (!cancelled && data) setBrandReadiness(getBrandBrainReadiness(data.brandProfile))
       })
       .catch(() => {})
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
+  }, [authHeader, authLoading, isAuthenticated])
 
   const togglePlatform = (p: string) =>
     setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
@@ -579,30 +588,78 @@ function NewCampaignPageInner() {
   // ── Wizard ────────────────────────────────────────────────────────────────────
   return (
     <AppShell>
-      <div className="min-h-screen bg-[#f5f5f7]">
-        <div className="max-w-3xl mx-auto px-4 py-10 page-enter">
+      <div className="min-h-screen overflow-hidden bg-[#f6f8fc] bg-[radial-gradient(circle_at_top_left,rgba(94,92,230,0.10),transparent_32%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.08),transparent_28%)]">
+        <div className="mx-auto max-w-[1540px] px-4 py-8 page-enter sm:px-6 lg:px-8">
           <UpgradeModal open={showUpgrade} onClose={() => setShowUpgrade(false)} reason="no_credits" />
 
           {/* ── Header ─────────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 mb-8">
-            <Link href="/campaigns"
-              className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-slate-100"
-              style={{ background: '#fff', border: '1px solid rgba(15,23,42,0.08)' }}>
-              <ArrowLeft className="w-4 h-4 text-slate-500" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <Layers className="w-4 h-4 text-slate-400" />
-                <span className="text-xs text-slate-400 font-mono tracking-wider">
-                  {locale === 'ar' ? 'محتوى عضوي جديد' : 'NEW ORGANIC CONTENT'}
-                </span>
+          <div className="mb-6 rounded-[30px] border border-slate-200/80 bg-white p-5 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-5">
+              <div className="flex items-start gap-4">
+                <Link
+                  href="/campaigns"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500 transition-all hover:-translate-y-0.5 hover:bg-white hover:text-slate-950"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Link>
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                      <Layers className="h-3.5 w-3.5" />
+                      {locale === 'ar' ? 'محتوى عضوي جديد' : 'NEW ORGANIC CONTENT'}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {locale === 'ar' ? 'مراجعة قبل النشر' : 'Review before publishing'}
+                    </span>
+                  </div>
+                  <h1 className="text-3xl font-black tracking-[-0.02em] text-slate-950 sm:text-4xl">
+                    {locale === 'ar' ? 'ولّد محتوى المنصات' : 'Generate Platform Content'}
+                  </h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+                    {locale === 'ar'
+                      ? 'حوّل سياق Brand Brain إلى استراتيجية ومحتوى للمراجعة داخل Content Hub. لا نشر، لا جدولة، ولا خصم إلا بعد تأكيد تكلفة التوليد.'
+                      : 'Turn Brand Brain context into strategy and reviewed content in Content Hub. No publishing, scheduling, or credit spend happens until the final cost confirmation.'}
+                  </p>
+                </div>
               </div>
-              <h1 className="text-2xl font-bold text-slate-950">
-                {locale === 'ar' ? 'ولّد محتوى المنصات' : 'Generate Platform Content'}
-              </h1>
-              <p className="text-slate-500 text-sm">
+              <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-3">
+                {[
+                  {
+                    icon: Rocket,
+                    label: locale === 'ar' ? 'الخطوة الحالية' : 'Current step',
+                    value: locale === 'ar' ? `${step} من ${totalSteps}` : `${step} of ${totalSteps}`,
+                  },
+                  {
+                    icon: BarChart3,
+                    label: locale === 'ar' ? 'تسليم هذه الحملة' : 'This run',
+                    value: locale === 'ar' ? `${deliverable.total} منشور` : `${deliverable.total} posts`,
+                  },
+                  {
+                    icon: Brain,
+                    label: locale === 'ar' ? 'Brand Brain' : 'Brand Brain',
+                    value: brandReadiness === null
+                      ? (locale === 'ar' ? 'جار الفحص' : 'Checking')
+                      : brandNotReady
+                      ? (locale === 'ar' ? 'يحتاج إكمال' : 'Needs input')
+                      : (locale === 'ar' ? 'جاهز' : 'Ready'),
+                  },
+                ].map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                    <Icon className="mb-2 h-4 w-4 text-violet-600" />
+                    <p className="text-[11px] font-semibold text-slate-400">{label}</p>
+                    <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <span className="font-semibold">
                 {locale === 'ar' ? `الخطوة ${step} من ${totalSteps}` : `Step ${step} of ${totalSteps}`}
-              </p>
+              </span>
+              <span className="text-xs text-slate-500">
+                {locale === 'ar' ? 'المخرجات تذهب إلى Content Hub للمراجعة' : 'Outputs go to Content Hub for review'}
+              </span>
             </div>
           </div>
 
@@ -636,8 +693,10 @@ function NewCampaignPageInner() {
             </div>
           )}
 
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="min-w-0">
           {/* ── Stepper ─────────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-1 mb-8 overflow-x-auto">
+          <div className="mb-5 flex items-center gap-1 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-3 shadow-[0_16px_50px_rgba(15,23,42,0.05)]">
             {steps.map(s => {
               const Icon = s.icon
               const done = step > s.num
@@ -679,10 +738,10 @@ function NewCampaignPageInner() {
           </div>
 
           {/* ── Card ────────────────────────────────────────────────────────── */}
-          <div className="rounded-2xl p-6" style={{
+          <div className="rounded-[26px] p-5 sm:p-6" style={{
             background: '#fff',
             border: '1px solid rgba(15,23,42,0.08)',
-            boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
+            boxShadow: '0 20px 70px rgba(15,23,42,0.07)',
           }}>
 
             {/* ── Step 1: Content Info ──────────────────────────────────────── */}
@@ -1306,11 +1365,11 @@ function NewCampaignPageInner() {
                             ? `🗓 حصتك الشهرية: ${planPostQuota} بوست / شهر (${planDisplayName})`
                             : `🗓 Monthly quota: ${planPostQuota} posts / month (${planDisplayName})`}
                         </p>
-                        <p>
-                          {locale === 'ar'
-                            ? '💳 التكلفة: 8 كريدت (استراتيجية) + 2 كريدت (توليد محتوى) = 10 كريدت'
-                            : '💳 Cost: 8 credits (strategy) + 2 credits (content generation) = 10 credits'}
-                        </p>
+	                        <p>
+	                          {locale === 'ar'
+	                            ? `💳 التكلفة المعروضة في التأكيد النهائي: ${CAMPAIGN_GENERATE_COST} كريدت`
+	                            : `💳 Final confirmation cost shown before generation: ${CAMPAIGN_GENERATE_COST} credits`}
+	                        </p>
                       </div>
                     </div>
                   </div>
@@ -1361,11 +1420,96 @@ function NewCampaignPageInner() {
                     </>
                   )}
                 </button>
-              )}
+	              )}
+	            </div>
+	          </div>
             </div>
+
+            <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+              <div className="rounded-[26px] border border-slate-200 bg-white p-5 shadow-[0_20px_70px_rgba(15,23,42,0.07)]">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-500">
+                      {locale === 'ar' ? 'ملخص التنفيذ' : 'Run summary'}
+                    </p>
+                    <h2 className="mt-1 text-lg font-black text-slate-950">
+                      {locale === 'ar' ? 'ماذا سيحدث؟' : 'What happens next?'}
+                    </h2>
+                  </div>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+                    <Wand2 className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    {
+                      label: locale === 'ar' ? 'التسليم' : 'Delivery',
+                      value: locale === 'ar'
+                        ? `${deliverable.total} منشور للمراجعة`
+                        : `${deliverable.total} posts for review`,
+                    },
+                    {
+                      label: locale === 'ar' ? 'المنصات' : 'Platforms',
+                      value: platforms.length ? platforms.join(' · ') : (locale === 'ar' ? 'اختر منصة' : 'Choose platforms'),
+                    },
+                    {
+                      label: locale === 'ar' ? 'لغة المحتوى' : 'Content language',
+                      value: contentLanguage === 'ar'
+                        ? (locale === 'ar' ? 'عربي' : 'Arabic')
+                        : contentLanguage === 'en'
+                        ? (locale === 'ar' ? 'إنجليزي' : 'English')
+                        : (locale === 'ar' ? 'ثنائي اللغة' : 'Bilingual'),
+                    },
+                    {
+                      label: locale === 'ar' ? 'التكلفة قبل التنفيذ' : 'Cost before run',
+                      value: locale === 'ar'
+                        ? `${CAMPAIGN_GENERATE_COST} كريدت بعد التأكيد`
+                        : `${CAMPAIGN_GENERATE_COST} credits after confirmation`,
+                    },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold text-slate-400">{item.label}</p>
+                      <p className="mt-1 text-sm font-black text-slate-950">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[26px] border border-emerald-200 bg-emerald-50/70 p-5">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
+                  <div>
+                    <h3 className="text-sm font-black text-emerald-900">
+                      {locale === 'ar' ? 'حدود آمنة' : 'Safe boundary'}
+                    </h3>
+                    <p className="mt-2 text-xs leading-relaxed text-emerald-800">
+                      {locale === 'ar'
+                        ? 'هذه الصفحة تنشئ استراتيجية وخطة محتوى للمراجعة فقط. النشر، الجدولة، الصور، والربط مع المنصات كلهم خطوات منفصلة بتأكيد صريح.'
+                        : 'This page creates strategy and content planning for review only. Publishing, scheduling, images, and platform connections remain separate explicit steps.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {brandNotReady && brandReadiness && (
+                <div className="rounded-[26px] border border-amber-200 bg-amber-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                    <div>
+                      <h3 className="text-sm font-black text-amber-900">
+                        {locale === 'ar' ? 'Brand Brain يحتاج إكمال' : 'Brand Brain needs input'}
+                      </h3>
+                      <p className="mt-2 text-xs leading-relaxed text-amber-800">
+                        {(t('brandGate') as Record<string, string>).campaignDesc}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
-        </div>
-      </div>
+	        </div>
+	      </div>
 
       <CreditConfirmModal
         isOpen={showGenerateConfirm}

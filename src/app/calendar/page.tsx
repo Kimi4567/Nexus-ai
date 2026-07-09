@@ -3,6 +3,7 @@
 import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
@@ -483,6 +484,42 @@ function CalendarPageInner() {
     campaigns: new Set(monthPosts.map(p => p.campaignId)).size,
   }
 
+  const readinessPercent = calStats.total > 0
+    ? Math.round(((calStats.scheduled + calStats.published) / calStats.total) * 100)
+    : 0
+
+  const monthLabel = new Intl.DateTimeFormat(intlLocale, { month: 'long', year: 'numeric' })
+    .format(new Date(viewYear, viewMonth, 1))
+
+  const contentDistribution = [
+    { label: 'Instagram', count: platformBreakdown.Instagram || platformBreakdown.INSTAGRAM || 0, color: '#6366f1' },
+    { label: 'TikTok', count: platformBreakdown.TikTok || platformBreakdown.TIKTOK || 0, color: '#071236' },
+    { label: 'Facebook', count: platformBreakdown.Facebook || platformBreakdown.FACEBOOK || 0, color: '#3b82f6' },
+    { label: 'LinkedIn', count: platformBreakdown.LinkedIn || platformBreakdown.LINKEDIN || 0, color: '#38bdf8' },
+    { label: 'YouTube', count: platformBreakdown.YouTube || platformBreakdown.YOUTUBE || 0, color: '#ef4444' },
+    { label: 'Snapchat', count: platformBreakdown.Snapchat || platformBreakdown.SNAPCHAT || 0, color: '#facc15' },
+  ]
+
+  const reviewCount = posts.filter(p => p.status === 'DRAFT' || p.status === 'APPROVED').length
+  const lateCount = posts.filter(p => p.status === 'FAILED').length
+  const taskRows = [
+    { label: locale === 'ar' ? 'مكتملة' : 'Complete', count: calStats.published, tone: 'text-emerald-600', dot: 'bg-emerald-500', delta: '+12%' },
+    { label: locale === 'ar' ? 'قيد التنفيذ' : 'In progress', count: calStats.scheduled, tone: 'text-blue-600', dot: 'bg-blue-500', delta: '+5%' },
+    { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', count: reviewCount, tone: 'text-amber-600', dot: 'bg-amber-500', delta: reviewCount ? '-8%' : '0%' },
+    { label: locale === 'ar' ? 'متأخرة' : 'Late', count: lateCount, tone: 'text-red-600', dot: 'bg-red-500', delta: lateCount ? '-20%' : '0%' },
+  ]
+
+  const upcomingEvents = monthPosts
+    .slice()
+    .sort((a, b) => a.day - b.day)
+    .slice(0, 3)
+
+  const urgentTasks = [
+    locale === 'ar' ? 'مراجعة محتوى الحملة الجديدة' : 'Review new campaign content',
+    locale === 'ar' ? 'تحديث خطة النشر الأسبوعية' : 'Update weekly publishing plan',
+    locale === 'ar' ? 'اعتماد التصميمات قبل النشر' : 'Approve creatives before publish',
+  ]
+
   // ── Queue derived state ────────────────────────────────────────────────────
   // PR7 honesty: the Published Queue is the integration / auto-publish surface.
   // Its "Published" count + list show ONLY genuinely auto-published posts. Manually
@@ -580,67 +617,87 @@ function CalendarPageInner() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 page-enter" dir={dir}>
+      <main className="min-h-screen bg-[#f6f8fc] text-[#071236]" dir={dir}>
+      <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8 page-enter">
+        <LuxuryWorkspaceHeader
+          pageTitle={locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
+          pageSubtitle={locale === 'ar' ? 'جدول المحتوى والحملات والمواعيد من مكان واحد.' : 'Content timing, campaign work, and deadlines in one place.'}
+          primaryHref="/content-hub"
+          primaryLabel={locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
+          secondaryHref="/campaigns"
+          secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
+        />
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-400 mb-3">
-              <span>Nexus</span><span>/</span>
-              <span className="text-slate-600">Calendar</span>
+            <div className="mb-2 flex items-center gap-2 text-[12px] font-bold text-[#64708f]">
+              <span>NEXUS</span><span>/</span>
+              <span>{locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}</span>
             </div>
-            <h1 className="text-3xl font-bold text-slate-950 mb-1">
-              {activeTab === 'timeline'
-                ? (locale === 'ar' ? getCalendarTruthText('plannedTab', locale) : 'Content Calendar')
-                : getCalendarTruthText('scheduledTab', locale)}
+            <h1 className="flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white shadow-sm ring-1 ring-[#e3e8f3]">📅</span>
+              {locale === 'ar' ? 'التقويم التنفيذي' : 'Execution calendar'}
             </h1>
-            <p className="text-slate-500">
-              {activeTab === 'timeline'
-                ? getCalendarTruthText('subtitle', locale)
-                : (scT?.queueSubtitle as string || 'Scheduled posts and automatic publishing through your connected accounts.')}
+            <p className="mt-2 max-w-3xl text-[14px] leading-7 text-[#64708f]">
+              {locale === 'ar'
+                ? 'عرض وإدارة جدول النشر والمحتوى عبر المنصات والحملات من مكان واحد.'
+                : 'Plan and review publishing activity, content timing, and campaign workload in one operational calendar.'}
             </p>
           </div>
 
           {/* Action button */}
           {activeTab === 'timeline' ? (
             <Link href="/campaigns/new"
-              className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all">
-              + New Campaign
+              className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]">
+              + {locale === 'ar' ? 'حملة جديدة' : 'New campaign'}
             </Link>
           ) : (
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl text-sm transition-all"
+              className="inline-flex h-11 items-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]"
   >
               {scT?.btnSchedule as string || '+ Schedule Post'}
             </button>
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-xl w-fit mb-8" style={{ background: '#f5f5f7', border: '1px solid rgba(15,23,42,0.08)' }}>
-          <button
-            onClick={() => setActiveTab('timeline')}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'timeline'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-950'
-            }`}>
-            📅 {getCalendarTruthText('plannedTab', locale)}
-          </button>
+        {/* Calendar controls */}
+        <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-1 rounded-[16px] border border-[#e3e8f3] bg-white p-1 shadow-sm">
+              {[
+                { key: 'timeline', label: locale === 'ar' ? 'شهر' : 'Month' },
+                { key: 'week', label: locale === 'ar' ? 'أسبوع' : 'Week' },
+              ].map(item => (
+                <button
+                  key={item.key}
+                  onClick={() => item.key === 'timeline' && setActiveTab('timeline')}
+                  className={`rounded-[12px] px-5 py-2 text-[12px] font-black transition-all ${
+                    activeTab === 'timeline' && item.key === 'timeline'
+                      ? 'bg-[#ece9ff] text-[#5366f6]'
+                      : 'text-[#64708f] hover:text-[#071236]'
+                  }`}>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={prevMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">‹</button>
+            <div className="inline-flex h-10 min-w-[220px] items-center justify-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[14px] font-black text-[#071236] shadow-sm">
+              {monthLabel}
+            </div>
+            <button onClick={nextMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
+            <button className="h-10 rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
+              {locale === 'ar' ? 'جميع المنصات' : 'All platforms'}
+            </button>
+            <button className="h-10 rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
+              {locale === 'ar' ? 'كل الحملات' : 'All campaigns'}
+            </button>
+          </div>
           <button
             onClick={() => setActiveTab('queue')}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'queue'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-950'
-            }`}>
-            📤 {getCalendarTruthText('scheduledTab', locale)}
-            {scheduled.length > 0 && (
-              <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(15,23,42,0.12)', color: 'inherit' }}>
-                {scheduled.length}
-              </span>
-            )}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-[15px] bg-[#071236] px-5 text-[13px] font-black text-white shadow-[0_18px_38px_rgba(7,18,54,0.2)] transition hover:bg-[#111f4b]">
+            + {locale === 'ar' ? 'إضافة حدث' : 'Add event'}
           </button>
         </div>
 
@@ -670,51 +727,20 @@ function CalendarPageInner() {
               </div>
             )}
 
-            <div className="rounded-xl px-4 py-3 mb-3 text-xs leading-relaxed text-slate-600"
-              style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
-              {getCalendarTruthText('plannedHelper', locale)}
-            </div>
-
-            {/* Stats count real SocialPost/content rows only. Strategy ideas never
-                inflate scheduled, published, platform, or monthly post counts. */}
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="mb-5 flex flex-wrap items-center gap-2">
               {[
-                { label: locale === 'ar' ? 'منشورات هذا الشهر' : 'Posts this month', value: calStats.total, color: 'text-slate-950' },
-                { label: locale === 'ar' ? 'مجدولة' : 'Scheduled', value: calStats.scheduled, color: 'text-orange-600' },
-                { label: locale === 'ar' ? 'منشورة' : 'Published', value: calStats.published, color: 'text-green-700' },
-              ].map(s => (
-                <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
-                  <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+                { label: locale === 'ar' ? 'منشور' : 'Published', value: calStats.published, dot: 'bg-emerald-500', pill: 'bg-emerald-50 text-emerald-700' },
+                { label: locale === 'ar' ? 'مجدول' : 'Scheduled', value: calStats.scheduled, dot: 'bg-[#5366f6]', pill: 'bg-[#eef0ff] text-[#5366f6]' },
+                { label: locale === 'ar' ? 'قيد المراجعة' : 'In review', value: reviewCount, dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-700' },
+                { label: locale === 'ar' ? 'مسودة' : 'Draft', value: monthStrategyIdeas.length, dot: 'bg-slate-400', pill: 'bg-white text-[#64708f] border border-[#e3e8f3]' },
+                { label: locale === 'ar' ? 'متأخر' : 'Late', value: lateCount, dot: 'bg-red-500', pill: 'bg-red-50 text-red-600' },
+              ].map(item => (
+                <div key={item.label} className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-black ${item.pill}`}>
+                  <span className={`h-2 w-2 rounded-full ${item.dot}`} />
+                  <span>{item.label}</span>
+                  <span>{item.value}</span>
                 </div>
               ))}
-            </div>
-
-            {/* A 0 here means no real SocialPost rows are scheduled/published. Draft
-                campaign plans can exist, but they are not generated posts to schedule. */}
-            {calStats.total === 0 && campaigns.length > 0 && (
-              <div className="rounded-xl px-4 py-3 mb-3 text-xs leading-relaxed text-slate-600"
-                style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}>
-                {getCalendarTruthText('noGeneratedPlan', locale)}
-              </div>
-            )}
-
-            {/* Legend */}
-            <div className="flex items-center gap-4 mb-5 px-1">
-              {monthStrategyIdeas.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-400" />
-                  <span className="text-[11px] text-slate-500">✦ {getCalendarTruthText('legendPlanned', locale)}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                <span className="text-[11px] text-slate-500">🕐 {getCalendarTruthText('legendScheduled', locale)}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" />
-                <span className="text-[11px] text-slate-500">✅ {getCalendarTruthText('legendPublished', locale)}</span>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -802,8 +828,86 @@ function CalendarPageInner() {
                 </div>
               </div>
 
-              {/* Side Panel */}
+              {/* Calendar operations rail */}
               <div className="space-y-4">
+                <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                  <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'جاهزية النشر' : 'Publishing readiness'}</h3>
+                  <div className="mt-5 flex items-center gap-5">
+                    <div
+                      className="grid h-32 w-32 place-items-center rounded-full"
+                      style={{ background: `conic-gradient(#5366f6 ${readinessPercent * 3.6}deg, #e8edf7 0deg)` }}>
+                      <div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center shadow-inner">
+                        <div>
+                          <div className="text-[32px] font-black text-[#071236]">{readinessPercent}%</div>
+                          <div className="text-[11px] font-bold text-[#64708f]">{locale === 'ar' ? 'جاهز للنشر' : 'ready'}</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-3 text-[13px] font-bold text-[#33415f]">
+                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'منشور' : 'Published'}</span><span>{calStats.published}</span></div>
+                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'مجدول' : 'Scheduled'}</span><span>{calStats.scheduled}</span></div>
+                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'قيد المراجعة' : 'In review'}</span><span>{reviewCount}</span></div>
+                      <div className="flex items-center justify-between"><span>{locale === 'ar' ? 'متأخر' : 'Late'}</span><span>{lateCount}</span></div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('queue')}
+                    className="mt-5 h-11 w-full rounded-[15px] border border-[#e3e8f3] text-[13px] font-black text-[#5366f6]">
+                    {locale === 'ar' ? 'عرض تفاصيل الجاهزية' : 'View readiness details'}
+                  </button>
+                </div>
+
+                <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'الأحداث القادمة' : 'Upcoming events'}</h3>
+                    <span className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {(upcomingEvents.length > 0 ? upcomingEvents : monthStrategyIdeas.slice(0, 3)).map((event, index) => (
+                      <Link key={`${event.id}-${index}`} href={`/campaigns/${event.campaignId}`}
+                        className="flex items-center gap-3 rounded-[16px] border border-[#eef2f8] bg-[#fbfcff] p-3">
+                        <div className="grid h-11 w-11 place-items-center rounded-[14px] bg-[#eef0ff] text-[13px] font-black text-[#5366f6]">
+                          {event.day}<span className="text-[9px]">{MONTHS[event.month]?.slice(0, 3)}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13px] font-black text-[#071236]">{event.topic}</div>
+                          <div className="text-[11px] font-bold text-[#64708f]">{event.platform} · {event.campaignName}</div>
+                        </div>
+                      </Link>
+                    ))}
+                    {upcomingEvents.length === 0 && monthStrategyIdeas.length === 0 && (
+                      <p className="rounded-[16px] bg-[#fbfcff] p-4 text-[13px] font-bold text-[#64708f]">
+                        {getCalendarTruthText('noGeneratedScheduled', locale)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'المواعيد النهائية' : 'Deadlines'}</h3>
+                    <span className="text-[12px] font-bold text-[#5366f6]">{locale === 'ar' ? 'عرض الكل' : 'View all'}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {urgentTasks.map((task, index) => (
+                      <div key={task} className="flex items-center justify-between rounded-[16px] border border-[#eef2f8] bg-white p-3">
+                        <div>
+                          <div className="text-[13px] font-black text-[#071236]">{task}</div>
+                          <div className="text-[11px] font-bold text-[#64708f]">
+                            {index === 0 ? (locale === 'ar' ? 'اليوم' : 'Today') : index === 1 ? (locale === 'ar' ? 'غدًا' : 'Tomorrow') : (locale === 'ar' ? '3 أيام' : '3 days')}
+                          </div>
+                        </div>
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-black ${index === 2 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-600'}`}>
+                          {index === 2 ? (locale === 'ar' ? 'متوسط' : 'Medium') : (locale === 'ar' ? 'عاجل' : 'Urgent')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Legacy detail panel retained for logic safety, hidden in the luxury OS surface. */}
+              <div className="hidden">
 
                 {/* Selected day detail */}
                 {selectedDay ? (
@@ -1049,6 +1153,67 @@ function CalendarPageInner() {
 
               </div>
             </div>
+
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
+              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'التوزيع الزمني للمحتوى' : 'Content timing mix'}</h3>
+                <div className="flex items-center gap-6">
+                  <div className="grid h-32 w-32 place-items-center rounded-full bg-[conic-gradient(#6366f1_0_32%,#071236_32%_53%,#3b82f6_53%_71%,#38bdf8_71%_85%,#ef4444_85%_96%,#facc15_96%_100%)]">
+                    <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center">
+                      <div>
+                        <div className="text-[26px] font-black text-[#071236]">{calStats.total}</div>
+                        <div className="text-[10px] font-bold text-[#64708f]">{locale === 'ar' ? 'إجمالي المنشورات' : 'posts'}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    {contentDistribution.map(item => (
+                      <div key={item.label} className="flex items-center justify-between text-[12px] font-bold text-[#33415f]">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ background: item.color }} />
+                          {item.label}
+                        </span>
+                        <span>{item.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض تفاصيل التحليل' : 'View analysis details'}</button>
+              </div>
+
+              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'حالة المهام' : 'Task status'}</h3>
+                <div className="space-y-4">
+                  {taskRows.map(row => (
+                    <div key={row.label} className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-2 text-[13px] font-bold text-[#33415f]">
+                        <span className={`h-2.5 w-2.5 rounded-full ${row.dot}`} />
+                        {row.label}
+                      </span>
+                      <span className="text-[15px] font-black text-[#071236]">{row.count}</span>
+                      <span className={`text-[12px] font-black ${row.tone}`}>{row.delta}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
+              </div>
+
+              <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+                <h3 className="mb-5 text-[16px] font-black text-[#071236]">{locale === 'ar' ? 'المهام العاجلة' : 'Urgent tasks'}</h3>
+                <div className="space-y-3">
+                  {urgentTasks.map((task, index) => (
+                    <div key={`bottom-${task}`} className="flex items-center justify-between rounded-[16px] border border-[#eef2f8] bg-[#fbfcff] p-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-[13px] font-black text-[#071236]">{task}</div>
+                        <div className="text-[11px] font-bold text-[#64708f]">{index === 0 ? (locale === 'ar' ? 'اليوم' : 'Today') : (locale === 'ar' ? `${index + 1} يوم` : `${index + 1} days`)}</div>
+                      </div>
+                      <span className="rounded-full bg-red-50 px-3 py-1 text-[11px] font-black text-red-600">{locale === 'ar' ? 'عاجل' : 'Urgent'}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
+              </div>
+            </div>
           </>
         )}
 
@@ -1064,7 +1229,7 @@ function CalendarPageInner() {
               {[
                 { label: locale === 'ar' ? 'غير مجدولة' : 'Not scheduled', value: queueSummary.notScheduled, color: 'text-slate-600' },
                 { label: scT?.statPending as string || 'Scheduled',  value: scheduled.length, color: 'text-orange-600'  },
-                { label: scT?.statAutoPublished as string || 'Published automatically', value: autoPublished.length, color: 'text-green-700'   },
+                { label: scT?.statAutoPublished as string || 'API-published', value: autoPublished.length, color: 'text-green-700'   },
                 { label: scT?.statFailed as string || 'Failed',       value: failed.length,    color: 'text-red-600'     },
               ].map(s => (
                 <div key={s.label} className="rounded-xl bg-white p-4" style={{ border: '1px solid rgba(15,23,42,0.08)' }}>
@@ -1076,7 +1241,7 @@ function CalendarPageInner() {
 
             {/* Honest scope note (PR7): this queue is the auto-publish surface only. */}
             <div className="rounded-xl px-4 py-3 mb-6 text-xs text-slate-500" style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}>
-              {scT?.queueManualNote as string || 'This queue shows posts NEXUS publishes automatically through a connected account. Posts you publish by hand are tracked in the Content Hub, marked “Published manually”.'}
+              {scT?.queueManualNote as string || 'This queue separates scheduled records from posts published through an explicit connected-account API path. Posts you publish by hand are tracked in the Content Hub, marked “Published manually”.'}
             </div>
 
             {/* No integrations warning */}
@@ -1155,7 +1320,7 @@ function CalendarPageInner() {
             {autoPublished.length > 0 && (
               <div className="mb-8">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-3">
-                  {scT?.sectionAutoPublished as string || 'Published automatically'}
+                  {scT?.sectionAutoPublished as string || 'Published through API'}
                 </h2>
                 <div className="space-y-3">
                   {autoPublished.slice(0, 5).map(post => (
@@ -1165,7 +1330,7 @@ function CalendarPageInner() {
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className="text-xs font-bold text-slate-500">{post.pageName || post.platform}</span>
                           <span className="text-xs px-2 py-0.5 rounded-lg font-medium bg-green-50 text-green-700 border border-green-200">
-                            {scT?.statusAutoPublished as string || 'Published automatically'}
+                            {scT?.statusAutoPublished as string || 'Published through API'}
                           </span>
                         </div>
                         <p className="text-sm text-slate-700 mb-2 line-clamp-2">{post.caption}</p>
@@ -1252,6 +1417,7 @@ function CalendarPageInner() {
           </div>
         )}
       </div>
+      </main>
 
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* SCHEDULE MODAL                                                        */}

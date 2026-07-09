@@ -819,7 +819,7 @@ export default function DashboardPage() {
               </div>
             </SoftCard>
 
-            <SoftCard className="p-4" dir={ar ? 'rtl' : 'ltr'}>
+            <SoftCard id="approvals" className="scroll-mt-6 p-4" dir={ar ? 'rtl' : 'ltr'}>
               <div className="mb-2 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#5E63FF]">
                   <Zap className="h-5 w-5" />

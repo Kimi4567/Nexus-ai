@@ -276,16 +276,16 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="3" width="14" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>,
         },
         { href: '/studio', labelAr: 'استوديو الإبداع', labelEn: 'Creative Studio', icon: Icons.media },
-        { href: '/campaigns?tab=publish', labelAr: 'النشر', labelEn: 'Publishing', icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 8.5 14 2 10.5 14 8 9.5 2 8.5Z" strokeLinejoin="round"/><path d="M8 9.5 14 2" strokeLinecap="round"/></svg> },
+        { href: '/publish', labelAr: 'النشر', labelEn: 'Publishing', icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 8.5 14 2 10.5 14 8 9.5 2 8.5Z" strokeLinejoin="round"/><path d="M8 9.5 14 2" strokeLinecap="round"/></svg> },
         { href: '/analytics', labelAr: 'التحليلات', labelEn: 'Analytics', icon: Icons.analytics },
-        { href: '/campaigns', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.settings },
+        { href: '/automation', labelAr: 'الأتمتة', labelEn: 'Automation', icon: Icons.settings },
       ],
     },
     {
       key: 'secondary',
       separatorBefore: true,
       items: [
-        { href: '/dashboard#approvals', labelAr: 'مركز الموافقات', labelEn: 'Approvals Center', icon: Icons.settings, badgeKey: pendingProposals > 0 ? undefined : 'static-eight', badgeColor: '#8B5CF6' },
+        { href: '/approvals', labelAr: 'مركز الموافقات', labelEn: 'Approvals Center', icon: Icons.settings, badgeKey: pendingProposals > 0 ? `count:${pendingProposals}` : undefined, badgeColor: '#8B5CF6' },
         { href: '/calendar', labelAr: 'التقويم', labelEn: 'Calendar', icon: Icons.calendar },
         { href: '/connections', labelAr: 'التكاملات', labelEn: 'Integrations', icon: Icons.connections },
         { href: '/settings', labelAr: 'الإعدادات', labelEn: 'Settings', icon: Icons.settings },
@@ -332,7 +332,7 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
                 href={item.href}
                 label={item.labelKey ? t(item.labelKey) : (locale === 'ar' ? (item.labelAr || item.labelEn || '') : (item.labelEn || item.labelAr || ''))}
                 icon={item.icon}
-                badge={item.badgeKey === 'static-eight' ? '8' : item.badgeKey ? t(item.badgeKey) : undefined}
+                badge={item.badgeKey?.startsWith('count:') ? item.badgeKey.slice('count:'.length) : item.badgeKey ? t(item.badgeKey) : undefined}
                 badgeColor={item.badgeColor}
                 dot={item.dot}
                 {...sharedProps}
@@ -341,9 +341,8 @@ export default function Sidebar({ collapsed, setCollapsed, onMobileClose }: Side
           </div>
         ))}
 
-        {/* Future modules intentionally stay out of primary navigation until they are
-            ready to be presented as real user-facing workflows:
-            /studio, /sentinel, /vex, /templates, /brand/score-history. */}
+        {/* Legacy diagnostics stay out of primary navigation until they are real
+            user-facing workflows: /sentinel, /vex, /brand/score-history. */}
       </nav>
 
       {/* Bottom section */}
