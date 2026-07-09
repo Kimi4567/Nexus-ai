@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { derivePlatformReadiness } from '@/lib/platformReadiness'
@@ -417,6 +418,18 @@ export default function ConnectionsPage() {
             primaryLabel={copy('استكشف مجلد التكاملات', 'Explore integrations')}
             secondaryHref="/settings"
             secondaryLabel={copy('الإعدادات', 'Settings')}
+          />
+
+          <StrategySpineCard
+            current="publish"
+            nextHref="/publish"
+            nextLabel={copy('افتح جاهزية النشر', 'Open publish readiness')}
+            title={copy('الربط يفتح القدرة التنفيذية، لكنه لا ينفّذ الاستراتيجية وحده', 'Connections unlock execution capability, but do not execute strategy alone')}
+            body={copy(
+              'كل منصة متصلة تصبح مدخلًا للنشر أو القياس أو الإعلانات بعد الاستراتيجية والمحتوى والموافقة. الربط لا يعني نشرًا تلقائيًا ولا صرف ميزانية.',
+              'Each connected platform becomes an input for publishing, measurement, or ads after strategy, content, and approval. Connection does not mean automatic publishing or budget spend.',
+            )}
+            className="mb-5"
           />
 
           <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">

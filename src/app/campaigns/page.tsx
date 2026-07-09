@@ -2,6 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -210,6 +211,7 @@ export default function CampaignsPage() {
   }
 
   const archiveCampaign = async (id: string) => {
+    if (!window.confirm(copy('أرشفة هذه الحملة؟ ستخرج من التشغيل اليومي بدون حذف بياناتها.', 'Archive this campaign? It will leave daily operations without deleting its data.'))) return
     setOpenMenuId(null)
     try {
       await fetch(`/api/campaigns/${id}`, {
@@ -249,6 +251,9 @@ export default function CampaignsPage() {
   }, [campaigns, counts])
 
   const dateLocale = locale === 'ar' ? 'ar-EG' : 'en-US'
+  const latestCampaign = campaigns[0]
+  const latestCampaignStrategyHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/campaigns/new'
+  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
 
   return (
     <AppShell>
@@ -256,7 +261,7 @@ export default function CampaignsPage() {
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
           <LuxuryWorkspaceHeader
             pageTitle={copy('الحملات', 'Campaigns')}
-            pageSubtitle={copy('إدارة وتتبع أداء حملاتك التسويقية الذكية من مكان واحد.', 'Manage and track your intelligent marketing campaigns from one place.')}
+            pageSubtitle={copy('محفظة الحملات: النطاق، المرحلة، الجاهزية، والقرار التالي. الإنتاج التفصيلي يعيش داخل Content Hub.', 'Campaign portfolio: scope, stage, readiness, and next decision. Detailed production lives inside Content Hub.')}
             primaryHref="/campaigns/new"
             primaryLabel={cT?.btnNewCampaign || copy('حملة جديدة', 'New campaign')}
             secondaryHref="/connections"
@@ -267,11 +272,11 @@ export default function CampaignsPage() {
             <div>
               <p className="text-[12px] font-semibold text-[#7b87a3]">{copy('لوحة تشغيل الحملات', 'Campaign command board')}</p>
               <h1 className="mt-2 flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">
-                {copy('الحملات', 'Campaigns')}
+                {copy('محفظة الحملات', 'Campaign Portfolio')}
                 <Sparkles className="text-[#4f46e5]" size={26} />
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#60708f]">
-                {copy('الصفحة تعرض حالة الحملات والتخطيط والجاهزية فقط. لا نعرض إنفاقاً أو عائداً إلا عند وجود بيانات أداء فعلية.', 'This page shows campaign state, planning, and readiness only. Spend and return are shown only when real performance data exists.')}
+                {copy('هذه الصفحة لا تحل محل مركز المحتوى. هنا تختار أي حملة تقودها، ما حالتها، وما القرار التالي. Content Hub هو مكان المنشورات النهائية والوسائط والمراجعات.', 'This page does not replace Content Hub. Use it to choose which campaign to operate, understand its state, and pick the next decision. Content Hub is for final posts, media, and reviews.')}
               </p>
             </div>
 
@@ -284,11 +289,12 @@ export default function CampaignsPage() {
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
-              <button type="button" className="flex h-11 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white px-4 text-sm font-bold text-[#111b3f]">
+              <Link href="/dashboard" className="flex h-11 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white px-4 text-sm font-bold text-[#111b3f]">
                 <Grid2X2 size={16} />
-              </button>
-              <button type="button" className="flex h-11 items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white px-4 text-sm font-bold text-[#111b3f]">
-                {copy('تصدير', 'Export')}
+                {copy('لوحة النظام', 'OS board')}
+              </Link>
+              <button type="button" disabled className="flex h-11 cursor-not-allowed items-center gap-2 rounded-[14px] border border-[#e3e8f3] bg-white/70 px-4 text-sm font-bold text-[#8b96ad]">
+                {copy('تصدير قريباً', 'Export soon')}
                 <ArrowUpRight size={15} />
               </button>
               <Link href="/campaigns/new" className="flex h-11 items-center gap-2 rounded-[14px] bg-[#071236] px-5 text-sm font-bold text-white shadow-[0_16px_34px_rgba(31,41,130,0.22)]">
@@ -299,11 +305,11 @@ export default function CampaignsPage() {
           </header>
 
           <div className="mb-5 flex flex-wrap items-center gap-3">
-            <button type="button" className="flex h-10 items-center gap-2 rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-sm font-semibold text-[#53617f]">
+            <div className="flex h-10 items-center gap-2 rounded-[13px] border border-[#e3e8f3] bg-white px-4 text-sm font-semibold text-[#53617f]">
               <Filter size={15} />
               {copy('تصفية متقدمة', 'Advanced filter')}
               <span className="rounded-full bg-[#edeaff] px-2 py-0.5 text-[11px] font-black text-[#4f46e5]">{statusFilter ? '1' : '3'}</span>
-            </button>
+            </div>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
@@ -343,6 +349,60 @@ export default function CampaignsPage() {
             <MetricCard title={copy('المؤرشفة', 'Archived')} value={String(summary.archived)} helper={copy('مخفية من التشغيل اليومي', 'Hidden from daily operation')} icon={<Archive size={18} />} />
             <MetricCard title="Brand Brain" value={summary.total ? copy('متصل', 'Linked') : copy('ينتظر', 'Waiting')} helper={copy('المحاذاة تظهر حسب بيانات كل حملة', 'Alignment depends on campaign data')} icon={<Sparkles size={18} />} />
           </div>
+
+          <StrategySpineCard
+            current="strategy"
+            nextHref={latestCampaignStrategyHref}
+            nextLabel={copy('فتح المسار الاستراتيجي التالي', 'Open next strategy path')}
+            title={copy('الحملات هي طبقة قيادة الاستراتيجية', 'Campaigns are the strategy command layer')}
+            body={copy(
+              'هذه الصفحة تختار أي حملة نراجعها وتوضح الحالة والقرار التالي. الإنتاج التفصيلي، الوسائط، والنصوص النهائية تبقى داخل Content Hub؛ والنشر أو الإعلانات لا تبدأ إلا بعد جاهزية وحسابات وموافقة صريحة.',
+              'This page chooses which campaign to review and shows state and next decision. Detailed production, media, and final post copy remain in Content Hub; publishing or ads start only after readiness, connected accounts, and explicit approval.',
+            )}
+            className="mb-5"
+          />
+
+          <section className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-4">
+            {[
+              {
+                title: copy('١. اختر الحملة', '1. Choose campaign'),
+                body: copy('الحملات هي محفظة العمل: الهدف، النطاق، المرحلة، والمخاطر.', 'Campaigns are the portfolio layer: goal, scope, stage, and risks.'),
+                href: '/campaigns',
+                label: copy('ابقَ في المحفظة', 'Stay in portfolio'),
+              },
+              {
+                title: copy('٢. راجع الاستراتيجية', '2. Review strategy'),
+                body: copy('الاستراتيجية تحدد الاتجاه، الجمهور، التنفيذ، القياس، والقيود.', 'Strategy sets direction, audience, execution, measurement, and limits.'),
+                href: latestCampaignStrategyHref,
+                label: copy('فتح الاستراتيجية', 'Open strategy'),
+              },
+              {
+                title: copy('٣. أنتج في Content Hub', '3. Produce in Content Hub'),
+                body: copy('المحتوى والوسائط النهائية ومراجعة المنشورات تعيش هناك فقط.', 'Final posts, media decisions, and post reviews live there only.'),
+                href: latestCampaignContentHref,
+                label: copy('فتح الإنتاج', 'Open production'),
+              },
+              {
+                title: copy('٤. نفّذ بعد الجاهزية', '4. Execute after readiness'),
+                body: copy('النشر أو المدفوع يحتاج حسابات، صلاحيات، موافقة، وحدود تكلفة واضحة.', 'Publishing or paid execution needs accounts, permissions, approval, and clear cost boundaries.'),
+                href: '/connections',
+                label: copy('فحص الربط', 'Check connections'),
+              },
+            ].map((item) => (
+              <Link
+                key={item.title}
+                href={item.href}
+                className="group rounded-[20px] border border-[#e5eaf5] bg-white p-4 shadow-[0_16px_42px_rgba(13,24,63,0.045)] transition hover:-translate-y-0.5 hover:border-[#cbd4ff]"
+              >
+                <p className="text-[13px] font-black text-[#071236]">{item.title}</p>
+                <p className="mt-2 min-h-[44px] text-[12px] leading-5 text-[#687692]">{item.body}</p>
+                <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-black text-[#4f46e5]">
+                  {item.label}
+                  <ArrowUpRight size={13} className="transition group-hover:translate-x-0.5" />
+                </span>
+              </Link>
+            ))}
+          </section>
 
           {loadError && campaigns.length === 0 && (
             <div className="mb-5 rounded-[18px] border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
@@ -391,7 +451,7 @@ export default function CampaignsPage() {
             <section className="col-span-12 rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] xl:col-span-4">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-[15px] font-black text-[#111b3f]">{copy('أهداف الحملات', 'Campaign goals')}</h2>
-                <button type="button" className="text-xs font-bold text-[#4f46e5]">{copy('عرض الكل', 'View all')}</button>
+                <Link href="/strategy" className="text-xs font-bold text-[#4f46e5]">{copy('عرض منطق الاستراتيجية', 'View strategy logic')}</Link>
               </div>
               <div className="space-y-3">
                 {[copy('زيادة الوعي بالعلامة التجارية', 'Increase brand awareness'), copy('زيادة المبيعات', 'Increase sales'), copy('توليد عملاء محتملين', 'Generate leads')].map((goal, index) => (
@@ -419,7 +479,7 @@ export default function CampaignsPage() {
                   <p className="mt-2 text-xs leading-5 text-[#6f7c98]">
                     {copy('افتح الحملة الأحدث وتحقق من الاستراتيجية، المحتوى، الإبداع، والنشر قبل أي تشغيل.', 'Open the latest campaign and check strategy, content, creative, and publishing before execution.')}
                   </p>
-                  <Link href={campaigns[0] ? `/campaigns/${campaigns[0].id}` : '/campaigns/new'} className="mt-4 flex h-10 items-center justify-center rounded-[13px] bg-[#071236] text-sm font-bold text-white">
+                  <Link href={latestCampaignStrategyHref} className="mt-4 flex h-10 items-center justify-center rounded-[13px] bg-[#071236] text-sm font-bold text-white">
                     {copy('فتح المسار المقترح', 'Open suggested path')}
                   </Link>
                 </div>
@@ -493,7 +553,7 @@ export default function CampaignsPage() {
                       const platforms = getCampaignPlatformSummary(campaign.platforms, locale)
                       return (
                         <div key={campaign.id} className="grid grid-cols-1 gap-3 px-4 py-4 transition hover:bg-[#fbfcff] xl:grid-cols-[minmax(260px,1.8fr)_120px_120px_170px_120px_80px] xl:items-center">
-                          <Link href={`/campaigns/${campaign.id}`} className="flex min-w-0 items-center gap-3">
+                          <Link href={`/campaigns/${campaign.id}?tab=strategy`} className="flex min-w-0 items-center gap-3">
                             <span className="flex h-14 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-gradient-to-br from-[#eef2ff] to-[#dbeafe] text-2xl">
                               {campaign.thumbnail || '🎯'}
                             </span>
@@ -530,7 +590,7 @@ export default function CampaignsPage() {
                             </button>
                             {openMenuId === campaign.id && (
                               <div className="absolute end-0 top-full z-50 mt-2 w-40 overflow-hidden rounded-[16px] border border-[#e3e8f3] bg-white shadow-[0_22px_50px_rgba(13,24,63,0.16)]">
-                                <button type="button" onClick={() => router.push(`/campaigns/${campaign.id}`)} className="flex w-full items-center gap-2 px-4 py-3 text-xs font-bold text-[#53617f] hover:bg-[#fbfcff]">
+                                <button type="button" onClick={() => router.push(`/campaigns/${campaign.id}?tab=strategy`)} className="flex w-full items-center gap-2 px-4 py-3 text-xs font-bold text-[#53617f] hover:bg-[#fbfcff]">
                                   <ArrowUpRight size={14} />
                                   {cT?.menuOpen || copy('فتح', 'Open')}
                                 </button>
@@ -574,6 +634,7 @@ export default function CampaignsPage() {
                 <div className="space-y-3 text-xs leading-5 text-[#60708f]">
                   <p>{copy('لا تظهر نتائج أداء أو ROAS هنا قبل وجود تحليلات حقيقية.', 'No ROAS or performance claims appear before real analytics exists.')}</p>
                   <p>{copy('إنشاء حملة لا يعني نشرها أو تشغيل إعلانات.', 'Creating a campaign does not publish it or launch ads.')}</p>
+                  <p>{copy('Content Hub هو مساحة إنتاج المنشورات؛ هذه الصفحة مساحة قيادة واختيار الحملة.', 'Content Hub is the post production workspace; this page is the campaign command and selection layer.')}</p>
                   <p>{copy('النشر والمدفوعات تحتاج موافقة وجاهزية منصة منفصلة.', 'Publishing and paid execution require separate approval and platform readiness.')}</p>
                 </div>
               </section>

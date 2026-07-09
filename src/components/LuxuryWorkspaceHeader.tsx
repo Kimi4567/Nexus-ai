@@ -42,9 +42,13 @@ export default function LuxuryWorkspaceHeader({
           </h1>
           {pageSubtitle ? <p className="mt-0.5 max-w-xl text-[11px] font-semibold text-slate-500">{pageSubtitle}</p> : null}
         </div>
-        <button type="button" className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
+        <Link
+          href="/settings"
+          aria-label={ar ? 'إعدادات مساحة العمل' : 'Workspace settings'}
+          className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex"
+        >
           <ChevronDown className="h-4 w-4" />
-        </button>
+        </Link>
       </div>
 
       <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">

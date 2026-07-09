@@ -66,8 +66,8 @@ export function resolveStrategyAction(s: StrategyActionState): {
   } else if (!s.sentinelPassed && !s.isApproved) {
     primary = { kind: 'review', label: L(lo, 'Review strategy quality', 'راجع جودة الاستراتيجية'), working: s.reviewing }
   } else if (s.sentinelPassed && !s.isApproved) {
-    // Honest label — NEVER "launch": approving also builds the (organic) content plan.
-    primary = { kind: 'approve', label: L(lo, 'Approve strategy & build content plan', 'اعتمد الاستراتيجية وابنِ خطة المحتوى'), working: s.approving }
+    // Honest label — confirms the document and opens planning; never implies launch/publish/spend.
+    primary = { kind: 'approve', label: L(lo, 'Confirm strategy and open content plan', 'أكد الاستراتيجية وافتح خطة المحتوى'), working: s.approving }
   } else if (s.isApproved && !s.hasContentPlan) {
     primary = { kind: 'link', href: s.contentHubBuildHref, label: L(lo, 'Generate organic content plan', 'أنشئ خطة المحتوى العضوي') }
   } else if (s.isApproved && s.hasContentPlan && !s.hasPosts) {

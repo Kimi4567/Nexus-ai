@@ -2,6 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import {
@@ -161,6 +162,17 @@ export default function PublishPage() {
             primaryLabel={copy('راجع الحسابات', 'Review accounts')}
             secondaryHref="/content-hub"
             secondaryLabel={copy('مركز المحتوى', 'Content Hub')}
+          />
+
+          <StrategySpineCard
+            current="publish"
+            nextHref="/connections"
+            nextLabel={copy('راجع الربط والصلاحيات', 'Review connections')}
+            title={copy('النشر هو بوابة جاهزية بعد الاستراتيجية والمحتوى', 'Publishing is a readiness gate after strategy and content')}
+            body={copy(
+              'هذه الصفحة لا تنشئ محتوى ولا تغير الاستراتيجية. دورها التأكد من الحسابات، الصلاحيات، الوسائط، الموافقات، والتأكيد الصريح قبل أي نشر منصة.',
+              'This page does not create content or change strategy. Its role is account, permission, media, approval, and explicit-confirmation readiness before platform publishing.',
+            )}
           />
 
           <header className="flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] lg:flex-row lg:items-center lg:justify-between">

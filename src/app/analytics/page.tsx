@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { mapBrandIndustryToAnalytics } from '@/lib/analyticsIndustry'
@@ -301,6 +302,17 @@ export default function AnalyticsPage() {
             primaryLabel={ar ? 'إدارة مصادر البيانات' : 'Manage data sources'}
             secondaryHref="/campaigns"
             secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
+          />
+
+          <StrategySpineCard
+            current="performance"
+            nextHref="/campaigns"
+            nextLabel={ar ? 'راجع الحملات' : 'Review campaigns'}
+            title={ar ? 'الأداء يقيس تنفيذ الاستراتيجية فقط عندما توجد بيانات حقيقية' : 'Performance measures strategy execution only when real data exists'}
+            body={ar
+              ? 'لا يوجد تعلم أداء أو أفضل محتوى أو ROAS حقيقي قبل وصول analyticsData أو مقاييس منصة موثوقة. أي تحليل هنا يميز بين الحقائق والافتراضات والخطوات التالية.'
+              : 'There is no performance learning, best content, or true ROAS before analyticsData or trusted platform metrics arrive. Analysis here separates facts, assumptions, and next actions.'}
+            className="mb-5"
           />
 
           <header className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
