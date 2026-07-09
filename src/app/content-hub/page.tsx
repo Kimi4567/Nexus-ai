@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { getCampaignPlatformSummary } from '@/lib/campaignPlatforms'
 import { useI18n } from '@/lib/i18n-context'
@@ -175,6 +176,7 @@ export default function ContentHubPage() {
   const [media, setMedia] = useState<MediaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeFormat, setActiveFormat] = useState('all')
 
   const loadBoard = useCallback(async () => {
     if (!isAuthenticated) return
@@ -243,7 +245,7 @@ export default function ContentHubPage() {
     const needsReview = posts.filter(post => ['DRAFT', 'APPROVED'].includes(String(post.status || 'DRAFT').toUpperCase())).length
     const inCreation = posts.filter(post => String(post.status || 'DRAFT').toUpperCase() === 'DRAFT').length
     const inReview = Math.max(0, needsReview - approved)
-    const readyForPublish = Math.max(0, scheduled + posts.filter(post => String(post.status || '').toUpperCase() === 'APPROVED').length)
+    const readyForPublishReview = Math.max(0, scheduled + posts.filter(post => String(post.status || '').toUpperCase() === 'APPROVED').length)
     const readiness = total === 0 ? 0 : Math.round(((approved * 0.28) + (mediaReady * 0.36) + (scheduled * 0.22) + (published * 0.14)) / Math.max(total, 1) * 100)
 
     return {
@@ -255,14 +257,32 @@ export default function ContentHubPage() {
       needsReview,
       inCreation,
       inReview,
-      readyForPublish,
+      readyForPublishReview,
       readiness: Math.max(0, Math.min(100, readiness)),
     }
   }, [posts])
 
-  const samplePost = posts.find(post => post.imageUrl) ?? posts[0]
-  const recentPosts = posts.slice(0, 5)
-  const visualPosts = posts.filter(post => post.imageUrl).slice(0, 4)
+  const filteredPosts = useMemo(() => {
+    if (activeFormat === 'all') return posts
+    return posts.filter(post => {
+      const platform = String(post.platform || '').toUpperCase()
+      const caption = String(post.caption || '').toLowerCase()
+      if (activeFormat === 'videos') return Boolean(post.isVideoPost)
+      if (activeFormat === 'posts') return !post.isVideoPost
+      if (activeFormat === 'reels') return Boolean(post.isVideoPost) && (platform.includes('TIKTOK') || platform.includes('INSTAGRAM') || platform.includes('YOUTUBE'))
+      if (activeFormat === 'stories') return platform.includes('INSTAGRAM') && (caption.includes('story') || caption.includes('قصة'))
+      if (activeFormat === 'ads') return platform.includes('META') || platform.includes('FACEBOOK') || platform.includes('GOOGLE')
+      return false
+    })
+  }, [activeFormat, posts])
+
+  const latestCampaign = campaigns[0]
+  const latestCampaignStrategyHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=strategy` : '/strategy'
+  const latestCampaignContentHref = latestCampaign ? `/campaigns/${latestCampaign.id}/content-hub` : '/content-hub'
+  const latestCampaignPublishHref = latestCampaign ? `/campaigns/${latestCampaign.id}?tab=publish` : '/publish'
+  const samplePost = filteredPosts.find(post => post.imageUrl) ?? filteredPosts[0] ?? posts.find(post => post.imageUrl) ?? posts[0]
+  const recentPosts = filteredPosts.slice(0, 5)
+  const visualPosts = filteredPosts.filter(post => post.imageUrl).slice(0, 4)
   const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || ''
   const mediaGeneratedText = isAr ? 'وسائط مولّدة' : 'Media generated'
   const mediaGeneratedHelper = isAr ? 'هذه حالة وسائط فقط وليست نشرًا.' : 'media generated only, not published.'
@@ -281,14 +301,14 @@ export default function ContentHubPage() {
 
   const campaignSummary = campaigns[0] ? getCampaignPlatformSummary(campaigns[0].platforms ?? [], locale) : null
   const formatChips = [
-    { label: isAr ? 'الكل' : 'All', active: true },
-    { label: isAr ? 'إعلانات' : 'Ads' },
-    { label: isAr ? 'منشورات' : 'Posts' },
-    { label: isAr ? 'ريلز' : 'Reels' },
-    { label: isAr ? 'قصص' : 'Stories' },
-    { label: isAr ? 'فيديوهات' : 'Videos' },
-    { label: isAr ? 'عروض تقديمية' : 'Presentations' },
-    { label: isAr ? 'بريد إلكتروني' : 'Email' },
+    { key: 'all', label: isAr ? 'الكل' : 'All' },
+    { key: 'ads', label: isAr ? 'إعلانات' : 'Ads' },
+    { key: 'posts', label: isAr ? 'منشورات' : 'Posts' },
+    { key: 'reels', label: isAr ? 'ريلز' : 'Reels' },
+    { key: 'stories', label: isAr ? 'قصص' : 'Stories' },
+    { key: 'videos', label: isAr ? 'فيديوهات' : 'Videos' },
+    { key: 'presentations', label: isAr ? 'عروض تقديمية' : 'Presentations', disabled: true },
+    { key: 'email', label: isAr ? 'بريد إلكتروني' : 'Email', disabled: true },
   ]
 
   if (authLoading || loading) {
@@ -314,14 +334,14 @@ export default function ContentHubPage() {
                 <LayoutGrid className="h-5 w-5" />
               </div>
               <div dir={isAr ? 'rtl' : 'ltr'}>
-                <p className="text-[12px] font-semibold text-slate-500">{isAr ? 'مساحة العمل' : 'Workspace'}</p>
+                <p className="text-[12px] font-semibold text-slate-500">{isAr ? 'مساحة الإنتاج' : 'Production workspace'}</p>
                 <h1 className="text-[18px] font-black tracking-normal text-[#0B1028]">
-                  {isAr ? 'مركز المحتوى' : 'Content Hub'}
+                  {isAr ? 'مركز إنتاج المحتوى' : 'Content Production Hub'}
                 </h1>
               </div>
-              <button type="button" className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
+              <Link href="/campaigns" aria-label={isAr ? 'العودة إلى محفظة الحملات' : 'Back to campaign portfolio'} className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
                 <ChevronDown className="h-4 w-4" />
-              </button>
+              </Link>
             </div>
 
             <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">
@@ -330,9 +350,9 @@ export default function ContentHubPage() {
                 <span className="truncate text-[13px]" dir={isAr ? 'rtl' : 'ltr'}>{isAr ? 'ابحث في Nexus...' : 'Search in Nexus...'}</span>
                 <span className="ms-auto rounded-lg border border-slate-200 px-2 py-0.5 text-[11px] text-slate-400">⌘K</span>
               </div>
-              <Link href="/strategy" className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-[13px] font-bold text-[#101A4D]">
-                <Plus className="h-4 w-4" />
-                {isAr ? 'محتوى جديد' : 'New content'}
+              <Link href={latestCampaignContentHref} className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-[13px] font-bold text-[#101A4D]">
+                <Eye className="h-4 w-4" />
+                {isAr ? 'مراجعة الإنتاج' : 'Review production'}
               </Link>
               <Link href="/campaigns" className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-[#5E63FF]">
                 <Sparkles className="h-4 w-4" />
@@ -360,20 +380,32 @@ export default function ContentHubPage() {
             </SoftPanel>
           )}
 
+          <StrategySpineCard
+            current="content"
+            nextHref={latestCampaignContentHref}
+            nextLabel={isAr ? 'افتح إنتاج الحملة الأحدث' : 'Open latest campaign production'}
+            title={isAr ? 'مركز المحتوى هو طبقة الإنتاج بعد الاستراتيجية' : 'Content Hub is the production layer after strategy'}
+            body={
+              isAr
+                ? 'هنا تتحول الاستراتيجية إلى منشورات ووسائط للمراجعة. هذه الصفحة لا تنشر ولا تتعلم من الأداء ولا تغيّر وعد الحملة؛ Content Hub يحافظ على الحقيقة النهائية للمنشور قبل أي نشر.'
+                : 'Here strategy becomes posts and media for review. This page does not publish, learn from performance, or change the campaign promise; Content Hub preserves final post truth before publishing.'
+            }
+          />
+
           <SoftPanel className="overflow-hidden p-4" dir="ltr">
             <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <Link href="/content-hub" className="inline-flex items-center gap-2 text-[12px] font-bold text-[#5E63FF]">
+              <Link href="/campaigns" className="inline-flex items-center gap-2 text-[12px] font-bold text-[#5E63FF]">
                 <ChevronDown className="h-3.5 w-3.5" />
-                {isAr ? 'عرض جميع المحتويات' : 'View all content'}
+                {isAr ? 'محفظة الحملات تحدد المسار؛ هنا يتم إنتاج المنشورات' : 'Campaign portfolio chooses the path; this page produces the posts'}
               </Link>
               <div className="flex flex-wrap items-center gap-3">
-                <Link href="/campaigns" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[12px] font-bold text-[#5E63FF]">
+                <Link href={latestCampaignPublishHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-[12px] font-bold text-[#5E63FF]">
                   <Sparkles className="h-4 w-4" />
-                  {isAr ? 'عرض لوحة النشر' : 'Open publishing board'}
+                  {isAr ? 'جاهزية النشر' : 'Publishing readiness'}
                 </Link>
-                <Link href="/strategy" className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white shadow-[0_16px_34px_rgba(16,26,77,0.16)]">
-                  <Plus className="h-4 w-4" />
-                  {isAr ? 'محتوى جديد' : 'New content'}
+                <Link href={latestCampaignStrategyHref} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#101A4D] px-4 text-[12px] font-black text-white shadow-[0_16px_34px_rgba(16,26,77,0.16)]">
+                  <ArrowUpRight className="h-4 w-4" />
+                  {isAr ? 'ابدأ من الاستراتيجية' : 'Start from strategy'}
                 </Link>
               </div>
             </div>
@@ -384,7 +416,7 @@ export default function ContentHubPage() {
                 { icon: <Pencil className="h-4 w-4" />, title: isAr ? 'قيد الإنشاء' : 'In creation', value: stats.inCreation, tone: 'violet' as Tone },
                 { icon: <Eye className="h-4 w-4" />, title: isAr ? 'قيد المراجعة' : 'In review', value: stats.inReview, tone: 'amber' as Tone },
                 { icon: <CheckCircle2 className="h-4 w-4" />, title: isAr ? 'موافق عليه' : 'Approved', value: stats.approved, tone: 'green' as Tone },
-                { icon: <Send className="h-4 w-4" />, title: isAr ? 'جاهز للنشر' : 'Ready for publishing', value: stats.readyForPublish, tone: 'green' as Tone },
+                { icon: <Send className="h-4 w-4" />, title: isAr ? 'جاهز لمراجعة النشر' : 'Ready for publish review', value: stats.readyForPublishReview, tone: 'green' as Tone },
                 { icon: <BarChart3 className="h-4 w-4" />, title: isAr ? 'منشور' : 'Published', value: stats.published, tone: 'blue' as Tone },
               ].map((stage, index, list) => (
                 <div key={stage.title} className="contents">
@@ -405,10 +437,15 @@ export default function ContentHubPage() {
             {formatChips.map(chip => (
               <button
                 type="button"
-                key={chip.label}
-                className={`inline-flex h-9 items-center gap-2 rounded-xl border px-4 text-[12px] font-bold ${
-                  chip.active ? 'border-[#5E63FF]/25 bg-[#F2F4FF] text-[#5E63FF]' : 'border-slate-200 bg-white text-slate-600'
-                }`}
+                key={chip.key}
+                disabled={Boolean(chip.disabled)}
+                aria-pressed={activeFormat === chip.key}
+                onClick={() => {
+                  if (!chip.disabled) setActiveFormat(chip.key)
+                }}
+                className={`inline-flex h-9 items-center gap-2 rounded-xl border px-4 text-[12px] font-bold transition ${
+                  activeFormat === chip.key ? 'border-[#5E63FF]/25 bg-[#F2F4FF] text-[#5E63FF]' : 'border-slate-200 bg-white text-slate-600'
+                } ${chip.disabled ? 'cursor-not-allowed opacity-45' : 'hover:border-[#5E63FF]/30 hover:text-[#5E63FF]'}`}
               >
                 {chip.label}
               </button>
@@ -509,26 +546,26 @@ export default function ContentHubPage() {
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.85fr_0.65fr_0.9fr_1.2fr]">
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                   <div className="mb-3 flex items-center justify-between">
-                    <Link href="/content-hub" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الكل' : 'View all'}</Link>
+                    <Link href={samplePost ? `/campaigns/${samplePost.campaignId}/content-hub` : latestCampaignContentHref} className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض المنشورات' : 'View posts'}</Link>
                     <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'خيارات النص (Copy)' : 'Copy options'}</h2>
                   </div>
                   <div className="space-y-2">
-                    {(posts.length ? posts.slice(0, 3) : [{ id: 'empty-1', caption: '', campaignName: '', campaignId: '', platform: 'META' } as SocialPostRecord]).map((post, index) => (
+                    {(filteredPosts.length ? filteredPosts.slice(0, 3) : [{ id: 'empty-1', caption: '', campaignName: '', campaignId: '', platform: 'META' } as SocialPostRecord]).map((post, index) => (
                       <div key={`${post.id}-${index}`} className="rounded-xl bg-slate-50 px-3 py-2">
                         <p className="text-[11px] font-bold text-slate-400">{isAr ? `نسخة ${index + 1}` : `Version ${index + 1}`}</p>
                         <p className="mt-1 text-[12px] font-semibold leading-5 text-[#0B1028]">{safeSnippet(post.caption, isAr ? 'لم يتم توليد نص بعد.' : 'No copy generated yet.')}</p>
                       </div>
                     ))}
                   </div>
-                  <Link href="/strategy" className="mt-4 inline-flex w-full items-center justify-center gap-2 text-[12px] font-black text-[#5E63FF]">
-                    <Plus className="h-3.5 w-3.5" />
-                    {isAr ? 'توليد نسخة جديدة' : 'Generate new version'}
+                  <Link href={samplePost ? `/campaigns/${samplePost.campaignId}/content-hub` : latestCampaignContentHref} className="mt-4 inline-flex w-full items-center justify-center gap-2 text-[12px] font-black text-[#5E63FF]">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    {isAr ? 'راجع النسخ داخل المنشور' : 'Review copy inside the post'}
                   </Link>
                 </SoftPanel>
 
                 <SoftPanel className="p-4" dir={isAr ? 'rtl' : 'ltr'}>
                   <div className="mb-3 flex items-center justify-between">
-                    <Link href="/strategy" className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض الكل' : 'View all'}</Link>
+                    <Link href={latestCampaignStrategyHref} className="text-[12px] font-bold text-[#5E63FF]">{isAr ? 'عرض منطق CTA' : 'View CTA logic'}</Link>
                     <h2 className="text-[15px] font-black text-[#0B1028]">{isAr ? 'خيارات CTA' : 'CTA options'}</h2>
                   </div>
                   <div className="space-y-2">
@@ -539,9 +576,9 @@ export default function ContentHubPage() {
                       </div>
                     ))}
                   </div>
-                  <Link href="/strategy" className="mt-4 inline-flex w-full items-center justify-center gap-2 text-[12px] font-black text-[#5E63FF]">
-                    <Plus className="h-3.5 w-3.5" />
-                    {isAr ? 'إضافة CTA جديد' : 'Add new CTA'}
+                  <Link href={latestCampaignStrategyHref} className="mt-4 inline-flex w-full items-center justify-center gap-2 text-[12px] font-black text-[#5E63FF]">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    {isAr ? 'راجع CTA في الاستراتيجية' : 'Review CTA in strategy'}
                   </Link>
                 </SoftPanel>
 
@@ -562,7 +599,7 @@ export default function ContentHubPage() {
                   </div>
                   <Link href="/studio" className="mt-4 inline-flex w-full items-center justify-center gap-2 text-[12px] font-black text-[#5E63FF]">
                     <Plus className="h-3.5 w-3.5" />
-                    {isAr ? 'إنشاء مفهوم جديد' : 'Create new concept'}
+                    {isAr ? 'فتح الاستوديو' : 'Open studio'}
                   </Link>
                 </SoftPanel>
 
@@ -635,7 +672,7 @@ export default function ContentHubPage() {
                     <p>{isAr ? 'التحسين' : 'Optimization'} <span className="text-amber-500">△</span></p>
                   </div>
                 </div>
-                <Link href="/connections" className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 text-[12px] font-black text-[#5E63FF]">
+                <Link href={latestCampaignPublishHref} className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 text-[12px] font-black text-[#5E63FF]">
                   {isAr ? 'عرض التفاصيل' : 'View details'}
                 </Link>
               </SoftPanel>

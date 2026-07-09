@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -189,6 +190,17 @@ export default function AutomationPage() {
             primaryLabel={copy('راجع التكاملات', 'Review integrations')}
             secondaryHref="/campaigns"
             secondaryLabel={copy('الحملات', 'Campaigns')}
+          />
+
+          <StrategySpineCard
+            current="publish"
+            nextHref="/publish"
+            nextLabel={copy('راجع جاهزية النشر', 'Review publishing readiness')}
+            title={copy('الأتمتة تأتي بعد الاستراتيجية والجاهزية، وليست اختصاراً للتنفيذ', 'Automation comes after strategy and readiness, not as an execution shortcut')}
+            body={copy(
+              'Autopilot يستخدم الاستراتيجية والمحتوى والربط كمدخلات، لكنه لا يفعّل نشرًا أو صرفًا أو تعلم أداء بدون موافقة وحدود واضحة وبيانات حقيقية.',
+              'Autopilot uses strategy, content, and connections as inputs, but it does not enable publishing, spend, or performance learning without approval, clear limits, and real data.',
+            )}
           />
 
           <section className="relative overflow-hidden rounded-[30px] border border-[#e3e8f3] bg-white p-6 shadow-[0_24px_70px_rgba(13,24,63,0.07)] lg:p-8">

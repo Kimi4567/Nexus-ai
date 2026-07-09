@@ -2,6 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { BrainTimeline } from '@/components/brain/BrainTimeline'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -1099,6 +1100,16 @@ function BrandBrainInner() {
             primaryLabel={locale === 'ar' ? 'ابدأ استراتيجية' : 'Start strategy'}
             secondaryHref="/campaigns"
             secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
+          />
+
+          <StrategySpineCard
+            current="brand"
+            nextHref="/strategy"
+            nextLabel={locale === 'ar' ? 'ابدأ من الاستراتيجية' : 'Start with strategy'}
+            title={locale === 'ar' ? 'Brand Brain يغذي الاستراتيجية، ولا يدّعي التعلم من الأداء وحده' : 'Brand Brain feeds strategy and does not claim performance learning by itself'}
+            body={locale === 'ar'
+              ? 'هذه الصفحة تحفظ سياق العلامة وإشارات المراجعة. الأداء الحقيقي لا يتحول إلى تعلم إلا بعد وجود analyticsData أو مقاييس منصة موثوقة.'
+              : 'This page stores brand context and review signals. Real performance becomes learning only after analyticsData or trusted platform metrics exist.'}
           />
 
           {/* ── Marketing Brief Focus Banner ───────────────────── */}

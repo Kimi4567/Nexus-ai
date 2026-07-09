@@ -36,11 +36,11 @@ describe('resolveStrategyAction — state → single primary', () => {
     const p = resolveStrategyAction(base).primary
     expect(p.kind).toBe('review'); expect(p.label).toMatch(/Review strategy quality/)
   })
-  it('reviewed/passed not approved → Approve strategy & build content plan (no "Launch")', () => {
+  it('reviewed/passed not approved → Confirm strategy and open content plan (no launch/publish/spend)', () => {
     const p = resolveStrategyAction({ ...base, sentinelPassed: true }).primary
     expect(p.kind).toBe('approve')
-    expect(p.label).toBe('Approve strategy & build content plan')
-    expect(p.label.toLowerCase()).not.toMatch(/launch/)
+    expect(p.label).toBe('Confirm strategy and open content plan')
+    expect(p.label.toLowerCase()).not.toMatch(/launch|publish|spend/)
   })
   it('approved no plan → Generate organic content plan', () => {
     const p = resolveStrategyAction({ ...base, isApproved: true }).primary

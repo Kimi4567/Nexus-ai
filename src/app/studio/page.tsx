@@ -2,6 +2,7 @@
 
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useBrandBrain } from '@/hooks/useBrandBrain'
@@ -53,11 +54,17 @@ function StudioButton({
   tone = 'secondary',
   className = '',
   disabled = false,
+  href,
+  onClick,
+  title,
 }: {
   children: React.ReactNode
   tone?: 'primary' | 'secondary' | 'ghost'
   className?: string
   disabled?: boolean
+  href?: string
+  onClick?: () => void
+  title?: string
 }) {
   const toneClass = {
     primary: 'bg-[#071236] text-white shadow-[0_16px_34px_rgba(31,41,130,0.22)] hover:bg-[#101b4d]',
@@ -65,11 +72,23 @@ function StudioButton({
     ghost: 'border border-transparent bg-transparent text-[#53617f] hover:bg-white',
   }[tone]
 
+  const classes = `inline-flex h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${toneClass} ${className}`
+
+  if (href && !disabled) {
+    return (
+      <Link href={href} className={classes} title={title}>
+        {children}
+      </Link>
+    )
+  }
+
   return (
     <button
       type="button"
       disabled={disabled}
-      className={`inline-flex h-11 items-center justify-center gap-2 rounded-[14px] px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${toneClass} ${className}`}
+      onClick={onClick}
+      title={title}
+      className={classes}
     >
       {children}
     </button>
@@ -77,12 +96,14 @@ function StudioButton({
 }
 
 function StudioCard({
+  id,
   title,
   icon,
   children,
   className = '',
   action,
 }: {
+  id?: string
   title: string
   icon?: React.ReactNode
   children: React.ReactNode
@@ -90,7 +111,7 @@ function StudioCard({
   action?: React.ReactNode
 }) {
   return (
-    <section className={`rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
+    <section id={id} className={`rounded-[22px] border border-[#e5eaf5] bg-white p-5 shadow-[0_18px_50px_rgba(13,24,63,0.045)] ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-[15px] font-bold text-[#111b3f]">
           {icon ? <span className="text-[#4f46e5]">{icon}</span> : null}
@@ -145,6 +166,10 @@ export default function StudioPage() {
   const [visualStyle, setVisualStyle] = useState<VisualStyle>('premium')
   const [ratio, setRatio] = useState<CreativeRatio>('4:5')
   const [activeThumb, setActiveThumb] = useState(0)
+  const [activeSection, setActiveSection] = useState('studio-assets')
+  const [assetTab, setAssetTab] = useState(3)
+  const [selectedCopyVariant, setSelectedCopyVariant] = useState(0)
+  const [selectedCta, setSelectedCta] = useState(0)
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) router.push('/auth/login')
@@ -162,6 +187,15 @@ export default function StudioPage() {
     'from-[#1c2a1c] via-[#6a7f4c] to-[#efe7d2]',
     'from-[#11131a] via-[#39404d] to-[#c8b18a]',
   ], [])
+
+  const cycleThumb = (directionValue: -1 | 1) => {
+    setActiveThumb((current) => (current + directionValue + thumbnails.length) % thumbnails.length)
+  }
+
+  const jumpToSection = (sectionId: string) => {
+    setActiveSection(sectionId)
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const layers = [
     copy('النص الرئيسي', 'Headline'),
@@ -211,7 +245,19 @@ export default function StudioPage() {
             secondaryLabel="Brand Brain"
           />
 
-          <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
+          <StrategySpineCard
+            current="creative"
+            nextHref="/content-hub"
+            nextLabel={copy('راجع المنشورات النهائية', 'Review final posts')}
+            title={copy('الإبداع يترجم الاستراتيجية، ولا يستبدل Content Hub', 'Creative translates strategy, not Content Hub')}
+            body={copy(
+              'هذه الصفحة تحول الهدف والجمهور والرسائل إلى اتجاه بصري قابل للمراجعة. لا يتم توليد أو إرفاق أو نشر أصل نهائي من هنا بدون مسار مؤكد لاحقاً.',
+              'This page turns goal, audience, and messages into a reviewable visual direction. It does not generate, attach, or publish final assets without a later confirmed flow.',
+            )}
+            className="mb-5"
+          />
+
+          <header id="studio-overview" className="mb-7 scroll-mt-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#071236] text-white shadow-[0_14px_28px_rgba(13,24,63,0.2)]">
                 <Sparkles size={22} />
@@ -229,17 +275,17 @@ export default function StudioPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <StudioButton>
+              <StudioButton href="/content-hub">
                 <Eye size={17} />
-                {copy('معاينة', 'Preview')}
+                {copy('معاينة المنشورات', 'Preview posts')}
               </StudioButton>
-              <StudioButton>
+              <StudioButton disabled title={copy('المشاركة تحتاج موافقة نهائية أولاً.', 'Sharing requires final approval first.')}>
                 <Share2 size={17} />
-                {copy('مشاركة', 'Share')}
+                {copy('مشاركة لاحقاً', 'Share later')}
               </StudioButton>
-              <StudioButton tone="primary">
+              <StudioButton tone="primary" disabled title={copy('التصدير يتاح بعد اعتماد الأصل النهائي.', 'Export is available after a final asset is approved.')}>
                 <Download size={17} />
-                {copy('تصدير لاحقاً', 'Export later')}
+                {copy('تصدير بعد الاعتماد', 'Export after approval')}
                 <ChevronDown size={16} />
               </StudioButton>
             </div>
@@ -247,29 +293,31 @@ export default function StudioPage() {
 
           <nav className="mb-5 flex overflow-x-auto rounded-[18px] border border-[#e1e8f4] bg-white px-2 shadow-sm">
             {[
-              copy('نظرة عامة', 'Overview'),
-              copy('المشاريع', 'Projects'),
-              copy('القوالب', 'Templates'),
-              copy('مكتبة الأصول', 'Asset library'),
-              copy('التكاملات', 'Integrations'),
-              copy('سجل الإصدارات', 'Version history'),
-            ].map((label, index) => (
+              { id: 'studio-overview', label: copy('نظرة عامة', 'Overview') },
+              { id: 'studio-brief', label: copy('الموجز', 'Brief') },
+              { id: 'studio-directions', label: copy('القوالب', 'Templates') },
+              { id: 'studio-assets', label: copy('مكتبة الأصول', 'Asset library') },
+              { id: 'studio-placements', label: copy('أماكن النشر', 'Placements') },
+              { id: 'studio-tools', label: copy('أدوات مخططة', 'Planned tools') },
+            ].map((item) => (
               <button
-                key={label}
+                key={item.id}
                 type="button"
+                onClick={() => jumpToSection(item.id)}
                 className={`min-w-max border-b-2 px-8 py-4 text-sm font-semibold transition ${
-                  index === 3
+                  activeSection === item.id
                     ? 'border-[#4f46e5] text-[#321bdc]'
                     : 'border-transparent text-[#65728f] hover:text-[#111b3f]'
                 }`}
               >
-                {label}
+                {item.label}
               </button>
             ))}
           </nav>
 
           <div className="grid grid-cols-12 gap-5">
             <StudioCard
+              id="studio-brief"
               title={copy('موجز الإبداع', 'Creative brief')}
               icon={<Sparkles size={18} />}
               className="col-span-12 lg:col-span-3"
@@ -301,6 +349,7 @@ export default function StudioPage() {
             </StudioCard>
 
             <StudioCard
+              id="studio-preview"
               title={copy('المعاينة الرئيسية', 'Main preview')}
               icon={<BadgeCheck size={18} />}
               className="col-span-12 lg:col-span-6"
@@ -315,9 +364,9 @@ export default function StudioPage() {
                   <p className="mt-3 text-sm leading-6 text-white/86">
                     {copy('اكتشف عطرنا الجديد المستوحى من لحظات لا تُنسى.', 'Discover our new fragrance inspired by unforgettable moments.')}
                   </p>
-                  <button type="button" className="mt-6 rounded-xl bg-[#071236] px-6 py-3 text-sm font-bold text-white shadow-xl">
+                  <span className="mt-6 inline-flex rounded-xl bg-[#071236] px-6 py-3 text-sm font-bold text-white shadow-xl">
                     {copy('اكتشف الآن', 'Discover now')}
-                  </button>
+                  </span>
                 </div>
                 <div className="absolute end-16 top-14 h-56 w-28 rounded-[34px] border border-white/40 bg-gradient-to-b from-white/75 via-[#e0c49b]/75 to-[#785b38]/70 shadow-[0_34px_70px_rgba(0,0,0,0.32)]">
                   <div className="mx-auto mt-[-18px] h-10 w-14 rounded-t-2xl bg-gradient-to-b from-[#d2b073] to-[#7d552c]" />
@@ -325,7 +374,7 @@ export default function StudioPage() {
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-2">
-                <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e3e8f3] bg-white text-[#6a7692]">‹</button>
+                <button type="button" onClick={() => cycleThumb(-1)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e3e8f3] bg-white text-[#6a7692]">‹</button>
                 <div className="grid flex-1 grid-cols-5 gap-2">
                   {thumbnails.map((tone, index) => (
                     <button
@@ -337,11 +386,12 @@ export default function StudioPage() {
                     />
                   ))}
                 </div>
-                <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e3e8f3] bg-white text-[#6a7692]">›</button>
+                <button type="button" onClick={() => cycleThumb(1)} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#e3e8f3] bg-white text-[#6a7692]">›</button>
               </div>
             </StudioCard>
 
             <StudioCard
+              id="studio-directions"
               title={copy('تعليمات التوليد', 'Generation directions')}
               icon={<Sparkles size={18} />}
               className="col-span-12 lg:col-span-3"
@@ -410,10 +460,15 @@ export default function StudioPage() {
               </div>
             </StudioCard>
 
-            <StudioCard title={copy('الأصول', 'Assets')} icon={<FolderOpen size={18} />} className="col-span-12 lg:col-span-3">
+            <StudioCard id="studio-assets" title={copy('الأصول', 'Assets')} icon={<FolderOpen size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-3">
               <div className="mb-4 flex gap-2 text-[12px] font-semibold text-[#64708f]">
                 {[copy('علامة', 'Brand'), copy('أيقونات', 'Icons'), copy('صور', 'Photos'), copy('مختارة', 'Selected')].map((item, index) => (
-                  <button key={item} type="button" className={`rounded-[10px] px-3 py-2 ${index === 3 ? 'border border-[#635bff] text-[#4f46e5]' : 'bg-[#f8faff]'}`}>
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setAssetTab(index)}
+                    className={`rounded-[10px] px-3 py-2 ${assetTab === index ? 'border border-[#635bff] text-[#4f46e5]' : 'bg-[#f8faff]'}`}
+                  >
                     {item}
                   </button>
                 ))}
@@ -435,12 +490,12 @@ export default function StudioPage() {
                 <p className="text-[34px] font-black text-[#111b3f]">Aa</p>
                 <p className="text-sm font-semibold text-[#64708f]">Cairo / Tajawal</p>
               </div>
-              <button type="button" className="mt-4 w-full text-sm font-bold text-[#4f46e5]">
+              <Link href="/media" className="mt-4 block w-full text-center text-sm font-bold text-[#4f46e5]">
                 {copy('عرض جميع الأصول', 'View all assets')}
-              </button>
+              </Link>
             </StudioCard>
 
-            <StudioCard title={copy('الطبقات والمكونات', 'Layers and components')} icon={<Layers size={18} />} className="col-span-12 lg:col-span-2">
+            <StudioCard id="studio-layers" title={copy('الطبقات والمكونات', 'Layers and components')} icon={<Layers size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-2">
               <div className="space-y-2">
                 {layers.map((layer, index) => (
                   <div key={layer} className="flex items-center justify-between rounded-[12px] border border-[#edf1f8] bg-[#fbfcff] px-3 py-2.5">
@@ -455,14 +510,15 @@ export default function StudioPage() {
               </div>
             </StudioCard>
 
-            <StudioCard title={copy('نسخ النصوص', 'Copy variants')} icon={<Copy size={18} />} className="col-span-12 lg:col-span-3">
+            <StudioCard id="studio-copy" title={copy('نسخ النصوص', 'Copy variants')} icon={<Copy size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-3">
               <div className="space-y-3">
                 {copyVariants.map((variant, index) => (
                   <button
                     type="button"
                     key={variant}
+                    onClick={() => setSelectedCopyVariant(index)}
                     className={`w-full rounded-[15px] border px-4 py-3 text-start transition ${
-                      index === 0 ? 'border-[#635bff] bg-[#f6f4ff]' : 'border-[#e5eaf5] bg-white'
+                      selectedCopyVariant === index ? 'border-[#635bff] bg-[#f6f4ff]' : 'border-[#e5eaf5] bg-white'
                     }`}
                   >
                     <span className="block text-sm font-bold text-[#111b3f]">{variant}</span>
@@ -472,9 +528,9 @@ export default function StudioPage() {
                   </button>
                 ))}
               </div>
-              <button type="button" className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-bold text-[#4f46e5]">
+              <button type="button" disabled className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 text-sm font-bold text-[#8b96ad]">
                 <span>+</span>
-                {copy('إضافة نسخة جديدة', 'Add new variant')}
+                {copy('إضافة نسخة بعد ربط المراجعة', 'Add after review flow')}
               </button>
             </StudioCard>
 
@@ -484,21 +540,22 @@ export default function StudioPage() {
                   <button
                     type="button"
                     key={cta}
+                    onClick={() => setSelectedCta(index)}
                     className={`w-full rounded-[13px] border px-4 py-3 text-sm font-bold transition ${
-                      index === 0 ? 'border-[#071236] bg-[#071236] text-white' : 'border-[#e5eaf5] bg-white text-[#111b3f]'
+                      selectedCta === index ? 'border-[#071236] bg-[#071236] text-white' : 'border-[#e5eaf5] bg-white text-[#111b3f]'
                     }`}
                   >
                     {cta}
                   </button>
                 ))}
               </div>
-              <button type="button" className="mt-4 flex w-full items-center justify-center gap-2 text-sm font-bold text-[#4f46e5]">
+              <button type="button" disabled className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 text-sm font-bold text-[#8b96ad]">
                 <span>+</span>
-                {copy('CTA جديد', 'New CTA')}
+                {copy('CTA جديد بعد المراجعة', 'New CTA after review')}
               </button>
             </StudioCard>
 
-            <StudioCard title={copy('أماكن النشر', 'Publishing placements')} icon={<Monitor size={18} />} className="col-span-12 lg:col-span-2">
+            <StudioCard id="studio-placements" title={copy('أماكن النشر', 'Publishing placements')} icon={<Monitor size={18} />} className="col-span-12 scroll-mt-6 lg:col-span-2">
               <div className="grid grid-cols-1 gap-2">
                 <PlatformRow icon={<span className="font-black text-pink-500">◎</span>} name="Instagram Feed" spec="1080x1350" />
                 <PlatformRow icon={<span className="font-black text-black">♪</span>} name="TikTok" spec="1080x1920" />
@@ -509,13 +566,15 @@ export default function StudioPage() {
               </div>
             </StudioCard>
 
-            <StudioCard title={copy('أدوات الذكاء الاصطناعي', 'AI tools')} icon={<Sparkles size={18} />} className="col-span-12 xl:col-span-10">
+            <StudioCard id="studio-tools" title={copy('أدوات الذكاء الاصطناعي', 'AI tools')} icon={<Sparkles size={18} />} className="col-span-12 scroll-mt-6 xl:col-span-10">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
                 {aiTools.map((tool) => (
                   <button
                     type="button"
                     key={tool.title}
-                    className="rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-start transition hover:-translate-y-0.5 hover:border-[#cbd4ff] hover:bg-white"
+                    disabled
+                    title={copy('هذه أداة مخططة وتحتاج مسار تأكيد قبل أي تكلفة أو تعديل.', 'This planned tool needs a confirmation flow before any cost or edit.')}
+                    className="cursor-not-allowed rounded-[18px] border border-[#e8edf7] bg-[#fbfcff] p-4 text-start opacity-80"
                   >
                     <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f1f0ff] text-[#4f46e5]">{tool.icon}</span>
                     <span className="block text-sm font-bold text-[#111b3f]">{tool.title}</span>

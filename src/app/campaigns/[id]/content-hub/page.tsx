@@ -37,6 +37,7 @@ import { deriveStrategyFulfillmentSummary, type StrategyFulfillmentTone } from '
 import { derivePostCreativeRequirement } from '@/lib/creativeRequirements'
 import { getDefaultTemplateForPlatform } from '@/lib/creativeTemplates'
 import AppShell from '@/components/AppShell'
+import StrategySpineCard from '@/components/StrategySpineCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -587,6 +588,103 @@ export default function ContentHubPage() {
   const finalPreviewHelper = isAr
     ? 'هذه معاينة مراجعة داخل NEXUS؛ قد يختلف عرض المنصة قليلًا. قرارات الوسائط لا تنشر المحتوى بدون مسار نشر صريح.'
     : 'This is a NEXUS review preview; platform rendering may differ slightly. Media decisions do not publish content without an explicit publish flow.'
+  const productionReadiness = posts.length
+    ? Math.round(((Math.max(0, posts.length - draftCount) * 0.28) + (doneCount * 0.34) + (scheduledCount * 0.22) + (publishedCount * 0.16)) / Math.max(posts.length, 1) * 100)
+    : 0
+  const productionDecision = (() => {
+    if (posts.length === 0) {
+      return {
+        eyebrow: isAr ? 'لم يبدأ الإنتاج' : 'Production not started',
+        title: isAr ? 'أنشئ مسودات المحتوى بعد مراجعة الاستراتيجية' : 'Create draft posts after reviewing strategy',
+        body: isAr
+          ? 'لا يوجد محتوى نهائي هنا بعد. ابدأ فقط عندما تكون الرسائل والمنصات والعدد واضحين.'
+          : 'No final production exists here yet. Start only when messaging, platforms, and post count are clear.',
+        label: isAr ? 'مراجعة الاستراتيجية أولاً' : 'Review strategy first',
+        onClick: () => router.push(`/campaigns/${campaignId}?tab=strategy`),
+      }
+    }
+    if (contentPlanOrderMismatch) {
+      return {
+        eyebrow: isAr ? 'توقف تشغيل' : 'Operating stop',
+        title: isAr ? 'خطة المحتوى لا تطابق أمر الاستراتيجية' : 'Content plan does not match the strategy order',
+        body: isAr
+          ? 'وعد الاستراتيجية لا يطابق خطة المحتوى الحالية. أصلح التطابق قبل أي اعتماد أو جدولة.'
+          : 'The strategy promise does not match the current content plan. Fix the match before approval or scheduling.',
+        label: isAr ? 'راجع وعد الاستراتيجية' : 'Review strategy promise',
+        onClick: () => router.push(`/campaigns/${campaignId}?tab=strategy`),
+      }
+    }
+    if (draftCount > 0) {
+      return {
+        eyebrow: isAr ? 'مرحلة مراجعة' : 'Review stage',
+        title: isAr ? 'راجع المسودات قبل أي اعتماد' : 'Review drafts before approval',
+        body: isAr
+          ? 'المطلوب الآن قراءة النصوص والمنصات والوسائط. الاعتماد يظل قراراً منفصلاً.'
+          : 'Read copy, platforms, and media state now. Approval remains a separate decision.',
+        label: isAr ? 'انتقل إلى قائمة المنشورات' : 'Go to post board',
+        onClick: () => document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      }
+    }
+    if (pendingImageCount > 0 || ambiguousPreviewCount > 0) {
+      return {
+        eyebrow: isAr ? 'قرار وسائط' : 'Media decision',
+        title: isAr ? 'أكمل قرارات الوسائط قبل النشر' : 'Complete media decisions before publishing',
+        body: isAr
+          ? 'الاستوديو يصنع الأصول، لكن الربط النهائي بالمنشور يحدث هنا بتأكيد واضح.'
+          : 'Studio creates assets, but final post attachment is confirmed here.',
+        label: isAr ? 'راجع خانات الوسائط' : 'Review media slots',
+        onClick: () => document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      }
+    }
+    if (approvedCount > 0) {
+      return {
+        eyebrow: isAr ? 'جاهز للجدولة' : 'Ready for scheduling',
+        title: isAr
+          ? `جدولة ${approvedCount} منشورات معتمدة`
+          : `Schedule ${approvedCount} approved post${approvedCount === 1 ? '' : 's'}`,
+        body: isAr
+          ? 'الجدولة قرار تشغيل مستقل. لا يعني ذلك نشر المنصة أو تفعيل الأوتوبايلوت.'
+          : 'Scheduling is a separate operating decision. It does not mean platform publish or Autopilot activation.',
+        label: isAr ? 'راجع خيار الجدولة' : 'Review scheduling option',
+        onClick: () => document.getElementById('content-posts-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      }
+    }
+    return {
+      eyebrow: isAr ? 'جاهزية النشر' : 'Publish readiness',
+      title: isAr ? 'انتقل إلى جاهزية النشر' : 'Move to publishing readiness',
+      body: isAr
+        ? 'هذه الصفحة سلّمت مسودات/منشورات الحملة. النشر والحسابات والصلاحيات في تبويب النشر.'
+        : 'This page has delivered campaign posts. Publishing, accounts, and permissions live in the Publish tab.',
+      label: isAr ? 'افتح تبويب النشر' : 'Open Publish tab',
+      onClick: () => router.push(`/campaigns/${campaignId}?tab=publish`),
+    }
+  })()
+  const productionTiles = [
+    {
+      label: isAr ? 'مطابقة وعد الاستراتيجية' : 'Strategy promise match',
+      value: contentPlanOrderMismatch ? (isAr ? 'تحتاج إصلاح' : 'Needs fix') : posts.length > 0 ? (isAr ? 'متطابقة' : 'Matched') : (isAr ? 'بانتظار الخطة' : 'Waiting for plan'),
+      helper: isAr ? 'العدد والنوع يجب أن يطابقا أمر الاستراتيجية.' : 'Count and type must match the strategy order.',
+      tone: contentPlanOrderMismatch ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200',
+    },
+    {
+      label: isAr ? 'مراجعة النصوص' : 'Copy review',
+      value: posts.length ? `${Math.max(0, posts.length - draftCount)} / ${posts.length}` : '0 / 0',
+      helper: isAr ? 'المسودات تراجع هنا؛ الكتابة والتحسين لا ينشران تلقائياً.' : 'Drafts are reviewed here; copy edits never publish automatically.',
+      tone: 'text-[#5E63FF] bg-[#F2F4FF] border-[#DDE2FF]',
+    },
+    {
+      label: isAr ? 'جاهزية الوسائط' : 'Media readiness',
+      value: `${doneCount} / ${totalImagePosts}`,
+      helper: isAr ? 'الأصول النهائية تأتي من الاستوديو أو المكتبة ثم تربط هنا.' : 'Final assets come from Studio or Media Library, then attach here.',
+      tone: doneCount >= totalImagePosts && totalImagePosts > 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200',
+    },
+    {
+      label: isAr ? 'حالة النشر' : 'Publishing state',
+      value: scheduledCount > 0 ? (isAr ? `${scheduledCount} مجدول` : `${scheduledCount} scheduled`) : publishedCount > 0 ? (isAr ? `${publishedCount} منشور` : `${publishedCount} published`) : (isAr ? 'غير منشور' : 'Not published'),
+      helper: isAr ? 'لا يوجد نشر منصة من هذه القراءة؛ النشر له تبويب وتأكيدات.' : 'No platform publish happens from this read; publishing has its own tab and confirmations.',
+      tone: 'text-slate-700 bg-slate-50 border-slate-200',
+    },
+  ]
   const orderMismatchExpectedLabel = contentPlanOrderMismatch?.expectedDirections ?? (isAr ? 'غير محدد' : 'not set')
   const orderMismatchTitle = isAr
     ? 'خطة المحتوى لا تطابق أمر الاستراتيجية'
@@ -1240,7 +1338,8 @@ export default function ContentHubPage() {
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      <div className="min-h-screen bg-[#F4F7FB] px-4 py-5 text-[#0B1028] sm:px-6">
+      <div className="mx-auto max-w-[1580px]">
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <div className="flex min-w-0 items-start justify-between mb-6 gap-4 flex-wrap">
@@ -1422,6 +1521,124 @@ export default function ContentHubPage() {
             )}
           </div>
         </div>
+
+        {posts.length > 0 && (
+          <section className="mb-5 overflow-hidden rounded-[28px] border border-[#DDE2FF] bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]">
+            <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="p-5 sm:p-6">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-start gap-4">
+                    <div className="relative flex h-24 w-24 shrink-0 items-center justify-center rounded-[28px] bg-[radial-gradient(circle_at_50%_45%,rgba(94,99,255,0.42),rgba(238,242,255,0.72)_48%,#ffffff_72%)] shadow-[0_18px_46px_rgba(94,99,255,0.20)]">
+                      <span className="absolute inset-3 rounded-full border border-white/80" />
+                      <span className="relative text-3xl">✦</span>
+                    </div>
+                    <div className="min-w-0" dir={isAr ? 'rtl' : 'ltr'}>
+                      <p className="inline-flex rounded-full border border-[#DDE2FF] bg-[#F2F4FF] px-3 py-1 text-[11px] font-black text-[#5E63FF]">
+                        {isAr ? 'لوحة تسليم المحتوى' : 'Content delivery board'}
+                      </p>
+                      <h2 className="mt-3 text-2xl font-black tracking-normal text-[#0B1028] sm:text-3xl">
+                        {isAr ? 'من الاستراتيجية إلى منشورات جاهزة للمراجعة' : 'From strategy to reviewable posts'}
+                      </h2>
+                      <p className="mt-2 max-w-3xl text-sm font-semibold leading-7 text-slate-600">
+                        {isAr
+                          ? 'هذه ليست صفحة تصميم. الاستوديو يصنع الأصول والنسخ الإبداعية؛ Content Hub يثبت الحزمة النهائية لكل منشور: النص، المنصة، الوسيط، الحالة، وما ينقص قبل الجدولة أو النشر.'
+                          : 'This is not the design studio. Studio creates assets and creative variants; Content Hub locks the final package for each post: copy, platform, media, lifecycle state, and what is missing before scheduling or publishing.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div
+                      className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: `conic-gradient(#5E63FF ${Math.max(0, Math.min(100, productionReadiness)) * 3.6}deg, #E9EDF7 0deg)` }}
+                    >
+                      <span className="absolute inset-2 rounded-full bg-white" />
+                      <span className="relative text-xl font-black text-[#0B1028]" dir="ltr">{productionReadiness}%</span>
+                    </div>
+                    <div dir={isAr ? 'rtl' : 'ltr'}>
+                      <p className="text-[12px] font-black text-slate-500">{isAr ? 'جاهزية التسليم' : 'Delivery readiness'}</p>
+                      <p className="mt-1 text-sm font-bold text-[#0B1028]">{contentStatusSummary}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {productionTiles.map(tile => (
+                    <article key={tile.label} className={`rounded-2xl border p-4 ${tile.tone}`}>
+                      <p className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">{tile.label}</p>
+                      <p className="mt-2 text-lg font-black" dir="auto">{tile.value}</p>
+                      <p className="mt-2 text-xs font-semibold leading-5 opacity-75">{tile.helper}</p>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  {[
+                    {
+                      step: '01',
+                      title: isAr ? 'Strategy' : 'Strategy',
+                      body: isAr ? 'يحدد الوعد والعدد والمنصات.' : 'Defines promise, count, and platforms.',
+                    },
+                    {
+                      step: '02',
+                      title: isAr ? 'Studio' : 'Studio',
+                      body: isAr ? 'ينتج الأصول والنسخ الإبداعية.' : 'Produces assets and creative variants.',
+                    },
+                    {
+                      step: '03',
+                      title: isAr ? 'Content Hub' : 'Content Hub',
+                      body: isAr ? 'يثبت البوست النهائي قبل الجدولة والنشر.' : 'Locks final post truth before scheduling and publishing.',
+                    },
+                  ].map(item => (
+                    <div key={item.step} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                      <p className="text-[11px] font-black text-[#5E63FF]" dir="ltr">{item.step}</p>
+                      <p className="mt-1 text-sm font-black text-[#0B1028]">{item.title}</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <aside className="border-t border-slate-200 bg-[linear-gradient(180deg,#FFFFFF,#F8FAFF)] p-5 xl:border-l xl:border-t-0" dir={isAr ? 'rtl' : 'ltr'}>
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#5E63FF]">{productionDecision.eyebrow}</p>
+                <h3 className="mt-2 text-xl font-black leading-8 text-[#0B1028]">{productionDecision.title}</h3>
+                <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">{productionDecision.body}</p>
+                <button
+                  type="button"
+                  onClick={productionDecision.onClick}
+                  className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-[#070D2D] px-5 text-sm font-black text-white shadow-[0_18px_36px_rgba(7,13,45,0.18)]"
+                >
+                  {productionDecision.label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/studio')}
+                  className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-[#5E63FF]"
+                >
+                  {isAr ? 'افتح الاستوديو للأصول فقط' : 'Open Studio for assets only'}
+                </button>
+                <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-6 text-amber-900">
+                  {isAr
+                    ? 'مهم: ظهور صورة أو أصل هنا لا يعني أنه منشور أو مستخدم في إعلان. الربط والنشر والتعلم لهم تأكيدات منفصلة.'
+                    : 'Important: an image or asset shown here does not mean it is published or used in ads. Attachment, publishing, and learning each require separate confirmation.'}
+                </p>
+              </aside>
+            </div>
+          </section>
+        )}
+
+        <StrategySpineCard
+          current="content"
+          nextHref={`/campaigns/${campaignId}?tab=strategy`}
+          nextLabel={isAr ? 'راجع الاستراتيجية' : 'Review strategy'}
+          title={isAr ? 'Content Hub ينفذ وعد الاستراتيجية فقط' : 'Content Hub fulfils the strategy promise only'}
+          body={
+            isAr
+              ? 'هذه الصفحة هي مصدر الحقيقة للمنشورات والوسائط المرتبطة بها. لا تنشر، لا تجدول، ولا تغيّر حالة النشر أو التعلم إلا عبر إجراءات صريحة في أماكنها الصحيحة.'
+              : 'This page is the source of truth for posts and post-linked media. It does not publish, schedule, or change publishing or learning state except through explicit actions in the correct surfaces.'
+          }
+          className="mb-5"
+        />
 
         <section className="mb-5">
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -1744,7 +1961,7 @@ export default function ContentHubPage() {
           if (singlesBuffer.length) groups.push({ type: 'singles', posts: singlesBuffer })
 
           return (
-            <div className="space-y-4">
+            <div id="content-posts-board" className="scroll-mt-24 space-y-4">
               {groups.map((group) => {
                 if (group.type === 'singles') {
                   return (
@@ -2582,6 +2799,7 @@ export default function ContentHubPage() {
         )}
 
       </div>
+      </div>
     </AppShell>
   )
 }
@@ -2914,7 +3132,7 @@ function PostCard({
         </div>
       )}
 
-      {/* ── Edit caption overlay ─────────── */}
+      {/* ── Edit copy overlay ─────────── */}
       {isEditingCaption && (
         <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <textarea
@@ -3168,7 +3386,14 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
             <div className="text-[13px] font-semibold text-gray-900 leading-tight">{brandName}</div>
           </div>
         </div>
-        <button className="text-[11px] font-semibold px-3 py-1 rounded-full border" style={{ borderColor: '#0A66C2', color: '#0A66C2' }}>+ Follow</button>
+        <span
+          aria-hidden="true"
+          className="text-[11px] font-semibold px-3 py-1 rounded-full border"
+          style={{ borderColor: '#0A66C2', color: '#0A66C2' }}
+          title={t('contentHub.previewOnly')}
+        >
+          + Follow
+        </span>
       </div>
 
       {/* Caption */}
@@ -3197,9 +3422,14 @@ function LinkedInMockup({ caption, imageUrl, isVideo, status, isExpanded, onExpa
         </div>
         <div className="flex items-center justify-around pb-1">
           {[['👍','Like'],['💬','Comment'],['🔁','Repost'],['✉️','Send']].map(([icon, label]) => (
-            <button key={label} className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-800 font-medium">
+            <span
+              key={label}
+              aria-hidden="true"
+              className="flex items-center gap-1 text-[11px] text-gray-500 font-medium"
+              title={t('contentHub.previewOnly')}
+            >
               <span className="text-[14px]">{icon}</span>{label}
-            </button>
+            </span>
           ))}
         </div>
       </div>
@@ -3290,9 +3520,9 @@ function GenericMockup({ caption, imageUrl, isVideo, status, platform, isExpande
         )}
       </div>
       <div className="flex items-center gap-4 px-3 py-2 text-[11px] text-gray-500">
-        <button className="flex items-center gap-1 hover:text-gray-800">👍 Like</button>
-        <button className="flex items-center gap-1 hover:text-gray-800">💬 Comment</button>
-        <button className="flex items-center gap-1 hover:text-gray-800">↗ Share</button>
+        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>👍 Like</span>
+        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>💬 Comment</span>
+        <span aria-hidden="true" className="flex items-center gap-1" title={t('contentHub.previewOnly')}>↗ Share</span>
       </div>
     </div>
   )

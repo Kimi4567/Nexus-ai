@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
@@ -430,6 +431,18 @@ export default function SettingsPage() {
             secondaryLabel={copyText('الفوترة والخطة', 'Billing and plan')}
           />
 
+          <StrategySpineCard
+            current="brand"
+            nextHref="/strategy"
+            nextLabel={copyText('راجع مسار الاستراتيجية', 'Review strategy path')}
+            title={copyText('الإعدادات تضبط نظام التشغيل ولا تغيّر وعد الحملة', 'Settings configure the operating system without changing campaign promises')}
+            body={copyText(
+              'الحساب، الفريق، اللغة، الصلاحيات، والتكاملات تؤثر على جاهزية التنفيذ. لكنها لا تولّد استراتيجية أو محتوى ولا تنشر أو تصرف ميزانية بدون مسار واضح وتأكيد لاحق.',
+              'Account, team, language, permissions, and integrations affect execution readiness. They do not generate strategy or content, publish, or spend budget without a clear later flow and confirmation.',
+            )}
+            className="mb-6"
+          />
+
           <header className="mb-7 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-[20px] bg-[#071236] text-white shadow-[0_18px_40px_rgba(13,24,63,0.22)]">
@@ -459,7 +472,12 @@ export default function SettingsPage() {
                   <div className="flex h-full w-full items-center justify-center rounded-full bg-[#071236] text-4xl font-black text-white">
                     {(displayName || email || 'N').charAt(0).toUpperCase()}
                   </div>
-                  <button type="button" className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full border border-[#e3e8f3] bg-white text-[#5366f6] shadow-sm">
+                  <button
+                    type="button"
+                    disabled
+                    title={copyText('تغيير الصورة الشخصية غير متاح في هذه المرحلة.', 'Profile photo editing is not available in this phase.')}
+                    className="absolute bottom-2 right-2 flex h-8 w-8 cursor-not-allowed items-center justify-center rounded-full border border-[#e3e8f3] bg-white text-[#8b96ad] opacity-80 shadow-sm"
+                  >
                     <Palette className="h-4 w-4" />
                   </button>
                 </div>
@@ -692,7 +710,14 @@ export default function SettingsPage() {
                   <p className="mb-2 text-[13px] font-black text-[#111b3f]">API Keys</p>
                   <div className="flex min-w-0 items-center gap-2 rounded-[13px] border border-[#e8edf7] bg-[#fbfcff] px-3 py-2 text-[12px] font-mono text-[#64708f]">
                     <span className="min-w-0 truncate">nx_••••••••••••••••••••</span>
-                    <button type="button" className="ms-auto text-[#5366f6]"><Copy className="h-4 w-4" /></button>
+                    <button
+                      type="button"
+                      disabled
+                      title={copyText('نسخ مفاتيح API يتطلب عرض مفتاح حقيقي من إعدادات المطورين.', 'Copying API keys requires a real developer key view.')}
+                      className="ms-auto cursor-not-allowed text-[#8b96ad]"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>

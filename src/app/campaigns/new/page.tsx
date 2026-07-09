@@ -522,8 +522,8 @@ function NewCampaignPageInner() {
 
     const subText = isContent
       ? (locale === 'ar'
-          ? `بنجهز ${deliverable.total} بوست جاهز للنشر. لحظة.`
-          : `Preparing ${deliverable.total} ready-to-publish posts. Just a moment.`)
+          ? `بنجهز ${deliverable.total} بوست جاهز للمراجعة قبل النشر. لحظة.`
+          : `Preparing ${deliverable.total} posts for review before publishing. Just a moment.`)
       : (locale === 'ar'
           ? 'الـ AI بيحلل البراند بتاعك ويبني استراتيجية محتوى كاملة.'
           : 'AI is analysing your brand and building a full content strategy.')
@@ -1357,8 +1357,8 @@ function NewCampaignPageInner() {
                       <div className="space-y-1 text-xs text-slate-500">
                         <p>
                           {locale === 'ar'
-                            ? `📦 هذه الحملة: ${deliverable.total} منشور جاهز للنشر${deliverable.videoSlots > 0 ? ` (${deliverable.imagePosts} صورة + ${deliverable.videoSlots} فيديو)` : ''}`
-                            : `📦 This campaign: ${deliverable.total} posts ready to publish${deliverable.videoSlots > 0 ? ` (${deliverable.imagePosts} image + ${deliverable.videoSlots} video)` : ''}`}
+                            ? `📦 هذه الحملة: ${deliverable.total} منشور جاهز للمراجعة قبل النشر${deliverable.videoSlots > 0 ? ` (${deliverable.imagePosts} صورة + ${deliverable.videoSlots} فيديو)` : ''}`
+                            : `📦 This campaign: ${deliverable.total} posts ready for review before publishing${deliverable.videoSlots > 0 ? ` (${deliverable.imagePosts} image + ${deliverable.videoSlots} video)` : ''}`}
                         </p>
                         <p>
                           {locale === 'ar'

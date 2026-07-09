@@ -6,6 +6,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useEffect } from 'react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle2, Layers3, Sparkles, Target, Wand2 } from 'lucide-react'
 
@@ -145,6 +146,16 @@ export default function TemplatesPage() {
           primaryLabel={tplT?.btnStartFromScratch as string}
           secondaryHref="/campaigns"
           secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
+        />
+
+        <StrategySpineCard
+          current="strategy"
+          nextHref="/campaigns/new"
+          nextLabel={ar ? 'ابدأ حملة بإعداد واضح' : 'Start a scoped campaign'}
+          title={ar ? 'القوالب نقطة بداية للاستراتيجية وليست تنفيذًا جاهزًا' : 'Templates start strategy; they are not execution by themselves'}
+          body={ar
+            ? 'اختيار قالب يحدد سياقًا أوليًا للحملة فقط. لا يولّد محتوى، لا ينشر، ولا يخصم رصيدًا قبل مراجعة النطاق والتكلفة والتأكيد الصريح.'
+            : 'Choosing a template only creates starter campaign context. It does not generate content, publish, or spend credits before scope, cost, and explicit confirmation are reviewed.'}
         />
 
         {/* Header */}

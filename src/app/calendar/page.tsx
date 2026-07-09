@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import AppShell from '@/components/AppShell'
 import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import Link from 'next/link'
 import { useI18n } from '@/lib/i18n-context'
 import { useSearchParams } from 'next/navigation'
@@ -628,6 +629,17 @@ function CalendarPageInner() {
           secondaryLabel={locale === 'ar' ? 'الحملات' : 'Campaigns'}
         />
 
+        <StrategySpineCard
+          current="content"
+          nextHref="/content-hub"
+          nextLabel={locale === 'ar' ? 'راجع المنشورات' : 'Review posts'}
+          title={locale === 'ar' ? 'التقويم يعرض توقيت تنفيذ الاستراتيجية، وليس نشر المنصة تلقائياً' : 'Calendar shows strategy execution timing, not automatic platform publishing'}
+          body={locale === 'ar'
+            ? 'الأحداث هنا تأتي من خطة المحتوى والجدولة الداخلية. لا تصبح منشورًا حيًا إلا بعد جاهزية النشر والحسابات والتأكيد الصريح.'
+            : 'Events here come from the content plan and internal scheduling. They become live posts only after publishing readiness, accounts, and explicit confirmation.'}
+          className="mb-6"
+        />
+
         {/* Header */}
         <div className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
           <div>
@@ -668,13 +680,14 @@ function CalendarPageInner() {
             <div className="inline-flex items-center gap-1 rounded-[16px] border border-[#e3e8f3] bg-white p-1 shadow-sm">
               {[
                 { key: 'timeline', label: locale === 'ar' ? 'شهر' : 'Month' },
-                { key: 'week', label: locale === 'ar' ? 'أسبوع' : 'Week' },
+                { key: 'queue', label: locale === 'ar' ? 'قائمة المراجعة' : 'Review queue' },
               ].map(item => (
                 <button
                   key={item.key}
-                  onClick={() => item.key === 'timeline' && setActiveTab('timeline')}
+                  type="button"
+                  onClick={() => setActiveTab(item.key as 'timeline' | 'queue')}
                   className={`rounded-[12px] px-5 py-2 text-[12px] font-black transition-all ${
-                    activeTab === 'timeline' && item.key === 'timeline'
+                    activeTab === item.key
                       ? 'bg-[#ece9ff] text-[#5366f6]'
                       : 'text-[#64708f] hover:text-[#071236]'
                   }`}>
@@ -682,17 +695,17 @@ function CalendarPageInner() {
                 </button>
               ))}
             </div>
-            <button onClick={prevMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">‹</button>
+            <button type="button" onClick={prevMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">‹</button>
             <div className="inline-flex h-10 min-w-[220px] items-center justify-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[14px] font-black text-[#071236] shadow-sm">
               {monthLabel}
             </div>
-            <button onClick={nextMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
-            <button className="h-10 rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
+            <button type="button" onClick={nextMonth} className="h-10 w-10 rounded-[14px] border border-[#e3e8f3] bg-white text-[#64708f] shadow-sm">›</button>
+            <span className="inline-flex h-10 items-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
               {locale === 'ar' ? 'جميع المنصات' : 'All platforms'}
-            </button>
-            <button className="h-10 rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
+            </span>
+            <span className="inline-flex h-10 items-center rounded-[14px] border border-[#e3e8f3] bg-white px-5 text-[12px] font-black text-[#64708f] shadow-sm">
               {locale === 'ar' ? 'كل الحملات' : 'All campaigns'}
-            </button>
+            </span>
           </div>
           <button
             onClick={() => setActiveTab('queue')}
@@ -839,7 +852,7 @@ function CalendarPageInner() {
                       <div className="grid h-24 w-24 place-items-center rounded-full bg-white text-center shadow-inner">
                         <div>
                           <div className="text-[32px] font-black text-[#071236]">{readinessPercent}%</div>
-                          <div className="text-[11px] font-bold text-[#64708f]">{locale === 'ar' ? 'جاهز للنشر' : 'ready'}</div>
+                          <div className="text-[11px] font-bold text-[#64708f]">{locale === 'ar' ? 'مراجعة النشر' : 'review ready'}</div>
                         </div>
                       </div>
                     </div>
@@ -1178,7 +1191,7 @@ function CalendarPageInner() {
                     ))}
                   </div>
                 </div>
-                <button className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض تفاصيل التحليل' : 'View analysis details'}</button>
+                <Link href="/analytics" className="mt-5 block w-full text-center text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض تفاصيل التحليل' : 'View analysis details'}</Link>
               </div>
 
               <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
@@ -1195,7 +1208,7 @@ function CalendarPageInner() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
+                <button type="button" onClick={() => setActiveTab('queue')} className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
               </div>
 
               <div className="rounded-[26px] border border-[#e3e8f3] bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
@@ -1211,7 +1224,7 @@ function CalendarPageInner() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
+                <button type="button" onClick={() => setActiveTab('queue')} className="mt-5 w-full text-[13px] font-black text-[#5366f6]">{locale === 'ar' ? 'عرض جميع المهام' : 'View all tasks'}</button>
               </div>
             </div>
           </>

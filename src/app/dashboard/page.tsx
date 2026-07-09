@@ -1,6 +1,7 @@
 'use client'
 
 import AppShell from '@/components/AppShell'
+import StrategySpineCard from '@/components/StrategySpineCard'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { getBrandBrainReadiness, getBrandReadinessCopy, type BrandReadinessResult, type BrandReadinessStatus } from '@/lib/brandReadiness'
@@ -631,9 +632,9 @@ export default function DashboardPage() {
                   {ar ? 'نظام التسويق الذكي' : 'AI Marketing OS'}
                 </h1>
               </div>
-              <button type="button" className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
+              <Link href="/settings" aria-label={ar ? 'إعدادات مساحة العمل' : 'Workspace settings'} className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 md:flex">
                 <ChevronDown className="h-4 w-4" />
-              </button>
+              </Link>
             </div>
 
             <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">
@@ -725,6 +726,16 @@ export default function DashboardPage() {
               </div>
             </div>
           </SoftCard>
+
+          <StrategySpineCard
+            current="strategy"
+            nextHref={campaigns[0] ? `/campaigns/${campaigns[0].id}?tab=strategy` : '/strategy'}
+            nextLabel={ar ? 'افتح القرار التالي' : 'Open next decision'}
+            title={ar ? 'الداشبورد يقرأ حالة النظام من مسار الاستراتيجية' : 'Dashboard reads the system through the strategy path'}
+            body={ar
+              ? 'هذه ليست لوحة أرقام عامة. كل توصية أو حالة هنا يجب أن ترتبط بسياق Brand Brain أو استراتيجية أو محتوى أو جاهزية نشر أو بيانات أداء حقيقية.'
+              : 'This is not a generic metrics board. Every recommendation or status here must trace back to Brand Brain context, strategy, content, publish readiness, or real performance data.'}
+          />
 
           <div dir="ltr" className="grid grid-cols-1 gap-4 xl:grid-cols-[1.06fr_1.48fr_1fr]">
             <SoftCard className="p-4" dir="ltr">
@@ -892,7 +903,7 @@ export default function DashboardPage() {
                   { label: ar ? 'أفكار' : 'Ideas', value: Math.max(0, campaignCount - contentCount) },
                   { label: ar ? 'تخطيط' : 'Planning', value: campaignCount },
                   { label: ar ? 'إنتاج' : 'Production', value: contentCount },
-                  { label: ar ? 'جاهز للنشر' : 'Ready', value: publishedCount },
+                  { label: ar ? 'جاهز لمراجعة النشر' : 'Publish review', value: publishedCount },
                 ].map((item, index) => (
                   <div key={item.label} className={`rounded-2xl border px-3 py-4 ${index === 3 ? 'border-[#5E63FF]/30 bg-[#F2F4FF]' : 'border-slate-200 bg-slate-50'}`}>
                     <div className="text-[22px] font-black text-[#0B1028]" dir="ltr">{item.value}</div>
@@ -916,7 +927,7 @@ export default function DashboardPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[12px] font-bold text-[#5E63FF]">{ar ? 'جاهزية النشر' : 'Publishing readiness'}</p>
-                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'جاهز للنشر' : 'Ready to publish'}</h3>
+                  <h3 className="mt-1 text-[18px] font-black text-[#0B1028]">{ar ? 'جاهز لمراجعة النشر' : 'Ready for publish review'}</h3>
                 </div>
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
               </div>

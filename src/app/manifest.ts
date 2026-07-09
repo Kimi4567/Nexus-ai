@@ -12,18 +12,18 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait',
     icons: [
       {
-        src: '/icon-192.png',
-        sizes: '192x192',
+        src: '/nexus_ai_icon.png',
+        sizes: '1024x1024',
         type: 'image/png',
       },
       {
-        src: '/icon-512.png',
-        sizes: '512x512',
+        src: '/nexus_ai_icon_large.png',
+        sizes: '1024x1024',
         type: 'image/png',
       },
       {
-        src: '/icon-maskable-192.png',
-        sizes: '192x192',
+        src: '/nexus_ai_icon.png',
+        sizes: '1024x1024',
         type: 'image/png',
         purpose: 'maskable',
       },
