@@ -9,6 +9,7 @@ import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
 import CreditHistoryModal from '@/components/CreditHistoryModal'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { formatCreditDisplay } from '@/lib/creditDisplay'
 import { getBillingDisplayTruth } from '@/lib/billingDisplayTruth'
 import Link from 'next/link'
@@ -397,6 +398,14 @@ export default function BillingPage() {
     <AppShell>
       <div className="min-h-screen bg-[#F6F8FC] px-4 py-6 text-[#101A3F] sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1540px] space-y-8">
+          <LuxuryWorkspaceHeader
+            pageTitle={ar ? 'الفوترة والخطة' : 'Billing and plan'}
+            pageSubtitle={ar ? 'الرصيد، حدود الخطة، وتكاليف إجراءات AI بدون مفاجآت.' : 'Credits, plan limits, and AI action costs without surprises.'}
+            primaryHref="/settings"
+            primaryLabel={ar ? 'إدارة الإعدادات' : 'Manage settings'}
+            secondaryHref="/analytics"
+            secondaryLabel={ar ? 'الاستهلاك والتحليلات' : 'Usage analytics'}
+          />
 
         <section className="overflow-hidden rounded-[28px] border border-[#E4EAF5] bg-white shadow-[0_22px_70px_rgba(13,24,63,0.07)]">
           <div className="grid gap-0 xl:grid-cols-[1.1fr_0.9fr]">

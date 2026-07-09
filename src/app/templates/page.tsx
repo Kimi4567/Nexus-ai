@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useEffect } from 'react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle2, Layers3, Sparkles, Target, Wand2 } from 'lucide-react'
 
@@ -101,6 +102,7 @@ export default function TemplatesPage() {
   const { t, locale } = useI18n()
   const tplT = t('templates')
   const router = useRouter()
+  const ar = locale === 'ar'
 
   const GOAL_LABELS: Record<string, string> = {
     SALES:      tplT?.goalSales      as string,
@@ -136,6 +138,14 @@ export default function TemplatesPage() {
     <AppShell>
       <main className="min-h-screen bg-[#f6f8fc] text-[#071236]">
         <div className="mx-auto flex max-w-[1540px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8 page-enter">
+        <LuxuryWorkspaceHeader
+          pageTitle={ar ? 'قوالب الحملات' : 'Campaign templates'}
+          pageSubtitle={ar ? 'قوالب تشغيلية كبداية للحملة فقط؛ لا تولّد محتوى ولا تخصم رصيداً بدون تأكيد لاحق.' : 'Operating templates as campaign starters only; they do not generate content or spend credits without later confirmation.'}
+          primaryHref="/campaigns/new"
+          primaryLabel={tplT?.btnStartFromScratch as string}
+          secondaryHref="/campaigns"
+          secondaryLabel={ar ? 'الحملات' : 'Campaigns'}
+        />
 
         {/* Header */}
         <div className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-6">

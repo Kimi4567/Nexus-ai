@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { applyBrandOverlayFromProfile, type OverlayPlatform } from '@/lib/cloudinaryOverlay'
 
 // ── Upload limits ──────────────────────────────────────────────────────────────
@@ -888,8 +889,17 @@ export default function MediaLibraryPage() {
           <div className="relative mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
             <div>
 
+          <LuxuryWorkspaceHeader
+            pageTitle={locale === 'ar' ? 'مكتبة الوسائط' : 'Media Library'}
+            pageSubtitle={locale === 'ar' ? 'تخزين وإدارة الأصول فقط. الإرفاق النهائي يتم من Content Hub بتأكيد صريح.' : 'Store and manage assets only. Final attachment happens from Content Hub with explicit confirmation.'}
+            primaryHref="/content-hub"
+            primaryLabel={locale === 'ar' ? 'افتح مركز المحتوى' : 'Open Content Hub'}
+            secondaryHref="/studio"
+            secondaryLabel={locale === 'ar' ? 'استوديو الإبداع' : 'Creative Studio'}
+          />
+
           {/* Header */}
-          <div className="mb-6 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div>
               <div className="mb-2 flex items-center gap-2">
                 <span className="text-[12px] font-bold tracking-wider text-[#64708f]">NEXUS MEDIA</span>

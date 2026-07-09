@@ -14,6 +14,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { supabase } from '@/lib/supabaseClient'
 import { useI18n } from '@/lib/i18n-context'
@@ -1077,6 +1078,17 @@ export default function NewPaidCampaignPage() {
     <AppShell>
       <main className="min-h-screen bg-[#f6f8fc] text-[#071236]">
         <div className="mx-auto grid w-full max-w-[1540px] gap-6 px-4 py-6 pb-12 sm:px-6 lg:grid-cols-[minmax(0,780px)_360px] lg:px-8">
+          <div className="lg:col-span-2">
+            <LuxuryWorkspaceHeader
+              pageTitle={locale === 'ar' ? 'مسودة تخطيط مدفوع' : 'Paid planning draft'}
+              pageSubtitle={locale === 'ar' ? 'حوّل الاستراتيجية إلى خطة مدفوعة قابلة للمراجعة. لا يتم إنشاء حملة منصة أو إنفاق فعلي بدون موافقة لاحقة.' : 'Turn strategy into a reviewable paid plan. No platform campaign or real spend happens without later approval.'}
+              primaryHref="/paid-campaigns"
+              primaryLabel={locale === 'ar' ? 'مركز الإعلانات المدفوعة' : 'Paid campaigns'}
+              secondaryHref="/connections"
+              secondaryLabel={locale === 'ar' ? 'التكاملات' : 'Integrations'}
+            />
+          </div>
+
           {/* Header */}
           <div className="lg:col-span-2 flex flex-wrap items-center justify-between gap-4 rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-6">
             <div className="flex items-center gap-4">

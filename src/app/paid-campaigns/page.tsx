@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n-context'
 
@@ -256,7 +257,16 @@ export default function PaidCampaignsPage() {
     <AppShell>
       <main dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f6f8fc] text-[#071236]">
         <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-8">
-          <header className="mb-6 flex flex-col gap-5 border-b border-[#dfe6f2] pb-5 xl:flex-row xl:items-center xl:justify-between">
+          <LuxuryWorkspaceHeader
+            pageTitle={ar ? 'الإعلانات المدفوعة' : 'Paid campaigns'}
+            pageSubtitle={ar ? 'تخطيط وتنفيذ مدفوع لا يبدأ إلا بعد ربط الحسابات، التحقق من الصلاحيات، وموافقة صريحة.' : 'Paid planning and execution records only move forward after account access, permission checks, and explicit approval.'}
+            primaryHref="/paid-campaigns/new"
+            primaryLabel={ar ? 'مسودة تخطيط مدفوع' : 'Paid planning draft'}
+            secondaryHref="/connections"
+            secondaryLabel={ar ? 'التكاملات' : 'Integrations'}
+          />
+
+          <header className="mb-6 flex flex-col gap-5 rounded-[26px] border border-[#e3e8f3] bg-white p-5 shadow-[0_18px_55px_rgba(13,24,63,0.045)] xl:flex-row xl:items-center xl:justify-between">
             <div>
               <p className="text-[12px] font-bold text-[#64708f]">{ar ? 'تشغيل مدفوع بموافقة صريحة' : 'Approval-gated paid execution'}</p>
               <h1 className="mt-1 flex items-center gap-2 text-[32px] font-black tracking-[-0.03em] text-[#071236]">

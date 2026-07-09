@@ -15,7 +15,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
+import LuxuryWorkspaceHeader from '@/components/LuxuryWorkspaceHeader'
 import { useAuth } from '@/lib/auth-context'
+import { useI18n } from '@/lib/i18n-context'
 import { supabase } from '@/lib/supabaseClient'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -119,8 +121,10 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string; 
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function CampaignDetailPage() {
   const { user } = useAuth()
+  const { locale } = useI18n()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const ar = locale === 'ar'
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [loading, setLoading] = useState(true)
@@ -360,6 +364,15 @@ export default function CampaignDetailPage() {
           }
         `}</style>
         <div className="mx-auto max-w-[1540px]">
+        <LuxuryWorkspaceHeader
+          pageTitle={ar ? 'تفاصيل التخطيط المدفوع' : 'Paid planning details'}
+          pageSubtitle={ar ? 'راجع الاستراتيجية، النسخ، الميزانية، وحالة المنصة. أي إنشاء منصة أو تفعيل إنفاق يحتاج موافقة صريحة.' : 'Review strategy, copy, budget, and platform state. Platform creation or spend activation requires explicit approval.'}
+          primaryHref="/paid-campaigns"
+          primaryLabel={ar ? 'مركز الإعلانات المدفوعة' : 'Paid campaigns'}
+          secondaryHref="/connections"
+          secondaryLabel={ar ? 'التكاملات' : 'Integrations'}
+        />
+
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4 rounded-[28px] border border-slate-200/80 bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.08)] sm:p-6">
           <div className="flex items-center gap-3">
